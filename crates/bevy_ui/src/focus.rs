@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec3Swizzles};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
@@ -106,7 +106,7 @@ pub fn ui_focus_system(
             |(entity, node, global_transform, interaction, focus_policy, clip)| {
                 let position = global_transform.translation;
                 let ui_position = position.truncate();
-                let extents = node.size / 2.0;
+                let extents = node.size * global_transform.scale.xy() / 2.0;
                 let mut min = ui_position - extents;
                 let mut max = ui_position + extents;
                 if let Some(clip) = clip {
