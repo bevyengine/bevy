@@ -46,22 +46,22 @@ pub struct Mesh {
 /// # use bevy_render::render_resource::PrimitiveTopology;
 /// fn create_triangle() -> Mesh {
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-///     mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
+///     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
 ///     mesh.set_indices(Some(Indices::U32(vec![0,1,2])));
 ///     mesh
 /// }
 /// ```
 impl Mesh {
-    /// Where the vertex is located in space. Use in conjunction with [`Mesh::set_attribute`]
+    /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Position", 0, VertexFormat::Float32x3);
 
     /// The direction the vertex normal is facing in.
-    /// Use in conjunction with [`Mesh::set_attribute`]
+    /// Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_NORMAL: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Normal", 1, VertexFormat::Float32x3);
 
-    /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::set_attribute`]
+    /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 
@@ -69,14 +69,14 @@ impl Mesh {
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Tangent", 3, VertexFormat::Float32x4);
 
-    /// Per vertex coloring. Use in conjunction with [`Mesh::set_attribute`]
+    /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Uint32);
 
-    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::set_attribute`]
+    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointWeight", 5, VertexFormat::Float32x4);
-    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::set_attribute`]
+    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint32);
 

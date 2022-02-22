@@ -158,7 +158,7 @@ async fn load_gltf<'a, 'b>(
             //     .read_colors(0)
             //     .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
             // {
-            //     mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            //     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
             // }
 
             if let Some(indices) = reader.read_indices() {
