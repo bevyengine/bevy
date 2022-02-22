@@ -122,8 +122,9 @@ fn queue_custom(
             if let Some(mesh) = meshes.get(mesh_handle) {
                 let key =
                     msaa_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                let pipeline =
-                    pipelines.specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout);
+                let pipeline = pipelines
+                    .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)
+                    .unwrap();
                 transparent_phase.add(Transparent3d {
                     entity,
                     pipeline,
@@ -187,8 +188,8 @@ impl SpecializedMeshPipeline for CustomPipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key, layout);
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.buffers.push(VertexBufferLayout {
             array_stride: std::mem::size_of::<InstanceData>() as u64,
@@ -212,7 +213,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
             self.mesh_pipeline.mesh_layout.clone(),
         ]);
 
-        descriptor
+        Ok(descriptor)
     }
 }
 

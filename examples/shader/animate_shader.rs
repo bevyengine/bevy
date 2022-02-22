@@ -115,8 +115,9 @@ fn queue_custom(
         let view_row_2 = view_matrix.row(2);
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
-                let pipeline =
-                    pipelines.specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout);
+                let pipeline = pipelines
+                    .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)
+                    .unwrap();
                 transparent_phase.add(Transparent3d {
                     entity,
                     pipeline,
@@ -220,8 +221,8 @@ impl SpecializedMeshPipeline for CustomPipeline {
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key, layout);
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone();
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone();
         descriptor.layout = Some(vec![
@@ -229,7 +230,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
             self.mesh_pipeline.mesh_layout.clone(),
             self.time_bind_group_layout.clone(),
         ]);
-        descriptor
+        Ok(descriptor)
     }
 }
 

@@ -12,7 +12,7 @@ use bevy::{
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
             RenderPipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
-            SpecializedMeshPipelines,
+            SpecializedMeshPipelineError, SpecializedMeshPipelines,
         },
         view::ExtractedView,
         RenderApp, RenderStage,
@@ -106,12 +106,12 @@ impl SpecializedMeshPipeline for IsRedPipeline {
         &self,
         (is_red, pbr_pipeline_key): Self::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> RenderPipelineDescriptor {
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = Vec::new();
         if is_red.0 {
             shader_defs.push("IS_RED".to_string());
         }
-        let mut descriptor = self.mesh_pipeline.specialize(pbr_pipeline_key, layout);
+        let mut descriptor = self.mesh_pipeline.specialize(pbr_pipeline_key, layout)?;
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.shader_defs = shader_defs.clone();
         let fragment = descriptor.fragment.as_mut().unwrap();
@@ -121,7 +121,7 @@ impl SpecializedMeshPipeline for IsRedPipeline {
             self.mesh_pipeline.view_layout.clone(),
             self.mesh_pipeline.mesh_layout.clone(),
         ]);
-        descriptor
+        Ok(descriptor)
     }
 }
 
@@ -155,12 +155,14 @@ fn queue_custom(
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let key =
                     msaa_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                let pipeline = pipelines.specialize(
-                    &mut pipeline_cache,
-                    &custom_pipeline,
-                    (*is_red, key),
-                    &mesh.layout,
-                );
+                let pipeline = pipelines
+                    .specialize(
+                        &mut pipeline_cache,
+                        &custom_pipeline,
+                        (*is_red, key),
+                        &mesh.layout,
+                    )
+                    .unwrap();
                 transparent_phase.add(Transparent3d {
                     entity,
                     pipeline,
