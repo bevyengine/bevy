@@ -63,8 +63,8 @@ fn setup(
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
     commands.spawn_bundle(PbrBundle {
-        mesh: mesh.clone(),
-        material: material.clone(),
+        mesh,
+        material,
         transform: Transform {
             translation: Vec3::new(0.0, HEIGHT as f32 * 2.0, 0.0),
             scale: Vec3::splat(5.0),
