@@ -110,7 +110,7 @@ fn setup(
         ..Default::default()
     };
 
-    // This is the texure that will be rendered to.
+    // This is the texture that will be rendered to.
     let mut image = Image {
         texture_descriptor: TextureDescriptor {
             label: None,
