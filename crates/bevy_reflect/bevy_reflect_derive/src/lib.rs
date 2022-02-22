@@ -732,11 +732,6 @@ pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     type_uuid::type_uuid_derive(input)
 }
 
-#[proc_macro]
-pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    type_uuid::external_type_uuid(tokens)
-}
-
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
     reflect_trait::reflect_trait(&args, input)
