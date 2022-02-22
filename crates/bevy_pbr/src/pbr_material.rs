@@ -343,7 +343,7 @@ impl SpecializedMaterial for StandardMaterial {
         descriptor: &mut RenderPipelineDescriptor,
         key: Self::Key,
         _layout: &MeshVertexBufferLayout,
-    ) {
+    ) -> Result<(), SpecializedMeshPipelineError> {
         if key.normal_map {
             descriptor
                 .fragment
@@ -355,6 +355,7 @@ impl SpecializedMaterial for StandardMaterial {
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
+        Ok(())
     }
 
     fn fragment_shader(_asset_server: &AssetServer) -> Option<Handle<Shader>> {

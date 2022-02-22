@@ -73,6 +73,16 @@ pub trait Material: Asset + RenderAsset {
     fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
         &[]
     }
+
+    /// Customizes the default [`RenderPipelineDescriptor`].
+    #[allow(unused_variables)]
+    #[inline]
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        Ok(())
+    }
 }
 
 impl<M: Material> SpecializedMaterial for M {
@@ -86,7 +96,8 @@ impl<M: Material> SpecializedMaterial for M {
         _descriptor: &mut RenderPipelineDescriptor,
         _key: Self::Key,
         _layout: &MeshVertexBufferLayout,
-    ) {
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        <M as Material>::specialize(_descriptor, _layout)
     }
 
     #[inline]
@@ -140,7 +151,7 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
         descriptor: &mut RenderPipelineDescriptor,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
-    );
+    ) -> Result<(), SpecializedMeshPipelineError>;
 
     /// Returns this material's [`BindGroup`]. This should match the layout returned by [`SpecializedMaterial::bind_group_layout`].
     fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
@@ -234,7 +245,7 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
             self.mesh_pipeline.mesh_layout.clone(),
         ]);
 
-        M::specialize(&mut descriptor, key.1, layout);
+        M::specialize(&mut descriptor, key.1, layout)?;
         Ok(descriptor)
     }
 }
