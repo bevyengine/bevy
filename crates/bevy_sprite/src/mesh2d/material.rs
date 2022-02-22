@@ -207,15 +207,21 @@ pub struct Material2dPipeline<M: SpecializedMaterial2d> {
     marker: PhantomData<M>,
 }
 
+#[derive(Eq, PartialEq, Clone, Hash)]
+pub struct Material2dKey<T> {
+    mesh_key: Mesh2dPipelineKey,
+    material_key: T,
+}
+
 impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M> {
-    type Key = (Mesh2dPipelineKey, M::Key);
+    type Key = Material2dKey<M::Key>;
 
     fn specialize(
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh2d_pipeline.specialize(key.0, layout)?;
+        let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -229,7 +235,7 @@ impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M>
             self.mesh2d_pipeline.mesh_layout.clone(),
         ]);
 
-        M::specialize(key.1, &mut descriptor, layout)?;
+        M::specialize(key.material_key, &mut descriptor, layout)?;
         Ok(descriptor)
     }
 }
@@ -309,14 +315,17 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
             {
                 if let Some(material2d) = render_materials.get(material2d_handle) {
                     if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                        let mesh2d_key = msaa_key
+                        let mesh_key = msaa_key
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
-                        let specialized_key = M::key(material2d);
+                        let material_key = M::key(material2d);
                         let pipeline_id = pipelines.specialize(
                             &mut pipeline_cache,
                             &material2d_pipeline,
-                            (mesh2d_key, specialized_key),
+                            Material2dKey {
+                                mesh_key,
+                                material_key,
+                            },
                             &mesh.layout,
                         );
 

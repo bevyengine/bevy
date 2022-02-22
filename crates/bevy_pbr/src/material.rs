@@ -215,6 +215,12 @@ impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
     }
 }
 
+#[derive(Eq, PartialEq, Clone, Hash)]
+pub struct MaterialPipelineKey<T> {
+    mesh_key: MeshPipelineKey,
+    material_key: T,
+}
+
 pub struct MaterialPipeline<M: SpecializedMaterial> {
     pub mesh_pipeline: MeshPipeline,
     pub material_layout: BindGroupLayout,
@@ -224,14 +230,14 @@ pub struct MaterialPipeline<M: SpecializedMaterial> {
 }
 
 impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
-    type Key = (MeshPipelineKey, M::Key);
+    type Key = MaterialPipelineKey<M::Key>;
 
     fn specialize(
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh_pipeline.specialize(key.0, layout)?;
+        let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -245,7 +251,7 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
             self.mesh_pipeline.mesh_layout.clone(),
         ]);
 
-        M::specialize(&mut descriptor, key.1, layout)?;
+        M::specialize(&mut descriptor, key.material_key, layout)?;
         Ok(descriptor)
     }
 }
@@ -348,12 +354,15 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                             mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
                         }
 
-                        let specialized_key = M::key(material);
+                        let material_key = M::key(material);
 
                         let pipeline_id = pipelines.specialize(
                             &mut pipeline_cache,
                             &material_pipeline,
-                            (mesh_key, specialized_key),
+                            MaterialPipelineKey {
+                                mesh_key,
+                                material_key,
+                            },
                             &mesh.layout,
                         );
                         let pipeline_id = match pipeline_id {
