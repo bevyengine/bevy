@@ -10,8 +10,7 @@ use crate::{
     Asset, Assets,
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
-use bevy_utils::Uuid;
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, UniqueAssetId};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +31,7 @@ use serde::{Deserialize, Serialize};
 )]
 #[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
 pub enum HandleId {
-    Id(Uuid, u64),
+    Id(UniqueAssetId, u64),
     AssetPathId(AssetPathId),
 }
 
@@ -60,7 +59,7 @@ impl HandleId {
     }
 
     #[inline]
-    pub const fn new(type_uuid: Uuid, id: u64) -> Self {
+    pub const fn new(type_uuid: UniqueAssetId, id: u64) -> Self {
         HandleId::Id(type_uuid, id)
     }
 }
@@ -306,7 +305,7 @@ pub struct HandleUntyped {
 }
 
 impl HandleUntyped {
-    pub const fn weak_from_u64(uuid: Uuid, id: u64) -> Self {
+    pub const fn weak_from_u64(uuid: UniqueAssetId, id: u64) -> Self {
         Self {
             id: HandleId::new(uuid, id),
             handle_type: HandleType::Weak,

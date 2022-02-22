@@ -1,5 +1,6 @@
 use crate::{path::AssetPath, LabelId};
-use bevy_utils::{HashMap, HashSet, Uuid};
+use bevy_reflect::UniqueAssetId;
+use bevy_utils::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -12,7 +13,7 @@ pub struct SourceMeta {
 pub struct AssetMeta {
     pub label: Option<String>,
     pub dependencies: Vec<AssetPath<'static>>,
-    pub type_uuid: Uuid,
+    pub type_uuid: UniqueAssetId,
 }
 
 /// Info about a specific asset, such as its path and its current load state
@@ -20,7 +21,7 @@ pub struct AssetMeta {
 pub struct SourceInfo {
     pub meta: Option<SourceMeta>,
     pub path: PathBuf,
-    pub asset_types: HashMap<LabelId, Uuid>,
+    pub asset_types: HashMap<LabelId, UniqueAssetId>,
     pub load_state: LoadState,
     pub committed_assets: HashSet<LabelId>,
     pub version: usize,
@@ -33,7 +34,7 @@ impl SourceInfo {
         })
     }
 
-    pub fn get_asset_type(&self, label_id: LabelId) -> Option<Uuid> {
+    pub fn get_asset_type(&self, label_id: LabelId) -> Option<UniqueAssetId> {
         self.asset_types.get(&label_id).cloned()
     }
 }

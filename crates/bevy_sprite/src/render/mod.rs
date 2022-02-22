@@ -12,7 +12,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::{const_vec2, Vec2};
-use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
@@ -409,7 +408,7 @@ pub fn queue_sprites(
 
             // Impossible starting values that will be replaced on the first iteration
             let mut current_batch = SpriteBatch {
-                image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
+                image_handle_id: HandleId::Id(u64::MAX, u64::MAX),
                 colored: false,
             };
             let mut current_batch_entity = Entity::from_raw(u32::MAX);

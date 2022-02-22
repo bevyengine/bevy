@@ -7,8 +7,9 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_log::warn;
+use bevy_reflect::UniqueAssetId;
 use bevy_tasks::TaskPool;
-use bevy_utils::{Entry, HashMap, Uuid};
+use bevy_utils::{Entry, HashMap};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
 use std::{path::Path, sync::Arc};
@@ -52,7 +53,7 @@ pub struct AssetServerInternal {
     pub(crate) asset_io: Box<dyn AssetIo>,
     pub(crate) asset_ref_counter: AssetRefCounter,
     pub(crate) asset_sources: Arc<RwLock<HashMap<SourcePathId, SourceInfo>>>,
-    pub(crate) asset_lifecycles: Arc<RwLock<HashMap<Uuid, Box<dyn AssetLifecycle>>>>,
+    pub(crate) asset_lifecycles: Arc<RwLock<HashMap<UniqueAssetId, Box<dyn AssetLifecycle>>>>,
     loaders: RwLock<Vec<Arc<dyn AssetLoader>>>,
     extension_to_loader_index: RwLock<HashMap<String, usize>>,
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
@@ -880,7 +881,7 @@ mod test {
         assert!(server.get_handle_path(&handle).is_none());
 
         // invalid HandleId
-        let invalid_id = HandleId::new(Uuid::new_v4(), 42);
+        let invalid_id = HandleId::new(0, 42);
         assert!(server.get_handle_path(invalid_id).is_none());
 
         // invalid AssetPath

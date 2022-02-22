@@ -2,6 +2,7 @@ use crate::{Asset, Assets};
 use bevy_app::prelude::*;
 use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics, MAX_DIAGNOSTIC_NAME_WIDTH};
 use bevy_ecs::system::{Res, ResMut};
+use bevy_reflect::Uuid;
 
 /// Adds "asset count" diagnostic to an App
 pub struct AssetCountDiagnosticsPlugin<T: Asset> {
@@ -25,7 +26,7 @@ impl<T: Asset> Plugin for AssetCountDiagnosticsPlugin<T> {
 
 impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
     pub fn diagnostic_id() -> DiagnosticId {
-        DiagnosticId(T::TYPE_UUID)
+        DiagnosticId(Uuid::from_u128(T::TYPE_UUID as u128))
     }
 
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {

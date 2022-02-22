@@ -1,5 +1,7 @@
 extern crate proc_macro;
 
+use std::{collections::hash_map::DefaultHasher, hash::Hasher};
+
 use bevy_macro_utils::BevyManifest;
 use quote::{quote, ToTokens};
 use syn::*;
@@ -50,17 +52,14 @@ pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
     let uuid =
         uuid.expect("No `#[uuid = \"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\"` attribute found.");
-    let bytes = uuid
-        .as_bytes()
-        .iter()
-        .map(|byte| format!("{:#X}", byte))
-        .map(|byte_str| syn::parse_str::<LitInt>(&byte_str).unwrap());
+
+    let mut s = DefaultHasher::new();
+    std::hash::Hash::hash(&uuid, &mut s);
+    let unique_id = s.finish();
 
     let gen = quote! {
         impl #bevy_reflect_path::TypeUuid for #name {
-            const TYPE_UUID: #bevy_reflect_path::Uuid = #bevy_reflect_path::Uuid::from_bytes([
-                #( #bytes ),*
-            ]);
+            const TYPE_UUID: #bevy_reflect_path::UniqueAssetId = #unique_id;
         }
     };
     gen.into()
