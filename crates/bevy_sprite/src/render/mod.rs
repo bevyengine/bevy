@@ -399,7 +399,6 @@ pub fn queue_sprites(
         let mut index = 0;
         let mut colored_index = 0;
 
-        // FIXME: VisibleEntities is ignored
         for (visible_entities, mut transparent_phase) in views.iter_mut() {
             let extracted_sprites = &mut extracted_sprites.sprites;
             let image_bind_groups = &mut *image_bind_groups;
