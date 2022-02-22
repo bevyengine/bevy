@@ -1070,7 +1070,7 @@ pub fn queue_shadows(
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
                 if let Ok(mesh_handle) = casting_meshes.get(entity) {
-                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                    if let Some(mesh) = render_meshes.get(&mesh_handle.id) {
                         let key =
                             ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
                         let pipeline_id = pipelines.specialize(

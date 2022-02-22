@@ -129,7 +129,7 @@ fn queue_wireframes(
 
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
-                if let Some(mesh) = render_meshes.get(mesh_handle) {
+                if let Some(mesh) = render_meshes.get(&mesh_handle.id) {
                     let key = msaa_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     let pipeline_id = specialized_pipelines.specialize(

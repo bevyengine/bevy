@@ -1,6 +1,6 @@
 use crate::{RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetEvent, Assets, Handle};
+use bevy_asset::{Asset, AssetEvent, Assets, HandleId};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, RunSystem, SystemParam, SystemParamItem},
@@ -68,8 +68,8 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
 
 /// Temporarily stores the extracted and removed assets of the current frame.
 pub struct ExtractedAssets<A: RenderAsset> {
-    extracted: Vec<(Handle<A>, A::ExtractedAsset)>,
-    removed: Vec<Handle<A>>,
+    extracted: Vec<(HandleId, A::ExtractedAsset)>,
+    removed: Vec<HandleId>,
 }
 
 impl<A: RenderAsset> Default for ExtractedAssets<A> {
@@ -83,7 +83,7 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
 
 /// Stores all GPU representations ([`RenderAsset::PreparedAssets`](RenderAsset::PreparedAsset))
 /// of [`RenderAssets`](RenderAsset) as long as they exist.
-pub type RenderAssets<A> = HashMap<Handle<A>, <A as RenderAsset>::PreparedAsset>;
+pub type RenderAssets<A> = HashMap<HandleId, <A as RenderAsset>::PreparedAsset>;
 
 /// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".
@@ -97,14 +97,14 @@ fn extract_render_asset<A: RenderAsset>(
     for event in events.iter() {
         match event {
             AssetEvent::Created { handle } => {
-                changed_assets.insert(handle);
+                changed_assets.insert(handle.id);
             }
             AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle);
+                changed_assets.insert(handle.id);
             }
             AssetEvent::Removed { handle } => {
-                changed_assets.remove(handle);
-                removed.push(handle.clone_weak());
+                changed_assets.remove(&handle.id);
+                removed.push(handle.id);
             }
         }
     }
@@ -112,11 +112,11 @@ fn extract_render_asset<A: RenderAsset>(
     let mut extracted_assets = Vec::new();
     for handle in changed_assets.drain() {
         if let Some(asset) = assets.get(handle) {
-            extracted_assets.push((handle.clone_weak(), asset.extract_asset()));
+            extracted_assets.push((handle, asset.extract_asset()));
         }
     }
 
-    commands.insert_resource(ExtractedAssets {
+    commands.insert_resource(ExtractedAssets::<A> {
         extracted: extracted_assets,
         removed,
     });
@@ -133,7 +133,7 @@ pub type RenderAssetParams<R> = (
 // TODO: consider storing inside system?
 /// All assets that should be prepared next frame.
 pub struct PrepareNextFrameAssets<A: RenderAsset> {
-    assets: Vec<(Handle<A>, A::ExtractedAsset)>,
+    assets: Vec<(HandleId, A::ExtractedAsset)>,
 }
 
 impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {

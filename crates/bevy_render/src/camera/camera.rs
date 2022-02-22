@@ -57,9 +57,9 @@ impl RenderTarget {
             RenderTarget::Window(window_id) => windows
                 .get(window_id)
                 .and_then(|window| window.swap_chain_texture.as_ref()),
-            RenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| &image.texture_view)
-            }
+            RenderTarget::Image(image_handle) => images
+                .get(&image_handle.id)
+                .map(|image| &image.texture_view),
         }
     }
     pub fn get_physical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<UVec2> {

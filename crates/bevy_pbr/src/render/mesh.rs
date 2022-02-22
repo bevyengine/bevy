@@ -349,7 +349,7 @@ impl MeshPipeline {
         handle_option: &Option<Handle<Image>>,
     ) -> Option<(&'a TextureView, &'a Sampler)> {
         if let Some(handle) = handle_option {
-            let gpu_image = gpu_images.get(handle)?;
+            let gpu_image = gpu_images.get(&handle.id)?;
             Some((&gpu_image.texture_view, &gpu_image.sampler))
         } else {
             Some((
@@ -669,7 +669,7 @@ impl EntityRenderCommand for DrawMesh {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let mesh_handle = mesh_query.get(item).unwrap();
-        if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
+        if let Some(gpu_mesh) = meshes.into_inner().get(&mesh_handle.id) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {
                 GpuBufferInfo::Indexed {

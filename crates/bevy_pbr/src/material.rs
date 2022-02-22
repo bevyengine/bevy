@@ -290,7 +290,7 @@ impl<M: SpecializedMaterial, const I: usize> EntityRenderCommand for SetMaterial
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let material_handle = query.get(item).unwrap();
-        let material = materials.into_inner().get(material_handle).unwrap();
+        let material = materials.into_inner().get(&material_handle.id).unwrap();
         pass.set_bind_group(
             I,
             M::bind_group(material),
@@ -344,8 +344,8 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
                 material_meshes.get(*visible_entity)
             {
-                if let Some(material) = render_materials.get(material_handle) {
-                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                if let Some(material) = render_materials.get(&material_handle.id) {
+                    if let Some(mesh) = render_meshes.get(&mesh_handle.id) {
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                                 | msaa_key;

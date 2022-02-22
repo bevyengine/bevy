@@ -242,7 +242,7 @@ impl EntityRenderCommand for DrawMeshInstanced {
         let mesh_handle = mesh_query.get(item).unwrap();
         let instance_buffer = instance_buffer_query.get(item).unwrap();
 
-        let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
+        let gpu_mesh = match meshes.into_inner().get(&mesh_handle.id) {
             Some(gpu_mesh) => gpu_mesh,
             None => return RenderCommandResult::Failure,
         };
