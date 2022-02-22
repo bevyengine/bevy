@@ -262,7 +262,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
                 shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: vec![],
-                buffers: vec![vertex_buffer_layout.clone()],
+                buffers: vec![vertex_buffer_layout],
             },
             fragment: None,
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),

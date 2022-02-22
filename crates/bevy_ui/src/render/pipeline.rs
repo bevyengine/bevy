@@ -84,7 +84,7 @@ impl SpecializedPipeline for UiPipeline {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![vertex_layout.clone()],
+                buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
