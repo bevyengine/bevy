@@ -78,6 +78,10 @@ fn setup(
         transform: Transform::from_xyz(WIDTH as f32, HEIGHT as f32, WIDTH as f32),
         ..default()
     });
+
+    commands.spawn_bundle(DirectionalLightBundle {
+        ..Default::default()
+    });
 }
 
 // System for rotating the camera
