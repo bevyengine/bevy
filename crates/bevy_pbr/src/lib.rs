@@ -40,7 +40,7 @@ use bevy_render::{
     prelude::Color,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
-    render_resource::{Shader, SpecializedPipelines},
+    render_resource::{Shader, SpecializedMeshPipelines},
     view::VisibilitySystems,
     RenderApp, RenderStage,
 };
@@ -176,7 +176,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()
             .init_resource::<GlobalLightMeta>()
-            .init_resource::<SpecializedPipelines<ShadowPipeline>>();
+            .init_resource::<SpecializedMeshPipelines<ShadowPipeline>>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         render_app.add_render_command::<Shadow, DrawShadowMesh>();

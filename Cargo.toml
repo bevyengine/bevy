@@ -448,6 +448,10 @@ path = "examples/scene/scene.rs"
 
 # Shaders
 [[example]]
+name = "custom_vertex_attribute"
+path = "examples/shader/custom_vertex_attribute.rs"
+
+[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 

@@ -1,14 +1,17 @@
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
-    pbr::{MaterialPipeline, SpecializedMaterial},
+    pbr::MaterialPipeline,
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::MeshVertexBufferLayout,
+        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
         render_asset::{PrepareAssetError, RenderAsset},
         render_resource::{
             std140::{AsStd140, Std140},
-            *,
+            BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer,
+            BufferBindingType, BufferInitDescriptor, BufferSize, BufferUsages,
+            RenderPipelineDescriptor, ShaderStages, SpecializedMeshPipelineError, VertexFormat,
         },
         renderer::RenderDevice,
     },
@@ -22,18 +25,30 @@ fn main() {
         .run();
 }
 
+// A "high" random id should be used for custom attributes to ensure consistent sorting and avoid collisions with other attributes.
+// See the MeshVertexAttribute docs for more info.
+const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
+    MeshVertexAttribute::new("BlendColor", 988540917, VertexFormat::Float32x4);
+
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
+    let mut mesh = Mesh::from(shape::Cube { size: 1.0 });
+    mesh.insert_attribute(
+        ATTRIBUTE_BLEND_COLOR,
+        // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
+        vec![[1.0, 0.0, 0.0, 1.0]; 24],
+    );
+
     // cube
     commands.spawn().insert_bundle(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(mesh),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::GREEN,
+            color: Color::WHITE,
         }),
         ..Default::default()
     });
@@ -45,8 +60,9 @@ fn setup(
     });
 }
 
+// This is the struct that will be passed to your shader
 #[derive(Debug, Clone, TypeUuid)]
-#[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
+#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 pub struct CustomMaterial {
     color: Color,
 }
@@ -57,6 +73,7 @@ pub struct GpuCustomMaterial {
     bind_group: BindGroup,
 }
 
+// The implementation of [`Material`] needs this impl to work properly.
 impl RenderAsset for CustomMaterial {
     type ExtractedAsset = CustomMaterial;
     type PreparedAsset = GpuCustomMaterial;
@@ -91,27 +108,12 @@ impl RenderAsset for CustomMaterial {
     }
 }
 
-impl SpecializedMaterial for CustomMaterial {
-    type Key = ();
-
-    fn key(_: &<CustomMaterial as RenderAsset>::PreparedAsset) -> Self::Key {}
-
-    fn specialize(
-        descriptor: &mut RenderPipelineDescriptor,
-        _: Self::Key,
-        _layout: &MeshVertexBufferLayout,
-    ) -> Result<(), SpecializedMeshPipelineError> {
-        descriptor.vertex.entry_point = "main".into();
-        descriptor.fragment.as_mut().unwrap().entry_point = "main".into();
-        Ok(())
-    }
-
+impl Material for CustomMaterial {
     fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        Some(asset_server.load("shaders/custom_material.vert"))
+        Some(asset_server.load("shaders/custom_vertex_attribute.wgsl"))
     }
-
     fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        Some(asset_server.load("shaders/custom_material.frag"))
+        Some(asset_server.load("shaders/custom_vertex_attribute.wgsl"))
     }
 
     fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
@@ -132,5 +134,17 @@ impl SpecializedMaterial for CustomMaterial {
             }],
             label: None,
         })
+    }
+
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        let vertex_layout = layout.get_layout(&[
+            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
+            ATTRIBUTE_BLEND_COLOR.at_shader_location(1),
+        ])?;
+        descriptor.vertex.buffers = vec![vertex_layout];
+        Ok(())
     }
 }

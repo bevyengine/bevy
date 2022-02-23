@@ -68,11 +68,11 @@ fn star(
         v_pos.push([r * a.cos(), r * a.sin(), 0.0]);
     }
     // Set the position attribute
-    star.set_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
+    star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
     let mut v_color = vec![[0.0, 0.0, 0.0, 1.0]];
     v_color.extend_from_slice(&[[1.0, 1.0, 0.0, 1.0]; 10]);
-    star.set_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
+    star.insert_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
 
     // Now, we specify the indices of the vertex that are going to compose the
     // triangles in our star. Vertices in triangles have to be specified in CCW
