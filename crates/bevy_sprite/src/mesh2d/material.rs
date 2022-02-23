@@ -91,10 +91,10 @@ impl<M: Material2d> SpecializedMaterial2d for M {
     #[inline]
     fn specialize(
         _key: Self::Key,
-        _descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayout,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        <M as Material2d>::specialize(_descriptor, _layout)
+        <M as Material2d>::specialize(descriptor, layout)
     }
 
     #[inline]

@@ -93,11 +93,11 @@ impl<M: Material> SpecializedMaterial for M {
 
     #[inline]
     fn specialize(
-        _descriptor: &mut RenderPipelineDescriptor,
+        descriptor: &mut RenderPipelineDescriptor,
         _key: Self::Key,
-        _layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayout,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        <M as Material>::specialize(_descriptor, _layout)
+        <M as Material>::specialize(descriptor, layout)
     }
 
     #[inline]
