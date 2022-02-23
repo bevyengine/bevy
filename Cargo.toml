@@ -118,107 +118,133 @@ path = "examples/hello_world.rs"
 [[example]]
 name = "contributors"
 path = "examples/2d/contributors.rs"
+required-features = ["bevy_render", "bevy_sprite", "bevy_ui", "bevy_text"]
 
 [[example]]
 name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "2d_rotation"
 path = "examples/2d/rotation.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "mesh2d"
 path = "examples/2d/mesh2d.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "rect"
 path = "examples/2d/rect.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "sprite_flipping"
 path = "examples/2d/sprite_flipping.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "sprite_sheet"
 path = "examples/2d/sprite_sheet.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
+required-features = ["bevy_render", "bevy_text"]
 
 [[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 # 3D Rendering
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "many_cubes"
 path = "examples/3d/many_cubes.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "shadow_caster_receiver"
 path = "examples/3d/shadow_caster_receiver.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "spherical_area_lights"
 path = "examples/3d/spherical_area_lights.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 # Application
 [[example]]
@@ -256,6 +282,7 @@ path = "examples/app/plugin_group.rs"
 [[example]]
 name = "return_after_run"
 path = "examples/app/return_after_run.rs"
+required-features = ["bevy_render", "bevy_core_pipeline", "bevy_winit"]
 
 [[example]]
 name = "thread_pool_resources"
@@ -264,15 +291,18 @@ path = "examples/app/thread_pool_resources.rs"
 [[example]]
 name = "headless_defaults"
 path = "examples/app/headless_defaults.rs"
+required-features = ["bevy_render"]
 
 [[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
+required-features = ["bevy_render", "bevy_winit"]
 
 # Assets
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "custom_asset"
@@ -281,24 +311,29 @@ path = "examples/asset/custom_asset.rs"
 [[example]]
 name = "custom_asset_io"
 path = "examples/asset/custom_asset_io.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 # Async Tasks
 [[example]]
 name = "async_compute"
 path = "examples/async_tasks/async_compute.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [[example]]
 name = "external_source_external_thread"
 path = "examples/async_tasks/external_source_external_thread.rs"
+required-features = ["bevy_render", "bevy_text"]
 
 # Audio
 [[example]]
 name = "audio"
 path = "examples/audio/audio.rs"
+required-features = ["bevy_audio"]
 
 # Diagnostics
 [[example]]
@@ -333,18 +368,22 @@ path = "examples/ecs/generic_system.rs"
 [[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
+required-features = ["bevy_render", "bevy_pbr", "bevy_core_pipeline"]
 
 [[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "removal_detection"
 path = "examples/ecs/removal_detection.rs"
+required-features = ["bevy_render", "bevy_sprite"]
 
 [[example]]
 name = "startup_system"
@@ -353,6 +392,7 @@ path = "examples/ecs/startup_system.rs"
 [[example]]
 name = "state"
 path = "examples/ecs/state.rs"
+required-features = ["bevy_render", "bevy_sprite", "bevy_ui", "bevy_text"]
 
 [[example]]
 name = "system_chaining"
@@ -374,14 +414,17 @@ path = "examples/ecs/timers.rs"
 [[example]]
 name = "alien_cake_addict"
 path = "examples/game/alien_cake_addict.rs"
+required-features = ["bevy_render", "bevy_pbr", "bevy_ui", "bevy_text"]
 
 [[example]]
 name = "breakout"
 path = "examples/game/breakout.rs"
+required-features = ["bevy_render", "bevy_sprite", "bevy_ui", "bevy_text", "bevy_core_pipeline"]
 
 [[example]]
 name = "game_menu"
 path = "examples/game/game_menu.rs"
+required-features = ["bevy_render","bevy_ui", "bevy_text"]
 
 # Input
 [[example]]
@@ -445,74 +488,91 @@ path = "examples/reflection/trait_reflection.rs"
 [[example]]
 name = "scene"
 path = "examples/scene/scene.rs"
+required-features = ["bevy_render", "bevy_ui", "bevy_text"]
 
 # Shaders
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
+required-features = ["bevy_render", "bevy_pbr", "bevy_core_pipeline"]
 
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
+required-features = ["bevy_render", "bevy_pbr", "bevy_core_pipeline"]
 
 [[example]]
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
+required-features = ["bevy_render", "bevy_pbr", "bevy_core_pipeline"]
 
 [[example]]
 name = "shader_instancing"
 path = "examples/shader/shader_instancing.rs"
+required-features = ["bevy_render", "bevy_pbr", "bevy_core_pipeline"]
 
 [[example]]
 name = "animate_shader"
 path = "examples/shader/animate_shader.rs"
+required-features = ["bevy_render", "bevy_pbr", "bevy_core_pipeline"]
 
 [[example]]
 name = "compute_shader_game_of_life"
 path = "examples/shader/compute_shader_game_of_life.rs"
+required-features = ["bevy_render", "bevy_sprite", "bevy_core_pipeline"]
 
 # Tools
 [[example]]
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
+required-features = ["bevy_render", "bevy_sprite", "bevy_ui", "bevy_text"]
 
 # UI (User Interface)
 [[example]]
 name = "button"
 path = "examples/ui/button.rs"
+required-features = ["bevy_render", "bevy_ui", "bevy_text"]
 
 [[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
+required-features = ["bevy_render", "bevy_sprite", "bevy_ui", "bevy_text", "bevy_core_pipeline"]
 
 [[example]]
 name = "text"
 path = "examples/ui/text.rs"
+required-features = ["bevy_render", "bevy_ui", "bevy_text"]
 
 [[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
+required-features = ["bevy_render", "bevy_ui", "bevy_text"]
 
 [[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
+required-features = ["bevy_render", "bevy_ui", "bevy_text"]
 
 # Window
 [[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
+required-features = ["bevy_render", "bevy_core_pipeline"]
 
 [[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
+required-features = ["bevy_render", "bevy_pbr", "bevy_core_pipeline"]
 
 [[example]]
 name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
+required-features = ["bevy_render", "bevy_ui", "bevy_text"]
 
 [[example]]
 name = "transparent_window"
 path = "examples/window/transparent_window.rs"
+required-features = ["bevy_render", "bevy_sprite", "bevy_core_pipeline"]
 
 [[example]]
 name = "window_settings"
@@ -523,6 +583,7 @@ path = "examples/window/window_settings.rs"
 crate-type = ["cdylib"]
 name = "android"
 path = "examples/android/android.rs"
+required-features = ["bevy_render", "bevy_pbr"]
 
 [package.metadata.android]
 apk_label = "Bevy Example"
