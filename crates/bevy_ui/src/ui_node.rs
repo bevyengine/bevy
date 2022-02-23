@@ -393,7 +393,7 @@ pub struct CalculatedClip {
 }
 
 /// The corner radius of the node
-/// 
+///
 /// This describes a radius value for each corner of a node, even if they have no [`Border`].
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]

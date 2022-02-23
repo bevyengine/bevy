@@ -2,7 +2,8 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage, CAMERA_UI, CornerRadius, Border,
+    Border, CalculatedSize, CornerRadius, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
+    CAMERA_UI,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -33,7 +34,7 @@ pub struct NodeBundle {
     pub visibility: Visibility,
     /// Describes the radius of corners for the node
     pub corner_radius: CornerRadius,
-    /// Describes the visual properties of the node's border 
+    /// Describes the visual properties of the node's border
     pub border: Border,
 }
 
@@ -62,7 +63,7 @@ pub struct ImageBundle {
     pub visibility: Visibility,
     /// Describes the radius of corners for the node
     pub corner_radius: CornerRadius,
-    /// Describes the visual properties of the node's border 
+    /// Describes the visual properties of the node's border
     pub border: Border,
 }
 
