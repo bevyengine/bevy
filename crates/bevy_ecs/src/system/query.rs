@@ -521,7 +521,7 @@ where
     /// # Arguments
     ///
     ///* `task_pool` - The [`TaskPool`] to use
-    ///* `batch_size` - The Number of batches to spawn
+    ///* `batch_size` - The number of batches to spawn
     ///* `f` - The function to run on each item in the query
     #[inline]
     pub fn par_for_each<FN: Fn(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone>(
