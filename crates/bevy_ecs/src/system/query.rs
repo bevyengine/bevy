@@ -303,7 +303,7 @@ where
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
     ///
-    ///# Tasks and batch size
+    /// # Tasks and batch size
     ///
     /// The items in the query get sorted into batches.
     /// Internally, this function spawns a group of futures that each take on a `batch_size` sized section of the items (or less if the division is not perfect).
@@ -313,11 +313,11 @@ where
     /// Rule of thumb: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
     /// If the body is computationally cheap and you have many items, a large batch size (=fewer batches) avoids spawning additional futures that don't help to even out the load.
     ///
-    ///# Arguments
+    /// # Arguments
     ///
     ///* `task_pool` - The [`TaskPool`] to use
-    ///* `batch_size` - Number of batches to spawn
-    ///* `f` - the function to run on each item in the query
+    ///* `batch_size` - The Number of batches to spawn
+    ///* `f` - The function to run on each item in the query
     #[inline]
     pub fn par_for_each(
         &'s self,
