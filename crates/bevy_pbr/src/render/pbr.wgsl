@@ -572,7 +572,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             var shadow: f32 = 1.0;
             if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                     && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
+                shadow = fetch_point_shadow(light_id, in.world_position, N);
             }
             let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
@@ -584,7 +584,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             var shadow: f32 = 1.0;
             if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                     && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
+                shadow = fetch_directional_shadow(i, in.world_position, N);
             }
             let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
             light_accum = light_accum + light_contrib * shadow;
