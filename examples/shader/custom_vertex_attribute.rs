@@ -25,6 +25,8 @@ fn main() {
         .run();
 }
 
+// A "high" random id should be used for custom attributes to ensure consistent sorting and avoid collisions with other attributes.
+// See the MeshVertexAttribute docs for more info.
 const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
     MeshVertexAttribute::new("BlendColor", 988540917, VertexFormat::Float32x4);
 
@@ -34,8 +36,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
-    // A "high" random id should be used for custom attributes to ensure proper sorting and avoid collisions with other attributes.
-    // See the MeshVertexAttribute docs for more info.
     let mut mesh = Mesh::from(shape::Cube { size: 1.0 });
     mesh.insert_attribute(
         ATTRIBUTE_BLEND_COLOR,
