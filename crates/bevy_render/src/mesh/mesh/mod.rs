@@ -402,7 +402,6 @@ impl InnerMeshVertexBufferLayout {
         self.attribute_ids.contains(&attribute_id.into())
     }
 
-    // TODO: maybe these should be hidden to ensure specializers can only use this type to generate VertexBufferLayouts?
     #[inline]
     pub fn attribute_ids(&self) -> &[MeshVertexAttributeId] {
         &self.attribute_ids

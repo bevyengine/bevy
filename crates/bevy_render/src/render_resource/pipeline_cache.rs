@@ -245,6 +245,11 @@ impl RenderPipelineCache {
     }
 
     #[inline]
+    pub fn get_descriptor(&self, id: CachedPipelineId) -> &RenderPipelineDescriptor {
+        &self.pipelines[id.0].descriptor
+    }
+
+    #[inline]
     pub fn get(&self, id: CachedPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(pipeline) = &self.pipelines[id.0].state {
             Some(pipeline)

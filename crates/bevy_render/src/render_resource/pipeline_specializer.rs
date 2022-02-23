@@ -111,8 +111,18 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                     }
                 };
                 Ok(*entry.insert(match layout_map.entry(key) {
-                    Entry::Occupied(entry) => *entry.into_mut(),
-                    Entry::Vacant(entry) => *entry.insert(cache.queue(descriptor)),
+                    Entry::Occupied(entry) => {
+                        if cfg!(debug_assertions) {
+                            let stored_descriptor = cache.get_descriptor(*entry.get());
+                            if stored_descriptor != &descriptor {
+                                error!("The cached pipeline descriptor for {} is not equal to the generated descriptor for the given key. This means the SpecializePipeline implementation uses 'unused' MeshVertexBufferLayout information to specialize the pipeline. This is not allowed because it would invalidate the pipeline cache.", std::any::type_name::<S>());
+                            }
+                        }
+                        *entry.into_mut()
+                    }
+                    Entry::Vacant(entry) => {
+                        *entry.insert(cache.queue(descriptor))
+                    }
                 }))
             }
         }

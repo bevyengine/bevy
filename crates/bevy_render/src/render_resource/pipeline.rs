@@ -87,7 +87,7 @@ impl Deref for ComputePipeline {
 }
 
 /// Describes a render (graphics) pipeline.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RenderPipelineDescriptor {
     /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
     pub label: Option<Cow<'static, str>>,
@@ -105,7 +105,7 @@ pub struct RenderPipelineDescriptor {
     pub fragment: Option<FragmentState>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -157,7 +157,7 @@ impl VertexBufferLayout {
 }
 
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
