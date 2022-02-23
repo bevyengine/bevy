@@ -5,6 +5,23 @@ struct View {
 [[group(0), binding(0)]]
 var<uniform> view: View;
 
+struct UiUniformEntry {
+    color: u32;
+    size: vec2<f32>;
+    center: vec2<f32>;
+    border_color: u32;
+    border_width: f32;
+    corner_radius: vec4<f32>;
+};
+
+struct UiUniform {
+    // NOTE: this array size must be kept in sync with the constants defined bevy_ui/src/render/mod.rs
+    entries: array<UiUniformEntry, 256u>;
+};
+
+[[group(2), binding(0)]]
+var<uniform> ui_uniform: UiUniform;
+
 struct VertexOutput {
     [[location(0)]] uv: vec2<f32>;
     [[location(1)]] color: vec4<f32>;
@@ -24,24 +41,20 @@ fn unpack_color_from_u32(color: u32) -> vec4<f32> {
 fn vertex(
     [[location(0)]] vertex_position: vec3<f32>,
     [[location(1)]] vertex_uv: vec2<f32>,
-    [[location(2)]] vertex_color: u32,
-    [[location(3)]] size: vec2<f32>,
-    [[location(4)]] center: vec2<f32>,
-    [[location(5)]] border_color: u32,
-    [[location(6)]] border_width: f32,
-    [[location(7)]] corner_radius: vec4<f32>,
+    [[location(2)]] ui_uniform_index: u32,
 ) -> VertexOutput {
     var out: VertexOutput;
+    var node = ui_uniform.entries[ui_uniform_index];
     out.uv = vertex_uv;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
-    out.color = unpack_color_from_u32(vertex_color);
-    out.size = size;
-    out.point = vertex_position.xy - center;
-    out.border_width = border_width;
-    out.border_color = unpack_color_from_u32(border_color);
+    out.color = unpack_color_from_u32(node.color);
+    out.size = node.size;
+    out.point = vertex_position.xy - node.center;
+    out.border_width = node.border_width;
+    out.border_color = unpack_color_from_u32(node.border_color);
     
-    var corner_index = select(0, 1, out.point.y > 0.0) + select(0, 2, out.point.x > 0.0);
-    out.radius = corner_radius[corner_index];
+    var corner_index = select(0, 1, out.position.y > 0.0) + select(0, 2, out.position.x > 0.0);
+    out.radius = node.corner_radius[corner_index];
 
     return out;
 }

@@ -6,9 +6,12 @@ use bevy_render::{
     view::ViewUniform,
 };
 
+use crate::UiUniform;
+
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub ui_uniform_layout: BindGroupLayout,
 }
 
 impl FromWorld for UiPipeline {
@@ -52,9 +55,26 @@ impl FromWorld for UiPipeline {
             label: Some("ui_image_layout"),
         });
 
+        let ui_uniform_layout =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: BufferSize::new(UiUniform::std140_size_static() as u64),
+                    },
+
+                    count: None,
+                }],
+                label: Some("ui_uniform_layout"),
+            });
+
         UiPipeline {
             view_layout,
             image_layout,
+            ui_uniform_layout,
         }
     }
 }
@@ -64,10 +84,9 @@ pub struct UiPipelineKey {}
 
 impl SpecializedPipeline for UiPipeline {
     type Key = UiPipelineKey;
-    /// FIXME: there are no specialization for now, should this be removed?
     fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_buffer_layout = VertexBufferLayout {
-            array_stride: 64,
+            array_stride: 24,
             step_mode: VertexStepMode::Vertex,
             attributes: vec![
                 // Position
@@ -82,41 +101,11 @@ impl SpecializedPipeline for UiPipeline {
                     offset: 12,
                     shader_location: 1,
                 },
-                // Color
+                // UiUniform Node Index
                 VertexAttribute {
                     format: VertexFormat::Uint32,
                     offset: 20,
                     shader_location: 2,
-                },
-                // Size
-                VertexAttribute {
-                    format: VertexFormat::Float32x2,
-                    offset: 24,
-                    shader_location: 3,
-                },
-                // Center
-                VertexAttribute {
-                    format: VertexFormat::Float32x2,
-                    offset: 32,
-                    shader_location: 4,
-                },
-                // Border Color
-                VertexAttribute {
-                    format: VertexFormat::Uint32,
-                    offset: 40,
-                    shader_location: 5,
-                },
-                // Border Width
-                VertexAttribute {
-                    format: VertexFormat::Float32,
-                    offset: 44,
-                    shader_location: 6,
-                },
-                // Corner Radius
-                VertexAttribute {
-                    format: VertexFormat::Float32x4,
-                    offset: 48,
-                    shader_location: 7,
                 },
             ],
         };
@@ -139,7 +128,11 @@ impl SpecializedPipeline for UiPipeline {
                     write_mask: ColorWrites::ALL,
                 }],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
+            layout: Some(vec![
+                self.view_layout.clone(),
+                self.image_layout.clone(),
+                self.ui_uniform_layout.clone(),
+            ]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
