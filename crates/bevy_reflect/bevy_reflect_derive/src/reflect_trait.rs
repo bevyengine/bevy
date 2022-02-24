@@ -22,7 +22,7 @@ impl Parse for TraitInfo {
     }
 }
 
-pub fn reflect_trait(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStream {
     let trait_info = parse_macro_input!(input as TraitInfo);
     let item_trait = &trait_info.item_trait;
     let trait_ident = &item_trait.ident;

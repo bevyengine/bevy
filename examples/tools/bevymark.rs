@@ -2,6 +2,7 @@ use bevy::{
     core::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    window::PresentMode,
 };
 use rand::random;
 
@@ -28,7 +29,7 @@ fn main() {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,
-            vsync: false,
+            present_mode: PresentMode::Mailbox,
             resizable: true,
             ..Default::default()
         })

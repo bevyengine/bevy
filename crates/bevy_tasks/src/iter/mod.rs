@@ -36,7 +36,7 @@ where
     fn count(mut self, pool: &TaskPool) -> usize {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
-                s.spawn(async move { batch.count() })
+                s.spawn(async move { batch.count() });
             }
         })
         .iter()
@@ -219,7 +219,7 @@ where
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let newf = f.clone();
-                s.spawn(async move { batch.partition::<Vec<_>, F>(newf) })
+                s.spawn(async move { batch.partition::<Vec<_>, F>(newf) });
             }
         })
         .into_iter()

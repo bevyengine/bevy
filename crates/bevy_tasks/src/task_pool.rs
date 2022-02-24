@@ -12,6 +12,7 @@ use crate::Task;
 
 /// Used to create a [`TaskPool`]
 #[derive(Debug, Default, Clone)]
+#[must_use]
 pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most n threads. Otherwise use
     /// the logical core count of the system

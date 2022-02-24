@@ -5,6 +5,7 @@ use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
+    mesh::MeshVertexBufferLayout,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{
@@ -241,7 +242,7 @@ impl RenderAsset for StandardMaterial {
             AlphaMode::Opaque => flags |= StandardMaterialFlags::ALPHA_MODE_OPAQUE,
             AlphaMode::Mask(c) => {
                 alpha_cutoff = c;
-                flags |= StandardMaterialFlags::ALPHA_MODE_MASK
+                flags |= StandardMaterialFlags::ALPHA_MODE_MASK;
             }
             AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
         };
@@ -338,7 +339,11 @@ impl SpecializedMaterial for StandardMaterial {
         }
     }
 
-    fn specialize(key: Self::Key, descriptor: &mut RenderPipelineDescriptor) {
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        key: Self::Key,
+        _layout: &MeshVertexBufferLayout,
+    ) -> Result<(), SpecializedMeshPipelineError> {
         if key.normal_map {
             descriptor
                 .fragment
@@ -350,6 +355,7 @@ impl SpecializedMaterial for StandardMaterial {
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
+        Ok(())
     }
 
     fn fragment_shader(_asset_server: &AssetServer) -> Option<Handle<Shader>> {

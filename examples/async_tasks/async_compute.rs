@@ -60,7 +60,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
                     }
 
                     // Such hard work, all done!
-                    Transform::from_translation(Vec3::new(x as f32, y as f32, z as f32))
+                    Transform::from_xyz(x as f32, y as f32, z as f32)
                 });
 
                 // Spawn new entity and add our new task as a component
@@ -107,13 +107,13 @@ fn setup_env(mut commands: Commands) {
 
     // lights
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(4.0, 12.0, 15.0)),
+        transform: Transform::from_xyz(4.0, 12.0, 15.0),
         ..Default::default()
     });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_translation(Vec3::new(offset, offset, 15.0))
+        transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
         ..Default::default()
     });

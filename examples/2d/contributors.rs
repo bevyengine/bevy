@@ -1,12 +1,10 @@
+use bevy::{prelude::*, utils::HashSet};
+use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
     io::{self, BufRead, BufReader},
     process::Stdio,
 };
-
-use rand::{prelude::SliceRandom, Rng};
-
-use bevy::{prelude::*, utils::HashSet};
 
 fn main() {
     App::new()
@@ -17,6 +15,10 @@ fn main() {
         .add_system(move_system)
         .add_system(collision_system)
         .add_system(select_system)
+        .insert_resource(SelectTimerState {
+            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
+            has_triggered: false,
+        })
         .run();
 }
 
@@ -28,7 +30,7 @@ struct ContributorSelection {
     idx: usize,
 }
 
-struct SelectTimerState {
+struct SelectTimer {
     timer: Timer,
     has_triggered: bool,
 }
@@ -124,11 +126,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
 
-    commands.insert_resource(SelectTimerState {
-        timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
-        has_triggered: false,
-    });
-
     commands
         .spawn()
         .insert(ContributorDisplay)
@@ -164,21 +161,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Finds the next contributor to display and selects the entity
 fn select_system(
+    mut timer: ResMut<SelectTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
     mut text_query: Query<&mut Text, With<ContributorDisplay>>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
-    mut timer_state: ResMut<SelectTimerState>,
     time: Res<Time>,
 ) {
-    if !timer_state.timer.tick(time.delta()).just_finished() {
+    if !timer.timer.tick(time.delta()).just_finished() {
         return;
     }
-    if !timer_state.has_triggered {
+    if !timer.has_triggered {
         let mut text = text_query.single_mut();
         text.sections[0].value.clear();
         text.sections[0].value.push_str("Contributor: ");
 
-        timer_state.has_triggered = true;
+        timer.has_triggered = true;
     }
 
     {

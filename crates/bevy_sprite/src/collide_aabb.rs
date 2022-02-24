@@ -8,6 +8,7 @@ pub enum Collision {
     Right,
     Top,
     Bottom,
+    Inside,
 }
 
 // TODO: ideally we can remove this once bevy gets a physics system
@@ -27,35 +28,28 @@ pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<C
         // check to see if we hit on the left or right side
         let (x_collision, x_depth) = if a_min.x < b_min.x && a_max.x > b_min.x && a_max.x < b_max.x
         {
-            (Some(Collision::Left), b_min.x - a_max.x)
+            (Collision::Left, b_min.x - a_max.x)
         } else if a_min.x > b_min.x && a_min.x < b_max.x && a_max.x > b_max.x {
-            (Some(Collision::Right), a_min.x - b_max.x)
+            (Collision::Right, a_min.x - b_max.x)
         } else {
-            (None, 0.0)
+            (Collision::Inside, -f32::INFINITY)
         };
 
         // check to see if we hit on the top or bottom side
         let (y_collision, y_depth) = if a_min.y < b_min.y && a_max.y > b_min.y && a_max.y < b_max.y
         {
-            (Some(Collision::Bottom), b_min.y - a_max.y)
+            (Collision::Bottom, b_min.y - a_max.y)
         } else if a_min.y > b_min.y && a_min.y < b_max.y && a_max.y > b_max.y {
-            (Some(Collision::Top), a_min.y - b_max.y)
+            (Collision::Top, a_min.y - b_max.y)
         } else {
-            (None, 0.0)
+            (Collision::Inside, -f32::INFINITY)
         };
 
         // if we had an "x" and a "y" collision, pick the "primary" side using penetration depth
-        match (x_collision, y_collision) {
-            (Some(x_collision), Some(y_collision)) => {
-                if y_depth.abs() < x_depth.abs() {
-                    Some(y_collision)
-                } else {
-                    Some(x_collision)
-                }
-            }
-            (Some(x_collision), None) => Some(x_collision),
-            (None, Some(y_collision)) => Some(y_collision),
-            (None, None) => None,
+        if y_depth.abs() < x_depth.abs() {
+            Some(y_collision)
+        } else {
+            Some(x_collision)
         }
     } else {
         None

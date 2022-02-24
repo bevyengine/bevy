@@ -2,13 +2,13 @@ use bevy::{
     core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},
     prelude::*,
     render::{
-        camera::{ActiveCameras, ExtractedCameraNames},
+        camera::{ActiveCameras, ExtractedCameraNames, RenderTarget},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
         render_phase::RenderPhase,
         renderer::RenderContext,
         RenderApp, RenderStage,
     },
-    window::{CreateWindow, WindowId},
+    window::{CreateWindow, PresentMode, WindowId},
 };
 
 /// This example creates a second window and draws a mesh from two different cameras, one in each window
@@ -57,7 +57,7 @@ fn create_new_window(
         descriptor: WindowDescriptor {
             width: 800.,
             height: 600.,
-            vsync: false,
+            present_mode: PresentMode::Immediate,
             title: "Second window".to_string(),
             ..Default::default()
         },
@@ -65,7 +65,7 @@ fn create_new_window(
     // second window camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         camera: Camera {
-            window: window_id,
+            target: RenderTarget::Window(window_id),
             name: Some(SECONDARY_CAMERA_NAME.into()),
             ..Default::default()
         },

@@ -489,7 +489,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     {
                         &mut *self.archetype
                     } else if new_archetype.id() == swapped_location.archetype_id {
-                        &mut *new_archetype
+                        new_archetype
                     } else {
                         // SAFE: the only two borrowed archetypes are above and we just did collision checks
                         &mut *self
@@ -630,9 +630,11 @@ unsafe fn initialize_bundle(
     let mut deduped = component_ids.clone();
     deduped.sort();
     deduped.dedup();
-    if deduped.len() != component_ids.len() {
-        panic!("Bundle {} has duplicate components", bundle_type_name);
-    }
+    assert!(
+        deduped.len() == component_ids.len(),
+        "Bundle {} has duplicate components",
+        bundle_type_name
+    );
 
     BundleInfo {
         id,
