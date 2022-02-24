@@ -15,7 +15,7 @@ fn main() {
         .add_system(move_system)
         .add_system(collision_system)
         .add_system(select_system)
-        .insert_resource(SelectTimerState {
+        .insert_resource(SelectTimer {
             timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
             has_triggered: false,
         })
