@@ -2,7 +2,7 @@ use bevy::{
     core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},
     prelude::*,
     render::{
-        camera::{ActiveCameras, ExtractedCameraNames},
+        camera::{ActiveCameras, ExtractedCameraNames, RenderTarget},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
         render_phase::RenderPhase,
         renderer::RenderContext,
@@ -65,7 +65,7 @@ fn create_new_window(
     // second window camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         camera: Camera {
-            window: window_id,
+            target: RenderTarget::Window(window_id),
             name: Some(SECONDARY_CAMERA_NAME.into()),
             ..Default::default()
         },
