@@ -1,7 +1,9 @@
 extern crate proc_macro;
 
 mod component;
+mod fetch;
 
+use crate::fetch::derive_world_query_impl;
 use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -423,6 +425,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
     })
+}
+
+/// Implement `WorldQuery` to use a struct as a parameter in a query
+#[proc_macro_derive(WorldQuery, attributes(world_query))]
+pub fn derive_world_query(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    derive_world_query_impl(ast)
 }
 
 #[proc_macro_derive(SystemLabel)]

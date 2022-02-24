@@ -166,6 +166,7 @@ Example | File | Description
 --- | --- | ---
 `ecs_guide` | [`ecs/ecs_guide.rs`](./ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 `component_change_detection` | [`ecs/component_change_detection.rs`](./ecs/component_change_detection.rs) | Change detection on components
+`custom_query_param` | [`ecs/custom_query_param.rs`](./ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 `generic_system` | [`ecs/generic_system.rs`](./ecs/generic_system.rs) | Shows how to create systems that can be reused with different types

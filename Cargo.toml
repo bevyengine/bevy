@@ -319,6 +319,10 @@ name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
 
 [[example]]
+name = "custom_query_param"
+path = "examples/ecs/custom_query_param.rs"
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 
