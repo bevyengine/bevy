@@ -1,5 +1,7 @@
 use bevy::{
-    core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},
+    core_pipeline::{
+        draw_3d_graph, node, AlphaMask3d, Opaque3d, RenderTargetClearColors, Transparent3d,
+    },
     prelude::*,
     reflect::TypeUuid,
     render::{
@@ -102,7 +104,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut active_cameras: ResMut<ActiveCameras>,
     mut images: ResMut<Assets<Image>>,
-    mut clear_color: ResMut<ClearColor>,
+    mut clear_colors: ResMut<RenderTargetClearColors>,
 ) {
     let size = Extent3d {
         width: 512,
@@ -162,7 +164,7 @@ fn setup(
 
     // First pass camera
     let render_target = RenderTarget::Image(image_handle);
-    clear_color.insert(render_target.clone(), Color::WHITE);
+    clear_colors.insert(render_target.clone(), Color::WHITE);
     active_cameras.add(FIRST_PASS_CAMERA);
     commands
         .spawn_bundle(PerspectiveCameraBundle {

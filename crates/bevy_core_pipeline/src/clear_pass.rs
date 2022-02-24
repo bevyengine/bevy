@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::ClearColor;
+use crate::{ClearColor, RenderTargetClearColors};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{ExtractedCamera, RenderTarget},
@@ -51,16 +51,19 @@ impl Node for ClearPassNode {
     ) -> Result<(), NodeRunError> {
         let mut cleared_targets = HashSet::new();
         let clear_color = world.get_resource::<ClearColor>().unwrap();
+        let render_target_clear_colors = world.get_resource::<RenderTargetClearColors>().unwrap();
 
         // This gets all ViewTargets and ViewDepthTextures and clears its attachments
         // TODO: This has the potential to clear the same target multiple times, if there
         // are multiple views drawing to the same target. This should be fixed when we make
         // clearing happen on "render targets" instead of "views" (see the TODO below for more context).
         for (target, depth, camera) in self.query.iter_manual(world) {
-            let mut color = &clear_color.default_color;
+            let mut color = &clear_color.0;
             if let Some(camera) = camera {
                 cleared_targets.insert(&camera.target);
-                color = clear_color.get(&camera.target);
+                if let Some(target_color) = render_target_clear_colors.get(&camera.target) {
+                    color = target_color;
+                }
             }
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("clear_pass"),
@@ -88,7 +91,7 @@ impl Node for ClearPassNode {
         // instead of "views". This should be removed once full RenderTargets are implemented.
         let windows = world.get_resource::<ExtractedWindows>().unwrap();
         let images = world.get_resource::<RenderAssets<Image>>().unwrap();
-        for target in clear_color.per_target.keys().cloned().chain(
+        for target in render_target_clear_colors.colors.keys().cloned().chain(
             windows
                 .values()
                 .map(|window| RenderTarget::Window(window.id)),
@@ -103,7 +106,12 @@ impl Node for ClearPassNode {
                     view: target.get_texture_view(windows, images).unwrap(),
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear((*clear_color.get(&target)).into()),
+                        load: LoadOp::Clear(
+                            (*render_target_clear_colors
+                                .get(&target)
+                                .unwrap_or(&clear_color.0))
+                            .into(),
+                        ),
                         store: true,
                     },
                 }],
