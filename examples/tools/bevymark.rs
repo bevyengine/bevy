@@ -220,6 +220,8 @@ fn spawn_birds(
 }
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
+    // Use for_each style iteration here and in the collision_system because it's faster thanks to
+    // better LLVM optimization opportunities (see transrangers) and hoisted branching.
     bird_query.for_each_mut(|(mut bird, mut transform)| {
         transform.translation.x += bird.velocity.x * time.delta_seconds();
         transform.translation.y += bird.velocity.y * time.delta_seconds();
