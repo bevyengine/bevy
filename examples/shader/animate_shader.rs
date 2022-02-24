@@ -115,7 +115,7 @@ fn queue_custom(
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
-            if let Some(mesh) = render_meshes.get(mesh_handle) {
+            if let Some(mesh) = render_meshes.get(&mesh_handle.id) {
                 let pipeline = pipelines
                     .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)
                     .unwrap();
