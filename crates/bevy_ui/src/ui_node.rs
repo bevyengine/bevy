@@ -405,7 +405,7 @@ pub struct CornerRadius {
 }
 
 impl CornerRadius {
-    /// Creates a CornerRadius instance with all corners set to the specified radius.
+    /// Creates a [`CornerRadius`] instance with all corners set to the specified radius.
     pub fn all(corner_radius: f32) -> Self {
         Self {
             top_left: corner_radius,
