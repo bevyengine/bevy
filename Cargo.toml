@@ -213,6 +213,10 @@ name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
+name = "render_to_texture"
+path = "examples/3d/render_to_texture.rs"
+
+[[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
 
@@ -317,6 +321,10 @@ path = "examples/ecs/ecs_guide.rs"
 [[example]]
 name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
+
+[[example]]
+name = "custom_query_param"
+path = "examples/ecs/custom_query_param.rs"
 
 [[example]]
 name = "event"
@@ -447,6 +455,10 @@ name = "scene"
 path = "examples/scene/scene.rs"
 
 # Shaders
+[[example]]
+name = "custom_vertex_attribute"
+path = "examples/shader/custom_vertex_attribute.rs"
+
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"

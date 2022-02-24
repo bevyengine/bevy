@@ -189,7 +189,7 @@ fn assert_component_access_compatibility(
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
     panic!("error[B0001]: Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `QuerySet`.",
-                query_type, filter_type, system_name, accesses);
+           query_type, filter_type, system_name, accesses);
 }
 
 pub struct QuerySet<'w, 's, T> {
@@ -204,6 +204,7 @@ pub struct QuerySetState<T>(T);
 impl_query_set!();
 
 pub trait Resource: Send + Sync + 'static {}
+
 impl<T> Resource for T where T: Send + Sync + 'static {}
 
 /// Shared borrow of a resource.
