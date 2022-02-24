@@ -206,7 +206,7 @@ fn select(
     contributor: &Contributor,
     transform: &mut Transform,
     text: &mut Text,
-    #[allow(clippy::ptr_arg)] name: &String,
+    name: &String,
 ) {
     sprite.color = Color::hsla(
         contributor.hue,
