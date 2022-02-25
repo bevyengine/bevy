@@ -10,7 +10,6 @@ repository = "https://github.com/bevyengine/bevy"
 readme = "README.md"
 keywords = ["glsl", "std140", "std430"]
 license = "MIT OR Apache-2.0"
-# resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
