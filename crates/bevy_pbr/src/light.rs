@@ -501,7 +501,10 @@ pub fn assign_lights_to_clusters(
     mut views: Query<(Entity, &GlobalTransform, &Camera, &Frustum, &mut Clusters)>,
     lights: Query<(Entity, &GlobalTransform, &PointLight)>,
 ) {
-    let mut lights = lights.iter().collect::<Vec<_>>();
+    let mut lights = lights
+        .iter()
+        .map(|(entity, transform, light)| (entity, transform.translation, light))
+        .collect::<Vec<_>>();
 
     if lights.len() > MAX_POINT_LIGHTS {
         lights.sort_by(|(entity_1, _, light_1), (entity_2, _, light_2)| {
@@ -515,9 +518,9 @@ pub fn assign_lights_to_clusters(
         let frusta: Vec<_> = views.iter().map(|(_, _, _, frustum, _)| *frustum).collect();
         lights = lights
             .into_iter()
-            .filter(|(_, light_transform, light)| {
+            .filter(|&(_, light_translation, light)| {
                 let light_sphere = Sphere {
-                    center: light_transform.translation,
+                    center: light_translation,
                     radius: light.range,
                 };
 
@@ -554,9 +557,9 @@ pub fn assign_lights_to_clusters(
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
         let mut visible_lights_set = HashSet::with_capacity(light_count);
 
-        for &(light_entity, light_transform, light) in lights.iter() {
+        for &(light_entity, light_translation, light) in lights.iter() {
             let light_sphere = Sphere {
-                center: light_transform.translation,
+                center: light_translation,
                 radius: light.range,
             };
 
