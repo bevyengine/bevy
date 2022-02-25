@@ -223,7 +223,7 @@ fn spawn_birds(
 }
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
-    // `.for_each_mut` is faster than `.iter`, but can't be chained like a normal iterator.
+    // `.for_each_mut` is faster than `.iter_mut`, but can't be chained like a normal iterator.
     bird_query.for_each_mut(|(mut bird, mut transform)| {
         transform.translation.x += bird.velocity.x * time.delta_seconds();
         transform.translation.y += bird.velocity.y * time.delta_seconds();
