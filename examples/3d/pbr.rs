@@ -54,7 +54,7 @@ fn setup(
     });
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(50.0, 50.0, 50.0)),
+        transform: Transform::from_xyz(50.0, 50.0, 50.0),
         point_light: PointLight {
             intensity: 600000.,
             range: 100.,
@@ -64,8 +64,7 @@ fn setup(
     });
     // camera
     commands.spawn_bundle(OrthographicCameraBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 8.0))
-            .looking_at(Vec3::default(), Vec3::Y),
+        transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
         orthographic_projection: OrthographicProjection {
             scale: 0.01,
             ..Default::default()

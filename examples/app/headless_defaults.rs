@@ -1,8 +1,8 @@
-use bevy::{prelude::*, render::options::WgpuOptions};
+use bevy::{prelude::*, render::settings::WgpuSettings};
 
 fn main() {
     App::new()
-        .insert_resource(WgpuOptions {
+        .insert_resource(WgpuSettings {
             backends: None,
             ..Default::default()
         })

@@ -278,10 +278,13 @@ pub fn flex_node_system(
     // PERF: try doing this incrementally
     for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
         let layout = flex_surface.get_layout(entity).unwrap();
-        node.size = Vec2::new(
+        let new_size = Vec2::new(
             to_logical(layout.size.width),
             to_logical(layout.size.height),
         );
+        if node.size != new_size {
+            node.size = new_size;
+        }
         let position = &mut transform.translation;
         position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         position.y = to_logical(layout.location.y + layout.size.height / 2.0);

@@ -257,7 +257,7 @@ impl<'a> TrackedRenderPass<'a> {
             offset,
             data.len()
         );
-        self.pass.set_push_constants(stages, offset, data)
+        self.pass.set_push_constants(stages, offset, data);
     }
 
     /// Set the rendering viewport.
@@ -282,7 +282,7 @@ impl<'a> TrackedRenderPass<'a> {
             max_depth
         );
         self.pass
-            .set_viewport(x, y, width, height, min_depth, max_depth)
+            .set_viewport(x, y, width, height, min_depth, max_depth);
     }
 
     /// Insert a single debug marker.
@@ -290,7 +290,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// This is a GPU debugging feature. This has no effect on the rendering itself.
     pub fn insert_debug_marker(&mut self, label: &str) {
         trace!("insert debug marker: {}", label);
-        self.pass.insert_debug_marker(label)
+        self.pass.insert_debug_marker(label);
     }
 
     /// Start a new debug group.
@@ -315,7 +315,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// [`pop_debug_group`]: TrackedRenderPass::pop_debug_group
     pub fn push_debug_group(&mut self, label: &str) {
         trace!("push_debug_group marker: {}", label);
-        self.pass.push_debug_group(label)
+        self.pass.push_debug_group(label);
     }
 
     /// End the current debug group.
@@ -332,11 +332,11 @@ impl<'a> TrackedRenderPass<'a> {
     /// [`pop_debug_group`]: TrackedRenderPass::pop_debug_group
     pub fn pop_debug_group(&mut self) {
         trace!("pop_debug_group");
-        self.pass.pop_debug_group()
+        self.pass.pop_debug_group();
     }
 
     pub fn set_blend_constant(&mut self, color: Color) {
         trace!("set blend constant: {:?}", color);
-        self.pass.set_blend_constant(wgpu::Color::from(color))
+        self.pass.set_blend_constant(wgpu::Color::from(color));
     }
 }

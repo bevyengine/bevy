@@ -119,7 +119,7 @@ fn extract_render_asset<A: RenderAsset>(
     commands.insert_resource(ExtractedAssets {
         extracted: extracted_assets,
         removed,
-    })
+    });
 }
 
 /// Specifies all ECS data required by [`PrepareAssetSystem`].

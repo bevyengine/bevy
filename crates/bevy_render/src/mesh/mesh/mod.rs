@@ -3,17 +3,19 @@ mod conversions;
 use crate::{
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::Buffer,
+    render_resource::{Buffer, VertexBufferLayout},
     renderer::RenderDevice,
 };
 use bevy_core::cast_slice;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use bevy_utils::EnumVariantMeta;
-use std::{borrow::Cow, collections::BTreeMap};
+use bevy_utils::{EnumVariantMeta, Hashed};
+use std::{collections::BTreeMap, hash::Hash};
+use thiserror::Error;
 use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexFormat,
+    util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexAttribute,
+    VertexFormat, VertexStepMode,
 };
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -25,10 +27,10 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
-    /// for this mesh. Attribute name maps to attribute values.
+    /// for this mesh. Attribute ids to attribute values.
     /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
-    attributes: BTreeMap<Cow<'static, str>, VertexAttributeValues>,
+    attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
 }
 
@@ -44,29 +46,39 @@ pub struct Mesh {
 /// # use bevy_render::render_resource::PrimitiveTopology;
 /// fn create_triangle() -> Mesh {
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-///     mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
+///     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
 ///     mesh.set_indices(Some(Indices::U32(vec![0,1,2])));
 ///     mesh
 /// }
 /// ```
 impl Mesh {
-    /// Per vertex coloring. Use in conjunction with [`Mesh::set_attribute`]
-    pub const ATTRIBUTE_COLOR: &'static str = "Vertex_Color";
+    /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
+    pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_Position", 0, VertexFormat::Float32x3);
+
     /// The direction the vertex normal is facing in.
-    /// Use in conjunction with [`Mesh::set_attribute`]
-    pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
+    /// Use in conjunction with [`Mesh::insert_attribute`]
+    pub const ATTRIBUTE_NORMAL: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_Normal", 1, VertexFormat::Float32x3);
+
+    /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::insert_attribute`]
+    pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
+
     /// The direction of the vertex tangent. Used for normal mapping
-    pub const ATTRIBUTE_TANGENT: &'static str = "Vertex_Tangent";
+    pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_Tangent", 3, VertexFormat::Float32x4);
 
-    /// Where the vertex is located in space. Use in conjunction with [`Mesh::set_attribute`]
-    pub const ATTRIBUTE_POSITION: &'static str = "Vertex_Position";
-    /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::set_attribute`]
-    pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
+    /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
+    pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Uint32);
 
-    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::set_attribute`]
-    pub const ATTRIBUTE_JOINT_WEIGHT: &'static str = "Vertex_JointWeight";
-    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::set_attribute`]
-    pub const ATTRIBUTE_JOINT_INDEX: &'static str = "Vertex_JointIndex";
+    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
+    pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_JointWeight", 5, VertexFormat::Float32x4);
+    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
+    pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint32);
 
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
@@ -86,41 +98,62 @@ impl Mesh {
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
-    pub fn set_attribute(
+    #[inline]
+    pub fn insert_attribute(
         &mut self,
-        name: impl Into<Cow<'static, str>>,
+        attribute: MeshVertexAttribute,
         values: impl Into<VertexAttributeValues>,
     ) {
-        let values: VertexAttributeValues = values.into();
-        self.attributes.insert(name.into(), values);
+        self.attributes.insert(
+            attribute.id,
+            MeshAttributeData {
+                attribute,
+                values: values.into(),
+            },
+        );
+    }
+
+    #[inline]
+    pub fn contains_attribute(&self, id: impl Into<MeshVertexAttributeId>) -> bool {
+        self.attributes.contains_key(&id.into())
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified `name`.
-    pub fn attribute(&self, name: impl Into<Cow<'static, str>>) -> Option<&VertexAttributeValues> {
-        self.attributes.get(&name.into())
+    #[inline]
+    pub fn attribute(
+        &self,
+        id: impl Into<MeshVertexAttributeId>,
+    ) -> Option<&VertexAttributeValues> {
+        self.attributes.get(&id.into()).map(|data| &data.values)
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
+    #[inline]
     pub fn attribute_mut(
         &mut self,
-        name: impl Into<Cow<'static, str>>,
+        id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&mut VertexAttributeValues> {
-        self.attributes.get_mut(&name.into())
+        self.attributes
+            .get_mut(&id.into())
+            .map(|data| &mut data.values)
     }
 
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
     /// vertex attributes and are therefore only useful for the [`PrimitiveTopology`] variants
     /// that use triangles.
+    #[inline]
     pub fn set_indices(&mut self, indices: Option<Indices>) {
         self.indices = indices;
     }
 
     /// Retrieves the vertex `indices` of the mesh.
+    #[inline]
     pub fn indices(&self) -> Option<&Indices> {
         self.indices.as_ref()
     }
 
     /// Retrieves the vertex `indices` of the mesh mutably.
+    #[inline]
     pub fn indices_mut(&mut self) -> Option<&mut Indices> {
         self.indices.as_mut()
     }
@@ -134,27 +167,32 @@ impl Mesh {
         })
     }
 
-    // pub fn get_vertex_buffer_layout(&self) -> VertexBufferLayout {
-    //     let mut attributes = Vec::new();
-    //     let mut accumulated_offset = 0;
-    //     for (attribute_name, attribute_values) in self.attributes.iter() {
-    //         let vertex_format = VertexFormat::from(attribute_values);
-    //         attributes.push(VertexAttribute {
-    //             name: attribute_name.clone(),
-    //             offset: accumulated_offset,
-    //             format: vertex_format,
-    //             shader_location: 0,
-    //         });
-    //         accumulated_offset += vertex_format.get_size();
-    //     }
+    /// For a given `descriptor` returns a [`VertexBufferLayout`] compatible with this mesh. If this
+    /// mesh is not compatible with the given `descriptor` (ex: it is missing vertex attributes), [`None`] will
+    /// be returned.
+    pub fn get_mesh_vertex_buffer_layout(&self) -> MeshVertexBufferLayout {
+        let mut attributes = Vec::with_capacity(self.attributes.len());
+        let mut attribute_ids = Vec::with_capacity(self.attributes.len());
+        let mut accumulated_offset = 0;
+        for (index, data) in self.attributes.values().enumerate() {
+            attribute_ids.push(data.attribute.id);
+            attributes.push(VertexAttribute {
+                offset: accumulated_offset,
+                format: data.attribute.format,
+                shader_location: index as u32,
+            });
+            accumulated_offset += data.attribute.format.get_size();
+        }
 
-    //     VertexBufferLayout {
-    //         name: Default::default(),
-    //         stride: accumulated_offset,
-    //         step_mode: InputStepMode::Vertex,
-    //         attributes,
-    //     }
-    // }
+        MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout {
+            layout: VertexBufferLayout {
+                array_stride: accumulated_offset,
+                step_mode: VertexStepMode::Vertex,
+                attributes,
+            },
+            attribute_ids,
+        })
+    }
 
     /// Counts all vertices of the mesh.
     ///
@@ -162,11 +200,11 @@ impl Mesh {
     /// Panics if the attributes have different vertex counts.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
-        for (attribute_name, attribute_data) in self.attributes.iter() {
-            let attribute_len = attribute_data.len();
+        for (attribute_id, attribute_data) in self.attributes.iter() {
+            let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 assert_eq!(previous_vertex_count, attribute_len,
-                        "Attribute {} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute_name, attribute_len, previous_vertex_count);
+                        "{:?} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute_id, attribute_len, previous_vertex_count);
             }
             vertex_count = Some(attribute_len);
         }
@@ -182,8 +220,8 @@ impl Mesh {
     /// Panics if the attributes have different vertex counts.
     pub fn get_vertex_buffer_data(&self) -> Vec<u8> {
         let mut vertex_size = 0;
-        for attribute_values in self.attributes.values() {
-            let vertex_format = VertexFormat::from(attribute_values);
+        for attribute_data in self.attributes.values() {
+            let vertex_format = attribute_data.attribute.format;
             vertex_size += vertex_format.get_size() as usize;
         }
 
@@ -191,10 +229,9 @@ impl Mesh {
         let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
-        for attribute_values in self.attributes.values() {
-            let vertex_format = VertexFormat::from(attribute_values);
-            let attribute_size = vertex_format.get_size() as usize;
-            let attributes_bytes = attribute_values.get_bytes();
+        for attribute_data in self.attributes.values() {
+            let attribute_size = attribute_data.attribute.format.get_size() as usize;
+            let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in
                 attributes_bytes.chunks_exact(attribute_size).enumerate()
             {
@@ -230,9 +267,9 @@ impl Mesh {
             Some(indices) => indices,
             None => return,
         };
-        for (_, attributes) in self.attributes.iter_mut() {
+        for attributes in self.attributes.values_mut() {
             let indices = indices.iter();
-            match attributes {
+            match &mut attributes.values {
                 VertexAttributeValues::Float32(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Sint32(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Uint32(vec) => *vec = duplicate(vec, indices),
@@ -271,9 +308,7 @@ impl Mesh {
     /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Consider calling [`Mesh::duplicate_vertices`] or export your mesh with normal attributes.
     pub fn compute_flat_normals(&mut self) {
-        if self.indices().is_some() {
-            panic!("`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
-        }
+        assert!(self.indices().is_none(), "`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
 
         let positions = self
             .attribute(Mesh::ATTRIBUTE_POSITION)
@@ -287,7 +322,7 @@ impl Mesh {
             .flat_map(|normal| [normal; 3])
             .collect();
 
-        self.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     }
 
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
@@ -314,6 +349,131 @@ impl Mesh {
 
         None
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct MeshVertexAttribute {
+    /// The friendly name of the vertex attribute
+    pub name: &'static str,
+
+    /// The _unique_ id of the vertex attribute. This will also determine sort ordering
+    /// when generating vertex buffers. Built-in / standard attributes will use "close to zero"
+    /// indices. When in doubt, use a random / very large usize to avoid conflicts.
+    pub id: MeshVertexAttributeId,
+
+    /// The format of the vertex attribute.
+    pub format: VertexFormat,
+}
+
+impl MeshVertexAttribute {
+    pub const fn new(name: &'static str, id: usize, format: VertexFormat) -> Self {
+        Self {
+            name,
+            id: MeshVertexAttributeId(id),
+            format,
+        }
+    }
+
+    pub const fn at_shader_location(&self, shader_location: u32) -> VertexAttributeDescriptor {
+        VertexAttributeDescriptor::new(shader_location, self.id, self.name)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub struct MeshVertexAttributeId(usize);
+
+impl From<MeshVertexAttribute> for MeshVertexAttributeId {
+    fn from(attribute: MeshVertexAttribute) -> Self {
+        attribute.id
+    }
+}
+
+pub type MeshVertexBufferLayout = Hashed<InnerMeshVertexBufferLayout>;
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct InnerMeshVertexBufferLayout {
+    attribute_ids: Vec<MeshVertexAttributeId>,
+    layout: VertexBufferLayout,
+}
+
+impl InnerMeshVertexBufferLayout {
+    #[inline]
+    pub fn contains(&self, attribute_id: impl Into<MeshVertexAttributeId>) -> bool {
+        self.attribute_ids.contains(&attribute_id.into())
+    }
+
+    #[inline]
+    pub fn attribute_ids(&self) -> &[MeshVertexAttributeId] {
+        &self.attribute_ids
+    }
+
+    #[inline]
+    pub fn layout(&self) -> &VertexBufferLayout {
+        &self.layout
+    }
+
+    pub fn get_layout(
+        &self,
+        attribute_descriptors: &[VertexAttributeDescriptor],
+    ) -> Result<VertexBufferLayout, MissingVertexAttributeError> {
+        let mut attributes = Vec::with_capacity(attribute_descriptors.len());
+        for attribute_descriptor in attribute_descriptors.iter() {
+            if let Some(index) = self
+                .attribute_ids
+                .iter()
+                .position(|id| *id == attribute_descriptor.id)
+            {
+                let layout_attribute = &self.layout.attributes[index];
+                attributes.push(VertexAttribute {
+                    format: layout_attribute.format,
+                    offset: layout_attribute.offset,
+                    shader_location: attribute_descriptor.shader_location,
+                })
+            } else {
+                return Err(MissingVertexAttributeError {
+                    id: attribute_descriptor.id,
+                    name: attribute_descriptor.name,
+                    pipeline_type: None,
+                });
+            }
+        }
+
+        Ok(VertexBufferLayout {
+            array_stride: self.layout.array_stride,
+            step_mode: self.layout.step_mode,
+            attributes,
+        })
+    }
+}
+
+#[derive(Error, Debug)]
+#[error("Mesh is missing requested attribute: {name} ({id:?}, pipeline type: {pipeline_type:?})")]
+pub struct MissingVertexAttributeError {
+    pub(crate) pipeline_type: Option<&'static str>,
+    id: MeshVertexAttributeId,
+    name: &'static str,
+}
+
+pub struct VertexAttributeDescriptor {
+    pub shader_location: u32,
+    pub id: MeshVertexAttributeId,
+    name: &'static str,
+}
+
+impl VertexAttributeDescriptor {
+    pub const fn new(shader_location: u32, id: MeshVertexAttributeId, name: &'static str) -> Self {
+        Self {
+            shader_location,
+            id,
+            name,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct MeshAttributeData {
+    attribute: MeshVertexAttribute,
+    values: VertexAttributeValues,
 }
 
 const VEC3_MIN: Vec3 = const_vec3!([std::f32::MIN, std::f32::MIN, std::f32::MIN]);
@@ -523,7 +683,6 @@ impl From<&VertexAttributeValues> for VertexFormat {
         }
     }
 }
-
 /// An array of indices into the [`VertexAttributeValues`] for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
@@ -592,8 +751,8 @@ pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
     pub buffer_info: GpuBufferInfo,
-    pub has_tangents: bool,
     pub primitive_topology: PrimitiveTopology,
+    pub layout: MeshVertexBufferLayout,
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
@@ -647,11 +806,13 @@ impl RenderAsset for Mesh {
             },
         );
 
+        let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
+
         Ok(GpuMesh {
             vertex_buffer,
             buffer_info,
-            has_tangents: mesh.attributes.contains_key(Mesh::ATTRIBUTE_TANGENT),
             primitive_topology: mesh.primitive_topology(),
+            layout: mesh_vertex_buffer_layout,
         })
     }
 }

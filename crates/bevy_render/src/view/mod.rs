@@ -10,6 +10,8 @@ pub use window::*;
 
 use crate::{
     camera::{ExtractedCamera, ExtractedCameraNames},
+    prelude::Image,
+    render_asset::RenderAssets,
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
@@ -86,6 +88,7 @@ pub struct ExtractedView {
 #[derive(Clone, AsStd140)]
 pub struct ViewUniform {
     view_proj: Mat4,
+    view: Mat4,
     inverse_view: Mat4,
     projection: Mat4,
     world_position: Vec3,
@@ -145,10 +148,12 @@ fn prepare_view_uniforms(
     view_uniforms.uniforms.clear();
     for (entity, camera) in views.iter() {
         let projection = camera.projection;
-        let inverse_view = camera.transform.compute_matrix().inverse();
+        let view = camera.transform.compute_matrix();
+        let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: projection * inverse_view,
+                view,
                 inverse_view,
                 projection,
                 world_position: camera.transform.translation,
@@ -167,10 +172,12 @@ fn prepare_view_uniforms(
         .write_buffer(&render_device, &render_queue);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn prepare_view_targets(
     mut commands: Commands,
     camera_names: Res<ExtractedCameraNames>,
     windows: Res<ExtractedWindows>,
+    images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
@@ -182,41 +189,34 @@ fn prepare_view_targets(
         } else {
             continue;
         };
-        let window = if let Some(window) = windows.get(&camera.window_id) {
-            window
-        } else {
-            continue;
-        };
-        let swap_chain_texture = if let Some(texture) = &window.swap_chain_texture {
-            texture
-        } else {
-            continue;
-        };
-        let sampled_target = if msaa.samples > 1 {
-            let sampled_texture = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("sampled_color_attachment_texture"),
-                    size: Extent3d {
-                        width: window.physical_width,
-                        height: window.physical_height,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: msaa.samples,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::bevy_default(),
-                    usage: TextureUsages::RENDER_ATTACHMENT,
-                },
-            );
-            Some(sampled_texture.default_view.clone())
-        } else {
-            None
-        };
-
-        commands.entity(entity).insert(ViewTarget {
-            view: swap_chain_texture.clone(),
-            sampled_target,
-        });
+        if let Some(size) = camera.physical_size {
+            if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
+                let sampled_target = if msaa.samples > 1 {
+                    let sampled_texture = texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("sampled_color_attachment_texture"),
+                            size: Extent3d {
+                                width: size.x,
+                                height: size.y,
+                                depth_or_array_layers: 1,
+                            },
+                            mip_level_count: 1,
+                            sample_count: msaa.samples,
+                            dimension: TextureDimension::D2,
+                            format: TextureFormat::bevy_default(),
+                            usage: TextureUsages::RENDER_ATTACHMENT,
+                        },
+                    );
+                    Some(sampled_texture.default_view.clone())
+                } else {
+                    None
+                };
+                commands.entity(entity).insert(ViewTarget {
+                    view: texture_view.clone(),
+                    sampled_target,
+                });
+            }
+        }
     }
 }

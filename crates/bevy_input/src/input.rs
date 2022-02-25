@@ -28,14 +28,14 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
-#[derive(Debug)]
-pub struct Input<T> {
+#[derive(Debug, Clone)]
+pub struct Input<T: Eq + Hash> {
     pressed: HashSet<T>,
     just_pressed: HashSet<T>,
     just_released: HashSet<T>,
 }
 
-impl<T> Default for Input<T> {
+impl<T: Eq + Hash> Default for Input<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),

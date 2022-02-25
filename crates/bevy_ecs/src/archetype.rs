@@ -520,7 +520,7 @@ impl Archetypes {
     }
 
     pub fn clear_entities(&mut self) {
-        for archetype in self.archetypes.iter_mut() {
+        for archetype in &mut self.archetypes {
             archetype.clear_entities();
         }
     }

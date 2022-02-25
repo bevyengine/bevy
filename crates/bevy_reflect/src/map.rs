@@ -1,6 +1,6 @@
-use std::{any::Any, collections::hash_map::Entry};
+use std::any::Any;
 
-use bevy_utils::HashMap;
+use bevy_utils::{Entry, HashMap};
 
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 
@@ -151,7 +151,7 @@ unsafe impl Reflect for DynamicMap {
         if let ReflectRef::Map(map_value) = value.reflect_ref() {
             for (key, value) in map_value.iter() {
                 if let Some(v) = self.get_mut(key) {
-                    v.apply(value)
+                    v.apply(value);
                 }
             }
         } else {

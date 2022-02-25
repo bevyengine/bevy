@@ -7,7 +7,9 @@ use bevy::{
         render_asset::{PrepareAssetError, RenderAsset},
         render_resource::{
             std140::{AsStd140, Std140},
-            *,
+            BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer,
+            BufferBindingType, BufferInitDescriptor, BufferSize, BufferUsages, ShaderStages,
         },
         renderer::RenderDevice,
     },
@@ -44,8 +46,9 @@ fn setup(
     });
 }
 
+// This is the struct that will be passed to your shader
 #[derive(Debug, Clone, TypeUuid)]
-#[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
+#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 pub struct CustomMaterial {
     color: Color,
 }
@@ -56,6 +59,7 @@ pub struct GpuCustomMaterial {
     bind_group: BindGroup,
 }
 
+// The implementation of [`Material`] needs this impl to work properly.
 impl RenderAsset for CustomMaterial {
     type ExtractedAsset = CustomMaterial;
     type PreparedAsset = GpuCustomMaterial;
@@ -91,6 +95,16 @@ impl RenderAsset for CustomMaterial {
 }
 
 impl Material for CustomMaterial {
+    // When creating a custom material, you need to define either a vertex shader, a fragment shader or both.
+    // If you don't define one of them it will use the default mesh shader which can be found at
+    // <https://github.com/bevyengine/bevy/blob/latest/crates/bevy_pbr/src/render/mesh.wgsl>
+
+    // For this example we don't need a vertex shader
+    // fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+    //     // Use the same path as the fragment shader since wgsl let's you define both shader in the same file
+    //     Some(asset_server.load("shaders/custom_material.wgsl"))
+    // }
+
     fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
         Some(asset_server.load("shaders/custom_material.wgsl"))
     }

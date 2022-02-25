@@ -269,7 +269,7 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
         for (i, value) in tuple.iter_fields().enumerate() {
             if let Some(v) = a.field_mut(i) {
-                v.apply(value)
+                v.apply(value);
             }
         }
     } else {

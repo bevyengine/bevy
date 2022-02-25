@@ -38,10 +38,7 @@ fn setup(
     // Spawn the scene as a child of another entity. This first scene will be translated backward
     // with its parent
     commands
-        .spawn_bundle((
-            Transform::from_xyz(0.0, 0.0, -1.0),
-            GlobalTransform::identity(),
-        ))
+        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -1.0)))
         .with_children(|parent| {
             parent.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
         });

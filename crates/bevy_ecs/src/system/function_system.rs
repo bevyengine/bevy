@@ -56,6 +56,82 @@ impl SystemMeta {
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
 // (to avoid the need for unwrapping to retrieve SystemMeta)
 /// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].
+///
+/// This is a very powerful and convenient tool for working with exclusive world access,
+/// allowing you to fetch data from the [`World`] as if you were running a [`System`].
+///
+/// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
+/// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
+///
+/// For an alternative approach to split mutable access to the world, see [`World::resource_scope`].
+///
+/// # Warning
+///
+/// [`SystemState`] values created can be cached to improve performance,
+/// and *must* be cached and reused in order for system parameters that rely on local state to work correctly.
+/// These include:
+/// - [`Added`](crate::query::Added) and [`Changed`](crate::query::Changed) query filters
+/// - [`Local`](crate::system::Local) variables that hold state
+/// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
+///
+/// # Example
+///
+/// Basic usage:
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::{system::SystemState};
+/// use bevy_ecs::event::Events;
+///
+/// struct MyEvent;
+/// struct MyResource(u32);
+///
+/// #[derive(Component)]
+/// struct MyComponent;
+///
+/// // Work directly on the `World`
+/// let mut world = World::new();
+/// world.init_resource::<Events<MyEvent>>();
+///
+/// // Construct a `SystemState` struct, passing in a tuple of `SystemParam`
+/// // as if you were writing an ordinary system.
+/// let mut system_state: SystemState<(
+///     EventWriter<MyEvent>,
+///     Option<ResMut<MyResource>>,
+///     Query<&MyComponent>,
+///     )> = SystemState::new(&mut world);
+///
+/// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
+/// // system_state.get(&world) provides read-only versions of your system parameters instead.
+/// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+/// ```
+/// Caching:
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::{system::SystemState};
+/// use bevy_ecs::event::Events;
+///
+/// struct MyEvent;
+/// struct CachedSystemState<'w, 's>{
+///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
+/// }
+///
+/// // Create and store a system state once
+/// let mut world = World::new();
+/// world.init_resource::<Events<MyEvent>>();
+/// let initial_state: SystemState<EventReader<MyEvent>>  = SystemState::new(&mut world);
+///
+/// // The system state is cached in a resource
+/// world.insert_resource(CachedSystemState{event_state: initial_state});
+///
+/// // Later, fetch the cached system state, saving on overhead
+/// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
+///     let mut event_reader = cached_state.event_state.get_mut(world);
+///
+///     for events in event_reader.iter(){
+///         println!("Hello World!");
+///     };
+/// });
+/// ```
 pub struct SystemState<Param: SystemParam> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
@@ -249,15 +325,35 @@ impl<P: SystemParam + 'static> System for ParamSystem<P> {
 ///
 /// fn my_system_function(an_usize_resource: Res<usize>) {}
 ///
-/// let system = my_system_function.system();
+/// let system = IntoSystem::system(my_system_function);
 /// ```
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
-pub trait IntoSystem<In, Out, Params> {
+pub trait IntoSystem<In, Out, Params>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
-    fn system(self) -> Self::System;
+    ///
+    /// Use of this method was formerly required whenever adding a `system` to an `App`.
+    /// or other cases where a system is required.
+    /// However, since [#2398](https://github.com/bevyengine/bevy/pull/2398),
+    /// this is no longer required.
+    ///
+    /// In future, this method will be removed.
+    ///
+    /// One use of this method is to assert that a given function is a valid system.
+    /// For this case, use [`bevy_ecs::system::assert_is_system`] instead.
+    ///
+    /// [`bevy_ecs::system::assert_is_system`]: [`crate::system::assert_is_system`]:
+    #[deprecated(
+        since = "0.7.0",
+        note = "`.system()` is no longer needed, as methods which accept systems will convert functions into a system automatically"
+    )]
+    fn system(self) -> Self::System {
+        IntoSystem::into_system(self)
+    }
+    /// Turns this value into its corresponding [`System`].
+    fn into_system(this: Self) -> Self::System;
 }
 
 pub struct AlreadyWasSystem;
@@ -265,8 +361,8 @@ pub struct AlreadyWasSystem;
 // Systems implicitly implement IntoSystem
 impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSystem> for Sys {
     type System = Sys;
-    fn system(self) -> Sys {
-        self
+    fn into_system(this: Self) -> Sys {
+        this
     }
 }
 
@@ -285,7 +381,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// use bevy_ecs::prelude::*;
 ///
 /// fn main() {
-///     let mut square_system = square.system();
+///     let mut square_system = IntoSystem::into_system(square);
 ///
 ///     let mut world = World::default();
 ///     square_system.initialize(&mut world);
@@ -333,6 +429,7 @@ impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Mark
     /// system.initialize(world);
     /// system.run((), world);
     /// ```
+    #[must_use]
     pub fn config(
         mut self,
         f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),
@@ -373,7 +470,7 @@ where
         self,
         f: impl FnOnce(&mut <<Param as SystemParam>::Fetch as SystemParamState>::Config),
     ) -> Self::System {
-        self.system().config(f)
+        IntoSystem::into_system(self).config(f)
     }
 }
 
@@ -388,9 +485,9 @@ where
     F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
 {
     type System = FunctionSystem<In, Out, Param, Marker, F>;
-    fn system(self) -> Self::System {
+    fn into_system(func: Self) -> Self::System {
         FunctionSystem {
-            func: self,
+            func,
             param_state: None,
             config: Some(<Param::Fetch as SystemParamState>::default_config()),
             system_meta: SystemMeta::new::<F>(),

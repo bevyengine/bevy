@@ -10,10 +10,10 @@ use crate::{
 use bevy_app::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::system::{Res, ResMut};
-use bevy_utils::{tracing::error, HashMap, HashSet};
-use std::{collections::hash_map::Entry, hash::Hash, ops::Deref, sync::Arc};
+use bevy_utils::{tracing::error, Entry, HashMap, HashSet};
+use std::{hash::Hash, ops::Deref, sync::Arc};
 use thiserror::Error;
-use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout};
+use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout as RawVertexBufferLayout};
 
 use super::ProcessedShader;
 
@@ -245,6 +245,11 @@ impl RenderPipelineCache {
     }
 
     #[inline]
+    pub fn get_descriptor(&self, id: CachedPipelineId) -> &RenderPipelineDescriptor {
+        &self.pipelines[id.0].descriptor
+    }
+
+    #[inline]
     pub fn get(&self, id: CachedPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(pipeline) = &self.pipelines[id.0].state {
             Some(pipeline)
@@ -345,7 +350,7 @@ impl RenderPipelineCache {
                 .vertex
                 .buffers
                 .iter()
-                .map(|layout| VertexBufferLayout {
+                .map(|layout| RawVertexBufferLayout {
                     array_stride: layout.array_stride,
                     attributes: &layout.attributes,
                     step_mode: layout.step_mode,
@@ -464,15 +469,22 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                 let config = term::Config::default();
                 let mut writer = term::termcolor::Ansi::new(Vec::new());
 
-                let diagnostic = Diagnostic::error().with_labels(
-                    error
-                        .spans()
-                        .map(|(span, desc)| {
-                            Label::primary((), span.to_range().unwrap())
-                                .with_message(desc.to_owned())
-                        })
-                        .collect(),
-                );
+                let diagnostic = Diagnostic::error()
+                    .with_message(error.to_string())
+                    .with_labels(
+                        error
+                            .spans()
+                            .map(|(span, desc)| {
+                                Label::primary((), span.to_range().unwrap())
+                                    .with_message(desc.to_owned())
+                            })
+                            .collect(),
+                    )
+                    .with_notes(
+                        ErrorSources::of(error)
+                            .map(|source| source.to_string())
+                            .collect(),
+                    );
 
                 term::emit(&mut writer, &config, &files, &diagnostic).expect("cannot write error");
 
@@ -488,5 +500,27 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
         AsModuleDescriptorError::SpirVConversion(error) => {
             error!("failed to convert shader to spirv: \n{}", error);
         }
+    }
+}
+
+struct ErrorSources<'a> {
+    current: Option<&'a (dyn std::error::Error + 'static)>,
+}
+
+impl<'a> ErrorSources<'a> {
+    fn of(error: &'a dyn std::error::Error) -> Self {
+        Self {
+            current: error.source(),
+        }
+    }
+}
+
+impl<'a> Iterator for ErrorSources<'a> {
+    type Item = &'a (dyn std::error::Error + 'static);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current;
+        self.current = self.current.and_then(std::error::Error::source);
+        current
     }
 }
