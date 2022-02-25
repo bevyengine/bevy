@@ -1,4 +1,37 @@
-use strum_macros::EnumIter;
+/// An array of every [`GamepadButtonType`] variant.
+pub const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
+    GamepadButtonType::South,
+    GamepadButtonType::East,
+    GamepadButtonType::North,
+    GamepadButtonType::West,
+    GamepadButtonType::C,
+    GamepadButtonType::Z,
+    GamepadButtonType::LeftTrigger,
+    GamepadButtonType::LeftTrigger2,
+    GamepadButtonType::RightTrigger,
+    GamepadButtonType::RightTrigger2,
+    GamepadButtonType::Select,
+    GamepadButtonType::Start,
+    GamepadButtonType::Mode,
+    GamepadButtonType::LeftThumb,
+    GamepadButtonType::RightThumb,
+    GamepadButtonType::DPadUp,
+    GamepadButtonType::DPadDown,
+    GamepadButtonType::DPadLeft,
+    GamepadButtonType::DPadRight,
+];
+
+/// An array of every [`GamepadAxisType`] variant.
+pub const ALL_AXIS_TYPES: [GamepadAxisType; 8] = [
+    GamepadAxisType::LeftStickX,
+    GamepadAxisType::LeftStickY,
+    GamepadAxisType::LeftZ,
+    GamepadAxisType::RightStickX,
+    GamepadAxisType::RightStickY,
+    GamepadAxisType::RightZ,
+    GamepadAxisType::DPadX,
+    GamepadAxisType::DPadY,
+];
 
 /// A type of a [`GamepadButton`](crate::gamepad::GamepadButton).
 ///
@@ -6,7 +39,7 @@ use strum_macros::EnumIter;
 ///
 /// This is used to determine which button has changed its value when receiving a
 /// [`GamepadEventType::ButtonChanged`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumIter)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadButtonType {
     /// The bottom action button of the action pad (i.e. PS: Cross, Xbox: A).
@@ -60,7 +93,7 @@ pub enum GamepadButtonType {
 ///
 /// This is used to determine which axis has changed its value when receiving a
 /// [`GamepadEventType::ButtonChanged`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumIter)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadAxisType {
     /// The horizontal value of the left stick.

@@ -1,5 +1,3 @@
-use strum_macros::EnumIter;
-
 /// The key code of a [`KeyboardInput`](crate::keyboard::KeyboardInput).
 ///
 /// ## Usage
@@ -11,7 +9,7 @@ use strum_macros::EnumIter;
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, EnumIter)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u32)]
 pub enum KeyCode {
