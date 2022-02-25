@@ -128,7 +128,7 @@ name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
 
 [[example]]
-name = "2d_rotation"
+name = "rotation"
 path = "examples/2d/rotation.rs"
 
 [[example]]
