@@ -120,7 +120,9 @@ impl Frustum {
         for plane in &self.planes {
             // The formula `normal . center + d + radius <= 0` relies on `normal` being normalized,
             // which is not necessarily the case.
-            let factor = (plane.normal_d.truncate().length_squared() / plane.normal_d.length_squared()).sqrt();
+            let factor = (plane.normal_d.truncate().length_squared()
+                / plane.normal_d.length_squared())
+            .sqrt();
             if plane.normal_d.dot(sphere.center.extend(1.0)) + sphere.radius * factor <= 0.0 {
                 return false;
             }
@@ -168,14 +170,28 @@ mod tests {
     use super::*;
 
     fn big_frustum() -> Frustum {
-        Frustum { planes: [
-            Plane { normal_d: Vec4::new(-0.2425, -0.0606, -0.0000, 1.9403).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, 0.2500, -0.0000, 1.0000).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, -0.0606, -0.2425, 0.7276).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, -0.2500, -0.0000, 1.0000).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, -0.0606, 0.2425, 0.7276).normalize() },
-            Plane { normal_d: Vec4::new(0.2425, -0.0606, -0.0000, -0.4851).normalize() },
-        ]}
+        Frustum {
+            planes: [
+                Plane {
+                    normal_d: Vec4::new(-0.2425, -0.0606, -0.0000, 1.9403).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, 0.2500, -0.0000, 1.0000).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, -0.0606, -0.2425, 0.7276).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, -0.2500, -0.0000, 1.0000).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, -0.0606, 0.2425, 0.7276).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(0.2425, -0.0606, -0.0000, -0.4851).normalize(),
+                },
+            ],
+        }
     }
 
     #[test]
@@ -202,14 +218,28 @@ mod tests {
 
     // A frustum
     fn frustum() -> Frustum {
-        Frustum { planes: [
-            Plane { normal_d: Vec4::new(-0.9701, -0.2425, -0.0000, 0.7276).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, 1.0000, -0.0000, 1.0000).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, -0.2425, -0.9701, 0.7276).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, -1.0000, -0.0000, 1.0000).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, -0.2425, 0.9701, 0.7276).normalize() },
-            Plane { normal_d: Vec4::new(0.9701, -0.2425, -0.0000, 0.7276).normalize() },
-        ]}
+        Frustum {
+            planes: [
+                Plane {
+                    normal_d: Vec4::new(-0.9701, -0.2425, -0.0000, 0.7276).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, 1.0000, -0.0000, 1.0000).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, -0.2425, -0.9701, 0.7276).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, -1.0000, -0.0000, 1.0000).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, -0.2425, 0.9701, 0.7276).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(0.9701, -0.2425, -0.0000, 0.7276).normalize(),
+                },
+            ],
+        }
     }
 
     #[test]
@@ -303,14 +333,28 @@ mod tests {
 
     // A long frustum.
     fn long_frustum() -> Frustum {
-        Frustum { planes: [
-            Plane { normal_d: Vec4::new(-0.2425, -0.0054, -0.0000, -0.4741).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, 0.0222, -0.0000, 1.0000).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, -0.0054, -0.3202, 0.7276).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, -0.0222, -0.0000, 1.0000).normalize() },
-            Plane { normal_d: Vec4::new(-0.0000, -0.0054, 0.3202, 0.7276).normalize() },
-            Plane { normal_d: Vec4::new(0.2425, -0.0054, -0.0000, 1.9293).normalize() },
-        ]}
+        Frustum {
+            planes: [
+                Plane {
+                    normal_d: Vec4::new(-0.2425, -0.0054, -0.0000, -0.4741).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, 0.0222, -0.0000, 1.0000).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, -0.0054, -0.3202, 0.7276).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, -0.0222, -0.0000, 1.0000).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(-0.0000, -0.0054, 0.3202, 0.7276).normalize(),
+                },
+                Plane {
+                    normal_d: Vec4::new(0.2425, -0.0054, -0.0000, 1.9293).normalize(),
+                },
+            ],
+        }
     }
 
     #[test]
