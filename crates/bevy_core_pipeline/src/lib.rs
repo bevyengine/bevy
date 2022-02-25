@@ -43,6 +43,8 @@ pub mod prelude {
     pub use crate::ClearColor;
 }
 
+use bevy_utils::HashMap;
+
 pub use clear_pass::*;
 pub use clear_pass_driver::*;
 pub use main_pass_2d::*;
@@ -53,7 +55,7 @@ use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{ActiveCameras, CameraPlugin},
+    camera::{ActiveCameras, CameraPlugin, RenderTarget},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
@@ -68,6 +70,20 @@ use bevy_render::{
 };
 use std::ops::Range;
 
+#[derive(Clone, Debug, Default)]
+pub struct RenderTargetClearColors {
+    colors: HashMap<RenderTarget, Color>,
+}
+
+impl RenderTargetClearColors {
+    pub fn get(&self, target: &RenderTarget) -> Option<&Color> {
+        self.colors.get(target)
+    }
+    pub fn insert(&mut self, target: RenderTarget, color: Color) {
+        self.colors.insert(target, color);
+    }
+}
+
 // Plugins that contribute to the RenderGraph should use the following label conventions:
 // 1. Graph modules should have a NAME, input module, and node module (where relevant)
 // 2. The "top level" graph is the plugin module root. Just add things like `pub mod node` directly under the plugin module
@@ -78,7 +94,8 @@ pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ClearColor>();
+        app.init_resource::<ClearColor>()
+            .init_resource::<RenderTargetClearColors>();
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -330,11 +347,21 @@ impl CachedPipelinePhaseItem for Transparent3d {
     }
 }
 
-pub fn extract_clear_color(clear_color: Res<ClearColor>, mut render_world: ResMut<RenderWorld>) {
+pub fn extract_clear_color(
+    clear_color: Res<ClearColor>,
+    clear_colors: Res<RenderTargetClearColors>,
+    mut render_world: ResMut<RenderWorld>,
+) {
     // If the clear color has changed
     if clear_color.is_changed() {
         // Update the clear color resource in the render world
         render_world.insert_resource(clear_color.clone());
+    }
+
+    // If the clear color has changed
+    if clear_colors.is_changed() {
+        // Update the clear color resource in the render world
+        render_world.insert_resource(clear_colors.clone());
     }
 }
 

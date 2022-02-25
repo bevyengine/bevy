@@ -1,11 +1,13 @@
 use std::collections::HashSet;
 
+use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
+    prelude::Image,
     primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
@@ -354,62 +356,62 @@ const Z_SLICES: u32 = 24;
 pub fn add_clusters(
     mut commands: Commands,
     windows: Res<Windows>,
+    images: Res<Assets<Image>>,
     cameras: Query<(Entity, &Camera), Without<Clusters>>,
 ) {
     for (entity, camera) in cameras.iter() {
-        let window = match windows.get(camera.window) {
-            Some(window) => window,
-            None => continue,
-        };
-        let clusters = Clusters::from_screen_size_and_z_slices(
-            UVec2::new(window.physical_width(), window.physical_height()),
-            Z_SLICES,
-        );
-        commands.entity(entity).insert(clusters);
+        if let Some(size) = camera.target.get_physical_size(&windows, &images) {
+            let clusters = Clusters::from_screen_size_and_z_slices(size, Z_SLICES);
+            commands.entity(entity).insert(clusters);
+        }
     }
 }
 
-pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Clusters)>) {
+pub fn update_clusters(
+    windows: Res<Windows>,
+    images: Res<Assets<Image>>,
+    mut views: Query<(&Camera, &mut Clusters)>,
+) {
     for (camera, mut clusters) in views.iter_mut() {
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
         let inverse_projection = camera.projection_matrix.inverse();
-        let window = windows.get(camera.window).unwrap();
-        let screen_size_u32 = UVec2::new(window.physical_width(), window.physical_height());
-        // Don't update clusters if screen size is 0.
-        if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
-            continue;
-        }
-        *clusters =
-            Clusters::from_screen_size_and_z_slices(screen_size_u32, clusters.axis_slices.z);
-        let screen_size = screen_size_u32.as_vec2();
-        let tile_size_u32 = clusters.tile_size;
-        let tile_size = tile_size_u32.as_vec2();
+        if let Some(screen_size_u32) = camera.target.get_physical_size(&windows, &images) {
+            // Don't update clusters if screen size is 0.
+            if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
+                continue;
+            }
+            *clusters =
+                Clusters::from_screen_size_and_z_slices(screen_size_u32, clusters.axis_slices.z);
+            let screen_size = screen_size_u32.as_vec2();
+            let tile_size_u32 = clusters.tile_size;
+            let tile_size = tile_size_u32.as_vec2();
 
-        // Calculate view space AABBs
-        // NOTE: It is important that these are iterated in a specific order
-        // so that we can calculate the cluster index in the fragment shader!
-        // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
-        // along z
-        let mut aabbs = Vec::with_capacity(
-            (clusters.axis_slices.y * clusters.axis_slices.x * clusters.axis_slices.z) as usize,
-        );
-        for y in 0..clusters.axis_slices.y {
-            for x in 0..clusters.axis_slices.x {
-                for z in 0..clusters.axis_slices.z {
-                    aabbs.push(compute_aabb_for_cluster(
-                        clusters.near,
-                        camera.far,
-                        tile_size,
-                        screen_size,
-                        inverse_projection,
-                        is_orthographic,
-                        clusters.axis_slices,
-                        UVec3::new(x, y, z),
-                    ));
+            // Calculate view space AABBs
+            // NOTE: It is important that these are iterated in a specific order
+            // so that we can calculate the cluster index in the fragment shader!
+            // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
+            // along z
+            let mut aabbs = Vec::with_capacity(
+                (clusters.axis_slices.y * clusters.axis_slices.x * clusters.axis_slices.z) as usize,
+            );
+            for y in 0..clusters.axis_slices.y {
+                for x in 0..clusters.axis_slices.x {
+                    for z in 0..clusters.axis_slices.z {
+                        aabbs.push(compute_aabb_for_cluster(
+                            clusters.near,
+                            camera.far,
+                            tile_size,
+                            screen_size,
+                            inverse_projection,
+                            is_orthographic,
+                            clusters.axis_slices,
+                            UVec3::new(x, y, z),
+                        ));
+                    }
                 }
             }
+            clusters.aabbs = aabbs;
         }
-        clusters.aabbs = aabbs;
     }
 }
 

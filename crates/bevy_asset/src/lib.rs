@@ -1,3 +1,5 @@
+#[cfg(feature = "debug_asset_server")]
+pub mod debug_asset_server;
 pub mod diagnostic;
 
 mod asset_server;

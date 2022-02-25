@@ -1,6 +1,6 @@
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
-use bevy_utils::HashMap;
-use std::{any::Any, borrow::Cow, collections::hash_map::Entry};
+use bevy_utils::{Entry, HashMap};
+use std::{any::Any, borrow::Cow};
 
 /// A reflected Rust regular struct type.
 ///
