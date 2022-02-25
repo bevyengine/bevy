@@ -236,7 +236,7 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
     let half_width = window.width() as f32 * 0.5;
     let half_height = window.height() as f32 * 0.5;
 
-    // `.for_each_mut` is faster than `.iter`, but can't be chained like a normal iterator.
+    // `.for_each_mut` is faster than `.iter_mut`, but can't be chained like a normal iterator.
     bird_query.for_each_mut(|(mut bird, transform)| {
         let x_vel = bird.velocity.x;
         let y_vel = bird.velocity.y;
