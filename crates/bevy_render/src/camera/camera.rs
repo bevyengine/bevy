@@ -7,10 +7,10 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::{DetectChanges, QueryState},
+    prelude::DetectChanges,
     query::Added,
     reflect::ReflectComponent,
-    system::{QuerySet, Res},
+    system::{ParamSet, Query, Res},
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
@@ -147,9 +147,9 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut image_asset_events: EventReader<AssetEvent<Image>>,
     windows: Res<Windows>,
     images: Res<Assets<Image>>,
-    mut queries: QuerySet<(
-        QueryState<(Entity, &mut Camera, &mut T)>,
-        QueryState<Entity, Added<Camera>>,
+    mut queries: ParamSet<(
+        Query<(Entity, &mut Camera, &mut T)>,
+        Query<Entity, Added<Camera>>,
     )>,
 ) {
     let mut changed_window_ids = Vec::new();
@@ -185,10 +185,10 @@ pub fn camera_system<T: CameraProjection + Component>(
         .collect();
 
     let mut added_cameras = vec![];
-    for entity in &mut queries.q1().iter() {
+    for entity in &mut queries.p1().iter() {
         added_cameras.push(entity);
     }
-    for (entity, mut camera, mut camera_projection) in queries.q0().iter_mut() {
+    for (entity, mut camera, mut camera_projection) in queries.p0().iter_mut() {
         if camera
             .target
             .is_changed(&changed_window_ids, &changed_image_handles)

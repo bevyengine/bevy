@@ -129,7 +129,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
     with: FixedBitSet,
@@ -192,6 +192,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct FilteredAccessSet<T: SparseSetIndex> {
     combined_access: Access<T>,
     filtered_accesses: Vec<FilteredAccess<T>>,
@@ -226,6 +227,18 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     pub fn add(&mut self, filtered_access: FilteredAccess<T>) {
         self.combined_access.extend(&filtered_access.access);
         self.filtered_accesses.push(filtered_access);
+    }
+
+    pub fn extend(&mut self, filtered_access_set: FilteredAccessSet<T>) {
+        self.combined_access
+            .extend(&filtered_access_set.combined_access);
+        self.filtered_accesses
+            .extend(filtered_access_set.filtered_accesses);
+    }
+
+    pub fn clear(&mut self) {
+        self.combined_access.clear();
+        self.filtered_accesses.clear();
     }
 }
 
