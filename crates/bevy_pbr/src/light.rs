@@ -250,7 +250,10 @@ pub enum ClusterConfig {
         z_config: ClusterZConfig,
     },
     /// Fixed number of z slices, x and y calculated to give square clusters
-    /// with at most total clusters
+    /// with at most total clusters. For top-down games where lights will generally always be within a
+    /// short depth range, it may be useful to use this configuration with 1 or few z slices. This
+    /// would reduce the number of lights per cluster by distributing more clusters in screen space
+    /// x/y which matches how lights are distributed in the scene.
     FixedZ {
         total: u32,
         z_slices: u32,
