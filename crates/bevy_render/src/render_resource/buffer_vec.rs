@@ -3,7 +3,6 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_core::{cast_slice, Pod};
-use copyless::VecHelper;
 use std::ops::{Deref, DerefMut};
 use wgpu::BufferUsages;
 
