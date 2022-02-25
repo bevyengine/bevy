@@ -530,7 +530,7 @@ pub fn assign_lights_to_clusters(
             .collect();
 
         if lights.len() > MAX_POINT_LIGHTS {
-            warn!("MAX_POINT_LIGHTS exceeded");
+            warn!("MAX_POINT_LIGHTS ({}) exceeded", MAX_POINT_LIGHTS);
             lights.truncate(MAX_POINT_LIGHTS);
         }
     }
