@@ -80,7 +80,7 @@ impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
             marker: PhantomData,
         }
     }
-    
+
     /// The pre-computed hash.
     #[inline]
     pub fn hash(&self) -> u64 {
@@ -97,7 +97,7 @@ impl<V, H> Hash for Hashed<V, H> {
 
 impl<V, H> Deref for Hashed<V, H> {
     type Target = V;
-    
+
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.value
