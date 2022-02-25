@@ -203,22 +203,27 @@ pub enum SimulationLightSystems {
 // The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa’s Siggraph 2016 talk about Doom 2016:
 // http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
 
+/// Configure the far z-plane mode used for the furthest depth slice for clustered forward
+/// rendering
 #[derive(Debug, Copy, Clone)]
 pub enum ClusterFarZMode {
-    // use the camera far-plane to determine the Z-depth of the furthest cluster layer
+    /// Use the camera far-plane to determine the z-depth of the furthest cluster layer
     CameraFarPlane,
-    // calculate the required maximum Z-depth based on currently visible lights.
-    // Culls lights from fragments better, speeding up GPU lighting operations
-    // at the expense of some CPU time as the cluster index list is better filled.
+    /// Calculate the required maximum z-depth based on currently visible lights.
+    /// Makes better use of available clusters, speeding up GPU lighting operations
+    /// at the expense of some CPU time and using more indices in the cluster light
+    /// index lists.
     MaxLightRange,
-    // constant max Z-depth
+    /// Constant max z-depth
     Constant(f32),
 }
 
+/// Configure the depth-slicing strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone)]
 pub struct ClusterZConfig {
-    // far depth of the nearest cluster layer
+    /// Far z plane of the first depth slice
     pub first_slice_depth: f32,
+    /// Strategy for how to evaluate the far z plane of the furthest depth slice
     pub far_z_mode: ClusterFarZMode,
 }
 
@@ -231,20 +236,21 @@ impl Default for ClusterZConfig {
     }
 }
 
+/// Configuration of the clustering strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Component)]
 pub enum ClusterConfig {
-    // disable light cluster calculations for this view
+    /// Disable light cluster calculations for this view
     None,
-    // one single cluster. Optimal for low-light complexity scenes or scenes where
-    // most lights impact the entire scene
+    /// One single cluster. Optimal for low-light complexity scenes or scenes where
+    /// most lights affect the entire scene.
     Single,
-    // explicit x, y and z counts (may yield non-square x/y clusters depending on aspect ratio)
+    /// Explicit x, y and z counts (may yield non-square x/y clusters depending on the aspect ratio)
     XYZ {
         dimensions: UVec3,
         z_config: ClusterZConfig,
     },
-    // fixed number of z-slices, x and y calculated to give square clusters
-    // with at most total clusters
+    /// Fixed number of z slices, x and y calculated to give square clusters
+    /// with at most total clusters
     FixedZ {
         total: u32,
         z_slices: u32,
@@ -464,7 +470,7 @@ pub fn add_clusters(
         let config = config.copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
         let clusters = Clusters::from_screen_size_and_dimensions(UVec2::ONE, UVec3::ONE, 1.0, 1.0);
-        commands.entity(entity).insert(clusters).insert(config);
+        commands.entity(entity).insert_bundle((clusters, config));
     }
 }
 
