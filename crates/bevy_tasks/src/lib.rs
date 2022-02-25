@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+#![doc = include_str!("../README.md")]
+
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
@@ -23,6 +26,7 @@ pub use countdown_event::CountdownEvent;
 mod iter;
 pub use iter::ParallelIterator;
 
+#[allow(missing_docs)]
 // re-export block_on so that consumers don't need to explicitly depend on the async engine being used.
 // it uses futures-lite by default, async-io and tokio are optional behind features
 pub use async_global_executor::block_on;
@@ -36,10 +40,5 @@ pub mod prelude {
     };
 }
 
-pub fn logical_core_count() -> usize {
-    num_cpus::get()
-}
-
-pub fn physical_core_count() -> usize {
-    num_cpus::get_physical()
-}
+pub use num_cpus::get as logical_core_count;
+pub use num_cpus::get_physical as physical_core_count;

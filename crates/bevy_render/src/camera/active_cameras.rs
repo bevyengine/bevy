@@ -1,5 +1,3 @@
-use crate::renderer::RenderResourceBindings;
-
 use super::Camera;
 use bevy_ecs::{
     entity::Entity,
@@ -11,7 +9,6 @@ use bevy_utils::HashMap;
 pub struct ActiveCamera {
     pub name: String,
     pub entity: Option<Entity>,
-    pub bindings: RenderResourceBindings,
 }
 
 #[derive(Debug, Default)]
@@ -55,7 +52,7 @@ pub fn active_cameras_system(
     mut active_cameras: ResMut<ActiveCameras>,
     query: Query<(Entity, &Camera)>,
 ) {
-    for (name, active_camera) in active_cameras.cameras.iter_mut() {
+    for (name, active_camera) in &mut active_cameras.cameras {
         if active_camera
             .entity
             .map_or(false, |entity| query.get(entity).is_err())

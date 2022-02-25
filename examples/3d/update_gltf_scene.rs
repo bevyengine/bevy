@@ -4,7 +4,7 @@ fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .insert_resource(SceneInstance::default())
+        .init_resource::<SceneInstance>()
         .add_startup_system(setup)
         .add_system(scene_update)
         .add_system(move_scene_entities)
@@ -16,6 +16,7 @@ fn main() {
 struct SceneInstance(Option<InstanceId>);
 
 // Component that will be used to tag entities in the scene
+#[derive(Component)]
 struct EntityInMyScene;
 
 fn setup(
@@ -37,10 +38,7 @@ fn setup(
     // Spawn the scene as a child of another entity. This first scene will be translated backward
     // with its parent
     commands
-        .spawn_bundle((
-            Transform::from_xyz(0.0, 0.0, -1.0),
-            GlobalTransform::identity(),
-        ))
+        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -1.0)))
         .with_children(|parent| {
             parent.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
         });

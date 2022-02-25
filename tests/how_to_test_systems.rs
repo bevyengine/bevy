@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-#[derive(Default)]
+#[derive(Component, Default)]
 struct Enemy {
     hit_points: u32,
 }

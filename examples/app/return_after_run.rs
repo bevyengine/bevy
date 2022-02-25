@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::pass::ClearColor, winit::WinitConfig};
+use bevy::{prelude::*, winit::WinitConfig};
 
 fn main() {
     println!("Running first App.");

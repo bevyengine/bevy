@@ -276,9 +276,17 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*][arch=arm64]" = (
 					"$(inherited)",
-					../../target/universal/release,
+					"../../target/aarch64-apple-ios/release",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*][arch=arm64]" = (
+					"$(inherited)",
+					"../../target/aarch64-apple-ios-sim/release",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*][arch=x86_64]" = (
+					"$(inherited)",
+					"../../target/x86_64-apple-ios/release",
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -346,7 +354,6 @@
 		8265913A25816D964A847F1B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				IOS_TARGETS = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -376,9 +383,17 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*][arch=arm64]" = (
 					"$(inherited)",
-					../../target/universal/debug,
+					"../../target/aarch64-apple-ios/debug",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*][arch=arm64]" = (
+					"$(inherited)",
+					"../../target/aarch64-apple-ios-sim/debug",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*][arch=x86_64]" = (
+					"$(inherited)",
+					"../../target/x86_64-apple-ios/debug",
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -394,7 +409,6 @@
 		FEA9B18D9236F9F6DC6DF799 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				IOS_TARGETS = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

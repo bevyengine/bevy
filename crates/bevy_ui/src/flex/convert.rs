@@ -114,8 +114,8 @@ impl From<Direction> for stretch::style::Direction {
     fn from(value: Direction) -> Self {
         match value {
             Direction::Inherit => stretch::style::Direction::Inherit,
-            Direction::Ltr => stretch::style::Direction::LTR,
-            Direction::Rtl => stretch::style::Direction::RTL,
+            Direction::LeftToRight => stretch::style::Direction::LTR,
+            Direction::RightToLeft => stretch::style::Direction::RTL,
         }
     }
 }

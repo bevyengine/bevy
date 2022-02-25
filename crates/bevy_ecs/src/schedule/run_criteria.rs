@@ -3,7 +3,7 @@ use crate::{
     component::ComponentId,
     query::Access,
     schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
-    system::{BoxedSystem, IntoSystem, System, SystemId},
+    system::{BoxedSystem, IntoSystem, System},
     world::World,
 };
 use std::borrow::Cow;
@@ -61,12 +61,12 @@ impl Default for BoxedRunCriteria {
 }
 
 impl BoxedRunCriteria {
-    pub fn set(&mut self, criteria_system: BoxedSystem<(), ShouldRun>) {
+    pub(crate) fn set(&mut self, criteria_system: BoxedSystem<(), ShouldRun>) {
         self.criteria_system = Some(criteria_system);
         self.initialized = false;
     }
 
-    pub fn should_run(&mut self, world: &mut World) -> ShouldRun {
+    pub(crate) fn should_run(&mut self, world: &mut World) -> ShouldRun {
         if let Some(ref mut run_criteria) = self.criteria_system {
             if !self.initialized {
                 run_criteria.initialize(world);
@@ -99,16 +99,16 @@ pub(crate) enum RunCriteriaInner {
 }
 
 pub(crate) struct RunCriteriaContainer {
-    pub should_run: ShouldRun,
-    pub inner: RunCriteriaInner,
-    pub label: Option<BoxedRunCriteriaLabel>,
-    pub before: Vec<BoxedRunCriteriaLabel>,
-    pub after: Vec<BoxedRunCriteriaLabel>,
+    pub(crate) should_run: ShouldRun,
+    pub(crate) inner: RunCriteriaInner,
+    pub(crate) label: Option<BoxedRunCriteriaLabel>,
+    pub(crate) before: Vec<BoxedRunCriteriaLabel>,
+    pub(crate) after: Vec<BoxedRunCriteriaLabel>,
     archetype_generation: ArchetypeGeneration,
 }
 
 impl RunCriteriaContainer {
-    pub fn from_descriptor(descriptor: RunCriteriaDescriptor) -> Self {
+    pub(crate) fn from_descriptor(descriptor: RunCriteriaDescriptor) -> Self {
         Self {
             should_run: ShouldRun::Yes,
             inner: match descriptor.system {
@@ -122,21 +122,21 @@ impl RunCriteriaContainer {
         }
     }
 
-    pub fn name(&self) -> Cow<'static, str> {
+    pub(crate) fn name(&self) -> Cow<'static, str> {
         match &self.inner {
             RunCriteriaInner::Single(system) => system.name(),
             RunCriteriaInner::Piped { system, .. } => system.name(),
         }
     }
 
-    pub fn initialize(&mut self, world: &mut World) {
+    pub(crate) fn initialize(&mut self, world: &mut World) {
         match &mut self.inner {
             RunCriteriaInner::Single(system) => system.initialize(world),
             RunCriteriaInner::Piped { system, .. } => system.initialize(world),
         }
     }
 
-    pub fn update_archetypes(&mut self, world: &World) {
+    pub(crate) fn update_archetypes(&mut self, world: &World) {
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -235,7 +235,7 @@ where
 {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
         RunCriteriaDescriptorOrLabel::Descriptor(new_run_criteria_descriptor(Box::new(
-            self.system(),
+            IntoSystem::into_system(self),
         )))
     }
 }
@@ -333,19 +333,20 @@ where
     S: IntoSystem<(), ShouldRun, Param>,
 {
     fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).label(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).label(label)
     }
 
     fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).label_discard_if_duplicate(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self)))
+            .label_discard_if_duplicate(label)
     }
 
     fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).before(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).before(label)
     }
 
     fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        new_run_criteria_descriptor(Box::new(self.system())).after(label)
+        new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).after(label)
     }
 }
 
@@ -366,6 +367,8 @@ impl RunCriteria {
 
 pub trait RunCriteriaPiping {
     /// See [`RunCriteria::pipe()`].
+    // TODO: Support `IntoSystem` here instead, and stop using
+    // `IntoSystem::into_system` in the call sites
     fn pipe(self, system: impl System<In = ShouldRun, Out = ShouldRun>) -> RunCriteriaDescriptor;
 }
 
@@ -396,22 +399,11 @@ where
     }
 }
 
+#[derive(Default)]
 pub struct RunOnce {
     ran: bool,
-    system_id: SystemId,
     archetype_component_access: Access<ArchetypeComponentId>,
     component_access: Access<ComponentId>,
-}
-
-impl Default for RunOnce {
-    fn default() -> Self {
-        Self {
-            ran: false,
-            system_id: SystemId::new(),
-            archetype_component_access: Default::default(),
-            component_access: Default::default(),
-        }
-    }
 }
 
 impl System for RunOnce {
@@ -420,10 +412,6 @@ impl System for RunOnce {
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed(std::any::type_name::<RunOnce>())
-    }
-
-    fn id(&self) -> SystemId {
-        self.system_id
     }
 
     fn new_archetype(&mut self, _archetype: &Archetype) {}

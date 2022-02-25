@@ -3,26 +3,36 @@ use bevy_asset::{Asset, Handle};
 use parking_lot::RwLock;
 use std::{collections::VecDeque, fmt};
 
-/// The external struct used to play audio
-pub struct Audio<P = AudioSource>
+/// Use this resource to play audio
+///
+/// ```
+/// # use bevy_ecs::system::Res;
+/// # use bevy_asset::AssetServer;
+/// # use bevy_audio::Audio;
+/// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
+///     audio.play(asset_server.load("my_sound.ogg"));
+/// }
+/// ```
+pub struct Audio<Source = AudioSource>
 where
-    P: Asset + Decodable,
+    Source: Asset + Decodable,
 {
-    pub queue: RwLock<VecDeque<Handle<P>>>,
+    /// Queue for playing audio from asset handles
+    pub queue: RwLock<VecDeque<Handle<Source>>>,
 }
 
-impl<P: Asset> fmt::Debug for Audio<P>
+impl<Source: Asset> fmt::Debug for Audio<Source>
 where
-    P: Decodable,
+    Source: Decodable,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Audio").field("queue", &self.queue).finish()
     }
 }
 
-impl<P> Default for Audio<P>
+impl<Source> Default for Audio<Source>
 where
-    P: Asset + Decodable,
+    Source: Asset + Decodable,
 {
     fn default() -> Self {
         Self {
@@ -31,13 +41,21 @@ where
     }
 }
 
-impl<P> Audio<P>
+impl<Source> Audio<Source>
 where
-    P: Asset + Decodable,
-    <P as Decodable>::Decoder: rodio::Source + Send + Sync,
-    <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
+    Source: Asset + Decodable,
 {
-    pub fn play(&self, audio_source: Handle<P>) {
+    /// Play audio from a [`Handle`] to the audio source
+    ///
+    /// ```
+    /// # use bevy_ecs::system::Res;
+    /// # use bevy_asset::AssetServer;
+    /// # use bevy_audio::Audio;
+    /// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
+    ///     audio.play(asset_server.load("my_sound.ogg"));
+    /// }
+    /// ```
+    pub fn play(&self, audio_source: Handle<Source>) {
         self.queue.write().push_front(audio_source);
     }
 }

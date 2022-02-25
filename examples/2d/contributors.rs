@@ -1,37 +1,43 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashSet};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
-    collections::BTreeSet,
-    io::{BufRead, BufReader},
+    env::VarError,
+    io::{self, BufRead, BufReader},
     process::Stdio,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_startup_system(setup_contributor_selection)
         .add_startup_system(setup)
         .add_system(velocity_system)
         .add_system(move_system)
         .add_system(collision_system)
         .add_system(select_system)
+        .insert_resource(SelectTimer(Timer::from_seconds(SHOWCASE_TIMER_SECS, true)))
         .run();
 }
 
-type Contributors = BTreeSet<String>;
+// Store contributors in a collection that preserves the uniqueness
+type Contributors = HashSet<String>;
 
 struct ContributorSelection {
     order: Vec<(String, Entity)>,
     idx: usize,
 }
 
-struct SelectTimer;
+struct SelectTimer(Timer);
 
+#[derive(Component)]
 struct ContributorDisplay;
 
+#[derive(Component)]
 struct Contributor {
     hue: f32,
 }
 
+#[derive(Component)]
 struct Velocity {
     translation: Vec3,
     rotation: f32,
@@ -48,19 +54,21 @@ const ALPHA: f32 = 0.92;
 
 const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let contribs = contributors();
+const CONTRIBUTORS_LIST: &[&str] = &["Carter Anderson", "And Many More"];
+
+fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Load contributors from the git history log or use default values from
+    // the constant array. Contributors must be unique, so they are stored in a HashSet
+    let contribs = contributors().unwrap_or_else(|_| {
+        CONTRIBUTORS_LIST
+            .iter()
+            .map(|name| name.to_string())
+            .collect()
+    });
 
     let texture_handle = asset_server.load("branding/icon.png");
 
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
-
-    let mut sel = ContributorSelection {
+    let mut contributor_selection = ContributorSelection {
         order: vec![],
         idx: 0,
     };
@@ -78,7 +86,7 @@ fn setup(
 
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
-        let e = commands
+        let entity = commands
             .spawn()
             .insert_bundle((
                 Contributor { hue },
@@ -89,26 +97,28 @@ fn setup(
             ))
             .insert_bundle(SpriteBundle {
                 sprite: Sprite {
-                    size: Vec2::new(1.0, 1.0) * SPRITE_SIZE,
-                    resize_mode: SpriteResizeMode::Manual,
+                    custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
+                    color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
                     flip_x: flipped,
                     ..Default::default()
                 },
-                material: materials.add(ColorMaterial {
-                    color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
-                    texture: Some(texture_handle.clone()),
-                }),
+                texture: texture_handle.clone(),
                 transform,
                 ..Default::default()
             })
             .id();
 
-        sel.order.push((name, e));
+        contributor_selection.order.push((name, entity));
     }
 
-    sel.order.shuffle(&mut rnd);
+    contributor_selection.order.shuffle(&mut rnd);
 
-    commands.spawn_bundle((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
+    commands.insert_resource(contributor_selection);
+}
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(UiCameraBundle::default());
 
     commands
         .spawn()
@@ -141,52 +151,40 @@ fn setup(
             },
             ..Default::default()
         });
-
-    commands.insert_resource(sel);
 }
 
 /// Finds the next contributor to display and selects the entity
 fn select_system(
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut sel: ResMut<ContributorSelection>,
-    mut dq: Query<&mut Text, With<ContributorDisplay>>,
-    mut tq: Query<&mut Timer, With<SelectTimer>>,
-    mut q: Query<(&Contributor, &Handle<ColorMaterial>, &mut Transform)>,
+    mut timer: ResMut<SelectTimer>,
+    mut contributor_selection: ResMut<ContributorSelection>,
+    mut text_query: Query<&mut Text, With<ContributorDisplay>>,
+    mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
-    let mut timer_fired = false;
-    for mut t in tq.iter_mut() {
-        if !t.tick(time.delta()).just_finished() {
-            continue;
-        }
-        t.reset();
-        timer_fired = true;
-    }
-
-    if !timer_fired {
+    if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
 
-    let prev = sel.idx;
+    let prev = contributor_selection.idx;
 
-    if (sel.idx + 1) < sel.order.len() {
-        sel.idx += 1;
+    if (contributor_selection.idx + 1) < contributor_selection.order.len() {
+        contributor_selection.idx += 1;
     } else {
-        sel.idx = 0;
+        contributor_selection.idx = 0;
     }
 
     {
-        let (_, e) = &sel.order[prev];
-        if let Ok((c, handle, mut tr)) = q.get_mut(*e) {
-            deselect(&mut *materials, handle.clone(), c, &mut *tr);
+        let (_, entity) = &contributor_selection.order[prev];
+        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
+            deselect(&mut sprite, contributor, &mut *transform);
         }
     }
 
-    let (name, e) = &sel.order[sel.idx];
+    let (name, entity) = &contributor_selection.order[contributor_selection.idx];
 
-    if let Ok((c, handle, mut tr)) = q.get_mut(*e) {
-        if let Some(mut text) = dq.iter_mut().next() {
-            select(&mut *materials, handle, c, &mut *tr, &mut *text, name);
+    if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
+        if let Some(mut text) = text_query.iter_mut().next() {
+            select(&mut sprite, contributor, &mut *transform, &mut *text, name);
         }
     }
 }
@@ -194,47 +192,45 @@ fn select_system(
 /// Change the modulate color to the "selected" colour,
 /// bring the object to the front and display the name.
 fn select(
-    materials: &mut Assets<ColorMaterial>,
-    mat_handle: &Handle<ColorMaterial>,
-    cont: &Contributor,
-    trans: &mut Transform,
+    sprite: &mut Sprite,
+    contributor: &Contributor,
+    transform: &mut Transform,
     text: &mut Text,
     name: &str,
-) -> Option<()> {
-    let mat = materials.get_mut(mat_handle)?;
-    mat.color = Color::hsla(cont.hue, SATURATION_SELECTED, LIGHTNESS_SELECTED, ALPHA);
+) {
+    sprite.color = Color::hsla(
+        contributor.hue,
+        SATURATION_SELECTED,
+        LIGHTNESS_SELECTED,
+        ALPHA,
+    );
 
-    trans.translation.z = 100.0;
+    transform.translation.z = 100.0;
 
     text.sections[0].value = "Contributor: ".to_string();
     text.sections[1].value = name.to_string();
-    text.sections[1].style.color = mat.color;
-
-    Some(())
+    text.sections[1].style.color = sprite.color;
 }
 
 /// Change the modulate color to the "deselected" colour and push
 /// the object to the back.
-fn deselect(
-    materials: &mut Assets<ColorMaterial>,
-    mat_handle: Handle<ColorMaterial>,
-    cont: &Contributor,
-    trans: &mut Transform,
-) -> Option<()> {
-    let mat = materials.get_mut(mat_handle)?;
-    mat.color = Color::hsla(cont.hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA);
+fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
+    sprite.color = Color::hsla(
+        contributor.hue,
+        SATURATION_DESELECTED,
+        LIGHTNESS_DESELECTED,
+        ALPHA,
+    );
 
-    trans.translation.z = 0.0;
-
-    Some(())
+    transform.translation.z = 0.0;
 }
 
 /// Applies gravity to all entities with velocity
-fn velocity_system(time: Res<Time>, mut q: Query<&mut Velocity>) {
+fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
     let delta = time.delta_seconds();
 
-    for mut v in q.iter_mut() {
-        v.translation += Vec3::new(0.0, GRAVITY * delta, 0.0);
+    for mut velocity in velocity_query.iter_mut() {
+        velocity.translation += Vec3::new(0.0, GRAVITY * delta, 0.0);
     }
 }
 
@@ -244,56 +240,62 @@ fn velocity_system(time: Res<Time>, mut q: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collision_system(
-    wins: Res<Windows>,
-    mut q: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
+    windows: Res<Windows>,
+    mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
     let mut rnd = rand::thread_rng();
 
-    let win = wins.get_primary().unwrap();
+    let window = windows.get_primary().unwrap();
 
-    let ceiling = win.height() / 2.;
-    let ground = -(win.height() / 2.);
+    let ceiling = window.height() / 2.;
+    let ground = -(window.height() / 2.);
 
-    let wall_left = -(win.width() / 2.);
-    let wall_right = win.width() / 2.;
+    let wall_left = -(window.width() / 2.);
+    let wall_right = window.width() / 2.;
 
-    for (mut v, mut t) in q.iter_mut() {
-        let left = t.translation.x - SPRITE_SIZE / 2.0;
-        let right = t.translation.x + SPRITE_SIZE / 2.0;
-        let top = t.translation.y + SPRITE_SIZE / 2.0;
-        let bottom = t.translation.y - SPRITE_SIZE / 2.0;
+    for (mut velocity, mut transform) in query.iter_mut() {
+        let left = transform.translation.x - SPRITE_SIZE / 2.0;
+        let right = transform.translation.x + SPRITE_SIZE / 2.0;
+        let top = transform.translation.y + SPRITE_SIZE / 2.0;
+        let bottom = transform.translation.y - SPRITE_SIZE / 2.0;
 
         // clamp the translation to not go out of the bounds
         if bottom < ground {
-            t.translation.y = ground + SPRITE_SIZE / 2.0;
+            transform.translation.y = ground + SPRITE_SIZE / 2.0;
             // apply an impulse upwards
-            v.translation.y = rnd.gen_range(700.0..1000.0);
+            velocity.translation.y = rnd.gen_range(700.0..1000.0);
         }
         if top > ceiling {
-            t.translation.y = ceiling - SPRITE_SIZE / 2.0;
+            transform.translation.y = ceiling - SPRITE_SIZE / 2.0;
         }
         // on side walls flip the horizontal velocity
         if left < wall_left {
-            t.translation.x = wall_left + SPRITE_SIZE / 2.0;
-            v.translation.x *= -1.0;
-            v.rotation *= -1.0;
+            transform.translation.x = wall_left + SPRITE_SIZE / 2.0;
+            velocity.translation.x *= -1.0;
+            velocity.rotation *= -1.0;
         }
         if right > wall_right {
-            t.translation.x = wall_right - SPRITE_SIZE / 2.0;
-            v.translation.x *= -1.0;
-            v.rotation *= -1.0;
+            transform.translation.x = wall_right - SPRITE_SIZE / 2.0;
+            velocity.translation.x *= -1.0;
+            velocity.rotation *= -1.0;
         }
     }
 }
 
 /// Apply velocity to positions and rotations.
-fn move_system(time: Res<Time>, mut q: Query<(&Velocity, &mut Transform)>) {
+fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
 
-    for (v, mut t) in q.iter_mut() {
-        t.translation += delta * v.translation;
-        t.rotate(Quat::from_rotation_z(v.rotation * delta));
+    for (velocity, mut transform) in query.iter_mut() {
+        transform.translation += delta * velocity.translation;
+        transform.rotate(Quat::from_rotation_z(velocity.rotation * delta));
     }
+}
+
+enum LoadContributorsError {
+    IO(io::Error),
+    Var(VarError),
+    Stdout,
 }
 
 /// Get the names of all contributors from the git log.
@@ -301,21 +303,22 @@ fn move_system(time: Res<Time>, mut q: Query<(&Velocity, &mut Transform)>) {
 /// The names are deduplicated.
 /// This function only works if `git` is installed and
 /// the program is run through `cargo`.
-fn contributors() -> Contributors {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .expect("This example needs to run through `cargo run --example`.");
+fn contributors() -> Result<Contributors, LoadContributorsError> {
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(LoadContributorsError::Var)?;
 
     let mut cmd = std::process::Command::new("git")
         .args(&["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
         .spawn()
-        .expect("`git` needs to be installed.");
+        .map_err(LoadContributorsError::IO)?;
 
-    let stdout = cmd.stdout.take().expect("`Child` should have a stdout.");
+    let stdout = cmd.stdout.take().ok_or(LoadContributorsError::Stdout)?;
 
-    BufReader::new(stdout)
+    let contributors = BufReader::new(stdout)
         .lines()
         .filter_map(|x| x.ok())
-        .collect()
+        .collect();
+
+    Ok(contributors)
 }

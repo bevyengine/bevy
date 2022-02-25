@@ -29,6 +29,7 @@ fn setup(
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
         ..Default::default()
     });
@@ -37,6 +38,7 @@ fn setup(
     let red_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgba(1.0, 0.0, 0.0, 0.5),
         base_color_texture: Some(texture_handle.clone()),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
         ..Default::default()
     });
@@ -45,6 +47,7 @@ fn setup(
     let blue_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
         base_color_texture: Some(texture_handle),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
         ..Default::default()
     });
@@ -58,10 +61,6 @@ fn setup(
             rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
             ..Default::default()
         },
-        visible: Visible {
-            is_transparent: true,
-            ..Default::default()
-        },
         ..Default::default()
     });
     // textured quad - modulated
@@ -73,10 +72,6 @@ fn setup(
             rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
             ..Default::default()
         },
-        visible: Visible {
-            is_transparent: true,
-            ..Default::default()
-        },
         ..Default::default()
     });
     // textured quad - modulated
@@ -86,10 +81,6 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(0.0, 0.0, -1.5),
             rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ..Default::default()
-        },
-        visible: Visible {
-            is_transparent: true,
             ..Default::default()
         },
         ..Default::default()

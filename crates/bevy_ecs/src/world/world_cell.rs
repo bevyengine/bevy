@@ -1,7 +1,7 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    component::Component,
     storage::SparseSet,
+    system::Resource,
     world::{Mut, World},
 };
 use std::{
@@ -90,12 +90,11 @@ impl<'w, T> WorldBorrow<'w, T> {
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
     ) -> Self {
-        if !access.borrow_mut().read(archetype_component_id) {
-            panic!(
-                "Attempted to immutably access {}, but it is already mutably borrowed",
-                std::any::type_name::<T>()
-            )
-        }
+        assert!(
+            access.borrow_mut().read(archetype_component_id),
+            "Attempted to immutably access {}, but it is already mutably borrowed",
+            std::any::type_name::<T>(),
+        );
         Self {
             value,
             archetype_component_id,
@@ -132,12 +131,11 @@ impl<'w, T> WorldBorrowMut<'w, T> {
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
     ) -> Self {
-        if !access.borrow_mut().write(archetype_component_id) {
-            panic!(
-                "Attempted to mutably access {}, but it is already mutably borrowed",
-                std::any::type_name::<T>()
-            )
-        }
+        assert!(
+            access.borrow_mut().write(archetype_component_id),
+            "Attempted to mutably access {}, but it is already mutably borrowed",
+            std::any::type_name::<T>(),
+        );
         Self {
             value,
             archetype_component_id,
@@ -182,7 +180,7 @@ impl<'w> WorldCell<'w> {
         }
     }
 
-    pub fn get_resource<T: Component>(&self) -> Option<WorldBorrow<'_, T>> {
+    pub fn get_resource<T: Resource>(&self) -> Option<WorldBorrow<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
@@ -194,7 +192,7 @@ impl<'w> WorldCell<'w> {
         ))
     }
 
-    pub fn get_resource_mut<T: Component>(&self) -> Option<WorldBorrowMut<'_, T>> {
+    pub fn get_resource_mut<T: Resource>(&self) -> Option<WorldBorrowMut<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
@@ -296,7 +294,7 @@ mod tests {
             .components
             .get_resource_id(TypeId::of::<u32>())
             .unwrap();
-        let resource_archetype = world.archetypes.get(ArchetypeId::resource()).unwrap();
+        let resource_archetype = world.archetypes.get(ArchetypeId::RESOURCE).unwrap();
         let u32_archetype_component_id = resource_archetype
             .get_archetype_component_id(u32_component_id)
             .unwrap();

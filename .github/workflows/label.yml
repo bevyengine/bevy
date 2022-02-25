@@ -1,8 +1,6 @@
 name: PR-Labeler
-on: 
+on:
   pull_request_target:
-    branches:
-      - main
     types:
       - opened
 
@@ -15,4 +13,3 @@ jobs:
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         configuration-path: .github/label-config.yml
-        sync-labels: true

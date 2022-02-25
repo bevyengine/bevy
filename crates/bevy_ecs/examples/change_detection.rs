@@ -46,7 +46,7 @@ struct EntityCounter {
 }
 
 // This struct represents a Component and holds the age in frames of the entity it gets assigned to
-#[derive(Default, Debug)]
+#[derive(Component, Default, Debug)]
 struct Age {
     frames: i32,
 }

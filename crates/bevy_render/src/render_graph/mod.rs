@@ -1,21 +1,14 @@
-pub mod base;
-mod command;
+mod context;
 mod edge;
 mod graph;
 mod node;
 mod node_slot;
-mod nodes;
-mod schedule;
-mod system;
 
-pub use command::*;
+pub use context::*;
 pub use edge::*;
 pub use graph::*;
 pub use node::*;
 pub use node_slot::*;
-pub use nodes::*;
-pub use schedule::*;
-pub use system::*;
 
 use thiserror::Error;
 
@@ -23,8 +16,10 @@ use thiserror::Error;
 pub enum RenderGraphError {
     #[error("node does not exist")]
     InvalidNode(NodeLabel),
-    #[error("node slot does not exist")]
-    InvalidNodeSlot(SlotLabel),
+    #[error("output node slot does not exist")]
+    InvalidOutputNodeSlot(SlotLabel),
+    #[error("input node slot does not exist")]
+    InvalidInputNodeSlot(SlotLabel),
     #[error("node does not match the given type")]
     WrongNodeType,
     #[error("attempted to connect a node output slot to an incompatible input node slot")]

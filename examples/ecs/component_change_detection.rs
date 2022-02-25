@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-#[derive(Debug)]
+#[derive(Component, Debug)]
 struct MyComponent(f64);
 
 fn setup(mut commands: Commands) {

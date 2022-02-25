@@ -1,13 +1,14 @@
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    window::PresentMode,
 };
 
 /// This example is for debugging text layout
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            vsync: false,
+            present_mode: PresentMode::Immediate,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
@@ -17,6 +18,7 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {

@@ -10,8 +10,11 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 struct AnimateTranslation;
+#[derive(Component)]
 struct AnimateRotation;
+#[derive(Component)]
 struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
