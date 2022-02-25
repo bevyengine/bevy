@@ -14,7 +14,7 @@ const BIRD_SCALE: f32 = 0.15;
 const HALF_BIRD_SIZE: f32 = 256. * BIRD_SCALE * 0.5;
 
 struct BevyCounter {
-    pub count: u128,
+    pub count: usize,
     pub color: Color,
 }
 
@@ -57,8 +57,8 @@ fn main() {
 }
 
 struct BirdScheduled {
-    wave: u128,
-    per_wave: u128,
+    wave: usize,
+    per_wave: usize,
 }
 
 fn scheduled_spawner(
@@ -149,11 +149,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(BirdScheduled {
         per_wave: std::env::args()
             .nth(1)
-            .and_then(|arg| arg.parse::<u128>().ok())
+            .and_then(|arg| arg.parse::<usize>().ok())
             .unwrap_or_default(),
         wave: std::env::args()
             .nth(2)
-            .and_then(|arg| arg.parse::<u128>().ok())
+            .and_then(|arg| arg.parse::<usize>().ok())
             .unwrap_or(1),
     });
 }
@@ -172,7 +172,7 @@ fn mouse_handler(
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
-        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as u128;
+        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as usize;
         spawn_birds(
             &mut commands,
             &windows,
@@ -187,7 +187,7 @@ fn spawn_birds(
     commands: &mut Commands,
     windows: &Windows,
     counter: &mut BevyCounter,
-    spawn_count: u128,
+    spawn_count: usize,
     texture: Handle<Image>,
 ) {
     let window = windows.get_primary().unwrap();
