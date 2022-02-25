@@ -113,31 +113,24 @@ impl SpecializedPipeline for SpritePipeline {
     type Key = SpritePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut vertex_buffer_layout = VertexBufferLayout {
-            array_stride: 20,
-            step_mode: VertexStepMode::Vertex,
-            attributes: vec![
-                VertexAttribute {
-                    format: VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                VertexAttribute {
-                    format: VertexFormat::Float32x2,
-                    offset: 12,
-                    shader_location: 1,
-                },
-            ],
-        };
+        let mut formats = vec![
+            // position
+            VertexFormat::Float32x3,
+            // uv
+            VertexFormat::Float32x2,
+        ];
+
+        if key.contains(SpritePipelineKey::COLORED) {
+            // color
+            formats.push(VertexFormat::Uint32);
+        }
+
+        let vertex_layout =
+            VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
+
         let mut shader_defs = Vec::new();
         if key.contains(SpritePipelineKey::COLORED) {
             shader_defs.push("COLORED".to_string());
-            vertex_buffer_layout.attributes.push(VertexAttribute {
-                format: VertexFormat::Uint32,
-                offset: 20,
-                shader_location: 2,
-            });
-            vertex_buffer_layout.array_stride += 4;
         }
 
         RenderPipelineDescriptor {
@@ -145,7 +138,7 @@ impl SpecializedPipeline for SpritePipeline {
                 shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![vertex_buffer_layout],
+                buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),

@@ -1,7 +1,9 @@
 extern crate proc_macro;
 
 mod component;
+mod fetch;
 
+use crate::fetch::derive_world_query_impl;
 use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -46,7 +48,7 @@ impl Parse for AllTuples {
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
-    let len = (input.start..=input.end).count();
+    let len = input.end - input.start;
     let mut ident_tuples = Vec::with_capacity(len);
     for i in input.start..=input.end {
         let idents = input
@@ -66,7 +68,7 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
-        let ident_tuples = &ident_tuples[0..i];
+        let ident_tuples = &ident_tuples[0..i - input.start];
         quote! {
             #macro_ident!(#(#ident_tuples),*);
         }
@@ -423,6 +425,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
     })
+}
+
+/// Implement `WorldQuery` to use a struct as a parameter in a query
+#[proc_macro_derive(WorldQuery, attributes(world_query))]
+pub fn derive_world_query(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    derive_world_query_impl(ast)
 }
 
 #[proc_macro_derive(SystemLabel)]
