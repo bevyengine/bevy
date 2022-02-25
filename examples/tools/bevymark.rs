@@ -8,7 +8,6 @@ use rand::{thread_rng, Rng};
 use std::fmt::Write;
 
 const BIRDS_PER_SECOND: u32 = 10000;
-const _BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
 const GRAVITY: f32 = -9.8 * 100.0;
 const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
@@ -24,6 +23,9 @@ struct Bird {
     velocity: Vec3,
 }
 
+/// This example provides a 2D benchmark.
+///
+/// Usage: spawn more entities by clicking on the screen.
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -221,8 +223,6 @@ fn spawn_birds(
 }
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
-    // Use for_each style iteration here and in the collision_system because it's faster thanks to
-    // better LLVM optimization opportunities (see transrangers) and hoisted branching.
     bird_query.for_each_mut(|(mut bird, mut transform)| {
         transform.translation.x += bird.velocity.x * time.delta_seconds();
         transform.translation.y += bird.velocity.y * time.delta_seconds();
@@ -262,6 +262,7 @@ fn counter_system(
 ) {
     let mut text = query.single_mut();
 
+    // Re-use string buffers here and below (clear + write) to save an allocation
     if counter.is_changed() {
         text.sections[1].value.clear();
         write!(text.sections[1].value, "{}", counter.count).unwrap();
