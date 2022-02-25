@@ -32,7 +32,7 @@ fn main() {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,
-            present_mode: PresentMode::Mailbox,
+            present_mode: PresentMode::Immediate,
             resizable: true,
             ..Default::default()
         })
