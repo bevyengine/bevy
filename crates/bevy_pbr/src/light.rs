@@ -233,6 +233,8 @@ impl Default for ClusterZConfig {
 
 #[derive(Debug, Copy, Clone, Component)]
 pub enum ClusterConfig {
+    // disable light cluster calculations for this view
+    None,
     // one single cluster. Optimal for low-light complexity scenes or scenes where
     // most lights impact the entire scene
     Single,
@@ -265,6 +267,7 @@ impl Default for ClusterConfig {
 impl ClusterConfig {
     fn dimensions_for_screen_size(&self, screen_size: UVec2) -> UVec3 {
         match &self {
+            ClusterConfig::None => UVec3::ZERO,
             ClusterConfig::Single => UVec3::ONE,
             ClusterConfig::XYZ { dimensions, .. } => *dimensions,
             ClusterConfig::FixedZ {
@@ -282,6 +285,7 @@ impl ClusterConfig {
 
     fn first_slice_depth(&self) -> f32 {
         match self {
+            ClusterConfig::None => 0.0,
             ClusterConfig::Single => 1.0e9, // FIXME note can't use f32::MAX as the aabb explodes
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.first_slice_depth
@@ -291,6 +295,7 @@ impl ClusterConfig {
 
     fn far_z_mode(&self) -> ClusterFarZMode {
         match self {
+            ClusterConfig::None => ClusterFarZMode::Constant(0.0),
             ClusterConfig::Single => ClusterFarZMode::Constant(1.0e9), // FIXME note can't use f32::MAX as the aabb explodes
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.far_z_mode
@@ -683,6 +688,11 @@ pub fn assign_lights_to_clusters(
     let light_count = lights.iter().count();
     let mut global_lights_set = HashSet::with_capacity(light_count);
     for (view_entity, view_transform, camera, frustum, config, mut clusters) in views.iter_mut() {
+        if matches!(config, ClusterConfig::None) {
+            commands.entity(view_entity).remove::<VisiblePointLights>();
+            continue;
+        }
+
         let view_transform = view_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
@@ -694,11 +704,11 @@ pub fn assign_lights_to_clusters(
         let far_z = match config.far_z_mode() {
             ClusterFarZMode::CameraFarPlane => camera.far,
             ClusterFarZMode::MaxLightRange => lights
-                    .iter()
+                .iter()
                 .map(|(_light_entity, light_transform, light)| {
                     (inverse_view_transform * light_transform.translation.extend(1.0)).z * -1.0
                         + light.range
-                    })
+                })
                 .reduce(f32::max)
                 .unwrap_or(0.0),
             ClusterFarZMode::Constant(far) => far,
@@ -722,51 +732,51 @@ pub fn assign_lights_to_clusters(
             < (cluster_dimensions.x * cluster_dimensions.y * cluster_dimensions.z) as usize
                 * light_count
         {
-        let mut cluster_index_estimate = 0.0;
-        for (_light_entity, light_transform, light) in lights.iter() {
-            let light_sphere = Sphere {
-                center: light_transform.translation,
-                radius: light.range,
-            };
+            let mut cluster_index_estimate = 0.0;
+            for (_light_entity, light_transform, light) in lights.iter() {
+                let light_sphere = Sphere {
+                    center: light_transform.translation,
+                    radius: light.range,
+                };
 
-            // Check if the light is within the view frustum
-            if !frustum.intersects_sphere(&light_sphere) {
-                continue;
-            }
+                // Check if the light is within the view frustum
+                if !frustum.intersects_sphere(&light_sphere) {
+                    continue;
+                }
 
-            // calculate a conservative aabb estimate of number of clusters affected by this light
-            // this overestimates index counts by at most 50% (and typically much less) when the whole light range is in view
-            // it can overestimate more significantly when light ranges are only partially in view
+                // calculate a conservative aabb estimate of number of clusters affected by this light
+                // this overestimates index counts by at most 50% (and typically much less) when the whole light range is in view
+                // it can overestimate more significantly when light ranges are only partially in view
                 let (light_aabb_min, light_aabb_max) = cluster_space_light_aabb(
-                is_orthographic,
-                inverse_view_transform,
-                camera.projection_matrix,
-                &light_sphere,
-            );
+                    is_orthographic,
+                    inverse_view_transform,
+                    camera.projection_matrix,
+                    &light_sphere,
+                );
 
-            // since we won't adjust z slices we can calculate exact number of slices required in z dimension
-            let z_cluster_min = view_z_to_z_slice(
-                cluster_factors,
-                cluster_dimensions.z as f32,
+                // since we won't adjust z slices we can calculate exact number of slices required in z dimension
+                let z_cluster_min = view_z_to_z_slice(
+                    cluster_factors,
+                    cluster_dimensions.z as f32,
                     light_aabb_min.z,
-                is_orthographic,
-            );
-            let z_cluster_max = view_z_to_z_slice(
-                cluster_factors,
-                cluster_dimensions.z as f32,
+                    is_orthographic,
+                );
+                let z_cluster_max = view_z_to_z_slice(
+                    cluster_factors,
+                    cluster_dimensions.z as f32,
                     light_aabb_max.z,
-                is_orthographic,
-            );
+                    is_orthographic,
+                );
                 let z_count =
                     z_cluster_min.max(z_cluster_max) - z_cluster_min.min(z_cluster_max) + 1;
 
-            // calculate x/y count using floats to avoid overestimating counts due to large initial tile sizes
+                // calculate x/y count using floats to avoid overestimating counts due to large initial tile sizes
                 let xy_min = light_aabb_min.xy();
                 let xy_max = light_aabb_max.xy();
-            // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each dimension
+                // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each dimension
                 let xy_count = (xy_max - xy_min)
-                * 0.5
-                * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32);
+                    * 0.5
+                    * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32);
 
                 // add up to 2 to each axis to account for overlap
                 let x_overlap = if xy_min.x <= -1.0 { 0.0 } else { 1.0 }
@@ -775,17 +785,17 @@ pub fn assign_lights_to_clusters(
                     + if xy_max.y >= 1.0 { 0.0 } else { 1.0 };
                 cluster_index_estimate +=
                     (xy_count.x + x_overlap) * (xy_count.y + y_overlap) * z_count as f32;
-        }
+            }
 
             if cluster_index_estimate > max_indices as f32 {
-            // scale x and y cluster count to be able to fit all our indices
+                // scale x and y cluster count to be able to fit all our indices
 
                 // we take the ratio of the actual indices over the index estimate.
                 // this not not guaranteed to be small enough due to overlapped tiles, but
                 // the conservative estimate is more than sufficient to cover the
                 // difference
                 let index_ratio = max_indices as f32 / cluster_index_estimate as f32;
-            let xy_ratio = index_ratio.sqrt();
+                let xy_ratio = index_ratio.sqrt();
 
                 cluster_dimensions.x =
                     ((cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
