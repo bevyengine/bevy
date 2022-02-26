@@ -1,6 +1,6 @@
 use std::borrow::{Borrow, Cow};
 
-/// The named field of a struct
+/// The named field of a reflected struct
 #[derive(Clone, Debug)]
 pub struct NamedField {
     name: Cow<'static, str>,
@@ -15,12 +15,12 @@ impl NamedField {
         }
     }
 
-    /// Returns the name of the field
+    /// The name of the field
     pub fn name(&self) -> &str {
         self.name.borrow()
     }
 
-    /// Returns the type of the field
+    /// The type name of the field
     pub fn type_name(&self) -> &str {
         self.type_name.borrow()
     }
