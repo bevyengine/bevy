@@ -816,10 +816,40 @@ impl World {
         self.get_resource_unchecked_mut_with_id(component_id)
     }
 
+    /// Gets an immutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    /// Panics if the resource does not exist.
+    /// Use [`try_get_non_send_resource`](World::try_get_non_send_resource) instead if you want to handle this case.
+    #[inline]
+    pub fn get_non_send_resource<R: 'static>(&self) -> &R {
+        self.try_get_non_send_resource().unwrap_or_else(|| {
+            panic!(
+                "Requested non-send resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
+                std::any::type_name::<R>()
+            )
+        })
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    /// Panics if the resource does not exist.
+    /// Use [`try_get_non_send_resource_mut`](World::try_get_non_send_resource_mut) instead if you want to handle this case.
+    #[inline]
+    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        self.try_get_non_send_resource_mut().unwrap_or_else(|| {
+            panic!(
+                "Requested non-send resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
+                std::any::type_name::<R>()
+            )
+        })
+    }
+
     /// Gets a reference to the non-send resource of the given type, if it exists.
     /// Otherwise returns [None]
     #[inline]
-    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+    pub fn try_get_non_send_resource<R: 'static>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         // SAFE: component id matches type T
         unsafe { self.get_non_send_with_id(component_id) }
@@ -828,7 +858,7 @@ impl World {
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     /// Otherwise returns [None]
     #[inline]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn try_get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
         unsafe { self.get_non_send_resource_unchecked_mut() }
     }
