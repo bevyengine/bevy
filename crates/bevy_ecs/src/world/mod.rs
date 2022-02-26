@@ -749,8 +749,12 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> &R {
-        self.try_get_resource()
-            .expect("Could not find resource in `World`. Did you forget to add it?")
+        self.try_get_resource().unwrap_or_else(|| {
+            panic!(
+                "Requested resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
+                std::any::type_name::<R>()
+            )
+        })
     }
 
     /// Gets a mutable reference to the resource of the given type
@@ -764,8 +768,12 @@ impl World {
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
         // SAFE: unique world access
-        self.try_get_resource_mut()
-            .expect("Could not find resource in `World`. Did you forget to add it?")
+        self.try_get_resource_mut().unwrap_or_else(|| {
+            panic!(
+                "Requested resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
+                std::any::type_name::<R>()
+            )
+        })
     }
 
     /// Gets a reference to the resource of the given type if it exists
