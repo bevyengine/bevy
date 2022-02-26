@@ -123,7 +123,9 @@ pub struct Mesh2dPipeline {
 
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world
+            .get_resource::<RenderDevice>()
+            .expect("RenderDevice resource does not exist");
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -166,7 +168,9 @@ impl FromWorld for Mesh2dPipeline {
             let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world.get_resource_mut::<RenderQueue>().unwrap();
+            let render_queue = world
+                .get_resource_mut::<RenderQueue>()
+                .expect("Unable to get mutable reference to RenderQueue resource");
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -181,7 +185,7 @@ impl FromWorld for Mesh2dPipeline {
                         std::num::NonZeroU32::new(
                             image.texture_descriptor.size.width * format_size as u32,
                         )
-                        .unwrap(),
+                        .expect("Unable to create a non-zero u32"),
                     ),
                     rows_per_image: None,
                 },
@@ -245,7 +249,8 @@ impl Mesh2dPipelineKey {
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Mesh2dPipelineKey::from_bits(msaa_bits).unwrap()
+        Mesh2dPipelineKey::from_bits(msaa_bits)
+            .expect("Unable to convert the underlying MSAA bit representation to Mesh2dPipelineKey")
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -256,7 +261,7 @@ impl Mesh2dPipelineKey {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Mesh2dPipelineKey::from_bits(primitive_topology_bits).unwrap()
+        Mesh2dPipelineKey::from_bits(primitive_topology_bits).expect("Unable to convert the underlying PrimitiveTopology bit representation to Mesh2dPipelineKey")
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -400,7 +405,7 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, mesh2d_view_bind_group) = view_query.get(view).unwrap();
+        let (view_uniform, mesh2d_view_bind_group) = view_query.get(view).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", view.id()));
         pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
         RenderCommandResult::Success
@@ -420,7 +425,7 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dBindGroup<I> {
         (mesh2d_bind_group, mesh2d_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh2d_index = mesh2d_query.get(item).unwrap();
+        let mesh2d_index = mesh2d_query.get(item).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.id()));
         pass.set_bind_group(
             I,
             &mesh2d_bind_group.into_inner().value,
@@ -440,7 +445,7 @@ impl EntityRenderCommand for DrawMesh2d {
         (meshes, mesh2d_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = &mesh2d_query.get(item).unwrap().0;
+        let mesh_handle = &mesh2d_query.get(item).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.id())).0;
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {
