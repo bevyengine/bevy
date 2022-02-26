@@ -263,7 +263,7 @@ mod test {
             0,
             *world
                 .get_resource::<Count>()
-                .expect("Could not find `Count` in the `World`.")
+                .expect("Could not get the `Count` resource from the `World`")
         );
         assert_eq!(0., get_accumulator_deciseconds(&world));
 
