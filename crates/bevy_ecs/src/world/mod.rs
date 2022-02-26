@@ -748,9 +748,9 @@ impl World {
     /// If you want to instead insert a value if the resource does not exist,
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
-    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        unsafe { self.get_resource_with_id(component_id) }
+    pub fn get_resource<R: Resource>(&self) -> &R {
+        self.try_get_resource()
+            .expect("Could not find resource in `World`. Did you forget to add it?")
     }
 
     /// Gets a mutable reference to the resource of the given type
@@ -762,7 +762,22 @@ impl World {
     /// If you want to instead insert a value if the resource does not exist,
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        // SAFE: unique world access
+        self.try_get_resource_mut()
+            .expect("Could not find resource in `World`. Did you forget to add it?")
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    #[inline]
+    pub fn try_get_resource<R: Resource>(&self) -> Option<&R> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        unsafe { self.get_resource_with_id(component_id) }
+    }
+
+    /// Gets a mutable reference to the resource of the given type if it exists
+    #[inline]
+    pub fn try_get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
         unsafe { self.get_resource_unchecked_mut() }
     }
