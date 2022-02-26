@@ -30,6 +30,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
+use std::any::Any;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
@@ -39,7 +40,9 @@ pub struct SpritePipeline {
 impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world
+            .get_resource::<RenderDevice>()
+            .expect("Unable to get a reference to RenderDevice resource");
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -101,7 +104,8 @@ impl SpritePipelineKey {
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        SpritePipelineKey::from_bits(msaa_bits).unwrap()
+        SpritePipelineKey::from_bits(msaa_bits)
+            .expect("Unable to convert the underlying MSAA bit representation to SpritePipelineKey")
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -202,7 +206,7 @@ pub fn extract_sprite_events(
 ) {
     let mut events = render_world
         .get_resource_mut::<SpriteAssetEvents>()
-        .unwrap();
+        .expect("Unable to get a mutable reference to SpriteAssetEvents resource");
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
@@ -233,7 +237,9 @@ pub fn extract_sprites(
         &Handle<TextureAtlas>,
     )>,
 ) {
-    let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
+    let mut extracted_sprites = render_world
+        .get_resource_mut::<ExtractedSprites>()
+        .expect("Unable to get a mutable reference to ExtractedSprites resource");
     extracted_sprites.sprites.clear();
     for (visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible {
@@ -374,7 +380,9 @@ pub fn queue_sprites(
             layout: &sprite_pipeline.view_layout,
         }));
 
-        let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
+        let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().expect(
+            "Unable to retrieve the id of the Draw function for DrawSprite associated type.",
+        );
         let key = SpritePipelineKey::from_msaa_samples(msaa.samples);
         let pipeline = pipelines.specialize(&mut pipeline_cache, &sprite_pipeline, key);
         let colored_pipeline = pipelines.specialize(
@@ -571,10 +579,14 @@ impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
         (sprite_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform = view_query.get(view).unwrap();
+        let view_uniform = view_query.get(view).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", view.id()));
         pass.set_bind_group(
             I,
-            sprite_meta.into_inner().view_bind_group.as_ref().unwrap(),
+            sprite_meta
+                .into_inner()
+                .view_bind_group
+                .as_ref()
+                .expect("Unable to convert from &Option<T> to Option<&T>"),
             &[view_uniform.offset],
         );
         RenderCommandResult::Success
@@ -590,7 +602,7 @@ impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
         (image_bind_groups, query_batch): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item).unwrap();
+        let sprite_batch = query_batch.get(item).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.id()));
         let image_bind_groups = image_bind_groups.into_inner();
 
         pass.set_bind_group(
@@ -598,7 +610,7 @@ impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
             image_bind_groups
                 .values
                 .get(&Handle::weak(sprite_batch.image_handle_id))
-                .unwrap(),
+                .expect("Unable to get a value that corresponds to the given HandleId key"),
             &[],
         );
         RenderCommandResult::Success
@@ -615,14 +627,34 @@ impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
         (sprite_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item.entity()).unwrap();
+        let sprite_batch = query_batch.get(item.entity()).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.entity().id()));
         let sprite_meta = sprite_meta.into_inner();
         if sprite_batch.colored {
-            pass.set_vertex_buffer(0, sprite_meta.colored_vertices.buffer().unwrap().slice(..));
+            pass.set_vertex_buffer(
+                0,
+                sprite_meta
+                    .colored_vertices
+                    .buffer()
+                    .expect("Unable to get an optional reference to Buffer")
+                    .slice(..),
+            );
         } else {
-            pass.set_vertex_buffer(0, sprite_meta.vertices.buffer().unwrap().slice(..));
+            pass.set_vertex_buffer(
+                0,
+                sprite_meta
+                    .vertices
+                    .buffer()
+                    .expect("Unable to get an optional reference to Buffer")
+                    .slice(..),
+            );
         }
-        pass.draw(item.batch_range().as_ref().unwrap().clone(), 0..1);
+        pass.draw(
+            item.batch_range()
+                .as_ref()
+                .expect("Unable to convert from &Option<T> to Option<&T>")
+                .clone(),
+            0..1,
+        );
         RenderCommandResult::Success
     }
 }
