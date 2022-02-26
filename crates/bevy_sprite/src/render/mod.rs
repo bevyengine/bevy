@@ -30,7 +30,6 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
-use std::any::Any;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
