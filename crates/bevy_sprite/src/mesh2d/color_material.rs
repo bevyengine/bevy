@@ -36,7 +36,6 @@ impl Plugin for ColorMaterialPlugin {
 
         app.world
             .get_resource_mut::<Assets<ColorMaterial>>()
-            .unwrap()
             .set_untracked(
                 Handle::<ColorMaterial>::default(),
                 ColorMaterial {
