@@ -742,8 +742,9 @@ impl World {
     /// Gets a reference to the resource of the given type
     ///
     /// # Panics
+    ///
     /// Panics if the resource does not exist.
-    /// Use [`try_get_resource_mut`](World::try_get_resource) instead if you want to handle this case.
+    /// Use [`try_get_resource`](World::try_get_resource) instead if you want to handle this case.
     ///
     /// If you want to instead insert a value if the resource does not exist,
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
@@ -760,6 +761,7 @@ impl World {
     /// Gets a mutable reference to the resource of the given type
     ///
     /// # Panics
+    ///
     /// Panics if the resource does not exist.
     /// Use [`try_get_resource_mut`](World::try_get_resource_mut) instead if you want to handle this case.
     ///
@@ -819,6 +821,7 @@ impl World {
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
     ///
     /// # Panics
+    ///
     /// Panics if the resource does not exist.
     /// Use [`try_get_non_send_resource`](World::try_get_non_send_resource) instead if you want to handle this case.
     #[inline]
@@ -834,6 +837,7 @@ impl World {
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     ///
     /// # Panics
+    ///
     /// Panics if the resource does not exist.
     /// Use [`try_get_non_send_resource_mut`](World::try_get_non_send_resource_mut) instead if you want to handle this case.
     #[inline]
