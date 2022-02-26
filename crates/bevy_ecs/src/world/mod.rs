@@ -705,13 +705,6 @@ impl World {
         self.get_populated_resource_column(component_id).is_some()
     }
 
-    /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None]
-    #[inline]
-    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        unsafe { self.get_resource_with_id(component_id) }
-    }
-
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         let component_id =
             if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
@@ -746,7 +739,28 @@ impl World {
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
 
-    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    /// Panics if the resource does not exist.
+    /// Use [`try_get_resource_mut`](World::try_get_resource) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        unsafe { self.get_resource_with_id(component_id) }
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    /// Panics if the resource does not exist.
+    /// Use [`try_get_resource_mut`](World::try_get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
@@ -754,7 +768,7 @@ impl World {
     }
 
     // PERF: optimize this to avoid redundant lookups
-    /// Gets a resource of type `T` if it exists,
+    /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
     #[inline]
     pub fn get_resource_or_insert_with<R: Resource>(
