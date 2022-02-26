@@ -428,4 +428,106 @@ mod tests {
             std::any::type_name::<TestTupleStruct>()
         );
     }
+
+    #[test]
+    fn reflect_type_info() {
+        // Struct
+        #[derive(Reflect)]
+        struct MyStruct {
+            foo: i32,
+            bar: usize,
+        }
+
+        let info = MyStruct::type_info();
+        if let TypeInfo::Struct(info) = info {
+            assert_eq!(std::any::type_name::<MyStruct>(), info.name());
+            assert_eq!(std::any::type_name::<i32>(), info.field("foo").unwrap().type_name());
+            assert_eq!("foo", info.field("foo").unwrap().name());
+            assert_eq!(std::any::type_name::<usize>(), info.field_at(1).unwrap().type_name());
+        } else {
+            panic!("Expected `TypeInfo::Struct`");
+        }
+
+        // Tuple Struct
+        #[derive(Reflect)]
+        struct MyTupleStruct(usize, i32, MyStruct);
+
+        let info = MyTupleStruct::type_info();
+        if let TypeInfo::TupleStruct(info) = info {
+            assert_eq!(std::any::type_name::<MyTupleStruct>(), info.name());
+            assert_eq!(std::any::type_name::<i32>(), info.field_at(1).unwrap().type_name());
+        } else {
+            panic!("Expected `TypeInfo::TupleStruct`");
+        }
+
+        // Tuple
+        type MyTuple = (u32, f32, String);
+
+        let info = MyTuple::type_info();
+        if let TypeInfo::Tuple(info) = info {
+            assert_eq!(std::any::type_name::<MyTuple>(), info.name());
+            assert_eq!(std::any::type_name::<f32>(), info.field_at(1).unwrap().type_name());
+        } else {
+            panic!("Expected `TypeInfo::Tuple`");
+        }
+
+        // List
+        type MyList = Vec<usize>;
+
+        let info = MyList::type_info();
+        if let TypeInfo::List(info) = info {
+            assert_eq!(std::any::type_name::<MyList>(), info.name());
+            assert_eq!(std::any::type_name::<usize>(), info.item_type());
+            assert_eq!(None, info.capacity());
+        } else {
+            panic!("Expected `TypeInfo::List`");
+        }
+
+        // List (with capacity)
+        #[cfg(feature = "smallvec")]
+        {
+            type MyListWithCapacity = smallvec::SmallVec<[String; 123]>;
+
+            let info = MyListWithCapacity::type_info();
+            if let TypeInfo::List(info) = info {
+                assert_eq!(std::any::type_name::<MyListWithCapacity>(), info.name());
+                assert_eq!(std::any::type_name::<String>(), info.item_type());
+                assert_eq!(Some(123usize), info.capacity());
+            } else {
+                panic!("Expected `TypeInfo::List`");
+            }
+        }
+
+        // Map
+        type MyMap = HashMap<usize, f32>;
+
+        let info = MyMap::type_info();
+        if let TypeInfo::Map(info) = info {
+            assert_eq!(std::any::type_name::<MyMap>(), info.name());
+            assert_eq!(std::any::type_name::<usize>(), info.key_type());
+            assert_eq!(std::any::type_name::<f32>(), info.value_type());
+        } else {
+            panic!("Expected `TypeInfo::Map`");
+        }
+
+        // Value
+        type MyValue = String;
+
+        let info = MyValue::type_info();
+        if let TypeInfo::Value(info) = info {
+            assert_eq!(std::any::type_name::<MyValue>(), info.name());
+        } else {
+            panic!("Expected `TypeInfo::Value`");
+        }
+
+        // Dynamic
+        type MyDynamic = DynamicList;
+
+        let info = MyDynamic::type_info();
+        if let TypeInfo::Dynamic(info) = info {
+            assert_eq!(std::any::type_name::<MyDynamic>(), info.name());
+        } else {
+            panic!("Expected `TypeInfo::Dynamic`");
+        }
+    }
 }
