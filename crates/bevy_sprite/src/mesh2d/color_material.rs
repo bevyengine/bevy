@@ -36,7 +36,7 @@ impl Plugin for ColorMaterialPlugin {
 
         app.world
             .get_resource_mut::<Assets<ColorMaterial>>()
-            .unwrap()
+            .expect("Unable to get mutable reference to ColorMaterial Resource")
             .set_untracked(
                 Handle::<ColorMaterial>::default(),
                 ColorMaterial {
