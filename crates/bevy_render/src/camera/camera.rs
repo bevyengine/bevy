@@ -130,6 +130,21 @@ impl Camera {
         world_position: Vec3,
     ) -> Option<Vec2> {
         let window_size = self.target.get_logical_size(windows, images)?;
+
+        if let Some(ndc_space_coords) = self.world_to_ndc(camera_transform, world_position) {
+            // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
+            let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
+            Some(screen_space_coords)
+        } else {
+            None
+        }
+    }
+    /// Given a position in world space, use the camera to compute the screen space coordinates.
+    pub fn world_to_ndc(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Option<Vec3> {
         // Build a transform to convert from world to NDC using camera data
         let world_to_ndc: Mat4 =
             self.projection_matrix * camera_transform.compute_matrix().inverse();
@@ -138,10 +153,9 @@ impl Camera {
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
-        // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
-        if !screen_space_coords.is_nan() {
-            Some(screen_space_coords)
+
+        if !ndc_space_coords.is_nan() {
+            Some(ndc_space_coords)
         } else {
             None
         }
