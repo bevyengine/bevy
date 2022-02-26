@@ -237,7 +237,7 @@ pub fn winit_runner_with(mut app: App) {
 
     let should_return_from_run = app
         .world
-        .get_resource::<WinitConfig>()
+        .try_get_resource::<WinitConfig>()
         .map_or(false, |config| config.return_from_run);
 
     let mut active = true;
@@ -247,7 +247,7 @@ pub fn winit_runner_with(mut app: App) {
                               control_flow: &mut ControlFlow| {
         *control_flow = ControlFlow::Poll;
 
-        if let Some(app_exit_events) = app.world.get_resource_mut::<Events<AppExit>>() {
+        if let Some(app_exit_events) = app.world.try_get_resource_mut::<Events<AppExit>>() {
             if app_exit_event_reader
                 .iter(&app_exit_events)
                 .next_back()
@@ -487,8 +487,7 @@ pub fn winit_runner_with(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta },
                 ..
             } => {
-                let mut mouse_motion_events =
-                    app.world.get_resource_mut::<Events<MouseMotion>>().unwrap();
+                let mut mouse_motion_events = app.world.get_resource_mut::<Events<MouseMotion>>();
                 mouse_motion_events.send(MouseMotion {
                     delta: Vec2::new(delta.0 as f32, delta.1 as f32),
                 });

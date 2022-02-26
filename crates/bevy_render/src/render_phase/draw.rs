@@ -317,7 +317,7 @@ impl AddRenderCommand for App {
         let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
         let draw_functions = self
             .world
-            .get_resource::<DrawFunctions<P>>()
+            .try_get_resource::<DrawFunctions<P>>()
             .unwrap_or_else(|| {
                 panic!(
                     "DrawFunctions<{}> must be added to the world as a resource \

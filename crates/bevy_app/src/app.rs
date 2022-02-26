@@ -841,8 +841,7 @@ impl App {
         {
             let registry = self
                 .world
-                .get_resource_mut::<bevy_reflect::TypeRegistryArc>()
-                .unwrap();
+                .get_resource_mut::<bevy_reflect::TypeRegistryArc>();
             registry.write().register::<T>();
         }
         self

@@ -44,7 +44,6 @@ impl Plugin for ImagePlugin {
             .add_asset::<Image>();
         app.world
             .get_resource_mut::<Assets<Image>>()
-            .unwrap()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {

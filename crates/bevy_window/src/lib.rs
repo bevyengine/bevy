@@ -57,13 +57,10 @@ impl Plugin for WindowPlugin {
         if self.add_primary_window {
             let window_descriptor = app
                 .world
-                .get_resource::<WindowDescriptor>()
+                .try_get_resource::<WindowDescriptor>()
                 .map(|descriptor| (*descriptor).clone())
                 .unwrap_or_default();
-            let mut create_window_event = app
-                .world
-                .get_resource_mut::<Events<CreateWindow>>()
-                .unwrap();
+            let mut create_window_event = app.world.get_resource_mut::<Events<CreateWindow>>();
             create_window_event.send(CreateWindow {
                 id: WindowId::primary(),
                 descriptor: window_descriptor,

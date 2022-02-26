@@ -793,7 +793,7 @@ impl World {
         if !self.contains_resource::<R>() {
             self.insert_resource(func());
         }
-        self.get_resource_mut().unwrap()
+        self.get_resource_mut()
     }
 
     /// Gets a mutable reference to the resource of the given type, if it exists
