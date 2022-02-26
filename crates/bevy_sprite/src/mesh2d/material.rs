@@ -227,7 +227,11 @@ impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M>
         }
 
         if let Some(fragment_shader) = &self.fragment_shader {
-            descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
+            descriptor
+                .fragment
+                .as_mut()
+                .expect("Unable to mutably access the RenderPipelineDescriptor fragment state")
+                .shader = fragment_shader.clone();
         }
         descriptor.layout = Some(vec![
             self.mesh2d_pipeline.view_layout.clone(),
@@ -242,12 +246,19 @@ impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M>
 
 impl<M: SpecializedMaterial2d> FromWorld for Material2dPipeline<M> {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let asset_server = world
+            .get_resource::<AssetServer>()
+            .expect("Unable to get an existing reference to AssetServer resource");
+        let render_device = world
+            .get_resource::<RenderDevice>()
+            .expect("Unable to get an existing reference to RenderDevice resource");
         let material2d_layout = M::bind_group_layout(render_device);
 
         Material2dPipeline {
-            mesh2d_pipeline: world.get_resource::<Mesh2dPipeline>().unwrap().clone(),
+            mesh2d_pipeline: world
+                .get_resource::<Mesh2dPipeline>()
+                .expect("Unable to get an existing reference to Mesh2dPipeline resource")
+                .clone(),
             material2d_layout,
             vertex_shader: M::vertex_shader(asset_server),
             fragment_shader: M::fragment_shader(asset_server),
@@ -275,8 +286,17 @@ impl<M: SpecializedMaterial2d, const I: usize> EntityRenderCommand
         (materials, query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d_handle = query.get(item).unwrap();
-        let material2d = materials.into_inner().get(material2d_handle).unwrap();
+        let material2d_handle = query.get(item).expect(&format!(
+            "No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found",
+            item.id()
+        ));
+        let material2d = materials
+            .into_inner()
+            .get(material2d_handle)
+            .expect(&format!(
+                "Unable to find RenderAsset from Material2dHandle with ID {:?}",
+                material2d_handle.id
+            ));
         pass.set_bind_group(
             I,
             M::bind_group(material2d),
@@ -305,7 +325,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
         let draw_transparent_pbr = transparent_draw_functions
             .read()
             .get_id::<DrawMaterial2d<M>>()
-            .unwrap();
+            .expect("Unable to retrieve the id of the Draw function for DrawMaterial2d.");
 
         let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
 
