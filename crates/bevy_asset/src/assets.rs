@@ -307,8 +307,7 @@ impl AddAsset for App {
             self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
             let mut app = self
                 .world
-                .get_non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>()
-                .unwrap();
+                .get_non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
             app.add_asset::<T>()
                 .init_resource::<crate::debug_asset_server::HandleMap<T>>();
         }
@@ -331,8 +330,7 @@ impl AddAsset for App {
         {
             let mut app = self
                 .world
-                .get_non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>()
-                .unwrap();
+                .get_non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
             app.init_asset_loader::<T>();
         }
         self
@@ -356,8 +354,7 @@ macro_rules! load_internal_asset {
         {
             let mut debug_app = $app
                 .world
-                .get_non_send_resource_mut::<bevy_asset::debug_asset_server::DebugAssetApp>()
-                .unwrap();
+                .get_non_send_resource_mut::<bevy_asset::debug_asset_server::DebugAssetApp>();
             bevy_asset::debug_asset_server::register_handle_with_loader(
                 $loader,
                 &mut debug_app,
