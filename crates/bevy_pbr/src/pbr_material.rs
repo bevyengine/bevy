@@ -348,7 +348,7 @@ impl SpecializedMaterial for StandardMaterial {
             descriptor
                 .fragment
                 .as_mut()
-                .unwrap()
+                .expect("Could not mutate fragment shader for Normal map.")
                 .shader_defs
                 .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
         }

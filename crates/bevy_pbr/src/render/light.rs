@@ -165,7 +165,9 @@ pub struct ShadowPipeline {
 impl FromWorld for ShadowPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world
+            .get_resource::<RenderDevice>()
+            .expect("Could not find `RenderDevice` in `World`.");
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -184,7 +186,9 @@ impl FromWorld for ShadowPipeline {
             label: Some("shadow_view_layout"),
         });
 
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+        let mesh_pipeline = world
+            .get_resource::<MeshPipeline>()
+            .expect("Could not find `MeshPipeline` in `World`.");
 
         ShadowPipeline {
             view_layout,
@@ -229,7 +233,9 @@ impl ShadowPipelineKey {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits(primitive_topology_bits).unwrap()
+        Self::from_bits(primitive_topology_bits).unwrap_or_else(|| {
+            panic!("Could not create `ShadowPipelineKey` from {primitive_topology_bits} bits.")
+        })
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -692,7 +698,7 @@ pub fn prepare_lights(
             let light_index = *global_light_meta
                 .entity_to_index
                 .get(&light_entity)
-                .unwrap();
+                .expect("Could not get light index.");
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
@@ -1050,10 +1056,11 @@ pub fn queue_shadows(
         let draw_shadow_mesh = shadow_draw_functions
             .read()
             .get_id::<DrawShadowMesh>()
-            .unwrap();
+            .expect("Could not get `DrawShadowMesh` for `Shadow`.");
         for view_light_entity in view_lights.lights.iter().copied() {
-            let (light_entity, mut shadow_phase) =
-                view_light_shadow_phases.get_mut(view_light_entity).unwrap();
+            let (light_entity, mut shadow_phase) = view_light_shadow_phases
+                .get_mut(view_light_entity)
+                .expect("Could not get light entity.");
             let visible_entities = match light_entity {
                 LightEntity::Directional { light_entity } => directional_light_entities
                     .get(*light_entity)
@@ -1173,7 +1180,7 @@ impl Node for ShadowPassNode {
                 let (view_light, shadow_phase) = self
                     .view_light_query
                     .get_manual(world, view_light_entity)
-                    .unwrap();
+                    .expect("Could not get light entity from `World`.");
                 let pass_descriptor = RenderPassDescriptor {
                     label: Some(&view_light.pass_name),
                     color_attachments: &[],
@@ -1187,14 +1194,18 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-                let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
+                let draw_functions = world
+                    .get_resource::<DrawFunctions<Shadow>>()
+                    .expect("Could not find `DrawFunctions` for `Shadow` in `World`.");
                 let render_pass = render_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);
                 let mut draw_functions = draw_functions.write();
                 let mut tracked_pass = TrackedRenderPass::new(render_pass);
                 for item in &shadow_phase.items {
-                    let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+                    let draw_function = draw_functions
+                        .get_mut(item.draw_function)
+                        .expect("Could not get draw function for shadow phase item.");
                     draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
                 }
             }
@@ -1221,14 +1232,16 @@ impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
         (light_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform_offset = view_query.get(view).unwrap();
+        let view_uniform_offset = view_query
+            .get(view)
+            .expect("Could not get view uniform offset.");
         pass.set_bind_group(
             I,
             light_meta
                 .into_inner()
                 .shadow_view_bind_group
                 .as_ref()
-                .unwrap(),
+                .expect("Could not bind shadow view group to render pass."),
             &[view_uniform_offset.offset],
         );
 

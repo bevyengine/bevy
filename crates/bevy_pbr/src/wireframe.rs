@@ -79,7 +79,10 @@ pub struct WireframePipeline {
 impl FromWorld for WireframePipeline {
     fn from_world(render_world: &mut World) -> Self {
         WireframePipeline {
-            mesh_pipeline: render_world.get_resource::<MeshPipeline>().unwrap().clone(),
+            mesh_pipeline: render_world
+                .get_resource::<MeshPipeline>()
+                .expect("Could not find `MeshPipeline` in `World`.")
+                .clone(),
             shader: WIREFRAME_SHADER_HANDLE.typed(),
         }
     }
@@ -95,9 +98,18 @@ impl SpecializedMeshPipeline for WireframePipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone_weak();
-        descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
+        descriptor
+            .fragment
+            .as_mut()
+            .expect("Could not mutate fragment shader.")
+            .shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
-        descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        descriptor
+            .depth_stencil
+            .as_mut()
+            .expect("Could not mutate depth stencil.")
+            .bias
+            .slope_scale = 1.0;
         Ok(descriptor)
     }
 }
@@ -121,7 +133,7 @@ fn queue_wireframes(
     let draw_custom = opaque_3d_draw_functions
         .read()
         .get_id::<DrawWireframes>()
-        .unwrap();
+        .expect("Could not get `DrawWireframes` for `Opaque3d`.");
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();

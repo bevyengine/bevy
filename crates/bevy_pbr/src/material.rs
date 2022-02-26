@@ -243,7 +243,11 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
         }
 
         if let Some(fragment_shader) = &self.fragment_shader {
-            descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
+            descriptor
+                .fragment
+                .as_mut()
+                .expect("Could not mutate Fragment Shader.")
+                .shader = fragment_shader.clone();
         }
         descriptor.layout = Some(vec![
             self.mesh_pipeline.view_layout.clone(),
@@ -258,12 +262,19 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
 
 impl<M: SpecializedMaterial> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let asset_server = world
+            .get_resource::<AssetServer>()
+            .expect("Could not find `AssetServer` in `World`.");
+        let render_device = world
+            .get_resource::<RenderDevice>()
+            .expect("Could not find `RenderDevice` in `World`.");
         let material_layout = M::bind_group_layout(render_device);
 
         MaterialPipeline {
-            mesh_pipeline: world.get_resource::<MeshPipeline>().unwrap().clone(),
+            mesh_pipeline: world
+                .get_resource::<MeshPipeline>()
+                .expect("Could not find `MeshPipeline` in `World`.")
+                .clone(),
             material_layout,
             vertex_shader: M::vertex_shader(asset_server),
             fragment_shader: M::fragment_shader(asset_server),
@@ -289,8 +300,11 @@ impl<M: SpecializedMaterial, const I: usize> EntityRenderCommand for SetMaterial
         (materials, query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material_handle = query.get(item).unwrap();
-        let material = materials.into_inner().get(material_handle).unwrap();
+        let material_handle = query.get(item).expect("Could not find entity.");
+        let material = materials
+            .into_inner()
+            .get(material_handle)
+            .expect("Could not load material.");
         pass.set_bind_group(
             I,
             M::bind_group(material),
@@ -326,15 +340,15 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
         let draw_opaque_pbr = opaque_draw_functions
             .read()
             .get_id::<DrawMaterial<M>>()
-            .unwrap();
+            .expect("Could not get `DrawMaterial` for `Opaque3d`");
         let draw_alpha_mask_pbr = alpha_mask_draw_functions
             .read()
             .get_id::<DrawMaterial<M>>()
-            .unwrap();
+            .expect("Could not get `DrawMaterial` for `AlphaMask3d`");
         let draw_transparent_pbr = transparent_draw_functions
             .read()
             .get_id::<DrawMaterial<M>>()
-            .unwrap();
+            .expect("Could not get `DrawMaterial` for `Transparent3d`");
 
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);

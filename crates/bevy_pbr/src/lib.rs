@@ -125,7 +125,7 @@ impl Plugin for PbrPlugin {
 
         app.world
             .get_resource_mut::<Assets<StandardMaterial>>()
-            .unwrap()
+            .expect("Could not find `Asset` of `StandardMaterial` in `World`.")
             .set_untracked(
                 Handle::<StandardMaterial>::default(),
                 StandardMaterial {
@@ -180,24 +180,30 @@ impl Plugin for PbrPlugin {
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut graph = render_app
+            .world
+            .get_resource_mut::<RenderGraph>()
+            .expect("Could not find `RenderGraph` in `World`.");
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
-            .unwrap();
+            .expect("Could not find a mutable 3d sub graph in `RenderGraph`.");
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
         draw_3d_graph
             .add_node_edge(
                 draw_3d_graph::node::SHADOW_PASS,
                 bevy_core_pipeline::draw_3d_graph::node::MAIN_PASS,
             )
-            .unwrap();
+            .expect("Could not add node edge to 3d graph.");
         draw_3d_graph
             .add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
+                draw_3d_graph
+                    .input_node()
+                    .expect("Could not get input node for 3d graph.")
+                    .id,
                 bevy_core_pipeline::draw_3d_graph::input::VIEW_ENTITY,
                 draw_3d_graph::node::SHADOW_PASS,
                 ShadowPassNode::IN_VIEW,
             )
-            .unwrap();
+            .expect("Could not add slot edge for 3d graph.");
     }
 }

@@ -165,7 +165,9 @@ pub struct MeshPipeline {
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world
+            .get_resource::<RenderDevice>()
+            .expect("Could not find `RenderDevice` in `World`.");
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -301,7 +303,9 @@ impl FromWorld for MeshPipeline {
             let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world.get_resource_mut::<RenderQueue>().unwrap();
+            let render_queue = world
+                .get_resource_mut::<RenderQueue>()
+                .expect("Could not find `RenderQueue` in `World`.");
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -316,7 +320,9 @@ impl FromWorld for MeshPipeline {
                         std::num::NonZeroU32::new(
                             image.texture_descriptor.size.width * format_size as u32,
                         )
-                        .unwrap(),
+                        .unwrap_or_else(|| {
+                            panic!("Could not write texture with format size {format_size}.")
+                        }),
                     ),
                     rows_per_image: None,
                 },
@@ -380,7 +386,8 @@ impl MeshPipelineKey {
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        MeshPipelineKey::from_bits(msaa_bits).unwrap()
+        MeshPipelineKey::from_bits(msaa_bits)
+            .unwrap_or_else(|| panic!("Could not create `MeshPipelineKey` from {msaa_bits} bits."))
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -391,7 +398,11 @@ impl MeshPipelineKey {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        MeshPipelineKey::from_bits(primitive_topology_bits).unwrap()
+        MeshPipelineKey::from_bits(primitive_topology_bits).unwrap_or_else(|| {
+            panic!(
+                "Could not create `MeshPipelineKey` from {primitive_topology_bits} topology bits."
+            )
+        })
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -589,14 +600,14 @@ pub fn queue_mesh_view_bind_groups(
                         resource: view_cluster_bindings
                             .cluster_light_index_lists
                             .binding()
-                            .unwrap(),
+                            .expect("Could not create `BindGroupEntry`."),
                     },
                     BindGroupEntry {
                         binding: 8,
                         resource: view_cluster_bindings
                             .cluster_offsets_and_counts
                             .binding()
-                            .unwrap(),
+                            .expect("Could not create `BindGroupEntry`."),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),
@@ -624,7 +635,8 @@ impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, view_lights, mesh_view_bind_group) = view_query.get(view).unwrap();
+        let (view_uniform, view_lights, mesh_view_bind_group) =
+            view_query.get(view).expect("Could not get view.");
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
@@ -648,7 +660,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
         (mesh_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_index = mesh_query.get(item).unwrap();
+        let mesh_index = mesh_query.get(item).expect("Could not get mesh index.");
         pass.set_bind_group(
             I,
             &mesh_bind_group.into_inner().value,
@@ -668,7 +680,7 @@ impl EntityRenderCommand for DrawMesh {
         (meshes, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = mesh_query.get(item).unwrap();
+        let mesh_handle = mesh_query.get(item).expect("Could not get mesh handle.");
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {
