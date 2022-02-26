@@ -28,7 +28,9 @@ impl DynamicTextureAtlasBuilder {
             texture.texture_descriptor.size.height as i32 + self.padding,
         ));
         if let Some(allocation) = allocation {
-            let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
+            let atlas_texture = textures
+                .get_mut(&texture_atlas.texture)
+                .expect("Unable to get mutable reference to the TextureAtlas");
             self.place_texture(atlas_texture, allocation, texture);
             let mut rect: Rect = allocation.rectangle.into();
             rect.max.x -= self.padding as f32;
