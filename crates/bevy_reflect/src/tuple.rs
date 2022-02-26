@@ -2,7 +2,10 @@ use std::any::Any;
 use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
 
-use crate::{serde::Serializable, FromReflect, Reflect, ReflectMut, ReflectRef, UnnamedField, TypeInfo, create_tuple_fields, DynamicInfo};
+use crate::{
+    create_tuple_fields, serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut,
+    ReflectRef, TypeInfo, UnnamedField,
+};
 
 /// A reflected Rust tuple.
 ///
@@ -303,7 +306,10 @@ unsafe impl Reflect for DynamicTuple {
         None
     }
 
-    fn type_info() -> TypeInfo where Self: Sized {
+    fn type_info() -> TypeInfo
+    where
+        Self: Sized,
+    {
         TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }

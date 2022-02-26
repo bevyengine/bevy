@@ -1,7 +1,9 @@
 use std::any::Any;
 use std::borrow::{Borrow, Cow};
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef, FromReflect, TypeInfo, DynamicInfo};
+use crate::{
+    serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeInfo,
+};
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
 pub trait List: Reflect {
@@ -48,7 +50,7 @@ impl ListInfo {
         Self {
             name: Cow::Owned(std::any::type_name::<T>().to_string()),
             item_type: Cow::Owned(std::any::type_name::<I>().to_string()),
-            capacity
+            capacity,
         }
     }
 
@@ -194,7 +196,10 @@ unsafe impl Reflect for DynamicList {
         None
     }
 
-    fn type_info() -> TypeInfo where Self: Sized {
+    fn type_info() -> TypeInfo
+    where
+        Self: Sized,
+    {
         TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }

@@ -1,5 +1,5 @@
-use std::borrow::{Borrow, Cow};
 use crate::{ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo, UnnamedField};
+use std::borrow::{Borrow, Cow};
 
 /// Compile-time type information for various object types
 #[derive(Debug, Clone)]
@@ -19,13 +19,13 @@ pub enum TypeInfo {
 /// A container for compile-time info related to general value types, including primitives
 #[derive(Debug, Clone)]
 pub struct ValueInfo {
-    name: Cow<'static, str>
+    name: Cow<'static, str>,
 }
 
 impl ValueInfo {
     pub fn new<T: Reflect>() -> Self {
         Self {
-            name: Cow::Owned(std::any::type_name::<T>().to_string())
+            name: Cow::Owned(std::any::type_name::<T>().to_string()),
         }
     }
 
@@ -37,13 +37,13 @@ impl ValueInfo {
 
 #[derive(Debug, Clone)]
 pub struct DynamicInfo {
-    name: Cow<'static, str>
+    name: Cow<'static, str>,
 }
 
 impl DynamicInfo {
     pub fn new<T: Reflect>() -> Self {
         Self {
-            name: Cow::Owned(std::any::type_name::<T>().to_string())
+            name: Cow::Owned(std::any::type_name::<T>().to_string()),
         }
     }
 

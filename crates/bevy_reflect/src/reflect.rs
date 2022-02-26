@@ -135,7 +135,9 @@ pub unsafe trait Reflect: Any + Send + Sync {
     fn serializable(&self) -> Option<Serializable>;
 
     /// Returns the compile-time info for the underlying type
-    fn type_info() -> TypeInfo where Self: Sized;
+    fn type_info() -> TypeInfo
+    where
+        Self: Sized;
 }
 
 /// A trait for types which can be constructed from a reflected type.

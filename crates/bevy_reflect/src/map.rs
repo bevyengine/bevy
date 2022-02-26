@@ -4,7 +4,7 @@ use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef, TypeInfo, DynamicInfo};
+use crate::{serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -224,7 +224,10 @@ unsafe impl Reflect for DynamicMap {
         None
     }
 
-    fn type_info() -> TypeInfo where Self: Sized {
+    fn type_info() -> TypeInfo
+    where
+        Self: Sized,
+    {
         TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }

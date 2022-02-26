@@ -441,9 +441,15 @@ mod tests {
         let info = MyStruct::type_info();
         if let TypeInfo::Struct(info) = info {
             assert_eq!(std::any::type_name::<MyStruct>(), info.name());
-            assert_eq!(std::any::type_name::<i32>(), info.field("foo").unwrap().type_name());
+            assert_eq!(
+                std::any::type_name::<i32>(),
+                info.field("foo").unwrap().type_name()
+            );
             assert_eq!("foo", info.field("foo").unwrap().name());
-            assert_eq!(std::any::type_name::<usize>(), info.field_at(1).unwrap().type_name());
+            assert_eq!(
+                std::any::type_name::<usize>(),
+                info.field_at(1).unwrap().type_name()
+            );
         } else {
             panic!("Expected `TypeInfo::Struct`");
         }
@@ -455,7 +461,10 @@ mod tests {
         let info = MyTupleStruct::type_info();
         if let TypeInfo::TupleStruct(info) = info {
             assert_eq!(std::any::type_name::<MyTupleStruct>(), info.name());
-            assert_eq!(std::any::type_name::<i32>(), info.field_at(1).unwrap().type_name());
+            assert_eq!(
+                std::any::type_name::<i32>(),
+                info.field_at(1).unwrap().type_name()
+            );
         } else {
             panic!("Expected `TypeInfo::TupleStruct`");
         }
@@ -466,7 +475,10 @@ mod tests {
         let info = MyTuple::type_info();
         if let TypeInfo::Tuple(info) = info {
             assert_eq!(std::any::type_name::<MyTuple>(), info.name());
-            assert_eq!(std::any::type_name::<f32>(), info.field_at(1).unwrap().type_name());
+            assert_eq!(
+                std::any::type_name::<f32>(),
+                info.field_at(1).unwrap().type_name()
+            );
         } else {
             panic!("Expected `TypeInfo::Tuple`");
         }

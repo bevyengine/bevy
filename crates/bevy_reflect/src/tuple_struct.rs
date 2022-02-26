@@ -1,4 +1,7 @@
-use crate::{create_tuple_fields, serde::Serializable, Reflect, ReflectMut, ReflectRef, UnnamedField, TypeInfo, DynamicInfo};
+use crate::{
+    create_tuple_fields, serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef,
+    TypeInfo, UnnamedField,
+};
 use std::any::Any;
 use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
@@ -298,7 +301,10 @@ unsafe impl Reflect for DynamicTupleStruct {
         None
     }
 
-    fn type_info() -> TypeInfo where Self: Sized {
+    fn type_info() -> TypeInfo
+    where
+        Self: Sized,
+    {
         TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }

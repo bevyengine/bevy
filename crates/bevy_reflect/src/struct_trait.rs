@@ -1,4 +1,6 @@
-use crate::{serde::Serializable, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, DynamicInfo};
+use crate::{
+    serde::Serializable, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo,
+};
 use bevy_utils::{Entry, HashMap};
 use std::borrow::Borrow;
 use std::slice::Iter;
@@ -384,7 +386,10 @@ unsafe impl Reflect for DynamicStruct {
         None
     }
 
-    fn type_info() -> TypeInfo where Self: Sized {
+    fn type_info() -> TypeInfo
+    where
+        Self: Sized,
+    {
         TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }

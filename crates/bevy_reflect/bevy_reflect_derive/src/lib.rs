@@ -191,9 +191,7 @@ fn impl_struct(
         .collect::<Vec<_>>();
     let field_types = active_fields
         .iter()
-        .map(|(field, _index)| {
-            field.ty.clone()
-        })
+        .map(|(field, _index)| field.ty.clone())
         .collect::<Vec<_>>();
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
@@ -350,9 +348,7 @@ fn impl_tuple_struct(
         .collect::<Vec<_>>();
     let field_types = active_fields
         .iter()
-        .map(|(field, _index)| {
-            field.ty.clone()
-        })
+        .map(|(field, _index)| field.ty.clone())
         .collect::<Vec<_>>();
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
