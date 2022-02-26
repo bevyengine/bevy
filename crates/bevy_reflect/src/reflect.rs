@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, List, Map, Struct, Tuple, TupleStruct};
+use crate::{serde::Serializable, List, Map, Struct, Tuple, TupleStruct, TypeInfo};
 use std::{any::Any, fmt::Debug};
 
 pub use bevy_utils::AHasher as ReflectHasher;
@@ -133,6 +133,9 @@ pub unsafe trait Reflect: Any + Send + Sync {
     ///
     /// If the underlying type does not support serialization, returns `None`.
     fn serializable(&self) -> Option<Serializable>;
+
+    /// Returns the compile-time info for the underlying type
+    fn type_info() -> TypeInfo where Self: Sized;
 }
 
 /// A trait for types which can be constructed from a reflected type.

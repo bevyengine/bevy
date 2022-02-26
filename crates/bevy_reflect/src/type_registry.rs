@@ -1,4 +1,4 @@
-use crate::Reflect;
+use crate::{Reflect, TypeInfo};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -129,6 +129,14 @@ impl TypeRegistry {
             .and_then(|registration| registration.data::<T>())
     }
 
+    /// Returns the [`TypeInfo`] associated with the given `TypeId`.
+    ///
+    /// If the specified type has not been registered, returns `None`.
+    pub fn get_type_info(&self, type_id: TypeId) -> Option<&TypeInfo> {
+        self.get(type_id)
+            .and_then(|registration| Some(registration.type_info()))
+    }
+
     /// Returns an iterator overed the [`TypeRegistration`]s of the registered
     /// types.
     pub fn iter(&self) -> impl Iterator<Item = &TypeRegistration> {
@@ -167,6 +175,7 @@ pub struct TypeRegistration {
     short_name: String,
     name: &'static str,
     data: HashMap<TypeId, Box<dyn TypeData>>,
+    type_info: TypeInfo,
 }
 
 impl TypeRegistration {
@@ -198,6 +207,11 @@ impl TypeRegistration {
             .and_then(|value| value.downcast_mut())
     }
 
+    /// Returns a reference to the registration's [`TypeInfo`]
+    pub fn type_info(&self) -> &TypeInfo {
+        &self.type_info
+    }
+
     /// Inserts an instance of `T` into this registration's type data.
     ///
     /// If another instance of `T` was previously inserted, it is replaced.
@@ -214,6 +228,7 @@ impl TypeRegistration {
             data: HashMap::default(),
             name: type_name,
             short_name: Self::get_short_name(type_name),
+            type_info: T::type_info(),
         }
     }
 
@@ -285,6 +300,7 @@ impl Clone for TypeRegistration {
             name: self.name,
             short_name: self.short_name.clone(),
             type_id: self.type_id,
+            type_info: self.type_info.clone(),
         }
     }
 }

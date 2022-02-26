@@ -1,9 +1,5 @@
 use crate as bevy_reflect;
-use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType, GetTypeRegistration,
-    List, ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    TypeRegistration,
-};
+use crate::{map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, ValueInfo};
 
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, HashMap, HashSet};
@@ -142,6 +138,13 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    fn type_info() -> TypeInfo
+    where
+        Self: Sized,
+    {
+        TypeInfo::List(ListInfo::new::<Self, T>(None))
+    }
 }
 
 impl<T: FromReflect + for<'de> Deserialize<'de>> GetTypeRegistration for Vec<T> {
@@ -260,6 +263,13 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    fn type_info() -> TypeInfo
+    where
+        Self: Sized,
+    {
+        TypeInfo::Map(MapInfo::new::<Self, K, V>())
+    }
 }
 
 impl<K, V> GetTypeRegistration for HashMap<K, V>
@@ -348,6 +358,10 @@ unsafe impl Reflect for Cow<'static, str> {
 
     fn serializable(&self) -> Option<Serializable> {
         Some(Serializable::Borrowed(self))
+    }
+
+    fn type_info() -> TypeInfo where Self: Sized {
+        TypeInfo::Value(ValueInfo::new::<Self>())
     }
 }
 

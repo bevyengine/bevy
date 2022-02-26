@@ -189,6 +189,12 @@ fn impl_struct(
                 .unwrap_or_else(|| Member::Unnamed(Index::from(*index)))
         })
         .collect::<Vec<_>>();
+    let field_types = active_fields
+        .iter()
+        .map(|(field, _index)| {
+            field.ty.clone()
+        })
+        .collect::<Vec<_>>();
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
@@ -317,6 +323,15 @@ fn impl_struct(
             fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+
+            fn type_info() -> #bevy_reflect_path::TypeInfo where Self: Sized {
+                let name = std::any::type_name::<Self>();
+                let fields: [(&str, &str); #field_count] = [
+                     #((#field_names, std::any::type_name::<#field_types>()),)*
+                ];
+                let info = #bevy_reflect_path::StructInfo::new(name, fields);
+                #bevy_reflect_path::TypeInfo::Struct(info)
+            }
         }
     })
 }
@@ -332,6 +347,12 @@ fn impl_tuple_struct(
     let field_idents = active_fields
         .iter()
         .map(|(_field, index)| Member::Unnamed(Index::from(*index)))
+        .collect::<Vec<_>>();
+    let field_types = active_fields
+        .iter()
+        .map(|(field, _index)| {
+            field.ty.clone()
+        })
         .collect::<Vec<_>>();
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
@@ -438,6 +459,15 @@ fn impl_tuple_struct(
             fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+
+            fn type_info() -> #bevy_reflect_path::TypeInfo where Self: Sized {
+                let name = std::any::type_name::<Self>();
+                let fields: [&str; #field_count] = [
+                     #(std::any::type_name::<#field_types>(),)*
+                ];
+                let info = #bevy_reflect_path::TupleStructInfo::new(name, fields);
+                #bevy_reflect_path::TypeInfo::TupleStruct(info)
+            }
         }
     })
 }
@@ -513,6 +543,11 @@ fn impl_value(
 
             fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
                 #serialize_fn
+            }
+
+            fn type_info() -> #bevy_reflect_path::TypeInfo where Self: Sized {
+                let info = #bevy_reflect_path::ValueInfo::new::<Self>();
+                #bevy_reflect_path::TypeInfo::Value(info)
             }
         }
     })

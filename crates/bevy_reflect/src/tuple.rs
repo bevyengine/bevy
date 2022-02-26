@@ -1,6 +1,8 @@
 use std::any::Any;
+use std::borrow::{Borrow, Cow};
+use std::slice::Iter;
 
-use crate::{serde::Serializable, FromReflect, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, FromReflect, Reflect, ReflectMut, ReflectRef, UnnamedField, TypeInfo, create_tuple_fields, DynamicInfo};
 
 /// A reflected Rust tuple.
 ///
@@ -117,6 +119,49 @@ impl GetTupleField for dyn Tuple {
     fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
             .and_then(|value| value.downcast_mut::<T>())
+    }
+}
+
+/// A container for compile-time tuple info
+#[derive(Clone, Debug)]
+pub struct TupleInfo {
+    name: Cow<'static, str>,
+    fields: Vec<UnnamedField>,
+}
+
+impl TupleInfo {
+    /// Create a new [`TupleInfo`]
+    ///
+    /// # Arguments
+    ///
+    /// * `name`: The name of the tuple
+    /// * `fields`: An iterator over the field types
+    ///
+    pub fn new<I: Into<String>, F: IntoIterator<Item = I>>(name: I, fields: F) -> Self {
+        Self {
+            name: Cow::Owned(name.into()),
+            fields: create_tuple_fields(fields),
+        }
+    }
+
+    /// The name of this tuple
+    pub fn name(&self) -> &str {
+        self.name.borrow()
+    }
+
+    /// Get a field at the given index
+    pub fn field_at(&self, index: usize) -> Option<&UnnamedField> {
+        self.fields.get(index)
+    }
+
+    /// Iterate over the fields of this tuple
+    pub fn iter(&self) -> Iter<'_, UnnamedField> {
+        self.fields.iter()
+    }
+
+    /// The total number of fields in this tuple
+    pub fn len(&self) -> usize {
+        self.fields.len()
     }
 }
 
@@ -256,6 +301,10 @@ unsafe impl Reflect for DynamicTuple {
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    fn type_info() -> TypeInfo where Self: Sized {
+        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }
 
@@ -397,6 +446,15 @@ macro_rules! impl_reflect_tuple {
 
             fn serializable(&self) -> Option<Serializable> {
                 None
+            }
+
+            fn type_info() -> TypeInfo where Self: Sized {
+                let name = std::any::type_name::<Self>();
+                let fields = [
+                    $(std::any::type_name::<$name>(),)*
+                ];
+                let info = TupleInfo::new(name, fields);
+                TypeInfo::Tuple(info)
             }
         }
 

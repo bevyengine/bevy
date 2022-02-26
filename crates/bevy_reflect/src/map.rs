@@ -1,8 +1,10 @@
 use std::any::Any;
+use std::borrow::{Borrow, Cow};
+use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef, TypeInfo, DynamicInfo};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -41,6 +43,40 @@ pub trait Map: Reflect {
 
     /// Clones the map, producing a [`DynamicMap`].
     fn clone_dynamic(&self) -> DynamicMap;
+}
+
+/// A container for compile-time map info
+#[derive(Clone, Debug)]
+pub struct MapInfo {
+    name: Cow<'static, str>,
+    key_type: Cow<'static, str>,
+    value_type: Cow<'static, str>,
+}
+
+impl MapInfo {
+    /// Create a new [`MapInfo`]
+    pub fn new<T: Map, K: Hash + Reflect, V: Reflect>() -> Self {
+        Self {
+            name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            key_type: Cow::Owned(std::any::type_name::<K>().to_string()),
+            value_type: Cow::Owned(std::any::type_name::<V>().to_string()),
+        }
+    }
+
+    /// The name of this map
+    pub fn name(&self) -> &str {
+        self.name.borrow()
+    }
+
+    /// The key type of this map
+    pub fn key_type(&self) -> &str {
+        self.key_type.borrow()
+    }
+
+    /// The value type of this map
+    pub fn value_type(&self) -> &str {
+        self.value_type.borrow()
+    }
 }
 
 const HASH_ERROR: &str = "the given key does not support hashing";
@@ -186,6 +222,10 @@ unsafe impl Reflect for DynamicMap {
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    fn type_info() -> TypeInfo where Self: Sized {
+        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }
 

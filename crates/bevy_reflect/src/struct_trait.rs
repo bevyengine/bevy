@@ -1,5 +1,7 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, DynamicInfo};
 use bevy_utils::{Entry, HashMap};
+use std::borrow::Borrow;
+use std::slice::Iter;
 use std::{any::Any, borrow::Cow};
 
 /// A reflected Rust regular struct type.
@@ -58,6 +60,74 @@ pub trait Struct: Reflect {
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
+}
+
+/// A container for compile-time struct info
+#[derive(Clone, Debug)]
+pub struct StructInfo {
+    name: Cow<'static, str>,
+    fields: Vec<NamedField>,
+    field_indices: HashMap<Cow<'static, str>, usize>,
+}
+
+impl StructInfo {
+    /// Create a new [`StructInfo`]
+    ///
+    /// # Arguments
+    ///
+    /// * `name`: The name of the struct
+    /// * `fields`: An iterator over the fields. Takes the form: `(field_name, field_type)`.
+    ///
+    pub fn new<I: Into<String>, F: IntoIterator<Item = (I, I)>>(name: I, fields: F) -> Self {
+        let (fields, field_indices): (Vec<_>, HashMap<_, _>) = fields
+            .into_iter()
+            .enumerate()
+            .map(|(index, field)| {
+                let field_name = field.0.into();
+                let field = NamedField::new(field_name.clone(), field.1.into());
+                let field_index = (Cow::Owned(field_name), index);
+                (field, field_index)
+            })
+            .unzip();
+
+        Self {
+            name: Cow::Owned(name.into()),
+            fields,
+            field_indices,
+        }
+    }
+
+    /// The name of this struct
+    pub fn name(&self) -> &str {
+        self.name.borrow()
+    }
+
+    /// Get a field with the given name
+    pub fn field(&self, name: &str) -> Option<&NamedField> {
+        self.field_indices
+            .get(name)
+            .map(|index| &self.fields[*index])
+    }
+
+    /// Get a field at the given index
+    pub fn field_at(&self, index: usize) -> Option<&NamedField> {
+        self.fields.get(index)
+    }
+
+    /// Get the index of a field with the given name
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.field_indices.get(name).map(|index| *index)
+    }
+
+    /// Iterate over the fields of this struct
+    pub fn iter(&self) -> Iter<'_, NamedField> {
+        self.fields.iter()
+    }
+
+    /// The total number of fields in this struct
+    pub fn len(&self) -> usize {
+        self.fields.len()
+    }
 }
 
 /// An iterator over the field values of a struct.
@@ -312,6 +382,10 @@ unsafe impl Reflect for DynamicStruct {
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    fn type_info() -> TypeInfo where Self: Sized {
+        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }
 

@@ -1,6 +1,7 @@
 use std::any::Any;
+use std::borrow::{Borrow, Cow};
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef, FromReflect, TypeInfo, DynamicInfo};
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
 pub trait List: Reflect {
@@ -30,6 +31,40 @@ pub trait List: Reflect {
             name: self.type_name().to_string(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
+    }
+}
+
+/// A container for compile-time list info
+#[derive(Clone, Debug)]
+pub struct ListInfo {
+    name: Cow<'static, str>,
+    item_type: Cow<'static, str>,
+    capacity: Option<usize>,
+}
+
+impl ListInfo {
+    /// Create a new [`ListInfo`]
+    pub fn new<T: List, I: FromReflect>(capacity: Option<usize>) -> Self {
+        Self {
+            name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            item_type: Cow::Owned(std::any::type_name::<I>().to_string()),
+            capacity
+        }
+    }
+
+    /// The name of this list
+    pub fn name(&self) -> &str {
+        self.name.borrow()
+    }
+
+    /// The item type of this list
+    pub fn item_type(&self) -> &str {
+        self.item_type.borrow()
+    }
+
+    /// The compile-time capacity of this list, if any
+    pub fn capacity(&self) -> Option<usize> {
+        self.capacity
     }
 }
 
@@ -157,6 +192,10 @@ unsafe impl Reflect for DynamicList {
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    fn type_info() -> TypeInfo where Self: Sized {
+        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }
 

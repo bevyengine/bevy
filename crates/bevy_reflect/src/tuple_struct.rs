@@ -1,5 +1,7 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{create_tuple_fields, serde::Serializable, Reflect, ReflectMut, ReflectRef, UnnamedField, TypeInfo, DynamicInfo};
 use std::any::Any;
+use std::borrow::{Borrow, Cow};
+use std::slice::Iter;
 
 /// A reflected Rust tuple struct.
 ///
@@ -41,6 +43,49 @@ pub trait TupleStruct: Reflect {
 
     /// Clones the struct into a [`DynamicTupleStruct`].
     fn clone_dynamic(&self) -> DynamicTupleStruct;
+}
+
+/// A container for compile-time tuple struct info
+#[derive(Clone, Debug)]
+pub struct TupleStructInfo {
+    name: Cow<'static, str>,
+    fields: Vec<UnnamedField>,
+}
+
+impl TupleStructInfo {
+    /// Create a new [`TupleStructInfo`]
+    ///
+    /// # Arguments
+    ///
+    /// * `name`: The name of the tuple struct
+    /// * `fields`: An iterator over the field types
+    ///
+    pub fn new<I: Into<String>, F: IntoIterator<Item = I>>(name: I, fields: F) -> Self {
+        Self {
+            name: Cow::Owned(name.into()),
+            fields: create_tuple_fields(fields),
+        }
+    }
+
+    /// The name of this struct
+    pub fn name(&self) -> &str {
+        self.name.borrow()
+    }
+
+    /// Get a field at the given index
+    pub fn field_at(&self, index: usize) -> Option<&UnnamedField> {
+        self.fields.get(index)
+    }
+
+    /// Iterate over the fields of this struct
+    pub fn iter(&self) -> Iter<'_, UnnamedField> {
+        self.fields.iter()
+    }
+
+    /// The total number of fields in this struct
+    pub fn len(&self) -> usize {
+        self.fields.len()
+    }
 }
 
 /// An iterator over the field values of a tuple struct.
@@ -251,6 +296,10 @@ unsafe impl Reflect for DynamicTupleStruct {
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    fn type_info() -> TypeInfo where Self: Sized {
+        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }
 

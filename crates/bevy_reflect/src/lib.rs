@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod fields;
 mod list;
 mod map;
 mod path;
@@ -7,6 +8,7 @@ mod reflect;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
+mod type_info;
 mod type_registry;
 mod type_uuid;
 mod impls {
@@ -24,6 +26,7 @@ mod impls {
 }
 
 pub mod serde;
+
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -32,6 +35,7 @@ pub mod prelude {
     };
 }
 
+pub use fields::*;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
@@ -40,6 +44,7 @@ pub use reflect::*;
 pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
+pub use type_info::*;
 pub use type_registry::*;
 pub use type_uuid::*;
 
