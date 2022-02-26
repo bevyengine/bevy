@@ -134,7 +134,7 @@ impl TypeRegistry {
     /// If the specified type has not been registered, returns `None`.
     pub fn get_type_info(&self, type_id: TypeId) -> Option<&TypeInfo> {
         self.get(type_id)
-            .and_then(|registration| Some(registration.type_info()))
+            .map(|registration| registration.type_info())
     }
 
     /// Returns an iterator overed the [`TypeRegistration`]s of the registered

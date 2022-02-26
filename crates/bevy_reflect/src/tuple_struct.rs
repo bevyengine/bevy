@@ -83,7 +83,7 @@ impl TupleStructInfo {
     }
 
     /// The total number of fields in this struct
-    pub fn len(&self) -> usize {
+    pub fn field_len(&self) -> usize {
         self.fields.len()
     }
 }

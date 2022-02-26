@@ -116,7 +116,7 @@ impl StructInfo {
 
     /// Get the index of a field with the given name
     pub fn index_of(&self, name: &str) -> Option<usize> {
-        self.field_indices.get(name).map(|index| *index)
+        self.field_indices.get(name).copied()
     }
 
     /// Iterate over the fields of this struct
@@ -125,7 +125,7 @@ impl StructInfo {
     }
 
     /// The total number of fields in this struct
-    pub fn len(&self) -> usize {
+    pub fn field_len(&self) -> usize {
         self.fields.len()
     }
 }
