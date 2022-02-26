@@ -79,7 +79,7 @@ impl Plugin for ScheduleRunnerPlugin {
                         let start_time = Instant::now();
 
                         if let Some(app_exit_events) =
-                            app.world.try_get_resource_mut::<Events<AppExit>>()
+                            app.world.get_resource_mut::<Events<AppExit>>()
                         {
                             if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
                             {
@@ -90,7 +90,7 @@ impl Plugin for ScheduleRunnerPlugin {
                         app.update();
 
                         if let Some(app_exit_events) =
-                            app.world.try_get_resource_mut::<Events<AppExit>>()
+                            app.world.get_resource_mut::<Events<AppExit>>()
                         {
                             if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
                             {

@@ -287,7 +287,7 @@ impl AddAsset for App {
             return self;
         }
         let assets = {
-            let asset_server = self.world.get_resource::<AssetServer>();
+            let asset_server = self.world.resource::<AssetServer>();
             asset_server.register_asset_type::<T>()
         };
 
@@ -307,7 +307,7 @@ impl AddAsset for App {
             self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
             let mut app = self
                 .world
-                .get_non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
+                .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
             app.add_asset::<T>()
                 .init_resource::<crate::debug_asset_server::HandleMap<T>>();
         }
@@ -330,7 +330,7 @@ impl AddAsset for App {
         {
             let mut app = self
                 .world
-                .get_non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
+                .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
             app.init_asset_loader::<T>();
         }
         self
@@ -340,9 +340,7 @@ impl AddAsset for App {
     where
         T: AssetLoader,
     {
-        self.world
-            .get_resource_mut::<AssetServer>()
-            .add_loader(loader);
+        self.world.resource_mut::<AssetServer>().add_loader(loader);
         self
     }
 }
@@ -392,10 +390,10 @@ mod tests {
         app.add_plugin(bevy_core::CorePlugin)
             .add_plugin(crate::AssetPlugin);
         app.add_asset::<MyAsset>();
-        let mut assets_before = app.world.get_resource_mut::<Assets<MyAsset>>();
+        let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();
         let handle = assets_before.add(MyAsset);
         app.add_asset::<MyAsset>(); // Ensure this doesn't overwrite the Asset
-        let assets_after = app.world.get_resource_mut::<Assets<MyAsset>>();
+        let assets_after = app.world.resource_mut::<Assets<MyAsset>>();
         assert!(assets_after.get(handle).is_some());
     }
 }

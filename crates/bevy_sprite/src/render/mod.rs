@@ -200,7 +200,7 @@ pub fn extract_sprite_events(
     mut render_world: ResMut<RenderWorld>,
     mut image_events: EventReader<AssetEvent<Image>>,
 ) {
-    let mut events = render_world.get_resource_mut::<SpriteAssetEvents>();
+    let mut events = render_world.resource_mut::<SpriteAssetEvents>();
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
@@ -231,7 +231,7 @@ pub fn extract_sprites(
         &Handle<TextureAtlas>,
     )>,
 ) {
-    let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>();
+    let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
     extracted_sprites.sprites.clear();
     for (visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible {

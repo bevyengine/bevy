@@ -27,7 +27,7 @@ impl EntityCountDiagnosticsPlugin {
 
     pub fn diagnostic_system(world: &mut World) {
         let entity_count = world.entities().len();
-        if let Some(mut diagnostics) = world.try_get_resource_mut::<Diagnostics>() {
+        if let Some(mut diagnostics) = world.get_resource_mut::<Diagnostics>() {
             diagnostics.add_measurement(Self::ENTITY_COUNT, entity_count as f64);
         }
     }

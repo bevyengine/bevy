@@ -744,13 +744,13 @@ impl World {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`try_get_resource`](World::try_get_resource) instead if you want to handle this case.
+    /// Use [`get_resource`](World::get_resource) instead if you want to handle this case.
     ///
     /// If you want to instead insert a value if the resource does not exist,
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
-    pub fn get_resource<R: Resource>(&self) -> &R {
-        self.try_get_resource().unwrap_or_else(|| {
+    pub fn resource<R: Resource>(&self) -> &R {
+        self.get_resource().unwrap_or_else(|| {
             panic!(
                 "Requested resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
                 std::any::type_name::<R>()
@@ -763,14 +763,14 @@ impl World {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`try_get_resource_mut`](World::try_get_resource_mut) instead if you want to handle this case.
+    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
     ///
     /// If you want to instead insert a value if the resource does not exist,
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
         // SAFE: unique world access
-        self.try_get_resource_mut().unwrap_or_else(|| {
+        self.get_resource_mut().unwrap_or_else(|| {
             panic!(
                 "Requested resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
                 std::any::type_name::<R>()
@@ -780,14 +780,14 @@ impl World {
 
     /// Gets a reference to the resource of the given type if it exists
     #[inline]
-    pub fn try_get_resource<R: Resource>(&self) -> Option<&R> {
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         unsafe { self.get_resource_with_id(component_id) }
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn try_get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
         unsafe { self.get_resource_unchecked_mut() }
     }
@@ -803,7 +803,7 @@ impl World {
         if !self.contains_resource::<R>() {
             self.insert_resource(func());
         }
-        self.get_resource_mut()
+        self.resource_mut()
     }
 
     /// Gets a mutable reference to the resource of the given type, if it exists
@@ -823,10 +823,10 @@ impl World {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`try_get_non_send_resource`](World::try_get_non_send_resource) instead if you want to handle this case.
+    /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
     #[inline]
-    pub fn get_non_send_resource<R: 'static>(&self) -> &R {
-        self.try_get_non_send_resource().unwrap_or_else(|| {
+    pub fn non_send_resource<R: 'static>(&self) -> &R {
+        self.get_non_send_resource().unwrap_or_else(|| {
             panic!(
                 "Requested non-send resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
                 std::any::type_name::<R>()
@@ -839,10 +839,10 @@ impl World {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`try_get_non_send_resource_mut`](World::try_get_non_send_resource_mut) instead if you want to handle this case.
+    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
     #[inline]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
-        self.try_get_non_send_resource_mut().unwrap_or_else(|| {
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        self.get_non_send_resource_mut().unwrap_or_else(|| {
             panic!(
                 "Requested non-send resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
                 std::any::type_name::<R>()
@@ -853,7 +853,7 @@ impl World {
     /// Gets a reference to the non-send resource of the given type, if it exists.
     /// Otherwise returns [None]
     #[inline]
-    pub fn try_get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         // SAFE: component id matches type T
         unsafe { self.get_non_send_with_id(component_id) }
@@ -862,7 +862,7 @@ impl World {
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     /// Otherwise returns [None]
     #[inline]
-    pub fn try_get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
         unsafe { self.get_non_send_resource_unchecked_mut() }
     }

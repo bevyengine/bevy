@@ -51,7 +51,7 @@ impl Plugin for CustomAssetIoPlugin {
 
         let task_pool = app
             .world
-            .get_resource::<bevy::tasks::IoTaskPool>()
+            .resource::<bevy::tasks::IoTaskPool>()
             .expect("`IoTaskPool` resource not found.")
             .0
             .clone();
