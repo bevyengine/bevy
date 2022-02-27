@@ -431,6 +431,11 @@ mod tests {
 
     #[test]
     fn reflect_type_info() {
+        // TypeInfo
+        let info = i32::type_info();
+        assert_eq!(std::any::type_name::<i32>(), info.type_name());
+        assert_eq!(std::any::TypeId::of::<i32>(), info.type_id());
+
         // Struct
         #[derive(Reflect)]
         struct MyStruct {

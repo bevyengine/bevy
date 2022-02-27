@@ -2,7 +2,7 @@ use crate::{ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo};
 use std::any::TypeId;
 use std::borrow::{Borrow, Cow};
 
-/// Compile-time type information for various object types
+/// Compile-time type information for various reflected types
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
     Struct(StructInfo),
@@ -15,6 +15,34 @@ pub enum TypeInfo {
     ///
     /// This includes structs like [`DynamicStruct`](crate::DynamicStruct) and [`DynamicList`](crate::DynamicList)
     Dynamic(DynamicInfo),
+}
+
+impl TypeInfo {
+    /// The name of the reflected type
+    pub fn type_name(&self) -> &str {
+        match self {
+            Self::Struct(info) => info.type_name(),
+            Self::TupleStruct(info) => info.type_name(),
+            Self::Tuple(info) => info.type_name(),
+            Self::List(info) => info.type_name(),
+            Self::Map(info) => info.type_name(),
+            Self::Value(info) => info.type_name(),
+            Self::Dynamic(info) => info.type_name(),
+        }
+    }
+
+    /// The `TypeId` of the reflected type
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            Self::Struct(info) => info.type_id(),
+            Self::TupleStruct(info) => info.type_id(),
+            Self::Tuple(info) => info.type_id(),
+            Self::List(info) => info.type_id(),
+            Self::Map(info) => info.type_id(),
+            Self::Value(info) => info.type_id(),
+            Self::Dynamic(info) => info.type_id(),
+        }
+    }
 }
 
 /// A container for compile-time info related to general value types, including primitives
