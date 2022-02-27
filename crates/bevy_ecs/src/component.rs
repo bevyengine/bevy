@@ -65,7 +65,7 @@ where
 
 #[cfg(target_arch = "wasm32")]
 // ECS dependencies cannot derive Component, so we must implement it manually for relevant structs.
-impl<T> Component for bevy_tasks::FakeTask<T>
+impl Component for bevy_tasks::FakeTask
 where
     Self: Send + Sync + 'static,
 {
