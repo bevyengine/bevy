@@ -40,7 +40,7 @@ fn main() {
     // This will add 3D render phases for the new camera.
     render_app.add_system_to_stage(RenderStage::Extract, extract_first_pass_camera_phases);
 
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
     // Add a node for the first pass.
     graph.add_node(FIRST_PASS_DRIVER, FirstPassCameraDriver);
@@ -82,7 +82,7 @@ impl bevy::render::render_graph::Node for FirstPassCameraDriver {
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
+        let extracted_cameras = world.resource::<ExtractedCameraNames>();
         if let Some(camera_3d) = extracted_cameras.entities.get(FIRST_PASS_CAMERA) {
             graph.run_sub_graph(draw_3d_graph::NAME, vec![SlotValue::Entity(*camera_3d)])?;
         }

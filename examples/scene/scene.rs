@@ -40,7 +40,7 @@ struct ComponentB {
 
 impl FromWorld for ComponentB {
     fn from_world(world: &mut World) -> Self {
-        let time = world.get_resource::<Time>().unwrap();
+        let time = world.resource::<Time>();
         ComponentB {
             _time_since_startup: time.time_since_startup(),
             value: "Default Value".to_string(),
@@ -91,7 +91,7 @@ fn save_scene_system(world: &mut World) {
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
-    let type_registry = world.get_resource::<TypeRegistry>().unwrap();
+    let type_registry = world.resource::<TypeRegistry>();
     let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     // Scenes can be serialized like this:

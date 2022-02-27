@@ -207,7 +207,7 @@ mod tests {
 
         run_system(&mut world, query_system);
 
-        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
+        assert!(*world.resource::<bool>(), "system ran");
     }
 
     #[test]
@@ -235,7 +235,7 @@ mod tests {
 
         run_system(&mut world, query_system);
 
-        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
+        assert!(*world.resource::<bool>(), "system ran");
     }
 
     #[test]
@@ -271,17 +271,17 @@ mod tests {
         );
 
         schedule.run(&mut world);
-        assert_eq!(world.get_resource::<Added>().unwrap().0, 1);
-        assert_eq!(world.get_resource::<Changed>().unwrap().0, 1);
+        assert_eq!(world.resource::<Added>().0, 1);
+        assert_eq!(world.resource::<Changed>().0, 1);
 
         schedule.run(&mut world);
-        assert_eq!(world.get_resource::<Added>().unwrap().0, 1);
-        assert_eq!(world.get_resource::<Changed>().unwrap().0, 1);
+        assert_eq!(world.resource::<Added>().0, 1);
+        assert_eq!(world.resource::<Changed>().0, 1);
 
-        *world.get_resource_mut::<bool>().unwrap() = true;
+        *world.resource_mut::<bool>() = true;
         schedule.run(&mut world);
-        assert_eq!(world.get_resource::<Added>().unwrap().0, 1);
-        assert_eq!(world.get_resource::<Changed>().unwrap().0, 2);
+        assert_eq!(world.resource::<Added>().0, 1);
+        assert_eq!(world.resource::<Changed>().0, 2);
     }
 
     #[test]
@@ -399,7 +399,7 @@ mod tests {
         impl FromWorld for Foo {
             fn from_world(world: &mut World) -> Self {
                 Foo {
-                    value: *world.get_resource::<u32>().unwrap() + 1,
+                    value: *world.resource::<u32>() + 1,
                 }
             }
         }
@@ -412,7 +412,7 @@ mod tests {
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -435,7 +435,7 @@ mod tests {
 
         run_system(&mut world, sys);
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -454,7 +454,7 @@ mod tests {
         }
 
         run_system(&mut world, sys);
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -522,7 +522,7 @@ mod tests {
         run_system(&mut world, validate_remove);
 
         // Verify that both systems actually ran
-        assert_eq!(world.get_resource::<NSystems>().unwrap().0, 2);
+        assert_eq!(world.resource::<NSystems>().0, 2);
     }
 
     #[test]
@@ -566,7 +566,7 @@ mod tests {
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]

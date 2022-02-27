@@ -398,7 +398,7 @@ impl RenderPipelineCache {
         shaders: Res<Assets<Shader>>,
         mut events: EventReader<AssetEvent<Shader>>,
     ) {
-        let mut cache = world.get_resource_mut::<Self>().unwrap();
+        let mut cache = world.resource_mut::<Self>();
         for event in events.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {

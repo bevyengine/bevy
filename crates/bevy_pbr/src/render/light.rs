@@ -1187,7 +1187,7 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-                let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
+                let draw_functions = world.resource::<DrawFunctions<Shadow>>();
                 let render_pass = render_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);

@@ -53,7 +53,7 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        let render_device = app.world.get_resource::<RenderDevice>().unwrap();
+        let render_device = app.world.resource::<RenderDevice>();
         let buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("time uniform buffer"),
             size: std::mem::size_of::<f32>() as u64,
