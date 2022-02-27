@@ -63,6 +63,15 @@ where
     type Storage = TableStorage;
 }
 
+#[cfg(target_arch = "wasm32")]
+// ECS dependencies cannot derive Component, so we must implement it manually for relevant structs.
+impl<T> Component for bevy_tasks::single_threaded_task_pool::FakeTask<T>
+where
+    Self: Send + Sync + 'static,
+{
+    type Storage = TableStorage;
+}
+
 /// The storage used for a specific component type.
 ///
 /// # Examples
