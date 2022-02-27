@@ -1,8 +1,7 @@
-use crate::render_resource::Buffer;
 use crate::{
     prelude::Color,
     render_resource::{
-        BindGroup, BindGroupId, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
+        BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
 };
