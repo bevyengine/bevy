@@ -1,5 +1,5 @@
-use std::any::TypeId;
 use crate::{ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo};
+use std::any::TypeId;
 use std::borrow::{Borrow, Cow};
 
 /// Compile-time type information for various object types
@@ -21,14 +21,14 @@ pub enum TypeInfo {
 #[derive(Debug, Clone)]
 pub struct ValueInfo {
     type_name: Cow<'static, str>,
-    type_id: TypeId
+    type_id: TypeId,
 }
 
 impl ValueInfo {
     pub fn new<T: Reflect>() -> Self {
         Self {
             type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
-            type_id: TypeId::of::<T>()
+            type_id: TypeId::of::<T>(),
         }
     }
 
@@ -51,14 +51,14 @@ impl ValueInfo {
 #[derive(Debug, Clone)]
 pub struct DynamicInfo {
     type_name: Cow<'static, str>,
-    type_id: TypeId
+    type_id: TypeId,
 }
 
 impl DynamicInfo {
     pub fn new<T: Reflect>() -> Self {
         Self {
             type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
-            type_id: TypeId::of::<T>()
+            type_id: TypeId::of::<T>(),
         }
     }
 

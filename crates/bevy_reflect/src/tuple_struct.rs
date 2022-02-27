@@ -1,6 +1,5 @@
 use crate::{
-    serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef,
-    TypeInfo, UnnamedField,
+    serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::borrow::{Borrow, Cow};
@@ -53,7 +52,7 @@ pub trait TupleStruct: Reflect {
 pub struct TupleStructInfo {
     type_name: Cow<'static, str>,
     fields: Vec<UnnamedField>,
-    type_id: TypeId
+    type_id: TypeId,
 }
 
 impl TupleStructInfo {
@@ -67,7 +66,7 @@ impl TupleStructInfo {
         Self {
             type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
             fields: fields.to_vec(),
-            type_id: TypeId::of::<T>()
+            type_id: TypeId::of::<T>(),
         }
     }
 

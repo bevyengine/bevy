@@ -2,10 +2,10 @@ use crate::{
     serde::Serializable, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo,
 };
 use bevy_utils::{Entry, HashMap};
+use std::any::TypeId;
 use std::borrow::Borrow;
 use std::slice::Iter;
 use std::{any::Any, borrow::Cow};
-use std::any::TypeId;
 
 /// A reflected Rust regular struct type.
 ///
@@ -82,11 +82,14 @@ impl StructInfo {
     /// * `fields`: The fields of this struct in the order they are defined
     ///
     pub fn new<T: Reflect>(fields: &[NamedField]) -> Self {
-        let field_indices = fields.iter().enumerate()
+        let field_indices = fields
+            .iter()
+            .enumerate()
             .map(|(index, field)| {
                 let name = field.name().to_string();
                 (Cow::Owned(name), index)
-            }).collect::<HashMap<_, _>>();
+            })
+            .collect::<HashMap<_, _>>();
 
         Self {
             type_name: Cow::Owned(std::any::type_name::<T>().to_string()),

@@ -3,8 +3,8 @@ use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
 
 use crate::{
-    serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut,
-    ReflectRef, TypeInfo, UnnamedField,
+    serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeInfo,
+    UnnamedField,
 };
 
 /// A reflected Rust tuple.
@@ -130,7 +130,7 @@ impl GetTupleField for dyn Tuple {
 pub struct TupleInfo {
     type_name: Cow<'static, str>,
     fields: Vec<UnnamedField>,
-    type_id: TypeId
+    type_id: TypeId,
 }
 
 impl TupleInfo {
@@ -144,7 +144,7 @@ impl TupleInfo {
         Self {
             type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
             fields: fields.to_vec(),
-            type_id: TypeId::of::<T>()
+            type_id: TypeId::of::<T>(),
         }
     }
 
