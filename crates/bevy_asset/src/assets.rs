@@ -352,7 +352,7 @@ macro_rules! load_internal_asset {
         {
             let mut debug_app = $app
                 .world
-                .get_non_send_resource_mut::<bevy_asset::debug_asset_server::DebugAssetApp>();
+                .non_send_resource_mut::<bevy_asset::debug_asset_server::DebugAssetApp>();
             bevy_asset::debug_asset_server::register_handle_with_loader(
                 $loader,
                 &mut debug_app,
@@ -361,7 +361,7 @@ macro_rules! load_internal_asset {
                 $path_str,
             );
         }
-        let mut assets = $app.world.get_resource_mut::<bevy_asset::Assets<_>>();
+        let mut assets = $app.world.resource_mut::<bevy_asset::Assets<_>>();
         assets.set_untracked($handle, ($loader)(include_str!($path_str)));
     }};
 }
@@ -370,7 +370,7 @@ macro_rules! load_internal_asset {
 #[macro_export]
 macro_rules! load_internal_asset {
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world.get_resource_mut::<bevy_asset::Assets<_>>();
+        let mut assets = $app.world.resource_mut::<bevy_asset::Assets<_>>();
         assets.set_untracked($handle, ($loader)(include_str!($path_str)));
     }};
 }

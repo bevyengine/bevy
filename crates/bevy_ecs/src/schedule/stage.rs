@@ -964,7 +964,7 @@ mod tests {
     struct W<T>(T);
 
     fn make_exclusive(tag: usize) -> impl FnMut(&mut World) {
-        move |world| world.get_resource_mut::<Vec<usize>>().push(tag)
+        move |world| world.resource_mut::<Vec<usize>>().push(tag)
     }
 
     fn make_parallel(tag: usize) -> impl FnMut(ResMut<Vec<usize>>) {

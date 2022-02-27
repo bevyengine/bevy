@@ -186,10 +186,10 @@ pub struct CustomPipeline {
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let asset_server = world.get_resource::<AssetServer>();
+        let asset_server = world.get_resource::<AssetServer>().unwrap();
         let shader = asset_server.load("shaders/animate_shader.wgsl");
 
-        let render_device = world.get_resource_mut::<RenderDevice>();
+        let render_device = world.get_resource_mut::<RenderDevice>().unwrap();
         let time_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("time bind group"),
@@ -205,7 +205,7 @@ impl FromWorld for CustomPipeline {
                 }],
             });
 
-        let mesh_pipeline = world.get_resource::<MeshPipeline>();
+        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 
         CustomPipeline {
             shader,
