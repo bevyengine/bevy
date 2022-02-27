@@ -752,7 +752,10 @@ impl World {
     pub fn resource<R: Resource>(&self) -> &R {
         self.get_resource().unwrap_or_else(|| {
             panic!(
-                "Requested resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
                 std::any::type_name::<R>()
             )
         })
@@ -771,7 +774,10 @@ impl World {
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
         self.get_resource_mut().unwrap_or_else(|| {
             panic!(
-                "Requested resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
                 std::any::type_name::<R>()
             )
         })
@@ -828,7 +834,9 @@ impl World {
     pub fn non_send_resource<R: 'static>(&self) -> &R {
         self.get_non_send_resource().unwrap_or_else(|| {
             panic!(
-                "Requested non-send resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             )
         })
@@ -844,7 +852,9 @@ impl World {
     pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
         self.get_non_send_resource_mut().unwrap_or_else(|| {
             panic!(
-                "Requested non-send resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             )
         })
