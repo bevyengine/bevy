@@ -5,6 +5,7 @@ use bevy_utils::{Entry, HashMap};
 use std::borrow::Borrow;
 use std::slice::Iter;
 use std::{any::Any, borrow::Cow};
+use std::any::TypeId;
 
 /// A reflected Rust regular struct type.
 ///
@@ -67,7 +68,8 @@ pub trait Struct: Reflect {
 /// A container for compile-time struct info
 #[derive(Clone, Debug)]
 pub struct StructInfo {
-    name: Cow<'static, str>,
+    type_name: Cow<'static, str>,
+    type_id: TypeId,
     fields: Vec<NamedField>,
     field_indices: HashMap<Cow<'static, str>, usize>,
 }
@@ -77,31 +79,36 @@ impl StructInfo {
     ///
     /// # Arguments
     ///
-    /// * `name`: The name of the struct
-    /// * `fields`: An iterator over the fields. Takes the form: `(field_name, field_type)`.
+    /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<I: Into<String>, F: IntoIterator<Item = (I, I)>>(name: I, fields: F) -> Self {
-        let (fields, field_indices): (Vec<_>, HashMap<_, _>) = fields
-            .into_iter()
-            .enumerate()
+    pub fn new<T: Reflect>(fields: &[NamedField]) -> Self {
+        let field_indices = fields.iter().enumerate()
             .map(|(index, field)| {
-                let field_name = field.0.into();
-                let field = NamedField::new(field_name.clone(), field.1.into());
-                let field_index = (Cow::Owned(field_name), index);
-                (field, field_index)
-            })
-            .unzip();
+                let name = field.name().to_string();
+                (Cow::Owned(name), index)
+            }).collect::<HashMap<_, _>>();
 
         Self {
-            name: Cow::Owned(name.into()),
-            fields,
+            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_id: TypeId::of::<T>(),
+            fields: fields.to_vec(),
             field_indices,
         }
     }
 
-    /// The name of this struct
-    pub fn name(&self) -> &str {
-        self.name.borrow()
+    /// The type name of this struct
+    pub fn type_name(&self) -> &str {
+        self.type_name.borrow()
+    }
+
+    /// The `TypeId` of this struct
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches this struct's type
+    pub fn is<T: Reflect>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
     }
 
     /// Get a field with the given name

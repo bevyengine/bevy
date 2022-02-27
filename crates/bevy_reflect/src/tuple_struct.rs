@@ -1,8 +1,8 @@
 use crate::{
-    create_tuple_fields, serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef,
+    serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef,
     TypeInfo, UnnamedField,
 };
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
 
@@ -51,8 +51,9 @@ pub trait TupleStruct: Reflect {
 /// A container for compile-time tuple struct info
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
-    name: Cow<'static, str>,
+    type_name: Cow<'static, str>,
     fields: Vec<UnnamedField>,
+    type_id: TypeId
 }
 
 impl TupleStructInfo {
@@ -60,19 +61,29 @@ impl TupleStructInfo {
     ///
     /// # Arguments
     ///
-    /// * `name`: The name of the tuple struct
-    /// * `fields`: An iterator over the field types
+    /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<I: Into<String>, F: IntoIterator<Item = I>>(name: I, fields: F) -> Self {
+    pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
         Self {
-            name: Cow::Owned(name.into()),
-            fields: create_tuple_fields(fields),
+            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            fields: fields.to_vec(),
+            type_id: TypeId::of::<T>()
         }
     }
 
-    /// The name of this struct
-    pub fn name(&self) -> &str {
-        self.name.borrow()
+    /// The type name of this struct
+    pub fn type_name(&self) -> &str {
+        self.type_name.borrow()
+    }
+
+    /// The `TypeId` of this struct
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches this struct's type
+    pub fn is<T: Reflect>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
     }
 
     /// Get a field at the given index

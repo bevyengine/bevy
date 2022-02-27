@@ -323,11 +323,10 @@ fn impl_struct(
             }
 
             fn type_info() -> #bevy_reflect_path::TypeInfo where Self: Sized {
-                let name = std::any::type_name::<Self>();
-                let fields: [(&str, &str); #field_count] = [
-                     #((#field_names, std::any::type_name::<#field_types>()),)*
+                let fields: [#bevy_reflect_path::NamedField; #field_count] = [
+                    #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names),)*
                 ];
-                let info = #bevy_reflect_path::StructInfo::new(name, fields);
+                let info = #bevy_reflect_path::StructInfo::new::<Self>(&fields);
                 #bevy_reflect_path::TypeInfo::Struct(info)
             }
         }
@@ -457,11 +456,10 @@ fn impl_tuple_struct(
             }
 
             fn type_info() -> #bevy_reflect_path::TypeInfo where Self: Sized {
-                let name = std::any::type_name::<Self>();
-                let fields: [&str; #field_count] = [
-                     #(std::any::type_name::<#field_types>(),)*
+                let fields: [#bevy_reflect_path::UnnamedField; #field_count] = [
+                    #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_indices),)*
                 ];
-                let info = #bevy_reflect_path::TupleStructInfo::new(name, fields);
+                let info = #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields);
                 #bevy_reflect_path::TypeInfo::TupleStruct(info)
             }
         }

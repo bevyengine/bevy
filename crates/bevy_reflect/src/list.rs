@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::borrow::{Borrow, Cow};
 
 use crate::{
@@ -39,29 +39,53 @@ pub trait List: Reflect {
 /// A container for compile-time list info
 #[derive(Clone, Debug)]
 pub struct ListInfo {
-    name: Cow<'static, str>,
-    item_type: Cow<'static, str>,
+    type_name: Cow<'static, str>,
+    item_type_name: Cow<'static, str>,
+    type_id: TypeId,
+    item_type_id: TypeId,
     capacity: Option<usize>,
 }
 
 impl ListInfo {
     /// Create a new [`ListInfo`]
-    pub fn new<T: List, I: FromReflect>(capacity: Option<usize>) -> Self {
+    pub fn new<TList: List, TItem: FromReflect>(capacity: Option<usize>) -> Self {
         Self {
-            name: Cow::Owned(std::any::type_name::<T>().to_string()),
-            item_type: Cow::Owned(std::any::type_name::<I>().to_string()),
+            type_name: Cow::Owned(std::any::type_name::<TList>().to_string()),
+            item_type_name: Cow::Owned(std::any::type_name::<TItem>().to_string()),
+            type_id: TypeId::of::<TList>(),
+            item_type_id: TypeId::of::<TItem>(),
             capacity,
         }
     }
 
-    /// The name of this list
-    pub fn name(&self) -> &str {
-        self.name.borrow()
+    /// The type name of this list
+    pub fn type_name(&self) -> &str {
+        self.type_name.borrow()
     }
 
-    /// The item type of this list
-    pub fn item_type(&self) -> &str {
-        self.item_type.borrow()
+    /// The item type name of this list
+    pub fn item_type_name(&self) -> &str {
+        self.item_type_name.borrow()
+    }
+
+    /// The `TypeId` of this list
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// The item `TypeId` of this list
+    pub fn item_type_id(&self) -> TypeId {
+        self.item_type_id
+    }
+
+    /// Check if the given type matches this list's type
+    pub fn is<T: Reflect>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+
+    /// Check if the given type matches this list's item type
+    pub fn item_is<T: Reflect>(&self) -> bool {
+        TypeId::of::<T>() == self.item_type_id
     }
 
     /// The compile-time capacity of this list, if any

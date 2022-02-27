@@ -1,4 +1,5 @@
-use crate::{ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo, UnnamedField};
+use std::any::TypeId;
+use crate::{ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo};
 use std::borrow::{Borrow, Cow};
 
 /// Compile-time type information for various object types
@@ -19,47 +20,60 @@ pub enum TypeInfo {
 /// A container for compile-time info related to general value types, including primitives
 #[derive(Debug, Clone)]
 pub struct ValueInfo {
-    name: Cow<'static, str>,
+    type_name: Cow<'static, str>,
+    type_id: TypeId
 }
 
 impl ValueInfo {
     pub fn new<T: Reflect>() -> Self {
         Self {
-            name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_id: TypeId::of::<T>()
         }
     }
 
-    /// The name of this value
-    pub fn name(&self) -> &str {
-        self.name.borrow()
+    /// The type name of this value
+    pub fn type_name(&self) -> &str {
+        self.type_name.borrow()
+    }
+
+    /// The `TypeId` of this value
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches this value's type
+    pub fn is<T: Reflect>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct DynamicInfo {
-    name: Cow<'static, str>,
+    type_name: Cow<'static, str>,
+    type_id: TypeId
 }
 
 impl DynamicInfo {
     pub fn new<T: Reflect>() -> Self {
         Self {
-            name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_id: TypeId::of::<T>()
         }
     }
 
-    /// The name of this value
-    pub fn name(&self) -> &str {
-        self.name.borrow()
+    /// The type name of this value
+    pub fn type_name(&self) -> &str {
+        self.type_name.borrow()
     }
-}
 
-/// Create a collection of unnamed fields from an iterator of field type names
-pub(crate) fn create_tuple_fields<I: Into<String>, F: IntoIterator<Item = I>>(
-    fields: F,
-) -> Vec<UnnamedField> {
-    fields
-        .into_iter()
-        .enumerate()
-        .map(|(index, field)| UnnamedField::new(index, field.into()))
-        .collect()
+    /// The `TypeId` of this value
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches this value's type
+    pub fn is<T: Reflect>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
 }

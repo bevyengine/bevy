@@ -1,9 +1,9 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
 
 use crate::{
-    create_tuple_fields, serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut,
+    serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut,
     ReflectRef, TypeInfo, UnnamedField,
 };
 
@@ -128,8 +128,9 @@ impl GetTupleField for dyn Tuple {
 /// A container for compile-time tuple info
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
-    name: Cow<'static, str>,
+    type_name: Cow<'static, str>,
     fields: Vec<UnnamedField>,
+    type_id: TypeId
 }
 
 impl TupleInfo {
@@ -137,19 +138,29 @@ impl TupleInfo {
     ///
     /// # Arguments
     ///
-    /// * `name`: The name of the tuple
-    /// * `fields`: An iterator over the field types
+    /// * `fields`: The fields of this tuple in the order they are defined
     ///
-    pub fn new<I: Into<String>, F: IntoIterator<Item = I>>(name: I, fields: F) -> Self {
+    pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
         Self {
-            name: Cow::Owned(name.into()),
-            fields: create_tuple_fields(fields),
+            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            fields: fields.to_vec(),
+            type_id: TypeId::of::<T>()
         }
     }
 
-    /// The name of this tuple
-    pub fn name(&self) -> &str {
-        self.name.borrow()
+    /// The type name of this tuple
+    pub fn type_name(&self) -> &str {
+        self.type_name.borrow()
+    }
+
+    /// The `TypeId` of this tuple
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches this tuple's type
+    pub fn is<T: Reflect>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
     }
 
     /// Get a field at the given index
@@ -455,11 +466,10 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn type_info() -> TypeInfo where Self: Sized {
-                let name = std::any::type_name::<Self>();
                 let fields = [
-                    $(std::any::type_name::<$name>(),)*
+                    $(UnnamedField::new::<$name>($index),)*
                 ];
-                let info = TupleInfo::new(name, fields);
+                let info = TupleInfo::new::<Self>(&fields);
                 TypeInfo::Tuple(info)
             }
         }
