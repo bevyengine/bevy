@@ -769,7 +769,6 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
-        // SAFE: unique world access
         self.get_resource_mut().unwrap_or_else(|| {
             panic!(
                 "Requested resource {} does not exist. Did you forget to add it to the `World`, call `app.add_event` or add a plugin that contains it?",
@@ -782,6 +781,7 @@ impl World {
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        // SAFE: unique world access
         unsafe { self.get_resource_with_id(component_id) }
     }
 
