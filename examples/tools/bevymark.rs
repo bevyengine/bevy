@@ -5,7 +5,6 @@ use bevy::{
     window::PresentMode,
 };
 use rand::{thread_rng, Rng};
-use std::fmt::Write;
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const GRAVITY: f32 = -9.8 * 100.0;
@@ -266,14 +265,12 @@ fn counter_system(
 
     // Re-use string buffers here and below (clear + write) to save an allocation
     if counter.is_changed() {
-        text.sections[1].value.clear();
-        write!(text.sections[1].value, "{}", counter.count).unwrap();
+        text.sections[1].value = format!("{}", counter.count);
     }
 
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(average) = fps.average() {
-            text.sections[3].value.clear();
-            write!(text.sections[3].value, "{:.2}", average).unwrap();
+            text.sections[3].value = format!("{:.2}", average);
         }
     };
 }
