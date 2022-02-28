@@ -386,6 +386,48 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
     }
+
+    /// Adds a [`BoxedCommand`] directly to the command list.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::system::InsertBundle;
+    /// #
+    /// # struct PlayerEntity { entity: Entity }
+    /// # #[derive(Component)]
+    /// # struct Health(u32);
+    /// # #[derive(Component)]
+    /// # struct Strength(u32);
+    /// # #[derive(Component)]
+    /// # struct Defense(u32);
+    /// #
+    /// # #[derive(Bundle)]
+    /// # struct CombatBundle {
+    /// #     health: Health,
+    /// #     strength: Strength,
+    /// #     defense: Defense,
+    /// # }
+    /// // Make sure this is in scope!
+    /// use crate::bevy_ecs::system::BoxableCommand; 
+    /// 
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     let boxed_insert = InsertBundle {
+    ///         entity: player.entity,
+    ///         bundle: CombatBundle {
+    ///             health: Health(100),
+    ///             strength: Strength(40),
+    ///             defense: Defense(20),
+    ///         },
+    ///     }.box_command();
+    ///     commands.add_boxed(boxed_insert);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
+    /// ```
+    pub fn add_boxed(&mut self, command: BoxedCommand) {
+        self.queue.push_boxed(command);
+    }
 }
 
 /// A list of commands that will be run to modify an [entity](crate::entity).
@@ -776,6 +818,34 @@ pub struct RemoveResource<R: Resource> {
 impl<R: Resource> Command for RemoveResource<R> {
     fn write(self, world: &mut World) {
         world.remove_resource::<R>();
+    }
+}
+
+/// A type erased [`Command`] that can be added to [`Commands`]
+pub struct BoxedCommand {
+    command: Box<dyn Command>,
+    func: unsafe fn(value: *mut u8, world: &mut World),
+}
+
+pub trait BoxableCommand {
+    /// Box the command, helpful when storing mixed commands together.
+    fn box_command(self) -> BoxedCommand;
+}
+
+impl<T: Sized + Command> BoxableCommand for T {
+    fn box_command(self) -> BoxedCommand {
+        /// SAFE: This function is only every called when the `command` bytes is the associated
+        /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
+        /// accesses are safe.
+        unsafe fn write_command<T: Command>(command: *mut u8, world: &mut World) {
+            let command = command.cast::<T>().read_unaligned();
+            command.write(world);
+        }
+
+        BoxedCommand {
+            command: Box::new(self),
+            func: write_command::<T>,
+        }
     }
 }
 

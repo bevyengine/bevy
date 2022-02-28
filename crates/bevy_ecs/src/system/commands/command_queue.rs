@@ -1,4 +1,6 @@
-use super::Command;
+use std::ops::Deref;
+
+use super::{BoxedCommand, Command};
 use crate::world::World;
 
 struct CommandMeta {
@@ -69,6 +71,36 @@ impl CommandQueue {
         std::mem::forget(command);
     }
 
+    /// Push a [`BoxedCommand`] onto the queue.
+    #[inline]
+    pub fn push_boxed(&mut self, boxed_command: BoxedCommand) {
+        let size = std::mem::size_of_val(boxed_command.command.deref());
+        let old_len = self.bytes.len();
+
+        self.metas.push(CommandMeta {
+            offset: old_len,
+            func: boxed_command.func,
+        });
+
+        if size > 0 {
+            self.bytes.reserve(size);
+
+            // SAFE: The internal `bytes` vector has enough storage for the
+            // command (see the call the `reserve` above), and the vector has
+            // its length set appropriately.
+            // Also `boxed_command.command` is turned into a raw pointer, so it
+            // does not need to be forgotten.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    Box::into_raw(boxed_command.command) as *const u8,
+                    self.bytes.as_mut_ptr().add(old_len),
+                    size,
+                );
+                self.bytes.set_len(old_len + size);
+            }
+        }
+    }
+
     /// Execute the queued [`Command`]s in the world.
     /// This clears the queue.
     #[inline]
@@ -109,6 +141,7 @@ impl CommandQueue {
 
 #[cfg(test)]
 mod test {
+    use super::super::BoxableCommand;
     use super::*;
     use std::{
         panic::AssertUnwindSafe,
@@ -157,6 +190,26 @@ mod test {
         assert_eq!(drops_b.load(Ordering::Relaxed), 1);
     }
 
+    #[test]
+    fn test_command_queue_inner_drop_boxed() {
+        let mut queue = CommandQueue::default();
+
+        let (dropcheck_a, drops_a) = DropCheck::new();
+        let (dropcheck_b, drops_b) = DropCheck::new();
+
+        queue.push_boxed(dropcheck_a.box_command());
+        queue.push_boxed(dropcheck_b.box_command());
+
+        assert_eq!(drops_a.load(Ordering::Relaxed), 0);
+        assert_eq!(drops_b.load(Ordering::Relaxed), 0);
+
+        let mut world = World::new();
+        queue.apply(&mut world);
+
+        assert_eq!(drops_a.load(Ordering::Relaxed), 1);
+        assert_eq!(drops_b.load(Ordering::Relaxed), 1);
+    }
+
     struct SpawnCommand;
 
     impl Command for SpawnCommand {
@@ -171,6 +224,24 @@ mod test {
 
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
+
+        let mut world = World::new();
+        queue.apply(&mut world);
+
+        assert_eq!(world.entities().len(), 2);
+
+        // The previous call to `apply` cleared the queue.
+        // This call should do nothing.
+        queue.apply(&mut world);
+        assert_eq!(world.entities().len(), 2);
+    }
+
+    #[test]
+    fn test_command_queue_inner_boxed() {
+        let mut queue = CommandQueue::default();
+
+        queue.push_boxed(SpawnCommand.box_command());
+        queue.push_boxed(SpawnCommand.box_command());
 
         let mut world = World::new();
         queue.apply(&mut world);
@@ -217,6 +288,34 @@ mod test {
         // more commands.
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
+        queue.apply(&mut world);
+        assert_eq!(world.entities().len(), 2);
+    }
+
+    #[test]
+    fn test_command_queue_inner_panic_safe_boxed() {
+        std::panic::set_hook(Box::new(|_| {}));
+
+        let mut queue = CommandQueue::default();
+
+        queue.push_boxed(PanicCommand("I panic!".to_owned()).box_command());
+        queue.push_boxed(SpawnCommand.box_command());
+
+        let mut world = World::new();
+
+        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            queue.apply(&mut world);
+        }));
+
+        // even though the first command panicking.
+        // the `bytes`/`metas` vectors were cleared.
+        assert_eq!(queue.bytes.len(), 0);
+        assert_eq!(queue.metas.len(), 0);
+
+        // Even though the first command panicked, it's still ok to push
+        // more commands.
+        queue.push_boxed(SpawnCommand.box_command());
+        queue.push_boxed(SpawnCommand.box_command());
         queue.apply(&mut world);
         assert_eq!(world.entities().len(), 2);
     }
