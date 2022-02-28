@@ -468,6 +468,10 @@ name = "shader_material"
 path = "examples/shader/shader_material.rs"
 
 [[example]]
+name = "shader_material_screenspace_texture"
+path = "examples/shader/shader_material_screenspace_texture.rs"
+
+[[example]]
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
 
