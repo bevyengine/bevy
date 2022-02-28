@@ -7,7 +7,6 @@ criterion_group!(
     world_get,
     world_query_get,
     world_query_iter,
-    world_query_for_each,
 );
 criterion_main!(benches);
 
@@ -142,45 +141,6 @@ fn world_query_iter(criterion: &mut Criterion) {
                     count += 1;
                     black_box(count);
                 }
-                assert_eq!(black_box(count), entity_count);
-            });
-        });
-    }
-
-    group.finish();
-}
-
-fn world_query_for_each(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("world_query_for_each");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
-
-    for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
-            let mut world = setup::<Table>(entity_count);
-            let mut query = world.query::<&Table>();
-
-            bencher.iter(|| {
-                let mut count = 0;
-                query.for_each(&world, |comp| {
-                    black_box(comp);
-                    count += 1;
-                    black_box(count);
-                });
-                assert_eq!(black_box(count), entity_count);
-            });
-        });
-        group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
-            let mut world = setup::<Sparse>(entity_count);
-            let mut query = world.query::<&Sparse>();
-
-            bencher.iter(|| {
-                let mut count = 0;
-                query.for_each(&world, |comp| {
-                    black_box(comp);
-                    count += 1;
-                    black_box(count);
-                });
                 assert_eq!(black_box(count), entity_count);
             });
         });

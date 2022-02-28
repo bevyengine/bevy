@@ -66,19 +66,19 @@ fn empty_systems(criterion: &mut Criterion) {
 
 fn busy_systems(criterion: &mut Criterion) {
     fn ab(mut q: Query<(&mut A, &mut B)>) {
-        q.for_each_mut(|(mut a, mut b)| {
+        for (mut a, mut b) in q.iter_mut() {
             std::mem::swap(&mut a.0, &mut b.0);
-        });
+        }
     }
     fn cd(mut q: Query<(&mut C, &mut D)>) {
-        q.for_each_mut(|(mut c, mut d)| {
+        for (mut c, mut d) in q.iter_mut() {
             std::mem::swap(&mut c.0, &mut d.0);
-        });
+        }
     }
     fn ce(mut q: Query<(&mut C, &mut E)>) {
-        q.for_each_mut(|(mut c, mut e)| {
+        for (mut c, mut e) in q.iter_mut() {
             std::mem::swap(&mut c.0, &mut e.0);
-        });
+        }
     }
     let mut world = World::new();
     let mut group = criterion.benchmark_group("busy_systems");
@@ -115,22 +115,22 @@ fn busy_systems(criterion: &mut Criterion) {
 
 fn contrived(criterion: &mut Criterion) {
     fn s_0(mut q_0: Query<(&mut A, &mut B)>) {
-        q_0.for_each_mut(|(mut c_0, mut c_1)| {
+        for (mut c_0, mut c_1) in q_0.iter_mut() {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
-        });
+        }
     }
     fn s_1(mut q_0: Query<(&mut A, &mut C)>, mut q_1: Query<(&mut B, &mut D)>) {
-        q_0.for_each_mut(|(mut c_0, mut c_1)| {
+        for (mut c_0, mut c_1) in q_0.iter_mut() {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
-        });
-        q_1.for_each_mut(|(mut c_0, mut c_1)| {
+        }
+        for (mut c_0, mut c_1) in q_1.iter_mut() {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
-        });
+        }
     }
     fn s_2(mut q_0: Query<(&mut C, &mut D)>) {
-        q_0.for_each_mut(|(mut c_0, mut c_1)| {
+        for (mut c_0, mut c_1) in q_0.iter_mut() {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
-        });
+        }
     }
     let mut world = World::new();
     let mut group = criterion.benchmark_group("contrived");
