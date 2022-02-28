@@ -165,13 +165,7 @@ pub struct MeshPipeline {
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
-<<<<<<< HEAD
-        let render_device = world
-            .get_resource::<RenderDevice>()
-            .expect("Could not find `RenderDevice` in `World`.");
-=======
         let render_device = world.resource::<RenderDevice>();
->>>>>>> upstream/main
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -307,13 +301,7 @@ impl FromWorld for MeshPipeline {
             let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
             let format_size = image.texture_descriptor.format.pixel_size();
-<<<<<<< HEAD
-            let render_queue = world
-                .get_resource_mut::<RenderQueue>()
-                .expect("Could not find `RenderQueue` in `World`.");
-=======
             let render_queue = world.resource_mut::<RenderQueue>();
->>>>>>> upstream/main
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -329,7 +317,8 @@ impl FromWorld for MeshPipeline {
                             image.texture_descriptor.size.width * format_size as u32,
                         )
                         .unwrap_or_else(|| {
-                            panic!("Could not calculate texture `bytes_per_row` to be `NonZeroU32` from width {image.texture_descriptor.size.width} * format size {format_size}.")
+                            panic!("Could not calculate texture `bytes_per_row` to be `NonZeroU32` from width {:?} * format size {}.",
+                                   image.texture_descriptor.size.width, format_size)
                         }),
                     ),
                     rows_per_image: None,
@@ -608,14 +597,18 @@ pub fn queue_mesh_view_bind_groups(
                         resource: view_cluster_bindings
                             .cluster_light_index_lists
                             .binding()
-                            .expect("Could not create `cluster_light_index_lists` `BindGroupEntry`."),
+                            .expect(
+                                "Could not create `cluster_light_index_lists` `BindGroupEntry`.",
+                            ),
                     },
                     BindGroupEntry {
                         binding: 8,
                         resource: view_cluster_bindings
                             .cluster_offsets_and_counts
                             .binding()
-                            .expect("Could not create `cluster_offsets_and_counts` `BindGroupEntry`."),
+                            .expect(
+                                "Could not create `cluster_offsets_and_counts` `BindGroupEntry`.",
+                            ),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),
@@ -668,7 +661,9 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
         (mesh_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_index = mesh_query.get(item).expect("Could not find mesh entity to get mesh index.");
+        let mesh_index = mesh_query
+            .get(item)
+            .expect("Could not find mesh entity to get mesh index.");
         pass.set_bind_group(
             I,
             &mesh_bind_group.into_inner().value,
@@ -688,7 +683,9 @@ impl EntityRenderCommand for DrawMesh {
         (meshes, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = mesh_query.get(item).expect("Could not find mesh entity to get mesh handle.");
+        let mesh_handle = mesh_query
+            .get(item)
+            .expect("Could not find mesh entity to get mesh handle.");
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {

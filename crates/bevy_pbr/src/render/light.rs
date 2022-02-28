@@ -1194,13 +1194,7 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-<<<<<<< HEAD
-                let draw_functions = world
-                    .get_resource::<DrawFunctions<Shadow>>()
-                    .expect("Could not find `DrawFunctions` for `Shadow` in `World`.");
-=======
                 let draw_functions = world.resource::<DrawFunctions<Shadow>>();
->>>>>>> upstream/main
                 let render_pass = render_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);

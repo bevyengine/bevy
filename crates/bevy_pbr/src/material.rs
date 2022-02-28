@@ -262,28 +262,12 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
 
 impl<M: SpecializedMaterial> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
-<<<<<<< HEAD
-        let asset_server = world
-            .get_resource::<AssetServer>()
-            .expect("Could not find `AssetServer` resource in `World`.");
-        let render_device = world
-            .get_resource::<RenderDevice>()
-            .expect("Could not find `RenderDevice` in `World`.");
-        let material_layout = M::bind_group_layout(render_device);
-
-        MaterialPipeline {
-            mesh_pipeline: world
-                .get_resource::<MeshPipeline>()
-                .expect("Could not find `MeshPipeline` in `World`.")
-                .clone(),
-=======
         let asset_server = world.resource::<AssetServer>();
         let render_device = world.resource::<RenderDevice>();
         let material_layout = M::bind_group_layout(render_device);
 
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
->>>>>>> upstream/main
             material_layout,
             vertex_shader: M::vertex_shader(asset_server),
             fragment_shader: M::fragment_shader(asset_server),
