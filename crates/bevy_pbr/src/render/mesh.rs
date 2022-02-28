@@ -607,7 +607,7 @@ pub fn queue_mesh_view_bind_groups(
                         resource: view_cluster_bindings
                             .cluster_offsets_and_counts
                             .binding()
-                            .expect("Could not create `BindGroupEntry`."),
+                            .expect("Could not create `cluster_offsets_and_counts` `BindGroupEntry`."),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),
