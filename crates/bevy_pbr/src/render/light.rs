@@ -1241,7 +1241,7 @@ impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
                 .into_inner()
                 .shadow_view_bind_group
                 .as_ref()
-                .expect("Could not bind shadow view group to render pass."),
+                .expect("Could not get shadow view bind group."),
             &[view_uniform_offset.offset],
         );
 
