@@ -321,7 +321,7 @@ impl FromWorld for MeshPipeline {
                             image.texture_descriptor.size.width * format_size as u32,
                         )
                         .unwrap_or_else(|| {
-                            panic!("Could not write texture with format size {format_size}.")
+                            panic!("Could not calculate texture `bytes_per_row` to be `NonZeroU32` from width {image.texture_descriptor.size.width} * format size {format_size}.")
                         }),
                     ),
                     rows_per_image: None,
