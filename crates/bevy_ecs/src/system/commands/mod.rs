@@ -832,7 +832,7 @@ pub trait BoxableCommand {
     fn box_command(self) -> BoxedCommand;
 }
 
-impl<T: Sized + Command> BoxableCommand for T {
+impl<T: Command> BoxableCommand for T {
     fn box_command(self) -> BoxedCommand {
         /// SAFE: This function is only every called when the `command` bytes is the associated
         /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
