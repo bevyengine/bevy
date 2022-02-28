@@ -193,7 +193,7 @@ impl Plugin for PbrPlugin {
                 draw_3d_graph::node::SHADOW_PASS,
                 bevy_core_pipeline::draw_3d_graph::node::MAIN_PASS,
             )
-            .expect("Could not add node edge to 3d graph.");
+            .expect("Could not add node edge to 3d graph from shadow pass to main pass.");
         draw_3d_graph
             .add_slot_edge(
                 draw_3d_graph
