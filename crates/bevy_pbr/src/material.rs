@@ -264,7 +264,7 @@ impl<M: SpecializedMaterial> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world
             .get_resource::<AssetServer>()
-            .expect("Could not find `AssetServer` in `World`.");
+            .expect("Could not find `AssetServer` resource in `World`.");
         let render_device = world
             .get_resource::<RenderDevice>()
             .expect("Could not find `RenderDevice` in `World`.");
