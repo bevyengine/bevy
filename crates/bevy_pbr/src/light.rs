@@ -510,11 +510,12 @@ pub(crate) fn assign_lights_to_clusters(
     mut views: Query<(Entity, &GlobalTransform, &Camera, &Frustum, &mut Clusters)>,
     lights_query: Query<(Entity, &GlobalTransform, &PointLight)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
+    mut max_point_lights_warning_emitted: Local<bool>,
 ) {
     // collect just the relevant light query data into a persisted vec to avoid reallocating each frame
     lights.extend(
         lights_query
-        .iter()
+            .iter()
             .map(|(entity, transform, light)| PointLightAssignmentData {
                 entity,
                 translation: transform.translation,
@@ -550,10 +551,12 @@ pub(crate) fn assign_lights_to_clusters(
             .copied()
             .collect();
 
-        if lights.len() > MAX_POINT_LIGHTS {
+        if lights.len() > MAX_POINT_LIGHTS && !*max_point_lights_warning_emitted {
             warn!("MAX_POINT_LIGHTS ({}) exceeded", MAX_POINT_LIGHTS);
-            lights.truncate(MAX_POINT_LIGHTS);
+            *max_point_lights_warning_emitted = true;
         }
+
+        lights.truncate(MAX_POINT_LIGHTS);
     }
 
     let light_count = lights.len();
