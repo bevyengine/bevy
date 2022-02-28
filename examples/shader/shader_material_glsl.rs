@@ -4,6 +4,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
+        mesh::MeshVertexBufferLayout,
         render_asset::{PrepareAssetError, RenderAsset},
         render_resource::{
             std140::{AsStd140, Std140},
@@ -95,9 +96,14 @@ impl SpecializedMaterial for CustomMaterial {
 
     fn key(_: &<CustomMaterial as RenderAsset>::PreparedAsset) -> Self::Key {}
 
-    fn specialize(_: Self::Key, descriptor: &mut RenderPipelineDescriptor) {
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        _: Self::Key,
+        _layout: &MeshVertexBufferLayout,
+    ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.vertex.entry_point = "main".into();
         descriptor.fragment.as_mut().unwrap().entry_point = "main".into();
+        Ok(())
     }
 
     fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {

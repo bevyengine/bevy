@@ -8,10 +8,10 @@ use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_log::warn;
 use bevy_tasks::TaskPool;
-use bevy_utils::{HashMap, Uuid};
+use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
-use std::{collections::hash_map::Entry, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an `AssetServer`
@@ -90,6 +90,10 @@ impl AssetServer {
                 asset_io,
             }),
         }
+    }
+
+    pub fn asset_io(&self) -> &dyn AssetIo {
+        &*self.server.asset_io
     }
 
     pub(crate) fn register_asset_type<T: Asset>(&self) -> Assets<T> {
@@ -790,24 +794,18 @@ mod test {
         app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
-            let asset_server = world.get_resource::<AssetServer>().unwrap();
+            let asset_server = world.resource::<AssetServer>();
             let id = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
                 .unwrap();
             asset_server.get_handle_untyped(id)
         }
 
         fn get_asset(id: impl Into<HandleId>, world: &World) -> Option<&PngAsset> {
-            world
-                .get_resource::<Assets<PngAsset>>()
-                .unwrap()
-                .get(id.into())
+            world.resource::<Assets<PngAsset>>().get(id.into())
         }
 
         fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
-            world
-                .get_resource::<AssetServer>()
-                .unwrap()
-                .get_load_state(id.into())
+            world.resource::<AssetServer>().get_load_state(id.into())
         }
 
         // ---

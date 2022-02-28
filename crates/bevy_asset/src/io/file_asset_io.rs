@@ -62,6 +62,10 @@ impl FileAssetIo {
                 .unwrap()
         }
     }
+
+    pub fn root_path(&self) -> &PathBuf {
+        &self.root_path
+    }
 }
 
 impl AssetIo for FileAssetIo {

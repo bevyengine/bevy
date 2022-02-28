@@ -1,11 +1,13 @@
 use std::collections::HashSet;
 
+use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
+    prelude::Image,
     primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
@@ -355,62 +357,62 @@ const Z_SLICES: u32 = 24;
 pub fn add_clusters(
     mut commands: Commands,
     windows: Res<Windows>,
+    images: Res<Assets<Image>>,
     cameras: Query<(Entity, &Camera), Without<Clusters>>,
 ) {
     for (entity, camera) in cameras.iter() {
-        let window = match windows.get(camera.window) {
-            Some(window) => window,
-            None => continue,
-        };
-        let clusters = Clusters::from_screen_size_and_z_slices(
-            UVec2::new(window.physical_width(), window.physical_height()),
-            Z_SLICES,
-        );
-        commands.entity(entity).insert(clusters);
+        if let Some(size) = camera.target.get_physical_size(&windows, &images) {
+            let clusters = Clusters::from_screen_size_and_z_slices(size, Z_SLICES);
+            commands.entity(entity).insert(clusters);
+        }
     }
 }
 
-pub fn update_clusters(windows: Res<Windows>, mut views: Query<(&Camera, &mut Clusters)>) {
+pub fn update_clusters(
+    windows: Res<Windows>,
+    images: Res<Assets<Image>>,
+    mut views: Query<(&Camera, &mut Clusters)>,
+) {
     for (camera, mut clusters) in views.iter_mut() {
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
         let inverse_projection = camera.projection_matrix.inverse();
-        let window = windows.get(camera.window).unwrap();
-        let screen_size_u32 = UVec2::new(window.physical_width(), window.physical_height());
-        // Don't update clusters if screen size is 0.
-        if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
-            continue;
-        }
-        *clusters =
-            Clusters::from_screen_size_and_z_slices(screen_size_u32, clusters.axis_slices.z);
-        let screen_size = screen_size_u32.as_vec2();
-        let tile_size_u32 = clusters.tile_size;
-        let tile_size = tile_size_u32.as_vec2();
+        if let Some(screen_size_u32) = camera.target.get_physical_size(&windows, &images) {
+            // Don't update clusters if screen size is 0.
+            if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
+                continue;
+            }
+            *clusters =
+                Clusters::from_screen_size_and_z_slices(screen_size_u32, clusters.axis_slices.z);
+            let screen_size = screen_size_u32.as_vec2();
+            let tile_size_u32 = clusters.tile_size;
+            let tile_size = tile_size_u32.as_vec2();
 
-        // Calculate view space AABBs
-        // NOTE: It is important that these are iterated in a specific order
-        // so that we can calculate the cluster index in the fragment shader!
-        // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
-        // along z
-        let mut aabbs = Vec::with_capacity(
-            (clusters.axis_slices.y * clusters.axis_slices.x * clusters.axis_slices.z) as usize,
-        );
-        for y in 0..clusters.axis_slices.y {
-            for x in 0..clusters.axis_slices.x {
-                for z in 0..clusters.axis_slices.z {
-                    aabbs.push(compute_aabb_for_cluster(
-                        clusters.near,
-                        camera.far,
-                        tile_size,
-                        screen_size,
-                        inverse_projection,
-                        is_orthographic,
-                        clusters.axis_slices,
-                        UVec3::new(x, y, z),
-                    ));
+            // Calculate view space AABBs
+            // NOTE: It is important that these are iterated in a specific order
+            // so that we can calculate the cluster index in the fragment shader!
+            // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
+            // along z
+            let mut aabbs = Vec::with_capacity(
+                (clusters.axis_slices.y * clusters.axis_slices.x * clusters.axis_slices.z) as usize,
+            );
+            for y in 0..clusters.axis_slices.y {
+                for x in 0..clusters.axis_slices.x {
+                    for z in 0..clusters.axis_slices.z {
+                        aabbs.push(compute_aabb_for_cluster(
+                            clusters.near,
+                            camera.far,
+                            tile_size,
+                            screen_size,
+                            inverse_projection,
+                            is_orthographic,
+                            clusters.axis_slices,
+                            UVec3::new(x, y, z),
+                        ));
+                    }
                 }
             }
+            clusters.aabbs = aabbs;
         }
-        clusters.aabbs = aabbs;
     }
 }
 
@@ -475,10 +477,6 @@ fn ndc_position_to_cluster(
     xy.as_uvec2()
         .extend(z_slice)
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
-}
-
-fn cluster_to_index(cluster_dimensions: UVec3, cluster: UVec3) -> usize {
-    ((cluster.y * cluster_dimensions.x + cluster.x) * cluster_dimensions.z + cluster.z) as usize
 }
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
@@ -576,7 +574,7 @@ pub(crate) fn assign_lights_to_clusters(
 
         let mut clusters_lights =
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
-        let mut visible_lights_set = HashSet::with_capacity(light_count);
+        let mut visible_lights = Vec::with_capacity(light_count);
 
         for light in lights.iter() {
             let light_sphere = Sphere {
@@ -588,6 +586,10 @@ pub(crate) fn assign_lights_to_clusters(
             if !frustum.intersects_sphere(&light_sphere) {
                 continue;
             }
+
+            // NOTE: The light intersects the frustum so it must be visible and part of the global set
+            global_lights_set.insert(light.entity);
+            visible_lights.push(light.entity);
 
             // Calculate an AABB for the light in view space, find the corresponding clusters for the min and max
             // points of the AABB, then iterate over just those clusters for this light
@@ -661,14 +663,14 @@ pub(crate) fn assign_lights_to_clusters(
             let (min_cluster, max_cluster) =
                 (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
             for y in min_cluster.y..=max_cluster.y {
+                let row_offset = y * clusters.axis_slices.x;
                 for x in min_cluster.x..=max_cluster.x {
+                    let col_offset = (row_offset + x) * clusters.axis_slices.z;
                     for z in min_cluster.z..=max_cluster.z {
-                        let cluster_index =
-                            cluster_to_index(clusters.axis_slices, UVec3::new(x, y, z));
+                        // NOTE: cluster_index = (y * dim.x + x) * dim.z + z
+                        let cluster_index = (col_offset + z) as usize;
                         let cluster_aabb = &clusters.aabbs[cluster_index];
                         if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
-                            global_lights_set.insert(light.entity);
-                            visible_lights_set.insert(light.entity);
                             clusters_lights[cluster_index].entities.push(light.entity);
                         }
                     }
@@ -681,8 +683,9 @@ pub(crate) fn assign_lights_to_clusters(
         }
 
         clusters.lights = clusters_lights;
+        visible_lights.shrink_to_fit();
         commands.entity(view_entity).insert(VisiblePointLights {
-            entities: visible_lights_set.into_iter().collect(),
+            entities: visible_lights,
         });
     }
     global_lights.entities = global_lights_set.into_iter().collect();

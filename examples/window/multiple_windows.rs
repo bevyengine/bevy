@@ -2,7 +2,7 @@ use bevy::{
     core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},
     prelude::*,
     render::{
-        camera::{ActiveCameras, ExtractedCameraNames},
+        camera::{ActiveCameras, ExtractedCameraNames, RenderTarget},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
         render_phase::RenderPhase,
         renderer::RenderContext,
@@ -20,7 +20,7 @@ fn main() {
 
     let render_app = app.sub_app_mut(RenderApp);
     render_app.add_system_to_stage(RenderStage::Extract, extract_secondary_camera_phases);
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
     graph.add_node(SECONDARY_PASS_DRIVER, SecondaryCameraDriver);
     graph
         .add_node_edge(node::MAIN_PASS_DEPENDENCIES, SECONDARY_PASS_DRIVER)
@@ -65,7 +65,7 @@ fn create_new_window(
     // second window camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         camera: Camera {
-            window: window_id,
+            target: RenderTarget::Window(window_id),
             name: Some(SECONDARY_CAMERA_NAME.into()),
             ..Default::default()
         },
@@ -84,7 +84,7 @@ impl Node for SecondaryCameraDriver {
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
+        let extracted_cameras = world.resource::<ExtractedCameraNames>();
         if let Some(camera_3d) = extracted_cameras.entities.get(SECONDARY_CAMERA_NAME) {
             graph.run_sub_graph(
                 crate::draw_3d_graph::NAME,

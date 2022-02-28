@@ -90,6 +90,9 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
+# Enable the "debug asset server" for hot reloading internal assets
+debug_asset_server = ["bevy_internal/debug_asset_server"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }
@@ -125,7 +128,7 @@ name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
 
 [[example]]
-name = "2d_rotation"
+name = "rotation"
 path = "examples/2d/rotation.rs"
 
 [[example]]
@@ -208,6 +211,10 @@ path = "examples/3d/spherical_area_lights.rs"
 [[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
+
+[[example]]
+name = "render_to_texture"
+path = "examples/3d/render_to_texture.rs"
 
 [[example]]
 name = "update_gltf_scene"
@@ -314,6 +321,10 @@ path = "examples/ecs/ecs_guide.rs"
 [[example]]
 name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
+
+[[example]]
+name = "custom_query_param"
+path = "examples/ecs/custom_query_param.rs"
 
 [[example]]
 name = "event"
@@ -445,12 +456,20 @@ path = "examples/scene/scene.rs"
 
 # Shaders
 [[example]]
+name = "custom_vertex_attribute"
+path = "examples/shader/custom_vertex_attribute.rs"
+
+[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
+
+[[example]]
+name = "shader_material_screenspace_texture"
+path = "examples/shader/shader_material_screenspace_texture.rs"
 
 [[example]]
 name = "shader_material_glsl"

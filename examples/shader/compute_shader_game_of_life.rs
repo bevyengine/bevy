@@ -66,7 +66,7 @@ impl Plugin for GameOfLifeComputePlugin {
             .add_system_to_stage(RenderStage::Extract, extract_game_of_life_image)
             .add_system_to_stage(RenderStage::Queue, queue_bind_group);
 
-        let mut render_graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", DispatchGameOfLife::default());
         render_graph
             .add_node_edge("game_of_life", MAIN_PASS_DEPENDENCIES)
@@ -107,7 +107,7 @@ pub struct GameOfLifePipeline {
 
 impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
 
         let shader_source = include_str!("../../assets/shaders/game_of_life.wgsl");
         let shader = render_device.create_shader_module(&ShaderModuleDescriptor {
@@ -187,8 +187,8 @@ impl render_graph::Node for DispatchGameOfLife {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
-        let pipeline = world.get_resource::<GameOfLifePipeline>().unwrap();
-        let texture_bind_group = &world.get_resource::<GameOfLifeImageBindGroup>().unwrap().0;
+        let pipeline = world.resource::<GameOfLifePipeline>();
+        let texture_bind_group = &world.resource::<GameOfLifeImageBindGroup>().0;
 
         let mut pass = render_context
             .command_encoder
