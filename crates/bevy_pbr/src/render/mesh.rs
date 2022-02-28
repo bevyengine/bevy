@@ -636,7 +636,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let (view_uniform, view_lights, mesh_view_bind_group) =
-            view_query.get(view).expect("Could not get view.");
+            view_query.get(view).expect("Could not find view entity.");
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
