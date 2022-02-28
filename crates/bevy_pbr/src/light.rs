@@ -478,10 +478,6 @@ fn ndc_position_to_cluster(
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
 }
 
-fn cluster_to_index(cluster_dimensions: UVec3, cluster: UVec3) -> usize {
-    ((cluster.y * cluster_dimensions.x + cluster.x) * cluster_dimensions.z + cluster.z) as usize
-}
-
 // NOTE: Run this before update_point_light_frusta!
 pub fn assign_lights_to_clusters(
     mut commands: Commands,
@@ -506,7 +502,7 @@ pub fn assign_lights_to_clusters(
 
         let mut clusters_lights =
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
-        let mut visible_lights_set = HashSet::with_capacity(light_count);
+        let mut visible_lights = Vec::with_capacity(light_count);
 
         for (light_entity, light_transform, light) in lights.iter() {
             let light_sphere = Sphere {
@@ -518,6 +514,10 @@ pub fn assign_lights_to_clusters(
             if !frustum.intersects_sphere(&light_sphere) {
                 continue;
             }
+
+            // NOTE: The light intersects the frustum so it must be visible and part of the global set
+            global_lights_set.insert(light_entity);
+            visible_lights.push(light_entity);
 
             // Calculate an AABB for the light in view space, find the corresponding clusters for the min and max
             // points of the AABB, then iterate over just those clusters for this light
@@ -591,14 +591,14 @@ pub fn assign_lights_to_clusters(
             let (min_cluster, max_cluster) =
                 (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
             for y in min_cluster.y..=max_cluster.y {
+                let row_offset = y * clusters.axis_slices.x;
                 for x in min_cluster.x..=max_cluster.x {
+                    let col_offset = (row_offset + x) * clusters.axis_slices.z;
                     for z in min_cluster.z..=max_cluster.z {
-                        let cluster_index =
-                            cluster_to_index(clusters.axis_slices, UVec3::new(x, y, z));
+                        // NOTE: cluster_index = (y * dim.x + x) * dim.z + z
+                        let cluster_index = (col_offset + z) as usize;
                         let cluster_aabb = &clusters.aabbs[cluster_index];
                         if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
-                            global_lights_set.insert(light_entity);
-                            visible_lights_set.insert(light_entity);
                             clusters_lights[cluster_index].entities.push(light_entity);
                         }
                     }
@@ -611,8 +611,9 @@ pub fn assign_lights_to_clusters(
         }
 
         clusters.lights = clusters_lights;
+        visible_lights.shrink_to_fit();
         commands.entity(view_entity).insert(VisiblePointLights {
-            entities: visible_lights_set.into_iter().collect(),
+            entities: visible_lights,
         });
     }
     global_lights.entities = global_lights_set.into_iter().collect();
