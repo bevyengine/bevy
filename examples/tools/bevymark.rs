@@ -263,7 +263,6 @@ fn counter_system(
 ) {
     let mut text = query.single_mut();
 
-    // Re-use string buffers here and below (clear + write) to save an allocation
     if counter.is_changed() {
         text.sections[1].value = format!("{}", counter.count);
     }
