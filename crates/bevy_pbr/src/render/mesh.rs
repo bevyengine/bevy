@@ -680,7 +680,7 @@ impl EntityRenderCommand for DrawMesh {
         (meshes, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = mesh_query.get(item).expect("Could not get mesh handle.");
+        let mesh_handle = mesh_query.get(item).expect("Could not find mesh entity to get mesh handle.");
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {
