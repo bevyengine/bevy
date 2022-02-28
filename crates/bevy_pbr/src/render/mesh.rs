@@ -660,7 +660,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
         (mesh_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_index = mesh_query.get(item).expect("Could not get mesh index.");
+        let mesh_index = mesh_query.get(item).expect("Could not find mesh entity to get mesh index.");
         pass.set_bind_group(
             I,
             &mesh_bind_group.into_inner().value,
