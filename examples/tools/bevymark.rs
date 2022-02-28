@@ -222,12 +222,11 @@ fn spawn_birds(
 }
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
-    // `.for_each_mut` is faster than `.iter_mut`, but can't be chained like a normal iterator.
-    bird_query.for_each_mut(|(mut bird, mut transform)| {
+    for (mut bird, mut transform) in bird_query.iter_mut() {
         transform.translation.x += bird.velocity.x * time.delta_seconds();
         transform.translation.y += bird.velocity.y * time.delta_seconds();
         bird.velocity.y += GRAVITY * time.delta_seconds();
-    });
+    }
 }
 
 fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Transform)>) {
@@ -235,8 +234,7 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
     let half_width = window.width() as f32 * 0.5;
     let half_height = window.height() as f32 * 0.5;
 
-    // `.for_each_mut` is faster than `.iter_mut`, but can't be chained like a normal iterator.
-    bird_query.for_each_mut(|(mut bird, transform)| {
+    for (mut bird, transform) in bird_query.iter_mut() {
         let x_vel = bird.velocity.x;
         let y_vel = bird.velocity.y;
         let x_pos = transform.translation.x;
@@ -253,7 +251,7 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
         if y_pos + HALF_BIRD_SIZE > half_height && y_vel > 0.0 {
             bird.velocity.y = 0.0;
         }
-    });
+    }
 }
 
 fn counter_system(
