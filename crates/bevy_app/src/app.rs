@@ -1,8 +1,7 @@
-use crate::{
-    CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage,
-};
+use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    event::Events,
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
         IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,

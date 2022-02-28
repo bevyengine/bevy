@@ -10,8 +10,12 @@ use bevy_input::{
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
-use bevy_ecs::{system::IntoExclusiveSystem, world::World};
+use bevy_app::{App, AppExit, CoreStage, Plugin};
+use bevy_ecs::{
+    event::{Events, ManualEventReader},
+    system::IntoExclusiveSystem,
+    world::World,
+};
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{

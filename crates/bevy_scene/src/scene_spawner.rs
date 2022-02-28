@@ -1,8 +1,8 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::{Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
+    event::{Events, ManualEventReader},
     reflect::{ReflectComponent, ReflectMapEntities},
     system::Command,
     world::{Mut, World},
