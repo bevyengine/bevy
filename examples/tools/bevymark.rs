@@ -4,17 +4,16 @@ use bevy::{
     prelude::*,
     window::PresentMode,
 };
-use rand::random;
+use rand::{thread_rng, Rng};
 
 const BIRDS_PER_SECOND: u32 = 10000;
-const _BASE_COLOR: Color = Color::rgb(5.0, 5.0, 5.0);
 const GRAVITY: f32 = -9.8 * 100.0;
 const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
 const HALF_BIRD_SIZE: f32 = 256. * BIRD_SCALE * 0.5;
 
 struct BevyCounter {
-    pub count: u128,
+    pub count: usize,
     pub color: Color,
 }
 
@@ -23,13 +22,16 @@ struct Bird {
     velocity: Vec3,
 }
 
+/// This example provides a 2D benchmark.
+///
+/// Usage: spawn more entities by clicking on the screen.
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,
-            present_mode: PresentMode::Mailbox,
+            present_mode: PresentMode::Immediate,
             resizable: true,
             ..Default::default()
         })
@@ -54,8 +56,8 @@ fn main() {
 }
 
 struct BirdScheduled {
-    wave: u128,
-    per_wave: u128,
+    wave: usize,
+    per_wave: usize,
 }
 
 fn scheduled_spawner(
@@ -73,77 +75,84 @@ fn scheduled_spawner(
             scheduled.per_wave,
             bird_texture.0.clone_weak(),
         );
-        counter.color = Color::rgb_linear(random(), random(), random());
+
+        let mut rng = thread_rng();
+        counter.color = Color::rgb_linear(rng.gen(), rng.gen(), rng.gen());
         scheduled.wave -= 1;
     }
 }
 
 struct BirdTexture(Handle<Image>);
 
+#[derive(Component)]
+struct StatsText;
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let texture = asset_server.load("branding/icon.png");
 
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
-    commands.spawn_bundle(TextBundle {
-        text: Text {
-            sections: vec![
-                TextSection {
-                    value: "Bird Count: ".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 0.0),
+    commands
+        .spawn_bundle(TextBundle {
+            text: Text {
+                sections: vec![
+                    TextSection {
+                        value: "Bird Count: ".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 0.0),
+                        },
                     },
-                },
-                TextSection {
-                    value: "".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 1.0),
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 1.0),
+                        },
                     },
-                },
-                TextSection {
-                    value: "\nAverage FPS: ".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 0.0),
+                    TextSection {
+                        value: "\nAverage FPS: ".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 0.0),
+                        },
                     },
-                },
-                TextSection {
-                    value: "".to_string(),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 1.0),
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.0, 1.0, 1.0),
+                        },
                     },
+                ],
+                ..Default::default()
+            },
+            style: Style {
+                position_type: PositionType::Absolute,
+                position: Rect {
+                    top: Val::Px(5.0),
+                    left: Val::Px(5.0),
+                    ..Default::default()
                 },
-            ],
-            ..Default::default()
-        },
-        style: Style {
-            position_type: PositionType::Absolute,
-            position: Rect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
                 ..Default::default()
             },
             ..Default::default()
-        },
-        ..Default::default()
-    });
+        })
+        .insert(StatsText);
 
     commands.insert_resource(BirdTexture(texture));
     commands.insert_resource(BirdScheduled {
         per_wave: std::env::args()
             .nth(1)
-            .and_then(|arg| arg.parse::<u128>().ok())
+            .and_then(|arg| arg.parse::<usize>().ok())
             .unwrap_or_default(),
         wave: std::env::args()
             .nth(2)
-            .and_then(|arg| arg.parse::<u128>().ok())
+            .and_then(|arg| arg.parse::<usize>().ok())
             .unwrap_or(1),
     });
 }
@@ -157,11 +166,12 @@ fn mouse_handler(
     mut counter: ResMut<BevyCounter>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = Color::rgb_linear(random(), random(), random());
+        let mut rng = thread_rng();
+        counter.color = Color::rgb_linear(rng.gen(), rng.gen(), rng.gen());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
-        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as u128;
+        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as usize;
         spawn_birds(
             &mut commands,
             &windows,
@@ -176,12 +186,14 @@ fn spawn_birds(
     commands: &mut Commands,
     windows: &Windows,
     counter: &mut BevyCounter,
-    spawn_count: u128,
+    spawn_count: usize,
     texture: Handle<Image>,
 ) {
     let window = windows.get_primary().unwrap();
     let bird_x = (window.width() as f32 / -2.) + HALF_BIRD_SIZE;
     let bird_y = (window.height() as f32 / 2.) - HALF_BIRD_SIZE;
+    let mut rng = thread_rng();
+
     for count in 0..spawn_count {
         let bird_z = (counter.count + count) as f32 * 0.00001;
         commands
@@ -200,7 +212,7 @@ fn spawn_birds(
             })
             .insert(Bird {
                 velocity: Vec3::new(
-                    rand::random::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
+                    rng.gen::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
                     0.,
                     0.,
                 ),
@@ -245,14 +257,17 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
 fn counter_system(
     diagnostics: Res<Diagnostics>,
     counter: Res<BevyCounter>,
-    mut query: Query<&mut Text>,
+    mut query: Query<&mut Text, With<StatsText>>,
 ) {
+    let mut text = query.single_mut();
+
+    if counter.is_changed() {
+        text.sections[1].value = format!("{}", counter.count);
+    }
+
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(average) = fps.average() {
-            for mut text in query.iter_mut() {
-                text.sections[1].value = format!("{}", counter.count);
-                text.sections[3].value = format!("{:.2}", average);
-            }
+            text.sections[3].value = format!("{:.2}", average);
         }
     };
 }
