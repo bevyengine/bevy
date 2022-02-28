@@ -204,6 +204,6 @@ impl Plugin for PbrPlugin {
                 draw_3d_graph::node::SHADOW_PASS,
                 ShadowPassNode::IN_VIEW,
             )
-            .expect("Could not add slot edge for 3d graph.");
+            .expect("Could not add slot edge to 3d graph for shadow pass view entity input.");
     }
 }
