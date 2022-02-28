@@ -288,31 +288,6 @@ mod tests {
     }
 
     #[test]
-    fn query_all_for_each() {
-        let mut world = World::new();
-        let e = world
-            .spawn()
-            .insert_bundle((TableStored("abc"), A(123)))
-            .id();
-        let f = world
-            .spawn()
-            .insert_bundle((TableStored("def"), A(456)))
-            .id();
-
-        let mut results = Vec::new();
-        world
-            .query::<(Entity, &A, &TableStored)>()
-            .for_each(&world, |(e, &i, &s)| results.push((e, i, s)));
-        assert_eq!(
-            results,
-            &[
-                (e, A(123), TableStored("abc")),
-                (f, A(456), TableStored("def"))
-            ]
-        );
-    }
-
-    #[test]
     fn query_single_component() {
         let mut world = World::new();
         let e = world
@@ -349,24 +324,6 @@ mod tests {
             .id();
         let ents = query.iter(&world).map(|(e, &i)| (e, i)).collect::<Vec<_>>();
         assert_eq!(ents, &[(e, A(123)), (f, A(456))]);
-    }
-
-    #[test]
-    fn query_single_component_for_each() {
-        let mut world = World::new();
-        let e = world
-            .spawn()
-            .insert_bundle((TableStored("abc"), A(123)))
-            .id();
-        let f = world
-            .spawn()
-            .insert_bundle((TableStored("def"), A(456), B(1)))
-            .id();
-        let mut results = Vec::new();
-        world
-            .query::<(Entity, &A)>()
-            .for_each(&world, |(e, &i)| results.push((e, i)));
-        assert_eq!(results, &[(e, A(123)), (f, A(456))]);
     }
 
     #[test]
@@ -453,19 +410,6 @@ mod tests {
     }
 
     #[test]
-    fn query_filter_with_for_each() {
-        let mut world = World::new();
-        world.spawn().insert_bundle((A(123), B(1)));
-        world.spawn().insert(A(456));
-
-        let mut results = Vec::new();
-        world
-            .query_filtered::<&A, With<B>>()
-            .for_each(&world, |i| results.push(*i));
-        assert_eq!(results, vec![A(123)]);
-    }
-
-    #[test]
     fn query_filter_with_sparse() {
         let mut world = World::new();
 
@@ -477,19 +421,6 @@ mod tests {
             .cloned()
             .collect::<Vec<_>>();
         assert_eq!(result, vec![A(123)]);
-    }
-
-    #[test]
-    fn query_filter_with_sparse_for_each() {
-        let mut world = World::new();
-
-        world.spawn().insert_bundle((A(123), SparseStored(321)));
-        world.spawn().insert(A(456));
-        let mut results = Vec::new();
-        world
-            .query_filtered::<&A, With<SparseStored>>()
-            .for_each(&world, |i| results.push(*i));
-        assert_eq!(results, vec![A(123)]);
     }
 
     #[test]
@@ -1300,16 +1231,6 @@ mod tests {
         let mut query = world_a.query::<&A>();
         let _ = query.get(&world_a, Entity::from_raw(0));
         let _ = query.get(&world_b, Entity::from_raw(0));
-    }
-
-    #[test]
-    #[should_panic]
-    fn multiple_worlds_same_query_for_each() {
-        let mut world_a = World::new();
-        let world_b = World::new();
-        let mut query = world_a.query::<&A>();
-        query.for_each(&world_a, |_| {});
-        query.for_each(&world_b, |_| {});
     }
 
     #[test]

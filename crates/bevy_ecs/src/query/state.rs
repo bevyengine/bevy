@@ -422,72 +422,6 @@ where
         QueryCombinationIter::new(world, self, last_change_tick, change_tick)
     }
 
-    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
-    ///
-    /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
-    #[inline]
-    pub fn for_each<'w, 's, FN: FnMut(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item)>(
-        &'s mut self,
-        world: &'w World,
-        func: FN,
-    ) {
-        // SAFETY: query is read only
-        unsafe {
-            self.update_archetypes(world);
-            self.for_each_unchecked_manual::<Q::ReadOnlyFetch, FN>(
-                world,
-                func,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            );
-        }
-    }
-
-    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
-    #[inline]
-    pub fn for_each_mut<'w, 's, FN: FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)>(
-        &'s mut self,
-        world: &'w mut World,
-        func: FN,
-    ) {
-        // SAFETY: query has unique world access
-        unsafe {
-            self.update_archetypes(world);
-            self.for_each_unchecked_manual::<Q::Fetch, FN>(
-                world,
-                func,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            );
-        }
-    }
-
-    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
-    ///
-    /// This can only be called for read-only queries.
-    ///
-    /// # Safety
-    ///
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    #[inline]
-    pub unsafe fn for_each_unchecked<'w, 's, FN: FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)>(
-        &'s mut self,
-        world: &'w World,
-        func: FN,
-    ) {
-        self.update_archetypes(world);
-        self.for_each_unchecked_manual::<Q::Fetch, FN>(
-            world,
-            func,
-            world.last_change_tick(),
-            world.read_change_tick(),
-        );
-    }
-
     /// Runs `func` on each query result in parallel using the given `task_pool`.
     ///
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
@@ -574,66 +508,6 @@ where
             world.last_change_tick(),
             world.read_change_tick(),
         );
-    }
-
-    /// Runs `func` on each query result for the given [`World`], where the last change and
-    /// the current change tick are given. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
-    ///
-    /// # Safety
-    ///
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched [`WorldId`] is unsound.
-    pub(crate) unsafe fn for_each_unchecked_manual<
-        'w,
-        's,
-        QF: Fetch<'w, 's, State = Q::State>,
-        FN: FnMut(QF::Item),
-    >(
-        &'s self,
-        world: &'w World,
-        mut func: FN,
-        last_change_tick: u32,
-        change_tick: u32,
-    ) {
-        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter =
-            <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
-        if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
-            let tables = &world.storages().tables;
-            for table_id in &self.matched_table_ids {
-                let table = &tables[*table_id];
-                fetch.set_table(&self.fetch_state, table);
-                filter.set_table(&self.filter_state, table);
-
-                for table_index in 0..table.len() {
-                    if !filter.table_filter_fetch(table_index) {
-                        continue;
-                    }
-                    let item = fetch.table_fetch(table_index);
-                    func(item);
-                }
-            }
-        } else {
-            let archetypes = &world.archetypes;
-            let tables = &world.storages().tables;
-            for archetype_id in &self.matched_archetype_ids {
-                let archetype = &archetypes[*archetype_id];
-                fetch.set_archetype(&self.fetch_state, archetype, tables);
-                filter.set_archetype(&self.filter_state, archetype, tables);
-
-                for archetype_index in 0..archetype.len() {
-                    if !filter.archetype_filter_fetch(archetype_index) {
-                        continue;
-                    }
-                    func(fetch.archetype_fetch(archetype_index));
-                }
-            }
-        }
     }
 
     /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
