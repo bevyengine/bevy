@@ -1,3 +1,4 @@
+use futures_lite::future::{block_on, poll_once};
 use std::{
     future::Future,
     pin::Pin,
@@ -39,6 +40,13 @@ impl<T> Task<T> {
     /// See `async_executor::Task::cancel`
     pub async fn cancel(self) -> Option<T> {
         self.0.cancel().await
+    }
+
+    /// Poll once and check whether the task finished.
+    ///
+    /// After the task finished, polling again will panic because the task was already cancelled.
+    pub fn check_on_result(&mut self) -> Option<T> {
+        block_on(poll_once(self))
     }
 }
 
