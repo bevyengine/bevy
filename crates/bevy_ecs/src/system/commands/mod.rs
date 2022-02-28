@@ -410,8 +410,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// #     defense: Defense,
     /// # }
     /// // Make sure this is in scope!
-    /// use crate::bevy_ecs::system::BoxableCommand; 
-    /// 
+    /// use crate::bevy_ecs::system::BoxableCommand;
+    ///
     /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///     let boxed_insert = InsertBundle {
     ///         entity: player.entity,
