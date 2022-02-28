@@ -600,7 +600,7 @@ pub fn queue_mesh_view_bind_groups(
                         resource: view_cluster_bindings
                             .cluster_light_index_lists
                             .binding()
-                            .expect("Could not create `BindGroupEntry`."),
+                            .expect("Could not create `cluster_light_index_lists` `BindGroupEntry`."),
                     },
                     BindGroupEntry {
                         binding: 8,
