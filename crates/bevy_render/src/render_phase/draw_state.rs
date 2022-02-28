@@ -251,7 +251,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// ```
     pub fn draw_indirect(&mut self, indirect_buffer: &'a Buffer, indirect_offset: u64) {
         trace!("draw indirect: {:?} {}", indirect_buffer, indirect_offset);
-        self.pass.draw_indirect(&indirect_buffer, indirect_offset);
+        self.pass.draw_indirect(indirect_buffer, indirect_offset);
     }
 
     /// Draws indexed primitives using the active index buffer and the active vertex buffers,
@@ -280,7 +280,7 @@ impl<'a> TrackedRenderPass<'a> {
             indirect_offset
         );
         self.pass
-            .draw_indexed_indirect(&indirect_buffer, indirect_offset);
+            .draw_indexed_indirect(indirect_buffer, indirect_offset);
     }
 
     /// Sets the stencil reference.
