@@ -494,33 +494,50 @@ pub(crate) fn point_light_order(
         .then_with(|| entity_1.cmp(entity_2))
 }
 
+#[derive(Clone, Copy)]
+// data required for assigning lights to clusters
+pub(crate) struct PointLightAssignmentData {
+    entity: Entity,
+    translation: Vec3,
+    range: f32,
+    shadows_enabled: bool,
+}
+
 // NOTE: Run this before update_point_light_frusta!
-pub fn assign_lights_to_clusters(
+pub(crate) fn assign_lights_to_clusters(
     mut commands: Commands,
     mut global_lights: ResMut<VisiblePointLights>,
     mut views: Query<(Entity, &GlobalTransform, &Camera, &Frustum, &mut Clusters)>,
-    lights: Query<(Entity, &GlobalTransform, &PointLight)>,
+    lights_query: Query<(Entity, &GlobalTransform, &PointLight)>,
+    mut lights: Local<Vec<PointLightAssignmentData>>,
 ) {
-    let mut lights = lights
+    // collect just the relevant light query data into a persisted vec to avoid reallocating each frame
+    lights.extend(
+        lights_query
         .iter()
-        .map(|(entity, transform, light)| (entity, transform.translation, light))
-        .collect::<Vec<_>>();
+            .map(|(entity, transform, light)| PointLightAssignmentData {
+                entity,
+                translation: transform.translation,
+                shadows_enabled: light.shadows_enabled,
+                range: light.range,
+            }),
+    );
 
     if lights.len() > MAX_POINT_LIGHTS {
-        lights.sort_by(|(entity_1, _, light_1), (entity_2, _, light_2)| {
+        lights.sort_by(|light_1, light_2| {
             point_light_order(
-                (entity_1, &light_1.shadows_enabled),
-                (entity_2, &light_2.shadows_enabled),
+                (&light_1.entity, &light_1.shadows_enabled),
+                (&light_2.entity, &light_2.shadows_enabled),
             )
         });
 
         // check each light against each view's frustum, keep only those that affect at least one of our views
         let frusta: Vec<_> = views.iter().map(|(_, _, _, frustum, _)| *frustum).collect();
-        lights = lights
-            .into_iter()
-            .filter(|&(_, light_translation, light)| {
+        *lights = (*lights)
+            .iter()
+            .filter(|light| {
                 let light_sphere = Sphere {
-                    center: light_translation,
+                    center: light.translation,
                     radius: light.range,
                 };
 
@@ -530,6 +547,7 @@ pub fn assign_lights_to_clusters(
             })
             // take one extra light to check if we should emit the warning
             .take(MAX_POINT_LIGHTS + 1)
+            .copied()
             .collect();
 
         if lights.len() > MAX_POINT_LIGHTS {
@@ -557,9 +575,9 @@ pub fn assign_lights_to_clusters(
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
         let mut visible_lights_set = HashSet::with_capacity(light_count);
 
-        for &(light_entity, light_translation, light) in lights.iter() {
+        for light in lights.iter() {
             let light_sphere = Sphere {
-                center: light_translation,
+                center: light.translation,
                 radius: light.range,
             };
 
@@ -646,9 +664,9 @@ pub fn assign_lights_to_clusters(
                             cluster_to_index(clusters.axis_slices, UVec3::new(x, y, z));
                         let cluster_aabb = &clusters.aabbs[cluster_index];
                         if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
-                            global_lights_set.insert(light_entity);
-                            visible_lights_set.insert(light_entity);
-                            clusters_lights[cluster_index].entities.push(light_entity);
+                            global_lights_set.insert(light.entity);
+                            visible_lights_set.insert(light.entity);
+                            clusters_lights[cluster_index].entities.push(light.entity);
                         }
                     }
                 }
@@ -665,6 +683,7 @@ pub fn assign_lights_to_clusters(
         });
     }
     global_lights.entities = global_lights_set.into_iter().collect();
+    lights.clear();
 }
 
 pub fn update_directional_light_frusta(
