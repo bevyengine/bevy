@@ -89,8 +89,8 @@ struct IsRedPipeline {
 
 impl FromWorld for IsRedPipeline {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+        let asset_server = world.resource::<AssetServer>();
+        let mesh_pipeline = world.resource::<MeshPipeline>();
         let shader = asset_server.load("shaders/shader_defs.wgsl");
         IsRedPipeline {
             mesh_pipeline: mesh_pipeline.clone(),

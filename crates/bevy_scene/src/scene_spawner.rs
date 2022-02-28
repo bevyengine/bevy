@@ -144,7 +144,7 @@ impl SceneSpawner {
         let mut instance_info = InstanceInfo {
             entity_map: EntityMap::default(),
         };
-        let type_registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
+        let type_registry = world.resource::<TypeRegistryArc>().clone();
         let type_registry = type_registry.read();
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene =
@@ -311,9 +311,7 @@ impl SceneSpawner {
 
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
-        let scene_asset_events = world
-            .get_resource::<Events<AssetEvent<DynamicScene>>>()
-            .unwrap();
+        let scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
 
         let mut updated_spawned_scenes = Vec::new();
         let scene_spawner = &mut *scene_spawner;

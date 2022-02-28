@@ -79,10 +79,14 @@ pub struct WireframePipeline {
 impl FromWorld for WireframePipeline {
     fn from_world(render_world: &mut World) -> Self {
         WireframePipeline {
+<<<<<<< HEAD
             mesh_pipeline: render_world
                 .get_resource::<MeshPipeline>()
                 .expect("Could not find `MeshPipeline` in `World`.")
                 .clone(),
+=======
+            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
+>>>>>>> upstream/main
             shader: WIREFRAME_SHADER_HANDLE.typed(),
         }
     }

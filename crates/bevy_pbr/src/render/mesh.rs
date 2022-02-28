@@ -165,9 +165,13 @@ pub struct MeshPipeline {
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
+<<<<<<< HEAD
         let render_device = world
             .get_resource::<RenderDevice>()
             .expect("Could not find `RenderDevice` in `World`.");
+=======
+        let render_device = world.resource::<RenderDevice>();
+>>>>>>> upstream/main
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -303,9 +307,13 @@ impl FromWorld for MeshPipeline {
             let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
             let format_size = image.texture_descriptor.format.pixel_size();
+<<<<<<< HEAD
             let render_queue = world
                 .get_resource_mut::<RenderQueue>()
                 .expect("Could not find `RenderQueue` in `World`.");
+=======
+            let render_queue = world.resource_mut::<RenderQueue>();
+>>>>>>> upstream/main
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,

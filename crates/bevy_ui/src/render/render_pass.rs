@@ -25,7 +25,7 @@ impl bevy_render::render_graph::Node for UiPassDriverNode {
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
+        let extracted_cameras = world.resource::<ExtractedCameraNames>();
         if let Some(camera_ui) = extracted_cameras.entities.get(CAMERA_UI) {
             graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(*camera_ui)])?;
         }
@@ -82,9 +82,7 @@ impl bevy_render::render_graph::Node for UiPassNode {
             depth_stencil_attachment: None,
         };
 
-        let draw_functions = world
-            .get_resource::<DrawFunctions<TransparentUi>>()
-            .unwrap();
+        let draw_functions = world.resource::<DrawFunctions<TransparentUi>>();
 
         let render_pass = render_context
             .command_encoder

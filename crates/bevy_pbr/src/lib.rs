@@ -124,8 +124,12 @@ impl Plugin for PbrPlugin {
             );
 
         app.world
+<<<<<<< HEAD
             .get_resource_mut::<Assets<StandardMaterial>>()
             .expect("Could not find `Assets<StandardMaterial>` resource in `World`.")
+=======
+            .resource_mut::<Assets<StandardMaterial>>()
+>>>>>>> upstream/main
             .set_untracked(
                 Handle::<StandardMaterial>::default(),
                 StandardMaterial {
@@ -180,10 +184,14 @@ impl Plugin for PbrPlugin {
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
+<<<<<<< HEAD
         let mut graph = render_app
             .world
             .get_resource_mut::<RenderGraph>()
             .expect("Could not find `RenderGraph` in `World`.");
+=======
+        let mut graph = render_app.world.resource_mut::<RenderGraph>();
+>>>>>>> upstream/main
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
             .expect("Could not find a mutable 3d sub graph in `RenderGraph`.");
