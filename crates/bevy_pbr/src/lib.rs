@@ -125,7 +125,7 @@ impl Plugin for PbrPlugin {
 
         app.world
             .get_resource_mut::<Assets<StandardMaterial>>()
-            .expect("Could not find `Asset` of `StandardMaterial` in `World`.")
+            .expect("Could not find `Assets<StandardMaterial>` resource in `World`.")
             .set_untracked(
                 Handle::<StandardMaterial>::default(),
                 StandardMaterial {
