@@ -20,7 +20,7 @@ fn main() {
         .insert_resource(WindowDescriptor {
             // uncomment for unthrottled FPS
             // vsync: false,
-            ..Default::default()
+            ..default()
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(GameOfLifeComputePlugin)
@@ -46,10 +46,10 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
             custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
-            ..Default::default()
+            ..default()
         },
         texture: image.clone(),
-        ..Default::default()
+        ..default()
     });
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 

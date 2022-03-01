@@ -107,7 +107,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,
-            ..Default::default()
+            ..default()
         },
         text: Text::with_section(
             "Nothing to see in this window! Check the console output!",
@@ -118,6 +118,6 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             Default::default(),
         ),
-        ..Default::default()
+        ..default()
     });
 }

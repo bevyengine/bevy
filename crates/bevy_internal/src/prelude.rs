@@ -2,7 +2,7 @@
 pub use crate::{
     app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, input::prelude::*,
     log::prelude::*, math::prelude::*, reflect::prelude::*, scene::prelude::*,
-    transform::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
+    transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
 pub use bevy_derive::bevy_main;
