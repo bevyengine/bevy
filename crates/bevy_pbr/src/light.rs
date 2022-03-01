@@ -535,7 +535,7 @@ pub(crate) fn assign_lights_to_clusters(
         let mut lights_in_view_count = 0;
         lights.retain(|light| {
             // take one extra light to check if we should emit the warning
-            if lights_in_view_count >= MAX_POINT_LIGHTS + 1 {
+            if lights_in_view_count == MAX_POINT_LIGHTS + 1 {
                 false
             } else {
                 let light_sphere = Sphere {
