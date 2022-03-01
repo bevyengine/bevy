@@ -51,7 +51,7 @@ pub struct PreviousParent(pub(crate) Entity);
 
 impl PreviousParent {
     /// Gets the [`Entity`] that was the [`Parent`] this entity had
-    /// previous.
+    /// previously.
     pub fn entity(&self) -> Entity {
         self.0
     }
