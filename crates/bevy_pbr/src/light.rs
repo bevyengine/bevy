@@ -532,22 +532,28 @@ pub(crate) fn assign_lights_to_clusters(
 
         // check each light against each view's frustum, keep only those that affect at least one of our views
         let frusta: Vec<_> = views.iter().map(|(_, _, _, frustum, _)| *frustum).collect();
-        *lights = (*lights)
-            .iter()
-            .filter(|light| {
+        let mut lights_in_view_count = 0;
+        lights.retain(|light| {
+            // take one extra light to check if we should emit the warning
+            if lights_in_view_count >= MAX_POINT_LIGHTS + 1 {
+                false
+            } else {
                 let light_sphere = Sphere {
                     center: light.translation,
                     radius: light.range,
                 };
 
-                frusta
+                let light_in_view = frusta
                     .iter()
-                    .any(|frustum| frustum.intersects_sphere(&light_sphere))
-            })
-            // take one extra light to check if we should emit the warning
-            .take(MAX_POINT_LIGHTS + 1)
-            .copied()
-            .collect();
+                    .any(|frustum| frustum.intersects_sphere(&light_sphere));
+
+                if light_in_view {
+                    lights_in_view_count += 1;
+                }
+
+                light_in_view
+            }
+        });
 
         if lights.len() > MAX_POINT_LIGHTS && !*max_point_lights_warning_emitted {
             warn!("MAX_POINT_LIGHTS ({}) exceeded", MAX_POINT_LIGHTS);
