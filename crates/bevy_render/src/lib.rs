@@ -1,7 +1,6 @@
 pub mod camera;
 pub mod color;
 pub mod mesh;
-pub mod options;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_component;
@@ -9,6 +8,7 @@ pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
+pub mod settings;
 pub mod texture;
 pub mod view;
 
@@ -108,21 +108,22 @@ struct ScratchRenderWorld(World);
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let mut options = app
+        let options = app
             .world
-            .get_resource::<options::WgpuOptions>()
+            .get_resource::<settings::WgpuSettings>()
             .cloned()
             .unwrap_or_default();
 
         app.add_asset::<Shader>()
+            .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
+            .init_debug_asset_loader::<ShaderLoader>()
             .register_type::<Color>();
 
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);
             let surface = {
-                let world = app.world.cell();
-                let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
+                let windows = app.world.resource_mut::<bevy_window::Windows>();
                 let raw_handle = windows.get_primary().map(|window| unsafe {
                     let handle = window.raw_window_handle().get_handle();
                     instance.create_surface(&handle)
@@ -134,21 +135,19 @@ impl Plugin for RenderPlugin {
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue) = futures_lite::future::block_on(renderer::initialize_renderer(
-                &instance,
-                &mut options,
-                &request_adapter_options,
-            ));
-            debug!("Configured wgpu adapter Limits: {:#?}", &options.limits);
-            debug!("Configured wgpu adapter Features: {:#?}", &options.features);
+            let (device, queue, adapter_info) = futures_lite::future::block_on(
+                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
+            );
+            debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
+            debug!("Configured wgpu adapter Features: {:#?}", device.features());
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
-                .insert_resource(options.clone())
+                .insert_resource(adapter_info.clone())
                 .init_resource::<ScratchRenderWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
             let render_pipeline_cache = RenderPipelineCache::new(device.clone());
-            let asset_server = app.world.get_resource::<AssetServer>().unwrap().clone();
+            let asset_server = app.world.resource::<AssetServer>().clone();
 
             let mut render_app = App::empty();
             let mut extract_stage =
@@ -171,7 +170,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(instance)
                 .insert_resource(device)
                 .insert_resource(queue)
-                .insert_resource(options)
+                .insert_resource(adapter_info)
                 .insert_resource(render_pipeline_cache)
                 .insert_resource(asset_server)
                 .init_resource::<RenderGraph>();

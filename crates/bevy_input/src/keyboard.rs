@@ -1,5 +1,5 @@
 use crate::{ElementState, Input};
-use bevy_app::EventReader;
+use bevy_ecs::event::EventReader;
 use bevy_ecs::system::ResMut;
 
 /// A key input event from a keyboard device

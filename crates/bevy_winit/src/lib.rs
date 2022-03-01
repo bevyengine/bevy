@@ -10,8 +10,12 @@ use bevy_input::{
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
-use bevy_ecs::{system::IntoExclusiveSystem, world::World};
+use bevy_app::{App, AppExit, CoreStage, Plugin};
+use bevy_ecs::{
+    event::{Events, ManualEventReader},
+    system::IntoExclusiveSystem,
+    world::World,
+};
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
@@ -32,7 +36,7 @@ pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WinitWindows>()
+        app.init_non_send_resource::<WinitWindows>()
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
         let event_loop = EventLoop::new();
@@ -43,7 +47,7 @@ impl Plugin for WinitPlugin {
 
 fn change_window(world: &mut World) {
     let world = world.cell();
-    let winit_windows = world.get_resource::<WinitWindows>().unwrap();
+    let winit_windows = world.get_non_send::<WinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
 
     for bevy_window in windows.iter_mut() {
@@ -57,12 +61,13 @@ fn change_window(world: &mut World) {
                     let window = winit_windows.get_window(id).unwrap();
                     match mode {
                         bevy_window::WindowMode::BorderlessFullscreen => {
-                            window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
+                            window
+                                .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
                         }
                         bevy_window::WindowMode::Fullscreen => {
                             window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(
                                 get_best_videomode(&window.current_monitor().unwrap()),
-                            )))
+                            )));
                         }
                         bevy_window::WindowMode::SizedFullscreen => window.set_fullscreen(Some(
                             winit::window::Fullscreen::Exclusive(get_fitting_videomode(
@@ -129,11 +134,11 @@ fn change_window(world: &mut World) {
                 }
                 bevy_window::WindowCommand::SetMaximized { maximized } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_maximized(maximized)
+                    window.set_maximized(maximized);
                 }
                 bevy_window::WindowCommand::SetMinimized { minimized } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_minimized(minimized)
+                    window.set_minimized(minimized);
                 }
                 bevy_window::WindowCommand::SetPosition { position } => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -188,7 +193,7 @@ where
     F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
 {
     use winit::platform::run_return::EventLoopExtRunReturn;
-    event_loop.run_return(event_handler)
+    event_loop.run_return(event_handler);
 }
 
 #[cfg(not(any(
@@ -223,10 +228,14 @@ pub fn winit_runner(app: App) {
 // }
 
 pub fn winit_runner_with(mut app: App) {
-    let mut event_loop = app.world.remove_non_send::<EventLoop<()>>().unwrap();
+    let mut event_loop = app
+        .world
+        .remove_non_send_resource::<EventLoop<()>>()
+        .unwrap();
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
-    app.world.insert_non_send(event_loop.create_proxy());
+    app.world
+        .insert_non_send_resource(event_loop.create_proxy());
 
     trace!("Entering winit event loop");
 
@@ -259,7 +268,7 @@ pub fn winit_runner_with(mut app: App) {
                 ..
             } => {
                 let world = app.world.cell();
-                let winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
+                let winit_windows = world.get_non_send_mut::<WinitWindows>().unwrap();
                 let mut windows = world.get_resource_mut::<Windows>().unwrap();
                 let window_id =
                     if let Some(window_id) = winit_windows.get_window_id(winit_window_id) {
@@ -381,7 +390,7 @@ pub fn winit_runner_with(mut app: App) {
                         char_input_events.send(ReceivedCharacter {
                             id: window_id,
                             char: c,
-                        })
+                        });
                     }
                     WindowEvent::ScaleFactorChanged {
                         scale_factor,
@@ -482,8 +491,7 @@ pub fn winit_runner_with(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta },
                 ..
             } => {
-                let mut mouse_motion_events =
-                    app.world.get_resource_mut::<Events<MouseMotion>>().unwrap();
+                let mut mouse_motion_events = app.world.resource_mut::<Events<MouseMotion>>();
                 mouse_motion_events.send(MouseMotion {
                     delta: Vec2::new(delta.0 as f32, delta.1 as f32),
                 });
@@ -520,7 +528,7 @@ fn handle_create_window_events(
     create_window_event_reader: &mut ManualEventReader<CreateWindow>,
 ) {
     let world = world.cell();
-    let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
+    let mut winit_windows = world.get_non_send_mut::<WinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
     let create_window_events = world.get_resource::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();
@@ -539,7 +547,7 @@ fn handle_create_window_events(
 
 fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
     let world = world.cell();
-    let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
+    let mut winit_windows = world.get_non_send_mut::<WinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
     let mut create_window_events = world.get_resource_mut::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();

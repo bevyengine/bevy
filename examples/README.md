@@ -107,6 +107,7 @@ Example | File | Description
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 `pbr` | [`3d/pbr.rs`](./3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+`render_to_texture` | [`3d/render_to_texture.rs`](./3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 `shadow_caster_receiver` | [`3d/shadow_caster_receiver.rs`](./3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 `shadow_biases` | [`3d/shadow_biases.rs`](./3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 `spherical_area_lights` | [`3d/spherical_area_lights.rs`](./3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior.
@@ -145,12 +146,14 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `async_compute` | [`async_tasks/async_compute.rs`](async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
+`external_source_external_thread` | [`async_tasks/external_source_external_thread.rs`](async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel
 
 ## Audio
 
 Example | File | Description
 --- | --- | ---
 `audio` | [`audio/audio.rs`](./audio/audio.rs) | Shows how to load and play an audio file
+`audio_control` | [`audio/audio_control.rs`](./audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 
 ## Diagnostics
 
@@ -165,8 +168,10 @@ Example | File | Description
 --- | --- | ---
 `ecs_guide` | [`ecs/ecs_guide.rs`](./ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 `component_change_detection` | [`ecs/component_change_detection.rs`](./ecs/component_change_detection.rs) | Change detection on components
+`custom_query_param` | [`ecs/custom_query_param.rs`](./ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
+`generic_system` | [`ecs/generic_system.rs`](./ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 `hierarchy` | [`ecs/hierarchy.rs`](./ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 `iter_combinations` | [`ecs/iter_combinations.rs`](./ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results.
 `parallel_query` | [`ecs/parallel_query.rs`](./ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
@@ -220,7 +225,9 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
+`custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | Illustrates creating a custom shader material that reads a mesh's custom vertex attribute.
 `shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
+`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A custom shader sampling a texture with view-independent UV coordinates
 `shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A custom shader using the GLSL shading language.
 `shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A custom shader showing off rendering a mesh multiple times in one draw call.
 `animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to pass changing data like the time since startup into a shader.

@@ -53,10 +53,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 // vertically center child text
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
             color: NORMAL_BUTTON.into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     Default::default(),
                 ),
-                ..Default::default()
+                ..default()
             });
         });
 }

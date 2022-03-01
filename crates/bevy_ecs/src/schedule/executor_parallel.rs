@@ -132,7 +132,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
                             .finish_receiver
                             .recv()
                             .await
-                            .unwrap_or_else(|error| unreachable!(error));
+                            .unwrap_or_else(|error| unreachable!("{}", error));
                         self.process_finished_system(index);
                         // Gather other systems than may have finished.
                         while let Ok(index) = self.finish_receiver.try_recv() {
@@ -208,7 +208,7 @@ impl ParallelExecutor {
                     start_receiver
                         .recv()
                         .await
-                        .unwrap_or_else(|error| unreachable!(error));
+                        .unwrap_or_else(|error| unreachable!("{}", error));
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
                     unsafe { system.run_unsafe((), world) };
@@ -217,7 +217,7 @@ impl ParallelExecutor {
                     finish_sender
                         .send(index)
                         .await
-                        .unwrap_or_else(|error| unreachable!(error));
+                        .unwrap_or_else(|error| unreachable!("{}", error));
                 };
 
                 #[cfg(feature = "trace")]
@@ -268,7 +268,7 @@ impl ParallelExecutor {
                     .start_sender
                     .send(())
                     .await
-                    .unwrap_or_else(|error| unreachable!(error));
+                    .unwrap_or_else(|error| unreachable!("{}", error));
                 self.running.set(index, true);
                 if !system_metadata.is_send {
                     self.non_send_running = true;
@@ -350,11 +350,7 @@ mod tests {
 
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
-        while let Ok(event) = world
-            .get_resource::<Receiver<SchedulingEvent>>()
-            .unwrap()
-            .try_recv()
-        {
+        while let Ok(event) = world.resource::<Receiver<SchedulingEvent>>().try_recv() {
             events.push(event);
         }
         events
@@ -373,7 +369,7 @@ mod tests {
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(3), StartedSystems(3),]
-        )
+        );
     }
 
     #[test]
@@ -476,7 +472,7 @@ mod tests {
     fn non_send_resource() {
         use std::thread;
         let mut world = World::new();
-        world.insert_non_send(thread::current().id());
+        world.insert_non_send_resource(thread::current().id());
         fn non_send(thread_id: NonSend<thread::ThreadId>) {
             assert_eq!(thread::current().id(), *thread_id);
         }

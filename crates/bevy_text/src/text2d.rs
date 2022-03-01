@@ -48,7 +48,7 @@ pub fn extract_text2d_sprite(
     windows: Res<Windows>,
     text2d_query: Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>,
 ) {
-    let mut extracted_sprites = render_world.get_resource_mut::<ExtractedSprites>().unwrap();
+    let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
 
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor() as f32

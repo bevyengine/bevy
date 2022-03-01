@@ -11,6 +11,9 @@
 //! For more fine-tuned control over logging behavior, insert a [`LogSettings`] resource before
 //! adding [`LogPlugin`] or `DefaultPlugins` during app initialization.
 
+#[cfg(feature = "trace")]
+use std::panic;
+
 #[cfg(target_os = "android")]
 mod android_tracing;
 
@@ -21,6 +24,7 @@ pub mod prelude {
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
 }
+
 pub use bevy_utils::tracing::{
     debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     Level,
@@ -105,6 +109,15 @@ impl Default for LogSettings {
 
 impl Plugin for LogPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "trace")]
+        {
+            let old_handler = panic::take_hook();
+            panic::set_hook(Box::new(move |infos| {
+                println!("{}", tracing_error::SpanTrace::capture());
+                old_handler(infos);
+            }));
+        }
+
         let default_filter = {
             let settings = app.world.get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
@@ -114,6 +127,9 @@ impl Plugin for LogPlugin {
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
         let subscriber = Registry::default().with(filter_layer);
+
+        #[cfg(feature = "trace")]
+        let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
         {
@@ -133,7 +149,7 @@ impl Plugin for LogPlugin {
                         }
                     }))
                     .build();
-                app.world.insert_non_send(guard);
+                app.world.insert_non_send_resource(guard);
                 chrome_layer
             };
 

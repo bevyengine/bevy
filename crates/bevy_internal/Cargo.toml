@@ -10,10 +10,11 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
-trace = [ "bevy_app/trace", "bevy_ecs/trace", "bevy_render/trace" ]
+trace = [ "bevy_app/trace", "bevy_ecs/trace", "bevy_log/trace", "bevy_render/trace" ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = [ "bevy_log/tracing-tracy" ]
 wgpu_trace = ["bevy_render/wgpu_trace"]
+debug_asset_server = ["bevy_asset/debug_asset_server"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_render/hdr"]

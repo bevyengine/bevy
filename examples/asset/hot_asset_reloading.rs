@@ -8,7 +8,7 @@ fn main() {
         // Tell the asset server to watch for asset changes on disk:
         .insert_resource(AssetServerSettings {
             watch_for_changes: true,
-            ..Default::default()
+            ..default()
         })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
@@ -27,11 +27,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        ..Default::default()
+        ..default()
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

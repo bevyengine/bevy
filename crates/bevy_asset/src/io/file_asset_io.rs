@@ -62,6 +62,10 @@ impl FileAssetIo {
                 .unwrap()
         }
     }
+
+    pub fn root_path(&self) -> &PathBuf {
+        &self.root_path
+    }
 }
 
 impl AssetIo for FileAssetIo {
@@ -155,7 +159,7 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
                 ..
             } = event
             {
-                for path in paths.iter() {
+                for path in &paths {
                     if !changed.contains(path) {
                         let relative_path = path.strip_prefix(&asset_io.root_path).unwrap();
                         let _ = asset_server.load_untracked(relative_path.into(), true);

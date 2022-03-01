@@ -12,7 +12,7 @@ pub struct CiTestingConfig {
 fn ci_testing_exit_after(
     mut current_frame: bevy_ecs::prelude::Local<u32>,
     ci_testing_config: bevy_ecs::prelude::Res<CiTestingConfig>,
-    mut app_exit_events: crate::EventWriter<AppExit>,
+    mut app_exit_events: bevy_ecs::event::EventWriter<AppExit>,
 ) {
     if let Some(exit_after) = ci_testing_config.exit_after {
         if *current_frame > exit_after {

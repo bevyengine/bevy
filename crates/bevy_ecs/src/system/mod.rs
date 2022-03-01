@@ -30,7 +30,7 @@
 //!     }
 //!     round.0 += 1;
 //! }
-//! # update_score_system.system();
+//! # bevy_ecs::system::assert_is_system(update_score_system);
 //! ```
 //!
 //! # System ordering
@@ -83,6 +83,13 @@ pub use system::*;
 pub use system_chaining::*;
 pub use system_param::*;
 
+pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
+    if false {
+        // Check it can be converted into a system
+        IntoSystem::into_system(sys);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
@@ -96,8 +103,8 @@ mod tests {
         query::{Added, Changed, Or, QueryState, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
-            QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
+            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query, QuerySet,
+            RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -126,7 +133,7 @@ mod tests {
             }
         }
 
-        let mut system = sys.system();
+        let mut system = IntoSystem::into_system(sys);
         let mut world = World::new();
         world.spawn().insert(A);
 
@@ -200,7 +207,7 @@ mod tests {
 
         run_system(&mut world, query_system);
 
-        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
+        assert!(*world.resource::<bool>(), "system ran");
     }
 
     #[test]
@@ -228,7 +235,7 @@ mod tests {
 
         run_system(&mut world, query_system);
 
-        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
+        assert!(*world.resource::<bool>(), "system ran");
     }
 
     #[test]
@@ -264,17 +271,17 @@ mod tests {
         );
 
         schedule.run(&mut world);
-        assert_eq!(world.get_resource::<Added>().unwrap().0, 1);
-        assert_eq!(world.get_resource::<Changed>().unwrap().0, 1);
+        assert_eq!(world.resource::<Added>().0, 1);
+        assert_eq!(world.resource::<Changed>().0, 1);
 
         schedule.run(&mut world);
-        assert_eq!(world.get_resource::<Added>().unwrap().0, 1);
-        assert_eq!(world.get_resource::<Changed>().unwrap().0, 1);
+        assert_eq!(world.resource::<Added>().0, 1);
+        assert_eq!(world.resource::<Changed>().0, 1);
 
-        *world.get_resource_mut::<bool>().unwrap() = true;
+        *world.resource_mut::<bool>() = true;
         schedule.run(&mut world);
-        assert_eq!(world.get_resource::<Added>().unwrap().0, 1);
-        assert_eq!(world.get_resource::<Changed>().unwrap().0, 2);
+        assert_eq!(world.resource::<Added>().0, 1);
+        assert_eq!(world.resource::<Changed>().0, 2);
     }
 
     #[test]
@@ -357,27 +364,27 @@ mod tests {
     #[should_panic]
     fn conflicting_system_resources() {
         fn sys(_: ResMut<BufferRes>, _: Res<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_reverse_order() {
         fn sys(_: Res<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
     #[should_panic]
     fn conflicting_system_resources_multiple_mutable() {
         fn sys(_: ResMut<BufferRes>, _: ResMut<BufferRes>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
     fn nonconflicting_system_resources() {
         fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
-        test_for_conflicting_resources(sys)
+        test_for_conflicting_resources(sys);
     }
 
     #[test]
@@ -392,7 +399,7 @@ mod tests {
         impl FromWorld for Foo {
             fn from_world(world: &mut World) -> Self {
                 Foo {
-                    value: *world.get_resource::<u32>().unwrap() + 1,
+                    value: *world.resource::<u32>() + 1,
                 }
             }
         }
@@ -405,7 +412,7 @@ mod tests {
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -415,7 +422,7 @@ mod tests {
         world.insert_resource(false);
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
-        world.insert_non_send(NotSend1(std::rc::Rc::new(0)));
+        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
 
         fn sys(
             op: Option<NonSend<NotSend1>>,
@@ -428,7 +435,7 @@ mod tests {
 
         run_system(&mut world, sys);
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -439,15 +446,15 @@ mod tests {
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
 
-        world.insert_non_send(NotSend1(std::rc::Rc::new(1)));
-        world.insert_non_send(NotSend2(std::rc::Rc::new(2)));
+        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
+        world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
 
         fn sys(_op: NonSend<NotSend1>, mut _op2: NonSendMut<NotSend2>, mut run: ResMut<bool>) {
             *run = true;
         }
 
         run_system(&mut world, sys);
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -515,22 +522,7 @@ mod tests {
         run_system(&mut world, validate_remove);
 
         // Verify that both systems actually ran
-        assert_eq!(world.get_resource::<NSystems>().unwrap().0, 2);
-    }
-
-    #[test]
-    fn configure_system_local() {
-        let mut world = World::default();
-        world.insert_resource(false);
-        fn sys(local: Local<usize>, mut modified: ResMut<bool>) {
-            assert_eq!(*local, 42);
-            *modified = true;
-        }
-
-        run_system(&mut world, sys.config(|config| config.0 = Some(42)));
-
-        // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert_eq!(world.resource::<NSystems>().0, 2);
     }
 
     #[test]
@@ -557,7 +549,7 @@ mod tests {
                 let bundle_info = bundles.get(bundle_id).unwrap();
                 let mut bundle_components = bundle_info.components().to_vec();
                 bundle_components.sort();
-                for component_id in bundle_components.iter() {
+                for component_id in &bundle_components {
                     assert!(
                         components.get_info(*component_id).is_some(),
                         "every bundle component exists in Components"
@@ -574,7 +566,7 @@ mod tests {
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -584,8 +576,8 @@ mod tests {
         fn sys_y(_: Res<A>, _: ResMut<B>, _: Query<(&C, &mut D)>) {}
 
         let mut world = World::default();
-        let mut x = sys_x.system();
-        let mut y = sys_y.system();
+        let mut x = IntoSystem::into_system(sys_x);
+        let mut y = IntoSystem::into_system(sys_y);
         x.initialize(&mut world);
         y.initialize(&mut world);
 
@@ -613,11 +605,11 @@ mod tests {
         let mut world = World::default();
         world.spawn().insert(A).insert(C);
 
-        let mut without_filter = without_filter.system();
+        let mut without_filter = IntoSystem::into_system(without_filter);
         without_filter.initialize(&mut world);
         without_filter.run((), &mut world);
 
-        let mut with_filter = with_filter.system();
+        let mut with_filter = IntoSystem::into_system(with_filter);
         with_filter.initialize(&mut world);
         with_filter.run((), &mut world);
     }
@@ -664,8 +656,8 @@ mod tests {
         ) {
         }
         let mut world = World::default();
-        let mut x = sys_x.system();
-        let mut y = sys_y.system();
+        let mut x = IntoSystem::into_system(sys_x);
+        let mut y = IntoSystem::into_system(sys_y);
         x.initialize(&mut world);
         y.initialize(&mut world);
     }

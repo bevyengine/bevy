@@ -68,11 +68,11 @@ fn star(
         v_pos.push([r * a.cos(), r * a.sin(), 0.0]);
     }
     // Set the position attribute
-    star.set_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
+    star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
     let mut v_color = vec![[0.0, 0.0, 0.0, 1.0]];
     v_color.extend_from_slice(&[[1.0, 1.0, 0.0, 1.0]; 10]);
-    star.set_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
+    star.insert_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
 
     // Now, we specify the indices of the vertex that are going to compose the
     // triangles in our star. Vertices in triangles have to be specified in CCW
@@ -270,7 +270,7 @@ pub const COLORED_MESH2D_SHADER_HANDLE: HandleUntyped =
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+        let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         shaders.set_untracked(
             COLORED_MESH2D_SHADER_HANDLE,
             Shader::from_wgsl(COLORED_MESH2D_SHADER),
