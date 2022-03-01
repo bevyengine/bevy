@@ -42,7 +42,7 @@ fn setup(
         .spawn_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
             transform: Transform::from_scale(Vec3::splat(6.0)),
-            ..Default::default()
+            ..default()
         })
         .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
 }

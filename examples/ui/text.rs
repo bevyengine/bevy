@@ -36,9 +36,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 position: Rect {
                     bottom: Val::Px(5.0),
                     right: Val::Px(15.0),
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             },
             // Use the `Text::with_section` constructor
             text: Text::with_section(
@@ -52,10 +52,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // Note: You can use `Default::default()` in place of the `TextAlignment`
                 TextAlignment {
                     horizontal: HorizontalAlign::Center,
-                    ..Default::default()
+                    ..default()
                 },
             ),
-            ..Default::default()
+            ..default()
         })
         .insert(ColorText);
     // Rich text with multiple sections
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn_bundle(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
-                ..Default::default()
+                ..default()
             },
             // Use `Text` directly
             text: Text {
@@ -86,9 +86,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                     },
                 ],
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(FpsText);
 }

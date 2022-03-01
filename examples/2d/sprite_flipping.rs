@@ -16,8 +16,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             flip_x: true,
             // And don't flip it upside-down ( the default )
             flip_y: false,
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     });
 }

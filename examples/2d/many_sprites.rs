@@ -57,9 +57,9 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 },
                 sprite: Sprite {
                     custom_size: Some(tile_size),
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             });
         }
     }

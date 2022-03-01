@@ -59,7 +59,7 @@ fn create_new_window(
             height: 600.,
             present_mode: PresentMode::Immediate,
             title: "Second window".to_string(),
-            ..Default::default()
+            ..default()
         },
     });
     // second window camera
@@ -67,10 +67,10 @@ fn create_new_window(
         camera: Camera {
             target: RenderTarget::Window(window_id),
             name: Some(SECONDARY_CAMERA_NAME.into()),
-            ..Default::default()
+            ..default()
         },
         transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     active_cameras.add(SECONDARY_CAMERA_NAME);
@@ -101,11 +101,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        ..Default::default()
+        ..default()
     });
     // main camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
