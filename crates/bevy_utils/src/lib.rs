@@ -202,29 +202,6 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
     }
 }
 
-pub trait AHashExt {
-    fn with_capacity(capacity: usize) -> Self;
-}
-
-impl<K, V> AHashExt for HashMap<K, V> {
-    /// Creates an empty `HashMap` with the specified capacity with aHash.
-    ///
-    /// The hash map will be able to hold at least `capacity` elements without
-    /// reallocating. If `capacity` is 0, the hash map will not allocate.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_utils::{HashMap, AHashExt};
-    /// let mut map: HashMap<&str, i32> = HashMap::with_capacity(10);
-    /// assert!(map.capacity() >= 10);
-    /// ```
-    #[inline]
-    fn with_capacity(capacity: usize) -> Self {
-        HashMap::with_capacity_and_hasher(capacity, RandomState::default())
-    }
-}
-
 /// A hasher builder that will create a fixed hasher.
 #[derive(Debug, Clone, Default)]
 pub struct FixedState;
