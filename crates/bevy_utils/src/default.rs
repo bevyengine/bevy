@@ -1,4 +1,4 @@
-/// Used to make initializing structs with defaults easier:
+/// An ergonomic abbreviation for [`Default::default()`] to make initializing structs easier
 /// ```
 /// use bevy_utils::default;
 ///
