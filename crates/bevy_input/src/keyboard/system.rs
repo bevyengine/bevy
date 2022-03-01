@@ -2,7 +2,7 @@ use crate::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonState, Input,
 };
-use bevy_app::EventReader;
+use bevy_ecs::event::EventReader;
 use bevy_ecs::system::ResMut;
 
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.

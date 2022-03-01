@@ -61,7 +61,7 @@ pub enum RenderUiSystem {
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
+    let mut active_cameras = app.world.resource_mut::<ActiveCameras>();
     active_cameras.add(CAMERA_UI);
 
     let render_app = match app.get_sub_app_mut(RenderApp) {
@@ -92,7 +92,7 @@ pub fn build_ui_render(app: &mut App) {
 
     // Render graph
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
     let mut draw_ui_graph = RenderGraph::default();
     draw_ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
@@ -145,7 +145,7 @@ pub fn extract_uinodes(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
@@ -184,7 +184,7 @@ pub fn extract_text_uinodes(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
 
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor() as f32

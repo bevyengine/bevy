@@ -141,16 +141,8 @@ pub struct SystemState<Param: SystemParam> {
 
 impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
-        let config = <Param::Fetch as SystemParamState>::default_config();
-        Self::with_config(world, config)
-    }
-
-    pub fn with_config(
-        world: &mut World,
-        config: <Param::Fetch as SystemParamState>::Config,
-    ) -> Self {
         let mut meta = SystemMeta::new::<Param>();
-        let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta, config);
+        let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -407,71 +399,9 @@ where
     func: F,
     param_state: Option<Param::Fetch>,
     system_meta: SystemMeta,
-    config: Option<<Param::Fetch as SystemParamState>::Config>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     #[allow(clippy::type_complexity)]
     marker: PhantomData<fn() -> (In, Out, Marker)>,
-}
-
-impl<In, Out, Param: SystemParam, Marker, F> FunctionSystem<In, Out, Param, Marker, F> {
-    /// Gives mutable access to the systems config via a callback. This is useful to set up system
-    /// [`Local`](crate::system::Local)s.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let world = &mut World::default();
-    /// fn local_is_42(local: Local<usize>) {
-    ///     assert_eq!(*local, 42);
-    /// }
-    /// let mut system = local_is_42.config(|config| config.0 = Some(42));
-    /// system.initialize(world);
-    /// system.run((), world);
-    /// ```
-    #[must_use]
-    pub fn config(
-        mut self,
-        f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),
-    ) -> Self {
-        f(self.config.as_mut().unwrap());
-        self
-    }
-}
-
-/// Provides `my_system.config(...)` API.
-pub trait ConfigurableSystem<In, Out, Param: SystemParam, Marker>:
-    IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)>
-{
-    /// See [`FunctionSystem::config()`](crate::system::FunctionSystem::config).
-    fn config(
-        self,
-        f: impl FnOnce(&mut <Param::Fetch as SystemParamState>::Config),
-    ) -> Self::System;
-}
-
-impl<In, Out, Param: SystemParam, Marker, F> ConfigurableSystem<In, Out, Param, Marker> for F
-where
-    In: 'static,
-    Out: 'static,
-    Param: SystemParam + 'static,
-    Marker: 'static,
-    F: SystemParamFunction<In, Out, Param, Marker>
-        + IntoSystem<
-            In,
-            Out,
-            (IsFunctionSystem, Param, Marker),
-            System = FunctionSystem<In, Out, Param, Marker, F>,
-        > + Send
-        + Sync
-        + 'static,
-{
-    fn config(
-        self,
-        f: impl FnOnce(&mut <<Param as SystemParam>::Fetch as SystemParamState>::Config),
-    ) -> Self::System {
-        IntoSystem::into_system(self).config(f)
-    }
 }
 
 pub struct IsFunctionSystem;
@@ -489,7 +419,6 @@ where
         FunctionSystem {
             func,
             param_state: None,
-            config: Some(<Param::Fetch as SystemParamState>::default_config()),
             system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
         }
@@ -558,7 +487,6 @@ where
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,
-            self.config.take().unwrap(),
         ));
     }
 

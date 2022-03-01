@@ -123,8 +123,7 @@ impl Plugin for RenderPlugin {
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);
             let surface = {
-                let world = app.world.cell();
-                let windows = world.get_resource_mut::<bevy_window::Windows>().unwrap();
+                let windows = app.world.resource_mut::<bevy_window::Windows>();
                 let raw_handle = windows.get_primary().map(|window| unsafe {
                     let handle = window.raw_window_handle().get_handle();
                     instance.create_surface(&handle)
@@ -148,7 +147,7 @@ impl Plugin for RenderPlugin {
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
             let render_pipeline_cache = RenderPipelineCache::new(device.clone());
-            let asset_server = app.world.get_resource::<AssetServer>().unwrap().clone();
+            let asset_server = app.world.resource::<AssetServer>().clone();
 
             let mut render_app = App::empty();
             let mut extract_stage =

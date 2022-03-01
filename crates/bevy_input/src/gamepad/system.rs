@@ -5,7 +5,7 @@ use crate::{
     },
     Axis, Input,
 };
-use bevy_app::{EventReader, EventWriter};
+use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::tracing::info;
 

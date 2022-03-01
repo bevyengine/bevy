@@ -12,7 +12,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             .spawn_bundle(SpriteBundle {
                 texture: texture.clone(),
                 transform: Transform::from_scale(Vec3::splat(0.1)),
-                ..Default::default()
+                ..default()
             })
             .insert(Velocity(
                 20.0 * Vec2::new(random::<f32>() - 0.5, random::<f32>() - 0.5),

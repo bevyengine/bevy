@@ -1,5 +1,5 @@
 use crate::touch::{TouchInput, Touches};
-use bevy_app::EventReader;
+use bevy_ecs::event::EventReader;
 use bevy_ecs::system::ResMut;
 
 /// Updates the [`Touches`] resource with the latest [`TouchInput`] events.

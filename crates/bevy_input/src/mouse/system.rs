@@ -2,7 +2,7 @@ use crate::{
     mouse::{MouseButton, MouseButtonInput},
     ButtonState, Input,
 };
-use bevy_app::EventReader;
+use bevy_ecs::event::EventReader;
 use bevy_ecs::system::ResMut;
 
 /// Updates the [`Input<MouseButton>`] resource with the latest [`MouseButtonInput`] events.
