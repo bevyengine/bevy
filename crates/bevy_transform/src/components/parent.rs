@@ -47,7 +47,7 @@ impl DerefMut for Parent {
 /// Component that holds the [`Parent`] this entity had previously
 #[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
-pub struct PreviousParent(pub(crate) Entity);
+pub struct PreviousParent(pub Entity);
 
 impl MapEntities for PreviousParent {
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
