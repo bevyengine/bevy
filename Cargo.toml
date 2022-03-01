@@ -673,8 +673,10 @@ path = "examples/android/android.rs"
 [package.metadata.android]
 apk_label = "Bevy Example"
 assets = "assets"
-res = "assets/android-res"
-icon = "@mipmap/ic_launcher"
+resources = "assets/android-res"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
+
+[package.metadata.android.application]
+icon = "@mipmap/ic_launcher"
