@@ -1,7 +1,7 @@
 use crate::{
-    AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap,
-    DrawMesh, MeshPipeline, NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup,
-    VisiblePointLights, SHADOW_SHADER_HANDLE,
+    point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
+    DirectionalLightShadowMap, DrawMesh, MeshPipeline, NotShadowCaster, PointLight,
+    PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -574,11 +574,10 @@ pub fn prepare_lights(
     // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
     // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
-        light_1
-            .shadows_enabled
-            .cmp(&light_2.shadows_enabled)
-            .reverse()
-            .then_with(|| entity_1.cmp(entity_2))
+        point_light_order(
+            (entity_1, &light_1.shadows_enabled),
+            (entity_2, &light_2.shadows_enabled),
+        )
     });
 
     if global_light_meta.entity_to_index.capacity() < point_lights.len() {
@@ -588,7 +587,7 @@ pub fn prepare_lights(
     }
 
     let mut gpu_point_lights = [GpuPointLight::default(); MAX_POINT_LIGHTS];
-    for (index, &(entity, light)) in point_lights.iter().enumerate().take(MAX_POINT_LIGHTS) {
+    for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
         // Lights are sorted, shadow enabled lights are first
         if light.shadows_enabled && index < MAX_POINT_LIGHT_SHADOW_MAPS {
@@ -877,20 +876,25 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 }
 
-const CLUSTER_OFFSET_MASK: u32 = (1 << 24) - 1;
-const CLUSTER_COUNT_SIZE: u32 = 8;
-const CLUSTER_COUNT_MASK: u32 = (1 << 8) - 1;
+// this must match CLUSTER_COUNT_SIZE in pbr.wgsl
+// and must be large enough to contain MAX_POINT_LIGHTS
+const CLUSTER_COUNT_SIZE: u32 = 13;
+
+const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - CLUSTER_COUNT_SIZE)) - 1;
+const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
 // that means we can fit say 256 point lights in one uniform
 // buffer, which means the count can be at most 256 so it
-// needs 8 bits.
+// needs 9 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address
 // 16384 values. log2(16384) = 14 bits.
-// This means we can pack the offset into the upper 24 bits of a u32
-// and the count into the lower 8 bits.
+// We use 32 bits to store the pair, so we choose to divide the
+// remaining 9 bits proportionally to give some future room.
+// This means we can pack the offset into the upper 19 bits of a u32
+// and the count into the lower 13 bits.
 // NOTE: This assumes CPU and GPU endianness are the same which is true
 // for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
 fn pack_offset_and_count(offset: usize, count: usize) -> u32 {

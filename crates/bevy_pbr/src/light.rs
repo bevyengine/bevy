@@ -12,11 +12,12 @@ use bevy_render::{
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::tracing::warn;
 use bevy_window::Windows;
 
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
-    CUBE_MAP_FACES, POINT_LIGHT_NEAR_Z,
+    CUBE_MAP_FACES, MAX_POINT_LIGHTS, POINT_LIGHT_NEAR_Z,
 };
 
 /// A light that emits light in all directions from a central point.
@@ -478,14 +479,91 @@ fn ndc_position_to_cluster(
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
 }
 
+// Sort point lights with shadows enabled first, then by a stable key so that the index
+// can be used to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows, and
+// we keep a stable set of lights visible
+pub(crate) fn point_light_order(
+    (entity_1, shadows_enabled_1): (&Entity, &bool),
+    (entity_2, shadows_enabled_2): (&Entity, &bool),
+) -> std::cmp::Ordering {
+    shadows_enabled_1
+        .cmp(shadows_enabled_2)
+        .reverse()
+        .then_with(|| entity_1.cmp(entity_2))
+}
+
+#[derive(Clone, Copy)]
+// data required for assigning lights to clusters
+pub(crate) struct PointLightAssignmentData {
+    entity: Entity,
+    translation: Vec3,
+    range: f32,
+    shadows_enabled: bool,
+}
+
 // NOTE: Run this before update_point_light_frusta!
-pub fn assign_lights_to_clusters(
+pub(crate) fn assign_lights_to_clusters(
     mut commands: Commands,
     mut global_lights: ResMut<VisiblePointLights>,
     mut views: Query<(Entity, &GlobalTransform, &Camera, &Frustum, &mut Clusters)>,
-    lights: Query<(Entity, &GlobalTransform, &PointLight)>,
+    lights_query: Query<(Entity, &GlobalTransform, &PointLight)>,
+    mut lights: Local<Vec<PointLightAssignmentData>>,
+    mut max_point_lights_warning_emitted: Local<bool>,
 ) {
-    let light_count = lights.iter().count();
+    // collect just the relevant light query data into a persisted vec to avoid reallocating each frame
+    lights.extend(
+        lights_query
+            .iter()
+            .map(|(entity, transform, light)| PointLightAssignmentData {
+                entity,
+                translation: transform.translation,
+                shadows_enabled: light.shadows_enabled,
+                range: light.range,
+            }),
+    );
+
+    if lights.len() > MAX_POINT_LIGHTS {
+        lights.sort_by(|light_1, light_2| {
+            point_light_order(
+                (&light_1.entity, &light_1.shadows_enabled),
+                (&light_2.entity, &light_2.shadows_enabled),
+            )
+        });
+
+        // check each light against each view's frustum, keep only those that affect at least one of our views
+        let frusta: Vec<_> = views.iter().map(|(_, _, _, frustum, _)| *frustum).collect();
+        let mut lights_in_view_count = 0;
+        lights.retain(|light| {
+            // take one extra light to check if we should emit the warning
+            if lights_in_view_count == MAX_POINT_LIGHTS + 1 {
+                false
+            } else {
+                let light_sphere = Sphere {
+                    center: light.translation,
+                    radius: light.range,
+                };
+
+                let light_in_view = frusta
+                    .iter()
+                    .any(|frustum| frustum.intersects_sphere(&light_sphere));
+
+                if light_in_view {
+                    lights_in_view_count += 1;
+                }
+
+                light_in_view
+            }
+        });
+
+        if lights.len() > MAX_POINT_LIGHTS && !*max_point_lights_warning_emitted {
+            warn!("MAX_POINT_LIGHTS ({}) exceeded", MAX_POINT_LIGHTS);
+            *max_point_lights_warning_emitted = true;
+        }
+
+        lights.truncate(MAX_POINT_LIGHTS);
+    }
+
+    let light_count = lights.len();
     let mut global_lights_set = HashSet::with_capacity(light_count);
     for (view_entity, view_transform, camera, frustum, mut clusters) in views.iter_mut() {
         let view_transform = view_transform.compute_matrix();
@@ -504,9 +582,9 @@ pub fn assign_lights_to_clusters(
             vec![VisiblePointLights::from_light_count(light_count); cluster_count];
         let mut visible_lights = Vec::with_capacity(light_count);
 
-        for (light_entity, light_transform, light) in lights.iter() {
+        for light in lights.iter() {
             let light_sphere = Sphere {
-                center: light_transform.translation,
+                center: light.translation,
                 radius: light.range,
             };
 
@@ -516,8 +594,8 @@ pub fn assign_lights_to_clusters(
             }
 
             // NOTE: The light intersects the frustum so it must be visible and part of the global set
-            global_lights_set.insert(light_entity);
-            visible_lights.push(light_entity);
+            global_lights_set.insert(light.entity);
+            visible_lights.push(light.entity);
 
             // Calculate an AABB for the light in view space, find the corresponding clusters for the min and max
             // points of the AABB, then iterate over just those clusters for this light
@@ -599,7 +677,7 @@ pub fn assign_lights_to_clusters(
                         let cluster_index = (col_offset + z) as usize;
                         let cluster_aabb = &clusters.aabbs[cluster_index];
                         if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
-                            clusters_lights[cluster_index].entities.push(light_entity);
+                            clusters_lights[cluster_index].entities.push(light.entity);
                         }
                     }
                 }
@@ -617,6 +695,7 @@ pub fn assign_lights_to_clusters(
         });
     }
     global_lights.entities = global_lights_set.into_iter().collect();
+    lights.clear();
 }
 
 pub fn update_directional_light_frusta(
