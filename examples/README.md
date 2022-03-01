@@ -153,6 +153,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `audio` | [`audio/audio.rs`](./audio/audio.rs) | Shows how to load and play an audio file
+`audio_control` | [`audio/audio_control.rs`](./audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 
 ## Diagnostics
 
