@@ -7,8 +7,8 @@ use crate::{
     renderer::RenderDevice,
     RenderWorld,
 };
-use bevy_app::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_ecs::event::EventReader;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::error, Entry, HashMap, HashSet};
 use std::{hash::Hash, ops::Deref, sync::Arc};

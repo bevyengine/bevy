@@ -2,8 +2,12 @@ use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
     RefChange,
 };
-use bevy_app::{App, EventWriter, Events};
-use bevy_ecs::{system::ResMut, world::FromWorld};
+use bevy_app::App;
+use bevy_ecs::{
+    event::{EventWriter, Events},
+    system::ResMut,
+    world::FromWorld,
+};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
