@@ -304,6 +304,10 @@ path = "examples/async_tasks/external_source_external_thread.rs"
 name = "audio"
 path = "examples/audio/audio.rs"
 
+[[example]]
+name = "audio_control"
+path = "examples/audio/audio_control.rs"
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
