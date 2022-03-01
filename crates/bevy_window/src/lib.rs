@@ -20,7 +20,8 @@ pub use system::*;
 pub use window::*;
 pub use windows::*;
 
-use bevy_app::{prelude::*, Events};
+use bevy_app::prelude::*;
+use bevy_ecs::event::Events;
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,
@@ -60,10 +61,7 @@ impl Plugin for WindowPlugin {
                 .get_resource::<WindowDescriptor>()
                 .map(|descriptor| (*descriptor).clone())
                 .unwrap_or_default();
-            let mut create_window_event = app
-                .world
-                .get_resource_mut::<Events<CreateWindow>>()
-                .unwrap();
+            let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
             create_window_event.send(CreateWindow {
                 id: WindowId::primary(),
                 descriptor: window_descriptor,

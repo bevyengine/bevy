@@ -53,11 +53,11 @@ fn atlas_render_system(
                     position: Rect {
                         top: Val::Px(0.0),
                         left: Val::Px(512.0 * x_offset),
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             });
         }
     }
@@ -90,6 +90,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             },
             Default::default(),
         ),
-        ..Default::default()
+        ..default()
     });
 }

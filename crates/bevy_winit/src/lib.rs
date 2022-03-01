@@ -5,8 +5,12 @@ mod winit_windows;
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
-use bevy_ecs::{system::IntoExclusiveSystem, world::World};
+use bevy_app::{App, AppExit, CoreStage, Plugin};
+use bevy_ecs::{
+    event::{Events, ManualEventReader},
+    system::IntoExclusiveSystem,
+    world::World,
+};
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
@@ -486,8 +490,7 @@ pub fn winit_runner_with(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta },
                 ..
             } => {
-                let mut mouse_motion_events =
-                    app.world.get_resource_mut::<Events<MouseMotion>>().unwrap();
+                let mut mouse_motion_events = app.world.resource_mut::<Events<MouseMotion>>();
                 mouse_motion_events.send(MouseMotion {
                     delta: Vec2::new(delta.0 as f32, delta.1 as f32),
                 });

@@ -40,7 +40,7 @@ fn main() {
     // This will add 3D render phases for the new camera.
     render_app.add_system_to_stage(RenderStage::Extract, extract_first_pass_camera_phases);
 
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
     // Add a node for the first pass.
     graph.add_node(FIRST_PASS_DRIVER, FirstPassCameraDriver);
@@ -82,7 +82,7 @@ impl bevy::render::render_graph::Node for FirstPassCameraDriver {
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
+        let extracted_cameras = world.resource::<ExtractedCameraNames>();
         if let Some(camera_3d) = extracted_cameras.entities.get(FIRST_PASS_CAMERA) {
             graph.run_sub_graph(draw_3d_graph::NAME, vec![SlotValue::Entity(*camera_3d)])?;
         }
@@ -109,7 +109,7 @@ fn setup(
     let size = Extent3d {
         width: 512,
         height: 512,
-        ..Default::default()
+        ..default()
     };
 
     // This is the texture that will be rendered to.
@@ -125,7 +125,7 @@ fn setup(
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
         },
-        ..Default::default()
+        ..default()
     };
 
     // fill image.data with zeroes
@@ -138,7 +138,7 @@ fn setup(
         base_color: Color::rgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
         unlit: false,
-        ..Default::default()
+        ..default()
     });
 
     // This specifies the layer used for the first pass, which will be attached to the first pass camera and cube.
@@ -150,7 +150,7 @@ fn setup(
             mesh: cube_handle,
             material: cube_material_handle,
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-            ..Default::default()
+            ..default()
         })
         .insert(FirstPassCube)
         .insert(first_pass_layer);
@@ -159,7 +159,7 @@ fn setup(
     // NOTE: Currently lights are shared between passes - see https://github.com/bevyengine/bevy/issues/3462
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-        ..Default::default()
+        ..default()
     });
 
     // First pass camera
@@ -171,11 +171,11 @@ fn setup(
             camera: Camera {
                 name: Some(FIRST_PASS_CAMERA.to_string()),
                 target: render_target,
-                ..Default::default()
+                ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
                 .looking_at(Vec3::default(), Vec3::Y),
-            ..Default::default()
+            ..default()
         })
         .insert(first_pass_layer);
     // NOTE: omitting the RenderLayers component for this camera may cause a validation error:
@@ -200,7 +200,7 @@ fn setup(
         base_color_texture: Some(RENDER_IMAGE_HANDLE.typed()),
         reflectance: 0.02,
         unlit: false,
-        ..Default::default()
+        ..default()
     });
 
     // Main pass cube, with material containing the rendered first pass texture.
@@ -211,9 +211,9 @@ fn setup(
             transform: Transform {
                 translation: Vec3::new(0.0, 0.0, 1.5),
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(MainPassCube);
 
@@ -221,7 +221,7 @@ fn setup(
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
             .looking_at(Vec3::default(), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 

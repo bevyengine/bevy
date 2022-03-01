@@ -29,6 +29,8 @@ pub use bevy_utils::tracing::{
 };
 
 use bevy_app::{App, Plugin};
+#[cfg(feature = "trace")]
+use std::panic;
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
@@ -88,6 +90,15 @@ pub struct LogPlugin;
 
 impl Plugin for LogPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "trace")]
+        {
+            let old_handler = panic::take_hook();
+            panic::set_hook(Box::new(move |infos| {
+                println!("{}", tracing_error::SpanTrace::capture());
+                old_handler(infos);
+            }));
+        }
+
         let default_filter = {
             let settings = app.world.get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
@@ -97,6 +108,9 @@ impl Plugin for LogPlugin {
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
         let subscriber = Registry::default().with(filter_layer);
+
+        #[cfg(feature = "trace")]
+        let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
         {
