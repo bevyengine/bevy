@@ -515,12 +515,14 @@ pub(crate) fn assign_lights_to_clusters(
         lights_query
             .iter()
             .filter(|(.., visibility)| visibility.is_visible)
-            .map(|(entity, transform, light, _visibility)| PointLightAssignmentData {
-                entity,
-                translation: transform.translation,
-                shadows_enabled: light.shadows_enabled,
-                range: light.range,
-            }),
+            .map(
+                |(entity, transform, light, _visibility)| PointLightAssignmentData {
+                    entity,
+                    translation: transform.translation,
+                    shadows_enabled: light.shadows_enabled,
+                    range: light.range,
+                },
+            ),
     );
 
     if lights.len() > MAX_POINT_LIGHTS {
