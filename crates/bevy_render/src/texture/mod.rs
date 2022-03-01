@@ -54,6 +54,9 @@ impl Plugin for ImagePlugin {
     }
 }
 
+// PERF: vulkan docs recommend using 24 bit depth for better performance
+pub const DEFAULT_DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+
 pub trait BevyDefault {
     fn bevy_default() -> Self;
 }

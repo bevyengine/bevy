@@ -287,7 +287,8 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 To run on a device setup for Android development, run:
 
 ```sh
-cargo apk run --example android
+cd examples/android
+cargo apk run
 ```
 
 :warning: At this time Bevy does not work in Android Emulator.
@@ -309,17 +310,13 @@ Bevy by default targets Android API level 29 in its examples which is the <!-- m
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing.
 
-To use a different API, the following fields must be updated in Cargo.toml:
+To use a different API, the following fields must be updated in [Cargo.toml](./android/Cargo.toml):
 
 ```toml
 [package.metadata.android]
 target_sdk_version = >>API<<
 min_sdk_version = >>API or less<<
 ```
-
-Example | File | Description
---- | --- | ---
-`android` | [`android/android.rs`](./android/android.rs) | The `3d/3d_scene.rs` example for Android
 
 ## iOS
 

@@ -27,7 +27,7 @@ pub mod prelude {
     };
 }
 
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{debug, info};
 pub use once_cell;
 
 use crate::{
@@ -122,25 +122,16 @@ impl Plugin for RenderPlugin {
 
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);
-            let surface = {
-                let windows = app.world.resource_mut::<bevy_window::Windows>();
-                let raw_handle = windows.get_primary().map(|window| unsafe {
-                    let handle = window.raw_window_handle().get_handle();
-                    instance.create_surface(&handle)
-                });
-                raw_handle
-            };
-            let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: options.power_preference,
-                compatible_surface: surface.as_ref(),
-                ..Default::default()
-            };
-            let (device, queue, adapter_info) = futures_lite::future::block_on(
-                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
+            let (device, adapter, queue, adapter_info) = futures_lite::future::block_on(
+                renderer::initialize_renderer(app, &instance, backends, &options),
             );
-            debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
-            debug!("Configured wgpu adapter Features: {:#?}", device.features());
+            debug!("Configured wgpu adapter Limits: {:#?}", &adapter.limits());
+            debug!(
+                "Configured wgpu adapter Features: {:#?}",
+                &adapter.features()
+            );
             app.insert_resource(device.clone())
+                .insert_resource(adapter.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
                 .init_resource::<ScratchRenderWorld>()
@@ -169,6 +160,7 @@ impl Plugin for RenderPlugin {
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .insert_resource(instance)
                 .insert_resource(device)
+                .insert_resource(adapter)
                 .insert_resource(queue)
                 .insert_resource(adapter_info)
                 .insert_resource(render_pipeline_cache)

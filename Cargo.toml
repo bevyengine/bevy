@@ -13,7 +13,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "errors"]
+members = ["crates/*", "examples/ios", "tools/ci", "errors", "examples/android"]
 
 [features]
 default = [
@@ -543,18 +543,3 @@ path = "examples/window/transparent_window.rs"
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
-
-# Android
-[[example]]
-crate-type = ["cdylib"]
-name = "android"
-path = "examples/android/android.rs"
-
-[package.metadata.android]
-apk_label = "Bevy Example"
-assets = "assets"
-res = "assets/android-res"
-icon = "@mipmap/ic_launcher"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-min_sdk_version = 16
-target_sdk_version = 29

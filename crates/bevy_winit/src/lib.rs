@@ -44,6 +44,8 @@ impl Plugin for WinitPlugin {
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
         let event_loop = EventLoop::new();
+        // TODO: Required for WebGL. Currently breaks only android initialization. Should be a part of init system
+        #[cfg(not(target_os = "android"))]
         handle_initial_window_events(&mut app.world, &event_loop);
         app.insert_non_send_resource(event_loop);
     }
@@ -538,11 +540,6 @@ pub fn winit_runner_with(mut app: App) {
                 winit_state.active = true;
             }
             event::Event::MainEventsCleared => {
-                handle_create_window_events(
-                    &mut app.world,
-                    event_loop,
-                    &mut create_window_event_reader,
-                );
                 let winit_config = app.world.resource::<WinitSettings>();
                 let update = if winit_state.active {
                     let windows = app.world.resource::<Windows>();
@@ -559,6 +556,11 @@ pub fn winit_runner_with(mut app: App) {
                     false
                 };
                 if update {
+                    handle_create_window_events(
+                    &mut app.world,
+                    event_loop,
+                    &mut create_window_event_reader,
+                );
                     winit_state.last_update = Instant::now();
                     app.update();
                 }
@@ -628,6 +630,7 @@ fn handle_create_window_events(
     }
 }
 
+#[cfg(not(target_os = "android"))]
 fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
     let world = world.cell();
     let mut winit_windows = world.get_non_send_mut::<WinitWindows>().unwrap();

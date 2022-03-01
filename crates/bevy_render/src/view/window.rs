@@ -1,3 +1,4 @@
+use crate::renderer::RenderAdapter;
 use crate::{
     render_resource::TextureView,
     renderer::{RenderDevice, RenderInstance},
@@ -120,6 +121,7 @@ pub fn prepare_windows(
     _marker: NonSend<NonSendMarker>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
+    render_adapter: Res<RenderAdapter>,
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
 ) {
@@ -133,8 +135,12 @@ pub fn prepare_windows(
                 render_instance.create_surface(&window.handle.get_handle())
             });
 
+        let surface_format = surface
+            .get_preferred_format(&render_adapter)
+            .unwrap_or_else(TextureFormat::bevy_default);
+
         let swap_chain_descriptor = wgpu::SurfaceConfiguration {
-            format: TextureFormat::bevy_default(),
+            format: surface_format,
             width: window.physical_width,
             height: window.physical_height,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,

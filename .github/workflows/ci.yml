@@ -144,7 +144,7 @@ jobs:
       - name: Install Cargo APK
         run: cargo install --force cargo-apk
       - name: Build APK
-        run: cargo apk build --example android
+        run: cd examples/android && cargo apk build
 
   markdownlint:
     runs-on: ubuntu-latest

@@ -1,0 +1,26 @@
+[package]
+name = "bevy_android_example"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+
+[dependencies.bevy]
+path = "../../"
+features = ["bevy_winit", "render"]
+default-features = false
+
+[package.metadata.android]
+assets = "../../assets"
+resources = "../../assets/android-res"
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+min_sdk_version = 16
+target_sdk_version = 29
+
+
+[package.metadata.android.application]
+label = "Bevy Example"
+icon = "@mipmap/ic_launcher"

@@ -22,6 +22,7 @@ use std::ops::Range;
 use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
+use bevy_render::texture::DEFAULT_DEPTH_FORMAT;
 use bevy_render::{
     camera::{ActiveCameras, CameraPlugin, RenderTarget},
     color::Color,
@@ -414,8 +415,7 @@ pub fn prepare_core_views_system(
                 mip_level_count: 1,
                 sample_count: msaa.samples,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
-                                                      * bit depth for better performance */
+                format: DEFAULT_DEPTH_FORMAT,
                 usage: TextureUsages::RENDER_ATTACHMENT,
             },
         );
