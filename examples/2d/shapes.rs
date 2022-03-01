@@ -19,9 +19,9 @@ fn setup(
         sprite: Sprite {
             color: Color::rgb(0.25, 0.25, 0.75),
             custom_size: Some(Vec2::new(50.0, 100.0)),
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     });
 
     // Circle
@@ -30,7 +30,7 @@ fn setup(
         material: materials.add(ColorMaterial::from(Color::PURPLE)),
         transform: Transform::from_translation(Vec3::new(-100., 0., 0.))
             .with_scale(Vec2::splat(100.0).extend(1.)),
-        ..Default::default()
+        ..default()
     });
 
     // Hexagon
@@ -39,7 +39,7 @@ fn setup(
             .add(
                 shape::RegularPolygon {
                     sides: 6,
-                    ..Default::default()
+                    ..default()
                 }
                 .into(),
             )
@@ -47,6 +47,6 @@ fn setup(
         material: materials.add(ColorMaterial::from(Color::TURQUOISE)),
         transform: Transform::from_translation(Vec3::new(100., 0., 0.))
             .with_scale(Vec2::splat(100.0).extend(1.)),
-        ..Default::default()
+        ..default()
     });
 }
