@@ -96,13 +96,15 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
     fn size(&self) -> usize {
         let mut size = 0;
         size += T::std430_size_static();
-        if size > 0 {
-            // Pad according to the array item type's alignment
-            size = (size + <U as AsStd430>::Output::ALIGNMENT - 1)
-                & !(<U as AsStd430>::Output::ALIGNMENT - 1);
+        if self.item_size > 0 {
+            if size > 0 {
+                // Pad according to the array item type's alignment
+                size = (size + <U as AsStd430>::Output::ALIGNMENT - 1)
+                    & !(<U as AsStd430>::Output::ALIGNMENT - 1);
+            }
+            // Variable size arrays must have at least 1 element
+            size += self.item_size * self.capacity.max(1);
         }
-        // Variable size arrays must have at least 1 element
-        size += self.item_size * self.capacity.max(1);
         size
     }
 
@@ -118,18 +120,21 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
                     offset = new_offset;
                 }
             }
-            if self.values.is_empty() {
-                for i in offset..self.size() {
-                    self.scratch[i] = 0;
+            if self.item_size > 0 {
+                if self.values.is_empty() {
+                    // Zero-out the padding and dummy array item in the case of the array being empty
+                    for i in offset..self.size() {
+                        self.scratch[i] = 0;
+                    }
+                } else {
+                    // Then write the array. Note that padding bytes may be added between the body
+                    // and the array in order to align the array to the alignment requirements of its
+                    // items
+                    writer
+                        .write(self.values.as_slice())
+                        .map_err(|e| warn!("{:?}", e))
+                        .ok();
                 }
-            } else {
-                // Then write the array. Note that padding bytes may be added between the body
-                // and the array in order to align the array to the alignment requirements of its
-                // items
-                writer
-                    .write(self.values.as_slice())
-                    .map_err(|e| warn!("{:?}", e))
-                    .ok();
             }
             queue.write_buffer(storage_buffer, 0, &self.scratch[range]);
         }
