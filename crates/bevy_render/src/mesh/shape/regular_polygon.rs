@@ -9,12 +9,20 @@ pub struct RegularPolygon {
     /// Number of sides.
     pub sides: usize,
 }
+
 impl Default for RegularPolygon {
     fn default() -> Self {
         Self {
             radius: 0.5,
             sides: 6,
         }
+    }
+}
+
+impl RegularPolygon {
+    // Creates a regular polygon in the xy plane
+    pub fn new(radius: f32, sides: usize) -> Self {
+        Self { radius, sides }
     }
 }
 
@@ -63,6 +71,16 @@ impl Default for Circle {
             radius: 0.5,
             subdivisions: 64,
         }
+    }
+}
+
+impl Circle {
+    /// Creates a circle in the xy plane
+    pub fn new(radius: f32) -> Self {
+        return Self {
+            radius,
+            ..Default::default()
+        };
     }
 }
 
