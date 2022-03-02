@@ -29,7 +29,6 @@ fn setup(
         mesh: meshes.add(shape::Circle::new(50.).into()).into(),
         material: materials.add(ColorMaterial::from(Color::PURPLE)),
         transform: Transform::from_translation(Vec3::new(-100., 0., 0.)),
-
         ..default()
     });
 
