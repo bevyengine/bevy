@@ -29,9 +29,10 @@ impl From<RegularPolygon> for Mesh {
         for i in 0..sides {
             let a = std::f32::consts::FRAC_PI_2 - i as f32 * std::f32::consts::TAU / (sides as f32);
 
-            positions.push([a.cos() * radius, a.sin() * radius, 0.0]);
+            let (s, c) = a.sin_cos();
+            positions.push([c * radius, s * radius, 0.0]);
             normals.push([0.0, 0.0, 1.0]);
-            uvs.push([(a.cos() + 1.0) / 2.0, 1.0 - (a.sin() + 1.0) / 2.0]);
+            uvs.push([0.5 * (c + 1.0), 1.0 - 0.5 * (s + 1.0)]);
         }
 
         let mut indices = Vec::with_capacity((sides - 1) * 3);
