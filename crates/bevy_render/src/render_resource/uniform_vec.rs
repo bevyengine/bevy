@@ -145,16 +145,6 @@ impl<T: AsStd140> DynamicUniformVec<T> {
         self.uniform_vec.binding()
     }
 
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.uniform_vec.len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.uniform_vec.is_empty()
-    }
-
     /// Gets the capacity of the underlying buffer, in bytes.
     #[inline]
     pub fn buffer_capacity(&self) -> usize {
@@ -163,9 +153,8 @@ impl<T: AsStd140> DynamicUniformVec<T> {
 
     #[inline]
     pub fn push_and_get_offset(&mut self, value: T) -> u32 {
-        (self.uniform_vec.push_and_get_offset(DynamicUniform(value)) * 
-         UniformVec::<DynamicUniform<T>>::ITEM_SIZE)
-            as u32
+        (self.uniform_vec.push_and_get_offset(DynamicUniform(value))
+            * UniformVec::<DynamicUniform<T>>::ITEM_SIZE) as u32
     }
 
     /// Queues up a copy of the contents of the [`UniformVec`] into the underlying
@@ -181,5 +170,18 @@ impl<T: AsStd140> DynamicUniformVec<T> {
     #[inline]
     pub fn clear(&mut self) {
         self.uniform_vec.clear();
+    }
+}
+
+impl<T: AsStd140> Deref for DynamicUniformVec<T> {
+    type Target = Vec<DynamicUniform<T>>;
+    fn deref(&self) -> &Self::Target {
+        &self.uniform_vec
+    }
+}
+
+impl<T: AsStd140> DerefMut for DynamicUniformVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.uniform_vec
     }
 }

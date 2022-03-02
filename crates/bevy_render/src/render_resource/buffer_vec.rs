@@ -77,7 +77,7 @@ impl<T: Pod> BufferVec<T> {
             }));
         }
     }
-    
+
     fn size(&self) -> usize {
         std::mem::size_of::<T>() * self.capacity
     }
