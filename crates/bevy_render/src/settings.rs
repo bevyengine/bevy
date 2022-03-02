@@ -64,7 +64,7 @@ impl Default for WgpuSettings {
             backends,
             power_preference: PowerPreference::HighPerformance,
             priority,
-            features,
+            features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
             disabled_features: None,
             limits,
             constrained_limits: None,
