@@ -1,7 +1,7 @@
 use crate::mesh::{Indices, Mesh};
 use wgpu::PrimitiveTopology;
 
-/// A regular polygon on the xy plane
+/// A regular polygon in the xy plane
 #[derive(Debug, Copy, Clone)]
 pub struct RegularPolygon {
     /// Inscribed radius on the xy plane.
