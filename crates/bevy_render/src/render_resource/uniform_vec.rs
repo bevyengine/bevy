@@ -20,7 +20,6 @@ pub struct UniformVec<T: AsStd140> {
     values: Vec<T>,
     scratch: Vec<u8>,
     uniform_buffer: Option<Buffer>,
-    capacity: usize,
 }
 
 impl<T: AsStd140> Default for UniformVec<T> {
@@ -29,7 +28,6 @@ impl<T: AsStd140> Default for UniformVec<T> {
             values: Vec::new(),
             scratch: Vec::new(),
             uniform_buffer: None,
-            capacity: 0,
         }
     }
 }
@@ -61,7 +59,7 @@ impl<T: AsStd140> UniformVec<T> {
     /// Will return 0 if no buffer has been allocated yet.
     #[inline]
     pub fn buffer_capacity(&self) -> usize {
-        self.capacity
+        self.values.len()
     }
 
     pub fn push(&mut self, value: T) -> usize {
@@ -89,7 +87,7 @@ impl<T: AsStd140> UniformVec<T> {
     }
 
     fn reserve_buffer(&mut self, capacity: usize, device: &RenderDevice) -> bool {
-        if capacity > self.capacity {
+        if capacity > self.scratch.len() {
             self.capacity = capacity;
             let size = Self::ITEM_SIZE * capacity;
             self.scratch.resize(size, 0);
