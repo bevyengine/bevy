@@ -86,6 +86,18 @@ impl<T: AsStd140> UniformVec<T> {
         }
     }
 
+    /// Consumes the [`UniformBufferVec`] and returns the underlying [`Vec`].
+    /// If a buffer was allocated, it will be dropped.
+    pub fn take_vec(self) -> Vec<T> {
+        self.values
+    }
+
+    /// Consumes the [`UniformBufferVec`] and returns the underlying [`Buffer`]
+    /// if one was allocated.
+    pub fn take_buffer(self) -> Option<Buffer> {
+        self.uniform_buffer
+    }
+
     fn reserve_buffer(&mut self, device: &RenderDevice) -> bool {
         if self.size() > self.scratch.len() {
             self.scratch.resize(self.size(), 0);
@@ -167,9 +179,16 @@ impl<T: AsStd140> DynamicUniformVec<T> {
         self.uniform_vec.write_buffer(device, queue);
     }
 
-    #[inline]
-    pub fn clear(&mut self) {
-        self.uniform_vec.clear();
+    /// Consumes the [`DynamicUniformBufferVec`] and returns the underlying [`Vec`].
+    /// If a buffer was allocated, it will be dropped.
+    pub fn take_vec(self) -> Vec<DynamicUniform<T>> {
+        self.uniform_vec.take_vec()
+    }
+
+    /// Consumes the [`DynamicUniformBufferVec`] and returns the underlying [`Buffer`]
+    /// if one was allocated.
+    pub fn take_buffer(self) -> Option<Buffer> {
+        self.uniform_vec.take_buffer()
     }
 }
 

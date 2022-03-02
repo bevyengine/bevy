@@ -66,6 +66,18 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
+    /// Consumes the [`BufferVec`] and returns the underlying [`Vec`].
+    /// If a buffer was allocated, it will be dropped.
+    pub fn take_vec(self) -> Vec<T> {
+        self.values
+    }
+
+    /// Consumes the [`BufferVec`] and returns the underlying [`Buffer`]
+    /// if one was allocated.
+    pub fn take_buffer(self) -> Option<Buffer> {
+        self.buffer
+    }
+
     fn reserve_buffer(&mut self, capacity: usize, device: &RenderDevice) {
         if capacity > self.capacity {
             self.capacity = capacity;
