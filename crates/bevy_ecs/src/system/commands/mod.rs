@@ -388,42 +388,55 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     /// Adds a [`BoxedCommand`] directly to the command list.
+    /// This is currently helpful for sending commands across
+    /// threads or parallel loops.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// use bevy_ecs::system::InsertBundle;
+    /// use bevy_ecs::system::{Despawn, Spawn};
+    /// use bevy_tasks::TaskPool;
+    /// use async_channel::unbounded;
     /// #
-    /// # struct PlayerEntity { entity: Entity }
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// # #[derive(Component)]
-    /// # struct Strength(u32);
-    /// # #[derive(Component)]
-    /// # struct Defense(u32);
+    /// # #[derive(Bundle, Default)]
+    /// # struct ExplosionBundle{
+    ///     size: Size,
+    ///     shape: Shape,
+    /// };
     /// #
-    /// # #[derive(Bundle)]
-    /// # struct CombatBundle {
-    /// #     health: Health,
-    /// #     strength: Strength,
-    /// #     defense: Defense,
-    /// # }
+    /// # #[derive(Component)]
+    /// # struct Bullet;
+    /// # #[derive(Component)]
+    /// # struct BulletCollision;
+    /// # #[derive(Component, Default)]
+    /// # struct Size;
+    /// # #[derive(Component, Default)]
+    /// # struct Shape;
+    /// 
     /// // Make sure this is in scope!
     /// use crate::bevy_ecs::system::BoxableCommand;
     ///
-    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///     let boxed_insert = InsertBundle {
-    ///         entity: player.entity,
-    ///         bundle: CombatBundle {
-    ///             health: Health(100),
-    ///             strength: Strength(40),
-    ///             defense: Defense(20),
-    ///         },
-    ///     }.box_command();
-    ///     commands.add_boxed(boxed_insert);
+    /// fn explode_bullets(mut commands: Commands, task_pool: Res<TaskPool>, bullets: Query<(Entity, &Bullet), With<BulletCollision>>) {
+    ///     
+    ///     // Create a channel to send commands from par for each, back to main
+    ///     let (commands_tx, commands_rx) = unbounded();
+    /// 
+    ///     // We can send different typed commands in the same channel
+    ///     // once we box them!
+    ///     bullets.par_for_each(&task_pool, 5, |(entity, bullet)| {
+    ///         // Despawn the bullet
+    ///         commands_tx.try_send(Despawn{entity}.box_command()).unwrap();
+    ///         // Spawn the explosion
+    ///         commands_tx.try_send(Spawn{bundle: ExplosionBundle::default()}.box_command()).unwrap();
+    ///         // send commands to main thread
+    ///     });
+    ///     
+    ///     while let Ok(command) = commands_rx.try_recv(){
+    ///         commands.add_boxed(command);
+    ///     }
     /// }
-    /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
+    /// # bevy_ecs::system::assert_is_system(explode_bullets);
     /// ```
     pub fn add_boxed(&mut self, command: BoxedCommand) {
         self.queue.push_boxed(command);
