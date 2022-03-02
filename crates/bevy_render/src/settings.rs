@@ -59,9 +59,6 @@ impl Default for WgpuSettings {
             limits
         };
 
-        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
-        #[cfg(feature = "spirv_shader_passthrough")]
-        let features = features | wgpu::Features::SPIRV_SHADER_PASSTHROUGH;
         Self {
             device_label: Default::default(),
             backends,
