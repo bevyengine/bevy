@@ -141,7 +141,7 @@ impl GetPath for dyn Reflect {
 pub struct FieldPath(Box<[(Access, usize)]>);
 
 impl FieldPath {
-    pub fn parse<'a>(string: &'a str) -> Result<Self, ReflectPathError<'a>> {
+    pub fn parse(string: &str) -> Result<Self, ReflectPathError<'_>> {
         let mut parts = Vec::new();
         for (access, idx) in PathParser::new(string) {
             parts.push((access?.to_owned(), idx));
@@ -182,7 +182,7 @@ enum Access {
 impl Access {
     fn to_ref(&self) -> AccessRef<'_> {
         match self {
-            Self::Field(value) => AccessRef::Field(&value),
+            Self::Field(value) => AccessRef::Field(value),
             Self::TupleIndex(value) => AccessRef::TupleIndex(*value),
             Self::ListIndex(value) => AccessRef::ListIndex(*value),
         }
