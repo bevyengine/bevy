@@ -77,10 +77,10 @@ impl Default for Circle {
 impl Circle {
     /// Creates a circle in the xy plane
     pub fn new(radius: f32) -> Self {
-        return Self {
+        Self {
             radius,
             ..Default::default()
-        };
+        }
     }
 }
 
