@@ -39,6 +39,14 @@ pub unsafe trait Std430: Copy + Zeroable + Pod {
     }
 }
 
+unsafe impl Std430 for () {
+    const ALIGNMENT: usize = 0;
+
+    const PAD_AT_END: bool = false;
+
+    type Padded = ();
+}
+
 /// Trait specifically for Std430::Padded, implements conversions between padded type and base type.
 pub trait Std430Convertible<T: Std430>: Copy {
     /// Convert from self to Std430
