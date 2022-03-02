@@ -1,4 +1,7 @@
-use std::num::NonZeroU64;
+use std::{
+    num::NonZeroU64,
+    ops::{Deref, DerefMut},
+};
 
 use bevy_crevice::std430::{self, AsStd430, Std430};
 use bevy_utils::tracing::warn;
@@ -14,33 +17,38 @@ pub struct StorageBuffer<T: AsStd430, U: AsStd430> {
     values: Vec<U>,
     scratch: Vec<u8>,
     storage_buffer: Option<Buffer>,
-    capacity: usize,
-    item_size: usize,
 }
 
 impl<T: AsStd430 + Default, U: AsStd430> Default for StorageBuffer<T, U> {
+    /// Creates a new [`StorageBuffer`]
+    ///
+    /// This does not immediately allocate system/video RAM buffers.
     fn default() -> Self {
         Self {
             body: T::default(),
             values: Vec::new(),
             scratch: Vec::new(),
             storage_buffer: None,
-            capacity: 0,
-            item_size: U::std430_size_static(),
         }
     }
 }
 
 impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
+    // NOTE: AsStd430::std430_size_static() uses size_of internally but trait functions cannot be
+    // marked as const functions
+    const BODY_SIZE: usize = std::mem::size_of::<T>();
+    const ITEM_SIZE: usize = std::mem::size_of::<U>();
+
+    /// Gets the reference to the underlying buffer, if one has been allocated.
     #[inline]
-    pub fn storage_buffer(&self) -> Option<&Buffer> {
+    pub fn buffer(&self) -> Option<&Buffer> {
         self.storage_buffer.as_ref()
     }
 
     #[inline]
     pub fn binding(&self) -> Option<BindingResource> {
         Some(BindingResource::Buffer(BufferBinding {
-            buffer: self.storage_buffer()?,
+            buffer: self.buffer()?,
             offset: 0,
             size: Some(NonZeroU64::new((self.size()) as u64).unwrap()),
         }))
@@ -51,35 +59,9 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
         self.body = body;
     }
 
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
-    }
-
-    #[inline]
-    pub fn capacity(&self) -> usize {
-        self.capacity
-    }
-
-    pub fn push(&mut self, value: U) -> usize {
-        let index = self.values.len();
-        self.values.push(value);
-        index
-    }
-
-    pub fn get_mut(&mut self, index: usize) -> &mut U {
-        &mut self.values[index]
-    }
-
-    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) -> bool {
-        if self.storage_buffer.is_none() || capacity > self.capacity {
-            self.capacity = capacity;
-            let size = self.size();
+    fn reserve_buffer(&mut self, device: &RenderDevice) -> bool {
+        let size = self.size();
+        if self.storage_buffer.is_none() || size > self.scratch.len() {
             self.scratch.resize(size, 0);
             self.storage_buffer = Some(device.create_buffer(&BufferDescriptor {
                 label: None,
@@ -95,32 +77,32 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
 
     fn size(&self) -> usize {
         let mut size = 0;
-        size += T::std430_size_static();
-        if self.item_size > 0 {
+        size += Self::BODY_SIZE;
+        if Self::ITEM_SIZE > 0 {
             if size > 0 {
                 // Pad according to the array item type's alignment
                 size = (size + <U as AsStd430>::Output::ALIGNMENT - 1)
                     & !(<U as AsStd430>::Output::ALIGNMENT - 1);
             }
             // Variable size arrays must have at least 1 element
-            size += self.item_size * self.capacity.max(1);
+            size += Self::ITEM_SIZE * self.values.len().max(1);
         }
         size
     }
 
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        self.reserve(self.values.len(), device);
+        self.reserve_buffer(device);
         if let Some(storage_buffer) = &self.storage_buffer {
             let range = 0..self.size();
             let mut writer = std430::Writer::new(&mut self.scratch[range.clone()]);
             let mut offset = 0;
             // First write the struct body if there is one
-            if T::std430_size_static() > 0 {
+            if Self::BODY_SIZE > 0 {
                 if let Ok(new_offset) = writer.write(&self.body).map_err(|e| warn!("{:?}", e)) {
                     offset = new_offset;
                 }
             }
-            if self.item_size > 0 {
+            if Self::ITEM_SIZE > 0 {
                 if self.values.is_empty() {
                     // Zero-out the padding and dummy array item in the case of the array being empty
                     for i in offset..self.size() {
@@ -139,12 +121,18 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
             queue.write_buffer(storage_buffer, 0, &self.scratch[range]);
         }
     }
+}
 
-    pub fn clear(&mut self) {
-        self.values.clear();
-    }
+impl<T: AsStd430, U: AsStd430> Deref for StorageBuffer<T, U> {
+    type Target = Vec<U>;
 
-    pub fn values(&self) -> &[U] {
+    fn deref(&self) -> &Self::Target {
         &self.values
+    }
+}
+
+impl<T: AsStd430, U: AsStd430> DerefMut for StorageBuffer<T, U> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.values
     }
 }
