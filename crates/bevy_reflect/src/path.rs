@@ -199,7 +199,6 @@ impl<'a> AccessRef<'a> {
         current: &'r dyn Reflect,
         current_index: usize,
     ) -> Result<&'r dyn Reflect, ReflectPathError<'a>> {
-        println!("{:?}", self);
         match (self, current.reflect_ref()) {
             (Self::Field(field), ReflectRef::Struct(reflect_struct)) => Ok(reflect_struct
                 .field(field)
