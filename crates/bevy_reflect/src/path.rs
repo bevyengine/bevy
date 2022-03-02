@@ -104,65 +104,15 @@ impl<T: Reflect> GetPath for T {
 
 impl GetPath for dyn Reflect {
     fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
-        let mut index = 0;
         let mut current: &dyn Reflect = self;
-        while let Some(token) = next_token(path, &mut index) {
-            let current_index = index;
-            match token {
-                Token::Dot => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        current = read_field(current, value, current_index)?;
-                    } else {
-                        return Err(ReflectPathError::ExpectedIdent {
-                            index: current_index,
-                        });
-                    }
+        for (access, current_index) in PathParser::new(path) {
+            match access {
+                Ok(access) => {
+                    current = access.read_field(current, current_index)?;
                 }
-                Token::OpenBracket => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        match current.reflect_ref() {
-                            ReflectRef::List(reflect_list) => {
-                                let list_index = value.parse::<usize>()?;
-                                let list_item = reflect_list.get(list_index).ok_or(
-                                    ReflectPathError::InvalidListIndex {
-                                        index: current_index,
-                                        list_index,
-                                    },
-                                )?;
-                                current = list_item;
-                            }
-                            _ => {
-                                return Err(ReflectPathError::ExpectedList {
-                                    index: current_index,
-                                })
-                            }
-                        }
-                    } else {
-                        return Err(ReflectPathError::ExpectedIdent {
-                            index: current_index,
-                        });
-                    }
-
-                    if let Some(Token::CloseBracket) = next_token(path, &mut index) {
-                    } else {
-                        return Err(ReflectPathError::ExpectedToken {
-                            index: current_index,
-                            token: "]",
-                        });
-                    }
-                }
-                Token::CloseBracket => {
-                    return Err(ReflectPathError::UnexpectedToken {
-                        index: current_index,
-                        token: "]",
-                    })
-                }
-                Token::Ident(value) => {
-                    current = read_field(current, value, current_index)?;
-                }
+                Err(err) => return Err(err),
             }
         }
-
         Ok(current)
     }
 
@@ -170,124 +120,205 @@ impl GetPath for dyn Reflect {
         &'r mut self,
         path: &'p str,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
-        let mut index = 0;
         let mut current: &mut dyn Reflect = self;
-        while let Some(token) = next_token(path, &mut index) {
-            let current_index = index;
-            match token {
-                Token::Dot => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        current = read_field_mut(current, value, current_index)?;
-                    } else {
-                        return Err(ReflectPathError::ExpectedIdent {
-                            index: current_index,
-                        });
-                    }
+        for (access, current_index) in PathParser::new(path) {
+            match access {
+                Ok(access) => {
+                    current = access.read_field_mut(current, current_index)?;
                 }
-                Token::OpenBracket => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        match current.reflect_mut() {
-                            ReflectMut::List(reflect_list) => {
-                                let list_index = value.parse::<usize>()?;
-                                let list_item = reflect_list.get_mut(list_index).ok_or(
-                                    ReflectPathError::InvalidListIndex {
-                                        index: current_index,
-                                        list_index,
-                                    },
-                                )?;
-                                current = list_item;
-                            }
-                            _ => {
-                                return Err(ReflectPathError::ExpectedStruct {
-                                    index: current_index,
-                                })
-                            }
-                        }
-                    } else {
-                        return Err(ReflectPathError::ExpectedIdent {
-                            index: current_index,
-                        });
-                    }
-
-                    if let Some(Token::CloseBracket) = next_token(path, &mut index) {
-                    } else {
-                        return Err(ReflectPathError::ExpectedToken {
-                            index: current_index,
-                            token: "]",
-                        });
-                    }
-                }
-                Token::CloseBracket => {
-                    return Err(ReflectPathError::UnexpectedToken {
-                        index: current_index,
-                        token: "]",
-                    })
-                }
-                Token::Ident(value) => {
-                    current = read_field_mut(current, value, current_index)?;
-                }
+                Err(err) => return Err(err),
             }
         }
-
         Ok(current)
     }
 }
 
-fn read_field<'r, 'p>(
-    current: &'r dyn Reflect,
-    field: &'p str,
-    current_index: usize,
-) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
-    match current.reflect_ref() {
-        ReflectRef::Struct(reflect_struct) => {
-            Ok(reflect_struct
+#[derive(Debug)]
+enum Access<'a> {
+    Field(&'a str),
+    TupleIndex(usize),
+    ListIndex(usize),
+}
+
+impl<'a> Access<'a> {
+    fn read_field<'r>(
+        &self,
+        current: &'r dyn Reflect,
+        current_index: usize,
+    ) -> Result<&'r dyn Reflect, ReflectPathError<'a>> {
+        println!("{:?}", self);
+        match (self, current.reflect_ref()) {
+            (Self::Field(field), ReflectRef::Struct(reflect_struct)) => Ok(reflect_struct
                 .field(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
                     field,
-                })?)
-        }
-        ReflectRef::TupleStruct(reflect_struct) => {
-            let tuple_index = field.parse::<usize>()?;
-            Ok(reflect_struct.field(tuple_index).ok_or(
-                ReflectPathError::InvalidTupleStructIndex {
+                })?),
+            (Self::TupleIndex(tuple_index), ReflectRef::TupleStruct(reflect_struct)) => {
+                Ok(reflect_struct.field(*tuple_index).ok_or(
+                    ReflectPathError::InvalidTupleStructIndex {
+                        index: current_index,
+                        tuple_struct_index: *tuple_index,
+                    },
+                )?)
+            }
+            (Self::ListIndex(list_index), ReflectRef::List(reflect_list)) => Ok(reflect_list
+                .get(*list_index)
+                .ok_or(ReflectPathError::InvalidListIndex {
                     index: current_index,
-                    tuple_struct_index: tuple_index,
-                },
-            )?)
+                    list_index: *list_index,
+                })?),
+            (Self::ListIndex(_), _) => Err(ReflectPathError::ExpectedList {
+                index: current_index,
+            }),
+            _ => Err(ReflectPathError::ExpectedStruct {
+                index: current_index,
+            }),
         }
-        _ => Err(ReflectPathError::ExpectedStruct {
-            index: current_index,
-        }),
     }
-}
 
-fn read_field_mut<'r, 'p>(
-    current: &'r mut dyn Reflect,
-    field: &'p str,
-    current_index: usize,
-) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
-    match current.reflect_mut() {
-        ReflectMut::Struct(reflect_struct) => {
-            Ok(reflect_struct
+    fn read_field_mut<'r>(
+        &self,
+        current: &'r mut dyn Reflect,
+        current_index: usize,
+    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'a>> {
+        match (self, current.reflect_mut()) {
+            (Self::Field(field), ReflectMut::Struct(reflect_struct)) => Ok(reflect_struct
                 .field_mut(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
                     field,
-                })?)
-        }
-        ReflectMut::TupleStruct(reflect_struct) => {
-            let tuple_index = field.parse::<usize>()?;
-            Ok(reflect_struct.field_mut(tuple_index).ok_or(
-                ReflectPathError::InvalidTupleStructIndex {
+                })?),
+            (Self::TupleIndex(tuple_index), ReflectMut::TupleStruct(reflect_struct)) => {
+                Ok(reflect_struct.field_mut(*tuple_index).ok_or(
+                    ReflectPathError::InvalidTupleStructIndex {
+                        index: current_index,
+                        tuple_struct_index: *tuple_index,
+                    },
+                )?)
+            }
+            (Self::ListIndex(list_index), ReflectMut::List(reflect_list)) => Ok(reflect_list
+                .get_mut(*list_index)
+                .ok_or(ReflectPathError::InvalidListIndex {
                     index: current_index,
-                    tuple_struct_index: tuple_index,
-                },
-            )?)
+                    list_index: *list_index,
+                })?),
+            (Self::ListIndex(_), _) => Err(ReflectPathError::ExpectedList {
+                index: current_index,
+            }),
+            _ => Err(ReflectPathError::ExpectedStruct {
+                index: current_index,
+            }),
         }
-        _ => Err(ReflectPathError::ExpectedStruct {
-            index: current_index,
-        }),
+    }
+}
+
+struct PathParser<'a> {
+    path: &'a str,
+    index: usize,
+}
+
+impl<'a> PathParser<'a> {
+    fn new(path: &'a str) -> Self {
+        Self { path, index: 0 }
+    }
+
+    fn next_token(&mut self) -> Option<Token<'a>> {
+        if self.index >= self.path.len() {
+            return None;
+        }
+
+        match self.path[self.index..].chars().next().unwrap() {
+            '.' => {
+                self.index += 1;
+                return Some(Token::Dot);
+            }
+            '[' => {
+                self.index += 1;
+                return Some(Token::OpenBracket);
+            }
+            ']' => {
+                self.index += 1;
+                return Some(Token::CloseBracket);
+            }
+            _ => {}
+        }
+
+        // we can assume we are parsing an ident now
+        for (char_index, character) in self.path[self.index..].chars().enumerate() {
+            match character {
+                '.' | '[' | ']' => {
+                    let ident = Token::Ident(&self.path[self.index..self.index + char_index]);
+                    self.index += char_index;
+                    return Some(ident);
+                }
+                _ => {}
+            }
+        }
+        let ident = Token::Ident(&self.path[self.index..]);
+        self.index = self.path.len();
+        Some(ident)
+    }
+
+    fn token_to_access(&mut self, token: Token<'a>) -> Result<Access<'a>, ReflectPathError<'a>> {
+        let current_index = self.index;
+        match token {
+            Token::Dot => {
+                if let Some(Token::Ident(value)) = self.next_token() {
+                    if let Ok(tuple_index) = value.parse::<usize>() {
+                        Ok(Access::TupleIndex(tuple_index))
+                    } else {
+                        Ok(Access::Field(value))
+                    }
+                } else {
+                    Err(ReflectPathError::ExpectedIdent {
+                        index: current_index,
+                    })
+                }
+            }
+            Token::OpenBracket => {
+                let access = if let Some(Token::Ident(value)) = self.next_token() {
+                    Access::ListIndex(value.parse::<usize>()?)
+                } else {
+                    return Err(ReflectPathError::ExpectedIdent {
+                        index: current_index,
+                    });
+                };
+
+                if !matches!(self.next_token(), Some(Token::CloseBracket)) {
+                    return Err(ReflectPathError::ExpectedToken {
+                        index: current_index,
+                        token: "]",
+                    });
+                }
+
+                Ok(access)
+            }
+            Token::CloseBracket => Err(ReflectPathError::UnexpectedToken {
+                index: current_index,
+                token: "]",
+            }),
+            Token::Ident(value) => {
+                if let Ok(tuple_index) = value.parse::<usize>() {
+                    Ok(Access::TupleIndex(tuple_index))
+                } else {
+                    Ok(Access::Field(value))
+                }
+            }
+        }
+    }
+}
+
+impl<'a> Iterator for PathParser<'a> {
+    type Item = (Result<Access<'a>, ReflectPathError<'a>>, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(token) = self.next_token() {
+            let index = self.index;
+            Some((self.token_to_access(token), index))
+        } else {
+            None
+        }
     }
 }
 
@@ -296,43 +327,6 @@ enum Token<'a> {
     OpenBracket,
     CloseBracket,
     Ident(&'a str),
-}
-
-fn next_token<'a>(path: &'a str, index: &mut usize) -> Option<Token<'a>> {
-    if *index >= path.len() {
-        return None;
-    }
-
-    match path[*index..].chars().next().unwrap() {
-        '.' => {
-            *index += 1;
-            return Some(Token::Dot);
-        }
-        '[' => {
-            *index += 1;
-            return Some(Token::OpenBracket);
-        }
-        ']' => {
-            *index += 1;
-            return Some(Token::CloseBracket);
-        }
-        _ => {}
-    }
-
-    // we can assume we are parsing an ident now
-    for (char_index, character) in path[*index..].chars().enumerate() {
-        match character {
-            '.' | '[' | ']' => {
-                let ident = Token::Ident(&path[*index..*index + char_index]);
-                *index += char_index;
-                return Some(ident);
-            }
-            _ => {}
-        }
-    }
-    let ident = Token::Ident(&path[*index..]);
-    *index = path.len();
-    Some(ident)
 }
 
 #[cfg(test)]
