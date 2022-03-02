@@ -56,6 +56,9 @@ pub enum ReflectPathError<'a> {
 /// 2-tuples (like a `Vec<(T, U)>`), the path string `foo[3].0` would access tuple
 /// element 0 of element 3 of `foo`.
 ///
+/// Using these functions repeatedly with the same string requires parsing the
+/// string every time. To avoid this cost, construct a [`FieldPath`] instead.
+///
 /// [`Struct`]: crate::Struct
 /// [`TupleStruct`]: crate::TupleStruct
 /// [`Tuple`]: crate::Tuple
@@ -117,12 +120,7 @@ impl GetPath for dyn Reflect {
     fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
         let mut current: &dyn Reflect = self;
         for (access, current_index) in PathParser::new(path) {
-            match access {
-                Ok(access) => {
-                    current = access.read_field(current, current_index)?;
-                }
-                Err(err) => return Err(err),
-            }
+            current = access?.read_field(current, current_index)?;
         }
         Ok(current)
     }
@@ -133,25 +131,80 @@ impl GetPath for dyn Reflect {
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
         let mut current: &mut dyn Reflect = self;
         for (access, current_index) in PathParser::new(path) {
-            match access {
-                Ok(access) => {
-                    current = access.read_field_mut(current, current_index)?;
-                }
-                Err(err) => return Err(err),
-            }
+            current = access?.read_field_mut(current, current_index)?;
         }
         Ok(current)
     }
 }
 
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub struct FieldPath(Box<[(Access, usize)]>);
+
+impl FieldPath {
+    pub fn parse<'a>(string: &'a str) -> Result<Self, ReflectPathError<'a>> {
+        let mut parts = Vec::new();
+        for (access, idx) in PathParser::new(string) {
+            parts.push((access?.to_owned(), idx));
+        }
+        Ok(Self(parts.into_boxed_slice()))
+    }
+
+    pub fn field<'r, 'p>(
+        &'p self,
+        root: &'r impl Reflect,
+    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
+        let mut current: &dyn Reflect = root;
+        for (access, current_index) in self.0.iter() {
+            current = access.to_ref().read_field(current, *current_index)?;
+        }
+        Ok(current)
+    }
+
+    pub fn field_mut<'r, 'p>(
+        &'p mut self,
+        root: &'r mut impl Reflect,
+    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
+        let mut current: &mut dyn Reflect = root;
+        for (access, current_index) in self.0.iter() {
+            current = access.to_ref().read_field_mut(current, *current_index)?;
+        }
+        Ok(current)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+enum Access {
+    Field(String),
+    TupleIndex(usize),
+    ListIndex(usize),
+}
+
+impl Access {
+    fn to_ref(&self) -> AccessRef<'_> {
+        match self {
+            Self::Field(value) => AccessRef::Field(&value),
+            Self::TupleIndex(value) => AccessRef::TupleIndex(*value),
+            Self::ListIndex(value) => AccessRef::ListIndex(*value),
+        }
+    }
+}
+
 #[derive(Debug)]
-enum Access<'a> {
+enum AccessRef<'a> {
     Field(&'a str),
     TupleIndex(usize),
     ListIndex(usize),
 }
 
-impl<'a> Access<'a> {
+impl<'a> AccessRef<'a> {
+    fn to_owned(&self) -> Access {
+        match self {
+            Self::Field(value) => Access::Field(value.to_string()),
+            Self::TupleIndex(value) => Access::TupleIndex(*value),
+            Self::ListIndex(value) => Access::ListIndex(*value),
+        }
+    }
+
     fn read_field<'r>(
         &self,
         current: &'r dyn Reflect,
@@ -338,15 +391,15 @@ impl<'a> PathParser<'a> {
         Some(ident)
     }
 
-    fn token_to_access(&mut self, token: Token<'a>) -> Result<Access<'a>, ReflectPathError<'a>> {
+    fn token_to_access(&mut self, token: Token<'a>) -> Result<AccessRef<'a>, ReflectPathError<'a>> {
         let current_index = self.index;
         match token {
             Token::Dot => {
                 if let Some(Token::Ident(value)) = self.next_token() {
                     if let Ok(tuple_index) = value.parse::<usize>() {
-                        Ok(Access::TupleIndex(tuple_index))
+                        Ok(AccessRef::TupleIndex(tuple_index))
                     } else {
-                        Ok(Access::Field(value))
+                        Ok(AccessRef::Field(value))
                     }
                 } else {
                     Err(ReflectPathError::ExpectedIdent {
@@ -356,7 +409,7 @@ impl<'a> PathParser<'a> {
             }
             Token::OpenBracket => {
                 let access = if let Some(Token::Ident(value)) = self.next_token() {
-                    Access::ListIndex(value.parse::<usize>()?)
+                    AccessRef::ListIndex(value.parse::<usize>()?)
                 } else {
                     return Err(ReflectPathError::ExpectedIdent {
                         index: current_index,
@@ -378,9 +431,9 @@ impl<'a> PathParser<'a> {
             }),
             Token::Ident(value) => {
                 if let Ok(tuple_index) = value.parse::<usize>() {
-                    Ok(Access::TupleIndex(tuple_index))
+                    Ok(AccessRef::TupleIndex(tuple_index))
                 } else {
-                    Ok(Access::Field(value))
+                    Ok(AccessRef::Field(value))
                 }
             }
         }
@@ -388,7 +441,7 @@ impl<'a> PathParser<'a> {
 }
 
 impl<'a> Iterator for PathParser<'a> {
-    type Item = (Result<Access<'a>, ReflectPathError<'a>>, usize);
+    type Item = (Result<AccessRef<'a>, ReflectPathError<'a>>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(token) = self.next_token() {
