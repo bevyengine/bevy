@@ -74,7 +74,9 @@ impl CommandQueue {
     /// Push a [`BoxedCommand`] onto the queue.
     #[inline]
     pub fn push_boxed(&mut self, boxed_command: BoxedCommand) {
-        let size = std::mem::size_of_val(boxed_command.command.deref());
+        let command_layout = std::alloc::Layout::for_value(boxed_command.command.deref());
+
+        let size = command_layout.size();
         let old_len = self.bytes.len();
 
         self.metas.push(CommandMeta {
@@ -82,21 +84,26 @@ impl CommandQueue {
             func: boxed_command.func,
         });
 
+        let command_ptr = Box::into_raw(boxed_command.command) as *const u8;
+
         if size > 0 {
             self.bytes.reserve(size);
 
             // SAFE: The internal `bytes` vector has enough storage for the
             // command (see the call the `reserve` above), and the vector has
             // its length set appropriately.
-            // Also `boxed_command.command` is turned into a raw pointer, so it
-            // does not need to be forgotten.
+            // Copy the raw bytes for the command into the queue, then free the
+            // original commands memory.
             unsafe {
                 std::ptr::copy_nonoverlapping(
-                    Box::into_raw(boxed_command.command) as *const u8,
+                    command_ptr.clone(),
                     self.bytes.as_mut_ptr().add(old_len),
                     size,
                 );
                 self.bytes.set_len(old_len + size);
+
+                // Need to free the original boxes memory.
+                std::alloc::dealloc(command_ptr as *mut u8, command_layout);
             }
         }
     }
