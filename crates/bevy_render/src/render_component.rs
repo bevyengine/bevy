@@ -115,7 +115,7 @@ fn prepare_uniform_components<C: Component>(
         commands
             .get_or_spawn(entity)
             .insert(DynamicUniformIndex::<C> {
-                index: component_uniforms.uniforms.push(component.clone()),
+                index: component_uniforms.uniforms.push_and_get_offset(component.clone()),
                 marker: PhantomData,
             });
     }

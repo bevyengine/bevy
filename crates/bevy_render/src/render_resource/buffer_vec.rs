@@ -29,7 +29,7 @@ impl<T: Pod> Default for BufferVec<T> {
 impl<T: Pod> BufferVec<T> {
     /// Creates a new [`BufferVec`] with the associated [`BufferUsages`].
     ///
-    /// This does not immediately allocate a buffer.
+    /// This does not immediately allocate a system/video RAM buffers.
     pub fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             buffer_usage,
@@ -43,6 +43,12 @@ impl<T: Pod> BufferVec<T> {
         self.buffer.as_ref()
     }
 
+    /// Gets the capacity of the underlying buffer, returning 0 if it hasn't been allocated.
+    #[inline]
+    pub fn buffer_capacity(&self) -> usize {
+        self.capacity
+    }
+
     /// Queues up a copy of the contents of the [`BufferVec`] into the underlying
     /// buffer.
     ///
@@ -54,7 +60,7 @@ impl<T: Pod> BufferVec<T> {
         }
         self.reserve_buffer(self.values.len(), device);
         if let Some(buffer) = &self.buffer {
-            let range = 0..std::mem::size_of::<T>() * self.values.len();
+            let range = 0..self.size();
             let bytes: &[u8] = cast_slice(&self.values);
             queue.write_buffer(buffer, 0, &bytes[range]);
         }
@@ -63,14 +69,17 @@ impl<T: Pod> BufferVec<T> {
     fn reserve_buffer(&mut self, capacity: usize, device: &RenderDevice) {
         if capacity > self.capacity {
             self.capacity = capacity;
-            let size = std::mem::size_of::<T>() * capacity;
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
-                size: size as wgpu::BufferAddress,
+                size: self.size() as wgpu::BufferAddress,
                 usage: BufferUsages::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
             }));
         }
+    }
+    
+    fn size(&self) -> usize {
+        std::mem::size_of::<T>() * self.capacity
     }
 }
 

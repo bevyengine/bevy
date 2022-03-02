@@ -867,7 +867,7 @@ pub fn prepare_lights(
                 lights: view_lights,
             },
             ViewLightsUniformOffset {
-                offset: light_meta.view_gpu_lights.push(gpu_lights),
+                offset: light_meta.view_gpu_lights.push_and_get_offset(gpu_lights),
             },
         ));
     }

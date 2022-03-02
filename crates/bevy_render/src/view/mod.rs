@@ -151,7 +151,7 @@ fn prepare_view_uniforms(
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
-            offset: view_uniforms.uniforms.push(ViewUniform {
+            offset: view_uniforms.uniforms.push_and_get_offset(ViewUniform {
                 view_proj: projection * inverse_view,
                 view,
                 inverse_view,

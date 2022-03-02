@@ -62,7 +62,7 @@ impl<T: AsStd140> UniformVec<T> {
         self.values.len()
     }
 
-    pub fn push(&mut self, value: T) -> usize {
+    pub fn push_and_get_offset(&mut self, value: T) -> usize {
         let index = self.values.len();
         self.values.push(value);
         index
@@ -77,23 +77,21 @@ impl<T: AsStd140> UniformVec<T> {
         if self.values.is_empty() {
             return;
         }
-        self.reserve_buffer(self.values.len(), device);
+        self.reserve_buffer(device);
         if let Some(uniform_buffer) = &self.uniform_buffer {
-            let range = 0..Self::ITEM_SIZE * self.values.len();
+            let range = 0..self.size();
             let mut writer = std140::Writer::new(&mut self.scratch[range.clone()]);
             writer.write(self.values.as_slice()).unwrap();
             queue.write_buffer(uniform_buffer, 0, &self.scratch[range]);
         }
     }
 
-    fn reserve_buffer(&mut self, capacity: usize, device: &RenderDevice) -> bool {
-        if capacity > self.scratch.len() {
-            self.capacity = capacity;
-            let size = Self::ITEM_SIZE * capacity;
-            self.scratch.resize(size, 0);
+    fn reserve_buffer(&mut self, device: &RenderDevice) -> bool {
+        if self.size() > self.scratch.len() {
+            self.scratch.resize(self.size(), 0);
             self.uniform_buffer = Some(device.create_buffer(&BufferDescriptor {
                 label: None,
-                size: size as wgpu::BufferAddress,
+                size: self.size() as wgpu::BufferAddress,
                 usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
                 mapped_at_creation: false,
             }));
@@ -101,6 +99,10 @@ impl<T: AsStd140> UniformVec<T> {
         } else {
             false
         }
+    }
+
+    fn size(&self) -> usize {
+        Self::ITEM_SIZE * self.values.len()
     }
 }
 
@@ -160,8 +162,9 @@ impl<T: AsStd140> DynamicUniformVec<T> {
     }
 
     #[inline]
-    pub fn push(&mut self, value: T) -> u32 {
-        (self.uniform_vec.push(DynamicUniform(value)) * UniformVec::<DynamicUniform<T>>::ITEM_SIZE)
+    pub fn push_and_get_offset(&mut self, value: T) -> u32 {
+        (self.uniform_vec.push_and_get_offset(DynamicUniform(value)) * 
+         UniformVec::<DynamicUniform<T>>::ITEM_SIZE)
             as u32
     }
 
