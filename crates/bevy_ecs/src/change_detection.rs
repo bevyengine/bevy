@@ -304,7 +304,7 @@ mod tests {
     fn change_tick_scan() {
         let mut world = World::new();
 
-        // component added: 0, changed: 0
+        // component added: 1, changed: 1
         world.spawn().insert(C);
 
         // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
