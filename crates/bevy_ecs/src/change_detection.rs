@@ -228,3 +228,105 @@ pub struct ReflectMut<'a> {
 change_detection_impl!(ReflectMut<'a>, dyn Reflect,);
 #[cfg(feature = "bevy_reflect")]
 impl_into_inner!(ReflectMut<'a>, dyn Reflect,);
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        change_detection::{CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
+        component::Component,
+        query::ChangeTrackers,
+        system::{IntoSystem, Query, System},
+        world::World,
+    };
+
+    #[derive(Component)]
+    struct C;
+
+    #[test]
+    fn change_expiration() {         
+        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
+            query.single().is_changed()
+        }
+    
+        fn change_expired(query: Query<ChangeTrackers<C>>) -> bool {
+            query.single().is_changed()
+        }
+            
+        let mut world = World::new();
+
+        // component added: 1, changed: 1
+        world.spawn().insert(C);
+        
+        let mut change_detected_system = IntoSystem::into_system(change_detected);
+        let mut change_expired_system = IntoSystem::into_system(change_expired);
+        change_detected_system.initialize(&mut world);
+        change_expired_system.initialize(&mut world);
+    
+        // world: 1, system last ran: 0, component changed: 1
+        // The spawn will be detected since it happened after the system "last ran".
+        assert_eq!(change_detected_system.run((), &mut world), true);
+    
+        // world: 1 + MAX_CHANGE_AGE
+        let change_tick = world.change_tick.get_mut();
+        *change_tick = change_tick.wrapping_add(MAX_CHANGE_AGE);
+    
+        // Both the system and component appeared `MAX_CHANGE_AGE` ticks ago.
+        // Since we clamp things to `MAX_CHANGE_AGE` for determinism,
+        // `ComponentTicks::is_changed` will now see `MAX_CHANGE_AGE > MAX_CHANGE_AGE`
+        // and return `false`.
+        assert_eq!(change_expired_system.run((), &mut world), false);
+    }
+    
+    #[test]
+    fn change_tick_wraparound() {       
+        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
+            query.single().is_changed()
+        }
+    
+        let mut world = World::new();
+        world.last_change_tick = u32::MAX;
+        *world.change_tick.get_mut() = 0;
+        
+        // component added: 0, changed: 0
+        world.spawn().insert(C);
+        
+        // system last ran: u32::MAX
+        let mut change_detected_system = IntoSystem::into_system(change_detected);
+        change_detected_system.initialize(&mut world);
+        
+        // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
+        // the wrapping difference will always be positive, so wraparound doesn't matter.
+        assert_eq!(change_detected_system.run((), &mut world), true);
+    }
+
+    #[test]
+    fn change_tick_scan() {
+        let mut world = World::new();
+
+        // component added: 0, changed: 0
+        world.spawn().insert(C);
+
+        // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
+        *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
+        let change_tick = world.change_tick();
+
+        let mut query = world.query::<ChangeTrackers<C>>();
+        for tracker in query.iter(&world) {
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed);
+            assert!(ticks_since_insert > MAX_CHANGE_AGE);
+            assert!(ticks_since_change > MAX_CHANGE_AGE);
+        }
+
+        // scan change ticks and clamp those at risk of overflow
+        world.check_change_ticks();
+
+        for tracker in query.iter(&world) {
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed);
+            assert!(ticks_since_insert == MAX_CHANGE_AGE);
+            assert!(ticks_since_change == MAX_CHANGE_AGE);
+        }
+    }
+}

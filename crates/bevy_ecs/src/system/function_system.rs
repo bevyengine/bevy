@@ -140,6 +140,7 @@ pub struct SystemState<Param: SystemParam> {
 impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
+        meta.last_change_tick = world.last_change_tick;
         let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta);
         Self {
             meta,
@@ -398,6 +399,7 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
+        self.system_meta.last_change_tick = world.last_change_tick;
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,

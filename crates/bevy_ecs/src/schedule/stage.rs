@@ -566,7 +566,7 @@ impl SystemStage {
     /// counter has incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
     /// times since the previous `check_tick` scan. 
     ///
-    /// During each scan, any change ticks older than [`MAX_TICK_DELTA`](crate::change_detection::MAX_TICK_DELTA)
+    /// During each scan, any change ticks older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE)
     /// are clamped to that difference, preventing potential false positives due to overflow.
     fn check_change_ticks(&mut self, world: &mut World) {
         let change_tick = world.change_tick();
@@ -941,8 +941,6 @@ impl Stage for SystemStage {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::Entity,
-        query::{ChangeTrackers, Changed},
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage,
@@ -2013,75 +2011,6 @@ mod tests {
         world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
         assert_eq!(*world.resource::<usize>(), 1);
-    }
-
-    #[test]
-    fn change_ticks_wrapover() {
-        const MIN_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
-        const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
-
-        let mut world = World::new();
-        world.spawn().insert(W(0usize));
-        *world.change_tick.get_mut() += MAX_DELTA + 1;
-
-        let mut stage = SystemStage::parallel();
-        fn work() {}
-        stage.add_system(work);
-
-        // Overflow twice
-        for _ in 0..10 {
-            stage.run(&mut world);
-            for tracker in world.query::<ChangeTrackers<W<usize>>>().iter(&world) {
-                let time_since_last_check = tracker
-                    .change_tick
-                    .wrapping_sub(tracker.component_ticks.added);
-                assert!(time_since_last_check <= MAX_DELTA);
-                let time_since_last_check = tracker
-                    .change_tick
-                    .wrapping_sub(tracker.component_ticks.changed);
-                assert!(time_since_last_check <= MAX_DELTA);
-            }
-            let change_tick = world.change_tick.get_mut();
-            *change_tick = change_tick.wrapping_add(MIN_TIME_SINCE_LAST_CHECK + 1);
-        }
-    }
-
-    #[test]
-    fn change_query_wrapover() {
-        use crate::{self as bevy_ecs, component::Component};
-
-        #[derive(Component)]
-        struct C;
-        let mut world = World::new();
-
-        // Spawn entities at various ticks
-        let component_ticks = [0, u32::MAX / 4, u32::MAX / 2, u32::MAX / 4 * 3, u32::MAX];
-        let ids = component_ticks
-            .iter()
-            .map(|tick| {
-                *world.change_tick.get_mut() = *tick;
-                world.spawn().insert(C).id()
-            })
-            .collect::<Vec<Entity>>();
-
-        let test_cases = [
-            // normal
-            (0, u32::MAX / 2, vec![ids[1], ids[2]]),
-            // just wrapped over
-            (u32::MAX / 2, 0, vec![ids[0], ids[3], ids[4]]),
-        ];
-        for (last_change_tick, change_tick, changed_entities) in &test_cases {
-            *world.change_tick.get_mut() = *change_tick;
-            world.last_change_tick = *last_change_tick;
-
-            assert_eq!(
-                world
-                    .query_filtered::<Entity, Changed<C>>()
-                    .iter(&world)
-                    .collect::<Vec<Entity>>(),
-                *changed_entities
-            );
-        }
     }
 
     #[test]
