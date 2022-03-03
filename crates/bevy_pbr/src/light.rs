@@ -702,12 +702,15 @@ pub(crate) fn assign_lights_to_clusters(
 }
 
 pub fn update_directional_light_frusta(
-    mut views: Query<(
-        &GlobalTransform,
-        &DirectionalLight,
-        &mut Frustum,
-        &Visibility,
-    )>,
+    mut views: Query<
+        (
+            &GlobalTransform,
+            &DirectionalLight,
+            &mut Frustum,
+            &Visibility,
+        ),
+        Or<(Changed<GlobalTransform>, Changed<DirectionalLight>)>,
+    >,
 ) {
     for (transform, directional_light, mut frustum, visibility) in views.iter_mut() {
         // The frustum is used for culling meshes to the light for shadow mapping
@@ -731,7 +734,10 @@ pub fn update_directional_light_frusta(
 // NOTE: Run this after assign_lights_to_clusters!
 pub fn update_point_light_frusta(
     global_lights: Res<VisiblePointLights>,
-    mut views: Query<(Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta)>,
+    mut views: Query<
+        (Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta),
+        Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
+    >,
 ) {
     let projection =
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
