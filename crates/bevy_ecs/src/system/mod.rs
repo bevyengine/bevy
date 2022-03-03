@@ -112,6 +112,7 @@ mod query;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_param;
+mod system_registry;
 
 use std::borrow::Cow;
 
@@ -124,6 +125,7 @@ pub use function_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_param::*;
+pub use system_registry::*;
 
 use crate::world::World;
 
