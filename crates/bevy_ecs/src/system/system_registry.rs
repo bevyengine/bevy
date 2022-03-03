@@ -117,7 +117,7 @@ impl World {
     }
 }
 
-/// The [`Command`] type for [`SystemRegistry`] [`Commands`]
+/// The [`Command`] type for [`SystemRegistry`] [`Commands`](crate::system::Commands)
 #[derive(Debug, Clone)]
 pub struct RunSystemCommand<
     Params: Send + Sync + 'static,
@@ -131,7 +131,7 @@ pub struct RunSystemCommand<
 impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync + 'static>
     RunSystemCommand<Params, S>
 {
-    /// Creates a new [`Command`] struct, which can be addeded to [`Commands`]
+    /// Creates a new [`Command`] struct, which can be addeded to [`Commands`](crate::system::Commands)
     #[inline]
     #[must_use]
     pub fn new(system: S, flush: bool) -> Self {
