@@ -572,7 +572,7 @@ impl SystemStage {
         let change_tick = world.change_tick();
         let ticks_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
 
-        if ticks_since_last_check > CHECK_TICK_THRESHOLD {
+        if ticks_since_last_check >= CHECK_TICK_THRESHOLD {
             // Check all system change ticks.
             for exclusive_system in &mut self.exclusive_at_start {
                 exclusive_system.system_mut().check_change_tick(change_tick);
