@@ -564,7 +564,7 @@ impl SystemStage {
 
     /// All system and component change ticks are scanned for risk of delta overflow once the world
     /// counter has incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
-    /// times since the previous `check_tick` scan. 
+    /// times since the previous `check_tick` scan.
     ///
     /// During each scan, any change ticks older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE)
     /// are clamped to that difference, preventing potential false positives due to overflow.

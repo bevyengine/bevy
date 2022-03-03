@@ -6,17 +6,17 @@ use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
-/// 
-/// Change ticks can only be scanned when systems aren't running. Thus, if the threshold is `N`, 
+///
+/// Change ticks can only be scanned when systems aren't running. Thus, if the threshold is `N`,
 /// the maximum is `2 * N - 1` (i.e. the world ticks `N - 1` times, then `N` times).
-/// 
+///
 /// If no change is older than `u32::MAX - (2 * N - 1)` following a scan, none of their ages can
 /// overflow and cause false positives.
 // (518,400,000 = 1000 ticks per frame * 144 frames per second * 3600 seconds per hour)
 pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
 
 /// The maximum change tick difference that won't overflow before the next `check_tick` scan.
-/// 
+///
 /// Changes stop being detected once they become this old.
 pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 
@@ -244,57 +244,57 @@ mod tests {
     struct C;
 
     #[test]
-    fn change_expiration() {         
+    fn change_expiration() {
         fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
             query.single().is_changed()
         }
-    
+
         fn change_expired(query: Query<ChangeTrackers<C>>) -> bool {
             query.single().is_changed()
         }
-            
+
         let mut world = World::new();
 
         // component added: 1, changed: 1
         world.spawn().insert(C);
-        
+
         let mut change_detected_system = IntoSystem::into_system(change_detected);
         let mut change_expired_system = IntoSystem::into_system(change_expired);
         change_detected_system.initialize(&mut world);
         change_expired_system.initialize(&mut world);
-    
+
         // world: 1, system last ran: 0, component changed: 1
         // The spawn will be detected since it happened after the system "last ran".
         assert_eq!(change_detected_system.run((), &mut world), true);
-    
+
         // world: 1 + MAX_CHANGE_AGE
         let change_tick = world.change_tick.get_mut();
         *change_tick = change_tick.wrapping_add(MAX_CHANGE_AGE);
-    
+
         // Both the system and component appeared `MAX_CHANGE_AGE` ticks ago.
         // Since we clamp things to `MAX_CHANGE_AGE` for determinism,
         // `ComponentTicks::is_changed` will now see `MAX_CHANGE_AGE > MAX_CHANGE_AGE`
         // and return `false`.
         assert_eq!(change_expired_system.run((), &mut world), false);
     }
-    
+
     #[test]
-    fn change_tick_wraparound() {       
+    fn change_tick_wraparound() {
         fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
             query.single().is_changed()
         }
-    
+
         let mut world = World::new();
         world.last_change_tick = u32::MAX;
         *world.change_tick.get_mut() = 0;
-        
+
         // component added: 0, changed: 0
         world.spawn().insert(C);
-        
+
         // system last ran: u32::MAX
         let mut change_detected_system = IntoSystem::into_system(change_detected);
         change_detected_system.initialize(&mut world);
-        
+
         // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
         // the wrapping difference will always be positive, so wraparound doesn't matter.
         assert_eq!(change_detected_system.run((), &mut world), true);

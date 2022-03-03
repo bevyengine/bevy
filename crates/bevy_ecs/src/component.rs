@@ -358,13 +358,11 @@ impl ComponentTicks {
     /// Returns `true` if the component was added after the system last ran, `false` otherwise.
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
-        // `last_change_tick` and `self.added`, and we scan periodically to clamp `ComponentTicks` values 
+        // `last_change_tick` and `self.added`, and we scan periodically to clamp `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
-        // 
+        //
         // The clamp here ensures determinism (since scans could differ between app runs).
-        let ticks_since_insert = change_tick
-            .wrapping_sub(self.added)
-            .min(MAX_CHANGE_AGE);
+        let ticks_since_insert = change_tick.wrapping_sub(self.added).min(MAX_CHANGE_AGE);
         let ticks_since_system = change_tick
             .wrapping_sub(last_change_tick)
             .min(MAX_CHANGE_AGE);
@@ -376,13 +374,11 @@ impl ComponentTicks {
     /// Returns `true` if the component was added or mutably-dereferenced after the system last ran, `false` otherwise.
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
-        // `last_change_tick` and `self.changed`, and we scan periodically to clamp `ComponentTicks` values 
+        // `last_change_tick` and `self.changed`, and we scan periodically to clamp `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
-        // 
+        //
         // The clamp here ensures determinism (since scans could differ between app runs).
-        let ticks_since_change = change_tick
-            .wrapping_sub(self.changed)
-            .min(MAX_CHANGE_AGE);
+        let ticks_since_change = change_tick.wrapping_sub(self.changed).min(MAX_CHANGE_AGE);
         let ticks_since_system = change_tick
             .wrapping_sub(last_change_tick)
             .min(MAX_CHANGE_AGE);
