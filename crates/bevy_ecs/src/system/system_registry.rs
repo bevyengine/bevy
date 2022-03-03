@@ -12,6 +12,9 @@ pub type UnchainedSystem = Box<dyn System<In = (), Out = ()>>;
 
 /// Stores initialized [`Systems`](crate::system::System), so they can quickly be reused and run
 ///
+/// Systems are keyed by their [`TypeId`]: repeated calls with the same function type will reuse cached state,
+/// including for change detection.
+///
 /// Stored systems cannot be chained: they can neither have an [`In`](crate::system::In) nor return any values.
 #[derive(Default)]
 pub struct SystemRegistry {
@@ -20,59 +23,60 @@ pub struct SystemRegistry {
 
 // User-facing methods
 impl SystemRegistry {
-    /// Runs the supplied system on the [`World`] a single time
+    /// Registers a system in the [`SystemRegistry`], so then it can be later run.
     ///
-    /// Any [`Commands`](crate::system::Commands) generated will also be applied to the world immediately.
-    pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(
+    /// This only needs to be called manually whenn using [`run_system_by_type_id`](SystemRegistry).
+    #[inline]
+    pub fn register<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
     ) {
-        // If the system is already registered and initialized, use it
-        if let Some(initialized_system) = self.systems.get_mut(&system.type_id()) {
-            initialized_system.run((), world);
-            initialized_system.apply_buffers(world);
-        // Otherwise, register and initialize it first.
-        } else {
-            let initialized_system = self.register(world, system);
-            initialized_system.run((), world);
-            initialized_system.apply_buffers(world);
-        }
-    }
-
-    /// Runs the supplied system on the [`World`] a single time, without flushing [`Commands`](crate::system::Commands)
-    #[inline]
-    pub fn run_system_without_flushing<Params, S: IntoSystem<(), (), Params> + 'static>(
-        &mut self,
-        world: &mut World,
-        system: S,
-    ) {
-        // If the system is already registered and initialized, use it
-        if let Some(initialized_system) = self.systems.get_mut(&system.type_id()) {
-            initialized_system.run((), world);
-        // Otherwise, register and initialize it first.
-        } else {
-            let initialized_system = self.register(world, system);
-            initialized_system.run((), world);
-        }
-    }
-}
-
-// Internals
-impl SystemRegistry {
-    #[inline]
-    fn register<Params, S: IntoSystem<(), (), Params> + 'static>(
-        &mut self,
-        world: &mut World,
-        system: S,
-    ) -> &mut UnchainedSystem {
         let label = system.type_id();
 
         let mut unchained_system: UnchainedSystem = Box::new(IntoSystem::into_system(system));
         unchained_system.initialize(world);
 
         self.systems.insert(label, unchained_system);
-        self.systems.get_mut(&label).unwrap()
+    }
+
+    /// Is the provided `type_id` registered?
+    pub fn type_id_registered(&self, type_id: &TypeId) -> bool {
+        self.systems.contains_key(type_id)
+    }
+
+    /// Runs the system corresponding to the provided [`TypeId`] on the [`World`] a single time
+    ///
+    /// If `flush_commands` is true, any [`Commands`](crate::system::Commands) generated will also be applied to the world immediately
+    pub fn run_system_by_type_id(
+        &mut self,
+        world: &mut World,
+        type_id: TypeId,
+        flush_commands: bool,
+    ) {
+        let initialized_system = self.systems.get_mut(&type_id).unwrap_or_else(||{panic!{"No system with the `TypeId` {type_id:?} was found. Did you forget to register it?"}});
+        initialized_system.run((), world);
+        if flush_commands {
+            initialized_system.apply_buffers(world);
+        }
+    }
+
+    /// Runs the supplied system on the [`World`] a single time
+    ///
+    /// If `flush_commands` is true, any [`Commands`](crate::system::Commands) generated will also be applied to the world immediately
+    pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(
+        &mut self,
+        world: &mut World,
+        system: S,
+        flush_commands: bool,
+    ) {
+        let type_id = TypeId::of::<S>();
+        if self.type_id_registered(&type_id) {
+            self.run_system_by_type_id(world, type_id, flush_commands);
+        } else {
+            self.register(world, system);
+            self.run_system_by_type_id(world, type_id, flush_commands);
+        }
     }
 }
 
@@ -90,7 +94,7 @@ impl World {
     #[inline]
     pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_system(world, system);
+            registry.run_system(world, system, true);
         });
     }
 
@@ -108,7 +112,7 @@ impl World {
         system: S,
     ) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_system_without_flushing(world, system);
+            registry.run_system(world, system, false);
         });
     }
 }
