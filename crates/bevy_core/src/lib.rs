@@ -24,7 +24,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::Entity,
     schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
-    system::{IntoExclusiveSystem, SystemRegistry},
+    system::IntoExclusiveSystem,
 };
 use bevy_utils::HashSet;
 use std::ops::Range;
@@ -49,7 +49,6 @@ impl Plugin for TypeRegistrationPlugin {
 
         app.init_resource::<Time>()
             .init_resource::<FixedTimesteps>()
-            .init_resource::<SystemRegistry>()
             .register_type::<HashSet<String>>()
             .register_type::<Option<String>>()
             .register_type::<Entity>()
