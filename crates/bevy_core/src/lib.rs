@@ -21,12 +21,12 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{Duration, HashSet, Instant};
-use std::borrow::Cow;
-use std::ffi::OsString;
-use std::marker::PhantomData;
+use bevy_ecs::{
+    entity::Entity,
+    schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
+    system::{IntoExclusiveSystem, SystemRegistry},
+};
+use bevy_utils::HashSet;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -40,7 +40,28 @@ pub struct TypeRegistrationPlugin;
 
 impl Plugin for TypeRegistrationPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Entity>().register_type::<Name>();
+        // Setup the default bevy task pools
+        app.world
+            .get_resource::<DefaultTaskPoolOptions>()
+            .cloned()
+            .unwrap_or_default()
+            .create_default_pools(&mut app.world);
+
+        app.init_resource::<Time>()
+            .init_resource::<FixedTimesteps>()
+            .init_resource::<SystemRegistry>()
+            .register_type::<HashSet<String>>()
+            .register_type::<Option<String>>()
+            .register_type::<Entity>()
+            .register_type::<Name>()
+            .register_type::<Range<f32>>()
+            .register_type::<Timer>()
+            // time system is added as an "exclusive system" to ensure it runs before other systems
+            // in CoreStage::First
+            .add_system_to_stage(
+                CoreStage::First,
+                time_system.exclusive_system().label(CoreSystem::Time),
+            );
 
         register_rust_types(app);
         register_math_types(app);

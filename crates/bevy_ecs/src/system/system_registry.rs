@@ -143,7 +143,7 @@ impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync 
     for RunSystemCommand<Params, S>
 {
     #[inline]
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if self.flush {
             world.run_system(self.system);
         } else {
