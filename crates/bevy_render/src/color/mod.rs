@@ -487,6 +487,92 @@ impl Color {
             } => [hue, saturation, lightness, alpha],
         }
     }
+
+    /// Converts a `Color` to a `u32` from sRGB colorspace.
+    pub fn as_rgba_u32(self: Color) -> u32 {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red * 255.0) as u8,
+                (green * 255.0) as u8,
+                (blue * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red.linear_to_nonlinear_srgb() * 255.0) as u8,
+                (green.linear_to_nonlinear_srgb() * 255.0) as u8,
+                (blue.linear_to_nonlinear_srgb() * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                u32::from_le_bytes([
+                    (red * 255.0) as u8,
+                    (green * 255.0) as u8,
+                    (blue * 255.0) as u8,
+                    (alpha * 255.0) as u8,
+                ])
+            }
+        }
+    }
+
+    /// Converts a `Color` to a `u32` from linear RBG colorspace
+    pub fn as_linear_rgba_u32(self: Color) -> u32 {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red.nonlinear_to_linear_srgb() * 255.0) as u8,
+                (green.nonlinear_to_linear_srgb() * 255.0) as u8,
+                (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red * 255.0) as u8,
+                (green * 255.0) as u8,
+                (blue * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                u32::from_le_bytes([
+                    (red.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (green.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (alpha * 255.0) as u8,
+                ])
+            }
+        }
+    }
 }
 
 impl Default for Color {
