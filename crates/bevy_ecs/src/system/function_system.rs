@@ -8,7 +8,7 @@ use crate::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
         SystemParamState,
     },
-    world::{World, WorldId},
+    world::{World, WorldId}, change_detection::MAX_CHANGE_AGE,
 };
 use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, fmt::Debug, hash::Hash, marker::PhantomData};
@@ -140,7 +140,7 @@ pub struct SystemState<Param: SystemParam> {
 impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
-        meta.last_change_tick = world.last_change_tick;
+        meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
         let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta);
         Self {
             meta,
@@ -399,7 +399,7 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
-        self.system_meta.last_change_tick = world.last_change_tick;
+        self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,
