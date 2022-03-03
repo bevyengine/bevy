@@ -5,7 +5,8 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    world::{EntityMut, FromWorld, World},
+    system::{IntoSystem, RunSystemCommand},
+    world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
@@ -519,11 +520,32 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RemoveResource::<R>::new());
     }
 
+    /// Calls [`World::run_system`] once [`Commands`] are flushed
+    pub fn run_system<
+        Params: Send + Sync + 'static,
+        S: IntoSystem<(), (), Params> + Send + Sync + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) {
+        self.queue.push(RunSystemCommand::new(system, true));
+    }
+
+    /// Calls [`World::run_system_without_flushing`] once [`Commands`] are flushed
+    pub fn run_system_without_flushing<
+        Params: Send + Sync + 'static,
+        S: IntoSystem<(), (), Params> + Send + Sync + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) {
+        self.queue.push(RunSystemCommand::new(system, false));
+    }
+
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
     /// that takes [`&mut World`](World) as an argument.
-    ///
     /// # Example
     ///
     /// ```

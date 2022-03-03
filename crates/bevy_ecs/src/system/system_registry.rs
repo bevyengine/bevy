@@ -1,7 +1,8 @@
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
+use std::marker::PhantomData;
 
-use crate::system::{IntoSystem, System};
+use crate::system::{Command, IntoSystem, System};
 use crate::world::{Mut, World};
 
 /// A [`System`] that cannot be chained.
@@ -22,7 +23,7 @@ impl SystemRegistry {
     /// Runs the supplied system on the [`World`] a single time
     ///
     /// Any [`Commands`](crate::system::Commands) generated will also be applied to the world immediately.
-    pub fn run<Params, S: IntoSystem<(), (), Params> + 'static>(
+    pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
@@ -41,7 +42,7 @@ impl SystemRegistry {
 
     /// Runs the supplied system on the [`World`] a single time, without flushing [`Commands`](crate::system::Commands)
     #[inline]
-    pub fn run_without_flushing<Params, S: IntoSystem<(), (), Params> + 'static>(
+    pub fn run_system_without_flushing<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
@@ -86,9 +87,10 @@ impl World {
     /// Unsurprisingly, this is evaluated in a sequential, single-threaded fashion.
     /// Consider creating and running a [`Schedule`](crate::schedule::Schedule) if you need to execute large groups of systems
     /// at once, and want parallel execution of these systems.
-    pub fn run<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
+    #[inline]
+    pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run(world, system);
+            registry.run_system(world, system);
         });
     }
 
@@ -100,12 +102,52 @@ impl World {
     /// Unsurprisingly, this is evaluated in a sequential, single-threaded fashion.
     /// Consider creating and running a [`Schedule`](crate::schedule::Schedule) if you need to execute large groups of systems
     /// at once, and want parallel execution of these systems.
-    pub fn run_without_flushing<Params, S: IntoSystem<(), (), Params> + 'static>(
+    #[inline]
+    pub fn run_system_without_flushing<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
         system: S,
     ) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_without_flushing(world, system);
+            registry.run_system_without_flushing(world, system);
         });
+    }
+}
+
+/// The [`Command`] type for [`SystemRegistry`] [`Commands`]
+#[derive(Debug, Clone)]
+pub struct RunSystemCommand<
+    Params: Send + Sync + 'static,
+    S: IntoSystem<(), (), Params> + Send + Sync + 'static,
+> {
+    _phantom_params: PhantomData<Params>,
+    system: S,
+    flush: bool,
+}
+
+impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync + 'static>
+    RunSystemCommand<Params, S>
+{
+    /// Creates a new [`Command`] struct, which can be addeded to [`Commands`]
+    #[inline]
+    #[must_use]
+    pub fn new(system: S, flush: bool) -> Self {
+        Self {
+            _phantom_params: PhantomData::default(),
+            system,
+            flush,
+        }
+    }
+}
+
+impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync + 'static> Command
+    for RunSystemCommand<Params, S>
+{
+    #[inline]
+    fn write(self, world: &mut World) {
+        if self.flush {
+            world.run_system(self.system);
+        } else {
+            world.run_system_without_flushing(self.system);
+        }
     }
 }
