@@ -4,12 +4,12 @@ use crate::{
     bundle::Bundle,
     component::Component,
     entity::{Entities, Entity},
-    system::{IntoSystem, RunSystemCommand},
+    system::{IntoSystem, RunSystemByTypeIdCommand, RunSystemCommand},
     world::{FromWorld, World},
 };
 use bevy_utils::tracing::{error, warn};
 pub use command_queue::CommandQueue;
-use std::marker::PhantomData;
+use std::{any::TypeId, marker::PhantomData};
 
 use super::Resource;
 
@@ -349,7 +349,7 @@ impl<'w, 's> Commands<'w, 's> {
         });
     }
 
-    /// Calls [`World::run_system`] once [`Commands`] are flushed
+    /// Calls [`World::run_system`]
     pub fn run_system<
         Params: Send + Sync + 'static,
         S: IntoSystem<(), (), Params> + Send + Sync + 'static,
@@ -357,18 +357,12 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.queue.push(RunSystemCommand::new(system, true));
+        self.queue.push(RunSystemCommand::new(system));
     }
 
-    /// Calls [`World::run_system_without_flushing`] once [`Commands`] are flushed
-    pub fn run_system_without_flushing<
-        Params: Send + Sync + 'static,
-        S: IntoSystem<(), (), Params> + Send + Sync + 'static,
-    >(
-        &mut self,
-        system: S,
-    ) {
-        self.queue.push(RunSystemCommand::new(system, false));
+    /// Calls [`World::run_system_by_type_id`]
+    pub fn run_system_by_type_id(&mut self, type_id: TypeId) {
+        self.queue.push(RunSystemByTypeIdCommand { type_id });
     }
 
     /// Adds a command directly to the command list.
