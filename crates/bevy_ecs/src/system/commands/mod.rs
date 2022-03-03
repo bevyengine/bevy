@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    system::{IntoSystem, RunSystemCommand},
+    system::{IntoSystem, RunSystemByTypeIdCommand, RunSystemCommand},
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -13,6 +13,8 @@ use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
+use std::{any::TypeId, marker::PhantomData};
+
 
 use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 
@@ -520,7 +522,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RemoveResource::<R>::new());
     }
 
-    /// Calls [`World::run_system`] once [`Commands`] are flushed
+    /// Calls [`World::run_system`]
     pub fn run_system<
         Params: Send + Sync + 'static,
         S: IntoSystem<(), (), Params> + Send + Sync + 'static,
@@ -528,18 +530,12 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.queue.push(RunSystemCommand::new(system, true));
+        self.queue.push(RunSystemCommand::new(system));
     }
 
-    /// Calls [`World::run_system_without_flushing`] once [`Commands`] are flushed
-    pub fn run_system_without_flushing<
-        Params: Send + Sync + 'static,
-        S: IntoSystem<(), (), Params> + Send + Sync + 'static,
-    >(
-        &mut self,
-        system: S,
-    ) {
-        self.queue.push(RunSystemCommand::new(system, false));
+    /// Calls [`World::run_system_by_type_id`]
+    pub fn run_system_by_type_id(&mut self, type_id: TypeId) {
+        self.queue.push(RunSystemByTypeIdCommand { type_id });
     }
 
     /// Pushes a generic [`Command`] to the command queue.
