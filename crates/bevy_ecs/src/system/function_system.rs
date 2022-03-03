@@ -1,5 +1,6 @@
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
@@ -8,7 +9,7 @@ use crate::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
         SystemParamState,
     },
-    world::{World, WorldId}, change_detection::MAX_CHANGE_AGE,
+    world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, fmt::Debug, hash::Hash, marker::PhantomData};
