@@ -78,13 +78,13 @@ impl<T: AsStd140> UniformVec<T> {
         }
     }
 
-    /// Consumes the [`UniformBufferVec`] and returns the underlying [`Vec`].
+    /// Consumes the [`UniformVec`] and returns the underlying [`Vec`].
     /// If a buffer was allocated, it will be dropped.
     pub fn take_vec(self) -> Vec<T> {
         self.values
     }
 
-    /// Consumes the [`UniformBufferVec`] and returns the underlying [`Buffer`]
+    /// Consumes the [`UniformVec`] and returns the underlying [`Buffer`]
     /// if one was allocated.
     pub fn take_buffer(self) -> Option<Buffer> {
         self.uniform_buffer
@@ -166,13 +166,13 @@ impl<T: AsStd140> DynamicUniformVec<T> {
         self.uniform_vec.write_buffer(device, queue);
     }
 
-    /// Consumes the [`DynamicUniformBufferVec`] and returns the underlying [`Vec`].
+    /// Consumes the [`DynamicUniformVec`] and returns the underlying [`Vec`].
     /// If a buffer was allocated, it will be dropped.
     pub fn take_vec(self) -> Vec<DynamicUniform<T>> {
         self.uniform_vec.take_vec()
     }
 
-    /// Consumes the [`DynamicUniformBufferVec`] and returns the underlying [`Buffer`]
+    /// Consumes the [`DynamicUniformVec`] and returns the underlying [`Buffer`]
     /// if one was allocated.
     pub fn take_buffer(self) -> Option<Buffer> {
         self.uniform_vec.take_buffer()
