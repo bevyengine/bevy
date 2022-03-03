@@ -27,7 +27,7 @@ impl SystemRegistry {
     ///
     /// This only needs to be called manually whenn using [`run_system_by_type_id`](SystemRegistry).
     #[inline]
-    pub fn register<Params, S: IntoSystem<(), (), Params> + 'static>(
+    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
@@ -74,13 +74,23 @@ impl SystemRegistry {
         if self.type_id_registered(&type_id) {
             self.run_system_by_type_id(world, type_id, flush_commands);
         } else {
-            self.register(world, system);
+            self.register_system(world, system);
             self.run_system_by_type_id(world, type_id, flush_commands);
         }
     }
 }
 
 impl World {
+    /// Registers the supplied system in the [`SystemRegistry`] resource
+    ///
+    /// This allows the system to be run by [`TypeId`] using [`World::run_system_by_type_id`]
+    #[inline]
+    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
+        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
+            registry.register_system(world, system);
+        });
+    }
+
     /// Runs the supplied system on the [`World`] a single time
     ///
     /// Any [`Commands`](crate::system::Commands) generated will also be applied to the world immediately.
@@ -95,6 +105,25 @@ impl World {
     pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry.run_system(world, system, true);
+        });
+    }
+
+    /// Runs the system corresponding to the supplied `type_id` on the [`World`] a single time
+    ///
+    /// Systems must be registered before they can be run by `type_id`.
+    ///
+    /// Any [`Commands`](crate::system::Commands) generated will also be applied to the world immediately.
+    ///
+    /// The system's state will be cached: any future calls using the same type will use this state,
+    /// improving performance and ensuring that change detection works properly.
+    ///
+    /// Unsurprisingly, this is evaluated in a sequential, single-threaded fashion.
+    /// Consider creating and running a [`Schedule`](crate::schedule::Schedule) if you need to execute large groups of systems
+    /// at once, and want parallel execution of these systems.
+    #[inline]
+    pub fn run_system_by_type_id(&mut self, type_id: TypeId) {
+        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
+            registry.run_system_by_type_id(world, type_id, true);
         });
     }
 
@@ -117,7 +146,7 @@ impl World {
     }
 }
 
-/// The [`Command`] type for [`SystemRegistry`] [`Commands`](crate::system::Commands)
+/// The [`Command`] type for [`SystemRegistry::run_system`]
 #[derive(Debug, Clone)]
 pub struct RunSystemCommand<
     Params: Send + Sync + 'static,
@@ -153,5 +182,18 @@ impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync 
         } else {
             world.run_system_without_flushing(self.system);
         }
+    }
+}
+
+/// The [`Command`] type for [`SystemRegistry::run_system_by_type_id`]
+#[derive(Debug, Clone)]
+pub struct RunSystemByTypeIdCommand {
+    pub type_id: TypeId,
+}
+
+impl Command for RunSystemByTypeIdCommand {
+    #[inline]
+    fn write(self, world: &mut World) {
+        world.run_system_by_type_id(self.type_id)
     }
 }
