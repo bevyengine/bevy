@@ -18,7 +18,7 @@ pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
 /// The maximum change tick difference that won't overflow before the next `check_tick` scan.
 /// 
 /// Changes stop being detected once they become this old.
-pub const MAX_TICK_DELTA: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
+pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 
 /// Types that implement reliable change detection.
 ///

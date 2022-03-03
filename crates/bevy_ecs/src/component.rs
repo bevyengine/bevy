@@ -1,7 +1,7 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    change_detection::MAX_TICK_DELTA,
+    change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
@@ -346,6 +346,7 @@ impl Components {
     }
 }
 
+/// Stores two [`World`](crate::world::World) "ticks" denoting when the component was added and when it was last changed (added or mutably-deferenced).
 #[derive(Copy, Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,
@@ -354,28 +355,30 @@ pub struct ComponentTicks {
 
 impl ComponentTicks {
     #[inline]
+    /// Returns `true` if the component was added since the system last ran, `false` otherwise.
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // The comparison is relative to the world tick (`change_tick`) so that we can use
         // the full `u32` range. Comparing the system and component ticks directly would limit the
-        // maximum delta to `u32::MAX / 2` because of wraparound.
+        // maximum difference to `u32::MAX / 2` because of wraparound.
         let ticks_since_insert = change_tick
             .wrapping_sub(self.added)
-            .min(MAX_TICK_DELTA);
+            .min(MAX_CHANGE_AGE);
         let ticks_since_system = change_tick
             .wrapping_sub(last_change_tick)
-            .min(MAX_TICK_DELTA);
+            .min(MAX_CHANGE_AGE);
 
         ticks_since_system > ticks_since_insert
     }
 
     #[inline]
+    /// Returns `true` if the component was added or mutably-dereferenced since the system last ran, `false` otherwise.
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
         let ticks_since_change = change_tick
             .wrapping_sub(self.changed)
-            .min(MAX_TICK_DELTA);
+            .min(MAX_CHANGE_AGE);
         let ticks_since_system = change_tick
             .wrapping_sub(last_change_tick)
-            .min(MAX_TICK_DELTA);
+            .min(MAX_CHANGE_AGE);
 
         ticks_since_system > ticks_since_change
     }
@@ -393,8 +396,10 @@ impl ComponentTicks {
     }
 
     /// Manually sets the change tick.
-    /// Usually, this is done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
-    /// on [`Mut`](crate::world::Mut) or [`ResMut`](crate::system::ResMut) etc.
+    ///
+    /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
+    /// on [`Mut<T>`](crate::world::Mut), [`ResMut<T>`](crate::system::ResMut), etc.
+    /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
     /// ```rust,no_run
@@ -411,10 +416,10 @@ impl ComponentTicks {
 }
 
 fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
-    let delta = change_tick.wrapping_sub(*last_change_tick);
-    // This comparison assumes that `delta` has not overflowed `u32::MAX` before, which will be true
+    let age = change_tick.wrapping_sub(*last_change_tick);
+    // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
     // so long as this check always runs before that can happen.
-    if delta > MAX_TICK_DELTA {
-        *last_change_tick = change_tick.wrapping_sub(MAX_TICK_DELTA);
+    if age > MAX_CHANGE_AGE {
+        *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
     }
 }
