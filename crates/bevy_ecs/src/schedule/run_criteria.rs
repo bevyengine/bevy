@@ -399,7 +399,7 @@ where
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct RunOnce {
     ran: bool,
     archetype_component_access: Access<ArchetypeComponentId>,

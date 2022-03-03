@@ -131,6 +131,7 @@ macro_rules! impl_debug {
     };
 }
 
+#[derive(Debug)]
 pub(crate) struct Ticks<'a> {
     pub(crate) component_ticks: &'a mut ComponentTicks,
     pub(crate) last_change_tick: u32,
@@ -190,6 +191,7 @@ impl_debug!(Mut<'a, T>,);
 
 /// Unique mutable borrow of a Reflected component
 #[cfg(feature = "bevy_reflect")]
+#[derive(Debug)]
 pub struct ReflectMut<'a> {
     pub(crate) value: &'a mut dyn Reflect,
     pub(crate) ticks: Ticks<'a>,

@@ -4,6 +4,7 @@ use crate::{
     world::World,
 };
 
+#[derive(Debug)]
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,

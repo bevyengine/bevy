@@ -613,6 +613,7 @@ impl Command for GetOrSpawn {
     }
 }
 
+#[derive(Debug)]
 pub struct SpawnBatch<I>
 where
     I: IntoIterator,
@@ -631,6 +632,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct InsertOrSpawnBatch<I, B>
 where
     I: IntoIterator + Send + Sync + 'static,
@@ -672,6 +674,7 @@ impl Command for Despawn {
     }
 }
 
+#[derive(Debug)]
 pub struct InsertBundle<T> {
     pub entity: Entity,
     pub bundle: T,
@@ -749,6 +752,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct InitResource<R: Resource + FromWorld> {
     _phantom: PhantomData<R>,
 }
@@ -759,6 +763,7 @@ impl<R: Resource + FromWorld> Command for InitResource<R> {
     }
 }
 
+#[derive(Debug)]
 pub struct InsertResource<R: Resource> {
     pub resource: R,
 }
@@ -769,6 +774,7 @@ impl<R: Resource> Command for InsertResource<R> {
     }
 }
 
+#[derive(Debug)]
 pub struct RemoveResource<R: Resource> {
     pub phantom: PhantomData<R>,
 }

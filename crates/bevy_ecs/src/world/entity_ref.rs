@@ -9,6 +9,7 @@ use crate::{
 };
 use std::any::TypeId;
 
+#[derive(Debug)]
 pub struct EntityRef<'w> {
     world: &'w World,
     entity: Entity,
@@ -91,6 +92,7 @@ impl<'w> EntityRef<'w> {
     }
 }
 
+#[derive(Debug)]
 pub struct EntityMut<'w> {
     world: &'w mut World,
     entity: Entity,

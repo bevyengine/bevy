@@ -12,6 +12,7 @@ use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, marker::PhantomData};
 
 /// The metadata of a [`System`].
+#[derive(Debug)]
 pub struct SystemMeta {
     pub(crate) name: Cow<'static, str>,
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
@@ -348,6 +349,7 @@ pub trait IntoSystem<In, Out, Params>: Sized {
     fn into_system(this: Self) -> Self::System;
 }
 
+#[derive(Debug)]
 pub struct AlreadyWasSystem;
 
 // Systems implicitly implement IntoSystem
@@ -385,6 +387,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// }
 /// ```
 pub struct In<In>(pub In);
+#[derive(Debug)]
 pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
@@ -392,6 +395,7 @@ pub struct InputMarker;
 /// You get this by calling [`IntoSystem::system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+#[derive(Debug)]
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
@@ -404,6 +408,7 @@ where
     marker: PhantomData<fn() -> (In, Out, Marker)>,
 }
 
+#[derive(Debug)]
 pub struct IsFunctionSystem;
 
 impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)> for F

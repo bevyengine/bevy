@@ -13,11 +13,13 @@ use std::{
 
 /// Exposes safe mutable access to multiple resources at a time in a World. Attempting to access
 /// World in a way that violates Rust's mutability rules will panic thanks to runtime checks.
+#[derive(Debug)]
 pub struct WorldCell<'w> {
     pub(crate) world: &'w mut World,
     pub(crate) access: Rc<RefCell<ArchetypeComponentAccess>>,
 }
 
+#[derive(Debug)]
 pub(crate) struct ArchetypeComponentAccess {
     access: SparseSet<ArchetypeComponentId, usize>,
 }
@@ -78,6 +80,7 @@ impl<'w> Drop for WorldCell<'w> {
     }
 }
 
+#[derive(Debug)]
 pub struct WorldBorrow<'w, T> {
     value: &'w T,
     archetype_component_id: ArchetypeComponentId,
@@ -119,6 +122,7 @@ impl<'w, T> Drop for WorldBorrow<'w, T> {
     }
 }
 
+#[derive(Debug)]
 pub struct WorldBorrowMut<'w, T> {
     value: Mut<'w, T>,
     archetype_component_id: ArchetypeComponentId,

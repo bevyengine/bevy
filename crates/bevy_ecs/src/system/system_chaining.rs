@@ -44,6 +44,7 @@ use std::borrow::Cow;
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
+#[derive(Debug)]
 pub struct ChainSystem<SystemA, SystemB> {
     system_a: SystemA,
     system_b: SystemB,

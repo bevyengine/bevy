@@ -174,6 +174,7 @@ fn assert_component_access_compatibility(
            query_type, filter_type, system_name, accesses);
 }
 
+#[derive(Debug)]
 pub struct QuerySet<'w, 's, T> {
     query_states: &'s T,
     world: &'w World,
@@ -181,6 +182,7 @@ pub struct QuerySet<'w, 's, T> {
     change_tick: u32,
 }
 
+#[derive(Debug)]
 pub struct QuerySetState<T>(T);
 
 impl_query_set!();
@@ -265,6 +267,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
 }
 
 /// The [`SystemParamState`] of [`Res<T>`].
+#[derive(Debug)]
 pub struct ResState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -332,6 +335,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
 
 /// The [`SystemParamState`] of [`Option<Res<T>>`].
 /// See: [`Res<T>`]
+#[derive(Debug)]
 pub struct OptionResState<T>(ResState<T>);
 
 impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
@@ -369,6 +373,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
 }
 
 /// The [`SystemParamState`] of [`ResMut<T>`].
+#[derive(Debug)]
 pub struct ResMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -441,6 +446,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
 
 /// The [`SystemParamState`] of [`Option<ResMut<T>>`].
 /// See: [`ResMut<T>`]
+#[derive(Debug)]
 pub struct OptionResMutState<T>(ResMutState<T>);
 
 impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
@@ -512,6 +518,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
 unsafe impl ReadOnlySystemParamFetch for WorldState {}
 
 /// The [`SystemParamState`] of [`&World`](crate::world::World).
+#[derive(Debug)]
 pub struct WorldState;
 
 impl<'w, 's> SystemParam for &'w World {
@@ -631,6 +638,7 @@ impl<'a, T: Resource> DerefMut for Local<'a, T> {
 }
 
 /// The [`SystemParamState`] of [`Local<T>`].
+#[derive(Debug)]
 pub struct LocalState<T: Resource>(T);
 
 impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T> {
@@ -690,6 +698,7 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 ///
 /// # bevy_ecs::system::assert_is_system(react_on_removal);
 /// ```
+#[derive(Debug)]
 pub struct RemovedComponents<'a, T: Component> {
     world: &'a World,
     component_id: ComponentId,
@@ -707,6 +716,7 @@ impl<'a, T: Component> RemovedComponents<'a, T> {
 unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T> {}
 
 /// The [`SystemParamState`] of [`RemovedComponents<T>`].
+#[derive(Debug)]
 pub struct RemovedComponentsState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -810,6 +820,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
 }
 
 /// The [`SystemParamState`] of [`NonSend<T>`].
+#[derive(Debug)]
 pub struct NonSendState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -881,6 +892,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
 
 /// The [`SystemParamState`] of [`Option<NonSend<T>>`].
 /// See: [`NonSend<T>`]
+#[derive(Debug)]
 pub struct OptionNonSendState<T>(NonSendState<T>);
 
 impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
@@ -919,6 +931,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
 }
 
 /// The [`SystemParamState`] of [`NonSendMut<T>`].
+#[derive(Debug)]
 pub struct NonSendMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -994,6 +1007,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
 
 /// The [`SystemParamState`] of [`Option<NonSendMut<T>>`].
 /// See: [`NonSendMut<T>`]
+#[derive(Debug)]
 pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
 
 impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
@@ -1038,6 +1052,7 @@ impl<'a> SystemParam for &'a Archetypes {
 unsafe impl ReadOnlySystemParamFetch for ArchetypesState {}
 
 /// The [`SystemParamState`] of [`Archetypes`].
+#[derive(Debug)]
 pub struct ArchetypesState;
 
 // SAFE: no component value access
@@ -1069,6 +1084,7 @@ impl<'a> SystemParam for &'a Components {
 unsafe impl ReadOnlySystemParamFetch for ComponentsState {}
 
 /// The [`SystemParamState`] of [`Components`].
+#[derive(Debug)]
 pub struct ComponentsState;
 
 // SAFE: no component value access
@@ -1100,6 +1116,7 @@ impl<'a> SystemParam for &'a Entities {
 unsafe impl ReadOnlySystemParamFetch for EntitiesState {}
 
 /// The [`SystemParamState`] of [`Entities`].
+#[derive(Debug)]
 pub struct EntitiesState;
 
 // SAFE: no component value access
@@ -1131,6 +1148,7 @@ impl<'a> SystemParam for &'a Bundles {
 unsafe impl ReadOnlySystemParamFetch for BundlesState {}
 
 /// The [`SystemParamState`] of [`Bundles`].
+#[derive(Debug)]
 pub struct BundlesState;
 
 // SAFE: no component value access
@@ -1168,6 +1186,7 @@ impl SystemParam for SystemChangeTick {
 }
 
 /// The [`SystemParamState`] of [`SystemChangeTick`].
+#[derive(Debug)]
 pub struct SystemChangeTickState {}
 
 unsafe impl SystemParamState for SystemChangeTickState {

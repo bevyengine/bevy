@@ -149,6 +149,7 @@ impl SparseSetIndex for BundleId {
     }
 }
 
+#[derive(Debug)]
 pub struct BundleInfo {
     pub(crate) id: BundleId,
     pub(crate) component_ids: Vec<ComponentId>,
@@ -522,6 +523,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct BundleSpawner<'a, 'b> {
     pub(crate) archetype: &'a mut Archetype,
     pub(crate) entities: &'a mut Entities,
@@ -572,7 +574,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     bundle_ids: HashMap<TypeId, BundleId>,

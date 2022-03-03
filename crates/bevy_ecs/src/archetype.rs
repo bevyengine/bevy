@@ -33,17 +33,19 @@ impl ArchetypeId {
     }
 }
 
+#[derive(Debug)]
 pub enum ComponentStatus {
     Added,
     Mutated,
 }
 
+#[derive(Debug)]
 pub struct AddBundle {
     pub archetype_id: ArchetypeId,
     pub bundle_status: Vec<ComponentStatus>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Edges {
     pub add_bundle: SparseArray<BundleId, AddBundle>,
     pub remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
@@ -101,6 +103,7 @@ impl Edges {
     }
 }
 
+#[derive(Debug)]
 struct TableInfo {
     id: TableId,
     entity_rows: Vec<usize>,
@@ -111,11 +114,13 @@ pub(crate) struct ArchetypeSwapRemoveResult {
     pub(crate) table_row: usize,
 }
 
+#[derive(Debug)]
 pub(crate) struct ArchetypeComponentInfo {
     pub(crate) storage_type: StorageType,
     pub(crate) archetype_component_id: ArchetypeComponentId,
 }
 
+#[derive(Debug)]
 pub struct Archetype {
     id: ArchetypeId,
     entities: Vec<Entity>,
@@ -329,7 +334,7 @@ impl ArchetypeGeneration {
     }
 }
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub struct ArchetypeIdentity {
     table_components: Cow<'static, [ComponentId]>,
     sparse_set_components: Cow<'static, [ComponentId]>,
@@ -361,6 +366,7 @@ impl SparseSetIndex for ArchetypeComponentId {
     }
 }
 
+#[derive(Debug)]
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,

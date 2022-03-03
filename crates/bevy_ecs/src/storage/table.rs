@@ -30,6 +30,7 @@ impl TableId {
     }
 }
 
+#[derive(Debug)]
 pub struct Column {
     pub(crate) component_id: ComponentId,
     pub(crate) data: BlobVec,
@@ -191,6 +192,7 @@ impl Column {
     }
 }
 
+#[derive(Debug)]
 pub struct Table {
     columns: SparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
@@ -412,6 +414,7 @@ impl Table {
 /// A collection of [`Table`] storages, indexed by [`TableId`]
 ///
 /// Can be accessed via [`Storages`](crate::storage::Storages)
+#[derive(Debug)]
 pub struct Tables {
     tables: Vec<Table>,
     table_ids: HashMap<Vec<ComponentId>, TableId>,
@@ -427,6 +430,7 @@ impl Default for Tables {
     }
 }
 
+#[derive(Debug)]
 pub struct TableMoveResult {
     pub swapped_entity: Option<Entity>,
     pub new_row: usize,

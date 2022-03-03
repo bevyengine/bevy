@@ -34,7 +34,9 @@ pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
 }
 
+#[derive(Debug)]
 pub struct TableStorage;
+#[derive(Debug)]
 pub struct SparseStorage;
 
 pub trait ComponentStorage: sealed::Sealed {

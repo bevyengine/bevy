@@ -15,6 +15,7 @@ pub trait ExclusiveSystem: Send + Sync + 'static {
     fn check_change_tick(&mut self, change_tick: u32);
 }
 
+#[derive(Debug)]
 pub struct ExclusiveSystemFn<F> {
     func: F,
     name: Cow<'static, str>,

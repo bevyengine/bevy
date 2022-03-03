@@ -158,14 +158,14 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
-#[derive(SystemParam)]
+#[derive(Debug, SystemParam)]
 pub struct EventReader<'w, 's, T: Resource> {
     last_event_count: Local<'s, (usize, PhantomData<T>)>,
     events: Res<'w, Events<T>>,
 }
 
 /// Sends events of type `T`.
-#[derive(SystemParam)]
+#[derive(Debug, SystemParam)]
 pub struct EventWriter<'w, 's, T: Resource> {
     events: ResMut<'w, Events<T>>,
     #[system_param(ignore)]
@@ -192,6 +192,7 @@ impl<'w, 's, T: Resource> EventWriter<'w, 's, T> {
     }
 }
 
+#[derive(Debug)]
 pub struct ManualEventReader<T> {
     last_event_count: usize,
     _marker: PhantomData<T>,
