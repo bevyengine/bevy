@@ -54,14 +54,6 @@ impl<T: AsStd140> UniformVec<T> {
         }))
     }
 
-    /// Gets the capacity of the underlying buffer.
-    ///
-    /// Will return 0 if no buffer has been allocated yet.
-    #[inline]
-    pub fn buffer_capacity(&self) -> usize {
-        self.values.len()
-    }
-
     pub fn push_and_get_offset(&mut self, value: T) -> usize {
         let index = self.values.len();
         self.values.push(value);
@@ -99,11 +91,12 @@ impl<T: AsStd140> UniformVec<T> {
     }
 
     fn reserve_buffer(&mut self, device: &RenderDevice) -> bool {
-        if self.size() > self.scratch.len() {
+        let size = self.size();
+        if size > self.scratch.len() {
             self.scratch.resize(self.size(), 0);
             self.uniform_buffer = Some(device.create_buffer(&BufferDescriptor {
                 label: None,
-                size: self.size() as wgpu::BufferAddress,
+                size: size as wgpu::BufferAddress,
                 usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
                 mapped_at_creation: false,
             }));
@@ -155,12 +148,6 @@ impl<T: AsStd140> DynamicUniformVec<T> {
     #[inline]
     pub fn binding(&self) -> Option<BindingResource> {
         self.uniform_vec.binding()
-    }
-
-    /// Gets the capacity of the underlying buffer, in bytes.
-    #[inline]
-    pub fn buffer_capacity(&self) -> usize {
-        self.uniform_vec.buffer_capacity()
     }
 
     #[inline]

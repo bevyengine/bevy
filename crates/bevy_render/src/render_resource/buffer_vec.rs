@@ -43,12 +43,6 @@ impl<T: Pod> BufferVec<T> {
         self.buffer.as_ref()
     }
 
-    /// Gets the capacity of the underlying buffer, returning 0 if it hasn't been allocated.
-    #[inline]
-    pub fn buffer_capacity(&self) -> usize {
-        self.capacity
-    }
-
     /// Queues up a copy of the contents of the [`BufferVec`] into the underlying
     /// buffer.
     ///
