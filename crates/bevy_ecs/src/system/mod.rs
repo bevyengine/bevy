@@ -74,6 +74,7 @@ mod query;
 mod system;
 mod system_chaining;
 mod system_param;
+mod system_registry;
 
 pub use commands::*;
 pub use exclusive_system::*;
@@ -82,6 +83,7 @@ pub use query::*;
 pub use system::*;
 pub use system_chaining::*;
 pub use system_param::*;
+pub use system_registry::*;
 
 pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
     if false {
