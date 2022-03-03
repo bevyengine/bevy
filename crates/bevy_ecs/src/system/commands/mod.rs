@@ -4,6 +4,7 @@ use crate::{
     bundle::Bundle,
     component::Component,
     entity::{Entities, Entity},
+    system::{IntoSystem, RunSystemCommand},
     world::{FromWorld, World},
 };
 use bevy_utils::tracing::{error, warn};
@@ -346,6 +347,28 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RemoveResource::<R> {
             phantom: PhantomData,
         });
+    }
+
+    /// Calls [`World::run_system`] once [`Commands`] are flushed
+    pub fn run_system<
+        Params: Send + Sync + 'static,
+        S: IntoSystem<(), (), Params> + Send + Sync + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) {
+        self.queue.push(RunSystemCommand::new(system, true));
+    }
+
+    /// Calls [`World::run_system_without_flushing`] once [`Commands`] are flushed
+    pub fn run_system_without_flushing<
+        Params: Send + Sync + 'static,
+        S: IntoSystem<(), (), Params> + Send + Sync + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) {
+        self.queue.push(RunSystemCommand::new(system, false));
     }
 
     /// Adds a command directly to the command list.
