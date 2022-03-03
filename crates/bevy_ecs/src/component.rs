@@ -355,7 +355,7 @@ pub struct ComponentTicks {
 
 impl ComponentTicks {
     #[inline]
-    /// Returns `true` if the component was added since the system last ran, `false` otherwise.
+    /// Returns `true` if the component was added after the system last ran, `false` otherwise.
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // The comparison is relative to the world tick (`change_tick`) so that we can use
         // the full `u32` range. Comparing the system and component ticks directly would limit the
@@ -371,7 +371,7 @@ impl ComponentTicks {
     }
 
     #[inline]
-    /// Returns `true` if the component was added or mutably-dereferenced since the system last ran, `false` otherwise.
+    /// Returns `true` if the component was added or mutably-dereferenced after the system last ran, `false` otherwise.
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
         let ticks_since_change = change_tick
             .wrapping_sub(self.changed)

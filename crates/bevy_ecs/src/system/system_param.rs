@@ -213,12 +213,12 @@ where
 }
 
 impl<'w, T: Resource> Res<'w, T> {
-    /// Returns `true` if the resource was added since the system last ran, `false` otherwise.
+    /// Returns `true` if the resource was added after the system last ran, `false` otherwise.
     pub fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Returns `true` if the resource was added or mutably-dereferenced since the system last ran, `false` otherwise.
+    /// Returns `true` if the resource was added or mutably-dereferenced after the system last ran, `false` otherwise.
     pub fn is_changed(&self) -> bool {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
@@ -777,12 +777,12 @@ where
 }
 
 impl<'w, T: 'static> NonSend<'w, T> {
-    /// Returns `true` if the resource was added since the system last ran, `false` otherwise.
+    /// Returns `true` if the resource was added after the system last ran, `false` otherwise.
     pub fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Returns `true` if the resource was added or mutably-dereferenced since the system last ran, `false` otherwise.
+    /// Returns `true` if the resource was added or mutably-dereferenced after the system last ran, `false` otherwise.
     pub fn is_changed(&self) -> bool {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
