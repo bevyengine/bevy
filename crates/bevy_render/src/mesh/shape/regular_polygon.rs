@@ -20,7 +20,7 @@ impl Default for RegularPolygon {
 }
 
 impl RegularPolygon {
-    // Creates a regular polygon in the xy plane
+    /// Creates a regular polygon in the xy plane
     pub fn new(radius: f32, sides: usize) -> Self {
         Self { radius, sides }
     }
