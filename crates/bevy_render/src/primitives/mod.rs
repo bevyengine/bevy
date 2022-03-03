@@ -72,23 +72,45 @@ impl Sphere {
     }
 }
 
-/// A plane defined by a normalized normal and distance value along the normal
-/// Any point p is in the plane if n.p = d
-/// For planes defining half-spaces such as for frusta, if n.p > d then p is on the positive side (inside) of the plane.
+/// A plane defined by a unit normal and distance from the origin along the normal
+/// Any point p is in the plane if n.p + d = 0
+/// For planes defining half-spaces such as for frusta, if n.p + d > 0 then p is on
+/// the positive side (inside) of the plane.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Plane {
-    pub normal_d: Vec4,
+    normal_d: Vec4,
 }
 
 impl Plane {
     /// Constructs a `Plane` from a 4D vector whose first 3 components
-    /// are the normal and whose last component is d.
-    /// Ensures that the normal is normalized and d is scaled accordingly
-    /// so it represents the signed distance from the origin.
-    fn new(normal_d: Vec4) -> Self {
+    /// are the normal and whose last component is the distance along the normal
+    /// from the origin.
+    /// This constructor ensures that the normal is normalized and the distance is
+    /// scaled accordingly so it represents the signed distance from the origin.
+    pub fn new(normal_d: Vec4) -> Self {
         Self {
             normal_d: normal_d * normal_d.xyz().length_recip(),
         }
+    }
+
+    /// `Plane` unit normal
+    #[inline]
+    pub fn normal(&self) -> Vec3 {
+        self.normal_d.xyz()
+    }
+
+    /// Signed distance from the origin along the unit normal such that n.p + d = 0 for point p in
+    /// the `Plane`
+    #[inline]
+    pub fn d(&self) -> f32 {
+        self.normal_d.w
+    }
+
+    /// `Plane` unit normal and signed distance from the origin such that n.p + d = 0 for point p
+    /// in the `Plane`
+    #[inline]
+    pub fn normal_d(&self) -> Vec4 {
+        self.normal_d
     }
 }
 
@@ -127,7 +149,7 @@ impl Frustum {
 
     pub fn intersects_sphere(&self, sphere: &Sphere) -> bool {
         for plane in &self.planes {
-            if plane.normal_d.dot(sphere.center.extend(1.0)) + sphere.radius <= 0.0 {
+            if plane.normal_d().dot(sphere.center.extend(1.0)) + sphere.radius <= 0.0 {
                 return false;
             }
         }
@@ -143,9 +165,9 @@ impl Frustum {
         ];
 
         for plane in &self.planes {
-            let p_normal = Vec3A::from(plane.normal_d);
+            let p_normal = Vec3A::from(plane.normal_d());
             let relative_radius = aabb.relative_radius(&p_normal, &axes);
-            if plane.normal_d.dot(aabb_center_world) + relative_radius <= 0.0 {
+            if plane.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
                 return false;
             }
         }
