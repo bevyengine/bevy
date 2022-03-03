@@ -15,7 +15,7 @@ use crate::{
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
-    system::Resource,
+    system::{Resource, SystemRegistry},
 };
 use bevy_utils::tracing::debug;
 use std::{
@@ -92,7 +92,7 @@ pub struct World {
 
 impl Default for World {
     fn default() -> Self {
-        Self {
+        let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Default::default(),
             components: Default::default(),
@@ -106,7 +106,10 @@ impl Default for World {
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: 0,
-        }
+        };
+        // This resource is required by bevy_ecs itself, so cannot be included in a plugin
+        world.init_resource::<SystemRegistry>();
+        world
     }
 }
 
