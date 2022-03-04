@@ -272,7 +272,6 @@ pub fn winit_runner_with(mut app: App) {
     let return_from_run = app
         .world
         .get_resource::<WinitConfig>()
-        .unwrap()
         .return_from_run;
     trace!("Entering winit event loop");
 
