@@ -83,7 +83,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
+        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
         for (_entity, _node, _global_transform, interaction, _focus_policy, _clip) in
             node_query.iter_mut()
@@ -97,7 +97,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_pressed(0);
+        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
