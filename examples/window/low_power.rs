@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     window::{PresentMode, RequestRedraw},
-    winit::{ControlFlow, WinitConfig},
+    winit::WinitConfig,
 };
 
 /// This example illustrates how to run a winit window in a reactive, low power mode. This is useful
@@ -17,62 +17,64 @@ use bevy::{
 /// * While in `Poll` mode: the app will update continuously
 fn main() {
     App::new()
-        .insert_resource(WinitConfig {
-            control_flow: ControlFlow::Wait,
-            ..Default::default()
-        })
+        .insert_resource(WinitConfig::game())
         // Turn off vsync to maximize CPU/GPU usage
         .insert_resource(WindowDescriptor {
             present_mode: PresentMode::Immediate,
             ..Default::default()
         })
-        .insert_resource(TestMode::Wait)
+        .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins)
         .add_startup_system(test_setup::setup)
         .add_system(cycle_modes)
+        .add_system(update_winit)
         .add_system(test_setup::rotate)
         .add_system(test_setup::update_text)
         .run();
 }
 
 #[derive(Debug)]
-enum TestMode {
-    Wait,
-    WaitAndRedraw,
-    Poll,
+enum ExampleMode {
+    Game,
+    Application,
+    ApplicationWithRedraw,
 }
 
-/// Handles switching between update modes
-fn cycle_modes(
-    mut event: EventWriter<RequestRedraw>,
-    mut mode: ResMut<TestMode>,
-    mut winit_config: ResMut<WinitConfig>,
-    mouse_button_input: Res<Input<MouseButton>>,
-) {
+/// Switch between update modes when the mouse is clicked.
+fn cycle_modes(mut mode: ResMut<ExampleMode>, mouse_button_input: Res<Input<MouseButton>>) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
         *mode = match *mode {
-            TestMode::Wait => TestMode::WaitAndRedraw,
-            TestMode::WaitAndRedraw => TestMode::Poll,
-            TestMode::Poll => TestMode::Wait,
+            ExampleMode::Game => ExampleMode::Application,
+            ExampleMode::Application => ExampleMode::ApplicationWithRedraw,
+            ExampleMode::ApplicationWithRedraw => ExampleMode::Game,
         };
-        winit_config.control_flow = match *mode {
-            TestMode::Wait => ControlFlow::Wait,
-            TestMode::WaitAndRedraw => ControlFlow::Wait,
-            TestMode::Poll => ControlFlow::Poll,
-        }
     }
-    if let TestMode::WaitAndRedraw = *mode {
+}
+
+/// Update winit based on the current ExampleMode
+fn update_winit(
+    mode: Res<ExampleMode>,
+    mut event: EventWriter<RequestRedraw>,
+    mut winit_config: ResMut<WinitConfig>,
+) {
+    *winit_config = match *mode {
+        ExampleMode::Game => WinitConfig::game(),
+        ExampleMode::Application => WinitConfig::desktop_app(),
+        ExampleMode::ApplicationWithRedraw => WinitConfig::desktop_app(),
+    };
+
+    if let ExampleMode::ApplicationWithRedraw = *mode {
         // Sending a `RequestRedraw` event is useful when you want the app to update again
-        // regardless of any user input. For example, your application might use `ControlFlow::Wait`
-        // to reduce power use, but UI animations need to play even when there are no inputs, so you
-        // send redraw requests while the animation is playing.
+        // regardless of any user input. For example, your application might use
+        // `WinitConfig::desktop_app()` to reduce power use, but UI animations need to play even
+        // when there are no inputs, so you send redraw requests while the animation is playing.
         event.send(RequestRedraw);
     }
 }
 
 /// Everything in this module is for setup and is not important to the demonstrated features.
 pub(crate) mod test_setup {
-    use crate::TestMode;
+    use crate::ExampleMode;
     use bevy::{prelude::*, window::RequestRedraw};
 
     #[derive(Component)]
@@ -89,7 +91,7 @@ pub(crate) mod test_setup {
     #[derive(Component)]
     pub struct ModeText;
 
-    pub(crate) fn update_text(mode: Res<TestMode>, mut query: Query<&mut Text, With<ModeText>>) {
+    pub(crate) fn update_text(mode: Res<ExampleMode>, mut query: Query<&mut Text, With<ModeText>>) {
         query.get_single_mut().unwrap().sections[1].value = format!("{mode:?}")
     }
 
