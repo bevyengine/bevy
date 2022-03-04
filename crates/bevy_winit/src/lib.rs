@@ -280,9 +280,9 @@ pub fn winit_runner_with(mut app: App) {
                               control_flow: &mut ControlFlow| {
         match event {
             event::Event::NewEvents(start) => {
-                let winit_state = app.world.get_resource::<WinitPersistentState>().unwrap();
-                let winit_config = app.world.get_resource::<WinitConfig>().unwrap();
-                let windows = app.world.get_resource::<Windows>().unwrap();
+                let winit_state = app.world.resource::<WinitPersistentState>();
+                let winit_config = app.world.resource::<WinitConfig>();
+                let windows = app.world.resource::<Windows>();
                 let focused = windows.iter().any(|w| w.is_focused());
                 // Check if either the `WaitUntil` timeout was reached, or
                 let auto_timeout_reached = matches!(start, StartCause::ResumeTimeReached { .. });
