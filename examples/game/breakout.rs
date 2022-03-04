@@ -57,13 +57,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform {
                 translation: Vec3::new(0.0, -215.0, 0.0),
                 scale: Vec3::new(120.0, 30.0, 0.0),
-                ..Default::default()
+                ..default()
             },
             sprite: Sprite {
                 color: Color::rgb(0.5, 0.5, 1.0),
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(Paddle { speed: 500.0 })
         .insert(Collider::Paddle);
@@ -73,13 +73,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform {
                 scale: Vec3::new(30.0, 30.0, 0.0),
                 translation: Vec3::new(0.0, -50.0, 1.0),
-                ..Default::default()
+                ..default()
             },
             sprite: Sprite {
                 color: Color::rgb(1.0, 0.5, 0.5),
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(Ball {
             velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
@@ -105,18 +105,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                 },
             ],
-            ..Default::default()
+            ..default()
         },
         style: Style {
             position_type: PositionType::Absolute,
             position: Rect {
                 top: Val::Px(5.0),
                 left: Val::Px(5.0),
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     });
 
     // Add walls
@@ -130,13 +130,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform {
                 translation: Vec3::new(-bounds.x / 2.0, 0.0, 0.0),
                 scale: Vec3::new(wall_thickness, bounds.y + wall_thickness, 1.0),
-                ..Default::default()
+                ..default()
             },
             sprite: Sprite {
                 color: wall_color,
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(Collider::Solid);
     // right
@@ -145,13 +145,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform {
                 translation: Vec3::new(bounds.x / 2.0, 0.0, 0.0),
                 scale: Vec3::new(wall_thickness, bounds.y + wall_thickness, 1.0),
-                ..Default::default()
+                ..default()
             },
             sprite: Sprite {
                 color: wall_color,
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(Collider::Solid);
     // bottom
@@ -160,13 +160,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform {
                 translation: Vec3::new(0.0, -bounds.y / 2.0, 0.0),
                 scale: Vec3::new(bounds.x + wall_thickness, wall_thickness, 1.0),
-                ..Default::default()
+                ..default()
             },
             sprite: Sprite {
                 color: wall_color,
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(Collider::Solid);
     // top
@@ -175,13 +175,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform {
                 translation: Vec3::new(0.0, bounds.y / 2.0, 0.0),
                 scale: Vec3::new(bounds.x + wall_thickness, wall_thickness, 1.0),
-                ..Default::default()
+                ..default()
             },
             sprite: Sprite {
                 color: wall_color,
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(Collider::Solid);
 
@@ -207,14 +207,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn_bundle(SpriteBundle {
                     sprite: Sprite {
                         color: brick_color,
-                        ..Default::default()
+                        ..default()
                     },
                     transform: Transform {
                         translation: brick_position,
                         scale: brick_size,
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
+                    ..default()
                 })
                 .insert(Collider::Scorable);
         }

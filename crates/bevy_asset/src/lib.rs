@@ -1,5 +1,7 @@
 mod asset_server;
 mod assets;
+#[cfg(feature = "debug_asset_server")]
+pub mod debug_asset_server;
 pub mod diagnostic;
 #[cfg(all(
     feature = "filesystem_watcher",
@@ -79,13 +81,8 @@ pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        if app.world.get_resource::<AssetServer>().is_none() {
-            let task_pool = app
-                .world
-                .get_resource::<IoTaskPool>()
-                .expect("`IoTaskPool` resource not found.")
-                .0
-                .clone();
+        if !app.world.contains_resource::<AssetServer>() {
+            let task_pool = app.world.resource::<IoTaskPool>().0.clone();
 
             let source = create_platform_default_asset_io(app);
 

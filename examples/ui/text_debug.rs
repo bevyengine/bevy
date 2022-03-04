@@ -9,7 +9,7 @@ fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             present_mode: PresentMode::Immediate,
-            ..Default::default()
+            ..default()
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin)
@@ -31,9 +31,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             position: Rect {
                 top: Val::Px(5.0),
                 left: Val::Px(15.0),
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         },
         text: Text::with_section(
             "This is\ntext with\nline breaks\nin the top left",
@@ -44,7 +44,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             Default::default(),
         ),
-        ..Default::default()
+        ..default()
     });
     commands.spawn_bundle(TextBundle {
         style: Style {
@@ -53,13 +53,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             position: Rect {
                 top: Val::Px(5.0),
                 right: Val::Px(15.0),
-                ..Default::default()
+                ..default()
             },
             max_size: Size {
                 width: Val::Px(400.),
                 height: Val::Undefined,
             },
-            ..Default::default()
+            ..default()
         },
         text: Text::with_section(
                     "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
@@ -73,7 +73,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 vertical: VerticalAlign::Center,
             },
         ),
-        ..Default::default()
+        ..default()
     });
     commands
         .spawn_bundle(TextBundle {
@@ -83,9 +83,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 position: Rect {
                     bottom: Val::Px(5.0),
                     right: Val::Px(15.0),
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             },
             text: Text {
                 sections: vec![
@@ -140,7 +140,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ],
                 alignment: Default::default(),
             },
-            ..Default::default()
+            ..default()
         })
         .insert(TextChanges);
     commands.spawn_bundle(TextBundle {
@@ -150,13 +150,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             position: Rect {
                 bottom: Val::Px(5.0),
                 left: Val::Px(15.0),
-                ..Default::default()
+                ..default()
             },
             size: Size {
                 width: Val::Px(200.0),
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         },
         text: Text::with_section(
             "This\ntext has\nline breaks and also a set width in the bottom left".to_string(),
@@ -167,7 +167,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             Default::default(),
         ),
-        ..Default::default()
+        ..default()
     });
 }
 

@@ -11,6 +11,9 @@ use std::{cell::UnsafeCell, marker::PhantomData, ptr};
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
+///
+/// This trait is automatically implemented for every type that implements [`Fetch`] trait and
+/// specifies `bool` as the associated type for [`Fetch::Item`].
 pub trait FilterFetch: for<'w, 's> Fetch<'w, 's> {
     /// # Safety
     ///

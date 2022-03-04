@@ -75,7 +75,7 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.get_resource::<DrawFunctions<Opaque3d>>().unwrap();
+            let draw_functions = world.resource::<DrawFunctions<Opaque3d>>();
 
             let render_pass = render_context
                 .command_encoder
@@ -109,7 +109,7 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.get_resource::<DrawFunctions<AlphaMask3d>>().unwrap();
+            let draw_functions = world.resource::<DrawFunctions<AlphaMask3d>>();
 
             let render_pass = render_context
                 .command_encoder
@@ -145,9 +145,7 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world
-                .get_resource::<DrawFunctions<Transparent3d>>()
-                .unwrap();
+            let draw_functions = world.resource::<DrawFunctions<Transparent3d>>();
 
             let render_pass = render_context
                 .command_encoder

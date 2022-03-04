@@ -34,21 +34,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_bundle(Text2dBundle {
             text: Text::with_section("translation", text_style.clone(), text_alignment),
-            ..Default::default()
+            ..default()
         })
         .insert(AnimateTranslation);
     // Demonstrate changing rotation
     commands
         .spawn_bundle(Text2dBundle {
             text: Text::with_section("rotation", text_style.clone(), text_alignment),
-            ..Default::default()
+            ..default()
         })
         .insert(AnimateRotation);
     // Demonstrate changing scale
     commands
         .spawn_bundle(Text2dBundle {
             text: Text::with_section("scale", text_style, text_alignment),
-            ..Default::default()
+            ..default()
         })
         .insert(AnimateScale);
 }

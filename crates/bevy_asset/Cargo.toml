@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 default = []
 filesystem_watcher = ["notify"]
+debug_asset_server = ["filesystem_watcher"]
 
 [dependencies]
 # bevy

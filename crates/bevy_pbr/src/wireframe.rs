@@ -1,19 +1,24 @@
 use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
 use bevy_app::Plugin;
-use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::render_resource::PolygonMode;
+use bevy_render::mesh::MeshVertexBufferLayout;
+use bevy_render::render_resource::{
+    PolygonMode, RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+    SpecializedMeshPipelines,
+};
 use bevy_render::{
     mesh::Mesh,
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
-    render_resource::{RenderPipelineCache, Shader, SpecializedPipeline, SpecializedPipelines},
+    render_resource::{RenderPipelineCache, Shader},
     view::{ExtractedView, Msaa},
     RenderApp, RenderStage,
 };
+use bevy_utils::tracing::error;
 
 pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 192598014480025766);
@@ -23,10 +28,11 @@ pub struct WireframePlugin;
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
+        load_internal_asset!(
+            app,
             WIREFRAME_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("render/wireframe.wgsl")),
+            "render/wireframe.wgsl",
+            Shader::from_wgsl
         );
 
         app.init_resource::<WireframeConfig>();
@@ -35,7 +41,7 @@ impl Plugin for WireframePlugin {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<WireframePipeline>()
-                .init_resource::<SpecializedPipelines<WireframePipeline>>()
+                .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
                 .add_system_to_stage(RenderStage::Extract, extract_wireframes)
                 .add_system_to_stage(RenderStage::Extract, extract_wireframe_config)
                 .add_system_to_stage(RenderStage::Queue, queue_wireframes);
@@ -73,33 +79,38 @@ pub struct WireframePipeline {
 impl FromWorld for WireframePipeline {
     fn from_world(render_world: &mut World) -> Self {
         WireframePipeline {
-            mesh_pipeline: render_world.get_resource::<MeshPipeline>().unwrap().clone(),
+            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             shader: WIREFRAME_SHADER_HANDLE.typed(),
         }
     }
 }
 
-impl SpecializedPipeline for WireframePipeline {
+impl SpecializedMeshPipeline for WireframePipeline {
     type Key = MeshPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> bevy_render::render_resource::RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key);
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone_weak();
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
-        descriptor
+        Ok(descriptor)
     }
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 fn queue_wireframes(
     opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
-    mut specialized_pipelines: ResMut<SpecializedPipelines<WireframePipeline>>,
+    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
     msaa: Res<Msaa>,
     mut material_meshes: QuerySet<(
         QueryState<(Entity, &Handle<Mesh>, &MeshUniform)>,
@@ -111,7 +122,7 @@ fn queue_wireframes(
         .read()
         .get_id::<DrawWireframes>()
         .unwrap();
-    let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
@@ -119,15 +130,24 @@ fn queue_wireframes(
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key =
-                        key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    let key = msaa_key
+                        | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    let pipeline_id = specialized_pipelines.specialize(
+                        &mut pipeline_cache,
+                        &wireframe_pipeline,
+                        key,
+                        &mesh.layout,
+                    );
+                    let pipeline_id = match pipeline_id {
+                        Ok(id) => id,
+                        Err(err) => {
+                            error!("{}", err);
+                            return;
+                        }
+                    };
                     transparent_phase.add(Opaque3d {
                         entity,
-                        pipeline: specialized_pipelines.specialize(
-                            &mut pipeline_cache,
-                            &wireframe_pipeline,
-                            key,
-                        ),
+                        pipeline: pipeline_id,
                         draw_function: draw_custom,
                         distance: view_row_2.dot(mesh_uniform.transform.col(3)),
                     });

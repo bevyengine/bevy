@@ -66,16 +66,16 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(150.0, 0.0, 0.0),
             scale: Vec3::splat(4.0),
-            ..Default::default()
+            ..default()
         },
         sprite: TextureAtlasSprite::new(vendor_index),
         texture_atlas: atlas_handle,
-        ..Default::default()
+        ..default()
     });
     // draw the atlas itself
     commands.spawn_bundle(SpriteBundle {
         texture: texture_atlas_texture,
         transform: Transform::from_xyz(-300.0, 0.0, 0.0),
-        ..Default::default()
+        ..default()
     });
 }
