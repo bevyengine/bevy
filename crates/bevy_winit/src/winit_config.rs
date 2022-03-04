@@ -1,18 +1,18 @@
 use bevy_utils::Duration;
 
-/// A resource for configuring usage of the `rust_winit` library.
+/// A resource for configuring usage of the `rust_winit` library. By default, the app will run as
+/// fast as possible when in use, and will be limited to 10fps when not focused.
 #[derive(Debug)]
 pub struct WinitConfig {
-    /// Configures the winit library to return control to the main thread after
-    /// the [run](bevy_app::App::run) loop is exited. Winit strongly recommends
-    /// avoiding this when possible. Before using this please read and understand
-    /// the [caveats](winit::platform::run_return::EventLoopExtRunReturn::run_return)
-    /// in the winit documentation.
+    /// Configures the winit library to return control to the main thread after the
+    /// [run](bevy_app::App::run) loop is exited. Winit strongly recommends avoiding this when
+    /// possible. Before using this please read and understand the
+    /// [caveats](winit::platform::run_return::EventLoopExtRunReturn::run_return) in the winit
+    /// documentation.
     ///
-    /// This feature is only available on desktop `target_os` configurations.
-    /// Namely `windows`, `macos`, `linux`, `dragonfly`, `freebsd`, `netbsd`, and
-    /// `openbsd`. If set to true on an unsupported platform
-    /// [run](bevy_app::App::run) will panic.
+    /// This feature is only available on desktop `target_os` configurations. Namely `windows`,
+    /// `macos`, `linux`, `dragonfly`, `freebsd`, `netbsd`, and `openbsd`. If set to true on an
+    /// unsupported platform [run](bevy_app::App::run) will panic.
     pub return_from_run: bool,
     /// Configures how the winit event loop updates while the window is focused.
     pub focused_mode: UpdateMode,
@@ -69,8 +69,8 @@ pub enum UpdateMode {
     /// ## Note
     ///
     /// Once the app has executed all bevy systems and reaches the end of the event loop, there is
-    /// no way to force the app wake and update again, unless a winit event is received or the time
-    /// limit is reached.
+    /// no way to force the app to wake and update again, unless a `winit` event (such as user
+    /// input, or the window being resized) is received or the time limit is reached.
     Reactive { max_wait: Duration },
     /// The event loop will only update if there is a winit event from direct interaction with the
     /// window (e.g. mouseover), a redraw is requested, or the maximum wait time has elapsed.
@@ -78,8 +78,8 @@ pub enum UpdateMode {
     /// ## Note
     ///
     /// Once the app has executed all bevy systems and reaches the end of the event loop, there is
-    /// no way to force the app wake and update again, unless a winit event is received or the time
-    /// limit is reached.
+    /// no way to force the app to wake and update again, unless a `winit` event (such as user
+    /// input, or the window being resized) is received or the time limit is reached.
     ///
     /// ## Differences from [`UpdateMode::Reactive`]
     ///

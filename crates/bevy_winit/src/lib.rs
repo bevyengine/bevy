@@ -269,10 +269,7 @@ pub fn winit_runner_with(mut app: App) {
     app.world
         .insert_non_send_resource(event_loop.create_proxy());
 
-    let return_from_run = app
-        .world
-        .resource::<WinitConfig>()
-        .return_from_run;
+    let return_from_run = app.world.resource::<WinitConfig>().return_from_run;
     trace!("Entering winit event loop");
 
     let event_handler = move |event: Event<()>,
@@ -284,18 +281,20 @@ pub fn winit_runner_with(mut app: App) {
                 let winit_config = app.world.resource::<WinitConfig>();
                 let windows = app.world.resource::<Windows>();
                 let focused = windows.iter().any(|w| w.is_focused());
-                // Check if either the `WaitUntil` timeout was reached, or
+                // Check if either the `WaitUntil` timeout was triggered by winit, or that same
+                // amount of time has elapsed since the last app update. This manual check is needed
+                // because we don't know if the criteria for an app update were met until the end of
+                // the frame.
                 let auto_timeout_reached = matches!(start, StartCause::ResumeTimeReached { .. });
                 let now = Instant::now();
                 let manual_timeout_reached = match winit_config.update_mode(focused) {
                     UpdateMode::Continuous => false,
-                    UpdateMode::Reactive { max_wait } | UpdateMode::ReactiveLowPower { max_wait } => {
+                    UpdateMode::Reactive { max_wait }
+                    | UpdateMode::ReactiveLowPower { max_wait } => {
                         now.duration_since(winit_state.last_update) >= *max_wait
                     }
                 };
-                let mut winit_state = app
-                    .world
-                    .resource_mut::<WinitPersistentState>();
+                let mut winit_state = app.world.resource_mut::<WinitPersistentState>();
                 // The low_power_event state must be reset at the start of every frame.
                 winit_state.low_power_event = false;
                 winit_state.timeout_reached = auto_timeout_reached || manual_timeout_reached;
@@ -327,7 +326,8 @@ pub fn winit_runner_with(mut app: App) {
                 };
 
                 world
-                    .resource_mut::<WinitPersistentState>()
+                    .get_resource_mut::<WinitPersistentState>()
+                    .unwrap()
                     .low_power_event = true;
 
                 match event {
@@ -539,14 +539,10 @@ pub fn winit_runner_with(mut app: App) {
                 });
             }
             event::Event::Suspended => {
-                app.world
-                    .resource_mut::<WinitPersistentState>()
-                    .active = false;
+                app.world.resource_mut::<WinitPersistentState>().active = false;
             }
             event::Event::Resumed => {
-                app.world
-                    .resource_mut::<WinitPersistentState>()
-                    .active = true;
+                app.world.resource_mut::<WinitPersistentState>().active = true;
             }
             event::Event::MainEventsCleared => {
                 handle_create_window_events(
@@ -571,17 +567,14 @@ pub fn winit_runner_with(mut app: App) {
                     false
                 };
                 if update {
-                    app.world
-                        .resource_mut::<WinitPersistentState>()
-                        .last_update = Instant::now();
+                    app.world.resource_mut::<WinitPersistentState>().last_update = Instant::now();
                     app.update();
                 }
             }
             Event::RedrawEventsCleared => {
                 {
-                    let world = app.world.cell();
-                    let winit_config = world.resource::<WinitConfig>();
-                    let windows = world.resource::<Windows>();
+                    let winit_config = app.world.resource::<WinitConfig>();
+                    let windows = app.world.resource::<Windows>();
                     let focused = windows.iter().any(|w| w.is_focused());
                     let now = Instant::now();
                     use UpdateMode::*;
