@@ -17,7 +17,7 @@ pub struct WinitConfig {
     /// Configures how the winit event loop updates while the window is focused.
     pub focused_mode: UpdateMode,
     /// Configures how the winit event loop updates while the window is *not* focused.
-    pub not_focused_mode: UpdateMode,
+    pub unfocused_mode: UpdateMode,
 }
 impl WinitConfig {
     /// Configure winit with common settings for a game.
@@ -28,10 +28,10 @@ impl WinitConfig {
     pub fn desktop_app() -> Self {
         WinitConfig {
             focused_mode: UpdateMode::Reactive {
-                max_wait: Duration::from_secs(60),
+                max_wait: Duration::from_secs(5),
             },
-            not_focused_mode: UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_secs(300),
+            unfocused_mode: UpdateMode::ReactiveLowPower {
+                max_wait: Duration::from_secs(60),
             },
             ..Default::default()
         }
@@ -39,7 +39,7 @@ impl WinitConfig {
     pub fn update_mode(&self, focused: bool) -> &UpdateMode {
         match focused {
             true => &self.focused_mode,
-            false => &self.not_focused_mode,
+            false => &self.unfocused_mode,
         }
     }
 }
@@ -48,7 +48,7 @@ impl Default for WinitConfig {
         WinitConfig {
             return_from_run: false,
             focused_mode: UpdateMode::Continuous,
-            not_focused_mode: UpdateMode::ReactiveLowPower {
+            unfocused_mode: UpdateMode::ReactiveLowPower {
                 max_wait: Duration::from_millis(100),
             },
         }

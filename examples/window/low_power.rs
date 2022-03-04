@@ -5,16 +5,22 @@ use bevy::{
 };
 
 /// This example illustrates how to run a winit window in a reactive, low power mode. This is useful
-/// for making desktop applications, or any other program that doesn't need to be running the main
+/// for making desktop applications, or any other program that doesn't need to be running the event
 /// loop non-stop.
 ///
-/// * While in `Wait` mode: the app will use almost zero power when the window is minimized,
-///   de-focused, or not receiving input.
+/// * In the default `WinitConfig::game()` mode, the event loop runs as fast as possible when the
+///   window is focused. When not in focus, the app updates every 100ms.
 ///
-/// * While continuously sending `RequestRedraw` events in `Wait` mode: the app will use resources
-///   regardless of window state.
+/// * While in [`bevy::winit::WinitConfig::desktop_app()`] mode:
+///     * When focused: the app will update any time a winit event (e.g. the window is
+///       moved/resized, the mouse moves, a button is pressed, etc.) or [`RequestRedraw`] event is
+///       received, or after 5 seconds if the app has not updated.
+///     * When not focused: the app will update when a [`RequestRedraw`] event is received, the
+///       window is directly interacted with (e.g. the mouse hovers over a visible part of the out
+///       of focus window), or one minute has passed without the app updating.
 ///
-/// * While in `Poll` mode: the app will update continuously
+/// These two functions are presets, you can customize the behavior by manually setting the fields
+/// of the [`WinitConfig`] resource.
 fn main() {
     App::new()
         .insert_resource(WinitConfig::game())
@@ -40,17 +46,6 @@ enum ExampleMode {
     ApplicationWithRedraw,
 }
 
-/// Switch between update modes when the mouse is clicked.
-fn cycle_modes(mut mode: ResMut<ExampleMode>, mouse_button_input: Res<Input<MouseButton>>) {
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        *mode = match *mode {
-            ExampleMode::Game => ExampleMode::Application,
-            ExampleMode::Application => ExampleMode::ApplicationWithRedraw,
-            ExampleMode::ApplicationWithRedraw => ExampleMode::Game,
-        };
-    }
-}
-
 /// Update winit based on the current ExampleMode
 fn update_winit(
     mode: Res<ExampleMode>,
@@ -72,7 +67,19 @@ fn update_winit(
     }
 }
 
-/// Everything in this module is for setup and is not important to the demonstrated features.
+/// Switch between update modes when the mouse is clicked.
+fn cycle_modes(mut mode: ResMut<ExampleMode>, mouse_button_input: Res<Input<MouseButton>>) {
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        *mode = match *mode {
+            ExampleMode::Game => ExampleMode::Application,
+            ExampleMode::Application => ExampleMode::ApplicationWithRedraw,
+            ExampleMode::ApplicationWithRedraw => ExampleMode::Game,
+        };
+    }
+}
+
+/// Everything in this module is for setting up and animating the scene, and is not important to the
+/// demonstrated features.
 pub(crate) mod test_setup {
     use crate::ExampleMode;
     use bevy::{prelude::*, window::RequestRedraw};
@@ -81,10 +88,14 @@ pub(crate) mod test_setup {
     pub(crate) struct Rotator;
 
     /// Rotate the cube to make it clear when the app is updating
-    pub(crate) fn rotate(mut cube_transform: Query<&mut Transform, With<Rotator>>) {
+    pub(crate) fn rotate(
+        time: Res<Time>,
+        mut cube_transform: Query<&mut Transform, With<Rotator>>,
+    ) {
         for mut transform in cube_transform.iter_mut() {
-            transform.rotate(Quat::from_rotation_x(0.04));
-            transform.rotate(Quat::from_rotation_y(0.08));
+            let t = time.seconds_since_startup() as f32;
+            *transform =
+                transform.with_rotation(Quat::from_rotation_x(t) * Quat::from_rotation_y(t));
         }
     }
 
@@ -92,7 +103,7 @@ pub(crate) mod test_setup {
     pub struct ModeText;
 
     pub(crate) fn update_text(mode: Res<ExampleMode>, mut query: Query<&mut Text, With<ModeText>>) {
-        query.get_single_mut().unwrap().sections[1].value = format!("{mode:?}")
+        query.get_single_mut().unwrap().sections[1].value = format!("{:?}", *mode)
     }
 
     /// Set up a scene with a cube and some text
