@@ -186,6 +186,12 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
     fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
         &[]
     }
+
+    #[allow(unused_variables)]
+    #[inline]
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        0.0
+    }
 }
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`SpecializedMaterial`]
@@ -375,7 +381,8 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
 
                         // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
                         // gives the z component of translation of the mesh in view space
-                        let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3));
+                        let bias = M::depth_bias(material);
+                        let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3)) + bias;
                         match alpha_mode {
                             AlphaMode::Opaque => {
                                 opaque_phase.add(Opaque3d {
