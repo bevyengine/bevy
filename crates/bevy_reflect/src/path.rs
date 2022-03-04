@@ -406,7 +406,7 @@ impl<'a> PathParser<'a> {
                 if let Some(Token::Ident(value)) = self.next_token() {
                     value
                         .parse::<usize>()
-                        .map(|idx| AccessRef::TupleIndex(idx))
+                        .map(AccessRef::TupleIndex)
                         .or(Ok(AccessRef::Field(value)))
                 } else {
                     Err(ReflectPathError::ExpectedIdent {
@@ -438,7 +438,7 @@ impl<'a> PathParser<'a> {
             }),
             Token::Ident(value) => value
                 .parse::<usize>()
-                .map(|idx| AccessRef::TupleIndex(idx))
+                .map(AccessRef::TupleIndex)
                 .or(Ok(AccessRef::Field(value))),
         }
     }
