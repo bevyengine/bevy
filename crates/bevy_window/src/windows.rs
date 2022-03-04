@@ -55,7 +55,7 @@ impl Windows {
     /// Returns the scale factor of the primary window, or `1.0` if the window does not exist.
     pub fn primary_scale_factor(&self) -> f64 {
         self.get_primary()
-            .map_or_else(|| 1.0, |window| window.scale_factor())
+            .map_or(1.0, |window| window.scale_factor())
     }
 
     /// An iterator over all registered [`Window`]s
