@@ -723,11 +723,15 @@ pub(crate) fn assign_lights_to_clusters(
         }
 
         let clusters = clusters.into_inner();
-        let screen_size = camera.target.get_physical_size(&windows, &images);
+        let screen_size =
+            if let Some(screen_size) = camera.target.get_physical_size(&windows, &images) {
+                screen_size
+            } else {
+                continue;
+            };
 
         clusters.lights.clear();
 
-        let screen_size = screen_size.unwrap_or_default();
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
         let view_transform = camera_transform.compute_matrix();
@@ -856,10 +860,6 @@ pub(crate) fn assign_lights_to_clusters(
             (clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z) as usize,
             VisiblePointLights::default,
         );
-
-        if screen_size.x == 0 || screen_size.y == 0 {
-            continue;
-        }
 
         // Calculate the x/y/z cluster frustum planes in view space
         let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
