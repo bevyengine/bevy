@@ -50,11 +50,7 @@ pub fn extract_text2d_sprite(
 ) {
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
-    } else {
-        1.
-    };
+    let scale_factor = windows.primary_scale_factor() as f32;
 
     for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
         if !visibility.is_visible {
@@ -139,11 +135,7 @@ pub fn text2d_system(
         return;
     }
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor()
-    } else {
-        1.
-    };
+    let scale_factor = windows.primary_scale_factor();
 
     // Computes all text in the local queue
     let mut new_queue = Vec::new();

@@ -186,11 +186,7 @@ pub fn extract_text_uinodes(
 ) {
     let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
-    } else {
-        1.
-    };
+    let scale_factor = windows.primary_scale_factor() as f32;
 
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {

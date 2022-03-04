@@ -52,11 +52,9 @@ pub fn text_system(
         QueryState<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor()
-    } else {
-        1.
-    };
+    let scale_factor = windows
+        .get_primary()
+        .map_or_else(|| 1.0, |window| window.scale_factor());
 
     let inv_scale_factor = 1. / scale_factor;
 
