@@ -289,17 +289,13 @@ pub fn winit_runner_with(mut app: App) {
                 let now = Instant::now();
                 let manual_timeout_reached = match winit_config.update_mode(focused) {
                     UpdateMode::Continuous => false,
-                    UpdateMode::Reactive { max_wait } => {
-                        now.duration_since(winit_state.last_update) >= *max_wait
-                    }
-                    UpdateMode::ReactiveLowPower { max_wait } => {
+                    UpdateMode::Reactive { max_wait } | UpdateMode::ReactiveLowPower { max_wait } => {
                         now.duration_since(winit_state.last_update) >= *max_wait
                     }
                 };
                 let mut winit_state = app
                     .world
-                    .get_resource_mut::<WinitPersistentState>()
-                    .unwrap();
+                    .resource_mut::<WinitPersistentState>();
                 // The low_power_event state must be reset at the start of every frame.
                 winit_state.low_power_event = false;
                 winit_state.timeout_reached = auto_timeout_reached || manual_timeout_reached;
@@ -331,8 +327,7 @@ pub fn winit_runner_with(mut app: App) {
                 };
 
                 world
-                    .get_resource_mut::<WinitPersistentState>()
-                    .unwrap()
+                    .resource_mut::<WinitPersistentState>()
                     .low_power_event = true;
 
                 match event {
@@ -545,14 +540,12 @@ pub fn winit_runner_with(mut app: App) {
             }
             event::Event::Suspended => {
                 app.world
-                    .get_resource_mut::<WinitPersistentState>()
-                    .unwrap()
+                    .resource_mut::<WinitPersistentState>()
                     .active = false;
             }
             event::Event::Resumed => {
                 app.world
-                    .get_resource_mut::<WinitPersistentState>()
-                    .unwrap()
+                    .resource_mut::<WinitPersistentState>()
                     .active = true;
             }
             event::Event::MainEventsCleared => {
@@ -561,14 +554,13 @@ pub fn winit_runner_with(mut app: App) {
                     event_loop,
                     &mut create_window_event_reader,
                 );
-                let winit_state = app.world.get_resource::<WinitPersistentState>().unwrap();
-                let winit_config = app.world.get_resource::<WinitConfig>().unwrap();
+                let winit_state = app.world.resource::<WinitPersistentState>();
+                let winit_config = app.world.resource::<WinitConfig>();
                 let update = if winit_state.active {
-                    let windows = app.world.get_resource::<Windows>().unwrap();
+                    let windows = app.world.resource::<Windows>();
                     let focused = windows.iter().any(|w| w.is_focused());
                     match winit_config.update_mode(focused) {
-                        UpdateMode::Continuous => true,
-                        UpdateMode::Reactive { .. } => true,
+                        UpdateMode::Continuous | UpdateMode::Reactive { .. } => true,
                         UpdateMode::ReactiveLowPower { .. } => {
                             winit_state.low_power_event
                                 || winit_state.redraw_request_sent
@@ -580,8 +572,7 @@ pub fn winit_runner_with(mut app: App) {
                 };
                 if update {
                     app.world
-                        .get_resource_mut::<WinitPersistentState>()
-                        .unwrap()
+                        .resource_mut::<WinitPersistentState>()
                         .last_update = Instant::now();
                     app.update();
                 }
@@ -589,15 +580,16 @@ pub fn winit_runner_with(mut app: App) {
             Event::RedrawEventsCleared => {
                 {
                     let world = app.world.cell();
-                    let winit_config = world.get_resource::<WinitConfig>().unwrap();
-                    let windows = world.get_resource::<Windows>().unwrap();
+                    let winit_config = world.resource::<WinitConfig>();
+                    let windows = world.resource::<Windows>();
                     let focused = windows.iter().any(|w| w.is_focused());
                     let now = Instant::now();
                     use UpdateMode::*;
                     *control_flow = match winit_config.update_mode(focused) {
                         Continuous => ControlFlow::Poll,
-                        Reactive { max_wait } => ControlFlow::WaitUntil(now + *max_wait),
-                        ReactiveLowPower { max_wait } => ControlFlow::WaitUntil(now + *max_wait),
+                        Reactive { max_wait } | ReactiveLowPower { max_wait } => {
+                            ControlFlow::WaitUntil(now + *max_wait)
+                        }
                     };
                 }
                 // This block needs to run after `app.update()` in `MainEventsCleared`. Otherwise,
@@ -609,15 +601,14 @@ pub fn winit_runner_with(mut app: App) {
                         *control_flow = ControlFlow::Poll;
                         redraw = true;
                     }
-                };
+                }
                 if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
                     if app_exit_event_reader.iter(app_exit_events).last().is_some() {
                         *control_flow = ControlFlow::Exit;
                     }
                 }
                 app.world
-                    .get_resource_mut::<WinitPersistentState>()
-                    .unwrap()
+                    .resource_mut::<WinitPersistentState>()
                     .redraw_request_sent = redraw;
             }
             _ => (),

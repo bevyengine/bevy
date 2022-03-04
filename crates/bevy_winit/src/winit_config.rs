@@ -24,6 +24,7 @@ impl WinitConfig {
     pub fn game() -> Self {
         WinitConfig::default()
     }
+
     /// Configure winit with common settings for a desktop application.
     pub fn desktop_app() -> Self {
         WinitConfig {
@@ -36,6 +37,8 @@ impl WinitConfig {
             ..Default::default()
         }
     }
+
+    /// Gets the configured `UpdateMode` depending on whether the window is focused or not
     pub fn update_mode(&self, focused: bool) -> &UpdateMode {
         match focused {
             true => &self.focused_mode,
