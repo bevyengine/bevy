@@ -448,12 +448,9 @@ impl<'a> Iterator for PathParser<'a> {
     type Item = (Result<AccessRef<'a>, ReflectPathError<'a>>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(token) = self.next_token() {
-            let index = self.index;
-            Some((self.token_to_access(token), index))
-        } else {
-            None
-        }
+        let token = self.next_token()?;
+        let index = self.index;
+        Some((self.token_to_access(token), index))
     }
 }
 
