@@ -61,15 +61,15 @@ impl From<RegularPolygon> for Mesh {
 pub struct Circle {
     /// Inscribed radius in the xy plane.
     pub radius: f32,
-    /// The number of subdivisions applied.
-    pub subdivisions: usize,
+    /// The number of vertices used.
+    pub vertices: usize,
 }
 
 impl Default for Circle {
     fn default() -> Self {
         Self {
             radius: 0.5,
-            subdivisions: 64,
+            vertices: 64,
         }
     }
 }
@@ -88,7 +88,7 @@ impl From<Circle> for RegularPolygon {
     fn from(circle: Circle) -> Self {
         Self {
             radius: circle.radius,
-            sides: circle.subdivisions,
+            sides: circle.vertices,
         }
     }
 }
