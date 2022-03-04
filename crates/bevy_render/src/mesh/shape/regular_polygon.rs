@@ -44,7 +44,7 @@ impl From<RegularPolygon> for Mesh {
         }
 
         let mut indices = Vec::with_capacity((sides - 1) * 3);
-        for i in 1..sides as u32 {
+        for i in 1..(sides as u32 - 1) {
             indices.extend_from_slice(&[0, i + 1, i]);
         }
 
