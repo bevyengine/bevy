@@ -1,3 +1,4 @@
+use async_channel::bounded;
 use std::{
     future::Future,
     mem,
@@ -6,9 +7,10 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use bevy_utils::tracing::warn;
 use futures_lite::{future, pin};
 
-use crate::Task;
+use crate::{PollableTask, Task};
 
 /// Used to create a [`TaskPool`]
 #[derive(Debug, Default, Clone)]
@@ -228,6 +230,26 @@ impl TaskPool {
         Task::new(self.executor.spawn(future))
     }
 
+    /// Spawns a static future onto the thread pool. The returned `PollableTask` is not a future,
+    /// but can be polled in system functions on every frame update without being blocked on
+    pub fn spawn_pollable<T>(
+        &self,
+        future: impl Future<Output = T> + Send + 'static,
+    ) -> PollableTask<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        let (sender, receiver) = bounded(1);
+        let task = self.spawn(async move {
+            let result = future.await;
+            match sender.send(result).await {
+                Ok(_) => {}
+                Err(_) => warn!("Could not send result of task to receiver"),
+            }
+        });
+        PollableTask::new(receiver, task)
+    }
+
     /// Spawns a static future on the thread-local async executor for the current thread. The task
     /// will run entirely on the thread the task was spawned on.  The returned Task is a future.
     /// It can also be cancelled and "detached" allowing it to continue running without having
@@ -301,9 +323,13 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 #[allow(clippy::blacklisted_name)]
 mod tests {
     use super::*;
-    use std::sync::{
-        atomic::{AtomicBool, AtomicI32, Ordering},
-        Barrier,
+    use std::{
+        ops::Range,
+        sync::{
+            atomic::{AtomicBool, AtomicI32, Ordering},
+            Barrier,
+        },
+        time::Duration,
     };
 
     #[test]
@@ -405,7 +431,7 @@ mod tests {
                     scope.spawn_local(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                         if std::thread::current().id() != spawner {
-                            // NOTE: This check is using an atomic rather than simply panicing the
+                            // NOTE: This check is using an atomic rather than simply panicking the
                             // thread to avoid deadlocking the barrier on failure
                             inner_thread_check_failed.store(true, Ordering::Release);
                         }
@@ -417,5 +443,28 @@ mod tests {
         barrier.wait();
         assert!(!thread_check_failed.load(Ordering::Acquire));
         assert_eq!(count.load(Ordering::Acquire), 200);
+    }
+
+    #[test]
+    fn test_spawn_pollable() {
+        let transform_fn = |i| i + 1;
+
+        let pool = TaskPool::new();
+        let nums: Range<u8> = 0..10;
+
+        let pollable_tasks = nums
+            .clone()
+            .into_iter()
+            .map(|i| pool.spawn_pollable(async move { transform_fn(i) }))
+            .collect::<Vec<_>>();
+
+        std::thread::sleep(Duration::from_secs_f32(1.0 / 30.0));
+
+        for (pollable_task, number) in pollable_tasks.iter().zip(nums) {
+            let poll_result = pollable_task.poll();
+
+            let expected = transform_fn(number);
+            assert_eq!(Some(expected), poll_result);
+        }
     }
 }
