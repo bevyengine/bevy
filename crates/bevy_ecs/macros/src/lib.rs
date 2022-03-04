@@ -366,7 +366,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }));
 
     let struct_name = &ast.ident;
-    let fetch_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
+    let fetch_struct_name = Ident::new(&format!("{}SysParamState", struct_name), Span::call_site());
     let fetch_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
