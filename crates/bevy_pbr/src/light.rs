@@ -743,7 +743,10 @@ pub(crate) fn assign_lights_to_clusters(
         });
 
         // check each light against each view's frustum, keep only those that affect at least one of our views
-        let frusta: Vec<_> = views.iter().map(|(_, _, _, frustum, _, _)| *frustum).collect();
+        let frusta: Vec<_> = views
+            .iter()
+            .map(|(_, _, _, frustum, _, _)| *frustum)
+            .collect();
         let mut lights_in_view_count = 0;
         lights.retain(|light| {
             // take one extra light to check if we should emit the warning
@@ -799,8 +802,7 @@ pub(crate) fn assign_lights_to_clusters(
             ClusterFarZMode::MaxLightRange => lights
                 .iter()
                 .map(|light| {
-                    (inverse_view_transform * light.translation.extend(1.0)).z * -1.0
-                        + light.range
+                    (inverse_view_transform * light.translation.extend(1.0)).z * -1.0 + light.range
                 })
                 .reduce(f32::max)
                 .unwrap_or(0.0),
