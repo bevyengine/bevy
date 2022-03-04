@@ -46,7 +46,7 @@ enum ExampleMode {
     ApplicationWithRedraw,
 }
 
-/// Update winit based on the current ExampleMode
+/// Update winit based on the current `ExampleMode`
 fn update_winit(
     mode: Res<ExampleMode>,
     mut event: EventWriter<RequestRedraw>,
