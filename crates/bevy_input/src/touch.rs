@@ -224,7 +224,7 @@ impl Touches {
         self.pressed.get(&id)
     }
 
-    /// Checks if any touch input id was just pressed.
+    /// Checks if any touch input was just pressed.
     pub fn any_just_pressed(&self) -> bool {
         !self.just_pressed.is_empty()
     }
@@ -244,7 +244,7 @@ impl Touches {
         self.just_released.get(&id)
     }
 
-    /// Checks if any touch input id was just released.
+    /// Checks if any touch input was just released.
     pub fn any_just_released(&self) -> bool {
         !self.just_released.is_empty()
     }
@@ -259,7 +259,7 @@ impl Touches {
         self.just_released.values()
     }
 
-    /// Checks if any touch input id was just cancelled.
+    /// Checks if any touch input was just cancelled.
     pub fn any_just_cancelled(&self) -> bool {
         !self.just_cancelled.is_empty()
     }
@@ -272,6 +272,11 @@ impl Touches {
     /// An iterator visiting every just cancelled [`Touch`] input in arbitrary order.
     pub fn iter_just_cancelled(&self) -> impl Iterator<Item = &Touch> {
         self.just_cancelled.values()
+    }
+
+    /// Retrieves the position of the first currently pressed touch
+    pub fn first_pressed_position(&self) -> Option<Vec2> {
+        self.pressed.values().next().map(|t| t.position)
     }
 
     /// Processes a [`TouchInput`] event by updating the `pressed`, `just_pressed`,

@@ -71,10 +71,6 @@ pub fn ui_focus_system(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let cursor_position = windows
-        .get_primary()
-        .and_then(|window| window.cursor_position());
-
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
         if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
@@ -98,6 +94,11 @@ pub fn ui_focus_system(
 
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
+
+    let cursor_position = windows
+        .get_primary()
+        .and_then(|window| window.cursor_position())
+        .or_else(|| touches_input.first_pressed_position());
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
