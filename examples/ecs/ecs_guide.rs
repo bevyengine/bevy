@@ -205,9 +205,9 @@ fn new_player_system(
 #[allow(dead_code)]
 fn exclusive_player_system(world: &mut World) {
     // this does the same thing as "new_player_system"
-    let total_players = world.get_resource_mut::<GameState>().unwrap().total_players;
+    let total_players = world.resource_mut::<GameState>().total_players;
     let should_add_player = {
-        let game_rules = world.get_resource::<GameRules>().unwrap();
+        let game_rules = world.resource::<GameRules>();
         let add_new_player = random::<bool>();
         add_new_player && total_players < game_rules.max_players
     };
@@ -220,7 +220,7 @@ fn exclusive_player_system(world: &mut World) {
             Score { value: 0 },
         ));
 
-        let mut game_state = world.get_resource_mut::<GameState>().unwrap();
+        let mut game_state = world.resource_mut::<GameState>();
         game_state.total_players += 1;
     }
 }

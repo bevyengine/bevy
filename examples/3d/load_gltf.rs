@@ -16,7 +16,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
     const HALF_SIZE: f32 = 1.0;
     commands.spawn_bundle(DirectionalLightBundle {
@@ -28,12 +28,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 top: HALF_SIZE,
                 near: -10.0 * HALF_SIZE,
                 far: 10.0 * HALF_SIZE,
-                ..Default::default()
+                ..default()
             },
             shadows_enabled: true,
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     });
 }
 

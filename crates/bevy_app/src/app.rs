@@ -1,8 +1,7 @@
-use crate::{
-    CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage,
-};
+use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    event::Events,
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
         IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
@@ -839,10 +838,7 @@ impl App {
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {
-            let registry = self
-                .world
-                .get_resource_mut::<bevy_reflect::TypeRegistryArc>()
-                .unwrap();
+            let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
             registry.write().register::<T>();
         }
         self

@@ -53,9 +53,7 @@ impl Node for MainPass2dNode {
             depth_stencil_attachment: None,
         };
 
-        let draw_functions = world
-            .get_resource::<DrawFunctions<Transparent2d>>()
-            .unwrap();
+        let draw_functions = world.resource::<DrawFunctions<Transparent2d>>();
 
         let render_pass = render_context
             .command_encoder

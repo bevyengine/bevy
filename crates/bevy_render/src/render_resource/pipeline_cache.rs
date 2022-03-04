@@ -7,13 +7,13 @@ use crate::{
     renderer::RenderDevice,
     RenderWorld,
 };
-use bevy_app::EventReader;
 use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_ecs::event::EventReader;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::error, Entry, HashMap, HashSet};
 use std::{hash::Hash, ops::Deref, sync::Arc};
 use thiserror::Error;
-use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout};
+use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout as RawVertexBufferLayout};
 
 use super::ProcessedShader;
 
@@ -245,6 +245,11 @@ impl RenderPipelineCache {
     }
 
     #[inline]
+    pub fn get_descriptor(&self, id: CachedPipelineId) -> &RenderPipelineDescriptor {
+        &self.pipelines[id.0].descriptor
+    }
+
+    #[inline]
     pub fn get(&self, id: CachedPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(pipeline) = &self.pipelines[id.0].state {
             Some(pipeline)
@@ -345,7 +350,7 @@ impl RenderPipelineCache {
                 .vertex
                 .buffers
                 .iter()
-                .map(|layout| VertexBufferLayout {
+                .map(|layout| RawVertexBufferLayout {
                     array_stride: layout.array_stride,
                     attributes: &layout.attributes,
                     step_mode: layout.step_mode,
@@ -393,7 +398,7 @@ impl RenderPipelineCache {
         shaders: Res<Assets<Shader>>,
         mut events: EventReader<AssetEvent<Shader>>,
     ) {
-        let mut cache = world.get_resource_mut::<Self>().unwrap();
+        let mut cache = world.resource_mut::<Self>();
         for event in events.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {

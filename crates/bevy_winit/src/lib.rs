@@ -11,8 +11,12 @@ pub use winit::event_loop::ControlFlow;
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, CoreStage, Events, ManualEventReader, Plugin};
-use bevy_ecs::{system::IntoExclusiveSystem, world::World};
+use bevy_app::{App, AppExit, CoreStage, Plugin};
+use bevy_ecs::{
+    event::{Events, ManualEventReader},
+    system::IntoExclusiveSystem,
+    world::World,
+};
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::{
     tracing::{error, trace, warn},
@@ -36,7 +40,7 @@ pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WinitWindows>()
+        app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitPersistentState>()
             .init_resource::<WinitConfig>()
             .set_runner(winit_runner)
@@ -49,7 +53,7 @@ impl Plugin for WinitPlugin {
 
 fn change_window(world: &mut World) {
     let world = world.cell();
-    let winit_windows = world.get_resource::<WinitWindows>().unwrap();
+    let winit_windows = world.get_non_send::<WinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
 
     for bevy_window in windows.iter_mut() {
@@ -307,7 +311,7 @@ pub fn winit_runner_with(mut app: App) {
                 ..
             } => {
                 let world = app.world.cell();
-                let winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
+                let winit_windows = world.get_non_send_mut::<WinitWindows>().unwrap();
                 let mut windows = world.get_resource_mut::<Windows>().unwrap();
                 let window_id =
                     if let Some(window_id) = winit_windows.get_window_id(winit_window_id) {
@@ -535,8 +539,7 @@ pub fn winit_runner_with(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta },
                 ..
             } => {
-                let mut mouse_motion_events =
-                    app.world.get_resource_mut::<Events<MouseMotion>>().unwrap();
+                let mut mouse_motion_events = app.world.resource_mut::<Events<MouseMotion>>();
                 mouse_motion_events.send(MouseMotion {
                     delta: Vec2::new(delta.0 as f32, delta.1 as f32),
                 });
@@ -635,7 +638,7 @@ fn handle_create_window_events(
     create_window_event_reader: &mut ManualEventReader<CreateWindow>,
 ) {
     let world = world.cell();
-    let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
+    let mut winit_windows = world.get_non_send_mut::<WinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
     let create_window_events = world.get_resource::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();
@@ -654,7 +657,7 @@ fn handle_create_window_events(
 
 fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
     let world = world.cell();
-    let mut winit_windows = world.get_resource_mut::<WinitWindows>().unwrap();
+    let mut winit_windows = world.get_non_send_mut::<WinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
     let mut create_window_events = world.get_resource_mut::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();

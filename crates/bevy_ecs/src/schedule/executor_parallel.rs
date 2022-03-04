@@ -350,11 +350,7 @@ mod tests {
 
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
-        while let Ok(event) = world
-            .get_resource::<Receiver<SchedulingEvent>>()
-            .unwrap()
-            .try_recv()
-        {
+        while let Ok(event) = world.resource::<Receiver<SchedulingEvent>>().try_recv() {
             events.push(event);
         }
         events

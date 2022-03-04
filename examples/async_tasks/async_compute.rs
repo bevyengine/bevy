@@ -87,7 +87,7 @@ fn handle_tasks(
                 mesh: box_mesh_handle.0.clone(),
                 material: box_material_handle.0.clone(),
                 transform,
-                ..Default::default()
+                ..default()
             });
 
             // Task is complete, so remove task component from entity
@@ -108,13 +108,13 @@ fn setup_env(mut commands: Commands) {
     // lights
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 12.0, 15.0),
-        ..Default::default()
+        ..default()
     });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
