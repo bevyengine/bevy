@@ -9,7 +9,8 @@ use bevy::{
 /// loop non-stop.
 ///
 /// * In the default `WinitConfig::game()` mode, the event loop runs as fast as possible when the
-///   window is focused. When not in focus, the app updates every 100ms.
+///   window is focused. When not in focus, the app updates at 10fps - unless the window is
+///   interacted with - in which case it will update immediately in response to these events.
 ///
 /// * While in [`bevy::winit::WinitConfig::desktop_app()`] mode:
 ///     * When focused: the app will update any time a winit event (e.g. the window is
