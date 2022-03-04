@@ -126,10 +126,14 @@ impl GetPath for dyn Reflect {
     }
 }
 
+/// A path to a field within a type. Can be used like [`GetPath`] functions to get
+/// references to the inner fields of a type.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct FieldPath(Box<[(Access, usize)]>);
 
 impl FieldPath {
+    /// Parses a [`FieldPath`] from a string. For the exact format, see [`GetPath`].
+    /// Returns an error if the string does not represent a valid path to a field.
     pub fn parse(string: &str) -> Result<Self, ReflectPathError<'_>> {
         let mut parts = Vec::new();
         for (access, idx) in PathParser::new(string) {
@@ -138,6 +142,8 @@ impl FieldPath {
         Ok(Self(parts.into_boxed_slice()))
     }
 
+    /// Gets a read-only reference of given field.
+    /// Returns an error if the path is invalid for the provided type.
     pub fn field<'r, 'p>(
         &'p self,
         root: &'r impl Reflect,
@@ -149,6 +155,8 @@ impl FieldPath {
         Ok(current)
     }
 
+    /// Gets a mutable reference of given field.
+    /// Returns an error if the path is invalid for the provided type.
     pub fn field_mut<'r, 'p>(
         &'p mut self,
         root: &'r mut impl Reflect,
@@ -200,26 +208,26 @@ impl<'a> AccessRef<'a> {
         current_index: usize,
     ) -> Result<&'r dyn Reflect, ReflectPathError<'a>> {
         match (self, current.reflect_ref()) {
-            (Self::Field(field), ReflectRef::Struct(reflect_struct)) => Ok(reflect_struct
+            (Self::Field(field), ReflectRef::Struct(reflect_struct)) => reflect_struct
                 .field(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
                     field,
-                })?),
+                }),
             (Self::TupleIndex(tuple_index), ReflectRef::TupleStruct(reflect_struct)) => {
-                Ok(reflect_struct.field(*tuple_index).ok_or(
+                reflect_struct.field(*tuple_index).ok_or(
                     ReflectPathError::InvalidTupleStructIndex {
                         index: current_index,
                         tuple_struct_index: *tuple_index,
                     },
-                )?)
+                )
             }
-            (Self::ListIndex(list_index), ReflectRef::List(reflect_list)) => Ok(reflect_list
+            (Self::ListIndex(list_index), ReflectRef::List(reflect_list)) => reflect_list
                 .get(*list_index)
                 .ok_or(ReflectPathError::InvalidListIndex {
                     index: current_index,
                     list_index: *list_index,
-                })?),
+                }),
             (Self::ListIndex(_), _) => Err(ReflectPathError::ExpectedList {
                 index: current_index,
             }),
@@ -235,26 +243,26 @@ impl<'a> AccessRef<'a> {
         current_index: usize,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'a>> {
         match (self, current.reflect_mut()) {
-            (Self::Field(field), ReflectMut::Struct(reflect_struct)) => Ok(reflect_struct
+            (Self::Field(field), ReflectMut::Struct(reflect_struct)) => reflect_struct
                 .field_mut(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
                     field,
-                })?),
+                }),
             (Self::TupleIndex(tuple_index), ReflectMut::TupleStruct(reflect_struct)) => {
-                Ok(reflect_struct.field_mut(*tuple_index).ok_or(
+                reflect_struct.field_mut(*tuple_index).ok_or(
                     ReflectPathError::InvalidTupleStructIndex {
                         index: current_index,
                         tuple_struct_index: *tuple_index,
                     },
-                )?)
+                )
             }
-            (Self::ListIndex(list_index), ReflectMut::List(reflect_list)) => Ok(reflect_list
+            (Self::ListIndex(list_index), ReflectMut::List(reflect_list)) => reflect_list
                 .get_mut(*list_index)
                 .ok_or(ReflectPathError::InvalidListIndex {
                     index: current_index,
                     list_index: *list_index,
-                })?),
+                }),
             (Self::ListIndex(_), _) => Err(ReflectPathError::ExpectedList {
                 index: current_index,
             }),
@@ -317,11 +325,10 @@ impl<'a> PathParser<'a> {
         match token {
             Token::Dot => {
                 if let Some(Token::Ident(value)) = self.next_token() {
-                    if let Ok(tuple_index) = value.parse::<usize>() {
-                        Ok(AccessRef::TupleIndex(tuple_index))
-                    } else {
-                        Ok(AccessRef::Field(value))
-                    }
+                    value
+                        .parse::<usize>()
+                        .map(|idx| AccessRef::TupleIndex(idx))
+                        .or(Ok(AccessRef::Field(value)))
                 } else {
                     Err(ReflectPathError::ExpectedIdent {
                         index: current_index,
@@ -350,13 +357,10 @@ impl<'a> PathParser<'a> {
                 index: current_index,
                 token: "]",
             }),
-            Token::Ident(value) => {
-                if let Ok(tuple_index) = value.parse::<usize>() {
-                    Ok(AccessRef::TupleIndex(tuple_index))
-                } else {
-                    Ok(AccessRef::Field(value))
-                }
-            }
+            Token::Ident(value) => value
+                .parse::<usize>()
+                .map(|idx| AccessRef::TupleIndex(idx))
+                .or(Ok(AccessRef::Field(value))),
         }
     }
 }
