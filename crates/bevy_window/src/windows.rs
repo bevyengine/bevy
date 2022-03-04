@@ -52,10 +52,13 @@ impl Windows {
             .expect("Primary window does not exist")
     }
 
-    /// Returns the scale factor of the primary window, or `1.0` if the window does not exist.
-    pub fn primary_scale_factor(&self) -> f64 {
-        self.get_primary()
-            .map_or(1.0, |window| window.scale_factor())
+    /// Returns the scale factor for the [`Window`] of `id`, or `1.0` if the window does not exist.
+    pub fn scale_factor(&self, id: WindowId) -> f64 {
+        if let Some(window) = self.get(id) {
+            window.scale_factor()
+        } else {
+            1.0
+        }
     }
 
     /// An iterator over all registered [`Window`]s
