@@ -62,17 +62,26 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn get<T: Component>(&self) -> Option<&'w T> {
-        // SAFE: entity location is valid and returned component is of type T
-        unsafe {
-            get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-                .map(|value| &*value.cast::<T>())
-        }
+    pub fn get<T: Component>(&self) -> Option<&'_ T> {
+        // SAFE: lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_unchecked::<T>() }
     }
 
+    /// This allows aliased mutability use after free bugs.
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple
-    /// mutable references to the same component
+    /// - Must not be a mutable reference to the component.
+    /// - Must not use the returned reference after the component is removed
+    #[inline]
+    pub unsafe fn get_unchecked<T: Component>(&self) -> Option<&'w T> {
+        // SAFE: entity location is valid and returned component is of type T
+        get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
+            .map(|value| &*value.cast::<T>())
+    }
+
+    /// This allows aliased mutability and use after free bugs.
+    /// # Safety
+    /// - Must not be any other references to the component.
+    /// - Must not use the returned reference after the component is removed.
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(
         &self,
@@ -145,39 +154,32 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
-    pub fn get<T: Component>(&self) -> Option<&'w T> {
-        // SAFE: entity location is valid and returned component is of type T
-        unsafe {
-            get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-                .map(|value| &*value.cast::<T>())
-        }
+    pub fn get<T: Component>(&self) -> Option<&'_ T> {
+        // SAFE: lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_unchecked::<T>() }
     }
 
     #[inline]
-    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'w, T>> {
-        // SAFE: world access is unique, entity location is valid, and returned component is of type
-        // T
-        unsafe {
-            get_component_and_ticks_with_type(
-                self.world,
-                TypeId::of::<T>(),
-                self.entity,
-                self.location,
-            )
-            .map(|(value, ticks)| Mut {
-                value: &mut *value.cast::<T>(),
-                ticks: Ticks {
-                    component_ticks: &mut *ticks,
-                    last_change_tick: self.world.last_change_tick(),
-                    change_tick: self.world.change_tick(),
-                },
-            })
-        }
+    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFE: world access is unique, and lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_unchecked_mut::<T>() }
     }
 
+    /// This allows aliased mutability use after free bugs.
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple
-    /// mutable references to the same component
+    /// - Must not be a mutable reference to the component.
+    /// - Must not use the returned reference after the component is removed
+    #[inline]
+    pub unsafe fn get_unchecked<T: Component>(&self) -> Option<&'w T> {
+        // SAFE: entity location is valid and returned component is of type T
+        get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
+            .map(|value| &*value.cast::<T>())
+    }
+
+    /// This allows aliased mutability and use after free bugs.
+    /// # Safety
+    /// - Must not be any other references to the component.
+    /// - Must not use the returned reference after the component is removed.
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)

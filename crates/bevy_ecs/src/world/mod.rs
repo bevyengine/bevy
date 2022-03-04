@@ -197,7 +197,8 @@ impl World {
     ///     .insert(Position { x: 0.0, y: 0.0 })
     ///     .id();
     ///
-    /// let position = world.entity(entity).get::<Position>().unwrap();
+    /// let entity_ref = world.entity(entity);
+    /// let position = entity_ref.get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[inline]
@@ -224,8 +225,8 @@ impl World {
     /// let entity = world.spawn()
     ///     .insert(Position { x: 0.0, y: 0.0 })
     ///     .id();
-    ///
-    /// let mut position = world.entity_mut(entity).get_mut::<Position>().unwrap();
+    /// let mut entity_mut = world.entity_mut(entity);
+    /// let mut position = entity_mut.get_mut::<Position>().unwrap();
     /// position.x = 1.0;
     /// ```
     #[inline]
@@ -337,7 +338,8 @@ impl World {
     ///     .insert_bundle((Num(1), Label("hello"))) // add a bundle of components
     ///     .id();
     ///
-    /// let position = world.entity(entity).get::<Position>().unwrap();
+    /// let entity_ref = world.entity(entity);
+    /// let position = entity_ref.get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
     pub fn spawn(&mut self) -> EntityMut {
@@ -414,7 +416,8 @@ impl World {
     /// ```
     #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
-        self.get_entity(entity)?.get()
+        // SAFE: lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_entity(entity)?.get_unchecked::<T>() }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [Component] of the given type.
@@ -437,7 +440,8 @@ impl World {
     /// ```
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        self.get_entity_mut(entity)?.get_mut()
+        // SAFE: lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_entity_mut(entity)?.get_unchecked_mut::<T>() }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
