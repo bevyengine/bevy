@@ -52,7 +52,7 @@ where
     /// # use bevy_asset::AssetServer;
     /// # use bevy_audio::Audio;
     /// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    ///     audio.play(asset_server.load("my_sound.ogg"));
+    ///     audio.play(asset_server.load("my_sound.ogg"), PlayControl::ONCE);
     /// }
     /// ```
     ///
@@ -70,29 +70,19 @@ where
     ///     audio_sinks: Res<Assets<AudioSink>>,
     /// ) {
     ///     // This is a weak handle, and can't be used to control playback.
-    ///     let weak_handle = audio.play(asset_server.load("my_sound.ogg"));
+    ///     let weak_handle = audio.play(asset_server.load("my_sound.ogg"), PlayControl::ONCE);
     ///     // This is now a strong handle, and can be used to control playback.
     ///     let strong_handle = audio_sinks.get_handle(weak_handle);
     /// }
     /// ```
-    pub fn play(&self, audio_source: Handle<Source>) -> Handle<AudioSink> {
+    pub fn play(
+        &self,
+        audio_source: Handle<Source>,
+        settings: PlaybackSettings,
+    ) -> Handle<AudioSink> {
         let id = HandleId::random::<AudioSink>();
         let config = AudioToPlay {
-            repeat: false,
-            sink_handle: id,
-            source_handle: audio_source,
-        };
-        self.queue.write().push_back(config);
-        Handle::<AudioSink>::weak(id)
-    }
-
-    /// Play audio from a [`Handle`] to the audio source in a loop
-    ///
-    /// See [`Self::play`] on how to control playback.
-    pub fn play_in_loop(&self, audio_source: Handle<Source>) -> Handle<AudioSink> {
-        let id = HandleId::random::<AudioSink>();
-        let config = AudioToPlay {
-            repeat: true,
+            settings,
             sink_handle: id,
             source_handle: audio_source,
         };
@@ -101,14 +91,51 @@ where
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+/// Settings to control playback from the start.
+#[derive(Clone)]
+pub struct PlaybackSettings {
+    /// Play in repeat
+    pub repeat: bool,
+    /// Volume to play at.
+    pub volume: f32,
+    /// Speed to play at.
+    pub speed: f32,
+}
+
+impl Default for PlaybackSettings {
+    fn default() -> Self {
+        Self {
+            repeat: false,
+            volume: 1.0,
+            speed: 1.0,
+        }
+    }
+}
+
+impl PlaybackSettings {
+    /// Will play the associate audio source once.
+    pub const ONCE: PlaybackSettings = PlaybackSettings {
+        repeat: false,
+        volume: 1.0,
+        speed: 1.0,
+    };
+
+    /// Will play the associate audio source in a loop.
+    pub const LOOP: PlaybackSettings = PlaybackSettings {
+        repeat: true,
+        volume: 1.0,
+        speed: 1.0,
+    };
+}
+
+#[derive(Clone)]
 pub(crate) struct AudioToPlay<Source>
 where
     Source: Asset + Decodable,
 {
     pub(crate) sink_handle: HandleId,
     pub(crate) source_handle: Handle<Source>,
-    pub(crate) repeat: bool,
+    pub(crate) settings: PlaybackSettings,
 }
 
 impl<Source> fmt::Debug for AudioToPlay<Source>
@@ -119,7 +146,7 @@ where
         f.debug_struct("AudioToPlay")
             .field("sink_handle", &self.sink_handle)
             .field("source_handle", &self.source_handle)
-            .field("repeat", &self.repeat)
+            // .field("repeat", &self.repeat)
             .finish()
     }
 }
