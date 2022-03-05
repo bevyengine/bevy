@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
     query::{Access, FilteredAccessSet},
     schedule::SystemLabel,
@@ -324,6 +324,7 @@ where
     func: F,
     param_state: Option<Param::Fetch>,
     system_meta: SystemMeta,
+    archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     #[allow(clippy::type_complexity)]
     marker: PhantomData<fn() -> (In, Out, Marker)>,
@@ -345,6 +346,7 @@ where
             func,
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
+            archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
         }
     }
@@ -364,12 +366,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn new_archetype(&mut self, archetype: &Archetype) {
-        let param_state = self.param_state.as_mut().unwrap();
-        param_state.new_archetype(archetype, &mut self.system_meta);
     }
 
     #[inline]
@@ -413,6 +409,20 @@ where
             world,
             &mut self.system_meta,
         ));
+    }
+
+    fn update_archetypes(&mut self, world: &World) {
+        let archetypes = world.archetypes();
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+
+        for archetype_index in archetype_index_range {
+            self.param_state.as_mut().unwrap().new_archetype(
+                &archetypes[ArchetypeId::new(archetype_index)],
+                &mut self.system_meta,
+            );
+        }
     }
 
     #[inline]

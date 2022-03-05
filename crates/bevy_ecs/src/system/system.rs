@@ -1,10 +1,7 @@
 use bevy_utils::tracing::warn;
 
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId},
-    component::ComponentId,
-    query::Access,
-    schedule::SystemLabel,
+    archetype::ArchetypeComponentId, component::ComponentId, query::Access, schedule::SystemLabel,
     world::World,
 };
 use std::borrow::Cow;
@@ -28,8 +25,6 @@ pub trait System: Send + Sync + 'static {
     type Out;
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
-    /// Register a new archetype for this system.
-    fn new_archetype(&mut self, archetype: &Archetype);
     /// Returns the system's component [`Access`].
     fn component_access(&self) -> &Access<ComponentId>;
     /// Returns the system's archetype component [`Access`].
@@ -56,6 +51,8 @@ pub trait System: Send + Sync + 'static {
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
+    /// Update the system's cached archetypes.
+    fn update_archetypes(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
     /// The default labels for the system
     fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
