@@ -63,10 +63,10 @@ fn setup(
         });
     // parent "empty"
     commands
-        .spawn_bundle((
-            Transform::from_xyz(2.0, 0.0, 1.0),
-            GlobalTransform::default(),
-        ))
+        .spawn_bundle(TransformBundle {
+            local: Transform::from_xyz(2.0, 0.0, 1.0),
+            global: GlobalTransform::default()
+        })
         .insert(Rotator)
         .with_children(|parent| {
             // child capsule
