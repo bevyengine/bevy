@@ -269,12 +269,12 @@ mod tests {
 
     #[test]
     fn test_into_iter() {
-        let mut map = DynamicMap::default();
-        map.insert(0usize, "foo".to_string());
-        map.insert(1usize, "bar".to_string());
-        map.insert(2usize, "baz".to_string());
-
         let expected = vec!["foo", "bar", "baz"];
+
+        let mut map = DynamicMap::default();
+        map.insert(0usize, expected[0].to_string());
+        map.insert(1usize, expected[1].to_string());
+        map.insert(2usize, expected[2].to_string());
 
         for (index, item) in map.into_iter().enumerate() {
             let key = item.0.take::<usize>().expect("couldn't downcast to usize");
