@@ -46,6 +46,29 @@ pub use type_uuid::*;
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
+#[doc(hidden)]
+pub mod __macro_exports {
+    use crate::Uuid;
+
+    pub const fn generate_composite_uuid(a: Uuid, b: Uuid) -> Uuid {
+        let mut new = [0; 16];
+        let mut i = 0;
+        while i < new.len() {
+            new[i] = a.as_bytes()[i] ^ b.as_bytes()[i];
+
+            i += 1;
+        }
+
+        // Version: the most significant 4 bits in the 6th byte: 11110000
+        new[6] = new[6] & 0b0000_1111 | 0b0100_0000; // set version to v4
+
+        // Variant: the most significant 3 bits in the 8th byte: 11100000
+        new[8] = new[8] & 0b000_11111 | 0b100_00000; // set variant to rfc4122
+
+        Uuid::from_bytes(new)
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::blacklisted_name, clippy::approx_constant)]
 mod tests {

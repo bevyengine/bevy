@@ -28,3 +28,49 @@ where
         std::any::type_name::<Self>()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate as bevy_reflect;
+    use bevy_reflect_derive::TypeUuid;
+
+    #[derive(TypeUuid)]
+    #[uuid = "af6466c2-a9f4-11eb-bcbc-0242ac130002"]
+    struct TestDeriveStruct<T>
+    where
+        T: Clone,
+    {
+        _value: T,
+    }
+
+    fn test_impl_type_uuid(_: &impl TypeUuid) {}
+
+    #[test]
+    fn test_generic_type_uuid_derive() {
+        #[derive(TypeUuid, Clone)]
+        #[uuid = "ebb16cc9-4d5a-453c-aa8c-c72bd8ec83a2"]
+        struct T;
+
+        let test_struct = TestDeriveStruct { _value: T };
+        test_impl_type_uuid(&test_struct);
+    }
+
+    #[test]
+    fn test_generic_type_unique_uuid() {
+        #[derive(TypeUuid, Clone)]
+        #[uuid = "49951b1c-4811-45e7-acc6-3119249fbd8f"]
+        struct A;
+
+        #[derive(TypeUuid, Clone)]
+        #[uuid = "4882b8f5-5556-4cee-bea6-a2e5991997b7"]
+        struct B;
+
+        let uuid_a = TestDeriveStruct::<A>::TYPE_UUID;
+        let uuid_b = TestDeriveStruct::<B>::TYPE_UUID;
+
+        assert_ne!(uuid_a, uuid_b);
+        assert_ne!(uuid_a, A::TYPE_UUID);
+        assert_ne!(uuid_b, B::TYPE_UUID);
+    }
+}
