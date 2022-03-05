@@ -52,7 +52,7 @@ where
     /// # use bevy_asset::AssetServer;
     /// # use bevy_audio::Audio;
     /// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    ///     audio.play(asset_server.load("my_sound.ogg"), PlayControl::ONCE);
+    ///     audio.play(asset_server.load("my_sound.ogg"));
     /// }
     /// ```
     ///
@@ -70,12 +70,40 @@ where
     ///     audio_sinks: Res<Assets<AudioSink>>,
     /// ) {
     ///     // This is a weak handle, and can't be used to control playback.
-    ///     let weak_handle = audio.play(asset_server.load("my_sound.ogg"), PlayControl::ONCE);
+    ///     let weak_handle = audio.play(asset_server.load("my_sound.ogg"));
     ///     // This is now a strong handle, and can be used to control playback.
     ///     let strong_handle = audio_sinks.get_handle(weak_handle);
     /// }
     /// ```
-    pub fn play(
+    pub fn play(&self, audio_source: Handle<Source>) -> Handle<AudioSink> {
+        let id = HandleId::random::<AudioSink>();
+        let config = AudioToPlay {
+            settings: PlaybackSettings::ONCE,
+            sink_handle: id,
+            source_handle: audio_source,
+        };
+        self.queue.write().push_back(config);
+        Handle::<AudioSink>::weak(id)
+    }
+
+    /// Play audio from a [`Handle`] to the audio source with [`PlaybackSettings`] that
+    /// allows looping or changing volume from the start.
+    ///
+    /// ```
+    /// # use bevy_ecs::system::Res;
+    /// # use bevy_asset::AssetServer;
+    /// # use bevy_audio::Audio;
+    /// # use bevy_audio::PlaybackSettings;
+    /// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
+    ///     audio.play_with_settings(
+    ///         asset_server.load("my_sound.ogg"),
+    ///         PlaybackSettings::LOOP.with_volume(0.75),
+    ///     );
+    /// }
+    /// ```
+    ///
+    /// See [`Self::play`] on how to control playback once it's started.
+    pub fn play_with_settings(
         &self,
         audio_source: Handle<Source>,
         settings: PlaybackSettings,
@@ -92,7 +120,7 @@ where
 }
 
 /// Settings to control playback from the start.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PlaybackSettings {
     /// Play in repeat
     pub repeat: bool,
@@ -104,11 +132,7 @@ pub struct PlaybackSettings {
 
 impl Default for PlaybackSettings {
     fn default() -> Self {
-        Self {
-            repeat: false,
-            volume: 1.0,
-            speed: 1.0,
-        }
+        Self::ONCE
     }
 }
 
@@ -126,6 +150,18 @@ impl PlaybackSettings {
         volume: 1.0,
         speed: 1.0,
     };
+
+    /// Helper to set the volume from start of playback.
+    pub const fn with_volume(mut self, volume: f32) -> Self {
+        self.volume = volume;
+        self
+    }
+
+    /// Helper to set the speed from start of playback.
+    pub const fn with_speed(mut self, speed: f32) -> Self {
+        self.speed = speed;
+        self
+    }
 }
 
 #[derive(Clone)]
@@ -146,7 +182,7 @@ where
         f.debug_struct("AudioToPlay")
             .field("sink_handle", &self.sink_handle)
             .field("source_handle", &self.source_handle)
-            // .field("repeat", &self.repeat)
+            .field("settings", &self.settings)
             .finish()
     }
 }
