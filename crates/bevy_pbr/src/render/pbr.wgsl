@@ -525,7 +525,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         } else {
             Nt = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0;
         }
-        N = TBN * Nt;
+        N = normalize(TBN * Nt);
 #endif
 #endif
 
