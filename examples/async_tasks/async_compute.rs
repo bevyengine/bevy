@@ -41,6 +41,9 @@ fn add_assets(
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
 
+#[derive(Component)]
+struct ComputeTransform(Task<Transform>);
+
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, `handle_tasks`, will poll the spawned tasks on subsequent
@@ -64,7 +67,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
                 });
 
                 // Spawn new entity and add our new task as a component
-                commands.spawn().insert(task);
+                commands.spawn().insert(ComputeTransform(task));
             }
         }
     }
@@ -76,12 +79,12 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
 /// removes the task component from the entity.
 fn handle_tasks(
     mut commands: Commands,
-    mut transform_tasks: Query<(Entity, &mut Task<Transform>)>,
+    mut transform_tasks: Query<(Entity, &mut ComputeTransform)>,
     box_mesh_handle: Res<BoxMeshHandle>,
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
     for (entity, mut task) in transform_tasks.iter_mut() {
-        if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
+        if let Some(transform) = future::block_on(future::poll_once(&mut task.0)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
                 mesh: box_mesh_handle.0.clone(),
@@ -91,7 +94,7 @@ fn handle_tasks(
             });
 
             // Task is complete, so remove task component from entity
-            commands.entity(entity).remove::<Task<Transform>>();
+            commands.entity(entity).remove::<ComputeTransform>();
         }
     }
 }
