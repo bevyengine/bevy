@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 
 /// This example illustrates how to create parent->child relationships between entities how parent
-/// transforms are propagated to their descendants
+/// transforms are propagated to their descendants.
+/// Any entity with a Transform _and_ a GlobalTransform can be a parent.
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
@@ -11,18 +12,20 @@ fn main() {
         .run();
 }
 
-/// this component indicates what entities should rotate
+/// This component indicates what entities should rotate.
 #[derive(Component)]
 struct Rotator;
 
-/// rotates the parent, which will result in the child also rotating
+/// Rotates the parent, which will result in the child also rotating.
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotator>>) {
     for mut transform in query.iter_mut() {
         transform.rotation *= Quat::from_rotation_x(3.0 * time.delta_seconds());
     }
 }
 
-/// set up a simple scene with a "parent" cube and a "child" cube
+/// Set up a simple scene with two hierarchies:
+/// - a "parent" cube and a "child" cube
+/// - a "parent" empty (= invisible entity, just a transform) and a "child" capsule
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -34,12 +37,18 @@ fn setup(
         ..default()
     });
 
+    let capsule_handle = meshes.add(Mesh::from(shape::Capsule::default()));
+    let capsule_material_handle = materials.add(StandardMaterial {
+        base_color: Color::rgb(0.7, 0.8, 0.6),
+        ..default()
+    });
+
     // parent cube
     commands
         .spawn_bundle(PbrBundle {
             mesh: cube_handle.clone(),
             material: cube_material_handle.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 1.0),
+            transform: Transform::from_xyz(-2.0, 0.0, 1.0),
             ..default()
         })
         .insert(Rotator)
@@ -48,6 +57,22 @@ fn setup(
             parent.spawn_bundle(PbrBundle {
                 mesh: cube_handle,
                 material: cube_material_handle,
+                transform: Transform::from_xyz(0.0, 0.0, 3.0),
+                ..default()
+            });
+        });
+    // parent "empty"
+    commands
+        .spawn_bundle((
+            Transform::from_xyz(2.0, 0.0, 1.0),
+            GlobalTransform::default(),
+        ))
+        .insert(Rotator)
+        .with_children(|parent| {
+            // child capsule
+            parent.spawn_bundle(PbrBundle {
+                mesh: capsule_handle,
+                material: capsule_material_handle,
                 transform: Transform::from_xyz(0.0, 0.0, 3.0),
                 ..default()
             });
