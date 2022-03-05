@@ -135,8 +135,12 @@ impl World {
     }
 
     /// Retrieves this world's [Entities] collection mutably
+    ///
+    /// # Safety
+    /// Mutable reference must not be used to put the [`Entities`] data
+    /// in an invalid state for this [`World`]
     #[inline]
-    pub fn entities_mut(&mut self) -> &mut Entities {
+    pub unsafe fn entities_mut(&mut self) -> &mut Entities {
         &mut self.entities
     }
 
