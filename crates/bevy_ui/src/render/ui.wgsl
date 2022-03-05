@@ -53,8 +53,12 @@ fn vertex(
     out.border_width = node.border_width;
     out.border_color = unpack_color_from_u32(node.border_color);
     
+    // get radius for this specific corner
     var corner_index = select(0, 1, out.position.y > 0.0) + select(0, 2, out.position.x > 0.0);
     out.radius = node.corner_radius[corner_index];
+
+    // clamp radius between (0.0) and (shortest side / 2.0)
+    out.radius = clamp(out.radius, 0.0, min(out.size.x, out.size.y) / 2.0);
 
     return out;
 }
@@ -74,18 +78,13 @@ fn fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
     color = in.color * color;
 
-    // this makes rounded borders look softer, but it's affecting colors so I'm excluding it for now
-    var edge_softness = 0.0; //clamp(in.border_width - 1.0, 0.0, 2.0);
-    var border_softness = 0.0; //clamp(in.border_width - 1.0, 0.0, 1.0);
+    if (in.radius > 0.0 || in.border_width > 0.0) {
+        var distance = distance_round_border(in.point, in.size * 0.5, in.radius);
 
-    // clamp radius between (0.0) and (shortest side / 2.0)
-    var radius = clamp(in.radius, 0.0, min(in.size.x, in.size.y) / 2.0);
-    
-    var distance = distance_round_border(in.point, in.size * 0.5, radius);
-
-    var inner_alpha = 1.0 - smoothStep(0.0, edge_softness, distance + edge_softness);
-    var border_alpha = 1.0 - smoothStep(in.border_width - border_softness, in.border_width, abs(distance));
-    color = mix(vec4<f32>(0.0), mix(color, in.border_color, border_alpha), inner_alpha);
+        var inner_alpha = 1.0 - smoothStep(0.0, 0.0, distance);
+        var border_alpha = 1.0 - smoothStep(in.border_width, in.border_width, abs(distance));
+        color = mix(vec4<f32>(0.0), mix(color, in.border_color, border_alpha), inner_alpha);
+    }
 
     return color;
 }
