@@ -55,7 +55,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///     App::new()
 ///         .insert_resource(LogSettings {
 ///             level: Level::DEBUG,
-///             filter: "wgpu=error,bevy_render=info".to_string(),
+///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
 ///         })
 ///         .add_plugins(DefaultPlugins)
 ///         .run();
@@ -63,7 +63,9 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// ```
 ///
 /// Log level can also be changed using the `RUST_LOG` environment variable.
-/// It has the same syntax has the field [`LogSettings::filter`], see [`EnvFilter`].
+/// For example, using `RUST_LOG=wgpu=error,bevy_render=info,bevy_ecs=trace cargo run ..`
+///
+/// It has the same syntax as the field [`LogSettings::filter`], see [`EnvFilter`].
 /// If you define the `RUST_LOG` environment variable, the [`LogSettings`] resource
 /// will be ignored.
 ///

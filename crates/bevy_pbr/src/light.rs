@@ -683,7 +683,7 @@ fn cluster_space_light_aabb(
 }
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
-// can be used to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows, and
+// can be used to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows and
 // we keep a stable set of lights visible
 pub(crate) fn point_light_order(
     (entity_1, shadows_enabled_1): (&Entity, &bool),
@@ -718,7 +718,7 @@ pub(crate) fn assign_lights_to_clusters(
         &ClusterConfig,
         &mut Clusters,
     )>,
-    lights_query: Query<(Entity, &GlobalTransform, &PointLight)>,
+    lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut max_point_lights_warning_emitted: Local<bool>,
 ) {
@@ -726,12 +726,15 @@ pub(crate) fn assign_lights_to_clusters(
     lights.extend(
         lights_query
             .iter()
-            .map(|(entity, transform, light)| PointLightAssignmentData {
-                entity,
-                translation: transform.translation,
-                shadows_enabled: light.shadows_enabled,
-                range: light.range,
-            }),
+            .filter(|(.., visibility)| visibility.is_visible)
+            .map(
+                |(entity, transform, light, _visibility)| PointLightAssignmentData {
+                    entity,
+                    translation: transform.translation,
+                    shadows_enabled: light.shadows_enabled,
+                    range: light.range,
+                },
+            ),
     );
 
     if lights.len() > MAX_POINT_LIGHTS {
@@ -984,13 +987,18 @@ pub(crate) fn assign_lights_to_clusters(
 }
 
 pub fn update_directional_light_frusta(
-    mut views: Query<(&GlobalTransform, &DirectionalLight, &mut Frustum)>,
+    mut views: Query<(
+        &GlobalTransform,
+        &DirectionalLight,
+        &mut Frustum,
+        &Visibility,
+    )>,
 ) {
-    for (transform, directional_light, mut frustum) in views.iter_mut() {
+    for (transform, directional_light, mut frustum, visibility) in views.iter_mut() {
         // The frustum is used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frustum is
         // not needed.
-        if !directional_light.shadows_enabled {
+        if !directional_light.shadows_enabled || !visibility.is_visible {
             continue;
         }
 
@@ -1066,6 +1074,7 @@ pub fn check_light_mesh_visibility(
         &Frustum,
         &mut VisibleEntities,
         Option<&RenderLayers>,
+        &Visibility,
     )>,
     mut visible_entity_query: Query<
         (
@@ -1080,13 +1089,13 @@ pub fn check_light_mesh_visibility(
     >,
 ) {
     // Directonal lights
-    for (directional_light, frustum, mut visible_entities, maybe_view_mask) in
+    for (directional_light, frustum, mut visible_entities, maybe_view_mask, visibility) in
         directional_lights.iter_mut()
     {
         visible_entities.entities.clear();
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled {
+        if !directional_light.shadows_enabled || !visibility.is_visible {
             continue;
         }
 
