@@ -364,7 +364,7 @@ async fn load_texture<'a>(
     load_context: &LoadContext<'a>,
     supported_compressed_formats: CompressedImageFormats,
 ) -> Result<(Image, String), GltfError> {
-    let is_srgb = !(linear_textures).contains(&gltf_texture.index());
+    let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let mut texture = match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset() as usize;
