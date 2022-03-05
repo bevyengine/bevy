@@ -28,6 +28,10 @@ fn setup(
     });
     for x in 0..WIDTH {
         for y in 0..HEIGHT {
+            // introduce spaces to break any kind of moiré pattern
+            if x % 10 == 0 || y % 10 == 0 {
+                continue;
+            }
             // cube
             commands.spawn_bundle(PbrBundle {
                 mesh: mesh.clone_weak(),
