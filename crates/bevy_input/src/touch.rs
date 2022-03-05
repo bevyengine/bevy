@@ -274,7 +274,7 @@ impl Touches {
         self.just_cancelled.values()
     }
 
-    /// Retrieves the position of the first currently pressed touch
+    /// Retrieves the position of the first currently pressed touch, if any
     pub fn first_pressed_position(&self) -> Option<Vec2> {
         self.pressed.values().next().map(|t| t.position)
     }
