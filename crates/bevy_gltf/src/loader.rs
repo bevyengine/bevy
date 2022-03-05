@@ -6,7 +6,7 @@ use bevy_core::Name;
 use bevy_ecs::{prelude::FromWorld, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
-use bevy_math::{Mat4, Quat, Vec3, Vec4};
+use bevy_math::{Mat4, Quat, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     StandardMaterial,

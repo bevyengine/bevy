@@ -1,5 +1,5 @@
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Quat, Vec3, Vec4};
+use bevy_math::{Quat, Vec3};
 use bevy_utils::HashMap;
 
 mod loader;
