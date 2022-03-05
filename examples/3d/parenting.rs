@@ -32,14 +32,9 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 2.0 }));
-    let cube_material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.8, 0.7, 0.6),
-        ..default()
-    });
-
     let capsule_handle = meshes.add(Mesh::from(shape::Capsule::default()));
-    let capsule_material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.7, 0.8, 0.6),
+    let material_handle = materials.add(StandardMaterial {
+        base_color: Color::BISQUE,
         ..default()
     });
 
@@ -47,7 +42,7 @@ fn setup(
     commands
         .spawn_bundle(PbrBundle {
             mesh: cube_handle.clone(),
-            material: cube_material_handle.clone(),
+            material: material_handle.clone(),
             transform: Transform::from_xyz(-2.0, 0.0, 1.0),
             ..default()
         })
@@ -56,7 +51,7 @@ fn setup(
             // child cube
             parent.spawn_bundle(PbrBundle {
                 mesh: cube_handle,
-                material: cube_material_handle,
+                material: material_handle.clone(),
                 transform: Transform::from_xyz(0.0, 0.0, 3.0),
                 ..default()
             });
@@ -72,7 +67,7 @@ fn setup(
             // child capsule
             parent.spawn_bundle(PbrBundle {
                 mesh: capsule_handle,
-                material: capsule_material_handle,
+                material: material_handle,
                 transform: Transform::from_xyz(0.0, 0.0, 3.0),
                 ..default()
             });
