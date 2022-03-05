@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 /// This example illustrates how to create parent->child relationships between entities how parent
 /// transforms are propagated to their descendants.
-/// Any entity with a Transform _and_ a GlobalTransform can be a parent.
+/// Any entity with a `Transform` _and_ a `GlobalTransform` can be a parent.
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
