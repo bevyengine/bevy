@@ -189,6 +189,8 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
 
     #[allow(unused_variables)]
     #[inline]
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// for meshes with equal depth, to avoid z-fighting.
     fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
         0.0
     }
