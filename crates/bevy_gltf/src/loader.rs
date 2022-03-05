@@ -801,6 +801,9 @@ fn load_node(
                         value: extras.get().to_string(),
                     });
                 }
+                if let Some(name) = mesh.name() {
+                    mesh_entity.insert(Name::new(name.to_string()));
+                }
                 // Mark for adding skinned mesh
                 if let Some(skin) = gltf_node.skin() {
                     entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
