@@ -12,6 +12,37 @@ pub trait Typed: Reflect {
     fn type_info() -> TypeInfo;
 }
 
+#[derive(Clone, Debug)]
+/// Type information used to identify a given type, including the type name and its [`TypeId`].
+pub struct TypeIdentity(&'static str, TypeId);
+
+impl TypeIdentity {
+    /// Creates a new [`TypeIdentity`] with the given type name and [`TypeId`]
+    pub const fn new(name: &'static str, type_id: TypeId) -> Self {
+        Self(name, type_id)
+    }
+
+    /// Creates a new [`TypeIdentity`] for the given type, [`T`]
+    pub fn of<T: Any + ?Sized>() -> Self {
+        Self(std::any::type_name::<T>(), TypeId::of::<T>())
+    }
+
+    /// The name of this type
+    pub fn type_name(&self) -> &str {
+        self.0
+    }
+
+    /// The [`TypeId`] of this type
+    pub fn type_id(&self) -> TypeId {
+        self.1
+    }
+
+    /// Check if the given type matches this type
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.1
+    }
+}
+
 /// Compile-time type information for various reflected types
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
