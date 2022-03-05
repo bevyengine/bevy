@@ -437,7 +437,10 @@ mod tests {
         assert_eq!(std::any::TypeId::of::<i32>(), info.type_id());
 
         // TypeInfo (unsized)
-        assert_eq!(std::any::TypeId::of::<dyn Reflect>(), <dyn Reflect>::type_info().type_id());
+        assert_eq!(
+            std::any::TypeId::of::<dyn Reflect>(),
+            <dyn Reflect>::type_info().type_id()
+        );
 
         // Struct
         #[derive(Reflect)]
