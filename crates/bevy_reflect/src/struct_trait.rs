@@ -71,7 +71,7 @@ pub trait Struct: Reflect {
 pub struct StructInfo {
     type_name: &'static str,
     type_id: TypeId,
-    fields: Vec<NamedField>,
+    fields: Box<[NamedField]>,
     field_indices: HashMap<Cow<'static, str>, usize>,
 }
 
@@ -95,7 +95,7 @@ impl StructInfo {
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
-            fields: fields.to_vec(),
+            fields: fields.to_vec().into_boxed_slice(),
             field_indices,
         }
     }

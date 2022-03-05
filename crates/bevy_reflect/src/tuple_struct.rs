@@ -51,7 +51,7 @@ pub trait TupleStruct: Reflect {
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
     type_name: &'static str,
-    fields: Vec<UnnamedField>,
+    fields: Box<[UnnamedField]>,
     type_id: TypeId,
 }
 
@@ -65,7 +65,7 @@ impl TupleStructInfo {
     pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
         Self {
             type_name: std::any::type_name::<T>(),
-            fields: fields.to_vec(),
+            fields: fields.to_vec().into_boxed_slice(),
             type_id: TypeId::of::<T>(),
         }
     }
