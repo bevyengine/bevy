@@ -50,7 +50,7 @@ pub use erased_serde;
 pub mod __macro_exports {
     use crate::Uuid;
 
-    #[allow(clippy::unusual-byte-groupings)] // unusual byte grouping is meant to signal the relevant bits
+    #[allow(clippy::unusual_byte_groupings)] // unusual byte grouping is meant to signal the relevant bits
     pub const fn generate_composite_uuid(a: Uuid, b: Uuid) -> Uuid {
         let mut new = [0; 16];
         let mut i = 0;
