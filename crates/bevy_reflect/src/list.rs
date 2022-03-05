@@ -1,7 +1,9 @@
 use std::any::{Any, TypeId};
 use std::borrow::{Borrow, Cow};
 
-use crate::{serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
+use crate::{
+    serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
+};
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
 pub trait List: Reflect {

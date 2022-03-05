@@ -2,7 +2,10 @@ use std::any::{Any, TypeId};
 use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
 
-use crate::{serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeInfo, UnnamedField, Typed};
+use crate::{
+    serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeInfo,
+    Typed, UnnamedField,
+};
 
 /// A reflected Rust tuple.
 ///

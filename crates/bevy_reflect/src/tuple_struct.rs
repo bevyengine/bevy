@@ -1,4 +1,7 @@
-use crate::{serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, UnnamedField, Typed};
+use crate::{
+    serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
+    UnnamedField,
+};
 use std::any::{Any, TypeId};
 use std::borrow::{Borrow, Cow};
 use std::slice::Iter;

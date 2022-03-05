@@ -1,5 +1,9 @@
 use crate as bevy_reflect;
-use crate::{map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, ValueInfo, Typed};
+use crate::{
+    map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType, GetTypeRegistration,
+    List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut,
+    ReflectRef, TypeInfo, TypeRegistration, Typed, ValueInfo,
+};
 
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, HashMap, HashSet};

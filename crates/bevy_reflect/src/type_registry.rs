@@ -1,4 +1,4 @@
-use crate::{Reflect, Typed, TypeInfo};
+use crate::{Reflect, TypeInfo, Typed};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
