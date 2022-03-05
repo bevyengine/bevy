@@ -59,29 +59,42 @@ pub enum TypeInfo {
 }
 
 impl TypeInfo {
-    /// The name of the reflected type
-    pub fn type_name(&self) -> &str {
+    /// The [`TypeIdentity`] of the reflected type
+    pub fn id(&self) -> &TypeIdentity {
         match self {
-            Self::Struct(info) => info.type_name(),
-            Self::TupleStruct(info) => info.type_name(),
-            Self::Tuple(info) => info.type_name(),
-            Self::List(info) => info.type_name(),
-            Self::Map(info) => info.type_name(),
-            Self::Value(info) => info.type_name(),
-            Self::Dynamic(info) => info.type_name(),
+            Self::Struct(info) => info.id(),
+            Self::TupleStruct(info) => info.id(),
+            Self::Tuple(info) => info.id(),
+            Self::List(info) => info.id(),
+            Self::Map(info) => info.id(),
+            Self::Value(info) => info.id(),
+            Self::Dynamic(info) => info.id(),
         }
     }
 
-    /// The `TypeId` of the reflected type
+    /// The name of the reflected type
+    pub fn type_name(&self) -> &str {
+        match self {
+            Self::Struct(info) => info.id().type_name(),
+            Self::TupleStruct(info) => info.id().type_name(),
+            Self::Tuple(info) => info.id().type_name(),
+            Self::List(info) => info.id().type_name(),
+            Self::Map(info) => info.id().type_name(),
+            Self::Value(info) => info.id().type_name(),
+            Self::Dynamic(info) => info.id().type_name(),
+        }
+    }
+
+    /// The [`TypeId`] of the reflected type
     pub fn type_id(&self) -> TypeId {
         match self {
-            Self::Struct(info) => info.type_id(),
-            Self::TupleStruct(info) => info.type_id(),
-            Self::Tuple(info) => info.type_id(),
-            Self::List(info) => info.type_id(),
-            Self::Map(info) => info.type_id(),
-            Self::Value(info) => info.type_id(),
-            Self::Dynamic(info) => info.type_id(),
+            Self::Struct(info) => info.id().type_id(),
+            Self::TupleStruct(info) => info.id().type_id(),
+            Self::Tuple(info) => info.id().type_id(),
+            Self::List(info) => info.id().type_id(),
+            Self::Map(info) => info.id().type_id(),
+            Self::Value(info) => info.id().type_id(),
+            Self::Dynamic(info) => info.id().type_id(),
         }
     }
 }
@@ -89,31 +102,19 @@ impl TypeInfo {
 /// A container for compile-time info related to general value types, including primitives
 #[derive(Debug, Clone)]
 pub struct ValueInfo {
-    type_name: &'static str,
-    type_id: TypeId,
+    id: TypeIdentity,
 }
 
 impl ValueInfo {
     pub fn new<T: Reflect + ?Sized>() -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            id: TypeIdentity::of::<T>(),
         }
     }
 
-    /// The type name of this value
-    pub fn type_name(&self) -> &str {
-        self.type_name
-    }
-
-    /// The [`TypeId`] of this value
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches this value's type
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+    /// The [`TypeIdentity`] of this value
+    pub fn id(&self) -> &TypeIdentity {
+        &self.id
     }
 }
 
@@ -127,30 +128,18 @@ impl ValueInfo {
 /// [`DynamicList`]: crate::DynamicList
 #[derive(Debug, Clone)]
 pub struct DynamicInfo {
-    type_name: &'static str,
-    type_id: TypeId,
+    id: TypeIdentity,
 }
 
 impl DynamicInfo {
     pub fn new<T: Reflect>() -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            id: TypeIdentity::of::<T>(),
         }
     }
 
-    /// The type name of this value
-    pub fn type_name(&self) -> &str {
-        self.type_name
-    }
-
-    /// The [`TypeId`] of this value
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches this value's type
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+    /// The [`TypeIdentity`] of this dynamic value
+    pub fn id(&self) -> &TypeIdentity {
+        &self.id
     }
 }

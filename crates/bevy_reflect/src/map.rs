@@ -1,9 +1,12 @@
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::{serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
+use crate::{
+    serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo,
+    Typed,
+};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -47,70 +50,34 @@ pub trait Map: Reflect {
 /// A container for compile-time map info
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    type_name: &'static str,
-    key_type_name: &'static str,
-    value_type_name: &'static str,
-    type_id: TypeId,
-    key_type_id: TypeId,
-    value_type_id: TypeId,
+    id: TypeIdentity,
+    key_id: TypeIdentity,
+    value_id: TypeIdentity,
 }
 
 impl MapInfo {
     /// Create a new [`MapInfo`]
     pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
         Self {
-            type_name: std::any::type_name::<TMap>(),
-            key_type_name: std::any::type_name::<TKey>(),
-            value_type_name: std::any::type_name::<TValue>(),
-            type_id: TypeId::of::<TMap>(),
-            key_type_id: TypeId::of::<TKey>(),
-            value_type_id: TypeId::of::<TValue>(),
+            id: TypeIdentity::of::<TMap>(),
+            key_id: TypeIdentity::of::<TKey>(),
+            value_id: TypeIdentity::of::<TValue>(),
         }
     }
 
-    /// The type name of this map
-    pub fn type_name(&self) -> &str {
-        self.type_name
+    /// The [`TypeIdentity`] of this map
+    pub fn id(&self) -> &TypeIdentity {
+        &self.id
     }
 
-    /// The key type name of this map
-    pub fn key_type_name(&self) -> &str {
-        self.key_type_name
+    /// The [`TypeIdentity`] of this map's key type
+    pub fn key(&self) -> &TypeIdentity {
+        &self.key_id
     }
 
-    /// The value type name of this map
-    pub fn value_type_name(&self) -> &str {
-        self.value_type_name
-    }
-
-    /// The [`TypeId`] of this map
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// The key [`TypeId`] of this map
-    pub fn key_type_id(&self) -> TypeId {
-        self.key_type_id
-    }
-
-    /// The value [`TypeId`] of this map
-    pub fn value_type_id(&self) -> TypeId {
-        self.value_type_id
-    }
-
-    /// Check if the given type matches this map's type
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
-
-    /// Check if the given type matches this map's key type
-    pub fn key_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.key_type_id
-    }
-
-    /// Check if the given type matches this map's value type
-    pub fn value_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.value_type_id
+    /// The [`TypeIdentity`] of this map's value type
+    pub fn value(&self) -> &TypeIdentity {
+        &self.value_id
     }
 }
 

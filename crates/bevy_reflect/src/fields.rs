@@ -1,21 +1,18 @@
-use crate::Reflect;
-use std::any::{Any, TypeId};
+use crate::{Reflect, TypeIdentity};
 use std::borrow::{Borrow, Cow};
 
 /// The named field of a reflected struct
 #[derive(Clone, Debug)]
 pub struct NamedField {
     name: Cow<'static, str>,
-    type_name: &'static str,
-    type_id: TypeId,
+    id: TypeIdentity,
 }
 
 impl NamedField {
     pub fn new<T: Reflect>(name: &str) -> Self {
         Self {
             name: Cow::Owned(name.into()),
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            id: TypeIdentity::of::<T>(),
         }
     }
 
@@ -24,19 +21,9 @@ impl NamedField {
         self.name.borrow()
     }
 
-    /// The type name of the field
-    pub fn type_name(&self) -> &str {
-        self.type_name
-    }
-
-    /// The [`TypeId`] of the field
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches this field's type
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+    /// The [`TypeIdentity`] of the field
+    pub fn id(&self) -> &TypeIdentity {
+        &self.id
     }
 }
 
@@ -44,16 +31,14 @@ impl NamedField {
 #[derive(Clone, Debug)]
 pub struct UnnamedField {
     index: usize,
-    type_name: &'static str,
-    type_id: TypeId,
+    id: TypeIdentity,
 }
 
 impl UnnamedField {
     pub fn new<T: Reflect>(index: usize) -> Self {
         Self {
             index,
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            id: TypeIdentity::of::<T>(),
         }
     }
 
@@ -62,18 +47,8 @@ impl UnnamedField {
         self.index
     }
 
-    /// The type name of the field
-    pub fn type_name(&self) -> &str {
-        self.type_name
-    }
-
-    /// The [`TypeId`] of the field
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches this field's type
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
+    /// The [`TypeIdentity`] of the field
+    pub fn id(&self) -> &TypeIdentity {
+        &self.id
     }
 }
