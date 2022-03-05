@@ -22,7 +22,7 @@ fn setup(
     let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let material = materials.add(StandardMaterial {
         base_color: Color::PINK,
-        ..Default::default()
+        ..default()
     });
     for x in 0..WIDTH {
         for y in 0..HEIGHT {
@@ -31,7 +31,7 @@ fn setup(
                 mesh: mesh.clone(),
                 material: material.clone(),
                 transform: Transform::from_xyz((x as f32) * 2.0, (y as f32) * 2.0, 0.0),
-                ..Default::default()
+                ..default()
             });
         }
     }
@@ -39,6 +39,6 @@ fn setup(
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(80.0, 80.0, 300.0),
-        ..Default::default()
+        ..default()
     });
 }

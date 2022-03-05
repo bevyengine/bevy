@@ -242,12 +242,12 @@ impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M>
 
 impl<M: SpecializedMaterial2d> FromWorld for Material2dPipeline<M> {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let asset_server = world.resource::<AssetServer>();
+        let render_device = world.resource::<RenderDevice>();
         let material2d_layout = M::bind_group_layout(render_device);
 
         Material2dPipeline {
-            mesh2d_pipeline: world.get_resource::<Mesh2dPipeline>().unwrap().clone(),
+            mesh2d_pipeline: world.resource::<Mesh2dPipeline>().clone(),
             material2d_layout,
             vertex_shader: M::vertex_shader(asset_server),
             fragment_shader: M::fragment_shader(asset_server),

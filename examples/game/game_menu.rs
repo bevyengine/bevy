@@ -88,10 +88,10 @@ mod splash {
                     margin: Rect::all(Val::Auto),
                     // This will set the logo to be 200px wide, and auto adjust its height
                     size: Size::new(Val::Px(200.0), Val::Auto),
-                    ..Default::default()
+                    ..default()
                 },
                 image: UiImage(icon),
-                ..Default::default()
+                ..default()
             })
             .insert(OnSplashScreen);
         // Insert the timer as a resource
@@ -156,10 +156,10 @@ mod game {
                     // vertical (column), so the cross axis is horizontal. This will center the
                     // children
                     align_items: AlignItems::Center,
-                    ..Default::default()
+                    ..default()
                 },
                 color: Color::BLACK.into(),
-                ..Default::default()
+                ..default()
             })
             .insert(OnGameScreen)
             .with_children(|parent| {
@@ -167,7 +167,7 @@ mod game {
                 parent.spawn_bundle(TextBundle {
                     style: Style {
                         margin: Rect::all(Val::Px(50.0)),
-                        ..Default::default()
+                        ..default()
                     },
                     text: Text::with_section(
                         "Will be back to the menu shortly...",
@@ -178,12 +178,12 @@ mod game {
                         },
                         Default::default(),
                     ),
-                    ..Default::default()
+                    ..default()
                 });
                 parent.spawn_bundle(TextBundle {
                     style: Style {
                         margin: Rect::all(Val::Px(50.0)),
-                        ..Default::default()
+                        ..default()
                     },
                     text: Text {
                         sections: vec![
@@ -212,9 +212,9 @@ mod game {
                                 },
                             },
                         ],
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
+                    ..default()
                 });
             });
         // Spawn a 5 seconds timer to trigger going back to the menu
@@ -397,7 +397,7 @@ mod menu {
             margin: Rect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..Default::default()
+            ..default()
         };
         let button_icon_style = Style {
             size: Size::new(Val::Px(30.0), Val::Auto),
@@ -410,7 +410,7 @@ mod menu {
                 top: Val::Auto,
                 bottom: Val::Auto,
             },
-            ..Default::default()
+            ..default()
         };
         let button_text_style = TextStyle {
             font: font.clone(),
@@ -424,10 +424,10 @@ mod menu {
                     margin: Rect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
-                    ..Default::default()
+                    ..default()
                 },
                 color: Color::CRIMSON.into(),
-                ..Default::default()
+                ..default()
             })
             .insert(OnMainMenuScreen)
             .with_children(|parent| {
@@ -435,7 +435,7 @@ mod menu {
                 parent.spawn_bundle(TextBundle {
                     style: Style {
                         margin: Rect::all(Val::Px(50.0)),
-                        ..Default::default()
+                        ..default()
                     },
                     text: Text::with_section(
                         "Bevy Game Menu UI",
@@ -446,7 +446,7 @@ mod menu {
                         },
                         Default::default(),
                     ),
-                    ..Default::default()
+                    ..default()
                 });
 
                 // Display three buttons for each action available from the main menu:
@@ -457,7 +457,7 @@ mod menu {
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
                         color: NORMAL_BUTTON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .insert(MenuButtonAction::Play)
                     .with_children(|parent| {
@@ -465,7 +465,7 @@ mod menu {
                         parent.spawn_bundle(ImageBundle {
                             style: button_icon_style.clone(),
                             image: UiImage(icon),
-                            ..Default::default()
+                            ..default()
                         });
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section(
@@ -473,14 +473,14 @@ mod menu {
                                 button_text_style.clone(),
                                 Default::default(),
                             ),
-                            ..Default::default()
+                            ..default()
                         });
                     });
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
                         color: NORMAL_BUTTON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .insert(MenuButtonAction::Settings)
                     .with_children(|parent| {
@@ -488,7 +488,7 @@ mod menu {
                         parent.spawn_bundle(ImageBundle {
                             style: button_icon_style.clone(),
                             image: UiImage(icon),
-                            ..Default::default()
+                            ..default()
                         });
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section(
@@ -496,14 +496,14 @@ mod menu {
                                 button_text_style.clone(),
                                 Default::default(),
                             ),
-                            ..Default::default()
+                            ..default()
                         });
                     });
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
                         color: NORMAL_BUTTON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .insert(MenuButtonAction::Quit)
                     .with_children(|parent| {
@@ -511,11 +511,11 @@ mod menu {
                         parent.spawn_bundle(ImageBundle {
                             style: button_icon_style,
                             image: UiImage(icon),
-                            ..Default::default()
+                            ..default()
                         });
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section("Quit", button_text_style, Default::default()),
-                            ..Default::default()
+                            ..default()
                         });
                     });
             });
@@ -527,7 +527,7 @@ mod menu {
             margin: Rect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..Default::default()
+            ..default()
         };
         let button_text_style = TextStyle {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -541,10 +541,10 @@ mod menu {
                     margin: Rect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
-                    ..Default::default()
+                    ..default()
                 },
                 color: Color::CRIMSON.into(),
-                ..Default::default()
+                ..default()
             })
             .insert(OnSettingsMenuScreen)
             .with_children(|parent| {
@@ -553,7 +553,7 @@ mod menu {
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
                         color: NORMAL_BUTTON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .insert(MenuButtonAction::SettingsDisplay)
                     .with_children(|parent| {
@@ -563,14 +563,14 @@ mod menu {
                                 button_text_style.clone(),
                                 Default::default(),
                             ),
-                            ..Default::default()
+                            ..default()
                         });
                     });
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
                         color: NORMAL_BUTTON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .insert(MenuButtonAction::SettingsSound)
                     .with_children(|parent| {
@@ -580,7 +580,7 @@ mod menu {
                                 button_text_style.clone(),
                                 Default::default(),
                             ),
-                            ..Default::default()
+                            ..default()
                         });
                     });
                 // Display the back button to return to the main menu screen
@@ -588,13 +588,13 @@ mod menu {
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
                         color: NORMAL_BUTTON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .insert(MenuButtonAction::BackToMainMenu)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section("Back", button_text_style, Default::default()),
-                            ..Default::default()
+                            ..default()
                         });
                     });
             });
@@ -610,7 +610,7 @@ mod menu {
             margin: Rect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..Default::default()
+            ..default()
         };
         let button_text_style = TextStyle {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -624,10 +624,10 @@ mod menu {
                     margin: Rect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
-                    ..Default::default()
+                    ..default()
                 },
                 color: Color::CRIMSON.into(),
-                ..Default::default()
+                ..default()
             })
             .insert(OnDisplaySettingsMenuScreen)
             .with_children(|parent| {
@@ -637,10 +637,10 @@ mod menu {
                     .spawn_bundle(NodeBundle {
                         style: Style {
                             align_items: AlignItems::Center,
-                            ..Default::default()
+                            ..default()
                         },
                         color: Color::CRIMSON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .with_children(|parent| {
                         // Display a label for the current setting
@@ -650,7 +650,7 @@ mod menu {
                                 button_text_style.clone(),
                                 Default::default(),
                             ),
-                            ..Default::default()
+                            ..default()
                         });
                         // Display a button for each possible value
                         for quality_setting in [
@@ -664,7 +664,7 @@ mod menu {
                                     ..button_style.clone()
                                 },
                                 color: NORMAL_BUTTON.into(),
-                                ..Default::default()
+                                ..default()
                             });
                             entity.insert(quality_setting).with_children(|parent| {
                                 parent.spawn_bundle(TextBundle {
@@ -673,7 +673,7 @@ mod menu {
                                         button_text_style.clone(),
                                         Default::default(),
                                     ),
-                                    ..Default::default()
+                                    ..default()
                                 });
                             });
                             if *display_quality == quality_setting {
@@ -686,13 +686,13 @@ mod menu {
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
                         color: NORMAL_BUTTON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section("Back", button_text_style, Default::default()),
-                            ..Default::default()
+                            ..default()
                         });
                     });
             });
@@ -708,7 +708,7 @@ mod menu {
             margin: Rect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..Default::default()
+            ..default()
         };
         let button_text_style = TextStyle {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -722,10 +722,10 @@ mod menu {
                     margin: Rect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
-                    ..Default::default()
+                    ..default()
                 },
                 color: Color::CRIMSON.into(),
-                ..Default::default()
+                ..default()
             })
             .insert(OnSoundSettingsMenuScreen)
             .with_children(|parent| {
@@ -733,10 +733,10 @@ mod menu {
                     .spawn_bundle(NodeBundle {
                         style: Style {
                             align_items: AlignItems::Center,
-                            ..Default::default()
+                            ..default()
                         },
                         color: Color::CRIMSON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
@@ -745,7 +745,7 @@ mod menu {
                                 button_text_style.clone(),
                                 Default::default(),
                             ),
-                            ..Default::default()
+                            ..default()
                         });
                         for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                             let mut entity = parent.spawn_bundle(ButtonBundle {
@@ -754,7 +754,7 @@ mod menu {
                                     ..button_style.clone()
                                 },
                                 color: NORMAL_BUTTON.into(),
-                                ..Default::default()
+                                ..default()
                             });
                             entity.insert(Volume(volume_setting));
                             if *volume == Volume(volume_setting) {
@@ -766,13 +766,13 @@ mod menu {
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
                         color: NORMAL_BUTTON.into(),
-                        ..Default::default()
+                        ..default()
                     })
                     .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
                             text: Text::with_section("Back", button_text_style, Default::default()),
-                            ..Default::default()
+                            ..default()
                         });
                     });
             });
