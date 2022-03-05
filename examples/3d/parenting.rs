@@ -25,7 +25,7 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotator
 
 /// Set up a simple scene with two hierarchies:
 /// - a "parent" cube and a "child" cube
-/// - a "parent" empty (= invisible entity, just a transform) and a "child" capsule
+/// - an invisible "parent" (that has a transform, but not a mesh) and a "child" capsule
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -56,7 +56,7 @@ fn setup(
                 ..default()
             });
         });
-    // parent "empty"
+    // invisible parent
     commands
         .spawn_bundle(TransformBundle {
             local: Transform::from_xyz(2.0, 0.0, 1.0),
