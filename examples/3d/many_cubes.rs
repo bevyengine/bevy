@@ -32,29 +32,29 @@ fn setup(
             commands.spawn_bundle(PbrBundle {
                 mesh: mesh.clone_weak(),
                 material: material.clone_weak(),
-                transform: Transform::from_xyz((x as f32) * 2.0, (y as f32) * 2.0, 0.0),
+                transform: Transform::from_xyz((x as f32) * 2.5, (y as f32) * 2.5, 0.0),
                 ..default()
             });
             commands.spawn_bundle(PbrBundle {
                 mesh: mesh.clone_weak(),
                 material: material.clone_weak(),
                 transform: Transform::from_xyz(
-                    (x as f32) * 2.0,
-                    HEIGHT as f32 * 2.0,
-                    (y as f32) * 2.0,
+                    (x as f32) * 2.5,
+                    HEIGHT as f32 * 2.5,
+                    (y as f32) * 2.5,
                 ),
                 ..Default::default()
             });
             commands.spawn_bundle(PbrBundle {
                 mesh: mesh.clone_weak(),
                 material: material.clone_weak(),
-                transform: Transform::from_xyz((x as f32) * 2.0, 0.0, (y as f32) * 2.0),
+                transform: Transform::from_xyz((x as f32) * 2.5, 0.0, (y as f32) * 2.5),
                 ..Default::default()
             });
             commands.spawn_bundle(PbrBundle {
                 mesh: mesh.clone_weak(),
                 material: material.clone_weak(),
-                transform: Transform::from_xyz(0.0, (x as f32) * 2.0, (y as f32) * 2.0),
+                transform: Transform::from_xyz(0.0, (x as f32) * 2.5, (y as f32) * 2.5),
                 ..Default::default()
             });
         }
@@ -66,7 +66,7 @@ fn setup(
         mesh,
         material,
         transform: Transform {
-            translation: Vec3::new(0.0, HEIGHT as f32 * 2.0, 0.0),
+            translation: Vec3::new(0.0, HEIGHT as f32 * 2.5, 0.0),
             scale: Vec3::splat(5.0),
             ..Default::default()
         },
@@ -87,8 +87,8 @@ fn setup(
 // System for rotating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
-    camera_transform.rotate(Quat::from_rotation_x(time.delta_seconds() * 0.5));
+    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.2));
+    camera_transform.rotate(Quat::from_rotation_x(time.delta_seconds() * 0.2));
 }
 
 // System for printing the number of meshes on every tick of the timer
