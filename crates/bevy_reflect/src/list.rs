@@ -1,5 +1,4 @@
 use std::any::{Any, TypeId};
-use std::borrow::{Borrow, Cow};
 
 use crate::{
     serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
@@ -39,8 +38,8 @@ pub trait List: Reflect {
 /// A container for compile-time list info
 #[derive(Clone, Debug)]
 pub struct ListInfo {
-    type_name: Cow<'static, str>,
-    item_type_name: Cow<'static, str>,
+    type_name: &'static str,
+    item_type_name: &'static str,
     type_id: TypeId,
     item_type_id: TypeId,
     capacity: Option<usize>,
@@ -50,8 +49,8 @@ impl ListInfo {
     /// Create a new [`ListInfo`]
     pub fn new<TList: List, TItem: FromReflect>(capacity: Option<usize>) -> Self {
         Self {
-            type_name: Cow::Owned(std::any::type_name::<TList>().to_string()),
-            item_type_name: Cow::Owned(std::any::type_name::<TItem>().to_string()),
+            type_name: std::any::type_name::<TList>(),
+            item_type_name: std::any::type_name::<TItem>(),
             type_id: TypeId::of::<TList>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
@@ -60,31 +59,31 @@ impl ListInfo {
 
     /// The type name of this list
     pub fn type_name(&self) -> &str {
-        self.type_name.borrow()
+        self.type_name
     }
 
     /// The item type name of this list
     pub fn item_type_name(&self) -> &str {
-        self.item_type_name.borrow()
+        self.item_type_name
     }
 
-    /// The `TypeId` of this list
+    /// The [`TypeId`] of this list
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
-    /// The item `TypeId` of this list
+    /// The item [`TypeId`] of this list
     pub fn item_type_id(&self) -> TypeId {
         self.item_type_id
     }
 
     /// Check if the given type matches this list's type
-    pub fn is<T: Reflect>(&self) -> bool {
+    pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
 
     /// Check if the given type matches this list's item type
-    pub fn item_is<T: Reflect>(&self) -> bool {
+    pub fn item_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.item_type_id
     }
 

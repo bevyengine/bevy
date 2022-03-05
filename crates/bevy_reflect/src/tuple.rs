@@ -1,5 +1,4 @@
 use std::any::{Any, TypeId};
-use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
 
 use crate::{
@@ -128,7 +127,7 @@ impl GetTupleField for dyn Tuple {
 /// A container for compile-time tuple info
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
-    type_name: Cow<'static, str>,
+    type_name: &'static str,
     fields: Vec<UnnamedField>,
     type_id: TypeId,
 }
@@ -142,7 +141,7 @@ impl TupleInfo {
     ///
     pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_name: std::any::type_name::<T>(),
             fields: fields.to_vec(),
             type_id: TypeId::of::<T>(),
         }
@@ -150,16 +149,16 @@ impl TupleInfo {
 
     /// The type name of this tuple
     pub fn type_name(&self) -> &str {
-        self.type_name.borrow()
+        self.type_name
     }
 
-    /// The `TypeId` of this tuple
+    /// The [`TypeId`] of this tuple
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
     /// Check if the given type matches this tuple's type
-    pub fn is<T: Reflect>(&self) -> bool {
+    pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
 

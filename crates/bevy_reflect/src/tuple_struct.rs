@@ -3,7 +3,6 @@ use crate::{
     UnnamedField,
 };
 use std::any::{Any, TypeId};
-use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
 
 /// A reflected Rust tuple struct.
@@ -51,7 +50,7 @@ pub trait TupleStruct: Reflect {
 /// A container for compile-time tuple struct info
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
-    type_name: Cow<'static, str>,
+    type_name: &'static str,
     fields: Vec<UnnamedField>,
     type_id: TypeId,
 }
@@ -65,7 +64,7 @@ impl TupleStructInfo {
     ///
     pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_name: std::any::type_name::<T>(),
             fields: fields.to_vec(),
             type_id: TypeId::of::<T>(),
         }
@@ -73,16 +72,16 @@ impl TupleStructInfo {
 
     /// The type name of this struct
     pub fn type_name(&self) -> &str {
-        self.type_name.borrow()
+        self.type_name
     }
 
-    /// The `TypeId` of this struct
+    /// The [`TypeId`] of this struct
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
     /// Check if the given type matches this struct's type
-    pub fn is<T: Reflect>(&self) -> bool {
+    pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
 

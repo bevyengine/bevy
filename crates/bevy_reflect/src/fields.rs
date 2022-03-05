@@ -1,12 +1,12 @@
 use crate::Reflect;
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::borrow::{Borrow, Cow};
 
 /// The named field of a reflected struct
 #[derive(Clone, Debug)]
 pub struct NamedField {
     name: Cow<'static, str>,
-    type_name: Cow<'static, str>,
+    type_name: &'static str,
     type_id: TypeId,
 }
 
@@ -14,7 +14,7 @@ impl NamedField {
     pub fn new<T: Reflect>(name: &str) -> Self {
         Self {
             name: Cow::Owned(name.into()),
-            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
         }
     }
@@ -26,16 +26,16 @@ impl NamedField {
 
     /// The type name of the field
     pub fn type_name(&self) -> &str {
-        self.type_name.borrow()
+        self.type_name
     }
 
-    /// The `TypeId` of the field
+    /// The [`TypeId`] of the field
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
     /// Check if the given type matches this field's type
-    pub fn is<T: Reflect>(&self) -> bool {
+    pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
 }
@@ -44,7 +44,7 @@ impl NamedField {
 #[derive(Clone, Debug)]
 pub struct UnnamedField {
     index: usize,
-    type_name: Cow<'static, str>,
+    type_name: &'static str,
     type_id: TypeId,
 }
 
@@ -52,7 +52,7 @@ impl UnnamedField {
     pub fn new<T: Reflect>(index: usize) -> Self {
         Self {
             index,
-            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
         }
     }
@@ -64,16 +64,16 @@ impl UnnamedField {
 
     /// The type name of the field
     pub fn type_name(&self) -> &str {
-        self.type_name.borrow()
+        self.type_name
     }
 
-    /// The `TypeId` of the field
+    /// The [`TypeId`] of the field
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
     /// Check if the given type matches this field's type
-    pub fn is<T: Reflect>(&self) -> bool {
+    pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
 }

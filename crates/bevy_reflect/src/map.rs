@@ -1,5 +1,4 @@
 use std::any::{Any, TypeId};
-use std::borrow::{Borrow, Cow};
 use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
@@ -48,9 +47,9 @@ pub trait Map: Reflect {
 /// A container for compile-time map info
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    type_name: Cow<'static, str>,
-    key_type_name: Cow<'static, str>,
-    value_type_name: Cow<'static, str>,
+    type_name: &'static str,
+    key_type_name: &'static str,
+    value_type_name: &'static str,
     type_id: TypeId,
     key_type_id: TypeId,
     value_type_id: TypeId,
@@ -60,9 +59,9 @@ impl MapInfo {
     /// Create a new [`MapInfo`]
     pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
         Self {
-            type_name: Cow::Owned(std::any::type_name::<TMap>().to_string()),
-            key_type_name: Cow::Owned(std::any::type_name::<TKey>().to_string()),
-            value_type_name: Cow::Owned(std::any::type_name::<TValue>().to_string()),
+            type_name: std::any::type_name::<TMap>(),
+            key_type_name: std::any::type_name::<TKey>(),
+            value_type_name: std::any::type_name::<TValue>(),
             type_id: TypeId::of::<TMap>(),
             key_type_id: TypeId::of::<TKey>(),
             value_type_id: TypeId::of::<TValue>(),
@@ -71,46 +70,46 @@ impl MapInfo {
 
     /// The type name of this map
     pub fn type_name(&self) -> &str {
-        self.type_name.borrow()
+        self.type_name
     }
 
     /// The key type name of this map
     pub fn key_type_name(&self) -> &str {
-        self.key_type_name.borrow()
+        self.key_type_name
     }
 
     /// The value type name of this map
     pub fn value_type_name(&self) -> &str {
-        self.value_type_name.borrow()
+        self.value_type_name
     }
 
-    /// The `TypeId` of this map
+    /// The [`TypeId`] of this map
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
-    /// The key `TypeId` of this map
+    /// The key [`TypeId`] of this map
     pub fn key_type_id(&self) -> TypeId {
         self.key_type_id
     }
 
-    /// The value `TypeId` of this map
+    /// The value [`TypeId`] of this map
     pub fn value_type_id(&self) -> TypeId {
         self.value_type_id
     }
 
     /// Check if the given type matches this map's type
-    pub fn is<T: Reflect>(&self) -> bool {
+    pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
 
     /// Check if the given type matches this map's key type
-    pub fn key_is<T: Reflect>(&self) -> bool {
+    pub fn key_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.key_type_id
     }
 
     /// Check if the given type matches this map's value type
-    pub fn value_is<T: Reflect>(&self) -> bool {
+    pub fn value_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.value_type_id
     }
 }

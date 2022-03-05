@@ -2,10 +2,11 @@ use crate::{
     serde::Serializable, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
 };
 use bevy_utils::{Entry, HashMap};
-use std::any::TypeId;
-use std::borrow::Borrow;
-use std::slice::Iter;
-use std::{any::Any, borrow::Cow};
+use std::{
+    any::{Any, TypeId},
+    borrow::Cow,
+    slice::Iter,
+};
 
 /// A reflected Rust regular struct type.
 ///
@@ -68,7 +69,7 @@ pub trait Struct: Reflect {
 /// A container for compile-time struct info
 #[derive(Clone, Debug)]
 pub struct StructInfo {
-    type_name: Cow<'static, str>,
+    type_name: &'static str,
     type_id: TypeId,
     fields: Vec<NamedField>,
     field_indices: HashMap<Cow<'static, str>, usize>,
@@ -92,7 +93,7 @@ impl StructInfo {
             .collect::<HashMap<_, _>>();
 
         Self {
-            type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
+            type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec(),
             field_indices,
@@ -101,16 +102,16 @@ impl StructInfo {
 
     /// The type name of this struct
     pub fn type_name(&self) -> &str {
-        self.type_name.borrow()
+        self.type_name
     }
 
-    /// The `TypeId` of this struct
+    /// The [`TypeId`] of this struct
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
     /// Check if the given type matches this struct's type
-    pub fn is<T: Reflect>(&self) -> bool {
+    pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
 
