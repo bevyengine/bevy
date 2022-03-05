@@ -2,10 +2,7 @@ use std::any::{Any, TypeId};
 use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
 
-use crate::{
-    serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeInfo,
-    UnnamedField,
-};
+use crate::{serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeInfo, UnnamedField, Typed};
 
 /// A reflected Rust tuple.
 ///
@@ -316,11 +313,10 @@ unsafe impl Reflect for DynamicTuple {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+}
 
-    fn type_info() -> TypeInfo
-    where
-        Self: Sized,
-    {
+impl Typed for DynamicTuple {
+    fn type_info() -> TypeInfo {
         TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }
@@ -464,8 +460,10 @@ macro_rules! impl_reflect_tuple {
             fn serializable(&self) -> Option<Serializable> {
                 None
             }
+        }
 
-            fn type_info() -> TypeInfo where Self: Sized {
+        impl <$($name: Typed),*> Typed for ($($name,)*) {
+            fn type_info() -> TypeInfo {
                 let fields = [
                     $(UnnamedField::new::<$name>($index),)*
                 ];

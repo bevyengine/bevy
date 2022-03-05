@@ -321,8 +321,10 @@ fn impl_struct(
             fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+        }
 
-            fn type_info() -> #bevy_reflect_path::TypeInfo where Self: Sized {
+        impl #impl_generics #bevy_reflect_path::Typed for #struct_name #ty_generics #where_clause {
+            fn type_info() -> #bevy_reflect_path::TypeInfo {
                 let fields: [#bevy_reflect_path::NamedField; #field_count] = [
                     #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names),)*
                 ];
@@ -362,11 +364,11 @@ fn impl_tuple_struct(
         TraitImpl::Implemented | TraitImpl::Custom(_) => reflect_attrs.get_partial_eq_impl(),
     };
 
-    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
         #get_type_registration_impl
 
-        impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_name #ty_generics {
+        impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_name #ty_generics #where_clause {
             fn field(&self, index: usize) -> Option<&dyn #bevy_reflect_path::Reflect> {
                 match index {
                     #(#field_indices => Some(&self.#field_idents),)*
@@ -398,7 +400,7 @@ fn impl_tuple_struct(
         }
 
         // SAFE: any and any_mut both return self
-        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics {
+        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_clause {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
@@ -454,8 +456,10 @@ fn impl_tuple_struct(
             fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+        }
 
-            fn type_info() -> #bevy_reflect_path::TypeInfo where Self: Sized {
+        impl #impl_generics #bevy_reflect_path::Typed for #struct_name #ty_generics #where_clause {
+            fn type_info() -> #bevy_reflect_path::TypeInfo {
                 let fields: [#bevy_reflect_path::UnnamedField; #field_count] = [
                     #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_indices),)*
                 ];
@@ -538,8 +542,10 @@ fn impl_value(
             fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
                 #serialize_fn
             }
+        }
 
-            fn type_info() -> #bevy_reflect_path::TypeInfo where Self: Sized {
+        impl #impl_generics #bevy_reflect_path::Typed for #type_name #ty_generics #where_clause {
+            fn type_info() -> #bevy_reflect_path::TypeInfo {
                 let info = #bevy_reflect_path::ValueInfo::new::<Self>();
                 #bevy_reflect_path::TypeInfo::Value(info)
             }

@@ -1,10 +1,7 @@
 use smallvec::{Array, SmallVec};
 use std::any::Any;
 
-use crate::{
-    serde::Serializable, FromReflect, List, ListInfo, ListIter, Reflect, ReflectMut, ReflectRef,
-    TypeInfo,
-};
+use crate::{serde::Serializable, FromReflect, List, ListInfo, ListIter, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 
 impl<T: Array + Send + Sync + 'static> List for SmallVec<T>
 where
@@ -99,11 +96,12 @@ where
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+}
 
-    fn type_info() -> TypeInfo
+impl<T: Array + Send + Sync + 'static> Typed for SmallVec<T>
     where
-        Self: Sized,
-    {
+        T::Item: FromReflect + Clone, {
+    fn type_info() -> TypeInfo {
         TypeInfo::List(ListInfo::new::<Self, T::Item>(Some(T::size())))
     }
 }

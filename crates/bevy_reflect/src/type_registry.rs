@@ -1,4 +1,4 @@
-use crate::{Reflect, TypeInfo};
+use crate::{Reflect, Typed, TypeInfo};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -158,7 +158,7 @@ impl TypeRegistryArc {
 
 /// A record of data about a type.
 ///
-/// This contains the [`TypeId`], [name], and [short name] of the type.
+/// This contains the [`TypeId`], [name], [short name], and [`TypeInfo`] of the type.
 ///
 /// For each trait specified by the [`#[reflect(_)]`][0] attribute of
 /// [`#[derive(Reflect)]`][1] on the registered type, this record also contains
@@ -168,6 +168,7 @@ impl TypeRegistryArc {
 /// [`TypeId`]: std::any::TypeId
 /// [name]: std::any::type_name
 /// [short name]: TypeRegistration::get_short_name
+/// [`TypeInfo`]: crate::TypeInfo
 /// [0]: crate::Reflect
 /// [1]: crate::Reflect
 pub struct TypeRegistration {
@@ -220,7 +221,7 @@ impl TypeRegistration {
     }
 
     /// Creates type registration information for `T`.
-    pub fn of<T: Reflect>() -> Self {
+    pub fn of<T: Reflect + Typed>() -> Self {
         let ty = TypeId::of::<T>();
         let type_name = std::any::type_name::<T>();
         Self {

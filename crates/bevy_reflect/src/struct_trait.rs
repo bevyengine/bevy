@@ -1,5 +1,5 @@
 use crate::{
-    serde::Serializable, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo,
+    serde::Serializable, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
 };
 use bevy_utils::{Entry, HashMap};
 use std::any::TypeId;
@@ -395,11 +395,10 @@ unsafe impl Reflect for DynamicStruct {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+}
 
-    fn type_info() -> TypeInfo
-    where
-        Self: Sized,
-    {
+impl Typed for DynamicStruct {
+    fn type_info() -> TypeInfo {
         TypeInfo::Dynamic(DynamicInfo::new::<Self>())
     }
 }

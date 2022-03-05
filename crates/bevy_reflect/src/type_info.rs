@@ -2,6 +2,17 @@ use crate::{ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo};
 use std::any::TypeId;
 use std::borrow::{Borrow, Cow};
 
+/// A static accessor to compile-time type information
+///
+/// This is used by the `#[derive(Reflect)]` macro to generate an implementation
+/// of [`TypeInfo`] to pass to register via [`TypeRegistration::of`][0].
+///
+/// [0]: crate::TypeRegistration::of
+pub trait Typed: Reflect {
+    /// Returns the compile-time info for the underlying type
+    fn type_info() -> TypeInfo;
+}
+
 /// Compile-time type information for various reflected types
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
