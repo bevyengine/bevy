@@ -251,6 +251,9 @@ pub enum ClusterConfig {
     XYZ {
         dimensions: UVec3,
         z_config: ClusterZConfig,
+        /// Specify if clusters should automatically resize in x/y if there is a risk of exceeding
+        /// the available cluster-light index limit
+        dynamic_resizing: bool,
     },
     /// Fixed number of z slices, x and y calculated to give square clusters
     /// with at most total clusters. For top-down games where lights will generally always be within a
@@ -261,6 +264,9 @@ pub enum ClusterConfig {
         total: u32,
         z_slices: u32,
         z_config: ClusterZConfig,
+        /// Specify if clusters should automatically resize in x/y if there is a risk of exceeding
+        /// the available cluster-light index limit
+        dynamic_resizing: bool,
     },
 }
 
@@ -272,6 +278,7 @@ impl Default for ClusterConfig {
             total: 4096,
             z_slices: 24,
             z_config: ClusterZConfig::default(),
+            dynamic_resizing: true,
         }
     }
 }
@@ -312,6 +319,18 @@ impl ClusterConfig {
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.far_z_mode
             }
+        }
+    }
+
+    fn dynamic_resizing(&self) -> bool {
+        match self {
+            ClusterConfig::None | ClusterConfig::Single => false,
+            ClusterConfig::XYZ {
+                dynamic_resizing, ..
+            }
+            | ClusterConfig::FixedZ {
+                dynamic_resizing, ..
+            } => *dynamic_resizing,
         }
     }
 }
@@ -590,11 +609,11 @@ fn ndc_position_to_cluster(
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
 }
 
-// Calculate an AABB for the light in view space, returns a (Vec3, Vec3) containing min and max with
-// - x and y in view space with range [-1, 1]
-// - z in world space with view orientation, with range [-inf, -0.0001] for perspective, and [1.0000, inf] for orthographic
+// Calculate bounds for the light using a view space aabb.
+// Returns a (Vec3, Vec3) containing min and max with
+//     x and y in normalized device coordinates with range [-1, 1]
+//     z in view space, with range [-inf, -f32::MIN_POSITIVE]
 fn cluster_space_light_aabb(
-    is_orthographic: bool,
     inverse_view_transform: Mat4,
     projection_matrix: Mat4,
     light_sphere: &Sphere,
@@ -606,15 +625,15 @@ fn cluster_space_light_aabb(
     let (mut light_aabb_view_min, mut light_aabb_view_max) =
         (light_aabb_view.min(), light_aabb_view.max());
 
-    if is_orthographic {
-        // constraint z to be positive - i.e. in front of the camera
-        light_aabb_view_min.z = light_aabb_view_min.z.max(1.0);
-        light_aabb_view_max.z = light_aabb_view_max.z.max(1.0);
-    } else {
-        // constraint z to be negative - i.e. in front of the camera
-        light_aabb_view_min.z = light_aabb_view_min.z.min(-0.0001);
-        light_aabb_view_max.z = light_aabb_view_max.z.min(-0.0001);
-    }
+    // Constrain view z to be negative - i.e. in front of the camera
+    // When view z is >= 0.0 and we're using a perspective projection, bad things happen.
+    // At view z == 0.0, ndc x,y are mathematically undefined. At view z > 0.0, i.e. behind the camera,
+    // the perspective projection flips the directions of the axes. This breaks assumptions about
+    // use of min/max operations as something that was to the left in view space is now returning a
+    // coordinate that for view z in front of the camera would be on the right, but at view z behind the
+    // camera is on the left. So, we just constrain view z to be < 0.0 and necessarily in front of the camera.
+    light_aabb_view_min.z = light_aabb_view_min.z.min(-f32::MIN_POSITIVE);
+    light_aabb_view_max.z = light_aabb_view_max.z.min(-f32::MIN_POSITIVE);
 
     // Is there a cheaper way to do this? The problem is that because of perspective
     // the point at max z but min xy may be less xy in screenspace, and similar. As
@@ -803,19 +822,23 @@ pub(crate) fn assign_lights_to_clusters(
 
         let far_z = match config.far_z_mode() {
             ClusterFarZMode::CameraFarPlane => camera.far,
-            ClusterFarZMode::MaxLightRange => lights
-                .iter()
-                .map(|light| {
-                    (inverse_view_transform * light.translation.extend(1.0)).z * -1.0 + light.range
-                })
-                .reduce(f32::max)
-                .unwrap_or(0.0),
+            ClusterFarZMode::MaxLightRange => {
+                let inverse_view_row_2 = inverse_view_transform.row(2);
+                lights
+                    .iter()
+                    .map(|light| {
+                        -inverse_view_row_2.dot(light.translation.extend(1.0)) + light.range
+                    })
+                    .reduce(f32::max)
+                    .unwrap_or(0.0)
+            }
             ClusterFarZMode::Constant(far) => far,
         };
         let first_slice_depth = match cluster_dimensions.z {
             1 => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
         };
+        // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering problems.
         let far_z = far_z.max(first_slice_depth);
 
         let cluster_factors = calculate_cluster_factors(
@@ -827,9 +850,10 @@ pub(crate) fn assign_lights_to_clusters(
 
         let max_indices = ViewClusterBindings::MAX_INDICES;
 
-        if max_indices
-            < (cluster_dimensions.x * cluster_dimensions.y * cluster_dimensions.z) as usize
-                * light_count
+        if config.dynamic_resizing()
+            && max_indices
+                < (cluster_dimensions.x * cluster_dimensions.y * cluster_dimensions.z) as usize
+                    * light_count
         {
             let mut cluster_index_estimate = 0.0;
             for light in lights.iter() {
@@ -847,7 +871,6 @@ pub(crate) fn assign_lights_to_clusters(
                 // this overestimates index counts by at most 50% (and typically much less) when the whole light range is in view
                 // it can overestimate more significantly when light ranges are only partially in view
                 let (light_aabb_min, light_aabb_max) = cluster_space_light_aabb(
-                    is_orthographic,
                     inverse_view_transform,
                     camera.projection_matrix,
                     &light_sphere,
@@ -911,6 +934,12 @@ pub(crate) fn assign_lights_to_clusters(
             first_slice_depth,
             far_z,
         );
+        // NOTE: This is here to avoid bugs in future due to update_clusters() having updated clusters.axis_slices
+        // but cluster_dimensions has a different configuration.
+        #[allow(unused_assignments)]
+        {
+            cluster_dimensions = clusters.axis_slices;
+        }
         let cluster_count = clusters.aabbs.len();
 
         let mut clusters_lights =
@@ -933,26 +962,26 @@ pub(crate) fn assign_lights_to_clusters(
             visible_lights.push(light.entity);
 
             // note: caching seems to be slower than calling twice for this aabb calculation
-            let (light_aabb_ndc_min, light_aabb_ndc_max) = cluster_space_light_aabb(
-                is_orthographic,
-                inverse_view_transform,
-                camera.projection_matrix,
-                &light_sphere,
-            );
+            let (light_aabb_xy_ndc_z_view_min, light_aabb_xy_ndc_z_view_max) =
+                cluster_space_light_aabb(
+                    inverse_view_transform,
+                    camera.projection_matrix,
+                    &light_sphere,
+                );
 
             let min_cluster = ndc_position_to_cluster(
                 clusters.axis_slices,
                 cluster_factors,
                 is_orthographic,
-                light_aabb_ndc_min,
-                light_aabb_ndc_min.z,
+                light_aabb_xy_ndc_z_view_min,
+                light_aabb_xy_ndc_z_view_min.z,
             );
             let max_cluster = ndc_position_to_cluster(
                 clusters.axis_slices,
                 cluster_factors,
                 is_orthographic,
-                light_aabb_ndc_max,
-                light_aabb_ndc_max.z,
+                light_aabb_xy_ndc_z_view_max,
+                light_aabb_xy_ndc_z_view_max.z,
             );
             let (min_cluster, max_cluster) =
                 (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
