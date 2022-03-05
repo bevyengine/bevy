@@ -182,7 +182,7 @@ impl FromWorld for ShadowPipeline {
                 label: Some("shadow_view_layout"),
             });
 
-            let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+            let mesh_pipeline = world.resource::<MeshPipeline>();
 
             ShadowPipeline {
                 view_layout,
