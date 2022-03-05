@@ -24,20 +24,35 @@ fn main() {
         .run();
 }
 
-const ANIMATIONS: [(&str, Transform, f32); 3] = [
-    (
-        // Model being loaded
+struct Example {
+    model_name: &'static str,
+    camera_transform: Transform,
+    speed: f32,
+}
+impl Example {
+    const fn new(model_name: &'static str, camera_transform: Transform, speed: f32) -> Self {
+        Self {
+            model_name,
+            camera_transform,
+            speed,
+        }
+    }
+}
+
+// const ANIMATIONS: [(&str, Transform, f32); 3] = [
+const ANIMATIONS: [Example; 3] = [
+    // https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/AnimatedTriangle
+    Example::new(
         "models/animated/AnimatedTriangle.gltf",
-        // Position of the camera
         Transform {
             translation: const_vec3!([0.0, 0.0, 3.0]),
             rotation: const_quat!([0.0, 0.0, 0.0, 1.0]),
             scale: const_vec3!([1.0; 3]),
         },
-        // Speed of the animation
         0.12,
     ),
-    (
+    // https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/BoxAnimated
+    Example::new(
         "models/animated/BoxAnimated.gltf",
         Transform {
             translation: const_vec3!([4.0, 2.0, 4.0]),
@@ -46,7 +61,7 @@ const ANIMATIONS: [(&str, Transform, f32); 3] = [
         },
         0.4,
     ),
-    (
+    Example::new(
         "models/animated/animations.gltf",
         Transform {
             translation: const_vec3!([-10.0, 5.0, -3.0]),
@@ -76,16 +91,17 @@ fn setup(
     // Insert a resource with the current scene information
     commands.insert_resource(CurrentScene {
         // Its instance id, to be able to check that it's loaded
-        instance_id: scene_spawner.spawn(asset_server.load(&format!("{}#Scene0", ANIMATIONS[0].0))),
+        instance_id: scene_spawner
+            .spawn(asset_server.load(&format!("{}#Scene0", ANIMATIONS[0].model_name))),
         // The handle to the first animation
-        animation: asset_server.load(&format!("{}#Animation0", ANIMATIONS[0].0)),
+        animation: asset_server.load(&format!("{}#Animation0", ANIMATIONS[0].model_name)),
         // The animation speed modifier
-        speed: ANIMATIONS[0].2,
+        speed: ANIMATIONS[0].speed,
     });
 
     // Add a camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: ANIMATIONS[0].1,
+        transform: ANIMATIONS[0].camera_transform,
         ..Default::default()
     });
 
@@ -107,13 +123,14 @@ fn switch_scene(
 
     // Despawn the existing scene, then start loading the next one
     commands.entity(scene_root.single()).despawn_recursive();
-    current_scene.instance_id =
-        scene_spawner.spawn(asset_server.load(&format!("{}#Scene0", ANIMATIONS[*current].0)));
-    current_scene.animation = asset_server.load(&format!("{}#Animation0", ANIMATIONS[*current].0));
-    current_scene.speed = ANIMATIONS[*current].2;
+    current_scene.instance_id = scene_spawner
+        .spawn(asset_server.load(&format!("{}#Scene0", ANIMATIONS[*current].model_name)));
+    current_scene.animation =
+        asset_server.load(&format!("{}#Animation0", ANIMATIONS[*current].model_name));
+    current_scene.speed = ANIMATIONS[*current].speed;
 
     // Update the camera position
-    *camera.single_mut() = ANIMATIONS[*current].1;
+    *camera.single_mut() = ANIMATIONS[*current].camera_transform;
 
     // Reset the current animation
     commands.remove_resource::<CurrentAnimation>();

@@ -6,7 +6,7 @@ use bevy_core::Name;
 use bevy_ecs::{prelude::FromWorld, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
-use bevy_math::{Mat4, Vec3, Vec4};
+use bevy_math::{Mat4, Quat, Vec3, Vec4};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     StandardMaterial,
@@ -59,6 +59,8 @@ pub enum GltfError {
     ImageError(#[from] TextureError),
     #[error("failed to load an asset path: {0}")]
     AssetIoError(#[from] AssetIoError),
+    #[error("Missing sampler for animation {0}")]
+    MissingAnimationSampler(usize),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -148,7 +150,8 @@ async fn load_gltf<'a, 'b>(
                     }
                 }
             } else {
-                panic!("animations without a sampler input are not supported");
+                warn!("animations without a sampler input are not supported");
+                return Err(GltfError::MissingAnimationSampler(animation.index()));
             };
 
             let keyframes = if let Some(outputs) = reader.read_outputs() {
@@ -158,7 +161,7 @@ async fn load_gltf<'a, 'b>(
                     }
                     gltf::animation::util::ReadOutputs::Rotations(rots) => {
                         GltfNodeAnimationKeyframes::Rotation(
-                            rots.into_f32().map(Vec4::from).collect(),
+                            rots.into_f32().map(Quat::from_array).collect(),
                         )
                     }
                     gltf::animation::util::ReadOutputs::Scales(scale) => {
@@ -170,7 +173,8 @@ async fn load_gltf<'a, 'b>(
                     }
                 }
             } else {
-                panic!("animations without a sampler output are not supported");
+                warn!("animations without a sampler output are not supported");
+                return Err(GltfError::MissingAnimationSampler(animation.index()));
             };
 
             gltf_animation

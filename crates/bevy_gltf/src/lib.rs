@@ -1,5 +1,5 @@
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{Quat, Vec3, Vec4};
 use bevy_utils::HashMap;
 
 mod loader;
@@ -70,7 +70,7 @@ pub struct GltfPrimitive {
     pub material: Option<Handle<StandardMaterial>>,
 }
 
-/// Part of a [`GltfNodeAnimation`], interpolation method for an animation.
+/// Interpolation method for an animation. Part of a [`GltfNodeAnimation`].
 #[derive(Clone, Debug)]
 pub enum GltfAnimationInterpolation {
     Linear,
@@ -97,7 +97,7 @@ pub struct GltfAnimation {
 /// Key frames of an animation.
 #[derive(Clone, Debug)]
 pub enum GltfNodeAnimationKeyframes {
-    Rotation(Vec<Vec4>),
+    Rotation(Vec<Quat>),
     Translation(Vec<Vec3>),
     Scale(Vec<Vec3>),
 }
