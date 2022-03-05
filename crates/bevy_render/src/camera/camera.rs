@@ -132,6 +132,11 @@ impl Camera {
         let window_size = self.target.get_logical_size(windows, images)?;
 
         if let Some(ndc_space_coords) = self.world_to_ndc(camera_transform, world_position) {
+            // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
+            if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
+                return None;
+            }
+
             // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
             let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
             Some(screen_space_coords)
@@ -150,10 +155,6 @@ impl Camera {
         let world_to_ndc: Mat4 =
             self.projection_matrix * camera_transform.compute_matrix().inverse();
         let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
-        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
-        if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
-            return None;
-        }
 
         if !ndc_space_coords.is_nan() {
             Some(ndc_space_coords)
