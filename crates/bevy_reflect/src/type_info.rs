@@ -86,6 +86,14 @@ impl ValueInfo {
     }
 }
 
+/// A container for compile-time info related to general Bevy's _dynamic_ types, including primitives.
+///
+/// This is functionally the same as [`ValueInfo`], however, semantically it refers to dynamic
+/// types such as [`DynamicStruct`], [`DynamicTuple`], [`DynamicList`], etc.
+///
+/// [`DynamicStruct`]: crate::DynamicStruct
+/// [`DynamicTuple`]: crate::DynamicTuple
+/// [`DynamicList`]: crate::DynamicList
 #[derive(Debug, Clone)]
 pub struct DynamicInfo {
     type_name: &'static str,
