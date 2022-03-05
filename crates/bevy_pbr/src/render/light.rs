@@ -25,7 +25,9 @@ use bevy_render::{
     render_resource::{std140::AsStd140, *},
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
+    view::{
+        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
+    },
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{
@@ -337,6 +339,7 @@ pub fn extract_lights(
         &DirectionalLight,
         &mut VisibleEntities,
         &GlobalTransform,
+        &Visibility,
     )>,
 ) {
     commands.insert_resource(ExtractedAmbientLight {
@@ -383,7 +386,13 @@ pub fn extract_lights(
         }
     }
 
-    for (entity, directional_light, visible_entities, transform) in directional_lights.iter_mut() {
+    for (entity, directional_light, visible_entities, transform, visibility) in
+        directional_lights.iter_mut()
+    {
+        if !visibility.is_visible {
+            continue;
+        }
+
         // Calulate the directional light shadow map texel size using the largest x,y dimension of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
