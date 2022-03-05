@@ -70,7 +70,7 @@ fn update_winit(
 
 /// Switch between update modes when the mouse is clicked.
 fn cycle_modes(mut mode: ResMut<ExampleMode>, mouse_button_input: Res<Input<MouseButton>>) {
-    if mouse_button_input.just_pressed(MouseButton::Left) {
+    if mouse_button_input.just_pressed(MouseButton::Right) {
         *mode = match *mode {
             ExampleMode::Game => ExampleMode::Application,
             ExampleMode::Application => ExampleMode::ApplicationWithRedraw,
@@ -152,7 +152,7 @@ pub(crate) mod test_setup {
                 text: Text {
                     sections: vec![
                         TextSection {
-                            value: "Click left mouse button to cycle modes:\n".into(),
+                            value: "Click right mouse button to cycle modes:\n".into(),
                             style: TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 50.0,
@@ -160,7 +160,7 @@ pub(crate) mod test_setup {
                             },
                         },
                         TextSection {
-                            value: "Mode::Wait".into(),
+                            value: "".into(),
                             style: TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 50.0,
