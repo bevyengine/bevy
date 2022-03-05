@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, List, Map, Struct, Tuple, TupleStruct};
+use crate::{serde::Serializable, List, Map, Struct, Tuple, TupleStruct, Typed, TypeInfo, ValueInfo};
 use std::{any::Any, fmt::Debug};
 
 pub use bevy_utils::AHasher as ReflectHasher;
@@ -153,6 +153,12 @@ pub trait FromReflect: Reflect + Sized {
 impl Debug for dyn Reflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Reflect({})", self.type_name())
+    }
+}
+
+impl Typed for dyn Reflect {
+    fn type_info() -> TypeInfo {
+        TypeInfo::Value(ValueInfo::new::<Self>())
     }
 }
 

@@ -64,7 +64,7 @@ pub struct ValueInfo {
 }
 
 impl ValueInfo {
-    pub fn new<T: Reflect>() -> Self {
+    pub fn new<T: Reflect + ?Sized>() -> Self {
         Self {
             type_name: Cow::Owned(std::any::type_name::<T>().to_string()),
             type_id: TypeId::of::<T>(),
