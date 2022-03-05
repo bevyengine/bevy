@@ -122,6 +122,9 @@ impl Default for DepthCalculation {
 
 impl Camera {
     /// Given a position in world space, use the camera to compute the screen space coordinates.
+    ///
+    /// To get the coordinates in Normalized Device Coordinates, you should use
+    /// [`world_to_ndc`](Self::world_to_ndc).
     pub fn world_to_screen(
         &self,
         windows: &Windows,
@@ -138,14 +141,17 @@ impl Camera {
             }
 
             // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-            let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
-            Some(screen_space_coords)
+            Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size)
         } else {
             None
         }
     }
 
-    /// Given a position in world space, use the camera to compute the normalized device coordinates.
+    /// Given a position in world space, use the camera to compute the Normalized Device Coordinates.
+    ///
+    /// Values returned will be between -1.0 and 1.0 when the position is in screen space.
+    /// To get the coordinates in the render target dimensions, you should use
+    /// [`world_to_screen`](Self::world_to_screen).
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
