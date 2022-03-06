@@ -40,7 +40,6 @@ pub struct WinitPlugin;
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<WinitWindows>()
-            .init_resource::<WinitPersistentState>()
             .init_resource::<WinitConfig>()
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
@@ -265,6 +264,7 @@ pub fn winit_runner_with(mut app: App) {
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
+    let mut winit_state = WinitPersistentState::default();
     app.world
         .insert_non_send_resource(event_loop.create_proxy());
 
@@ -276,7 +276,6 @@ pub fn winit_runner_with(mut app: App) {
                               control_flow: &mut ControlFlow| {
         match event {
             event::Event::NewEvents(start) => {
-                let winit_state = app.world.resource::<WinitPersistentState>();
                 let winit_config = app.world.resource::<WinitConfig>();
                 let windows = app.world.resource::<Windows>();
                 let focused = windows.iter().any(|w| w.is_focused());
@@ -293,8 +292,7 @@ pub fn winit_runner_with(mut app: App) {
                         now.duration_since(winit_state.last_update) >= *max_wait
                     }
                 };
-                let mut winit_state = app.world.resource_mut::<WinitPersistentState>();
-                // The low_power_event state must be reset at the start of every frame.
+                // The low_power_event state and timeout must be reset at the start of every frame.
                 winit_state.low_power_event = false;
                 winit_state.timeout_reached = auto_timeout_reached || manual_timeout_reached;
             }
@@ -323,11 +321,7 @@ pub fn winit_runner_with(mut app: App) {
                     warn!("Skipped event for unknown Window Id {:?}", winit_window_id);
                     return;
                 };
-
-                world
-                    .get_resource_mut::<WinitPersistentState>()
-                    .unwrap()
-                    .low_power_event = true;
+                winit_state.low_power_event = true;
 
                 match event {
                     WindowEvent::Resized(size) => {
@@ -538,10 +532,10 @@ pub fn winit_runner_with(mut app: App) {
                 });
             }
             event::Event::Suspended => {
-                app.world.resource_mut::<WinitPersistentState>().active = false;
+                winit_state.active = false;
             }
             event::Event::Resumed => {
-                app.world.resource_mut::<WinitPersistentState>().active = true;
+                winit_state.active = true;
             }
             event::Event::MainEventsCleared => {
                 handle_create_window_events(
@@ -549,7 +543,6 @@ pub fn winit_runner_with(mut app: App) {
                     event_loop,
                     &mut create_window_event_reader,
                 );
-                let winit_state = app.world.resource::<WinitPersistentState>();
                 let winit_config = app.world.resource::<WinitConfig>();
                 let update = if winit_state.active {
                     let windows = app.world.resource::<Windows>();
@@ -566,7 +559,7 @@ pub fn winit_runner_with(mut app: App) {
                     false
                 };
                 if update {
-                    app.world.resource_mut::<WinitPersistentState>().last_update = Instant::now();
+                    winit_state.last_update = Instant::now();
                     app.update();
                 }
             }
@@ -599,9 +592,7 @@ pub fn winit_runner_with(mut app: App) {
                         *control_flow = ControlFlow::Exit;
                     }
                 }
-                app.world
-                    .resource_mut::<WinitPersistentState>()
-                    .redraw_request_sent = redraw;
+                winit_state.redraw_request_sent = redraw;
             }
             _ => (),
         }
