@@ -35,6 +35,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
         #trait_vis struct #reflect_trait_ident {
             get_func: fn(&dyn #bevy_reflect_path::Reflect) -> Option<&dyn #trait_ident>,
             get_mut_func: fn(&mut dyn #bevy_reflect_path::Reflect) -> Option<&mut dyn #trait_ident>,
+            get_boxed_func: fn(Box<dyn #bevy_reflect_path::Reflect>) -> Result<Box<dyn #trait_ident>, Box<dyn #bevy_reflect_path::Reflect>>,
         }
 
         impl #reflect_trait_ident {
@@ -44,6 +45,10 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
 
             pub fn get_mut<'a>(&self, reflect_value: &'a mut dyn #bevy_reflect_path::Reflect) -> Option<&'a mut dyn #trait_ident> {
                 (self.get_mut_func)(reflect_value)
+            }
+
+            pub fn get_boxed(&self, reflect_value: Box<dyn #bevy_reflect_path::Reflect>) -> Result<Box<dyn #trait_ident>, Box<dyn #bevy_reflect_path::Reflect>> {
+                (self.get_boxed_func)(reflect_value)
             }
         }
 
@@ -55,6 +60,9 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
                     },
                     get_mut_func: |reflect_value| {
                         reflect_value.downcast_mut::<T>().map(|value| value as &mut dyn #trait_ident)
+                    },
+                    get_boxed_func: |reflect_value| {
+                        reflect_value.downcast::<T>().map(|value| value as Box<dyn #trait_ident>)
                     }
                 }
             }
