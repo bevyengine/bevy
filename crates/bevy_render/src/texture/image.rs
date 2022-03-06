@@ -260,7 +260,6 @@ impl Image {
     /// - `TextureFormat::R8Unorm`
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
-    /// - `TextureFormat::Bgra8UnormSrgb`
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
         super::image_texture_conversion::texture_to_image(self)
             .and_then(|img| match new_format {
@@ -273,9 +272,6 @@ impl Image {
                 )),
                 TextureFormat::Rgba8UnormSrgb => {
                     Some((image::DynamicImage::ImageRgba8(img.into_rgba8()), true))
-                }
-                TextureFormat::Bgra8UnormSrgb => {
-                    Some((image::DynamicImage::ImageBgra8(img.into_bgra8()), true))
                 }
                 _ => None,
             })
