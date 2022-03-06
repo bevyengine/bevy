@@ -21,7 +21,6 @@ pub struct ArchetypeId(NonMaxUsize);
 impl ArchetypeId {
     pub const EMPTY: ArchetypeId = unsafe { ArchetypeId::new_unchecked(0) };
     pub const RESOURCE: ArchetypeId = unsafe { ArchetypeId::new_unchecked(1) };
-    pub const INVALID: ArchetypeId = unsafe { ArchetypeId::new_unchecked(usize::MAX - 1) };
 
     /// Creates a new [`ArchetypeId`].
     ///

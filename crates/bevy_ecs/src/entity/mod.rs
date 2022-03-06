@@ -360,10 +360,10 @@ impl Entities {
             self.len += 1;
             None
         } else {
-            Some(mem::replace(
+            mem::replace(
                 &mut self.meta[entity.id as usize].location,
                 EntityMeta::EMPTY.location,
-            ))
+            )
         };
 
         self.meta[entity.id as usize].generation = entity.generation;
@@ -392,10 +392,10 @@ impl Entities {
             AllocAtWithoutReplacement::DidNotExist
         } else {
             let current_meta = &mut self.meta[entity.id as usize];
-            if current_meta.location.archetype_id == ArchetypeId::INVALID {
+            if current_meta.location.is_none() {
                 AllocAtWithoutReplacement::DidNotExist
             } else if current_meta.generation == entity.generation {
-                AllocAtWithoutReplacement::Exists(current_meta.location)
+                AllocAtWithoutReplacement::Exists(current_meta.location.unwrap())
             } else {
                 return AllocAtWithoutReplacement::ExistsWithWrongGeneration;
             }
@@ -424,7 +424,7 @@ impl Entities {
         let new_free_cursor = self.pending.len() as i64;
         *self.free_cursor.get_mut() = new_free_cursor;
         self.len -= 1;
-        Some(loc)
+        loc
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
@@ -457,12 +457,10 @@ impl Entities {
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if (entity.id as usize) < self.meta.len() {
             let meta = &self.meta[entity.id as usize];
-            if meta.generation != entity.generation
-                || meta.location.archetype_id == ArchetypeId::INVALID
-            {
+            if meta.generation != entity.generation {
                 return None;
             }
-            Some(meta.location)
+            meta.location
         } else {
             None
         }
@@ -499,7 +497,7 @@ impl Entities {
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
     /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
     /// has not been assigned to an [`Archetype`][crate::archetype::Archetype].
-    pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
+    pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut Option<EntityLocation>)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
 
@@ -542,7 +540,7 @@ impl Entities {
     pub fn flush_as_invalid(&mut self) {
         unsafe {
             self.flush(|_entity, location| {
-                location.archetype_id = ArchetypeId::INVALID;
+                *location = None;
             })
         }
     }
@@ -561,16 +559,13 @@ impl Entities {
 #[derive(Copy, Clone, Debug)]
 pub struct EntityMeta {
     pub generation: u32,
-    pub location: EntityLocation,
+    pub location: Option<EntityLocation>,
 }
 
 impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
-        location: EntityLocation {
-            archetype_id: ArchetypeId::INVALID,
-            index: usize::MAX, // dummy value, to be filled in
-        },
+        location: None,
     };
 }
 
@@ -621,4 +616,13 @@ mod tests {
         assert!(entities.contains(e));
         assert!(entities.get(e).is_none());
     }
+
+    #[test]
+    fn entity_location_is_size_optimized() {
+        assert_eq!(
+            std::mem::size_of::<EntityLocation>(),
+            std::mem::size_of::<Option<EntityLocation>>(),
+        )
+    }
+
 }

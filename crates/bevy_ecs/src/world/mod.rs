@@ -355,7 +355,7 @@ impl World {
         self.entities
             .meta
             .get_unchecked_mut(entity.id() as usize)
-            .location = location;
+            .location = Some(location);
         EntityMut::new(self, entity, location)
     }
 
@@ -1099,7 +1099,7 @@ impl World {
             self.entities.flush(|entity, location| {
                 // SAFE: no components are allocated by archetype.allocate() because the archetype
                 // is empty
-                *location = empty_archetype.allocate(entity, table.allocate(entity));
+                *location = Some(empty_archetype.allocate(entity, table.allocate(entity)));
             });
         }
     }
