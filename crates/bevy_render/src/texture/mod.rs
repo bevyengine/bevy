@@ -39,7 +39,9 @@ impl Plugin for ImagePlugin {
             feature = "dds",
             feature = "tga",
             feature = "jpeg",
-            feature = "bmp"
+            feature = "bmp",
+            feature = "basis-universal",
+            feature = "ktx2",
         ))]
         {
             app.init_asset_loader::<ImageTextureLoader>();
