@@ -5,7 +5,7 @@ fn main() {
     App::new()
         .insert_resource(WinitConfig {
             return_from_run: true,
-            ..Default::default()
+            ..default()
         })
         .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.8)))
         .add_plugins(DefaultPlugins)
@@ -15,7 +15,7 @@ fn main() {
     App::new()
         .insert_resource(WinitConfig {
             return_from_run: true,
-            ..Default::default()
+            ..default()
         })
         .insert_resource(ClearColor(Color::rgb(0.2, 0.8, 0.2)))
         .add_plugins_with(DefaultPlugins, |group| {

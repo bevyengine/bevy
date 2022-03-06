@@ -21,12 +21,12 @@ fn main() {
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
                 max_wait: Duration::from_millis(10),
             },
-            ..Default::default()
+            ..default()
         })
         // Turn off vsync to maximize CPU/GPU usage
         .insert_resource(WindowDescriptor {
             present_mode: PresentMode::Immediate,
-            ..Default::default()
+            ..default()
         })
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins)
@@ -154,10 +154,10 @@ pub(crate) mod test_setup {
             point_light: PointLight {
                 intensity: 1500.0,
                 shadows_enabled: true,
-                ..Default::default()
+                ..default()
             },
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
-            ..Default::default()
+            ..default()
         });
         commands.spawn_bundle(PerspectiveCameraBundle {
             transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),

@@ -7,7 +7,6 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
 };
-pub use winit::event_loop::ControlFlow;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -30,7 +29,7 @@ use bevy_window::{
 use winit::{
     dpi::PhysicalPosition,
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
-    event_loop::{EventLoop, EventLoopWindowTarget},
+    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
 use winit::dpi::LogicalSize;
