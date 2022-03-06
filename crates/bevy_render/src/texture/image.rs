@@ -48,7 +48,7 @@ pub enum ImageFormat {
 
 impl ImageFormat {
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
-        Some(match mime_type {
+        Some(match mime_type.to_ascii_lowercase().as_str() {
             "image/bmp" => ImageFormat::Bmp,
             "image/x-bmp" => ImageFormat::Bmp,
             "image/vnd-ms.dds" => ImageFormat::Dds,
@@ -62,7 +62,7 @@ impl ImageFormat {
     }
 
     pub fn from_extension(extension: &str) -> Option<Self> {
-        Some(match extension {
+        Some(match extension.to_ascii_lowercase().as_str() {
             "avif" => ImageFormat::Avif,
             "basis" => ImageFormat::Basis,
             "bmp" => ImageFormat::Bmp,
