@@ -265,7 +265,7 @@ mod tests {
 
         // world: 1, system last ran: 0, component changed: 1
         // The spawn will be detected since it happened after the system "last ran".
-        assert_eq!(change_detected_system.run((), &mut world), true);
+        assert!(change_detected_system.run((), &mut world));
 
         // world: 1 + MAX_CHANGE_AGE
         let change_tick = world.change_tick.get_mut();
@@ -275,7 +275,7 @@ mod tests {
         // Since we clamp things to `MAX_CHANGE_AGE` for determinism,
         // `ComponentTicks::is_changed` will now see `MAX_CHANGE_AGE > MAX_CHANGE_AGE`
         // and return `false`.
-        assert_eq!(change_expired_system.run((), &mut world), false);
+        assert!(!change_expired_system.run((), &mut world));
     }
 
     #[test]
@@ -297,7 +297,7 @@ mod tests {
 
         // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
         // the wrapping difference will always be positive, so wraparound doesn't matter.
-        assert_eq!(change_detected_system.run((), &mut world), true);
+        assert!(change_detected_system.run((), &mut world));
     }
 
     #[test]
