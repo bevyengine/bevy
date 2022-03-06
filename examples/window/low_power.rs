@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::{
     prelude::*,
     window::{PresentMode, RequestRedraw},
@@ -7,24 +9,20 @@ use bevy::{
 /// This example illustrates how to run a winit window in a reactive, low power mode. This is useful
 /// for making desktop applications, or any other program that doesn't need to be running the event
 /// loop non-stop.
-///
-/// * In the default `WinitConfig::game()` mode, the event loop runs as fast as possible when the
-///   window is focused. When not in focus, the app updates at 10fps - unless the window is
-///   interacted with - in which case it will update immediately in response to these events.
-///
-/// * While in [`bevy::winit::WinitConfig::desktop_app()`] mode:
-///     * When focused: the app will update any time a winit event (e.g. the window is
-///       moved/resized, the mouse moves, a button is pressed, etc.) or [`RequestRedraw`] event is
-///       received, or after 5 seconds if the app has not updated.
-///     * When not focused: the app will update when a [`RequestRedraw`] event is received, the
-///       window is directly interacted with (e.g. the mouse hovers over a visible part of the out
-///       of focus window), or one minute has passed without the app updating.
-///
-/// These two functions are presets, you can customize the behavior by manually setting the fields
-/// of the [`WinitConfig`] resource.
 fn main() {
     App::new()
+        // Continuous rendering for games - bevy's default.
         .insert_resource(WinitConfig::game())
+        // Power-saving reactive rendering for applications.
+        .insert_resource(WinitConfig::desktop_app())
+        // You can also customize update behavior with the fields of [`WinitConfig`]
+        .insert_resource(WinitConfig {
+            focused_mode: bevy::winit::UpdateMode::Continuous,
+            unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
+                max_wait: Duration::from_millis(10),
+            },
+            ..Default::default()
+        })
         // Turn off vsync to maximize CPU/GPU usage
         .insert_resource(WindowDescriptor {
             present_mode: PresentMode::Immediate,
@@ -33,10 +31,10 @@ fn main() {
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins)
         .add_startup_system(test_setup::setup)
-        .add_system(cycle_modes)
-        .add_system(update_winit)
-        .add_system(test_setup::rotate)
+        .add_system(test_setup::cycle_modes)
+        .add_system(test_setup::rotate_cube)
         .add_system(test_setup::update_text)
+        .add_system(update_winit)
         .run();
 }
 
@@ -53,30 +51,35 @@ fn update_winit(
     mut event: EventWriter<RequestRedraw>,
     mut winit_config: ResMut<WinitConfig>,
 ) {
+    use ExampleMode::*;
     *winit_config = match *mode {
-        ExampleMode::Game => WinitConfig::game(),
-        ExampleMode::Application => WinitConfig::desktop_app(),
-        ExampleMode::ApplicationWithRedraw => WinitConfig::desktop_app(),
+        Game => {
+            // In the default `WinitConfig::game()` mode:
+            //   * When focused: the event loop runs as fast as possible
+            //   * When not focused: the app updates at 10fps - unless the window is interacted with
+            //     - in which case it will update immediately in response to these events.
+            WinitConfig::game()
+        }
+        Application => {
+            // While in `WinitConfig::desktop_app()` mode:
+            //   * When focused: the app will update any time a winit event (e.g. the window is
+            //     moved/resized, the mouse moves, a button is pressed, etc.), a [`RequestRedraw`]
+            //     event is received, or after 5 seconds if the app has not updated.
+            //   * When not focused: the app will update when the window is directly interacted with
+            //     (e.g. the mouse hovers over a visible part of the out of focus window), a
+            //     [`RequestRedraw`] event is received, or one minute has passed without the app
+            //     updating.
+            WinitConfig::desktop_app()
+        }
+        ApplicationWithRedraw => {
+            // Sending a `RequestRedraw` event is useful when you want the app to update the next
+            // frame regardless of any user input. For example, your application might use
+            // `WinitConfig::desktop_app()` to reduce power use, but UI animations need to play even
+            // when there are no inputs, so you send redraw requests while the animation is playing.
+            event.send(RequestRedraw);
+            WinitConfig::desktop_app()
+        }
     };
-
-    if let ExampleMode::ApplicationWithRedraw = *mode {
-        // Sending a `RequestRedraw` event is useful when you want the app to update again
-        // regardless of any user input. For example, your application might use
-        // `WinitConfig::desktop_app()` to reduce power use, but UI animations need to play even
-        // when there are no inputs, so you send redraw requests while the animation is playing.
-        event.send(RequestRedraw);
-    }
-}
-
-/// Switch between update modes when the mouse is clicked.
-fn cycle_modes(mut mode: ResMut<ExampleMode>, mouse_button_input: Res<Input<MouseButton>>) {
-    if mouse_button_input.just_pressed(MouseButton::Right) {
-        *mode = match *mode {
-            ExampleMode::Game => ExampleMode::Application,
-            ExampleMode::Application => ExampleMode::ApplicationWithRedraw,
-            ExampleMode::ApplicationWithRedraw => ExampleMode::Game,
-        };
-    }
 }
 
 /// Everything in this module is for setting up and animating the scene, and is not important to the
@@ -85,11 +88,25 @@ pub(crate) mod test_setup {
     use crate::ExampleMode;
     use bevy::{prelude::*, window::RequestRedraw};
 
+    /// Switch between update modes when the mouse is clicked.
+    pub(crate) fn cycle_modes(
+        mut mode: ResMut<ExampleMode>,
+        mouse_button_input: Res<Input<KeyCode>>,
+    ) {
+        if mouse_button_input.just_pressed(KeyCode::Space) {
+            *mode = match *mode {
+                ExampleMode::Game => ExampleMode::Application,
+                ExampleMode::Application => ExampleMode::ApplicationWithRedraw,
+                ExampleMode::ApplicationWithRedraw => ExampleMode::Game,
+            };
+        }
+    }
+
     #[derive(Component)]
     pub(crate) struct Rotator;
 
     /// Rotate the cube to make it clear when the app is updating
-    pub(crate) fn rotate(
+    pub(crate) fn rotate_cube(
         time: Res<Time>,
         mut cube_transform: Query<&mut Transform, With<Rotator>>,
     ) {
@@ -109,7 +126,12 @@ pub(crate) mod test_setup {
         mut query: Query<&mut Text, With<ModeText>>,
     ) {
         *frame += 1;
-        query.get_single_mut().unwrap().sections[1].value = format!("{:?}", *mode);
+        let mode = match *mode {
+            ExampleMode::Game => "game(), continuous, default",
+            ExampleMode::Application => "desktop_app(), reactive",
+            ExampleMode::ApplicationWithRedraw => "desktop_app(), reactive, RequestRedraw sent",
+        };
+        query.get_single_mut().unwrap().sections[1].value = mode.to_string();
         query.get_single_mut().unwrap().sections[3].value = format!("{}", *frame);
     }
 
@@ -158,7 +180,7 @@ pub(crate) mod test_setup {
                 text: Text {
                     sections: vec![
                         TextSection {
-                            value: "Click right mouse button to cycle modes:\n".into(),
+                            value: "Press spacebar to cycle modes\n".into(),
                             style: TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 50.0,
@@ -178,7 +200,7 @@ pub(crate) mod test_setup {
                             style: TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 50.0,
-                                color: Color::WHITE,
+                                color: Color::YELLOW,
                             },
                         },
                         TextSection {
@@ -186,7 +208,7 @@ pub(crate) mod test_setup {
                             style: TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 50.0,
-                                color: Color::GREEN,
+                                color: Color::YELLOW,
                             },
                         },
                     ],
