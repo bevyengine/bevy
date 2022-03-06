@@ -621,5 +621,4 @@ mod tests {
             std::mem::size_of::<Option<EntityLocation>>(),
         )
     }
-
 }

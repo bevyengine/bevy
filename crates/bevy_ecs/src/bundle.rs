@@ -137,7 +137,7 @@ impl BundleId {
     /// type's invariants.
     ///
     /// # Safety
-    /// This function is only safe if `value` is not equal to [`usize::MAX`].
+    /// `value` must not be [`usize::MAX`].
     #[inline]
     pub const unsafe fn new_unchecked(value: usize) -> Self {
         Self(NonMaxUsize::new_unchecked(value))

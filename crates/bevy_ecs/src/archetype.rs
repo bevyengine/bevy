@@ -358,7 +358,7 @@ impl ArchetypeComponentId {
     /// checking for the type's invariants.
     ///
     /// # Safety
-    /// This function is only safe if `index` is not equal to [`usize::MAX`].
+    /// `index` must not be [`usize::MAX`].
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> Self {
         Self(NonMaxUsize::new_unchecked(index))
