@@ -850,11 +850,7 @@ pub(crate) fn assign_lights_to_clusters(
 
         let max_indices = ViewClusterBindings::MAX_INDICES;
 
-        if config.dynamic_resizing()
-            && max_indices
-                < (cluster_dimensions.x * cluster_dimensions.y * cluster_dimensions.z) as usize
-                    * light_count
-        {
+        if config.dynamic_resizing() {
             let mut cluster_index_estimate = 0.0;
             for light in lights.iter() {
                 let light_sphere = Sphere {
