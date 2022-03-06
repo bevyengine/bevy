@@ -22,7 +22,7 @@ impl TypeIdentity {
         Self(name, type_id)
     }
 
-    /// Creates a new [`TypeIdentity`] for the given type, [`T`]
+    /// Creates a new [`TypeIdentity`] for the given type
     pub fn of<T: Any + ?Sized>() -> Self {
         Self(std::any::type_name::<T>(), TypeId::of::<T>())
     }
