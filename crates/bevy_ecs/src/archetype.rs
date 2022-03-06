@@ -36,7 +36,7 @@ impl ArchetypeId {
     /// provided index.
     ///
     /// # Safety
-    /// The produced value is only safe if `index` is not `usize::MAX`.
+    /// `index` must not be `usize::MAX`
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> Self {
         Self(NonMaxUsize::new_unchecked(index))
