@@ -106,4 +106,20 @@ mod test {
         assert_ne!(uuid_ab, TestDeriveStructA::<Inner>::TYPE_UUID);
         assert_ne!(uuid_ba, TestDeriveStructB::<Inner>::TYPE_UUID);
     }
+
+    #[test]
+    fn test_generic_type_uuid_same_for_eq_param() {
+        #[derive(TypeUuid, Clone)]
+        #[uuid = "49951b1c-4811-45e7-acc6-3119249fbd8f"]
+        struct A;
+
+        #[derive(TypeUuid, Clone)]
+        #[uuid = "49951b1c-4811-45e7-acc6-3119249fbd8f"]
+        struct BButSameAsA;
+
+        let uuid_a = TestDeriveStruct::<A>::TYPE_UUID;
+        let uuid_b = TestDeriveStruct::<BButSameAsA>::TYPE_UUID;
+
+        assert_eq!(uuid_a, uuid_b);
+    }
 }
