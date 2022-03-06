@@ -9,6 +9,7 @@ struct StandardMaterial {
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
+    depth_bias: f32,
 };
 
 let STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
@@ -35,6 +36,7 @@ fn standard_material_new() -> StandardMaterial {
     material.reflectance = 0.5;
     material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
     material.alpha_cutoff = 0.5;
+    material.depth_bias = 0.0;
 
     return material;
 }
