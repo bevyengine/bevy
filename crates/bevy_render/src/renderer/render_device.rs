@@ -46,7 +46,7 @@ impl RenderDevice {
     /// no-op on the web, device is automatically polled.
     #[inline]
     pub fn poll(&self, maintain: wgpu::Maintain) {
-        self.device.poll(maintain)
+        self.device.poll(maintain);
     }
 
     /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
@@ -144,7 +144,7 @@ impl RenderDevice {
     /// - A old [`SurfaceTexture`](wgpu::SurfaceTexture) is still alive referencing an old surface.
     /// - Texture format requested is unsupported on the surface.
     pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
-        surface.configure(&self.device, config)
+        surface.configure(&self.device, config);
     }
 
     /// Returns the wgpu [`Device`](wgpu::Device).
@@ -155,9 +155,10 @@ impl RenderDevice {
     pub fn map_buffer(&self, buffer: &wgpu::BufferSlice, map_mode: wgpu::MapMode) {
         let data = buffer.map_async(map_mode);
         self.poll(wgpu::Maintain::Wait);
-        if future::block_on(data).is_err() {
-            panic!("Failed to map buffer to host.");
-        }
+        assert!(
+            future::block_on(data).is_ok(),
+            "Failed to map buffer to host."
+        );
     }
 
     pub fn align_copy_bytes_per_row(row_bytes: usize) -> usize {

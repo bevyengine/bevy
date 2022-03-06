@@ -9,6 +9,8 @@ pub mod prelude {
     pub use crate::ClearColor;
 }
 
+use bevy_utils::HashMap;
+
 pub use clear_pass::*;
 pub use clear_pass_driver::*;
 pub use main_pass_2d::*;
@@ -21,7 +23,7 @@ use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{ActiveCameras, CameraPlugin},
+    camera::{ActiveCameras, CameraPlugin, RenderTarget},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
@@ -35,13 +37,30 @@ use bevy_render::{
     RenderApp, RenderStage, RenderWorld,
 };
 
-/// Resource that configures the clear color
+/// When used as a resource, sets the color that is used to clear the screen between frames.
+///
+/// This color appears as the "background" color for simple apps, when
+/// there are portions of the screen with nothing rendered.
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
     fn default() -> Self {
         Self(Color::rgb(0.4, 0.4, 0.4))
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RenderTargetClearColors {
+    colors: HashMap<RenderTarget, Color>,
+}
+
+impl RenderTargetClearColors {
+    pub fn get(&self, target: &RenderTarget) -> Option<&Color> {
+        self.colors.get(target)
+    }
+    pub fn insert(&mut self, target: RenderTarget, color: Color) {
+        self.colors.insert(target, color);
     }
 }
 
@@ -93,7 +112,8 @@ pub enum CorePipelineRenderSystems {
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ClearColor>();
+        app.init_resource::<ClearColor>()
+            .init_resource::<RenderTargetClearColors>();
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -125,7 +145,7 @@ impl Plugin for CorePipelinePlugin {
         let clear_pass_node = ClearPassNode::new(&mut render_app.world);
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
         let mut draw_2d_graph = RenderGraph::default();
         draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
@@ -327,11 +347,21 @@ impl CachedPipelinePhaseItem for Transparent3d {
     }
 }
 
-pub fn extract_clear_color(clear_color: Res<ClearColor>, mut render_world: ResMut<RenderWorld>) {
+pub fn extract_clear_color(
+    clear_color: Res<ClearColor>,
+    clear_colors: Res<RenderTargetClearColors>,
+    mut render_world: ResMut<RenderWorld>,
+) {
     // If the clear color has changed
     if clear_color.is_changed() {
         // Update the clear color resource in the render world
-        render_world.insert_resource(clear_color.clone())
+        render_world.insert_resource(clear_color.clone());
+    }
+
+    // If the clear color has changed
+    if clear_colors.is_changed() {
+        // Update the clear color resource in the render world
+        render_world.insert_resource(clear_colors.clone());
     }
 }
 

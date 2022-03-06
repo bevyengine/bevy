@@ -6,7 +6,7 @@ use crate::{
 };
 
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
-use bevy_utils::{AHashExt, Duration, HashMap, HashSet};
+use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
@@ -186,7 +186,7 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     }
 
     fn len(&self) -> usize {
-        HashMap::len(self)
+        Self::len(self)
     }
 
     fn iter(&self) -> MapIter {
@@ -199,7 +199,7 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     fn clone_dynamic(&self) -> DynamicMap {
         let mut dynamic_map = DynamicMap::default();
         dynamic_map.set_name(self.type_name().to_string());
-        for (k, v) in HashMap::iter(self) {
+        for (k, v) in self {
             dynamic_map.insert_boxed(k.clone_value(), v.clone_value());
         }
         dynamic_map
@@ -268,8 +268,8 @@ where
     V: Reflect + Clone + for<'de> Deserialize<'de>,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<HashMap<K, V>>();
-        registration.insert::<ReflectDeserialize>(FromType::<HashMap<K, V>>::from_type());
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -371,6 +371,6 @@ mod tests {
 
     #[test]
     fn can_serialize_duration() {
-        assert!(std::time::Duration::ZERO.serializable().is_some())
+        assert!(std::time::Duration::ZERO.serializable().is_some());
     }
 }

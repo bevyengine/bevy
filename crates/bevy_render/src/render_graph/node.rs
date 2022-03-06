@@ -43,13 +43,13 @@ impl NodeId {
 /// inside the graph. For more information see [`SlotType`](super::SlotType).
 pub trait Node: Downcast + Send + Sync + 'static {
     /// Specifies the required input slots for this node.
-    /// They will then be available during the run method inside the [`RenderContext`].
+    /// They will then be available during the run method inside the [`RenderGraphContext`].
     fn input(&self) -> Vec<SlotInfo> {
         Vec::new()
     }
 
     /// Specifies the produced output slots for this node.
-    /// They can then be passed one inside [`RenderContext`] during the run method.
+    /// They can then be passed one inside [`RenderGraphContext`] during the run method.
     fn output(&self) -> Vec<SlotInfo> {
         Vec::new()
     }

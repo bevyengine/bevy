@@ -10,6 +10,7 @@ pub(crate) mod image_texture_conversion;
 pub use self::image::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
+
 pub use image_texture_loader::*;
 pub use texture_cache::*;
 
@@ -23,16 +24,26 @@ pub struct ImagePlugin;
 
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(feature = "png")]
+        #[cfg(any(
+            feature = "png",
+            feature = "dds",
+            feature = "tga",
+            feature = "jpeg",
+            feature = "bmp"
+        ))]
         {
             app.init_asset_loader::<ImageTextureLoader>();
+        }
+
+        #[cfg(feature = "hdr")]
+        {
+            app.init_asset_loader::<HdrTextureLoader>();
         }
 
         app.add_plugin(RenderAssetPlugin::<Image>::default())
             .add_asset::<Image>();
         app.world
-            .get_resource_mut::<Assets<Image>>()
-            .unwrap()
+            .resource_mut::<Assets<Image>>()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {

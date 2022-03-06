@@ -2,13 +2,13 @@ use bevy::{
     core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},
     prelude::*,
     render::{
-        camera::{ActiveCameras, ExtractedCameraNames},
+        camera::{ActiveCameras, ExtractedCameraNames, RenderTarget},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
         render_phase::RenderPhase,
         renderer::RenderContext,
         RenderApp, RenderStage,
     },
-    window::{CreateWindow, WindowId},
+    window::{CreateWindow, PresentMode, WindowId},
 };
 
 /// This example creates a second window and draws a mesh from two different cameras, one in each window
@@ -20,7 +20,7 @@ fn main() {
 
     let render_app = app.sub_app_mut(RenderApp);
     render_app.add_system_to_stage(RenderStage::Extract, extract_secondary_camera_phases);
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
     graph.add_node(SECONDARY_PASS_DRIVER, SecondaryCameraDriver);
     graph
         .add_node_edge(node::MAIN_PASS_DEPENDENCIES, SECONDARY_PASS_DRIVER)
@@ -57,20 +57,20 @@ fn create_new_window(
         descriptor: WindowDescriptor {
             width: 800.,
             height: 600.,
-            vsync: false,
+            present_mode: PresentMode::Immediate,
             title: "Second window".to_string(),
-            ..Default::default()
+            ..default()
         },
     });
     // second window camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         camera: Camera {
-            window: window_id,
+            target: RenderTarget::Window(window_id),
             name: Some(SECONDARY_CAMERA_NAME.into()),
-            ..Default::default()
+            ..default()
         },
         transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     active_cameras.add(SECONDARY_CAMERA_NAME);
@@ -84,7 +84,7 @@ impl Node for SecondaryCameraDriver {
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
+        let extracted_cameras = world.resource::<ExtractedCameraNames>();
         if let Some(camera_3d) = extracted_cameras.entities.get(SECONDARY_CAMERA_NAME) {
             graph.run_sub_graph(
                 crate::draw_3d_graph::NAME,
@@ -101,11 +101,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        ..Default::default()
+        ..default()
     });
     // main camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

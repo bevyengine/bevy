@@ -40,6 +40,10 @@ impl Default for ComputedVisibility {
     }
 }
 
+/// Use this component to opt-out of built-in frustum culling for Mesh entities
+#[derive(Component)]
+pub struct NoFrustumCulling;
+
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
@@ -106,7 +110,7 @@ impl Plugin for VisibilityPlugin {
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Handle<Mesh>), Without<Aabb>>,
+    without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in without_aabb.iter() {
         if let Some(mesh) = meshes.get(mesh_handle) {
@@ -142,6 +146,7 @@ pub fn check_visibility(
             &mut ComputedVisibility,
             Option<&RenderLayers>,
             Option<&Aabb>,
+            Option<&NoFrustumCulling>,
             Option<&GlobalTransform>,
         )>,
     )>,
@@ -161,6 +166,7 @@ pub fn check_visibility(
             mut computed_visibility,
             maybe_entity_mask,
             maybe_aabb,
+            maybe_no_frustum_culling,
             maybe_transform,
         ) in visible_entity_query.q1().iter_mut()
         {
@@ -174,7 +180,9 @@ pub fn check_visibility(
             }
 
             // If we have an aabb and transform, do frustum culling
-            if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
+            if let (Some(aabb), None, Some(transform)) =
+                (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
+            {
                 if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
                     continue;
                 }

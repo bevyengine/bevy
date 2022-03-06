@@ -9,7 +9,7 @@ pub use render_pass::*;
 use std::ops::Range;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetEvent, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
@@ -59,11 +59,9 @@ pub enum RenderUiSystem {
 }
 
 pub fn build_ui_render(app: &mut App) {
-    let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-    let ui_shader = Shader::from_wgsl(include_str!("ui.wgsl"));
-    shaders.set_untracked(UI_SHADER_HANDLE, ui_shader);
+    load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
+    let mut active_cameras = app.world.resource_mut::<ActiveCameras>();
     active_cameras.add(CAMERA_UI);
 
     let render_app = match app.get_sub_app_mut(RenderApp) {
@@ -94,7 +92,7 @@ pub fn build_ui_render(app: &mut App) {
 
     // Render graph
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
     let mut draw_ui_graph = RenderGraph::default();
     draw_ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
@@ -147,7 +145,7 @@ pub fn extract_uinodes(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
@@ -186,7 +184,7 @@ pub fn extract_text_uinodes(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
 
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor() as f32
@@ -292,7 +290,7 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_handle = Default::default();
     let mut last_z = 0.0;
-    for extracted_uinode in extracted_uinodes.uinodes.iter() {
+    for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
                 commands.spawn_bundle((UiBatch {

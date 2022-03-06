@@ -1,4 +1,4 @@
-use bevy::ecs::{
+use bevy_ecs::{
     component::Component,
     entity::Entity,
     system::{Command, CommandQueue, Commands},

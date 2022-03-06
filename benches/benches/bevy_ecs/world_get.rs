@@ -1,4 +1,4 @@
-use bevy::ecs::{component::Component, entity::Entity, world::World};
+use bevy_ecs::{component::Component, entity::Entity, world::World};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 criterion_group!(
@@ -23,7 +23,7 @@ const RANGE: std::ops::Range<u32> = 5..6;
 fn setup<T: Component + Default>(entity_count: u32) -> World {
     let mut world = World::default();
     world.spawn_batch((0..entity_count).map(|_| (T::default(),)));
-    world
+    black_box(world)
 }
 
 fn world_entity(criterion: &mut Criterion) {
@@ -126,6 +126,7 @@ fn world_query_iter(criterion: &mut Criterion) {
                 for comp in query.iter(&world) {
                     black_box(comp);
                     count += 1;
+                    black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
             });
@@ -139,6 +140,7 @@ fn world_query_iter(criterion: &mut Criterion) {
                 for comp in query.iter(&world) {
                     black_box(comp);
                     count += 1;
+                    black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
             });
@@ -163,6 +165,7 @@ fn world_query_for_each(criterion: &mut Criterion) {
                 query.for_each(&world, |comp| {
                     black_box(comp);
                     count += 1;
+                    black_box(count);
                 });
                 assert_eq!(black_box(count), entity_count);
             });
@@ -176,6 +179,7 @@ fn world_query_for_each(criterion: &mut Criterion) {
                 query.for_each(&world, |comp| {
                     black_box(comp);
                     count += 1;
+                    black_box(count);
                 });
                 assert_eq!(black_box(count), entity_count);
             });

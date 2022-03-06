@@ -541,7 +541,7 @@ impl Entities {
         unsafe {
             self.flush(|_entity, location| {
                 *location = None;
-            })
+            });
         }
     }
 
@@ -610,7 +610,7 @@ mod tests {
         unsafe {
             entities.flush(|_entity, _location| {
                 // do nothing ... leaving entity location invalid
-            })
+            });
         };
 
         assert!(entities.contains(e));

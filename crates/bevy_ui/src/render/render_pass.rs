@@ -25,7 +25,7 @@ impl bevy_render::render_graph::Node for UiPassDriverNode {
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
+        let extracted_cameras = world.resource::<ExtractedCameraNames>();
         if let Some(camera_ui) = extracted_cameras.entities.get(CAMERA_UI) {
             graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(*camera_ui)])?;
         }
@@ -82,9 +82,7 @@ impl bevy_render::render_graph::Node for UiPassNode {
             depth_stencil_attachment: None,
         };
 
-        let draw_functions = world
-            .get_resource::<DrawFunctions<TransparentUi>>()
-            .unwrap();
+        let draw_functions = world.resource::<DrawFunctions<TransparentUi>>();
 
         let render_pass = render_context
             .command_encoder
@@ -92,7 +90,7 @@ impl bevy_render::render_graph::Node for UiPassNode {
 
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
-        for item in transparent_phase.items.iter() {
+        for item in &transparent_phase.items {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }
@@ -174,7 +172,7 @@ impl<const I: usize> EntityRenderCommand for SetUiTextureBindGroup<I> {
         let batch = query_batch.get(item).unwrap();
         let image_bind_groups = image_bind_groups.into_inner();
 
-        pass.set_bind_group(1, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
+        pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
 }

@@ -73,7 +73,7 @@ impl GlyphBrush {
 
         let mut max_y = std::f32::MIN;
         let mut min_x = std::f32::MAX;
-        for sg in glyphs.iter() {
+        for sg in &glyphs {
             let glyph = &sg.glyph;
             let scaled_font = sections_data[sg.section_index].3;
             max_y = max_y.max(glyph.position.y - scaled_font.descent());

@@ -20,6 +20,7 @@ use crate::{
 use std::{
     any::TypeId,
     fmt,
+    mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
 };
 
@@ -32,6 +33,12 @@ pub use identifier::WorldId;
 /// Each [Entity] has a set of components. Each component can have up to one instance of each
 /// component type. Entity components can be created, updated, removed, and queried using a given
 /// [World].
+///
+/// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
+/// consider using [`SystemState`](crate::system::SystemState).
+///
+/// To mutate different parts of the world simultaneously,
+/// use [`World::resource_scope`] or [`SystemState`](crate::system::SystemState).
 ///
 /// # Resources
 ///
@@ -591,46 +598,88 @@ impl World {
         }
     }
 
-    /// Inserts a new resource with the given `value`.
-    /// Resources are "unique" data of a given type.
+    /// Inserts a new resource with standard starting values.
+    ///
+    /// If the resource already exists, nothing happens.
+    ///
+    /// The value given by the [`FromWorld::from_world`] method will be used.
+    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
+    /// and those default values will be here instead.
     #[inline]
-    pub fn insert_resource<T: Resource>(&mut self, value: T) {
-        let component_id = self.components.init_resource::<T>();
+    pub fn init_resource<R: Resource + FromWorld>(&mut self) {
+        // PERF: We could avoid double hashing here, since the `from_world` call is guaranteed
+        // not to modify the map. However, we would need to be borrowing resources both
+        // mutably and immutably, so we would need to be extremely certain this is correct
+        if !self.contains_resource::<R>() {
+            let resource = R::from_world(self);
+            self.insert_resource(resource);
+        }
+    }
+
+    /// Inserts a new resource with the given `value`.
+    ///
+    /// Resources are "unique" data of a given type.
+    /// If you insert a resource of a type that already exists,
+    /// you will overwrite any existing data.
+    #[inline]
+    pub fn insert_resource<R: Resource>(&mut self, value: R) {
+        let component_id = self.components.init_resource::<R>();
         // SAFE: component_id just initialized and corresponds to resource of type T
         unsafe { self.insert_resource_with_id(component_id, value) };
     }
 
-    /// Inserts a new non-send resource with the given `value`.
-    /// Resources are "unique" data of a given type.
+    /// Inserts a new non-send resource with standard starting values.
+    ///
+    /// If the resource already exists, nothing happens.
+    ///
+    /// The value given by the [`FromWorld::from_world`] method will be used.
+    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
+    /// and those default values will be here instead.
     #[inline]
-    pub fn insert_non_send<T: 'static>(&mut self, value: T) {
-        self.validate_non_send_access::<T>();
-        let component_id = self.components.init_non_send::<T>();
-        // SAFE: component_id just initialized and corresponds to resource of type T
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
+        // PERF: We could avoid double hashing here, since the `from_world` call is guaranteed
+        // not to modify the map. However, we would need to be borrowing resources both
+        // mutably and immutably, so we would need to be extremely certain this is correct
+        if !self.contains_resource::<R>() {
+            let resource = R::from_world(self);
+            self.insert_non_send_resource(resource);
+        }
+    }
+
+    /// Inserts a new non-send resource with the given `value`.
+    ///
+    /// `NonSend` resources cannot be sent across threads,
+    /// and do not need the `Send + Sync` bounds.
+    /// Systems with `NonSend` resources are always scheduled on the main thread.
+    #[inline]
+    pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
+        self.validate_non_send_access::<R>();
+        let component_id = self.components.init_non_send::<R>();
+        // SAFE: component_id just initialized and corresponds to resource of type R
         unsafe { self.insert_resource_with_id(component_id, value) };
     }
 
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
-    /// Resources are "unique" data of a given type.
     #[inline]
-    pub fn remove_resource<T: Resource>(&mut self) -> Option<T> {
-        // SAFE: T is Send + Sync
+    pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
+        // SAFE: R is Send + Sync
         unsafe { self.remove_resource_unchecked() }
     }
 
     #[inline]
-    pub fn remove_non_send<T: 'static>(&mut self) -> Option<T> {
-        self.validate_non_send_access::<T>();
+    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
+        self.validate_non_send_access::<R>();
         // SAFE: we are on main thread
         unsafe { self.remove_resource_unchecked() }
     }
 
     #[inline]
     /// # Safety
-    /// make sure you're on main thread if T isn't Send + Sync
+    /// Only remove `NonSend` resources from the main thread
+    /// as they cannot be sent across theads
     #[allow(unused_unsafe)]
-    pub unsafe fn remove_resource_unchecked<T: 'static>(&mut self) -> Option<T> {
-        let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
+    pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components.get_mut(component_id)?;
@@ -638,17 +687,17 @@ impl World {
             return None;
         }
         // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
-        // ptr value / drop is called when T is dropped
+        // ptr value / drop is called when R is dropped
         let (ptr, _) = unsafe { column.swap_remove_and_forget_unchecked(0) };
-        // SAFE: column is of type T
-        Some(unsafe { ptr.cast::<T>().read() })
+        // SAFE: column is of type R
+        Some(unsafe { ptr.cast::<R>().read() })
     }
 
-    /// Returns `true` if a resource of type `T` exists. Otherwise returns `false`.
+    /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
     #[inline]
-    pub fn contains_resource<T: Resource>(&self) -> bool {
+    pub fn contains_resource<R: 'static>(&self) -> bool {
         let component_id =
-            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<T>()) {
+            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
                 component_id
             } else {
                 return false;
@@ -656,17 +705,9 @@ impl World {
         self.get_populated_resource_column(component_id).is_some()
     }
 
-    /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None]
-    /// Resources are "unique" data of a given type.
-    #[inline]
-    pub fn get_resource<T: Resource>(&self) -> Option<&T> {
-        let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
-        unsafe { self.get_resource_with_id(component_id) }
-    }
-
-    pub fn is_resource_added<T: Resource>(&self) -> bool {
+    pub fn is_resource_added<R: Resource>(&self) -> bool {
         let component_id =
-            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<T>()) {
+            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
                 component_id
             } else {
                 return false;
@@ -681,9 +722,9 @@ impl World {
         ticks.is_added(self.last_change_tick(), self.read_change_tick())
     }
 
-    pub fn is_resource_changed<T: Resource>(&self) -> bool {
+    pub fn is_resource_changed<R: Resource>(&self) -> bool {
         let component_id =
-            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<T>()) {
+            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
                 component_id
             } else {
                 return false;
@@ -698,66 +739,161 @@ impl World {
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
 
-    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
-    /// [None] Resources are "unique" data of a given type.
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource`](World::get_resource) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
-    pub fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'_, T>> {
+    #[track_caller]
+    pub fn resource<R: Resource>(&self) -> &R {
+        match self.get_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        match self.get_resource_mut() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        // SAFE: unique world access
+        unsafe { self.get_resource_with_id(component_id) }
+    }
+
+    /// Gets a mutable reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
         unsafe { self.get_resource_unchecked_mut() }
     }
 
     // PERF: optimize this to avoid redundant lookups
-    /// Gets a resource of type `T` if it exists, otherwise inserts the resource using the result of
-    /// calling `func`.
+    /// Gets a mutable reference to the resource of type `T` if it exists,
+    /// otherwise inserts the resource using the result of calling `func`.
     #[inline]
-    pub fn get_resource_or_insert_with<T: Resource>(
+    pub fn get_resource_or_insert_with<R: Resource>(
         &mut self,
-        func: impl FnOnce() -> T,
-    ) -> Mut<'_, T> {
-        if !self.contains_resource::<T>() {
+        func: impl FnOnce() -> R,
+    ) -> Mut<'_, R> {
+        if !self.contains_resource::<R>() {
             self.insert_resource(func());
         }
-        self.get_resource_mut().unwrap()
+        self.resource_mut()
     }
 
-    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
-    /// [None] Resources are "unique" data of a given type.
+    /// Gets a mutable reference to the resource of the given type, if it exists
+    /// Otherwise returns [None]
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given resource type. The caller must ensure
     /// that only one mutable access exists at a time.
     #[inline]
-    pub unsafe fn get_resource_unchecked_mut<T: Resource>(&self) -> Option<Mut<'_, T>> {
-        let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
+    pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         self.get_resource_unchecked_mut_with_id(component_id)
     }
 
-    /// Gets a reference to the non-send resource of the given type, if it exists. Otherwise returns
-    /// [None] Resources are "unique" data of a given type.
+    /// Gets an immutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
     #[inline]
-    pub fn get_non_send_resource<T: 'static>(&self) -> Option<&T> {
-        let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
+    #[track_caller]
+    pub fn non_send_resource<R: 'static>(&self) -> &R {
+        match self.get_non_send_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        match self.get_non_send_resource_mut() {
+            Some(x) => x,
+            None => panic!(
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a reference to the non-send resource of the given type, if it exists.
+    /// Otherwise returns [None]
+    #[inline]
+    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         // SAFE: component id matches type T
         unsafe { self.get_non_send_with_id(component_id) }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists. Otherwise
-    /// returns [None] Resources are "unique" data of a given type.
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Otherwise returns [None]
     #[inline]
-    pub fn get_non_send_resource_mut<T: 'static>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
         unsafe { self.get_non_send_resource_unchecked_mut() }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists. Otherwise
-    /// returns [None] Resources are "unique" data of a given type.
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Otherwise returns [None]
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given non-send resource type. The caller must
     /// ensure that only one mutable access exists at a time.
     #[inline]
-    pub unsafe fn get_non_send_resource_unchecked_mut<T: 'static>(&self) -> Option<Mut<'_, T>> {
-        let component_id = self.components.get_resource_id(TypeId::of::<T>())?;
+    pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(&self) -> Option<Mut<'_, R>> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         self.get_non_send_unchecked_mut_with_id(component_id)
     }
 
@@ -856,24 +992,21 @@ impl World {
                     };
                 }
                 AllocAtWithoutReplacement::DidNotExist => {
-                    match spawn_or_insert {
-                        SpawnOrInsert::Spawn(ref mut spawner) => {
-                            // SAFE: `entity` is allocated (but non existent), bundle matches inserter
-                            unsafe { spawner.spawn_non_existent(entity, bundle) };
-                        }
-                        _ => {
-                            let mut spawner = bundle_info.get_bundle_spawner(
-                                &mut self.entities,
-                                &mut self.archetypes,
-                                &mut self.components,
-                                &mut self.storages,
-                                change_tick,
-                            );
-                            // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { spawner.spawn_non_existent(entity, bundle) };
-                            spawn_or_insert = SpawnOrInsert::Spawn(spawner);
-                        }
-                    };
+                    if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
+                        // SAFE: `entity` is allocated (but non existent), bundle matches inserter
+                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                    } else {
+                        let mut spawner = bundle_info.get_bundle_spawner(
+                            &mut self.entities,
+                            &mut self.archetypes,
+                            &mut self.components,
+                            &mut self.storages,
+                            change_tick,
+                        );
+                        // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                        spawn_or_insert = SpawnOrInsert::Spawn(spawner);
+                    }
                 }
                 AllocAtWithoutReplacement::ExistsWithWrongGeneration => {
                     invalid_entities.push(entity);
@@ -888,9 +1021,12 @@ impl World {
         }
     }
 
-    /// Temporarily removes the requested resource from this [World], then re-adds it before
-    /// returning. This enables safe mutable access to a resource while still providing mutable
-    /// world access
+    /// Temporarily removes the requested resource from this [`World`], then re-adds it before returning.
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    ///
+    /// # Example
     /// ```
     /// use bevy_ecs::{component::Component, world::{World, Mut}};
     /// #[derive(Component)]
@@ -907,68 +1043,76 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    pub fn resource_scope<T: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<T>) -> U) -> U {
+    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
         let component_id = self
             .components
-            .get_resource_id(TypeId::of::<T>())
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
+            .get_resource_id(TypeId::of::<R>())
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         let (ptr, mut ticks) = {
             let resource_archetype = self.archetypes.resource_mut();
             let unique_components = resource_archetype.unique_components_mut();
             let column = unique_components.get_mut(component_id).unwrap_or_else(|| {
-                panic!("resource does not exist: {}", std::any::type_name::<T>())
+                panic!("resource does not exist: {}", std::any::type_name::<R>())
             });
-            if column.is_empty() {
-                panic!("resource does not exist: {}", std::any::type_name::<T>());
-            }
+            assert!(
+                !column.is_empty(),
+                "resource does not exist: {}",
+                std::any::type_name::<R>()
+            );
             // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of
-            // the ptr value / drop is called when T is dropped
+            // the ptr value / drop is called when R is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
         };
-        // SAFE: pointer is of type T
-        let value = Mut {
-            value: unsafe { &mut *ptr.cast::<T>() },
+        // SAFE: pointer is of type T and valid to move out of
+        // Read the value onto the stack to avoid potential mut aliasing.
+        let mut value = unsafe { std::ptr::read(ptr.cast::<R>()) };
+        let value_mut = Mut {
+            value: &mut value,
             ticks: Ticks {
                 component_ticks: &mut ticks,
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.change_tick(),
             },
         };
-        let result = f(self, value);
+        let result = f(self, value_mut);
+        assert!(!self.contains_resource::<R>());
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
             .get_mut(component_id)
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<T>()));
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
+
+        // Wrap the value in MaybeUninit to prepare for passing the value back into the ECS
+        let mut nodrop_wrapped_value = std::mem::MaybeUninit::new(value);
         unsafe {
-            // SAFE: pointer is of type T
-            column.push(ptr, ticks);
+            // SAFE: pointer is of type T, and valid to move out of
+            column.push(nodrop_wrapped_value.as_mut_ptr() as *mut _, ticks);
         }
         result
     }
 
     /// # Safety
-    /// `component_id` must be assigned to a component of type T
+    /// `component_id` must be assigned to a component of type `R`
     #[inline]
-    pub(crate) unsafe fn get_resource_with_id<T: 'static>(
+    pub(crate) unsafe fn get_resource_with_id<R: 'static>(
         &self,
         component_id: ComponentId,
-    ) -> Option<&T> {
+    ) -> Option<&R> {
         let column = self.get_populated_resource_column(component_id)?;
-        Some(&*column.get_data_ptr().as_ptr().cast::<T>())
+        Some(&*column.get_data_ptr().as_ptr().cast::<R>())
     }
 
     /// # Safety
-    /// `component_id` must be assigned to a component of type T.
+    /// `component_id` must be assigned to a component of type `R`
     /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
     #[inline]
-    pub(crate) unsafe fn get_resource_unchecked_mut_with_id<T>(
+    pub(crate) unsafe fn get_resource_unchecked_mut_with_id<R>(
         &self,
         component_id: ComponentId,
-    ) -> Option<Mut<'_, T>> {
+    ) -> Option<Mut<'_, R>> {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
-            value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
+            value: &mut *column.get_data_ptr().cast::<R>().as_ptr(),
             ticks: Ticks {
                 component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
                 last_change_tick: self.last_change_tick(),
@@ -978,48 +1122,48 @@ impl World {
     }
 
     /// # Safety
-    /// `component_id` must be assigned to a component of type T
+    /// `component_id` must be assigned to a component of type `R`
     #[inline]
-    pub(crate) unsafe fn get_non_send_with_id<T: 'static>(
+    pub(crate) unsafe fn get_non_send_with_id<R: 'static>(
         &self,
         component_id: ComponentId,
-    ) -> Option<&T> {
-        self.validate_non_send_access::<T>();
+    ) -> Option<&R> {
+        self.validate_non_send_access::<R>();
         self.get_resource_with_id(component_id)
     }
 
     /// # Safety
-    /// `component_id` must be assigned to a component of type T.
+    /// `component_id` must be assigned to a component of type `R`.
     /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
     #[inline]
-    pub(crate) unsafe fn get_non_send_unchecked_mut_with_id<T: 'static>(
+    pub(crate) unsafe fn get_non_send_unchecked_mut_with_id<R: 'static>(
         &self,
         component_id: ComponentId,
-    ) -> Option<Mut<'_, T>> {
-        self.validate_non_send_access::<T>();
+    ) -> Option<Mut<'_, R>> {
+        self.validate_non_send_access::<R>();
         self.get_resource_unchecked_mut_with_id(component_id)
     }
 
     /// # Safety
-    /// `component_id` must be valid and correspond to a resource component of type T
+    /// `component_id` must be valid and correspond to a resource component of type `R`
     #[inline]
-    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, mut value: T) {
+    unsafe fn insert_resource_with_id<R>(&mut self, component_id: ComponentId, value: R) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
-            // SAFE: column is of type T and has been allocated above
-            let data = (&mut value as *mut T).cast::<u8>();
-            std::mem::forget(value);
+            let mut value = ManuallyDrop::new(value);
+            // SAFE: column is of type R and has been allocated above
+            let data = (&mut *value as *mut R).cast::<u8>();
             column.push(data, ComponentTicks::new(change_tick));
         } else {
-            // SAFE: column is of type T and has already been allocated
-            *column.get_data_unchecked(0).cast::<T>() = value;
+            // SAFE: column is of type R and has already been allocated
+            *column.get_data_unchecked(0).cast::<R>() = value;
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
     }
 
     /// # Safety
-    /// `component_id` must be valid and correspond to a resource component of type T
+    /// `component_id` must be valid and correspond to a resource component of type `R`
     #[inline]
     unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
         // SAFE: resource archetype always exists
@@ -1048,15 +1192,15 @@ impl World {
             })
     }
 
-    pub(crate) fn initialize_resource<T: Resource>(&mut self) -> ComponentId {
-        let component_id = self.components.init_resource::<T>();
+    pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
+        let component_id = self.components.init_resource::<R>();
         // SAFE: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id
     }
 
-    pub(crate) fn initialize_non_send_resource<T: 'static>(&mut self) -> ComponentId {
-        let component_id = self.components.init_non_send::<T>();
+    pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
+        let component_id = self.components.init_non_send::<R>();
         // SAFE: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id
@@ -1079,15 +1223,14 @@ impl World {
     }
 
     pub(crate) fn validate_non_send_access<T: 'static>(&self) {
-        if !self.main_thread_validator.is_main_thread() {
-            panic!(
-                "attempted to access NonSend resource {} off of the main thread",
-                std::any::type_name::<T>()
-            );
-        }
+        assert!(
+            self.main_thread_validator.is_main_thread(),
+            "attempted to access NonSend resource {} off of the main thread",
+            std::any::type_name::<T>(),
+        );
     }
 
-    /// Empties queued entities and adds them to the empty [Archetype].
+    /// Empties queued entities and adds them to the empty [Archetype](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [Component].
     pub(crate) fn flush(&mut self) {
@@ -1164,7 +1307,10 @@ impl fmt::Debug for World {
 unsafe impl Send for World {}
 unsafe impl Sync for World {}
 
-/// Creates `Self` using data from the given [World]
+/// Creates an instance of the type this trait is implemented for
+/// using data from the supplied [World].
+///
+/// This can be helpful for complex initialization or context-aware defaults.
 pub trait FromWorld {
     /// Creates `Self` using data from the given [World]
     fn from_world(world: &mut World) -> Self;

@@ -56,6 +56,7 @@ impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<AudioOutput<AudioSource>>()
             .add_asset::<AudioSource>()
+            .add_asset::<AudioSink>()
             .init_resource::<Audio<AudioSource>>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
