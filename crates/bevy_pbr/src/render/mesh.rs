@@ -408,7 +408,6 @@ impl MeshPipelineKey {
     }
 }
 
-
 impl SpecializedMeshPipeline for MeshPipeline {
     type Key = MeshPipelineKey;
 

@@ -1,17 +1,17 @@
 use crate::{
     mesh::{InnerMeshVertexBufferLayout, MeshVertexBufferLayout, MissingVertexAttributeError},
     render_resource::{
-        CachedPipelineId, PipelineCache, RenderPipelineDescriptor, VertexBufferLayout,
+        CachedPipelineId, ComputePipelineDescriptor, PipelineCache, RenderPipelineDescriptor,
+        VertexBufferLayout,
     },
 };
 use bevy_utils::{
     hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap, PreHashMapExt,
 };
-use std::fmt::Debug;
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 use thiserror::Error;
 
-pub trait SpecializedPipeline {
+pub trait SpecializedRenderPipeline {
     type Key: Clone + Hash + PartialEq + Eq;
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor;
 }
@@ -42,10 +42,35 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum SpecializedMeshPipelineError {
-    #[error(transparent)]
-    MissingVertexAttribute(#[from] MissingVertexAttributeError),
+pub trait SpecializedComputePipeline {
+    type Key: Clone + Hash + PartialEq + Eq;
+    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor;
+}
+
+pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
+    cache: HashMap<S::Key, CachedPipelineId>,
+}
+
+impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
+    fn default() -> Self {
+        Self {
+            cache: Default::default(),
+        }
+    }
+}
+
+impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
+    pub fn specialize(
+        &mut self,
+        cache: &mut PipelineCache,
+        specialize_pipeline: &S,
+        key: S::Key,
+    ) -> CachedPipelineId {
+        *self.cache.entry(key.clone()).or_insert_with(|| {
+            let descriptor = specialize_pipeline.specialize(key);
+            cache.queue_compute_pipeline(descriptor)
+        })
+    }
 }
 
 pub trait SpecializedMeshPipeline {
@@ -75,7 +100,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
     #[inline]
     pub fn specialize(
         &mut self,
-        cache: &mut RenderPipelineCache,
+        cache: &mut PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
         layout: &MeshVertexBufferLayout,
@@ -113,7 +138,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                 Ok(*entry.insert(match layout_map.entry(key) {
                     Entry::Occupied(entry) => {
                         if cfg!(debug_assertions) {
-                            let stored_descriptor = cache.get_descriptor(*entry.get());
+                            let stored_descriptor = cache.get_render_pipeline_descriptor(*entry.get()).expect("The cached pipeline is not a render pipeline.");
                             if stored_descriptor != &descriptor {
                                 error!("The cached pipeline descriptor for {} is not equal to the generated descriptor for the given key. This means the SpecializePipeline implementation uses 'unused' MeshVertexBufferLayout information to specialize the pipeline. This is not allowed because it would invalidate the pipeline cache.", std::any::type_name::<S>());
                             }
@@ -121,7 +146,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                         *entry.into_mut()
                     }
                     Entry::Vacant(entry) => {
-                        *entry.insert(cache.queue(descriptor))
+                        *entry.insert(cache.queue_render_pipeline(descriptor))
                     }
                 }))
             }
@@ -129,33 +154,8 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
     }
 }
 
-pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
-    cache: HashMap<S::Key, CachedPipelineId>,
-}
-
-impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
-    fn default() -> Self {
-        Self {
-            cache: Default::default(),
-        }
-    }
-}
-
-impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
-    pub fn specialize(
-        &mut self,
-        cache: &mut PipelineCache,
-        specialize_pipeline: &S,
-        key: S::Key,
-    ) -> CachedPipelineId {
-        *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
-            cache.queue_compute_pipeline(descriptor)
-        })
-    }
-}
-
-pub trait SpecializedComputePipeline {
-    type Key: Clone + Hash + PartialEq + Eq;
-    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor;
+#[derive(Error, Debug)]
+pub enum SpecializedMeshPipelineError {
+    #[error(transparent)]
+    MissingVertexAttribute(#[from] MissingVertexAttributeError),
 }

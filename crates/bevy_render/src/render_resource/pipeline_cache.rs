@@ -1,8 +1,8 @@
-use crate::render_resource::{ComputePipeline, RawComputePipelineDescriptor};
 use crate::{
     render_resource::{
-        AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ComputePipelineDescriptor,
-        ProcessShaderError, ProcessedShader, RawFragmentState, RawRenderPipelineDescriptor,
+        AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ComputePipeline,
+        ComputePipelineDescriptor, ProcessShaderError, ProcessedShader,
+        RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
         RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport,
         ShaderProcessor, ShaderReflectError,
     },
@@ -18,8 +18,8 @@ use thiserror::Error;
 use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout as RawVertexBufferLayout};
 
 enum PipelineDescriptor {
-    RenderPipelineDescriptor(RenderPipelineDescriptor),
-    ComputePipelineDescriptor(ComputePipelineDescriptor),
+    RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
+    ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
 }
 
 #[derive(Debug)]
@@ -242,6 +242,34 @@ impl PipelineCache {
     }
 
     #[inline]
+    pub fn get_render_pipeline_descriptor(
+        &self,
+        id: CachedPipelineId,
+    ) -> Option<&RenderPipelineDescriptor> {
+        if let PipelineDescriptor::RenderPipelineDescriptor(descriptor) =
+            &self.pipelines[id.0].descriptor
+        {
+            Some(descriptor)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn get_compute_pipeline_descriptor(
+        &self,
+        id: CachedPipelineId,
+    ) -> Option<&ComputePipelineDescriptor> {
+        if let PipelineDescriptor::ComputePipelineDescriptor(descriptor) =
+            &self.pipelines[id.0].descriptor
+        {
+            Some(descriptor)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
     pub fn get_render_pipeline(&self, id: CachedPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
             &self.pipelines[id.0].state
@@ -269,7 +297,7 @@ impl PipelineCache {
     ) -> CachedPipelineId {
         let id = CachedPipelineId(self.pipelines.len());
         self.pipelines.push(CachedPipeline {
-            descriptor: PipelineDescriptor::RenderPipelineDescriptor(descriptor),
+            descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
         self.waiting_pipelines.insert(id);
@@ -282,7 +310,7 @@ impl PipelineCache {
     ) -> CachedPipelineId {
         let id = CachedPipelineId(self.pipelines.len());
         self.pipelines.push(CachedPipeline {
-            descriptor: PipelineDescriptor::ComputePipelineDescriptor(descriptor),
+            descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
         self.waiting_pipelines.insert(id);
