@@ -5,6 +5,7 @@ use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
+    mesh::MeshVertexBufferLayout,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{
@@ -47,7 +48,15 @@ pub struct StandardMaterial {
     pub reflectance: f32,
     pub normal_map_texture: Option<Handle<Image>>,
     pub occlusion_texture: Option<Handle<Image>>,
+    /// Support two-sided lighting by automatically flipping the normals for "back" faces
+    /// within the PBR lighting shader.
+    /// Defaults to false.
+    /// This does not automatically configure backface culling, which can be done via
+    /// `cull_mode`.
     pub double_sided: bool,
+    /// Whether to cull the "front", "back" or neither side of a mesh
+    /// defaults to `Face::Back`
+    pub cull_mode: Option<Face>,
     pub unlit: bool,
     pub alpha_mode: AlphaMode,
 }
@@ -76,6 +85,7 @@ impl Default for StandardMaterial {
             occlusion_texture: None,
             normal_map_texture: None,
             double_sided: false,
+            cull_mode: Some(Face::Back),
             unlit: false,
             alpha_mode: AlphaMode::Opaque,
         }
@@ -153,6 +163,7 @@ pub struct GpuStandardMaterial {
     pub flags: StandardMaterialFlags,
     pub base_color_texture: Option<Handle<Image>>,
     pub alpha_mode: AlphaMode,
+    pub cull_mode: Option<Face>,
 }
 
 impl RenderAsset for StandardMaterial {
@@ -320,6 +331,7 @@ impl RenderAsset for StandardMaterial {
             has_normal_map,
             base_color_texture: material.base_color_texture,
             alpha_mode: material.alpha_mode,
+            cull_mode: material.cull_mode,
         })
     }
 }
@@ -327,6 +339,7 @@ impl RenderAsset for StandardMaterial {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct StandardMaterialKey {
     normal_map: bool,
+    cull_mode: Option<Face>,
 }
 
 impl SpecializedMaterial for StandardMaterial {
@@ -335,10 +348,15 @@ impl SpecializedMaterial for StandardMaterial {
     fn key(render_asset: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {
         StandardMaterialKey {
             normal_map: render_asset.has_normal_map,
+            cull_mode: render_asset.cull_mode,
         }
     }
 
-    fn specialize(key: Self::Key, descriptor: &mut RenderPipelineDescriptor) {
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        key: Self::Key,
+        _layout: &MeshVertexBufferLayout,
+    ) -> Result<(), SpecializedMeshPipelineError> {
         if key.normal_map {
             descriptor
                 .fragment
@@ -347,9 +365,11 @@ impl SpecializedMaterial for StandardMaterial {
                 .shader_defs
                 .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
         }
+        descriptor.primitive.cull_mode = key.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
+        Ok(())
     }
 
     fn fragment_shader(_asset_server: &AssetServer) -> Option<Handle<Shader>> {

@@ -1,9 +1,9 @@
 mod convert;
 
 use crate::{CalculatedSize, Node, Style};
-use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
+    event::EventReader,
     query::{Changed, FilterFetch, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };

@@ -8,7 +8,7 @@ fn main() {
             width: 500.,
             height: 300.,
             present_mode: PresentMode::Fifo,
-            ..Default::default()
+            ..default()
         })
         .add_plugins(DefaultPlugins)
         .add_system(change_title)

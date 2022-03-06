@@ -19,9 +19,9 @@ pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
-    let graph = world.get_resource::<RenderGraph>().unwrap();
-    let render_device = world.get_resource::<RenderDevice>().unwrap();
-    let render_queue = world.get_resource::<RenderQueue>().unwrap();
+    let graph = world.resource::<RenderGraph>();
+    let render_device = world.resource::<RenderDevice>();
+    let render_queue = world.resource::<RenderQueue>();
     RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
@@ -43,7 +43,7 @@ pub fn render_system(world: &mut World) {
             world.entity_mut(view_entity).remove::<ViewTarget>();
         }
 
-        let mut windows = world.get_resource_mut::<ExtractedWindows>().unwrap();
+        let mut windows = world.resource_mut::<ExtractedWindows>();
         for window in windows.values_mut() {
             if let Some(texture_view) = window.swap_chain_texture.take() {
                 if let Some(surface_texture) = texture_view.take_surface_texture() {

@@ -70,7 +70,7 @@ fn spawn_text(
                 300.0,
                 0.0,
             ),
-            ..Default::default()
+            ..default()
         });
     }
 }

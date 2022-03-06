@@ -1,5 +1,5 @@
 use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
-use bevy_app::EventWriter;
+use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{NonSend, NonSendMut};
 use bevy_input::{gamepad::GamepadEventRaw, prelude::*};
 use gilrs::{EventType, Gilrs};

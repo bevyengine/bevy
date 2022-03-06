@@ -92,6 +92,10 @@ impl AssetServer {
         }
     }
 
+    pub fn asset_io(&self) -> &dyn AssetIo {
+        &*self.server.asset_io
+    }
+
     pub(crate) fn register_asset_type<T: Asset>(&self) -> Assets<T> {
         if self
             .server
@@ -790,24 +794,18 @@ mod test {
         app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
-            let asset_server = world.get_resource::<AssetServer>().unwrap();
+            let asset_server = world.resource::<AssetServer>();
             let id = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
                 .unwrap();
             asset_server.get_handle_untyped(id)
         }
 
         fn get_asset(id: impl Into<HandleId>, world: &World) -> Option<&PngAsset> {
-            world
-                .get_resource::<Assets<PngAsset>>()
-                .unwrap()
-                .get(id.into())
+            world.resource::<Assets<PngAsset>>().get(id.into())
         }
 
         fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
-            world
-                .get_resource::<AssetServer>()
-                .unwrap()
-                .get_load_state(id.into())
+            world.resource::<AssetServer>().get_load_state(id.into())
         }
 
         // ---

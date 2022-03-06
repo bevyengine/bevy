@@ -11,6 +11,9 @@
 //! For more fine-tuned control over logging behavior, insert a [`LogSettings`] resource before
 //! adding [`LogPlugin`] or `DefaultPlugins` during app initialization.
 
+#[cfg(feature = "trace")]
+use std::panic;
+
 #[cfg(target_os = "android")]
 mod android_tracing;
 
@@ -21,6 +24,7 @@ pub mod prelude {
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
 }
+
 pub use bevy_utils::tracing::{
     debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     Level,
@@ -51,7 +55,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///     App::new()
 ///         .insert_resource(LogSettings {
 ///             level: Level::DEBUG,
-///             filter: "wgpu=error,bevy_render=info".to_string(),
+///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
 ///         })
 ///         .add_plugins(DefaultPlugins)
 ///         .run();
@@ -59,7 +63,9 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// ```
 ///
 /// Log level can also be changed using the `RUST_LOG` environment variable.
-/// It has the same syntax has the field [`LogSettings::filter`], see [`EnvFilter`].
+/// For example, using `RUST_LOG=wgpu=error,bevy_render=info,bevy_ecs=trace cargo run ..`
+///
+/// It has the same syntax as the field [`LogSettings::filter`], see [`EnvFilter`].
 /// If you define the `RUST_LOG` environment variable, the [`LogSettings`] resource
 /// will be ignored.
 ///
@@ -105,6 +111,15 @@ impl Default for LogSettings {
 
 impl Plugin for LogPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "trace")]
+        {
+            let old_handler = panic::take_hook();
+            panic::set_hook(Box::new(move |infos| {
+                println!("{}", tracing_error::SpanTrace::capture());
+                old_handler(infos);
+            }));
+        }
+
         let default_filter = {
             let settings = app.world.get_resource_or_insert_with(LogSettings::default);
             format!("{},{}", settings.level, settings.filter)
@@ -114,6 +129,9 @@ impl Plugin for LogPlugin {
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
         let subscriber = Registry::default().with(filter_layer);
+
+        #[cfg(feature = "trace")]
+        let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
         #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
         {

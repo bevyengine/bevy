@@ -1,7 +1,7 @@
 use crate::{
-    AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap,
-    DrawMesh, MeshPipeline, NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup,
-    VisiblePointLights, SHADOW_SHADER_HANDLE,
+    point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
+    DirectionalLightShadowMap, DrawMesh, MeshPipeline, NotShadowCaster, PointLight,
+    PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -14,7 +14,7 @@ use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
-    mesh::Mesh,
+    mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
@@ -25,10 +25,15 @@ use bevy_render::{
     render_resource::{std140::AsStd140, *},
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
+    view::{
+        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
+    },
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{
+    tracing::{error, warn},
+    HashMap,
+};
 use std::num::NonZeroU32;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
@@ -214,7 +219,6 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ShadowPipelineKey: u32 {
         const NONE               = 0;
-        const VERTEX_TANGENTS    = (1 << 0);
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = ShadowPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << ShadowPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
@@ -244,76 +248,23 @@ impl ShadowPipelineKey {
     }
 }
 
-impl SpecializedRenderPipeline for ShadowPipeline {
+impl SpecializedMeshPipeline for ShadowPipeline {
     type Key = ShadowPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (vertex_array_stride, vertex_attributes) =
-            if key.contains(ShadowPipelineKey::VERTEX_TANGENTS) {
-                (
-                    48,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 40,
-                            shader_location: 2,
-                        },
-                        // Tangent
-                        VertexAttribute {
-                            format: VertexFormat::Float32x4,
-                            offset: 24,
-                            shader_location: 3,
-                        },
-                    ],
-                )
-            } else {
-                (
-                    32,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                )
-            };
-        RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let vertex_buffer_layout =
+            layout.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0)])?;
+
+        Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: vec![],
-                buffers: vec![VertexBufferLayout {
-                    array_stride: vertex_array_stride,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: vertex_attributes,
-                }],
+                buffers: vec![vertex_buffer_layout],
             },
             fragment: None,
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
@@ -344,7 +295,7 @@ impl SpecializedRenderPipeline for ShadowPipeline {
             }),
             multisample: MultisampleState::default(),
             label: Some("shadow_pipeline".into()),
-        }
+        })
     }
 }
 
@@ -388,6 +339,7 @@ pub fn extract_lights(
         &DirectionalLight,
         &mut VisibleEntities,
         &GlobalTransform,
+        &Visibility,
     )>,
 ) {
     commands.insert_resource(ExtractedAmbientLight {
@@ -434,7 +386,13 @@ pub fn extract_lights(
         }
     }
 
-    for (entity, directional_light, visible_entities, transform) in directional_lights.iter_mut() {
+    for (entity, directional_light, visible_entities, transform, visibility) in
+        directional_lights.iter_mut()
+    {
+        if !visibility.is_visible {
+            continue;
+        }
+
         // Calulate the directional light shadow map texel size using the largest x,y dimension of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
@@ -625,11 +583,10 @@ pub fn prepare_lights(
     // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
     // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
-        light_1
-            .shadows_enabled
-            .cmp(&light_2.shadows_enabled)
-            .reverse()
-            .then_with(|| entity_1.cmp(entity_2))
+        point_light_order(
+            (entity_1, &light_1.shadows_enabled),
+            (entity_2, &light_2.shadows_enabled),
+        )
     });
 
     if global_light_meta.entity_to_index.capacity() < point_lights.len() {
@@ -639,7 +596,7 @@ pub fn prepare_lights(
     }
 
     let mut gpu_point_lights = [GpuPointLight::default(); MAX_POINT_LIGHTS];
-    for (index, &(entity, light)) in point_lights.iter().enumerate().take(MAX_POINT_LIGHTS) {
+    for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
         // Lights are sorted, shadow enabled lights are first
         if light.shadows_enabled && index < MAX_POINT_LIGHT_SHADOW_MAPS {
@@ -928,20 +885,25 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 }
 
-const CLUSTER_OFFSET_MASK: u32 = (1 << 24) - 1;
-const CLUSTER_COUNT_SIZE: u32 = 8;
-const CLUSTER_COUNT_MASK: u32 = (1 << 8) - 1;
+// this must match CLUSTER_COUNT_SIZE in pbr.wgsl
+// and must be large enough to contain MAX_POINT_LIGHTS
+const CLUSTER_COUNT_SIZE: u32 = 13;
+
+const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - CLUSTER_COUNT_SIZE)) - 1;
+const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
 // that means we can fit say 256 point lights in one uniform
 // buffer, which means the count can be at most 256 so it
-// needs 8 bits.
+// needs 9 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address
 // 16384 values. log2(16384) = 14 bits.
-// This means we can pack the offset into the upper 24 bits of a u32
-// and the count into the lower 8 bits.
+// We use 32 bits to store the pair, so we choose to divide the
+// remaining 9 bits proportionally to give some future room.
+// This means we can pack the offset into the upper 19 bits of a u32
+// and the count into the lower 13 bits.
 // NOTE: This assumes CPU and GPU endianness are the same which is true
 // for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
 fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
@@ -1090,7 +1052,7 @@ pub fn queue_shadows(
     shadow_pipeline: Res<ShadowPipeline>,
     casting_meshes: Query<&Handle<Mesh>, Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<ShadowPipeline>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<ShadowPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     view_lights: Query<&ViewLightEntities>,
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
@@ -1120,23 +1082,32 @@ pub fn queue_shadows(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                let mut key = ShadowPipelineKey::empty();
                 if let Ok(mesh_handle) = casting_meshes.get(entity) {
                     if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        if mesh.has_tangents {
-                            key |= ShadowPipelineKey::VERTEX_TANGENTS;
-                        }
-                        key |= ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                    }
-                    let pipeline_id =
-                        pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key);
+                        let key =
+                            ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        let pipeline_id = pipelines.specialize(
+                            &mut pipeline_cache,
+                            &shadow_pipeline,
+                            key,
+                            &mesh.layout,
+                        );
 
-                    shadow_phase.add(Shadow {
-                        draw_function: draw_shadow_mesh,
-                        pipeline: pipeline_id,
-                        entity,
-                        distance: 0.0, // TODO: sort back-to-front
-                    });
+                        let pipeline_id = match pipeline_id {
+                            Ok(id) => id,
+                            Err(err) => {
+                                error!("{}", err);
+                                continue;
+                            }
+                        };
+
+                        shadow_phase.add(Shadow {
+                            draw_function: draw_shadow_mesh,
+                            pipeline: pipeline_id,
+                            entity,
+                            distance: 0.0, // TODO: sort back-to-front
+                        });
+                    }
                 }
             }
         }
@@ -1229,7 +1200,7 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-                let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
+                let draw_functions = world.resource::<DrawFunctions<Shadow>>();
                 let render_pass = render_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);

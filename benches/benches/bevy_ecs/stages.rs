@@ -1,4 +1,4 @@
-use bevy::ecs::{
+use bevy_ecs::{
     component::Component,
     schedule::{Stage, SystemStage},
     system::Query,

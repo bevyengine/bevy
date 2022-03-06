@@ -1,16 +1,22 @@
-mod enum_variant_meta;
+pub mod prelude {
+    pub use crate::default;
+}
+
 pub mod label;
 
+mod default;
+mod enum_variant_meta;
+
 pub use ahash::AHasher;
+pub use default::default;
 pub use enum_variant_meta::*;
-pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
 pub use hashbrown;
-use hashbrown::hash_map::RawEntryMut;
 pub use instant::{Duration, Instant};
 pub use tracing;
 pub use uuid::Uuid;
 
 use ahash::RandomState;
+use hashbrown::hash_map::RawEntryMut;
 use std::{
     fmt::Debug,
     future::Future,
@@ -25,6 +31,8 @@ pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[cfg(target_arch = "wasm32")]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+
+pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
 
 /// A hasher builder that will create a fixed hasher.
 #[derive(Debug, Clone, Default)]
