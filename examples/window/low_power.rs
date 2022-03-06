@@ -103,8 +103,14 @@ pub(crate) mod test_setup {
     #[derive(Component)]
     pub struct ModeText;
 
-    pub(crate) fn update_text(mode: Res<ExampleMode>, mut query: Query<&mut Text, With<ModeText>>) {
-        query.get_single_mut().unwrap().sections[1].value = format!("{:?}", *mode)
+    pub(crate) fn update_text(
+        mut frame: Local<usize>,
+        mode: Res<ExampleMode>,
+        mut query: Query<&mut Text, With<ModeText>>,
+    ) {
+        *frame += 1;
+        query.get_single_mut().unwrap().sections[1].value = format!("{:?}", *mode);
+        query.get_single_mut().unwrap().sections[3].value = format!("{}", *frame);
     }
 
     /// Set up a scene with a cube and some text
@@ -153,6 +159,22 @@ pub(crate) mod test_setup {
                     sections: vec![
                         TextSection {
                             value: "Click right mouse button to cycle modes:\n".into(),
+                            style: TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 50.0,
+                                color: Color::WHITE,
+                            },
+                        },
+                        TextSection {
+                            value: "".into(),
+                            style: TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 50.0,
+                                color: Color::GREEN,
+                            },
+                        },
+                        TextSection {
+                            value: "\nFrame: ".into(),
                             style: TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 50.0,
