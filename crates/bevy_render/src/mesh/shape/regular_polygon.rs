@@ -34,8 +34,9 @@ impl From<RegularPolygon> for Mesh {
         let mut normals = Vec::with_capacity(sides);
         let mut uvs = Vec::with_capacity(sides);
 
+        let step = std::f32::consts::TAU / sides as f32;
         for i in 0..sides {
-            let a = std::f32::consts::FRAC_PI_2 - i as f32 * std::f32::consts::TAU / (sides as f32);
+            let a = std::f32::consts::FRAC_PI_2 - i as f32 * step;
 
             let (s, c) = a.sin_cos();
             positions.push([c * radius, s * radius, 0.0]);
