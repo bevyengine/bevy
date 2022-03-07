@@ -34,6 +34,7 @@ mod test {
     use super::*;
     use crate as bevy_reflect;
     use bevy_reflect_derive::TypeUuid;
+    use std::marker::PhantomData;
 
     #[derive(TypeUuid)]
     #[uuid = "af6466c2-a9f4-11eb-bcbc-0242ac130002"]
@@ -72,5 +73,37 @@ mod test {
         assert_ne!(uuid_a, uuid_b);
         assert_ne!(uuid_a, A::TYPE_UUID);
         assert_ne!(uuid_b, B::TYPE_UUID);
+    }
+
+    #[test]
+    fn test_inverted_generic_type_unique_uuid() {
+        #[derive(TypeUuid, Clone)]
+        #[uuid = "49951b1c-4811-45e7-acc6-3119249fbd8f"]
+        struct Inner;
+
+        #[derive(TypeUuid, Clone)]
+        #[uuid = "23ebc0c3-ef69-4ea0-8c2a-dca1b4e27c0d"]
+        struct TestDeriveStructA<T>
+        where
+            T: Clone,
+        {
+            _phantom: PhantomData<T>,
+        }
+
+        #[derive(TypeUuid, Clone)]
+        #[uuid = "a82f9936-70cb-482a-bd3d-cb99d87de55f"]
+        struct TestDeriveStructB<T>
+        where
+            T: Clone,
+        {
+            _phantom: PhantomData<T>,
+        }
+
+        let uuid_ab = TestDeriveStructA::<TestDeriveStructB<Inner>>::TYPE_UUID;
+        let uuid_ba = TestDeriveStructB::<TestDeriveStructA<Inner>>::TYPE_UUID;
+
+        assert_ne!(uuid_ab, uuid_ba);
+        assert_ne!(uuid_ab, TestDeriveStructA::<Inner>::TYPE_UUID);
+        assert_ne!(uuid_ba, TestDeriveStructB::<Inner>::TYPE_UUID);
     }
 }

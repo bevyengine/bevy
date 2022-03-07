@@ -55,7 +55,10 @@ pub mod __macro_exports {
         let mut new = [0; 16];
         let mut i = 0;
         while i < new.len() {
-            new[i] = a.as_bytes()[i] ^ b.as_bytes()[i];
+            // rotating ensures different uuids for A<B<C>> and B<A<C>> because: A ^ (B ^ C) = B ^ (A ^ C)
+            // notice that you have to rotate the second parameter: A.rr ^ (B.rr ^ C) = B.rr ^ (A.rr ^ C)
+            // Solution: A ^ (B ^ C.rr).rr != B ^ (A ^ C.rr).rr
+            new[i] = a.as_bytes()[i] ^ b.as_bytes()[i].rotate_right(1);
 
             i += 1;
         }
