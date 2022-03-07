@@ -1,3 +1,4 @@
+use crate::field_attributes::DefaultBehavior;
 use crate::ReflectDeriveData;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -112,8 +113,10 @@ fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> Member
             .ignored_fields()
             .map(|field| {
                 let member = get_ident(field.data, field.index, is_tuple);
-                let value = quote! {
-                    Default::default()
+
+                let value = match &field.attrs.default {
+                    DefaultBehavior::Func(path) => quote! {#path()},
+                    _ => quote! {Default::default()},
                 };
 
                 (member, value)
@@ -139,12 +142,29 @@ fn get_active_fields(
                 let accessor = get_field_accessor(field.data, field.index, is_tuple);
                 let ty = field.data.ty.clone();
 
-                let value = quote! { {
-                    <#ty as #bevy_reflect_path::FromReflect>::from_reflect(
-                        // Accesses the field on the given dynamic struct or tuple struct
-                        #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor)?
-                    )?
-                }};
+                let get_field = quote! {
+                    #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor)
+                };
+
+                let value = match &field.attrs.default {
+                    DefaultBehavior::Func(path) => quote! {
+                        if let Some(field) = #get_field {
+                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)?
+                        } else {
+                            #path()
+                        }
+                    },
+                    DefaultBehavior::Default => quote! {
+                        if let Some(field) = #get_field {
+                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)?
+                        } else {
+                            Default::default()
+                        }
+                    },
+                    DefaultBehavior::Required => quote! {
+                        <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?)?
+                    },
+                };
 
                 (member, value)
             })
