@@ -41,7 +41,7 @@ use crate::{
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
 #[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
@@ -76,7 +76,7 @@ impl PointLight {
 }
 
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource, FromReflect)]
+#[reflect(Resource)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -92,7 +92,7 @@ impl Default for PointLightShadowMap {
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](bevy_transform::components::Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct SpotLight {
     pub color: Color,
     pub intensity: f32,
@@ -188,7 +188,7 @@ impl Default for SpotLight {
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct DirectionalLight {
     pub color: Color,
     /// Illuminance in lux
@@ -219,7 +219,7 @@ impl DirectionalLight {
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource, FromReflect)]
+#[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -244,7 +244,7 @@ impl Default for DirectionalLightShadowMap {
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -381,14 +381,13 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
     pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]
-#[reflect(FromReflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
     pub(crate) view_transform: Mat4,
@@ -582,7 +581,7 @@ fn calculate_cascade(
 
 /// An ambient light, which lights the entire scene equally.
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource, FromReflect)]
+#[reflect(Resource)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -600,11 +599,11 @@ impl Default for AmbientLight {
 
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
 #[derive(Component, Reflect, Default)]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
 #[derive(Component, Reflect, Default)]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct NotShadowReceiver;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -641,7 +640,7 @@ pub enum ClusterFarZMode {
 
 /// Configure the depth-slicing strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Reflect)]
-#[reflect(Default, FromReflect)]
+#[reflect(Default)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
     pub first_slice_depth: f32,
@@ -660,7 +659,7 @@ impl Default for ClusterZConfig {
 
 /// Configuration of the clustering strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub enum ClusterConfig {
     /// Disable light cluster calculations for this view
     None,

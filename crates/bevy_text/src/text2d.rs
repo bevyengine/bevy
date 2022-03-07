@@ -10,7 +10,7 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
-use bevy_reflect::{Reflect, ReflectFromReflect};
+use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,
     texture::Image,
@@ -35,7 +35,7 @@ use crate::{
 /// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
 /// component is mainly useful for text wrapping only.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub struct Text2dBounds {
     pub size: Vec2,
 }

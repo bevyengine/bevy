@@ -2,7 +2,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, ReflectFromReflect, TypeUuid};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
@@ -119,7 +119,7 @@ pub struct TonemappingPipeline {
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
     None,
@@ -296,7 +296,7 @@ pub fn queue_view_tonemapping_pipelines(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub enum DebandDither {
     #[default]
     Disabled,

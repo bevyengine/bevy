@@ -1,7 +1,7 @@
 use super::downsampling_pipeline::BloomUniforms;
 use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
 use bevy_math::{UVec4, Vec4};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
@@ -161,7 +161,6 @@ impl Default for BloomSettings {
 /// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjuction with [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
-#[reflect(FromReflect)]
 pub struct BloomPrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///

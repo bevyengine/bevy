@@ -1,6 +1,5 @@
 use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
-use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
 use bit_set::BitSet;
@@ -89,6 +88,7 @@ pub(crate) struct ReflectEnum<'a> {
 }
 
 /// Represents a field on a struct or tuple struct.
+#[derive(Clone)]
 pub(crate) struct StructField<'a> {
     /// The raw field.
     pub data: &'a Field,
@@ -450,6 +450,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Get a collection of types which are ignored by the reflection API
+    #[allow(dead_code)]
     pub fn ignored_types(&self) -> Vec<syn::Type> {
         self.ignored_fields()
             .map(|field| field.data.ty.clone())
@@ -470,14 +471,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        let bevy_reflect_path = &self.meta().bevy_reflect_path;
-        WhereClauseOptions {
-            active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::Reflect },
-            ignored_types: self.ignored_types().into(),
-            ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync },
-            ..WhereClauseOptions::type_path_bounds(self.meta())
-        }
+        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
     }
 }
 
@@ -508,6 +502,7 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// Get a collection of types which are exposed to the reflection API
+    #[allow(dead_code)]
     pub fn active_types(&self) -> Vec<syn::Type> {
         self.active_fields()
             .map(|field| field.data.ty.clone())
@@ -522,6 +517,7 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// Get a collection of types which are ignored to the reflection API
+    #[allow(dead_code)]
     pub fn ignored_types(&self) -> Vec<syn::Type> {
         self.ignored_fields()
             .map(|field| field.data.ty.clone())
@@ -529,14 +525,7 @@ impl<'a> ReflectEnum<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        let bevy_reflect_path = &self.meta().bevy_reflect_path;
-        WhereClauseOptions {
-            active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::FromReflect },
-            ignored_types: self.ignored_types().into(),
-            ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync + #FQDefault },
-            ..WhereClauseOptions::type_path_bounds(self.meta())
-        }
+        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
     }
 }
 

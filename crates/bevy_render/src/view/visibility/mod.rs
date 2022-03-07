@@ -6,7 +6,7 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
@@ -28,7 +28,7 @@ use crate::{
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
     ///
@@ -155,7 +155,7 @@ pub struct VisibilityBundle {
 
 /// Use this component to opt-out of built-in frustum culling for Mesh entities
 #[derive(Component, Default, Reflect)]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct NoFrustumCulling;
 
 /// Collection of entities visible from the current view.
@@ -171,7 +171,7 @@ pub struct NoFrustumCulling;
 /// Currently this component is ignored by the sprite renderer, so sprite rendering
 /// is not optimized per view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
     pub entities: Vec<Entity>,

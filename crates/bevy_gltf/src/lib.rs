@@ -12,7 +12,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{Reflect, ReflectFromReflect, TypePath, TypeUuid};
+use bevy_reflect::{Reflect, TypePath, TypeUuid};
 use bevy_render::{
     mesh::{Mesh, MeshVertexAttribute},
     renderer::RenderDevice,
@@ -107,7 +107,7 @@ pub struct GltfPrimitive {
 }
 
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub struct GltfExtras {
     pub value: String,
 }

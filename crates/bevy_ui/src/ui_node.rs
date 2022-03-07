@@ -15,7 +15,7 @@ use thiserror::Error;
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
@@ -1576,7 +1576,7 @@ pub struct UiTextureAtlasImage {
 
 /// The border color of the UI node.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(FromReflect, Component, Default)]
+#[reflect(Component, Default)]
 pub struct BorderColor(pub Color);
 
 impl From<Color> for BorderColor {
@@ -1597,7 +1597,7 @@ impl Default for BorderColor {
 
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct UiImage {
     /// Handle to the texture
     pub texture: Handle<Image>,

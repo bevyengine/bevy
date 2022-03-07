@@ -1,8 +1,8 @@
 use bevy_ecs::{
     component::Component, entity::Entity, query::WorldQuery, reflect::ReflectComponent,
 };
-use bevy_reflect::{std_traits::ReflectDefault};
-use bevy_reflect::{Reflect, ReflectFromReflect};
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_utils::AHasher;
 use std::{
     borrow::Cow,
@@ -18,7 +18,7 @@ use std::{
 /// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
 /// used instead as the default unique identifier.
 #[derive(Reflect, Component, Clone)]
-#[reflect(Component, Default, Debug, FromReflect)]
+#[reflect(Component, Default, Debug)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
     name: Cow<'static, str>,

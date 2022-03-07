@@ -704,8 +704,6 @@ mod tests {
         assert_eq!(values, vec![1]);
     }
 
-    // TODO: Fix this test
-    #[ignore]
     #[test]
     fn should_call_from_reflect_dynamically() {
         #[derive(Reflect)]
@@ -1287,7 +1285,7 @@ mod tests {
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T: Reflect + TypePath> {
+        struct MyGenericStruct<T> {
             foo: T,
             bar: usize,
         }
@@ -1481,6 +1479,7 @@ mod tests {
     #[test]
     fn should_permit_higher_ranked_lifetimes() {
         #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
         struct TestStruct {
             #[reflect(ignore)]
             _hrl: for<'a> fn(&'a str) -> &'a str,

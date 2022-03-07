@@ -75,6 +75,14 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This is often used with traits that have been marked by the [`#[reflect_trait]`](macro@reflect_trait)
 /// macro in order to register the type's implementation of that trait.
 ///
+/// ### Default Registrations
+///
+/// The following types are automatically registered when deriving `Reflect`:
+///
+/// * `ReflectFromReflect` (unless opting out of `FromReflect`)
+/// * `SerializationData`
+/// * `ReflectFromPtr`
+///
 /// ### Special Identifiers
 ///
 /// There are a few "special" identifiers that work a bit differently:
@@ -117,6 +125,8 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///
 /// This is useful for when a type can't or shouldn't implement `FromReflect`,
 /// or if a manual implementation is desired.
+///
+/// Note that in the latter case, `ReflectFromReflect` will no longer be automatically registered.
 ///
 /// # Field Attributes
 ///
@@ -263,7 +273,8 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 
     impls::impl_type_path(
         derive_data.meta(),
-        &WhereClauseOptions::type_path_bounds(derive_data.meta()),
+        // Use `WhereClauseOptions::new_value` here so we don't enforce reflection bounds
+        &WhereClauseOptions::new_value(derive_data.meta()),
     )
     .into()
 }
@@ -565,7 +576,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 
     let meta = ReflectMeta::new(type_path, ReflectTraits::default());
 
-    impls::impl_type_path(&meta, &WhereClauseOptions::type_path_bounds(&meta)).into()
+    impls::impl_type_path(&meta, &WhereClauseOptions::new_value(&meta)).into()
 }
 
 /// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.

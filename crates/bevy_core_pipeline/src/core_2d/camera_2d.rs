@@ -3,7 +3,7 @@ use crate::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, ReflectFromReflect};
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
     extract_component::ExtractComponent,
@@ -14,7 +14,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub struct Camera2d {
     pub clear_color: ClearColorConfig,
 }
