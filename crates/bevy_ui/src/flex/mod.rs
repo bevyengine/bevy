@@ -282,6 +282,7 @@ pub fn flex_node_system(
             to_logical(layout.size.width),
             to_logical(layout.size.height),
         );
+        // only trigger change detection when the new value is different
         if node.size != new_size {
             node.size = new_size;
         }
@@ -294,6 +295,7 @@ pub fn flex_node_system(
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
         }
+        // only trigger change detection when the new value is different
         if transform.translation != new_position {
             transform.translation = new_position;
         }
