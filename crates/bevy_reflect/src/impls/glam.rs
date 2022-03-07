@@ -1,5 +1,5 @@
 use crate as bevy_reflect;
-use crate::ReflectDeserialize;
+use crate::{ReflectDeserialize, ReflectFromReflect};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use glam::*;
 
