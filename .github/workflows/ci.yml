@@ -288,7 +288,7 @@ jobs:
           source: './examples/'
           targets: '[ "./Cargo.toml", "./examples/README.md" ]'
           file-types: '[".rs"]'
-          exclude-folders: '["./examples/ios"]'
+          exclude-folders: '["./examples/ios", "./examples/android]'
           exclude-files: '[]'
 
   check-unused-dependencies:
