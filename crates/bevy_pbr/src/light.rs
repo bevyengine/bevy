@@ -814,10 +814,10 @@ pub(crate) fn assign_lights_to_clusters(
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
 
         let screen_size_u32 = camera.target.get_physical_size(&windows, &images);
-        if screen_size_u32.is_none() {
+        let screen_size_u32 = screen_size_u32.unwrap_or_default();
+        if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
             continue;
         }
-        let screen_size_u32 = screen_size_u32.unwrap();
         let mut cluster_dimensions = config.dimensions_for_screen_size(screen_size_u32);
 
         let far_z = match config.far_z_mode() {
