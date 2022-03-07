@@ -1,9 +1,8 @@
 use bevy_utils::Duration;
 
-/// A resource for configuring usage of the `rust_winit` library. By default, the app will run as
-/// fast as possible when in use, and will be limited to 10fps when not focused.
+/// A resource for configuring usage of the `rust_winit` library.
 #[derive(Debug)]
-pub struct WinitConfig {
+pub struct WinitSettings {
     /// Configures the winit library to return control to the main thread after the
     /// [run](bevy_app::App::run) loop is exited. Winit strongly recommends avoiding this when
     /// possible. Before using this please read and understand the
@@ -19,15 +18,15 @@ pub struct WinitConfig {
     /// Configures how the winit event loop updates while the window is *not* focused.
     pub unfocused_mode: UpdateMode,
 }
-impl WinitConfig {
+impl WinitSettings {
     /// Configure winit with common settings for a game.
     pub fn game() -> Self {
-        WinitConfig::default()
+        WinitSettings::default()
     }
 
     /// Configure winit with common settings for a desktop application.
     pub fn desktop_app() -> Self {
-        WinitConfig {
+        WinitSettings {
             focused_mode: UpdateMode::Reactive {
                 max_wait: Duration::from_secs(5),
             },
@@ -46,14 +45,12 @@ impl WinitConfig {
         }
     }
 }
-impl Default for WinitConfig {
+impl Default for WinitSettings {
     fn default() -> Self {
-        WinitConfig {
+        WinitSettings {
             return_from_run: false,
             focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_millis(100),
-            },
+            unfocused_mode: UpdateMode::Continuous,
         }
     }
 }

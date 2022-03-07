@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::{
     prelude::*,
     window::{PresentMode, RequestRedraw},
-    winit::WinitConfig,
+    winit::WinitSettings,
 };
 
 /// This example illustrates how to run a winit window in a reactive, low power mode. This is useful
@@ -12,11 +12,11 @@ use bevy::{
 fn main() {
     App::new()
         // Continuous rendering for games - bevy's default.
-        .insert_resource(WinitConfig::game())
+        .insert_resource(WinitSettings::game())
         // Power-saving reactive rendering for applications.
-        .insert_resource(WinitConfig::desktop_app())
+        .insert_resource(WinitSettings::desktop_app())
         // You can also customize update behavior with the fields of [`WinitConfig`]
-        .insert_resource(WinitConfig {
+        .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
                 max_wait: Duration::from_millis(10),
@@ -49,16 +49,15 @@ enum ExampleMode {
 fn update_winit(
     mode: Res<ExampleMode>,
     mut event: EventWriter<RequestRedraw>,
-    mut winit_config: ResMut<WinitConfig>,
+    mut winit_config: ResMut<WinitSettings>,
 ) {
     use ExampleMode::*;
     *winit_config = match *mode {
         Game => {
             // In the default `WinitConfig::game()` mode:
             //   * When focused: the event loop runs as fast as possible
-            //   * When not focused: the app updates at 10fps - unless the window is interacted with
-            //     - in which case it will update immediately in response to these events.
-            WinitConfig::game()
+            //   * When not focused: the event loop runs as fast as possible
+            WinitSettings::game()
         }
         Application => {
             // While in `WinitConfig::desktop_app()` mode:
@@ -69,7 +68,7 @@ fn update_winit(
             //     (e.g. the mouse hovers over a visible part of the out of focus window), a
             //     [`RequestRedraw`] event is received, or one minute has passed without the app
             //     updating.
-            WinitConfig::desktop_app()
+            WinitSettings::desktop_app()
         }
         ApplicationWithRedraw => {
             // Sending a `RequestRedraw` event is useful when you want the app to update the next
@@ -77,7 +76,7 @@ fn update_winit(
             // `WinitConfig::desktop_app()` to reduce power use, but UI animations need to play even
             // when there are no inputs, so you send redraw requests while the animation is playing.
             event.send(RequestRedraw);
-            WinitConfig::desktop_app()
+            WinitSettings::desktop_app()
         }
     };
 }

@@ -40,7 +40,7 @@ pub struct WinitPlugin;
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<WinitWindows>()
-            .init_resource::<WinitConfig>()
+            .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
         let event_loop = EventLoop::new();
@@ -268,7 +268,7 @@ pub fn winit_runner_with(mut app: App) {
     app.world
         .insert_non_send_resource(event_loop.create_proxy());
 
-    let return_from_run = app.world.resource::<WinitConfig>().return_from_run;
+    let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
     trace!("Entering winit event loop");
 
     let event_handler = move |event: Event<()>,
@@ -276,7 +276,7 @@ pub fn winit_runner_with(mut app: App) {
                               control_flow: &mut ControlFlow| {
         match event {
             event::Event::NewEvents(start) => {
-                let winit_config = app.world.resource::<WinitConfig>();
+                let winit_config = app.world.resource::<WinitSettings>();
                 let windows = app.world.resource::<Windows>();
                 let focused = windows.iter().any(|w| w.is_focused());
                 // Check if either the `WaitUntil` timeout was triggered by winit, or that same
@@ -543,7 +543,7 @@ pub fn winit_runner_with(mut app: App) {
                     event_loop,
                     &mut create_window_event_reader,
                 );
-                let winit_config = app.world.resource::<WinitConfig>();
+                let winit_config = app.world.resource::<WinitSettings>();
                 let update = if winit_state.active {
                     let windows = app.world.resource::<Windows>();
                     let focused = windows.iter().any(|w| w.is_focused());
@@ -565,7 +565,7 @@ pub fn winit_runner_with(mut app: App) {
             }
             Event::RedrawEventsCleared => {
                 {
-                    let winit_config = app.world.resource::<WinitConfig>();
+                    let winit_config = app.world.resource::<WinitSettings>();
                     let windows = app.world.resource::<Windows>();
                     let focused = windows.iter().any(|w| w.is_focused());
                     let now = Instant::now();

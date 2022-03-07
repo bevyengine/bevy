@@ -1,9 +1,9 @@
-use bevy::{prelude::*, winit::WinitConfig};
+use bevy::{prelude::*, winit::WinitSettings};
 
 fn main() {
     println!("Running first App.");
     App::new()
-        .insert_resource(WinitConfig {
+        .insert_resource(WinitSettings {
             return_from_run: true,
             ..default()
         })
@@ -13,7 +13,7 @@ fn main() {
         .run();
     println!("Running another App.");
     App::new()
-        .insert_resource(WinitConfig {
+        .insert_resource(WinitSettings {
             return_from_run: true,
             ..default()
         })
