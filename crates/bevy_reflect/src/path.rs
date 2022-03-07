@@ -51,6 +51,10 @@ pub enum ReflectPathError<'a> {
 /// - [`Struct`] items are accessed with a dot and a field name: `.field_name`
 /// - [`TupleStruct`] and [`Tuple`] items are accessed with a dot and a number: `.0`
 /// - [`List`] items are accessed with brackets: `[0]`
+/// - Field indexes within [`Struct`] can also be optionally used instead: `#0` for
+///   the first field. This can speed up fetches at runtime (no string matching)
+///   but can be much more fragile to keeping code and string paths in sync. Storing
+///   these paths in persistent storage (i.e. game assets) is strongly discouraged.
 ///
 /// If the initial path element is a field of a struct, tuple struct, or tuple,
 /// the initial '.' may be omitted.
