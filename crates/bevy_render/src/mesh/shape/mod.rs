@@ -168,12 +168,24 @@ impl From<Quad> for Mesh {
         let extent_x = quad.size.x / 2.0;
         let extent_y = quad.size.y / 2.0;
 
-        let (u_left, u_right) = if quad.flip { (quad.uv_scale.x, 0.0) } else { (0.0, quad.uv_scale.x) };
+        let (u_left, u_right) = if quad.flip {
+            (quad.uv_scale.x, 0.0)
+        } else {
+            (0.0, quad.uv_scale.x)
+        };
         let vertices = [
-            ([-extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, quad.uv_scale.y]),
+            (
+                [-extent_x, -extent_y, 0.0],
+                [0.0, 0.0, 1.0],
+                [u_left, quad.uv_scale.y],
+            ),
             ([-extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 0.0]),
             ([extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, 0.0]),
-            ([extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, quad.uv_scale.y]),
+            (
+                [extent_x, -extent_y, 0.0],
+                [0.0, 0.0, 1.0],
+                [u_right, quad.uv_scale.y],
+            ),
         ];
 
         let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
