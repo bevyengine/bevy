@@ -46,7 +46,7 @@ impl From<RegularPolygon> for Mesh {
             uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
         }
 
-        let mut indices = Vec::with_capacity((sides - 1) * 3);
+        let mut indices = Vec::with_capacity((sides - 2) * 3);
         for i in 1..(sides as u32 - 1) {
             indices.extend_from_slice(&[0, i + 1, i]);
         }
