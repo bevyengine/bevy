@@ -17,15 +17,18 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_math::{ivec2, DVec2, Vec2};
-use bevy_utils::tracing::{error, trace, warn};
+use bevy_utils::{
+    tracing::{error, trace, warn},
+    Instant,
+};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-    WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+    RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
+    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     dpi::PhysicalPosition,
-    event::{self, DeviceEvent, Event, WindowEvent},
+    event::{self, DeviceEvent, Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
@@ -37,6 +40,7 @@ pub struct WinitPlugin;
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<WinitWindows>()
+            .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
         let event_loop = EventLoop::new();
@@ -227,6 +231,31 @@ pub fn winit_runner(app: App) {
 //     winit_runner_with(app, EventLoop::new_any_thread());
 // }
 
+/// Stores state that must persist between frames.
+struct WinitPersistentState {
+    /// Tracks whether or not the application is active or suspended.
+    active: bool,
+    /// Tracks whether or not an event has occurred this frame that would trigger an update in low
+    /// power mode. Should be reset at the end of every frame.
+    low_power_event: bool,
+    /// Tracks whether the event loop was started this frame because of a redraw request.
+    redraw_request_sent: bool,
+    /// Tracks if the event loop was started this frame because of a `WaitUntil` timeout.
+    timeout_reached: bool,
+    last_update: Instant,
+}
+impl Default for WinitPersistentState {
+    fn default() -> Self {
+        Self {
+            active: true,
+            low_power_event: false,
+            redraw_request_sent: false,
+            timeout_reached: false,
+            last_update: Instant::now(),
+        }
+    }
+}
+
 pub fn winit_runner_with(mut app: App) {
     let mut event_loop = app
         .world
@@ -234,34 +263,39 @@ pub fn winit_runner_with(mut app: App) {
         .unwrap();
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
+    let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
+    let mut winit_state = WinitPersistentState::default();
     app.world
         .insert_non_send_resource(event_loop.create_proxy());
 
+    let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
     trace!("Entering winit event loop");
-
-    let should_return_from_run = app
-        .world
-        .get_resource::<WinitConfig>()
-        .map_or(false, |config| config.return_from_run);
-
-    let mut active = true;
 
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
-        *control_flow = ControlFlow::Poll;
-
-        if let Some(app_exit_events) = app.world.get_resource_mut::<Events<AppExit>>() {
-            if app_exit_event_reader
-                .iter(&app_exit_events)
-                .next_back()
-                .is_some()
-            {
-                *control_flow = ControlFlow::Exit;
-            }
-        }
-
         match event {
+            event::Event::NewEvents(start) => {
+                let winit_config = app.world.resource::<WinitSettings>();
+                let windows = app.world.resource::<Windows>();
+                let focused = windows.iter().any(|w| w.is_focused());
+                // Check if either the `WaitUntil` timeout was triggered by winit, or that same
+                // amount of time has elapsed since the last app update. This manual check is needed
+                // because we don't know if the criteria for an app update were met until the end of
+                // the frame.
+                let auto_timeout_reached = matches!(start, StartCause::ResumeTimeReached { .. });
+                let now = Instant::now();
+                let manual_timeout_reached = match winit_config.update_mode(focused) {
+                    UpdateMode::Continuous => false,
+                    UpdateMode::Reactive { max_wait }
+                    | UpdateMode::ReactiveLowPower { max_wait } => {
+                        now.duration_since(winit_state.last_update) >= *max_wait
+                    }
+                };
+                // The low_power_event state and timeout must be reset at the start of every frame.
+                winit_state.low_power_event = false;
+                winit_state.timeout_reached = auto_timeout_reached || manual_timeout_reached;
+            }
             event::Event::WindowEvent {
                 event,
                 window_id: winit_window_id,
@@ -287,6 +321,7 @@ pub fn winit_runner_with(mut app: App) {
                     warn!("Skipped event for unknown Window Id {:?}", winit_window_id);
                     return;
                 };
+                winit_state.low_power_event = true;
 
                 match event {
                     WindowEvent::Resized(size) => {
@@ -497,10 +532,10 @@ pub fn winit_runner_with(mut app: App) {
                 });
             }
             event::Event::Suspended => {
-                active = false;
+                winit_state.active = false;
             }
             event::Event::Resumed => {
-                active = true;
+                winit_state.active = true;
             }
             event::Event::MainEventsCleared => {
                 handle_create_window_events(
@@ -508,14 +543,62 @@ pub fn winit_runner_with(mut app: App) {
                     event_loop,
                     &mut create_window_event_reader,
                 );
-                if active {
+                let winit_config = app.world.resource::<WinitSettings>();
+                let update = if winit_state.active {
+                    let windows = app.world.resource::<Windows>();
+                    let focused = windows.iter().any(|w| w.is_focused());
+                    match winit_config.update_mode(focused) {
+                        UpdateMode::Continuous | UpdateMode::Reactive { .. } => true,
+                        UpdateMode::ReactiveLowPower { .. } => {
+                            winit_state.low_power_event
+                                || winit_state.redraw_request_sent
+                                || winit_state.timeout_reached
+                        }
+                    }
+                } else {
+                    false
+                };
+                if update {
+                    winit_state.last_update = Instant::now();
                     app.update();
                 }
+            }
+            Event::RedrawEventsCleared => {
+                {
+                    let winit_config = app.world.resource::<WinitSettings>();
+                    let windows = app.world.resource::<Windows>();
+                    let focused = windows.iter().any(|w| w.is_focused());
+                    let now = Instant::now();
+                    use UpdateMode::*;
+                    *control_flow = match winit_config.update_mode(focused) {
+                        Continuous => ControlFlow::Poll,
+                        Reactive { max_wait } | ReactiveLowPower { max_wait } => {
+                            ControlFlow::WaitUntil(now + *max_wait)
+                        }
+                    };
+                }
+                // This block needs to run after `app.update()` in `MainEventsCleared`. Otherwise,
+                // we won't be able to see redraw requests until the next event, defeating the
+                // purpose of a redraw request!
+                let mut redraw = false;
+                if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
+                    if redraw_event_reader.iter(app_redraw_events).last().is_some() {
+                        *control_flow = ControlFlow::Poll;
+                        redraw = true;
+                    }
+                }
+                if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+                    if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                }
+                winit_state.redraw_request_sent = redraw;
             }
             _ => (),
         }
     };
-    if should_return_from_run {
+
+    if return_from_run {
         run_return(&mut event_loop, event_handler);
     } else {
         run(event_loop, event_handler);
