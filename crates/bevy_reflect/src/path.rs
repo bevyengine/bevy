@@ -462,6 +462,8 @@ mod tests {
         assert_eq!(*a.get_path::<f32>("x.bar.baz").unwrap(), 3.14);
         assert_eq!(*a.get_path::<f32>("y[1].baz").unwrap(), 2.0);
         assert_eq!(*a.get_path::<usize>("z.0.1").unwrap(), 42);
+        assert_eq!(*a.get_path::<usize>("x#0").unwrap(), 10);
+        assert_eq!(*a.get_path::<f32>("x#1#0").unwrap(), 3.14);
 
         *a.get_path_mut::<f32>("y[1].baz").unwrap() = 3.0;
         assert_eq!(a.y[1].baz, 3.0);
