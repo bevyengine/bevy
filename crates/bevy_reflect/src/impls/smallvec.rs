@@ -1,7 +1,7 @@
 use smallvec::{Array, SmallVec};
 use std::any::Any;
 
-use crate::{serde::Serializable, FromReflect, List, ListIter, Reflect, ReflectMut, ReflectRef};
+use crate::{FromReflect, List, ListIter, Reflect, ReflectMut, ReflectRef, serde::Serializable};
 
 impl<T: Array + Send + Sync + 'static> List for SmallVec<T>
 where
