@@ -253,7 +253,7 @@ jobs:
           done
           zip traces.zip trace*.json
       - name: save traces
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: example-traces.zip
           path: traces.zip
