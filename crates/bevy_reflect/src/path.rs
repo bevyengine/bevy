@@ -10,6 +10,8 @@ pub enum ReflectPathError<'a> {
     ExpectedIdent { index: usize },
     #[error("the current struct doesn't have a field with the given name")]
     InvalidField { index: usize, field: &'a str },
+    #[error("the current struct doesn't have a field at the given index")]
+    InvalidFieldIndex { index: usize, field_index: usize },
     #[error("the current tuple struct doesn't have a field with the given index")]
     InvalidTupleStructIndex {
         index: usize,
@@ -172,6 +174,7 @@ impl FieldPath {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Access {
     Field(String),
+    FieldIndex(usize),
     TupleIndex(usize),
     ListIndex(usize),
 }
@@ -180,6 +183,7 @@ impl Access {
     fn to_ref(&self) -> AccessRef<'_> {
         match self {
             Self::Field(value) => AccessRef::Field(value),
+            Self::FieldIndex(value) => AccessRef::FieldIndex(*value),
             Self::TupleIndex(value) => AccessRef::TupleIndex(*value),
             Self::ListIndex(value) => AccessRef::ListIndex(*value),
         }
@@ -189,6 +193,7 @@ impl Access {
 #[derive(Debug)]
 enum AccessRef<'a> {
     Field(&'a str),
+    FieldIndex(usize),
     TupleIndex(usize),
     ListIndex(usize),
 }
@@ -197,6 +202,7 @@ impl<'a> AccessRef<'a> {
     fn to_owned(&self) -> Access {
         match self {
             Self::Field(value) => Access::Field(value.to_string()),
+            Self::FieldIndex(value) => Access::FieldIndex(*value),
             Self::TupleIndex(value) => Access::TupleIndex(*value),
             Self::ListIndex(value) => Access::ListIndex(*value),
         }
@@ -213,6 +219,12 @@ impl<'a> AccessRef<'a> {
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
                     field,
+                }),
+            (Self::FieldIndex(field_index), ReflectRef::Struct(reflect_struct)) => reflect_struct
+                .field_at(*field_index)
+                .ok_or(ReflectPathError::InvalidFieldIndex {
+                    index: current_index,
+                    field_index: *field_index,
                 }),
             (Self::TupleIndex(tuple_index), ReflectRef::TupleStruct(reflect_struct)) => {
                 reflect_struct.field(*tuple_index).ok_or(
@@ -248,6 +260,12 @@ impl<'a> AccessRef<'a> {
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
                     field,
+                }),
+            (Self::FieldIndex(field_index), ReflectMut::Struct(reflect_struct)) => reflect_struct
+                .field_at_mut(*field_index)
+                .ok_or(ReflectPathError::InvalidFieldIndex {
+                    index: current_index,
+                    field_index: *field_index,
                 }),
             (Self::TupleIndex(tuple_index), ReflectMut::TupleStruct(reflect_struct)) => {
                 reflect_struct.field_mut(*tuple_index).ok_or(
@@ -293,6 +311,10 @@ impl<'a> PathParser<'a> {
                 self.index += 1;
                 return Some(Token::Dot);
             }
+            '#' => {
+                self.index += 1;
+                return Some(Token::CrossHatch);
+            }
             '[' => {
                 self.index += 1;
                 return Some(Token::OpenBracket);
@@ -307,7 +329,7 @@ impl<'a> PathParser<'a> {
         // we can assume we are parsing an ident now
         for (char_index, character) in self.path[self.index..].chars().enumerate() {
             match character {
-                '.' | '[' | ']' => {
+                '.' | '#' | '[' | ']' => {
                     let ident = Token::Ident(&self.path[self.index..self.index + char_index]);
                     self.index += char_index;
                     return Some(ident);
@@ -329,6 +351,15 @@ impl<'a> PathParser<'a> {
                         .parse::<usize>()
                         .map(AccessRef::TupleIndex)
                         .or(Ok(AccessRef::Field(value)))
+                } else {
+                    Err(ReflectPathError::ExpectedIdent {
+                        index: current_index,
+                    })
+                }
+            }
+            Token::CrossHatch => {
+                if let Some(Token::Ident(value)) = self.next_token() {
+                    Ok(AccessRef::FieldIndex(value.parse::<usize>()?))
                 } else {
                     Err(ReflectPathError::ExpectedIdent {
                         index: current_index,
@@ -377,6 +408,7 @@ impl<'a> Iterator for PathParser<'a> {
 
 enum Token<'a> {
     Dot,
+    CrossHatch,
     OpenBracket,
     CloseBracket,
     Ident(&'a str),
