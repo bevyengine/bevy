@@ -172,8 +172,7 @@ fn select_system(
     }
     if !timer.has_triggered {
         let mut text = text_query.single_mut();
-        text.sections[0].value.clear();
-        text.sections[0].value.push_str("Contributor: ");
+        text.sections[0].value = "Contributor: ".to_string();
 
         timer.has_triggered = true;
     }
