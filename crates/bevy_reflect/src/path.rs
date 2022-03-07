@@ -1,3 +1,4 @@
+use std::fmt;
 use std::num::ParseIntError;
 
 use crate::{Reflect, ReflectMut, ReflectRef, VariantType};
@@ -179,6 +180,37 @@ impl FieldPath {
             current = access.to_ref().read_field_mut(current, *current_index)?;
         }
         Ok(current)
+    }
+}
+
+impl fmt::Display for FieldPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (idx, (access, _)) in self.0.iter().enumerate() {
+            match access {
+                Access::Field(field) => {
+                    if idx != 0 {
+                        f.write_str(".")?;
+                    }
+                    f.write_str(field.as_str())?;
+                }
+                Access::FieldIndex(index) => {
+                    f.write_str("#")?;
+                    index.fmt(f)?;
+                }
+                Access::TupleIndex(index) => {
+                    if idx != 0 {
+                        f.write_str(".")?;
+                    }
+                    index.fmt(f)?;
+                }
+                Access::ListIndex(index) => {
+                    f.write_str("[")?;
+                    index.fmt(f)?;
+                    f.write_str("]")?;
+                }
+            }
+        }
+        Ok(())
     }
 }
 
