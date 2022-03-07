@@ -38,12 +38,12 @@ impl From<RegularPolygon> for Mesh {
 
         let step = std::f32::consts::TAU / sides as f32;
         for i in 0..sides {
-            let a = std::f32::consts::FRAC_PI_2 - i as f32 * step;
+            let theta = std::f32::consts::FRAC_PI_2 - i as f32 * step;
+            let (sin, cos) = theta.sin_cos();
 
-            let (s, c) = a.sin_cos();
-            positions.push([c * radius, s * radius, 0.0]);
+            positions.push([cos * radius, sin * radius, 0.0]);
             normals.push([0.0, 0.0, 1.0]);
-            uvs.push([0.5 * (c + 1.0), 1.0 - 0.5 * (s + 1.0)]);
+            uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
         }
 
         let mut indices = Vec::with_capacity((sides - 1) * 3);
