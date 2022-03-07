@@ -123,6 +123,7 @@ impl Entity {
     /// for serialization between runs.
     ///
     /// No particular structure is guaranteed for the returned bits.
+    #[inline(always)]
     pub fn to_bits(self) -> u64 {
         u64::from(self.generation) << 32 | u64::from(self.id)
     }
@@ -158,6 +159,7 @@ impl Entity {
 
 // Required for ordering correctness. Cannot be done with a derive macro.
 impl PartialOrd for Entity {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<CmpOrdering> {
         Some(self.to_bits().cmp(&other.to_bits()))
     }
@@ -165,18 +167,21 @@ impl PartialOrd for Entity {
 
 // Required for ordering correctness. Cannot be done with a derive macro.
 impl Ord for Entity {
+    #[inline]
     fn cmp(&self, other: &Self) -> CmpOrdering {
         self.to_bits().cmp(&other.to_bits())
     }
 }
 
 impl Hash for Entity {
+    #[inline]
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         self.to_bits().hash(hasher)
     }
 }
 
 impl PartialEq for Entity {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.to_bits() == other.to_bits()
     }
