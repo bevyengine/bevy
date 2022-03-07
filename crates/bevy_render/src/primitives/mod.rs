@@ -87,6 +87,7 @@ impl Plane {
     /// from the origin.
     /// This constructor ensures that the normal is normalized and the distance is
     /// scaled accordingly so it represents the signed distance from the origin.
+    #[inline]
     pub fn new(normal_d: Vec4) -> Self {
         Self {
             normal_d: normal_d * normal_d.xyz().length_recip(),
