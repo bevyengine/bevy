@@ -458,13 +458,17 @@ mod tests {
             .map(|i| pool.spawn_pollable(async move { transform_fn(i) }))
             .collect::<Vec<_>>();
 
-        std::thread::sleep(Duration::from_secs_f32(1.0 / 30.0));
+        for _ in 0..100 {
+            for (pollable_task, number) in pollable_tasks.iter().zip(nums.clone()) {
+                match pollable_task.poll() {
+                    None => continue,
+                    Some(actual) => assert_eq!(transform_fn(number), actual),
+                }
+                return;
+            }
 
-        for (pollable_task, number) in pollable_tasks.iter().zip(nums) {
-            let poll_result = pollable_task.poll();
-
-            let expected = transform_fn(number);
-            assert_eq!(Some(expected), poll_result);
+            std::thread::sleep(Duration::from_secs_f32(1. / 100.));
         }
+        panic!("Tasks did not finish in time.");
     }
 }
