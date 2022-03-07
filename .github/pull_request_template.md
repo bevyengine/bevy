@@ -7,11 +7,12 @@
 
 - Describe the solution used to achieve the objective above.
 
-## Changelog
+## \[ Optional \] Changelog
 
-- List a general overview of the changes made by this PR
-- Try to be concise. If more detail is needed for a particular change, consider adding it to the "Solution" section
+- What changed as a result of this PR?
+- Stick to one or two sentences. If more detail is needed for a particular change, consider adding it to the "Solution" section
+  - If you can't summarize the work your change may be unreasonably large / unrelated. Consider splitting your PR to make it easier to review and merge!
 
-## Migration Guide
+## \[Optional\] Migration Guide
 
 - If this PR affects the public API, describe how a user might need to migrate their code to support these changes
