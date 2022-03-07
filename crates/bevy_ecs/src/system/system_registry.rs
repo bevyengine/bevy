@@ -10,7 +10,7 @@ use crate::world::{Mut, World};
 /// [`BoxedSystem`](crate::system::BoxedSystem) is the equivalent type alias for arbitrary `In` and `Out` types.
 pub type UnchainedSystem = Box<dyn System<In = (), Out = ()>>;
 
-/// Stores initialized [`Systems`](crate::system::System), so they can quickly be reused and run
+/// Stores initialized [`Systems`](crate::system::System), so they can be reused and run in an ad-hoc fashion
 ///
 /// Systems are keyed by their [`TypeId`]: repeated calls with the same function type will reuse cached state,
 /// including for change detection.
@@ -22,7 +22,6 @@ pub struct SystemRegistry {
     systems: HashMap<TypeId, UnchainedSystem>,
 }
 
-// User-facing methods
 impl SystemRegistry {
     /// Registers a system in the [`SystemRegistry`], so then it can be later run.
     ///
@@ -42,6 +41,7 @@ impl SystemRegistry {
     }
 
     /// Is the provided `type_id` registered?
+    #[inline]
     pub fn type_id_registered(&self, type_id: &TypeId) -> bool {
         self.systems.contains_key(type_id)
     }
@@ -132,7 +132,7 @@ pub struct RunSystemCommand<
 impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync + 'static>
     RunSystemCommand<Params, S>
 {
-    /// Creates a new [`Command`] struct, which can be addeded to [`Commands`](crate::system::Commands)
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     #[inline]
     #[must_use]
     pub fn new(system: S) -> Self {
