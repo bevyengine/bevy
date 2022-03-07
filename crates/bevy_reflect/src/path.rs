@@ -623,6 +623,8 @@ mod tests {
         assert_eq!(*a.get_path::<f32>("x.bar.baz").unwrap(), 3.14);
         assert_eq!(*a.get_path::<f32>("y[1].baz").unwrap(), 2.0);
         assert_eq!(*a.get_path::<usize>("z.0.1").unwrap(), 42);
+        assert_eq!(*a.get_path::<usize>("x#0").unwrap(), 10);
+        assert_eq!(*a.get_path::<f32>("x#1#0").unwrap(), 3.14);
 
         assert_eq!(*a.get_path::<F>("unit_variant").unwrap(), F::Unit);
         assert_eq!(*a.get_path::<u32>("tuple_variant.1").unwrap(), 321);
