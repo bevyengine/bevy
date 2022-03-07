@@ -6,7 +6,6 @@ pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
-    info,
     render_graph::RenderGraph,
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
