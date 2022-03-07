@@ -30,6 +30,8 @@ impl From<RegularPolygon> for Mesh {
     fn from(polygon: RegularPolygon) -> Self {
         let RegularPolygon { radius, sides } = polygon;
 
+        debug_assert!(sides > 2, "RegularPolygon requires at least 3 sides.");
+
         let mut positions = Vec::with_capacity(sides);
         let mut normals = Vec::with_capacity(sides);
         let mut uvs = Vec::with_capacity(sides);
