@@ -436,6 +436,7 @@ mod tests {
             foo: usize,
         }
 
+        // === Struct === //
         // Register
         let mut registry = TypeRegistry::default();
         registry.register::<MyStruct>();
@@ -456,7 +457,52 @@ mod tests {
         // Assert
         let expected = MyStruct { foo: 123 };
         assert!(expected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
-        let not_expected = MyStruct { foo: 321 };
-        assert!(!not_expected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
+        let unexpected = MyStruct { foo: 321 };
+        assert!(!unexpected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
+
+        // === Vec === //
+        // Register
+        registry.register::<Vec<usize>>();
+
+        // Get type data
+        let type_id = TypeId::of::<Vec<usize>>();
+        let rfr = registry
+            .get_type_data::<ReflectFromReflect>(type_id)
+            .expect("the FromReflect trait should be registered");
+
+        // Call from_reflect
+        let mut dynamic_list = DynamicList::default();
+        dynamic_list.push(1usize);
+        dynamic_list.push(2usize);
+        dynamic_list.push(3usize);
+        let reflected = rfr
+            .from_reflect(&dynamic_list)
+            .expect("the type should be properly reflected");
+
+        // Assert
+        let expected = vec![1usize, 2usize, 3usize];
+        assert!(expected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
+        let unexpected = vec![1usize, 2usize, 3usize, 4usize];
+        assert!(!unexpected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
+
+        // === Value === //
+        // Register
+        registry.register::<i32>();
+
+        // Get type data
+        let type_id = TypeId::of::<i32>();
+        let rfr = registry
+            .get_type_data::<ReflectFromReflect>(type_id)
+            .expect("the FromReflect trait should be registered");
+
+        // Call from_reflect
+        let dynamic_value: i32 = 123;
+        let reflected = rfr
+            .from_reflect(&dynamic_value)
+            .expect("the type should be properly reflected");
+
+        // Assert
+        let expected: i32 = 123;
+        assert!(expected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
     }
 }
