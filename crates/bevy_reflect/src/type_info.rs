@@ -28,7 +28,7 @@ impl TypeIdentity {
     }
 
     /// The name of this type
-    pub fn type_name(&self) -> &str {
+    pub fn type_name(&self) -> &'static str {
         self.0
     }
 
