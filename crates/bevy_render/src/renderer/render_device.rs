@@ -40,7 +40,7 @@ impl RenderDevice {
     pub fn create_shader_module(&self, desc: &wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
         #[cfg(feature = "spirv_shader_passthrough")]
         match &desc.source {
-            self.features().contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) && wgpu::ShaderSource::SpirV(source) => unsafe {
+            wgpu::ShaderSource::SpirV(source) if self.features().contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) => unsafe {
                 self.device
                     .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
                         label: desc.label,
