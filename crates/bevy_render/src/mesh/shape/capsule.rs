@@ -20,7 +20,7 @@ pub struct Capsule {
 }
 impl Default for Capsule {
     fn default() -> Self {
-        Capsule {
+        Self {
             radius: 0.5,
             rings: 0,
             depth: 1.0,
@@ -45,7 +45,7 @@ pub enum CapsuleUvProfile {
 
 impl Default for CapsuleUvProfile {
     fn default() -> Self {
-        CapsuleUvProfile::Aspect
+        Self::Aspect
     }
 }
 
@@ -369,10 +369,10 @@ impl From<Capsule> for Mesh {
         assert_eq!(vs.len(), vert_len);
         assert_eq!(tris.len(), fs_len);
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vs);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vns);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vts);
+        let mut mesh = Self::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(Self::ATTRIBUTE_POSITION, vs);
+        mesh.insert_attribute(Self::ATTRIBUTE_NORMAL, vns);
+        mesh.insert_attribute(Self::ATTRIBUTE_UV_0, vts);
         mesh.set_indices(Some(Indices::U32(tris)));
         mesh
     }

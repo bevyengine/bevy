@@ -54,7 +54,7 @@ pub struct PointLight {
 
 impl Default for PointLight {
     fn default() -> Self {
-        PointLight {
+        Self {
             color: Color::rgb(1.0, 1.0, 1.0),
             /// Luminous power in lumens
             intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
@@ -126,7 +126,7 @@ pub struct DirectionalLight {
 impl Default for DirectionalLight {
     fn default() -> Self {
         let size = 100.0;
-        DirectionalLight {
+        Self {
             color: Color::rgb(1.0, 1.0, 1.0),
             illuminance: 100000.0,
             shadows_enabled: false,
@@ -369,7 +369,7 @@ impl Clusters {
         near: f32,
         far: f32,
     ) -> Self {
-        Clusters::new(
+        Self::new(
             (screen_size + UVec2::ONE) / dimensions.xy(),
             screen_size,
             dimensions.z,

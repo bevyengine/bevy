@@ -541,7 +541,7 @@ impl Parse for ReflectDef {
             attrs = Some(content.parse::<ReflectAttrs>()?);
         }
 
-        Ok(ReflectDef {
+        Ok(Self {
             type_name: type_ident,
             generics: Generics {
                 where_clause,
@@ -585,7 +585,7 @@ struct ReflectAttrs {
 
 impl ReflectAttrs {
     fn from_nested_metas(nested_metas: &Punctuated<NestedMeta, Comma>) -> Self {
-        let mut attrs = ReflectAttrs::default();
+        let mut attrs = Self::default();
         for nested_meta in nested_metas.iter() {
             match nested_meta {
                 NestedMeta::Lit(_) => {}
@@ -703,7 +703,7 @@ impl ReflectAttrs {
 impl Parse for ReflectAttrs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let result = Punctuated::<NestedMeta, Comma>::parse_terminated(input)?;
-        Ok(ReflectAttrs::from_nested_metas(&result))
+        Ok(Self::from_nested_metas(&result))
     }
 }
 

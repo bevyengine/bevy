@@ -29,7 +29,7 @@ pub struct ShaderData {
 pub struct CachedPipelineId(usize);
 
 impl CachedPipelineId {
-    pub const INVALID: Self = CachedPipelineId(usize::MAX);
+    pub const INVALID: Self = Self(usize::MAX);
 }
 
 #[derive(Default)]

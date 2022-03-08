@@ -317,14 +317,14 @@ impl RenderGraph {
     }
 
     /// Returns an iterator over the sub graphs.
-    pub fn iter_sub_graphs(&self) -> impl Iterator<Item = (&str, &RenderGraph)> {
+    pub fn iter_sub_graphs(&self) -> impl Iterator<Item = (&str, &Self)> {
         self.sub_graphs
             .iter()
             .map(|(name, graph)| (name.as_ref(), graph))
     }
 
     /// Returns an iterator over the sub graphs, that allows modifying each value.
-    pub fn iter_sub_graphs_mut(&mut self) -> impl Iterator<Item = (&str, &mut RenderGraph)> {
+    pub fn iter_sub_graphs_mut(&mut self) -> impl Iterator<Item = (&str, &mut Self)> {
         self.sub_graphs
             .iter_mut()
             .map(|(name, graph)| (name.as_ref(), graph))
@@ -364,17 +364,17 @@ impl RenderGraph {
 
     /// Adds the `sub_graph` with the `name` to the graph.
     /// If the name is already present replaces it instead.
-    pub fn add_sub_graph(&mut self, name: impl Into<Cow<'static, str>>, sub_graph: RenderGraph) {
+    pub fn add_sub_graph(&mut self, name: impl Into<Cow<'static, str>>, sub_graph: Self) {
         self.sub_graphs.insert(name.into(), sub_graph);
     }
 
     /// Retrieves the sub graph corresponding to the `name`.
-    pub fn get_sub_graph(&self, name: impl AsRef<str>) -> Option<&RenderGraph> {
+    pub fn get_sub_graph(&self, name: impl AsRef<str>) -> Option<&Self> {
         self.sub_graphs.get(name.as_ref())
     }
 
     /// Retrieves the sub graph corresponding to the `name` mutably.
-    pub fn get_sub_graph_mut(&mut self, name: impl AsRef<str>) -> Option<&mut RenderGraph> {
+    pub fn get_sub_graph_mut(&mut self, name: impl AsRef<str>) -> Option<&mut Self> {
         self.sub_graphs.get_mut(name.as_ref())
     }
 }
@@ -440,7 +440,7 @@ mod tests {
 
     impl TestNode {
         pub fn new(inputs: usize, outputs: usize) -> Self {
-            TestNode {
+            Self {
                 inputs: (0..inputs)
                     .map(|i| SlotInfo::new(format!("in_{}", i), SlotType::TextureView))
                     .collect(),

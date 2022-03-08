@@ -188,7 +188,7 @@ impl FromWorld for ShadowPipeline {
 
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 
-        ShadowPipeline {
+        Self {
             view_layout,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
@@ -219,7 +219,7 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ShadowPipelineKey: u32 {
         const NONE               = 0;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = ShadowPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << ShadowPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
@@ -1168,7 +1168,7 @@ impl ShadowPassNode {
 
 impl Node for ShadowPassNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(ShadowPassNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {

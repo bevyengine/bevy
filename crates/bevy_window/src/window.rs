@@ -40,15 +40,15 @@ pub enum PresentMode {
 
 impl WindowId {
     pub fn new() -> Self {
-        WindowId(Uuid::new_v4())
+        Self(Uuid::new_v4())
     }
 
     pub fn primary() -> Self {
-        WindowId(Uuid::from_u128(0))
+        Self(Uuid::from_u128(0))
     }
 
     pub fn is_primary(&self) -> bool {
-        *self == WindowId::primary()
+        *self == Self::primary()
     }
 }
 
@@ -65,7 +65,7 @@ impl fmt::Display for WindowId {
 
 impl Default for WindowId {
     fn default() -> Self {
-        WindowId::primary()
+        Self::primary()
     }
 }
 
@@ -119,7 +119,7 @@ impl WindowResizeConstraints {
             );
             max_height = min_height;
         }
-        WindowResizeConstraints {
+        Self {
             min_width,
             min_height,
             max_width,
@@ -245,7 +245,7 @@ impl Window {
         position: Option<IVec2>,
         raw_window_handle: RawWindowHandle,
     ) -> Self {
-        Window {
+        Self {
             id,
             requested_width: window_descriptor.width,
             requested_height: window_descriptor.height,
@@ -615,7 +615,7 @@ pub struct WindowDescriptor {
 
 impl Default for WindowDescriptor {
     fn default() -> Self {
-        WindowDescriptor {
+        Self {
             title: "app".to_string(),
             width: 1280.,
             height: 720.,

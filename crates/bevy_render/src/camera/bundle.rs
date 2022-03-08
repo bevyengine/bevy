@@ -39,7 +39,7 @@ impl PerspectiveCameraBundle {
             &Vec3::Z,
             perspective_projection.far(),
         );
-        PerspectiveCameraBundle {
+        Self {
             camera: Camera {
                 name: Some(name.to_string()),
                 near: perspective_projection.near,
@@ -57,7 +57,7 @@ impl PerspectiveCameraBundle {
 
 impl Default for PerspectiveCameraBundle {
     fn default() -> Self {
-        PerspectiveCameraBundle::with_name(CameraPlugin::CAMERA_3D)
+        Self::with_name(CameraPlugin::CAMERA_3D)
     }
 }
 
@@ -110,7 +110,7 @@ impl OrthographicCameraBundle {
             &transform.back(),
             orthographic_projection.far(),
         );
-        OrthographicCameraBundle {
+        Self {
             camera: Camera {
                 name: Some(CameraPlugin::CAMERA_2D.to_string()),
                 near: orthographic_projection.near,
@@ -138,7 +138,7 @@ impl OrthographicCameraBundle {
             &Vec3::Z,
             orthographic_projection.far(),
         );
-        OrthographicCameraBundle {
+        Self {
             camera: Camera {
                 name: Some(CameraPlugin::CAMERA_3D.to_string()),
                 near: orthographic_projection.near,
@@ -162,7 +162,7 @@ impl OrthographicCameraBundle {
             &Vec3::Z,
             orthographic_projection.far(),
         );
-        OrthographicCameraBundle {
+        Self {
             camera: Camera {
                 name: Some(name.to_string()),
                 near: orthographic_projection.near,

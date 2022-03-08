@@ -40,7 +40,7 @@ impl std::iter::FromIterator<Layer> for RenderLayers {
 /// Defaults to containing to layer `0`, the first layer.
 impl Default for RenderLayers {
     fn default() -> Self {
-        RenderLayers::layer(0)
+        Self::layer(0)
     }
 }
 
@@ -50,17 +50,17 @@ impl RenderLayers {
 
     /// Create a new `RenderLayers` belonging to the given layer.
     pub const fn layer(n: Layer) -> Self {
-        RenderLayers(0).with(n)
+        Self(0).with(n)
     }
 
     /// Create a new `RenderLayers` that belongs to all layers.
     pub const fn all() -> Self {
-        RenderLayers(u32::MAX)
+        Self(u32::MAX)
     }
 
     /// Create a new `RenderLayers` that belongs to no layers.
     pub const fn none() -> Self {
-        RenderLayers(0)
+        Self(0)
     }
 
     /// Create a `RenderLayers` from a list of layers.
@@ -95,7 +95,7 @@ impl RenderLayers {
     pub fn iter(&self) -> impl Iterator<Item = Layer> {
         let total: Layer = std::convert::TryInto::try_into(Self::TOTAL_LAYERS).unwrap();
         let mask = *self;
-        (0..total).filter(move |g| RenderLayers::layer(*g).intersects(&mask))
+        (0..total).filter(move |g| Self::layer(*g).intersects(&mask))
     }
 
     /// Determine if a `RenderLayers` intersects another.
@@ -104,7 +104,7 @@ impl RenderLayers {
     ///
     /// A `RenderLayers` with no layers will not match any other
     /// `RenderLayers`, even another with no layers.
-    pub fn intersects(&self, other: &RenderLayers) -> bool {
+    pub fn intersects(&self, other: &Self) -> bool {
         (self.0 & other.0) > 0
     }
 }

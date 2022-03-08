@@ -262,7 +262,7 @@ impl<M: SpecializedMaterial> FromWorld for MaterialPipeline<M> {
         let render_device = world.resource::<RenderDevice>();
         let material_layout = M::bind_group_layout(render_device);
 
-        MaterialPipeline {
+        Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             material_layout,
             vertex_shader: M::vertex_shader(asset_server),

@@ -199,7 +199,7 @@ impl FromWorld for Mesh2dPipeline {
                 ),
             }
         };
-        Mesh2dPipeline {
+        Self {
             view_layout,
             mesh_layout,
             dummy_white_gpu_image,
@@ -232,8 +232,8 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                        = 0;
-        const MSAA_RESERVED_BITS          = Mesh2dPipelineKey::MSAA_MASK_BITS << Mesh2dPipelineKey::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Mesh2dPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << Mesh2dPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
@@ -245,7 +245,7 @@ impl Mesh2dPipelineKey {
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Mesh2dPipelineKey::from_bits(msaa_bits).unwrap()
+        Self::from_bits(msaa_bits).unwrap()
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -256,7 +256,7 @@ impl Mesh2dPipelineKey {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Mesh2dPipelineKey::from_bits(primitive_topology_bits).unwrap()
+        Self::from_bits(primitive_topology_bits).unwrap()
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {

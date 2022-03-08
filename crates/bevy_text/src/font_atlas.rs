@@ -50,7 +50,7 @@ impl FontAtlas {
         textures: &mut Assets<Image>,
         texture_atlases: &mut Assets<TextureAtlas>,
         size: Vec2,
-    ) -> FontAtlas {
+    ) -> Self {
         let atlas_texture = textures.add(Image::new_fill(
             Extent3d {
                 width: size.x as u32,

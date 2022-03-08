@@ -41,7 +41,7 @@ struct ComponentB {
 impl FromWorld for ComponentB {
     fn from_world(world: &mut World) -> Self {
         let time = world.resource::<Time>();
-        ComponentB {
+        Self {
             _time_since_startup: time.time_since_startup(),
             value: "Default Value".to_string(),
         }

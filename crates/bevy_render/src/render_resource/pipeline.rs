@@ -30,7 +30,7 @@ impl RenderPipeline {
 
 impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
-        RenderPipeline {
+        Self {
             id: RenderPipelineId(Uuid::new_v4()),
             value: Arc::new(value),
         }
@@ -70,7 +70,7 @@ impl ComputePipeline {
 
 impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
-        ComputePipeline {
+        Self {
             id: ComputePipelineId(Uuid::new_v4()),
             value: Arc::new(value),
         }
@@ -148,7 +148,7 @@ impl VertexBufferLayout {
             offset += format.size();
         }
 
-        VertexBufferLayout {
+        Self {
             array_stride: offset,
             step_mode,
             attributes,

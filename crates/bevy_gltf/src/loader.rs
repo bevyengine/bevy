@@ -867,7 +867,7 @@ mod test {
 
     impl GltfNode {
         fn empty() -> Self {
-            GltfNode {
+            Self {
                 children: vec![],
                 mesh: None,
                 transform: bevy_transform::prelude::Transform::identity(),

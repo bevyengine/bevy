@@ -10,13 +10,13 @@ pub struct DiagnosticId(pub Uuid);
 
 impl DiagnosticId {
     pub const fn from_u128(value: u128) -> Self {
-        DiagnosticId(Uuid::from_u128(value))
+        Self(Uuid::from_u128(value))
     }
 }
 
 impl Default for DiagnosticId {
     fn default() -> Self {
-        DiagnosticId(Uuid::new_v4())
+        Self(Uuid::new_v4())
     }
 }
 
@@ -57,7 +57,7 @@ impl Diagnostic {
         id: DiagnosticId,
         name: impl Into<Cow<'static, str>>,
         max_history_length: usize,
-    ) -> Diagnostic {
+    ) -> Self {
         let name = name.into();
         if name.chars().count() > MAX_DIAGNOSTIC_NAME_WIDTH {
             // This could be a false positive due to a unicode width being shorter
@@ -67,7 +67,7 @@ impl Diagnostic {
                 name, MAX_DIAGNOSTIC_NAME_WIDTH
             );
         }
-        Diagnostic {
+        Self {
             id,
             name,
             suffix: Cow::Borrowed(""),

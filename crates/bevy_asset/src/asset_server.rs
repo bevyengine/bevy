@@ -78,7 +78,7 @@ impl AssetServer {
     }
 
     pub fn with_boxed_io(asset_io: Box<dyn AssetIo>, task_pool: TaskPool) -> Self {
-        AssetServer {
+        Self {
             server: Arc::new(AssetServerInternal {
                 loaders: Default::default(),
                 extension_to_loader_index: Default::default(),

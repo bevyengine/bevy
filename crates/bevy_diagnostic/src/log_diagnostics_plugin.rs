@@ -20,7 +20,7 @@ struct LogDiagnosticsState {
 
 impl Default for LogDiagnosticsPlugin {
     fn default() -> Self {
-        LogDiagnosticsPlugin {
+        Self {
             debug: false,
             wait_duration: Duration::from_secs(1),
             filter: None,
@@ -45,7 +45,7 @@ impl Plugin for LogDiagnosticsPlugin {
 
 impl LogDiagnosticsPlugin {
     pub fn filtered(filter: Vec<DiagnosticId>) -> Self {
-        LogDiagnosticsPlugin {
+        Self {
             filter: Some(filter),
             ..Default::default()
         }

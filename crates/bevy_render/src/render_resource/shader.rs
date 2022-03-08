@@ -17,7 +17,7 @@ pub struct ShaderId(Uuid);
 impl ShaderId {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        ShaderId(Uuid::new_v4())
+        Self(Uuid::new_v4())
     }
 }
 
@@ -43,28 +43,28 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Shader {
+    pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Self {
         let source = source.into();
         let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source);
-        Shader {
+        Self {
             imports: shader_imports.imports,
             import_path: shader_imports.import_path,
             source: Source::Wgsl(source),
         }
     }
 
-    pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Shader {
+    pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Self {
         let source = source.into();
         let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source);
-        Shader {
+        Self {
             imports: shader_imports.imports,
             import_path: shader_imports.import_path,
             source: Source::Glsl(source, stage),
         }
     }
 
-    pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>) -> Shader {
-        Shader {
+    pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>) -> Self {
+        Self {
             imports: Vec::new(),
             import_path: None,
             source: Source::SpirV(source.into()),

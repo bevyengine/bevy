@@ -44,7 +44,7 @@ fn main() {
 struct IsRed(bool);
 
 impl ExtractComponent for IsRed {
-    type Query = &'static IsRed;
+    type Query = &'static Self;
 
     type Filter = ();
 
@@ -92,7 +92,7 @@ impl FromWorld for IsRedPipeline {
         let asset_server = world.resource::<AssetServer>();
         let mesh_pipeline = world.resource::<MeshPipeline>();
         let shader = asset_server.load("shaders/shader_defs.wgsl");
-        IsRedPipeline {
+        Self {
             mesh_pipeline: mesh_pipeline.clone(),
             shader,
         }

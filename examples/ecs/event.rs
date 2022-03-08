@@ -27,7 +27,7 @@ struct EventTriggerState {
 
 impl Default for EventTriggerState {
     fn default() -> Self {
-        EventTriggerState {
+        Self {
             event_timer: Timer::from_seconds(1.0, true),
         }
     }

@@ -36,25 +36,25 @@ impl SlotValue {
 
 impl From<Buffer> for SlotValue {
     fn from(value: Buffer) -> Self {
-        SlotValue::Buffer(value)
+        Self::Buffer(value)
     }
 }
 
 impl From<TextureView> for SlotValue {
     fn from(value: TextureView) -> Self {
-        SlotValue::TextureView(value)
+        Self::TextureView(value)
     }
 }
 
 impl From<Sampler> for SlotValue {
     fn from(value: Sampler) -> Self {
-        SlotValue::Sampler(value)
+        Self::Sampler(value)
     }
 }
 
 impl From<Entity> for SlotValue {
     fn from(value: Entity) -> Self {
-        SlotValue::Entity(value)
+        Self::Entity(value)
     }
 }
 
@@ -95,33 +95,33 @@ pub enum SlotLabel {
     Name(Cow<'static, str>),
 }
 
-impl From<&SlotLabel> for SlotLabel {
-    fn from(value: &SlotLabel) -> Self {
+impl From<&Self> for SlotLabel {
+    fn from(value: &Self) -> Self {
         value.clone()
     }
 }
 
 impl From<String> for SlotLabel {
     fn from(value: String) -> Self {
-        SlotLabel::Name(value.into())
+        Self::Name(value.into())
     }
 }
 
 impl From<&'static str> for SlotLabel {
     fn from(value: &'static str) -> Self {
-        SlotLabel::Name(value.into())
+        Self::Name(value.into())
     }
 }
 
 impl From<Cow<'static, str>> for SlotLabel {
     fn from(value: Cow<'static, str>) -> Self {
-        SlotLabel::Name(value.clone())
+        Self::Name(value.clone())
     }
 }
 
 impl From<usize> for SlotLabel {
     fn from(value: usize) -> Self {
-        SlotLabel::Index(value)
+        Self::Index(value)
     }
 }
 
@@ -134,7 +134,7 @@ pub struct SlotInfo {
 
 impl SlotInfo {
     pub fn new(name: impl Into<Cow<'static, str>>, slot_type: SlotType) -> Self {
-        SlotInfo {
+        Self {
             name: name.into(),
             slot_type,
         }
@@ -150,7 +150,7 @@ pub struct SlotInfos {
 
 impl<T: IntoIterator<Item = SlotInfo>> From<T> for SlotInfos {
     fn from(slots: T) -> Self {
-        SlotInfos {
+        Self {
             slots: slots.into_iter().collect(),
         }
     }

@@ -32,7 +32,7 @@ impl DynamicScene {
 
     /// Create a new dynamic scene from a given world.
     pub fn from_world(world: &World, type_registry: &TypeRegistryArc) -> Self {
-        let mut scene = DynamicScene::default();
+        let mut scene = Self::default();
         let type_registry = type_registry.read();
 
         for archetype in world.archetypes().iter() {

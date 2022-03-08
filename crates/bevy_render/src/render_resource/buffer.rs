@@ -40,7 +40,7 @@ impl Buffer {
 
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
-        Buffer {
+        Self {
             id: BufferId(Uuid::new_v4()),
             value: Arc::new(value),
         }

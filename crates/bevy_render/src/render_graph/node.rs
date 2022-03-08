@@ -21,7 +21,7 @@ pub struct NodeId(Uuid);
 impl NodeId {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        NodeId(Uuid::new_v4())
+        Self(Uuid::new_v4())
     }
 
     pub fn uuid(&self) -> &Uuid {
@@ -182,7 +182,7 @@ impl NodeState {
     where
         T: Node,
     {
-        NodeState {
+        Self {
             id,
             name: None,
             input_slots: node.input().into(),
@@ -244,27 +244,27 @@ pub enum NodeLabel {
     Name(Cow<'static, str>),
 }
 
-impl From<&NodeLabel> for NodeLabel {
-    fn from(value: &NodeLabel) -> Self {
+impl From<&Self> for NodeLabel {
+    fn from(value: &Self) -> Self {
         value.clone()
     }
 }
 
 impl From<String> for NodeLabel {
     fn from(value: String) -> Self {
-        NodeLabel::Name(value.into())
+        Self::Name(value.into())
     }
 }
 
 impl From<&'static str> for NodeLabel {
     fn from(value: &'static str) -> Self {
-        NodeLabel::Name(value.into())
+        Self::Name(value.into())
     }
 }
 
 impl From<NodeId> for NodeLabel {
     fn from(value: NodeId) -> Self {
-        NodeLabel::Id(value)
+        Self::Id(value)
     }
 }
 

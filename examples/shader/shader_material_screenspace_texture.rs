@@ -89,7 +89,7 @@ pub struct GpuCustomMaterial {
 }
 
 impl RenderAsset for CustomMaterial {
-    type ExtractedAsset = CustomMaterial;
+    type ExtractedAsset = Self;
     type PreparedAsset = GpuCustomMaterial;
     type Param = (
         SRes<RenderDevice>,

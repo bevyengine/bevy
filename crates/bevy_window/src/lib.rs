@@ -30,7 +30,7 @@ pub struct WindowPlugin {
 
 impl Default for WindowPlugin {
     fn default() -> Self {
-        WindowPlugin {
+        Self {
             add_primary_window: true,
             exit_on_close: true,
         }

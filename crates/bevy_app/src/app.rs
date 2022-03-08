@@ -66,7 +66,7 @@ struct SubApp {
 
 impl Default for App {
     fn default() -> Self {
-        let mut app = App::empty();
+        let mut app = Self::empty();
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<bevy_reflect::TypeRegistryArc>();
 
@@ -86,14 +86,14 @@ impl Default for App {
 impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
-    pub fn new() -> App {
-        App::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Creates a new empty [`App`] with minimal default configuration.
     ///
     /// This constructor should be used if you wish to provide a custom schedule, exit handling, cleanup, etc.
-    pub fn empty() -> App {
+    pub fn empty() -> Self {
         Self {
             world: Default::default(),
             schedule: Default::default(),
@@ -128,7 +128,7 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_app_run_guard = bevy_app_run_span.enter();
 
-        let mut app = std::mem::replace(self, App::empty());
+        let mut app = std::mem::replace(self, Self::empty());
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
@@ -739,7 +739,7 @@ impl App {
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
+    pub fn set_runner(&mut self, run_fn: impl Fn(Self) + 'static) -> &mut Self {
         self.runner = Box::new(run_fn);
         self
     }
@@ -852,8 +852,8 @@ impl App {
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
-        app: App,
-        sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
+        app: Self,
+        sub_app_runner: impl Fn(&mut World, &mut Self) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
             Box::new(label),
@@ -866,7 +866,7 @@ impl App {
     }
 
     /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
-    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
+    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut Self {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
             Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
@@ -875,7 +875,7 @@ impl App {
 
     /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
     /// an [Err] containing the given label.
-    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut Self, impl AppLabel> {
         self.sub_apps
             .get_mut((&label) as &dyn AppLabel)
             .map(|sub_app| &mut sub_app.app)
@@ -883,7 +883,7 @@ impl App {
     }
 
     /// Retrieves a "sub app" stored inside this [App]. This will panic if the sub app does not exist.
-    pub fn sub_app(&self, label: impl AppLabel) -> &App {
+    pub fn sub_app(&self, label: impl AppLabel) -> &Self {
         match self.get_sub_app(label) {
             Ok(app) => app,
             Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
@@ -892,7 +892,7 @@ impl App {
 
     /// Retrieves a "sub app" inside this [App] with the given label, if it exists. Otherwise returns
     /// an [Err] containing the given label.
-    pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
+    pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&Self, impl AppLabel> {
         self.sub_apps
             .get((&label) as &dyn AppLabel)
             .map(|sub_app| &sub_app.app)

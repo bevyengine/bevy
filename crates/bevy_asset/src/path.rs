@@ -79,7 +79,7 @@ impl<'a> From<&'a Path> for SourcePathId {
     fn from(value: &'a Path) -> Self {
         let mut hasher = get_hasher();
         value.hash(&mut hasher);
-        SourcePathId(hasher.finish())
+        Self(hasher.finish())
     }
 }
 
@@ -99,7 +99,7 @@ impl<'a> From<Option<&'a str>> for LabelId {
     fn from(value: Option<&'a str>) -> Self {
         let mut hasher = get_hasher();
         value.hash(&mut hasher);
-        LabelId(hasher.finish())
+        Self(hasher.finish())
     }
 }
 
@@ -124,7 +124,7 @@ where
 {
     fn from(value: T) -> Self {
         let asset_path: AssetPath = value.into();
-        AssetPathId(
+        Self(
             SourcePathId::from(asset_path.path()),
             LabelId::from(asset_path.label()),
         )
@@ -133,7 +133,7 @@ where
 
 impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
     fn from(asset_path: &'a AssetPath<'b>) -> Self {
-        AssetPathId(
+        Self(
             SourcePathId::from(asset_path.path()),
             LabelId::from(asset_path.label()),
         )

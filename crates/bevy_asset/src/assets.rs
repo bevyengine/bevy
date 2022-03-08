@@ -71,7 +71,7 @@ pub struct Assets<T: Asset> {
 
 impl<T: Asset> Assets<T> {
     pub(crate) fn new(ref_change_sender: Sender<RefChange>) -> Self {
-        Assets {
+        Self {
             assets: HashMap::default(),
             events: Events::default(),
             ref_change_sender,
@@ -238,10 +238,7 @@ impl<T: Asset> Assets<T> {
         self.assets.shrink_to_fit();
     }
 
-    pub fn asset_event_system(
-        mut events: EventWriter<AssetEvent<T>>,
-        mut assets: ResMut<Assets<T>>,
-    ) {
+    pub fn asset_event_system(mut events: EventWriter<AssetEvent<T>>, mut assets: ResMut<Self>) {
         // Check if the events are empty before calling `drain`.
         // As `drain` triggers change detection.
         if !assets.events.is_empty() {

@@ -63,7 +63,7 @@ pub struct StandardMaterial {
 
 impl Default for StandardMaterial {
     fn default() -> Self {
-        StandardMaterial {
+        Self {
             base_color: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
             emissive: Color::BLACK,
@@ -94,7 +94,7 @@ impl Default for StandardMaterial {
 
 impl From<Color> for StandardMaterial {
     fn from(color: Color) -> Self {
-        StandardMaterial {
+        Self {
             base_color: color,
             ..Default::default()
         }
@@ -103,7 +103,7 @@ impl From<Color> for StandardMaterial {
 
 impl From<Handle<Image>> for StandardMaterial {
     fn from(texture: Handle<Image>) -> Self {
-        StandardMaterial {
+        Self {
             base_color_texture: Some(texture),
             ..Default::default()
         }
@@ -167,11 +167,11 @@ pub struct GpuStandardMaterial {
 }
 
 impl RenderAsset for StandardMaterial {
-    type ExtractedAsset = StandardMaterial;
+    type ExtractedAsset = Self;
     type PreparedAsset = GpuStandardMaterial;
     type Param = (
         SRes<RenderDevice>,
-        SRes<MaterialPipeline<StandardMaterial>>,
+        SRes<MaterialPipeline<Self>>,
         SRes<RenderAssets<Image>>,
     );
 

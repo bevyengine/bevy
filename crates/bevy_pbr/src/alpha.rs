@@ -17,6 +17,6 @@ impl Eq for AlphaMode {}
 
 impl Default for AlphaMode {
     fn default() -> Self {
-        AlphaMode::Opaque
+        Self::Opaque
     }
 }

@@ -14,8 +14,8 @@ pub struct Time {
 }
 
 impl Default for Time {
-    fn default() -> Time {
-        Time {
+    fn default() -> Self {
+        Self {
             delta: Duration::from_secs(0),
             last_update: None,
             startup: Instant::now(),

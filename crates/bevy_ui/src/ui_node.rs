@@ -33,12 +33,12 @@ pub enum Val {
 
 impl Default for Val {
     fn default() -> Self {
-        Val::Undefined
+        Self::Undefined
     }
 }
 
 impl Add<f32> for Val {
-    type Output = Val;
+    type Output = Self;
 
     fn add(self, rhs: f32) -> Self::Output {
         match self {
@@ -158,8 +158,8 @@ pub enum AlignItems {
 }
 
 impl Default for AlignItems {
-    fn default() -> AlignItems {
-        AlignItems::Stretch
+    fn default() -> Self {
+        Self::Stretch
     }
 }
 
@@ -182,8 +182,8 @@ pub enum AlignSelf {
 }
 
 impl Default for AlignSelf {
-    fn default() -> AlignSelf {
-        AlignSelf::Auto
+    fn default() -> Self {
+        Self::Auto
     }
 }
 

@@ -38,30 +38,30 @@ pub enum HandleId {
 
 impl From<AssetPathId> for HandleId {
     fn from(value: AssetPathId) -> Self {
-        HandleId::AssetPathId(value)
+        Self::AssetPathId(value)
     }
 }
 
 impl<'a> From<AssetPath<'a>> for HandleId {
     fn from(value: AssetPath<'a>) -> Self {
-        HandleId::AssetPathId(AssetPathId::from(value))
+        Self::AssetPathId(AssetPathId::from(value))
     }
 }
 
 impl HandleId {
     #[inline]
     pub fn random<T: Asset>() -> Self {
-        HandleId::Id(T::TYPE_UUID, rand::random())
+        Self::Id(T::TYPE_UUID, rand::random())
     }
 
     #[inline]
     pub fn default<T: Asset>() -> Self {
-        HandleId::Id(T::TYPE_UUID, 0)
+        Self::Id(T::TYPE_UUID, 0)
     }
 
     #[inline]
     pub const fn new(type_uuid: Uuid, id: u64) -> Self {
-        HandleId::Id(type_uuid, id)
+        Self::Id(type_uuid, id)
     }
 }
 
@@ -273,7 +273,7 @@ impl<T: Asset> Ord for Handle<T> {
 
 impl<T: Asset> Default for Handle<T> {
     fn default() -> Self {
-        Handle::weak(HandleId::default::<T>())
+        Self::weak(HandleId::default::<T>())
     }
 }
 
@@ -287,8 +287,8 @@ impl<T: Asset> Debug for Handle<T> {
 impl<T: Asset> Clone for Handle<T> {
     fn clone(&self) -> Self {
         match self.handle_type {
-            HandleType::Strong(ref sender) => Handle::strong(self.id, sender.clone()),
-            HandleType::Weak => Handle::weak(self.id),
+            HandleType::Strong(ref sender) => Self::strong(self.id, sender.clone()),
+            HandleType::Weak => Self::weak(self.id),
         }
     }
 }
@@ -401,8 +401,8 @@ impl Eq for HandleUntyped {}
 impl Clone for HandleUntyped {
     fn clone(&self) -> Self {
         match self.handle_type {
-            HandleType::Strong(ref sender) => HandleUntyped::strong(self.id, sender.clone()),
-            HandleType::Weak => HandleUntyped::weak(self.id),
+            HandleType::Strong(ref sender) => Self::strong(self.id, sender.clone()),
+            HandleType::Weak => Self::weak(self.id),
         }
     }
 }
@@ -421,6 +421,6 @@ pub(crate) struct RefChangeChannel {
 impl Default for RefChangeChannel {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
-        RefChangeChannel { sender, receiver }
+        Self { sender, receiver }
     }
 }

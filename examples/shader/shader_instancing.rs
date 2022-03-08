@@ -65,11 +65,11 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 #[derive(Component)]
 struct InstanceMaterialData(Vec<InstanceData>);
 impl ExtractComponent for InstanceMaterialData {
-    type Query = &'static InstanceMaterialData;
+    type Query = &'static Self;
     type Filter = ();
 
     fn extract_component(item: bevy::ecs::query::QueryItem<Self::Query>) -> Self {
-        InstanceMaterialData(item.0.clone())
+        Self(item.0.clone())
     }
 }
 
@@ -175,7 +175,7 @@ impl FromWorld for CustomPipeline {
 
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 
-        CustomPipeline {
+        Self {
             shader,
             mesh_pipeline: mesh_pipeline.clone(),
         }

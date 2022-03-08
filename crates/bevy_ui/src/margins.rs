@@ -14,7 +14,7 @@ pub struct Margins {
 impl Margins {
     /// Creates a new Margins based on the input
     pub fn new(left: f32, right: f32, bottom: f32, top: f32) -> Self {
-        Margins {
+        Self {
             left,
             right,
             bottom,
@@ -25,7 +25,7 @@ impl Margins {
 
 impl Default for Margins {
     fn default() -> Self {
-        Margins {
+        Self {
             left: 0.0,
             right: 0.0,
             bottom: 0.0,

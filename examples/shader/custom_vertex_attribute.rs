@@ -75,7 +75,7 @@ pub struct GpuCustomMaterial {
 
 // The implementation of [`Material`] needs this impl to work properly.
 impl RenderAsset for CustomMaterial {
-    type ExtractedAsset = CustomMaterial;
+    type ExtractedAsset = Self;
     type PreparedAsset = GpuCustomMaterial;
     type Param = (SRes<RenderDevice>, SRes<MaterialPipeline<Self>>);
     fn extract_asset(&self) -> Self::ExtractedAsset {

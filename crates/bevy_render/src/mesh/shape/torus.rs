@@ -13,7 +13,7 @@ pub struct Torus {
 
 impl Default for Torus {
     fn default() -> Self {
-        Torus {
+        Self {
             radius: 1.0,
             ring_radius: 0.5,
             subdivisions_segments: 32,
@@ -88,11 +88,11 @@ impl From<Torus> for Mesh {
             }
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        let mut mesh = Self::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(Indices::U32(indices)));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_attribute(Self::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Self::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Self::ATTRIBUTE_UV_0, uvs);
         mesh
     }
 }

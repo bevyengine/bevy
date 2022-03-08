@@ -57,7 +57,7 @@ impl TransformBundle {
     /// [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate) stage.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
-        TransformBundle {
+        Self {
             local: transform,
             // Note: `..Default::default()` cannot be used here, because it isn't const
             ..Self::identity()
@@ -68,7 +68,7 @@ impl TransformBundle {
     /// on all axes.
     #[inline]
     pub const fn identity() -> Self {
-        TransformBundle {
+        Self {
             local: Transform::identity(),
             global: GlobalTransform::identity(),
         }

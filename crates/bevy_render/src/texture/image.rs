@@ -33,7 +33,7 @@ impl Default for Image {
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
         let data = vec![255; format.pixel_size() as usize];
-        Image {
+        Self {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
                 size: wgpu::Extent3d {
@@ -92,7 +92,7 @@ impl Image {
         pixel: &[u8],
         format: TextureFormat,
     ) -> Self {
-        let mut value = Image::default();
+        let mut value = Self::default();
         value.texture_descriptor.format = format;
         value.texture_descriptor.dimension = dimension;
         value.resize(size);
@@ -198,7 +198,7 @@ impl Image {
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
-    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, TextureError> {
+    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Self, TextureError> {
         let format = match image_type {
             ImageType::MimeType(mime_type) => match mime_type {
                 "image/png" => Ok(image::ImageFormat::Png),
@@ -392,7 +392,7 @@ pub struct GpuImage {
 }
 
 impl RenderAsset for Image {
-    type ExtractedAsset = Image;
+    type ExtractedAsset = Self;
     type PreparedAsset = GpuImage;
     type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
 

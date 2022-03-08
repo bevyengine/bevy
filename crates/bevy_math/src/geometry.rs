@@ -12,7 +12,7 @@ pub struct Size<T: Reflect + PartialEq = f32> {
 
 impl<T: Reflect + PartialEq> Size<T> {
     pub fn new(width: T, height: T) -> Self {
-        Size { width, height }
+        Self { width, height }
     }
 }
 
@@ -40,7 +40,7 @@ impl<T: Reflect + PartialEq> Rect<T> {
     where
         T: Clone,
     {
-        Rect {
+        Self {
             left: value.clone(),
             right: value.clone(),
             top: value.clone(),
@@ -64,7 +64,7 @@ impl<T: Reflect + PartialEq> Add<Vec2> for Size<T>
 where
     T: Add<f32, Output = T>,
 {
-    type Output = Size<T>;
+    type Output = Self;
 
     fn add(self, rhs: Vec2) -> Self::Output {
         Self {
@@ -88,7 +88,7 @@ impl<T: Reflect + PartialEq> Sub<Vec2> for Size<T>
 where
     T: Sub<f32, Output = T>,
 {
-    type Output = Size<T>;
+    type Output = Self;
 
     fn sub(self, rhs: Vec2) -> Self::Output {
         Self {
@@ -112,7 +112,7 @@ impl<T: Reflect + PartialEq> Mul<f32> for Size<T>
 where
     T: Mul<f32, Output = T>,
 {
-    type Output = Size<T>;
+    type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
         Self::Output {
@@ -136,7 +136,7 @@ impl<T: Reflect + PartialEq> Div<f32> for Size<T>
 where
     T: Div<f32, Output = T>,
 {
-    type Output = Size<T>;
+    type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
         Self::Output {

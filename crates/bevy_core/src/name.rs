@@ -22,7 +22,7 @@ pub struct Name {
 
 impl Default for Name {
     fn default() -> Self {
-        Name::new("")
+        Self::new("")
     }
 }
 
@@ -32,7 +32,7 @@ impl Name {
     /// The internal hash will be computed immediately.
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         let name = name.into();
-        let mut name = Name { name, hash: 0 };
+        let mut name = Self { name, hash: 0 };
         name.update_hash();
         name
     }
@@ -42,7 +42,7 @@ impl Name {
     /// The internal hash will be re-computed.
     #[inline(always)]
     pub fn set(&mut self, name: impl Into<Cow<'static, str>>) {
-        *self = Name::new(name);
+        *self = Self::new(name);
     }
 
     /// Updates the name of the entity in place.
@@ -80,13 +80,13 @@ impl std::fmt::Display for Name {
 impl From<&str> for Name {
     #[inline(always)]
     fn from(name: &str) -> Self {
-        Name::new(name.to_owned())
+        Self::new(name.to_owned())
     }
 }
 impl From<String> for Name {
     #[inline(always)]
     fn from(name: String) -> Self {
-        Name::new(name)
+        Self::new(name)
     }
 }
 
@@ -100,13 +100,13 @@ impl AsRef<str> for Name {
 }
 impl From<&Name> for String {
     #[inline(always)]
-    fn from(val: &Name) -> String {
+    fn from(val: &Name) -> Self {
         val.as_str().to_owned()
     }
 }
 impl From<Name> for String {
     #[inline(always)]
-    fn from(val: Name) -> String {
+    fn from(val: Name) -> Self {
         val.name.into_owned()
     }
 }

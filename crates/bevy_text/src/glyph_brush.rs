@@ -17,7 +17,7 @@ pub struct GlyphBrush {
 
 impl Default for GlyphBrush {
     fn default() -> Self {
-        GlyphBrush {
+        Self {
             fonts: Vec::new(),
             handles: Vec::new(),
             latest_font_id: FontId(0),

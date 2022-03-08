@@ -167,7 +167,7 @@ impl TaskPool {
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
-        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
+        Self::LOCAL_EXECUTOR.with(|local_executor| {
             // SAFETY: This function blocks until all futures complete, so this future must return
             // before this function returns. However, rust has no way of knowing
             // this so we must convert to 'static here to appease the compiler as it is unable to
@@ -248,7 +248,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+        Task::new(Self::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
     }
 }
 

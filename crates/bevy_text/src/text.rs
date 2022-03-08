@@ -79,7 +79,7 @@ pub struct TextAlignment {
 
 impl Default for TextAlignment {
     fn default() -> Self {
-        TextAlignment {
+        Self {
             vertical: VerticalAlign::Top,
             horizontal: HorizontalAlign::Left,
         }
@@ -104,9 +104,9 @@ pub enum HorizontalAlign {
 impl From<HorizontalAlign> for glyph_brush_layout::HorizontalAlign {
     fn from(val: HorizontalAlign) -> Self {
         match val {
-            HorizontalAlign::Left => glyph_brush_layout::HorizontalAlign::Left,
-            HorizontalAlign::Center => glyph_brush_layout::HorizontalAlign::Center,
-            HorizontalAlign::Right => glyph_brush_layout::HorizontalAlign::Right,
+            HorizontalAlign::Left => Self::Left,
+            HorizontalAlign::Center => Self::Center,
+            HorizontalAlign::Right => Self::Right,
         }
     }
 }
@@ -127,9 +127,9 @@ pub enum VerticalAlign {
 impl From<VerticalAlign> for glyph_brush_layout::VerticalAlign {
     fn from(val: VerticalAlign) -> Self {
         match val {
-            VerticalAlign::Top => glyph_brush_layout::VerticalAlign::Top,
-            VerticalAlign::Center => glyph_brush_layout::VerticalAlign::Center,
-            VerticalAlign::Bottom => glyph_brush_layout::VerticalAlign::Bottom,
+            VerticalAlign::Top => Self::Top,
+            VerticalAlign::Center => Self::Center,
+            VerticalAlign::Bottom => Self::Bottom,
         }
     }
 }

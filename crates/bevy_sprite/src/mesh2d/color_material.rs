@@ -56,7 +56,7 @@ pub struct ColorMaterial {
 
 impl Default for ColorMaterial {
     fn default() -> Self {
-        ColorMaterial {
+        Self {
             color: Color::WHITE,
             texture: None,
         }
@@ -65,7 +65,7 @@ impl Default for ColorMaterial {
 
 impl From<Color> for ColorMaterial {
     fn from(color: Color) -> Self {
-        ColorMaterial {
+        Self {
             color,
             ..Default::default()
         }
@@ -74,7 +74,7 @@ impl From<Color> for ColorMaterial {
 
 impl From<Handle<Image>> for ColorMaterial {
     fn from(texture: Handle<Image>) -> Self {
-        ColorMaterial {
+        Self {
             texture: Some(texture),
             ..Default::default()
         }
@@ -111,11 +111,11 @@ pub struct GpuColorMaterial {
 }
 
 impl RenderAsset for ColorMaterial {
-    type ExtractedAsset = ColorMaterial;
+    type ExtractedAsset = Self;
     type PreparedAsset = GpuColorMaterial;
     type Param = (
         SRes<RenderDevice>,
-        SRes<Material2dPipeline<ColorMaterial>>,
+        SRes<Material2dPipeline<Self>>,
         SRes<RenderAssets<Image>>,
     );
 

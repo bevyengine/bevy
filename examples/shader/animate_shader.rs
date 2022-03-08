@@ -207,7 +207,7 @@ impl FromWorld for CustomPipeline {
 
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
 
-        CustomPipeline {
+        Self {
             shader,
             mesh_pipeline: mesh_pipeline.clone(),
             time_bind_group_layout,

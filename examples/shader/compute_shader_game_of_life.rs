@@ -148,7 +148,7 @@ impl FromWorld for GameOfLifePipeline {
             entry_point: "update",
         });
 
-        GameOfLifePipeline {
+        Self {
             sim_pipeline,
             init_pipeline,
             texture_bind_group_layout,

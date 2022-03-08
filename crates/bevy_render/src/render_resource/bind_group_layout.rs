@@ -30,7 +30,7 @@ impl BindGroupLayout {
 
 impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
-        BindGroupLayout {
+        Self {
             id: BindGroupLayoutId(Uuid::new_v4()),
             value: Arc::new(value),
         }

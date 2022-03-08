@@ -11,7 +11,7 @@ impl FaceToward for Mat4 {
         let forward = (eye - center).normalize();
         let right = up.cross(forward).normalize();
         let up = forward.cross(right);
-        Mat4::from_cols(
+        Self::from_cols(
             right.extend(0.0),
             up.extend(0.0),
             forward.extend(0.0),

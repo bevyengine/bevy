@@ -21,12 +21,12 @@ pub struct WinitSettings {
 impl WinitSettings {
     /// Configure winit with common settings for a game.
     pub fn game() -> Self {
-        WinitSettings::default()
+        Self::default()
     }
 
     /// Configure winit with common settings for a desktop application.
     pub fn desktop_app() -> Self {
-        WinitSettings {
+        Self {
             focused_mode: UpdateMode::Reactive {
                 max_wait: Duration::from_secs(5),
             },
@@ -47,7 +47,7 @@ impl WinitSettings {
 }
 impl Default for WinitSettings {
     fn default() -> Self {
-        WinitSettings {
+        Self {
             return_from_run: false,
             focused_mode: UpdateMode::Continuous,
             unfocused_mode: UpdateMode::Continuous,

@@ -80,11 +80,11 @@ impl From<UVSphere> for Mesh {
             }
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        let mut mesh = Self::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(Indices::U32(indices)));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_attribute(Self::ATTRIBUTE_POSITION, vertices);
+        mesh.insert_attribute(Self::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Self::ATTRIBUTE_UV_0, uvs);
         mesh
     }
 }

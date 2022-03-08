@@ -33,7 +33,7 @@ impl MainPass3dNode {
 
 impl Node for MainPass3dNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(MainPass3dNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
