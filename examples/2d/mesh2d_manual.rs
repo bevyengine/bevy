@@ -220,7 +220,7 @@ struct Vertex {
 struct VertexOutput {
     // The vertex shader must set the on-screen position of the vertex
     [[builtin(position)]] clip_position: vec4<f32>;
-    // We pass the vertex color to the framgent shader in location 0
+    // We pass the vertex color to the fragment shader in location 0
     [[location(0)]] color: vec4<f32>;
 };
 
