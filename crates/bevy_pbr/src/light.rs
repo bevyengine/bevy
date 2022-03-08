@@ -369,6 +369,8 @@ impl Clusters {
         near: f32,
         far: f32,
     ) -> Self {
+        assert!(screen_size.x > 0 && screen_size.y > 0);
+        assert!(dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0);
         Clusters::new(
             (screen_size.as_vec2() / dimensions.xy().as_vec2())
                 .ceil()
