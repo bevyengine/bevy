@@ -9,7 +9,7 @@
 
 ---
 
-## \[ Optional \] Changelog
+## \[Optional\] Changelog
 
 - What changed as a result of this PR? If this was a trivial fix, or has no externally-visible impact, feel free to skip this section.
 - If applicable, organize changes under "Added", "Changed", or "Fixed" sub-headings
