@@ -294,9 +294,23 @@ impl ClusterConfig {
             } => {
                 let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
                 let per_layer = *total as f32 / *z_slices as f32;
+                assert!(per_layer >= 1.0, "ClusterConfig has more z-slices than total clusters!");
+
                 let y = f32::sqrt(per_layer / aspect_ratio);
-                let x = (y * aspect_ratio).floor() as u32;
-                let y = y.floor() as u32;
+
+                let mut x = (y * aspect_ratio).floor() as u32;
+                let mut y = y.floor() as u32;
+
+                // check extremes
+                if x == 0 {
+                    x = 1;
+                    y = per_layer as u32;
+                }
+                if y == 0 {
+                    x = per_layer as u32;
+                    y = 1;
+                }
+
                 UVec3::new(x, y, *z_slices)
             }
         }
