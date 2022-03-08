@@ -370,7 +370,9 @@ impl Clusters {
         far: f32,
     ) -> Self {
         Clusters::new(
-            (screen_size + UVec2::ONE) / dimensions.xy(),
+            (screen_size.as_vec2() / dimensions.xy().as_vec2())
+                .ceil()
+                .as_uvec2(),
             screen_size,
             dimensions.z,
             near,
@@ -380,11 +382,10 @@ impl Clusters {
 
     fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
         self.tile_size = tile_size;
-        self.axis_slices = UVec3::new(
-            (screen_size.x + 1) / tile_size.x,
-            (screen_size.y + 1) / tile_size.y,
-            z_slices,
-        );
+        self.axis_slices = (screen_size.as_vec2() / tile_size.as_vec2())
+            .ceil()
+            .as_uvec2()
+            .extend(z_slices);
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
         assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
     }
