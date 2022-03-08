@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Size, Vec3};
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
-use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas, Transform2d};
+use bevy_sprite::{Extracted2dTransform, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::{WindowId, Windows};
 
@@ -92,7 +92,7 @@ pub fn extract_text2d_sprite(
                 let transform = text_transform.mul_transform(glyph_transform);
 
                 extracted_sprites.sprites.push(ExtractedSprite {
-                    transform: Transform2d {
+                    transform: Extracted2dTransform {
                         translation: transform.translation.truncate(),
                         scale: transform.scale.truncate(),
                         rotation: transform.rotation,

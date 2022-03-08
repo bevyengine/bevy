@@ -171,10 +171,14 @@ impl SpecializedPipeline for SpritePipeline {
     }
 }
 
+/// Extracted informations about a [`Sprite`] used to render it.
 #[derive(Component, Clone, Copy)]
 pub struct ExtractedSprite {
-    pub transform: Transform2d,
+    /// 2d extracted transform from the sprite [`bevy_transform::GlobalTransform`]
+    pub transform: Extracted2dTransform,
+    /// Z layer at which the sprite should be shown
     pub z_layer: f32,
+    /// Color of the sprite
     pub color: Color,
     /// Select an area of the texture
     pub rect: Option<Rect>,
@@ -183,18 +187,24 @@ pub struct ExtractedSprite {
     /// Handle to the `Image` of this sprite
     /// PERF: storing a `HandleId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
     pub image_handle_id: HandleId,
+    /// Is it flipped along the X axis
     pub flip_x: bool,
+    /// Is it flipped along the Y axis
     pub flip_y: bool,
 }
 
+/// A 2d representation of a [`bevy_transform::GlobalTransform`] for an [`ExtractedSprite`]
 #[derive(Clone, Copy)]
-pub struct Transform2d {
+pub struct Extracted2dTransform {
+    /// The 2d position
     pub translation: Vec2,
+    /// The 2d scale
     pub scale: Vec2,
+    /// The rotation
     pub rotation: Quat,
 }
 
-impl Transform2d {
+impl Extracted2dTransform {
     #[inline]
     fn mul_vec2(&self, value: Vec2) -> Vec2 {
         (self.rotation * (self.scale * value).extend(0.0)).truncate() + self.translation
@@ -255,7 +265,7 @@ pub fn extract_sprites(
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
         extracted_sprites.sprites.alloc().init(ExtractedSprite {
             color: sprite.color,
-            transform: Transform2d {
+            transform: Extracted2dTransform {
                 translation: transform.translation.truncate(),
                 scale: transform.scale.truncate(),
                 rotation: transform.rotation,
@@ -278,7 +288,7 @@ pub fn extract_sprites(
             let rect = Some(texture_atlas.textures[atlas_sprite.index as usize]);
             extracted_sprites.sprites.alloc().init(ExtractedSprite {
                 color: atlas_sprite.color,
-                transform: Transform2d {
+                transform: Extracted2dTransform {
                     translation: transform.translation.truncate(),
                     scale: transform.scale.truncate(),
                     rotation: transform.rotation,
