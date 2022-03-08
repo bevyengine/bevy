@@ -35,9 +35,6 @@
 #import bevy_pbr::mesh_view_bind_group
 #import bevy_pbr::mesh_struct
 
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
-
 struct StandardMaterial {
     base_color: vec4<f32>;
     emissive: vec4<f32>;
@@ -453,11 +450,12 @@ fn random1D(s: f32) -> f32 {
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
     [[builtin(position)]] frag_coord: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
+    [[location(0)]] mesh_flags: u32;
+    [[location(1)]] world_position: vec4<f32>;
+    [[location(2)]] world_normal: vec3<f32>;
+    [[location(3)]] uv: vec2<f32>;
 #ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
+    [[location(4)]] world_tangent: vec4<f32>;
 #endif
 };
 
@@ -582,7 +580,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             let light_id = get_light_id(i);
             let light = point_lights.data[light_id];
             var shadow: f32 = 1.0;
-            if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+            if ((in.mesh_flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                     && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
                 shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
             }
@@ -594,7 +592,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
             let light = lights.directional_lights[i];
             var shadow: f32 = 1.0;
-            if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+            if ((in.mesh_flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                     && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
                 shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
             }

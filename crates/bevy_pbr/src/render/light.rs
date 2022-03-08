@@ -1,7 +1,7 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
-    DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
-    PointLight, PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
+    DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshInstanceData,
+    NotShadowCaster, PointLight, PointLightShadowMap, VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -158,7 +158,6 @@ pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
-    pub mesh_layout: BindGroupLayout,
     pub point_light_sampler: Sampler,
     pub directional_light_sampler: Sampler,
 }
@@ -186,11 +185,8 @@ impl FromWorld for ShadowPipeline {
             label: Some("shadow_view_layout"),
         });
 
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
-
         ShadowPipeline {
             view_layout,
-            mesh_layout: mesh_pipeline.mesh_layout.clone(),
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
@@ -257,17 +253,19 @@ impl SpecializedMeshPipeline for ShadowPipeline {
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let vertex_buffer_layout =
-            layout.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0)])?;
+            layout.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(9)])?;
+
+        let instance_buffer_layout = MeshInstanceData::get_layout(0);
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: vec![],
-                buffers: vec![vertex_buffer_layout],
+                buffers: vec![vertex_buffer_layout, instance_buffer_layout],
             },
             fragment: None,
-            layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
+            layout: Some(vec![self.view_layout.clone()]),
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
                 strip_index_format: None,
@@ -1219,12 +1217,7 @@ impl Node for ShadowPassNode {
     }
 }
 
-pub type DrawShadowMesh = (
-    SetItemPipeline,
-    SetShadowViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    DrawMesh,
-);
+pub type DrawShadowMesh = (SetItemPipeline, SetShadowViewBindGroup<0>, DrawMesh);
 
 pub struct SetShadowViewBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {

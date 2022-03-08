@@ -1,5 +1,5 @@
 use crate::MeshPipeline;
-use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshViewBindGroup};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
@@ -160,9 +160,4 @@ fn queue_wireframes(
     }
 }
 
-type DrawWireframes = (
-    SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    DrawMesh,
-);
+type DrawWireframes = (SetItemPipeline, SetMeshViewBindGroup<0>, DrawMesh);
