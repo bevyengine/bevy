@@ -293,16 +293,16 @@ impl ClusterConfig {
                 total, z_slices, ..
             } => {
                 let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
-                let per_layer = *total as f32 / *z_slices as f32;
-                assert!(
-                    per_layer >= 1.0,
+                debug_assert!(
+                    *total >= *z_slices,
                     "ClusterConfig has more z-slices than total clusters!"
                 );
+                let per_layer = *total as f32 / *z_slices as f32;
 
                 let y = f32::sqrt(per_layer / aspect_ratio);
 
-                let mut x = (y * aspect_ratio).floor() as u32;
-                let mut y = y.floor() as u32;
+                let mut x = (y * aspect_ratio) as u32;
+                let mut y = y as u32;
 
                 // check extremes
                 if x == 0 {
@@ -386,8 +386,8 @@ impl Clusters {
         near: f32,
         far: f32,
     ) -> Self {
-        assert!(screen_size.x > 0 && screen_size.y > 0);
-        assert!(dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0);
+        debug_assert!(screen_size.x > 0 && screen_size.y > 0);
+        debug_assert!(dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0);
         Clusters::new(
             (screen_size.as_vec2() / dimensions.xy().as_vec2())
                 .ceil()
