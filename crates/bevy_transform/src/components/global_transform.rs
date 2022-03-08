@@ -212,11 +212,8 @@ impl GlobalTransform {
 
     /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
     #[inline]
-    pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
-        value = self.scale * value;
-        value = self.rotation * value;
-        value += self.translation;
-        value
+    pub fn mul_vec3(&self, value: Vec3) -> Vec3 {
+        self.rotation * self.scale * value + self.translation
     }
 
     #[doc(hidden)]
