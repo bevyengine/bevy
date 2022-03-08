@@ -1164,11 +1164,31 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
     }
 }
 
-/// The [`SystemParamState`] of [`SystemChangeTick`].
+/// The looping time-stamp used for change detection
+///
+/// This is updated each time the system is run (when it is dispatched by the scheduler):
+/// the previous `change_tick` is stored as the `last_change_tick`,
+/// and [`World::change_tick`] is used as the new `change_tick`.
+///
+/// Changes that occured more recently than the last change tick will be detected by the system.
+/// You can check when changes last occured to a piece of data
+/// by using [`DetectChanges::change_tick`](crate::change_detection::DetectChanges) on the data.
 #[derive(Debug)]
 pub struct SystemChangeTick {
-    pub last_change_tick: u32,
-    pub change_tick: u32,
+    last_change_tick: u32,
+    change_tick: u32,
+}
+
+impl SystemChangeTick {
+    /// What is the change tick used by this system?
+    fn change_tick(&self) -> u32 {
+        self.change_tick
+    }
+
+    /// What was the change tick of the [`World`] the last time this system ran?
+    fn last_change_tick(&self) -> u32 {
+        self.last_change_tick
+    }
 }
 
 // SAFE: Only reads internal system state
