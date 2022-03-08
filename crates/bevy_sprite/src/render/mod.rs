@@ -195,11 +195,8 @@ pub struct Transform2d {
 }
 
 impl Transform2d {
-    fn mul_vec2(&self, mut value: Vec2) -> Vec2 {
-        value = self.scale * value;
-        value = (self.rotation * value.extend(0.0)).truncate();
-        value += self.translation;
-        value
+    fn mul_vec2(&self, value: Vec2) -> Vec2 {
+        (self.rotation * (self.scale * value).extend(0.0)).truncate() + self.translation
     }
 }
 
