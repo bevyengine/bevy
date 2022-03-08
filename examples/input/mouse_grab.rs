@@ -9,7 +9,6 @@ fn main() {
 
 // This system grabs the mouse when the left mouse button is pressed
 // and releases it when the escape key is pressed
-// when press escape key:
 fn grab_mouse(
     mut windows: ResMut<Windows>,
     mouse: Res<Input<MouseButton>>,
