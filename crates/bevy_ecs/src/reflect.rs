@@ -10,17 +10,17 @@ use bevy_reflect::{impl_reflect_value, FromType, Reflect, ReflectDeserialize};
 
 /// A runtime type-reflectable component
 ///
-/// Intended for use with [bevy_reflect],
-/// a [ReflectComponent] is a type-erased version of a component's data,
+/// Intended for use with [`bevy_reflect`],
+/// a [`ReflectComponent`] is a type-erased version of a component's data,
 /// can be transformed into  ['dyn Reflect'](Reflect) trait objects,
 /// which can be worked with generically
 /// and loaded from disk in a type-safe fashion.
 ///
-/// [ReflectComponent] objects are created for a particular [Component] type (`C`) using the [from_type](FromType::from_type) method.
+/// [`ReflectComponent`] objects are created for a particular [`Component`] type (`C`) using the [`from_type`](FromType::from_type) method.
 /// That type `C` is implicitly stored in the function pointers held within the private fields of this type;
 /// it cannot be changed after creation.
 ///
-/// Once a [ReflectComponent] object has been created, you can use that concrete struct
+/// Once a [`ReflectComponent`] object has been created, you can use that concrete struct
 /// to use the methods on this type, which always implicitly affect only the component type originally used to create this struct.
 #[derive(Clone)]
 pub struct ReflectComponent {
@@ -68,7 +68,7 @@ impl ReflectComponent {
 
     /// Fetches a mutable reference to the component of type `C` on `entity`
     ///
-    /// If the `Entity` does not have a component of the specified type, `None` is returned instead.
+    /// If the [`Entity`] does not have a component of the specified type, `None` is returned instead.
     pub fn reflect_component_mut<'a>(
         &self,
         world: &'a mut World,
@@ -80,10 +80,10 @@ impl ReflectComponent {
 
     /// Fetches a mutable reference to the component of type `C` on `entity` without guaranteeing unique mutable access to the `world`
     ///
-    /// This method does not require exclusive [World] access, and so multiple mutable references can be alive at once.
-    /// If possible, please prefer the safe version of this method, [reflect_component_mut](Self::reflect_component_mut).
+    /// This method does not require exclusive [`World`] access, and so multiple mutable references can be alive at once.
+    /// If possible, please prefer the safe version of this method, [`reflect_component_mut`](Self::reflect_component_mut).
     ///
-    /// If the [`Entity`] does not have a component of the specified type, `None` is returned instead.
+    /// If the [`Entity`] does not have a component of the specified type, [`None`] is returned instead.
     ///
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
@@ -101,11 +101,11 @@ impl ReflectComponent {
 
     /// Directly copies the value of the component of type `C` to a new entity
     ///
-    /// This method creates a new component of type `C` using the [FromWorld] trait,
+    /// This method creates a new component of type `C` using the [`FromWorld`] trait,
     /// sets its value to the value of the component of type `C` on the `source_entity`,
     /// and then inserts the new component into the `destination_entity`.
     ///
-    /// **Note**: this method uses `Reflect` to create a shallow value-based copy of the component and will not respect `Clone` implementations.
+    /// **Note**: this method uses [`Reflect`] to create a shallow value-based copy of the component and will not respect `Clone` implementations.
     /// This can have unexpected negative consequences if you are relying on ref-counting or the like.
     ///
     /// # Panics
