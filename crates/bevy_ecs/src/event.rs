@@ -138,7 +138,7 @@ pub struct Events<T> {
 
 impl<T> Default for Events<T> {
     fn default() -> Self {
-        Events {
+        Self {
             a_start_event_count: 0,
             b_start_event_count: 0,
             event_count: 0,
@@ -199,7 +199,7 @@ pub struct ManualEventReader<T> {
 
 impl<T> Default for ManualEventReader<T> {
     fn default() -> Self {
-        ManualEventReader {
+        Self {
             last_event_count: 0,
             _marker: Default::default(),
         }

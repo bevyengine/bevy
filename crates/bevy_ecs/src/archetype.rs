@@ -369,7 +369,7 @@ pub struct Archetypes {
 
 impl Default for Archetypes {
     fn default() -> Self {
-        let mut archetypes = Archetypes {
+        let mut archetypes = Self {
             archetypes: Vec::new(),
             archetype_ids: Default::default(),
             archetype_component_count: 0,

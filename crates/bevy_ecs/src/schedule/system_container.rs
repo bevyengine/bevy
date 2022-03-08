@@ -37,7 +37,7 @@ pub(super) struct ExclusiveSystemContainer {
 
 impl ExclusiveSystemContainer {
     pub(super) fn from_descriptor(descriptor: ExclusiveSystemDescriptor) -> Self {
-        ExclusiveSystemContainer {
+        Self {
             system: descriptor.system,
             run_criteria_index: None,
             run_criteria_label: None,
@@ -122,7 +122,7 @@ unsafe impl Sync for ParallelSystemContainer {}
 
 impl ParallelSystemContainer {
     pub(crate) fn from_descriptor(descriptor: ParallelSystemDescriptor) -> Self {
-        ParallelSystemContainer {
+        Self {
             system: descriptor.system,
             should_run: false,
             run_criteria_index: None,

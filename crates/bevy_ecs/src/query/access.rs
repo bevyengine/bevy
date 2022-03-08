@@ -77,7 +77,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     /// Extends this `Access` with another, copying all accesses of `other` into this.
-    pub fn extend(&mut self, other: &Access<T>) {
+    pub fn extend(&mut self, other: &Self) {
         self.reads_all = self.reads_all || other.reads_all;
         self.reads_and_writes.union_with(&other.reads_and_writes);
         self.writes.union_with(&other.writes);
@@ -87,7 +87,7 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// Two `Access` instances are incompatible with each other if one `Access` has a write for
     /// which the other also has a write or a read.
-    pub fn is_compatible(&self, other: &Access<T>) -> bool {
+    pub fn is_compatible(&self, other: &Self) -> bool {
         if self.reads_all {
             0 == other.writes.count_ones(..)
         } else if other.reads_all {
@@ -99,7 +99,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     /// Calculates conflicting accesses between this `Access` and `other`.
-    pub fn get_conflicts(&self, other: &Access<T>) -> Vec<T> {
+    pub fn get_conflicts(&self, other: &Self) -> Vec<T> {
         let mut conflicts = FixedBitSet::default();
         if self.reads_all {
             conflicts.extend(other.writes.ones());

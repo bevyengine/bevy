@@ -159,7 +159,7 @@ impl SparseSetIndex for Entity {
     }
 
     fn get_sparse_set_index(value: usize) -> Self {
-        Entity::from_raw(value as u32)
+        Self::from_raw(value as u32)
     }
 }
 
@@ -562,7 +562,7 @@ pub struct EntityMeta {
 }
 
 impl EntityMeta {
-    const EMPTY: EntityMeta = EntityMeta {
+    const EMPTY: Self = Self {
         generation: 0,
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,

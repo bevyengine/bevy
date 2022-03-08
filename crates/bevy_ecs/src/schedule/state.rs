@@ -100,17 +100,15 @@ where
 {
     pub fn on_update(pred: T) -> RunCriteriaDescriptor {
         let pred_clone = pred.clone();
-        (move |state: Res<State<T>>| {
-            state.stack.last().unwrap() == &pred && state.transition.is_none()
-        })
-        .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Update.into_label(pred_clone))
+        (move |state: Res<Self>| state.stack.last().unwrap() == &pred && state.transition.is_none())
+            .chain(should_run_adapter::<T>)
+            .after(DriverLabel::of::<T>())
+            .label_discard_if_duplicate(StateCallback::Update.into_label(pred_clone))
     }
 
     pub fn on_inactive_update(pred: T) -> RunCriteriaDescriptor {
         let pred_clone = pred.clone();
-        (move |state: Res<State<T>>, mut is_inactive: Local<bool>| match &state.transition {
+        (move |state: Res<Self>, mut is_inactive: Local<bool>| match &state.transition {
             Some(StateTransition::Pausing(ref relevant, _))
             | Some(StateTransition::Resuming(_, ref relevant)) => {
                 if relevant == &pred {
@@ -128,7 +126,7 @@ where
 
     pub fn on_in_stack_update(pred: T) -> RunCriteriaDescriptor {
         let pred_clone = pred.clone();
-        (move |state: Res<State<T>>, mut is_in_stack: Local<bool>| match &state.transition {
+        (move |state: Res<Self>, mut is_in_stack: Local<bool>| match &state.transition {
             Some(StateTransition::Entering(ref relevant, _))
             | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
                 if relevant == &pred {
@@ -158,7 +156,7 @@ where
 
     pub fn on_enter(pred: T) -> RunCriteriaDescriptor {
         let pred_clone = pred.clone();
-        (move |state: Res<State<T>>| {
+        (move |state: Res<Self>| {
             state
                 .transition
                 .as_ref()
@@ -175,7 +173,7 @@ where
 
     pub fn on_exit(pred: T) -> RunCriteriaDescriptor {
         let pred_clone = pred.clone();
-        (move |state: Res<State<T>>| {
+        (move |state: Res<Self>| {
             state
                 .transition
                 .as_ref()
@@ -192,7 +190,7 @@ where
 
     pub fn on_pause(pred: T) -> RunCriteriaDescriptor {
         let pred_clone = pred.clone();
-        (move |state: Res<State<T>>| {
+        (move |state: Res<Self>| {
             state
                 .transition
                 .as_ref()
@@ -208,7 +206,7 @@ where
 
     pub fn on_resume(pred: T) -> RunCriteriaDescriptor {
         let pred_clone = pred.clone();
-        (move |state: Res<State<T>>| {
+        (move |state: Res<Self>| {
             state
                 .transition
                 .as_ref()

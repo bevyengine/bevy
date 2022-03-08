@@ -17,9 +17,9 @@ pub struct BlobVec {
 }
 
 impl BlobVec {
-    pub fn new(item_layout: Layout, drop: unsafe fn(*mut u8), capacity: usize) -> BlobVec {
+    pub fn new(item_layout: Layout, drop: unsafe fn(*mut u8), capacity: usize) -> Self {
         if item_layout.size() == 0 {
-            BlobVec {
+            Self {
                 swap_scratch: NonNull::dangling(),
                 data: NonNull::dangling(),
                 capacity: usize::MAX,
@@ -30,7 +30,7 @@ impl BlobVec {
         } else {
             let swap_scratch = NonNull::new(unsafe { std::alloc::alloc(item_layout) })
                 .unwrap_or_else(|| std::alloc::handle_alloc_error(item_layout));
-            let mut blob_vec = BlobVec {
+            let mut blob_vec = Self {
                 swap_scratch,
                 data: NonNull::dangling(),
                 capacity: 0,

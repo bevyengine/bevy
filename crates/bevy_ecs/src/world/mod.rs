@@ -118,8 +118,8 @@ impl World {
     /// This guarantee allows System Parameters to safely uniquely identify a [`World`],
     /// since its [`WorldId`] is unique
     #[inline]
-    pub fn new() -> World {
-        World::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Retrieves this [`World`]'s unique ID
@@ -1043,7 +1043,7 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut Self, Mut<R>) -> U) -> U {
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<R>())

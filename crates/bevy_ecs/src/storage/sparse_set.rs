@@ -389,7 +389,7 @@ macro_rules! impl_sparse_set_index {
             }
 
             fn get_sparse_set_index(value: usize) -> Self {
-                value as $ty
+                value as Self
             }
         })*
     };

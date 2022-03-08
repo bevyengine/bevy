@@ -132,7 +132,7 @@ impl ComponentInfo {
     }
 
     fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo { id, descriptor }
+        Self { id, descriptor }
     }
 }
 
