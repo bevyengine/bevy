@@ -174,6 +174,26 @@ impl FieldPath {
         }
         Ok(current)
     }
+
+    pub fn get_field<'r, 'p, T: Reflect>(
+        &'p self,
+        root: &'r dyn Reflect,
+    ) -> Result<&'r T, ReflectPathError<'p>> {
+        self.field(root).and_then(|p| {
+            p.downcast_ref::<T>()
+                .ok_or(ReflectPathError::InvalidDowncast)
+        })
+    }
+
+    pub fn get_field_mut<'r, 'p, T: Reflect>(
+        &'p mut self,
+        root: &'r mut dyn Reflect,
+    ) -> Result<&'r mut T, ReflectPathError<'p>> {
+        self.field_mut(root).and_then(|p| {
+            p.downcast_mut::<T>()
+                .ok_or(ReflectPathError::InvalidDowncast)
+        })
+    }
 }
 
 impl fmt::Display for FieldPath {
@@ -453,36 +473,122 @@ enum Token<'a> {
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
-    use super::GetPath;
+    use super::*;
     use crate as bevy_reflect;
     use crate::*;
+
+    #[derive(Reflect)]
+    struct A {
+        w: usize,
+        x: B,
+        y: Vec<C>,
+        z: D,
+    }
+
+    #[derive(Reflect)]
+    struct B {
+        foo: usize,
+        bar: C,
+    }
+
+    #[derive(Reflect, FromReflect)]
+    struct C {
+        baz: f32,
+    }
+
+    #[derive(Reflect)]
+    struct D(E);
+
+    #[derive(Reflect)]
+    struct E(f32, usize);
+
+    #[test]
+    fn field_path_parse() {
+        assert_eq!(
+            &*FieldPath::parse("w").unwrap().0,
+            &[(Access::Field("w".to_string()), 1)]
+        );
+        assert_eq!(
+            &*FieldPath::parse("x.foo").unwrap().0,
+            &[
+                (Access::Field("x".to_string()), 1),
+                (Access::Field("foo".to_string()), 2)
+            ]
+        );
+        assert_eq!(
+            &*FieldPath::parse("x.bar.baz").unwrap().0,
+            &[
+                (Access::Field("x".to_string()), 1),
+                (Access::Field("bar".to_string()), 2),
+                (Access::Field("baz".to_string()), 6)
+            ]
+        );
+        assert_eq!(
+            &*FieldPath::parse("y[1].baz").unwrap().0,
+            &[
+                (Access::Field("y".to_string()), 1),
+                (Access::ListIndex(1), 2),
+                (Access::Field("baz".to_string()), 5)
+            ]
+        );
+        assert_eq!(
+            &*FieldPath::parse("z.0.1").unwrap().0,
+            &[
+                (Access::Field("z".to_string()), 1),
+                (Access::TupleIndex(0), 2),
+                (Access::TupleIndex(1), 4),
+            ]
+        );
+        assert_eq!(
+            &*FieldPath::parse("x#0").unwrap().0,
+            &[
+                (Access::Field("x".to_string()), 1),
+                (Access::FieldIndex(0), 2),
+            ]
+        );
+        assert_eq!(
+            &*FieldPath::parse("x#0#1").unwrap().0,
+            &[
+                (Access::Field("x".to_string()), 1),
+                (Access::FieldIndex(0), 2),
+                (Access::FieldIndex(1), 4)
+            ]
+        );
+    }
+
+    #[test]
+    fn field_path_get_field() {
+        let a = A {
+            w: 1,
+            x: B {
+                foo: 10,
+                bar: C { baz: 3.14 },
+            },
+            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
+            z: D(E(10.0, 42)),
+        };
+
+        let b = FieldPath::parse("w").unwrap();
+        let c = FieldPath::parse("x.foo").unwrap();
+        let d = FieldPath::parse("x.bar.baz").unwrap();
+        let e = FieldPath::parse("y[1].baz").unwrap();
+        let f = FieldPath::parse("z.0.1").unwrap();
+        let g = FieldPath::parse("x#0").unwrap();
+        let h = FieldPath::parse("x#1#0").unwrap();
+
+        for _ in 0..30 {
+            assert_eq!(*b.get_field::<usize>(&a).unwrap(), 1);
+            assert_eq!(*c.get_field::<usize>(&a).unwrap(), 10);
+            assert_eq!(*d.get_field::<f32>(&a).unwrap(), 3.14);
+            assert_eq!(*e.get_field::<f32>(&a).unwrap(), 2.0);
+            assert_eq!(*f.get_field::<usize>(&a).unwrap(), 42);
+            assert_eq!(*g.get_field::<usize>(&a).unwrap(), 10);
+            assert_eq!(*h.get_field::<f32>(&a).unwrap(), 3.14);
+        }
+    }
+
     #[test]
     fn reflect_path() {
-        #[derive(Reflect)]
-        struct A {
-            w: usize,
-            x: B,
-            y: Vec<C>,
-            z: D,
-        }
-
-        #[derive(Reflect)]
-        struct B {
-            foo: usize,
-            bar: C,
-        }
-
-        #[derive(Reflect, FromReflect)]
-        struct C {
-            baz: f32,
-        }
-
-        #[derive(Reflect)]
-        struct D(E);
-
-        #[derive(Reflect)]
-        struct E(f32, usize);
-
         let mut a = A {
             w: 1,
             x: B {
