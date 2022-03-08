@@ -174,7 +174,7 @@ impl SpecializedPipeline for SpritePipeline {
 /// Extracted informations about a [`Sprite`] used to render it.
 #[derive(Component, Clone, Copy)]
 pub struct ExtractedSprite {
-    /// 2d extracted transform from the sprite [`bevy_transform::GlobalTransform`]
+    /// 2d extracted transform from the sprite [`GlobalTransform`]
     pub transform: Extracted2dTransform,
     /// Z layer at which the sprite should be shown
     pub z_layer: f32,
@@ -193,7 +193,7 @@ pub struct ExtractedSprite {
     pub flip_y: bool,
 }
 
-/// A 2d representation of a [`bevy_transform::GlobalTransform`] for an [`ExtractedSprite`]
+/// A 2d representation of a [`GlobalTransform`] for an [`ExtractedSprite`]
 #[derive(Clone, Copy)]
 pub struct Extracted2dTransform {
     /// The 2d position
