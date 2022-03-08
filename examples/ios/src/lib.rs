@@ -28,7 +28,7 @@ fn touch_camera(
             *last_position = None;
         }
         if let Some(last_position) = *last_position {
-            let window = windows.get_primary().unwrap();
+            let window = windows.primary();
             let mut transform = camera.single_mut();
             *transform = Transform::from_xyz(
                 transform.translation.x

@@ -414,7 +414,7 @@ impl Color {
         }
     }
 
-    /// Converts a `Color` to a `[f32; 4]` from linear RBG colorspace
+    /// Converts a `Color` to a `[f32; 4]` from linear RGB colorspace
     #[inline]
     pub fn as_linear_rgba_f32(self: Color) -> [f32; 4] {
         match self {
@@ -485,6 +485,98 @@ impl Color {
                 lightness,
                 alpha,
             } => [hue, saturation, lightness, alpha],
+        }
+    }
+
+    /// Converts Color to a u32 from sRGB colorspace.
+    ///
+    /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
+    /// A will be the most significant byte and R the least significant.
+    pub fn as_rgba_u32(self: Color) -> u32 {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red * 255.0) as u8,
+                (green * 255.0) as u8,
+                (blue * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red.linear_to_nonlinear_srgb() * 255.0) as u8,
+                (green.linear_to_nonlinear_srgb() * 255.0) as u8,
+                (blue.linear_to_nonlinear_srgb() * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                u32::from_le_bytes([
+                    (red * 255.0) as u8,
+                    (green * 255.0) as u8,
+                    (blue * 255.0) as u8,
+                    (alpha * 255.0) as u8,
+                ])
+            }
+        }
+    }
+
+    /// Converts Color to a u32 from linear RGB colorspace.
+    ///
+    /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
+    /// A will be the most significant byte and R the least significant.
+    pub fn as_linear_rgba_u32(self: Color) -> u32 {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red.nonlinear_to_linear_srgb() * 255.0) as u8,
+                (green.nonlinear_to_linear_srgb() * 255.0) as u8,
+                (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red * 255.0) as u8,
+                (green * 255.0) as u8,
+                (blue * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                u32::from_le_bytes([
+                    (red.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (green.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (alpha * 255.0) as u8,
+                ])
+            }
         }
     }
 }
