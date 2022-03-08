@@ -42,6 +42,15 @@ pub trait DetectChanges {
     ///
     /// **Note**: This operation is irreversible.
     fn set_changed(&mut self);
+
+    /// The last time this data was changed, in change ticks
+    ///
+    /// Note that data is flagged as changed when it is first added to the [`World`](crate::world::World) as well.
+    ///
+    /// This can be compared to the change tick of your systems for debugging purposes
+    /// using the [`SystemChangeTick`](crate::system::system_param::SystemChangeTick)
+    /// [`SystemParam`](crate::system::system_param::SystemParam).
+    fn last_changed(&self) -> u32;
 }
 
 macro_rules! change_detection_impl {
@@ -66,6 +75,11 @@ macro_rules! change_detection_impl {
                 self.ticks
                     .component_ticks
                     .set_changed(self.ticks.change_tick);
+            }
+
+            #[inline]
+            fn last_changed(&self) -> u32 {
+                self.ticks.last_change_tick
             }
         }
 

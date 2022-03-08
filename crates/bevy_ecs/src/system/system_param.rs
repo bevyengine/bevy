@@ -1172,7 +1172,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
 ///
 /// Changes that occured more recently than the last change tick will be detected by the system.
 /// You can check when changes last occured to a piece of data
-/// by using [`DetectChanges::change_tick`](crate::change_detection::DetectChanges) on the data.
+/// by using [`DetectChanges::last_changed`](crate::change_detection::DetectChanges) on the data.
 #[derive(Debug)]
 pub struct SystemChangeTick {
     last_change_tick: u32,
@@ -1181,12 +1181,12 @@ pub struct SystemChangeTick {
 
 impl SystemChangeTick {
     /// What is the change tick used by this system?
-    fn change_tick(&self) -> u32 {
+    pub fn change_tick(&self) -> u32 {
         self.change_tick
     }
 
     /// What was the change tick of the [`World`] the last time this system ran?
-    fn last_change_tick(&self) -> u32 {
+    pub fn last_change_tick(&self) -> u32 {
         self.last_change_tick
     }
 }
