@@ -13,7 +13,9 @@ pub trait Typed: Reflect {
 }
 
 #[derive(Clone, Debug)]
-/// Type information used to identify a given type, including the type name and its [`TypeId`].
+/// Type information used to identify a given type, including its [name] and its [`TypeId`].
+///
+/// [name]: std::any::type_name
 pub struct TypeIdentity(&'static str, TypeId);
 
 impl TypeIdentity {
@@ -27,7 +29,9 @@ impl TypeIdentity {
         Self(std::any::type_name::<T>(), TypeId::of::<T>())
     }
 
-    /// The name of this type
+    /// The [name] of this type
+    ///
+    /// [name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.0
     }
