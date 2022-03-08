@@ -74,19 +74,19 @@ fn setup(
                             HEIGHT as f32 * 2.5,
                             (y as f32) * 2.5,
                         ),
-                        ..Default::default()
+                        ..default()
                     });
                     commands.spawn_bundle(PbrBundle {
                         mesh: mesh.clone_weak(),
                         material: material.clone_weak(),
                         transform: Transform::from_xyz((x as f32) * 2.5, 0.0, (y as f32) * 2.5),
-                        ..Default::default()
+                        ..default()
                     });
                     commands.spawn_bundle(PbrBundle {
                         mesh: mesh.clone_weak(),
                         material: material.clone_weak(),
                         transform: Transform::from_xyz(0.0, (x as f32) * 2.5, (y as f32) * 2.5),
-                        ..Default::default()
+                        ..default()
                     });
                 }
             }
@@ -106,14 +106,12 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(0.0, HEIGHT as f32 * 2.5, 0.0),
             scale: Vec3::splat(5.0),
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     });
 
-    commands.spawn_bundle(DirectionalLightBundle {
-        ..Default::default()
-    });
+    commands.spawn_bundle(DirectionalLightBundle { ..default() });
 }
 
 // NOTE: This epsilon value is apparently optimal for optimizing for the average
