@@ -164,9 +164,9 @@ impl FieldPath {
     /// Returns an error if the path is invalid for the provided type.
     pub fn field<'r, 'p>(
         &'p self,
-        root: &'r impl Reflect,
+        root: &'r dyn Reflect,
     ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
-        let mut current: &dyn Reflect = root;
+        let mut current = root;
         for (access, current_index) in self.0.iter() {
             current = access.to_ref().read_field(current, *current_index)?;
         }
@@ -177,9 +177,9 @@ impl FieldPath {
     /// Returns an error if the path is invalid for the provided type.
     pub fn field_mut<'r, 'p>(
         &'p mut self,
-        root: &'r mut impl Reflect,
+        root: &'r mut dyn Reflect,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
-        let mut current: &mut dyn Reflect = root;
+        let mut current = root;
         for (access, current_index) in self.0.iter() {
             current = access.to_ref().read_field_mut(current, *current_index)?;
         }
