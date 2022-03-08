@@ -81,7 +81,7 @@ pub struct TextBundle {
 
 impl Default for TextBundle {
     fn default() -> Self {
-        TextBundle {
+        Self {
             focus_policy: FocusPolicy::Pass,
             text: Default::default(),
             node: Default::default(),
@@ -95,7 +95,7 @@ impl Default for TextBundle {
 }
 
 /// A UI node that is a button
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct ButtonBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -119,23 +119,6 @@ pub struct ButtonBundle {
     pub visibility: Visibility,
 }
 
-impl Default for ButtonBundle {
-    fn default() -> Self {
-        ButtonBundle {
-            button: Button,
-            interaction: Default::default(),
-            focus_policy: Default::default(),
-            node: Default::default(),
-            style: Default::default(),
-            color: Default::default(),
-            image: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-        }
-    }
-}
-
 /// The camera that is needed to see UI elements
 #[derive(Bundle, Debug)]
 pub struct UiCameraBundle {
@@ -157,7 +140,7 @@ impl Default for UiCameraBundle {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let far = 1000.0;
-        UiCameraBundle {
+        Self {
             camera: Camera {
                 name: Some(CAMERA_UI.to_string()),
                 ..Default::default()

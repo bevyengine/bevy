@@ -42,10 +42,10 @@ impl Add<f32> for Val {
 
     fn add(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Undefined => Val::Undefined,
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value + rhs),
-            Val::Percent(value) => Val::Percent(value + rhs),
+            Self::Undefined => Self::Undefined,
+            Self::Auto => Self::Auto,
+            Self::Px(value) => Self::Px(value + rhs),
+            Self::Percent(value) => Self::Percent(value + rhs),
         }
     }
 }
@@ -53,9 +53,8 @@ impl Add<f32> for Val {
 impl AddAssign<f32> for Val {
     fn add_assign(&mut self, rhs: f32) {
         match self {
-            Val::Undefined | Val::Auto => {}
-            Val::Px(value) => *value += rhs,
-            Val::Percent(value) => *value += rhs,
+            Self::Undefined | Self::Auto => {}
+            Self::Px(value) | Self::Percent(value) => *value += rhs,
         }
     }
 }
@@ -211,8 +210,8 @@ pub enum AlignContent {
 }
 
 impl Default for AlignContent {
-    fn default() -> AlignContent {
-        AlignContent::Stretch
+    fn default() -> Self {
+        Self::Stretch
     }
 }
 
@@ -231,8 +230,8 @@ pub enum Direction {
 }
 
 impl Default for Direction {
-    fn default() -> Direction {
-        Direction::Inherit
+    fn default() -> Self {
+        Self::Inherit
     }
 }
 
@@ -247,8 +246,8 @@ pub enum Display {
 }
 
 impl Default for Display {
-    fn default() -> Display {
-        Display::Flex
+    fn default() -> Self {
+        Self::Flex
     }
 }
 
@@ -267,8 +266,8 @@ pub enum FlexDirection {
 }
 
 impl Default for FlexDirection {
-    fn default() -> FlexDirection {
-        FlexDirection::Row
+    fn default() -> Self {
+        Self::Row
     }
 }
 
@@ -291,8 +290,8 @@ pub enum JustifyContent {
 }
 
 impl Default for JustifyContent {
-    fn default() -> JustifyContent {
-        JustifyContent::FlexStart
+    fn default() -> Self {
+        Self::FlexStart
     }
 }
 
@@ -307,8 +306,8 @@ pub enum Overflow {
 }
 
 impl Default for Overflow {
-    fn default() -> Overflow {
-        Overflow::Visible
+    fn default() -> Self {
+        Self::Visible
     }
 }
 
@@ -325,8 +324,8 @@ pub enum PositionType {
 }
 
 impl Default for PositionType {
-    fn default() -> PositionType {
-        PositionType::Relative
+    fn default() -> Self {
+        Self::Relative
     }
 }
 
@@ -343,8 +342,8 @@ pub enum FlexWrap {
 }
 
 impl Default for FlexWrap {
-    fn default() -> FlexWrap {
-        FlexWrap::NoWrap
+    fn default() -> Self {
+        Self::NoWrap
     }
 }
 
