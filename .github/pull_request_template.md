@@ -10,8 +10,9 @@
 ## \[ Optional \] Changelog
 
 - What changed as a result of this PR?
+- If applicable, organize changes under "Added", "Changed", or "Fixed" sub-headings
 - Stick to one or two sentences. If more detail is needed for a particular change, consider adding it to the "Solution" section
-  - If you can't summarize the work your change may be unreasonably large / unrelated. Consider splitting your PR to make it easier to review and merge!
+  - If you can't summarize the work, your change may be unreasonably large / unrelated. Consider splitting your PR to make it easier to review and merge!
 
 ## \[Optional\] Migration Guide
 
