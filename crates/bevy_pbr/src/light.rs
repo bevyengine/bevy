@@ -406,7 +406,7 @@ impl Clusters {
             .as_uvec2()
             .extend(z_slices);
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
-        assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
+        debug_assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
     }
 }
 
