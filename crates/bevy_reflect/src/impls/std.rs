@@ -1,5 +1,9 @@
 use crate as bevy_reflect;
-use crate::{DynamicMap, FromReflect, FromType, GetTypeRegistration, List, ListIter, Map, map_partial_eq, MapIter, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectMut, ReflectRef, serde::Serializable, TypeRegistration};
+use crate::{
+    map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType, GetTypeRegistration,
+    List, ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectMut,
+    ReflectRef, TypeRegistration,
+};
 
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, HashMap, HashSet};
@@ -30,7 +34,13 @@ impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize, FromReflect)
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize, FromReflect));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize, FromReflect));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize, FromReflect));
-impl_reflect_value!(Duration(Hash, PartialEq, Serialize, Deserialize, FromReflect));
+impl_reflect_value!(Duration(
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    FromReflect
+));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(u8);

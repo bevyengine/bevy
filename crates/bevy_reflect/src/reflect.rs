@@ -1,4 +1,4 @@
-use crate::{List, Map, serde::Serializable, Struct, Tuple, TupleStruct};
+use crate::{serde::Serializable, List, Map, Struct, Tuple, TupleStruct};
 use std::{any::Any, fmt::Debug};
 
 pub use bevy_utils::AHasher as ReflectHasher;
