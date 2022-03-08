@@ -103,7 +103,7 @@ impl ReflectComponent {
     /// sets its value to the value of the component of type `C` on the `source_entity`,
     /// and then inserts the new component into the `destination_entity`.
     ///
-    /// WARNING: this method does not use the `Clone` method: instead, memory is copied directly.
+    /// **Note**: this method uses `Reflect` to create a shallow value-based copy of the component and will not respect `Clone` implementations.
     /// This can have unexpected negative consequences if you are relying on ref-counting or the like.
     ///
     /// PANICS: the `source_entity` in the `source_world` must have a component of type `C`
