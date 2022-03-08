@@ -83,8 +83,8 @@ impl StructInfo {
             .iter()
             .enumerate()
             .map(|(index, field)| {
-                let name = field.name().to_string();
-                (Cow::Owned(name), index)
+                let name = field.name().clone();
+                (name, index)
             })
             .collect::<HashMap<_, _>>();
 

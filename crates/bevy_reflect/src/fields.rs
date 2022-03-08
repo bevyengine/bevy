@@ -1,5 +1,5 @@
 use crate::{Reflect, TypeIdentity};
-use std::borrow::{Borrow, Cow};
+use std::borrow::Cow;
 
 /// The named field of a reflected struct
 #[derive(Clone, Debug)]
@@ -29,8 +29,8 @@ impl NamedField {
     }
 
     /// The name of the field
-    pub fn name(&self) -> &str {
-        self.name.borrow()
+    pub fn name(&self) -> &Cow<'static, str> {
+        &self.name
     }
 
     /// The [`TypeIdentity`] of the field
