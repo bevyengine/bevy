@@ -203,6 +203,7 @@ Example | File | Description
 `keyboard_modifiers` | [`input/keyboard_modifiers.rs`](./input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift)
 `mouse_input` | [`input/mouse_input.rs`](./input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 `mouse_input_events` | [`input/mouse_input_events.rs`](./input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
+`mouse_grab` | [`input/mouse_grab.rs`](./input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen
 `touch_input` | [`input/touch_input.rs`](./input/touch_input.rs) | Displays touch presses, releases, and cancels
 `touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_events.rs) | Prints out all touch inputs
 
