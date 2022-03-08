@@ -761,6 +761,19 @@ impl Command for Despawn {
     }
 }
 
+/// Utility method for formatting common command panic messages.
+fn panic_fmt<Ty>(
+    verb: &'static str,
+    trait_name: &'static str,
+    preposition: &'static str,
+    entity: Entity,
+) -> ! {
+    panic!("Could not {} a {} (of type `{}`) {} entity {:?} because it doesn't exist in this World.\n\
+            If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
+            This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers",
+            verb, trait_name, std::any::type_name::<Ty>(), preposition, entity);
+}
+
 pub struct InsertBundle<T> {
     pub entity: Entity,
     pub bundle: T,
@@ -774,9 +787,7 @@ where
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert_bundle(self.bundle);
         } else {
-            panic!("Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.\n\
-                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
-                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+            panic_fmt::<T>("insert", "bundle", "for", self.entity);
         }
     }
 }
@@ -806,9 +817,7 @@ where
         let bundle_opt = if let Some(mut source) = world.get_entity_mut(self.source) {
             source.remove_bundle::<T>()
         } else {
-            panic!("Could not move a bundle (of type `{}`) from entity {:?} because it doesn't exist in this World.\n\
-                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
-                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.source);
+            panic_fmt::<T>("move", "bundle", "from", self.source);
         };
 
         let bundle = if let Some(some) = bundle_opt {
@@ -820,9 +829,7 @@ where
         if let Some(mut target) = world.get_entity_mut(self.target) {
             target.insert_bundle(bundle);
         } else {
-            panic!("Could not move a bundle (of type `{}`) to entity {:?} because it doesn't exist in this World.\n\
-                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
-                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.target);
+            panic_fmt::<T>("move", "bundle", "to", self.target);
         }
     }
 }
@@ -841,9 +848,7 @@ where
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(self.component);
         } else {
-            panic!("Could not add a component (of type `{}`) to entity {:?} because it doesn't exist in this World.\n\
-                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
-                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+            panic_fmt::<T>("add", "component", "to", self.entity);
         }
     }
 }
