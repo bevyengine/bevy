@@ -69,7 +69,7 @@ tga = ["bevy_internal/tga"]
 jpeg = ["bevy_internal/jpeg"]
 bmp = ["bevy_internal/bmp"]
 
-# Audio format support (MP3 is enabled by default)
+# Audio format support (vorbis is enabled by default)
 flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
