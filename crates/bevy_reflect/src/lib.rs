@@ -52,13 +52,13 @@ pub use erased_serde;
 #[cfg(test)]
 #[allow(clippy::blacklisted_name, clippy::approx_constant)]
 mod tests {
-    use std::any::TypeId;
     use ::serde::de::DeserializeSeed;
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use std::any::TypeId;
 
     use super::*;
     use crate as bevy_reflect;
@@ -431,9 +431,20 @@ mod tests {
     #[test]
     fn should_reflect_from_type_id() {
         #[derive(Reflect, FromReflect)]
-        #[reflect(FromReflect)]
+        #[reflect(FromReflect, MyTrait)]
         struct MyStruct {
             foo: usize,
+        }
+
+        #[reflect_trait]
+        trait MyTrait {
+            fn foo(&self) -> usize;
+        }
+
+        impl MyTrait for MyStruct {
+            fn foo(&self) -> usize {
+                self.foo
+            }
         }
 
         // === Struct === //
@@ -456,9 +467,23 @@ mod tests {
 
         // Assert
         let expected = MyStruct { foo: 123 };
-        assert!(expected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
+        assert!(expected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
         let unexpected = MyStruct { foo: 321 };
-        assert!(!unexpected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
+        assert!(!unexpected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
+
+        // --- Traits --- //
+        let my_trait = registry
+            .get_type_data::<ReflectMyTrait>(type_id)
+            .expect("the trait should be registered");
+        let trait_obj = my_trait
+            .get(reflected.as_ref())
+            .expect("the reflected value should be convertable to trait object");
+
+        assert_eq!(expected.foo, trait_obj.foo());
 
         // === Vec === //
         // Register
@@ -481,9 +506,13 @@ mod tests {
 
         // Assert
         let expected = vec![1usize, 2usize, 3usize];
-        assert!(expected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
+        assert!(expected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
         let unexpected = vec![1usize, 2usize, 3usize, 4usize];
-        assert!(!unexpected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
+        assert!(!unexpected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
 
         // === Value === //
         // Register
@@ -503,6 +532,8 @@ mod tests {
 
         // Assert
         let expected: i32 = 123;
-        assert!(expected.reflect_partial_eq(reflected.as_ref()).unwrap_or_default());
+        assert!(expected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
     }
 }
