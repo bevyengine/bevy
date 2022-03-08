@@ -11,7 +11,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec2, Vec2};
+use bevy_math::{const_vec2, Quat, Vec2};
 use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
@@ -173,7 +173,8 @@ impl SpecializedPipeline for SpritePipeline {
 
 #[derive(Component, Clone, Copy)]
 pub struct ExtractedSprite {
-    pub transform: GlobalTransform,
+    pub transform: Transform2d,
+    pub z_layer: f32,
     pub color: Color,
     /// Select an area of the texture
     pub rect: Option<Rect>,
@@ -184,6 +185,22 @@ pub struct ExtractedSprite {
     pub image_handle_id: HandleId,
     pub flip_x: bool,
     pub flip_y: bool,
+}
+
+#[derive(Clone, Copy)]
+pub struct Transform2d {
+    pub translation: Vec2,
+    pub scale: Vec2,
+    pub rotation: Quat,
+}
+
+impl Transform2d {
+    fn mul_vec2(&self, mut value: Vec2) -> Vec2 {
+        value = self.scale * value;
+        value = (self.rotation * value.extend(0.0)).truncate();
+        value += self.translation;
+        value
+    }
 }
 
 #[derive(Default)]
@@ -240,7 +257,12 @@ pub fn extract_sprites(
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
         extracted_sprites.sprites.alloc().init(ExtractedSprite {
             color: sprite.color,
-            transform: *transform,
+            transform: Transform2d {
+                translation: transform.translation.truncate(),
+                scale: transform.scale.truncate(),
+                rotation: transform.rotation,
+            },
+            z_layer: transform.translation.z * transform.scale.z,
             // Use the full texture
             rect: None,
             // Pass the custom size
@@ -258,7 +280,12 @@ pub fn extract_sprites(
             let rect = Some(texture_atlas.textures[atlas_sprite.index as usize]);
             extracted_sprites.sprites.alloc().init(ExtractedSprite {
                 color: atlas_sprite.color,
-                transform: *transform,
+                transform: Transform2d {
+                    translation: transform.translation.truncate(),
+                    scale: transform.scale.truncate(),
+                    rotation: transform.rotation,
+                },
+                z_layer: transform.translation.z * transform.scale.z,
                 // Select the area in the texture atlas
                 rect,
                 // Pass the custom size
@@ -393,16 +420,9 @@ pub fn queue_sprites(
             transparent_phase.items.reserve(extracted_sprites.len());
 
             // Sort sprites by z for correct transparency and then by handle to improve batching
-            extracted_sprites.sort_unstable_by(|a, b| {
-                match a
-                    .transform
-                    .translation
-                    .z
-                    .partial_cmp(&b.transform.translation.z)
-                {
-                    Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
-                    Some(other) => other,
-                }
+            extracted_sprites.sort_unstable_by(|a, b| match a.z_layer.partial_cmp(&b.z_layer) {
+                Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
+                Some(other) => other,
             });
 
             // Impossible starting values that will be replaced on the first iteration
@@ -489,12 +509,13 @@ pub fn queue_sprites(
                 let positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
                     extracted_sprite
                         .transform
-                        .mul_vec3((quad_pos * quad_size).extend(0.))
+                        .mul_vec2(quad_pos * quad_size)
+                        .extend(extracted_sprite.z_layer)
                         .into()
                 });
 
                 // These items will be sorted by depth with other phase items
-                let sort_key = FloatOrd(extracted_sprite.transform.translation.z);
+                let sort_key = FloatOrd(extracted_sprite.z_layer);
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
