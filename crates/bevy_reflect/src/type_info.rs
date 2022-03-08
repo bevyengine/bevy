@@ -71,32 +71,6 @@ impl TypeInfo {
             Self::Dynamic(info) => info.id(),
         }
     }
-
-    /// The name of the reflected type
-    pub fn type_name(&self) -> &str {
-        match self {
-            Self::Struct(info) => info.id().type_name(),
-            Self::TupleStruct(info) => info.id().type_name(),
-            Self::Tuple(info) => info.id().type_name(),
-            Self::List(info) => info.id().type_name(),
-            Self::Map(info) => info.id().type_name(),
-            Self::Value(info) => info.id().type_name(),
-            Self::Dynamic(info) => info.id().type_name(),
-        }
-    }
-
-    /// The [`TypeId`] of the reflected type
-    pub fn type_id(&self) -> TypeId {
-        match self {
-            Self::Struct(info) => info.id().type_id(),
-            Self::TupleStruct(info) => info.id().type_id(),
-            Self::Tuple(info) => info.id().type_id(),
-            Self::List(info) => info.id().type_id(),
-            Self::Map(info) => info.id().type_id(),
-            Self::Value(info) => info.id().type_id(),
-            Self::Dynamic(info) => info.id().type_id(),
-        }
-    }
 }
 
 /// A container for compile-time info related to general value types, including primitives
