@@ -92,7 +92,7 @@ impl<T: FromReflect> List for Vec<T> {
                 )
             })
         });
-        Vec::push(self, value);
+        Self::push(self, value);
     }
 }
 
@@ -146,8 +146,8 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
 
 impl<T: FromReflect + for<'de> Deserialize<'de>> GetTypeRegistration for Vec<T> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Vec<T>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Vec<T>>::from_type());
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -169,13 +169,13 @@ impl<T: FromReflect> FromReflect for Vec<T> {
 impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         key.downcast_ref::<K>()
-            .and_then(|key| HashMap::get(self, key))
+            .and_then(|key| Self::get(self, key))
             .map(|value| value as &dyn Reflect)
     }
 
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
         key.downcast_ref::<K>()
-            .and_then(move |key| HashMap::get_mut(self, key))
+            .and_then(move |key| Self::get_mut(self, key))
             .map(|value| value as &mut dyn Reflect)
     }
 

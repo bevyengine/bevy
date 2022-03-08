@@ -280,7 +280,7 @@ impl Clone for TypeRegistration {
             data.insert(*id, (*type_data).clone_type_data());
         }
 
-        TypeRegistration {
+        Self {
             data,
             name: self.name,
             short_name: self.short_name.clone(),
@@ -344,7 +344,7 @@ impl ReflectDeserialize {
 
 impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
     fn from_type() -> Self {
-        ReflectDeserialize {
+        Self {
             func: |deserializer| Ok(Box::new(T::deserialize(deserializer)?)),
         }
     }

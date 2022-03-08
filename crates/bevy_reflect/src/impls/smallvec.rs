@@ -8,7 +8,7 @@ where
     T::Item: FromReflect + Clone,
 {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
-        if index < SmallVec::len(self) {
+        if index < Self::len(self) {
             Some(&self[index] as &dyn Reflect)
         } else {
             None

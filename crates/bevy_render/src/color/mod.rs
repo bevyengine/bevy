@@ -382,7 +382,7 @@ impl Color {
     }
 
     /// Converts a `Color` to a `[f32; 4]` from sRGB colorspace
-    pub fn as_rgba_f32(self: Self) -> [f32; 4] {
+    pub fn as_rgba_f32(self) -> [f32; 4] {
         match self {
             Color::Rgba {
                 red,
@@ -416,7 +416,7 @@ impl Color {
 
     /// Converts a `Color` to a `[f32; 4]` from linear RGB colorspace
     #[inline]
-    pub fn as_linear_rgba_f32(self: Self) -> [f32; 4] {
+    pub fn as_linear_rgba_f32(self) -> [f32; 4] {
         match self {
             Color::Rgba {
                 red,
@@ -454,7 +454,7 @@ impl Color {
     }
 
     /// Converts a `Color` to a `[f32; 4]` from HLS colorspace
-    pub fn as_hlsa_f32(self: Self) -> [f32; 4] {
+    pub fn as_hlsa_f32(self) -> [f32; 4] {
         match self {
             Color::Rgba {
                 red,
@@ -492,7 +492,7 @@ impl Color {
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// A will be the most significant byte and R the least significant.
-    pub fn as_rgba_u32(self: Self) -> u32 {
+    pub fn as_rgba_u32(self) -> u32 {
         match self {
             Color::Rgba {
                 red,
@@ -538,7 +538,7 @@ impl Color {
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// A will be the most significant byte and R the least significant.
-    pub fn as_linear_rgba_u32(self: Self) -> u32 {
+    pub fn as_linear_rgba_u32(self) -> u32 {
         match self {
             Color::Rgba {
                 red,
