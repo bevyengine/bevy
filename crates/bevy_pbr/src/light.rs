@@ -804,7 +804,7 @@ pub(crate) fn assign_lights_to_clusters(
 
                 let light_in_view = frusta
                     .iter()
-                    .any(|frustum| frustum.intersects_sphere(&light_sphere));
+                    .any(|frustum| frustum.intersects_sphere(&light_sphere, true));
 
                 if light_in_view {
                     lights_in_view_count += 1;
@@ -880,7 +880,7 @@ pub(crate) fn assign_lights_to_clusters(
                 };
 
                 // Check if the light is within the view frustum
-                if !frustum.intersects_sphere(&light_sphere) {
+                if !frustum.intersects_sphere(&light_sphere, true) {
                     continue;
                 }
 
@@ -970,7 +970,7 @@ pub(crate) fn assign_lights_to_clusters(
             };
 
             // Check if the light is within the view frustum
-            if !frustum.intersects_sphere(&light_sphere) {
+            if !frustum.intersects_sphere(&light_sphere, true) {
                 continue;
             }
 
@@ -1174,7 +1174,7 @@ pub fn check_light_mesh_visibility(
 
             // If we have an aabb and transform, do frustum culling
             if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
+                if !frustum.intersects_obb(aabb, &transform.compute_matrix(), true) {
                     continue;
                 }
             }
@@ -1242,7 +1242,7 @@ pub fn check_light_mesh_visibility(
                             .iter()
                             .zip(cubemap_visible_entities.iter_mut())
                         {
-                            if frustum.intersects_obb(aabb, &model_to_world) {
+                            if frustum.intersects_obb(aabb, &model_to_world, true) {
                                 computed_visibility.is_visible = true;
                                 visible_entities.entities.push(entity);
                             }
