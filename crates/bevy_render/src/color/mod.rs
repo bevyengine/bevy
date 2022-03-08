@@ -276,7 +276,7 @@ impl Color {
     }
 
     /// Converts a `Color` to variant `Color::Rgba`
-    pub fn as_rgba(self: &Self) -> Self {
+    pub fn as_rgba(&self) -> Self {
         match self {
             Color::Rgba { .. } => *self,
             Color::RgbaLinear {
@@ -309,7 +309,7 @@ impl Color {
     }
 
     /// Converts a `Color` to variant `Color::RgbaLinear`
-    pub fn as_rgba_linear(self: &Self) -> Self {
+    pub fn as_rgba_linear(&self) -> Self {
         match self {
             Color::Rgba {
                 red,
@@ -342,7 +342,7 @@ impl Color {
     }
 
     /// Converts a `Color` to variant `Color::Hsla`
-    pub fn as_hsla(self: &Self) -> Self {
+    pub fn as_hsla(&self) -> Self {
         match self {
             Color::Rgba {
                 red,
