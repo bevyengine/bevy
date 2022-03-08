@@ -9,7 +9,7 @@ use bevy_math::{Size, Vec3};
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_window::Windows;
+use bevy_window::{WindowId, Windows};
 
 use crate::{
     DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, Text2dSize, TextError,
@@ -50,11 +50,7 @@ pub fn extract_text2d_sprite(
 ) {
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
-    } else {
-        1.
-    };
+    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
     for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
         if !visibility.is_visible {
@@ -139,11 +135,7 @@ pub fn text2d_system(
         return;
     }
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor()
-    } else {
-        1.
-    };
+    let scale_factor = windows.scale_factor(WindowId::primary());
 
     // Computes all text in the local queue
     let mut new_queue = Vec::new();

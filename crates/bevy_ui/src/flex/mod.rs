@@ -218,11 +218,7 @@ pub fn flex_node_system(
     }
 
     // assume one window for time being...
-    let logical_to_physical_factor = if let Some(primary_window) = windows.get_primary() {
-        primary_window.scale_factor()
-    } else {
-        1.
-    };
+    let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
 
     if scale_factor_events.iter().next_back().is_some() {
         update_changed(

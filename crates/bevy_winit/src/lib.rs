@@ -412,7 +412,7 @@ pub fn winit_runner_with(mut app: App) {
                         // On a mobile window, the start is from the top while on PC/Linux/OSX from
                         // bottom
                         if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                            let window_height = windows.get_primary().unwrap().height();
+                            let window_height = windows.primary().height();
                             location.y = window_height - location.y;
                         }
                         touch_input_events.send(converters::convert_touch_input(touch, location));

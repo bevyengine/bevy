@@ -30,7 +30,7 @@ use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use bevy_window::Windows;
+use bevy_window::{WindowId, Windows};
 
 use bytemuck::{Pod, Zeroable};
 
@@ -186,11 +186,7 @@ pub fn extract_text_uinodes(
 ) {
     let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
-    } else {
-        1.
-    };
+    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
