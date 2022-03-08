@@ -294,7 +294,10 @@ impl ClusterConfig {
             } => {
                 let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
                 let per_layer = *total as f32 / *z_slices as f32;
-                assert!(per_layer >= 1.0, "ClusterConfig has more z-slices than total clusters!");
+                assert!(
+                    per_layer >= 1.0,
+                    "ClusterConfig has more z-slices than total clusters!"
+                );
 
                 let y = f32::sqrt(per_layer / aspect_ratio);
 
