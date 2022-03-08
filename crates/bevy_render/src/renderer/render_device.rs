@@ -50,7 +50,7 @@ impl RenderDevice {
                         label: desc.label,
                         source: source.clone(),
                     })
-            }
+            },
             _ => self.device.create_shader_module(desc),
         }
         #[cfg(not(feature = "spirv_shader_passthrough"))]
