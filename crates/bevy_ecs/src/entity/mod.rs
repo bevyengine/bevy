@@ -104,8 +104,8 @@ impl Entity {
     ///     }
     /// }
     /// ```
-    pub fn from_raw(id: u32) -> Entity {
-        Entity { id, generation: 0 }
+    pub fn from_raw(id: u32) -> Self {
+        Self { id, generation: 0 }
     }
 
     /// Convert to a form convenient for passing outside of rust.

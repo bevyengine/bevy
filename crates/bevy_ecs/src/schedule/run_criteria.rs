@@ -223,7 +223,7 @@ impl IntoRunCriteria<RunCriteriaDescriptorOrLabel> for RunCriteriaDescriptor {
     }
 }
 
-impl IntoRunCriteria<BoxedSystem<(), ShouldRun>> for BoxedSystem<(), ShouldRun> {
+impl IntoRunCriteria<Self> for BoxedSystem<(), ShouldRun> {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
         RunCriteriaDescriptorOrLabel::Descriptor(new_run_criteria_descriptor(self))
     }

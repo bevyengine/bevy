@@ -18,13 +18,13 @@ use std::{
 pub struct ArchetypeId(usize);
 
 impl ArchetypeId {
-    pub const EMPTY: ArchetypeId = ArchetypeId(0);
-    pub const RESOURCE: ArchetypeId = ArchetypeId(1);
-    pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
+    pub const EMPTY: Self = Self(0);
+    pub const RESOURCE: Self = Self(1);
+    pub const INVALID: Self = Self(usize::MAX);
 
     #[inline]
     pub const fn new(index: usize) -> Self {
-        ArchetypeId(index)
+        Self(index)
     }
 
     #[inline]
@@ -320,7 +320,7 @@ pub struct ArchetypeGeneration(usize);
 impl ArchetypeGeneration {
     #[inline]
     pub const fn initial() -> Self {
-        ArchetypeGeneration(0)
+        Self(0)
     }
 
     #[inline]

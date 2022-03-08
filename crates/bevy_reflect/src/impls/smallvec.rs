@@ -16,7 +16,7 @@ where
     }
 
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-        if index < SmallVec::len(self) {
+        if index < Self::len(self) {
             Some(&mut self[index] as &mut dyn Reflect)
         } else {
             None
@@ -24,7 +24,7 @@ where
     }
 
     fn len(&self) -> usize {
-        <SmallVec<T>>::len(self)
+        <Self>::len(self)
     }
 
     fn push(&mut self, value: Box<dyn Reflect>) {
@@ -36,7 +36,7 @@ where
                 )
             })
         });
-        SmallVec::push(self, value);
+        Self::push(self, value);
     }
 
     fn iter(&self) -> ListIter {

@@ -85,7 +85,7 @@ pub enum StorageType {
 
 impl Default for StorageType {
     fn default() -> Self {
-        StorageType::Table
+        Self::Table
     }
 }
 
@@ -141,8 +141,8 @@ pub struct ComponentId(usize);
 
 impl ComponentId {
     #[inline]
-    pub const fn new(index: usize) -> ComponentId {
-        ComponentId(index)
+    pub const fn new(index: usize) -> Self {
+        Self(index)
     }
 
     #[inline]

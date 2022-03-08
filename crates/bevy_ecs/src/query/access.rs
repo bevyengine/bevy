@@ -172,7 +172,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.without.insert(index.sparse_set_index());
     }
 
-    pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
+    pub fn is_compatible(&self, other: &Self) -> bool {
         if self.access.is_compatible(&other.access) {
             true
         } else {
@@ -181,7 +181,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         }
     }
 
-    pub fn extend(&mut self, access: &FilteredAccess<T>) {
+    pub fn extend(&mut self, access: &Self) {
         self.access.extend(&access.access);
         self.with.union_with(&access.with);
         self.without.union_with(&access.without);

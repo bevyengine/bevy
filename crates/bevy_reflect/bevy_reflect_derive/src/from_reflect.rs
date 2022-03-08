@@ -144,7 +144,7 @@ pub fn impl_value(type_name: &Ident, generics: &Generics, bevy_reflect_path: &Pa
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
-                Some(reflect.any().downcast_ref::<#type_name #ty_generics>()?.clone())
+                Some(reflect.any().downcast_ref::<Self>()?.clone())
             }
         }
     })
