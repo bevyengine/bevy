@@ -540,6 +540,11 @@ pub fn winit_runner_with(mut app: App) {
                 winit_state.active = true;
             }
             event::Event::MainEventsCleared => {
+                handle_create_window_events(
+                    &mut app.world,
+                    event_loop,
+                    &mut create_window_event_reader,
+                );
                 let winit_config = app.world.resource::<WinitSettings>();
                 let update = if winit_state.active {
                     let windows = app.world.resource::<Windows>();
@@ -556,11 +561,6 @@ pub fn winit_runner_with(mut app: App) {
                     false
                 };
                 if update {
-                    handle_create_window_events(
-                    &mut app.world,
-                    event_loop,
-                    &mut create_window_event_reader,
-                );
                     winit_state.last_update = Instant::now();
                     app.update();
                 }
