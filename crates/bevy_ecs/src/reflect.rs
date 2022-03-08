@@ -35,14 +35,16 @@ pub struct ReflectComponent {
 impl ReflectComponent {
     /// Inserts the non-erased value of `component` (with type `C`) into the `entity`
     ///
-    /// PANICS: `component` must have the same type `C` as the type used to create this struct
+    /// # Panics
+    /// `component` must have the same type `C` as the type used to create this struct
     pub fn insert_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.insert_component)(world, entity, component);
     }
 
     /// Sets the existing value of type `C` found on `entity` to the non-erased value of `component`
     ///
-    /// PANICS: `component` must have the same type `C` as the type used to create this struct
+    /// # Panics
+    /// `component` must have the same type `C` as the type used to create this struct
     /// Additionally, a component of type `C` must already exist on `entity.
     pub fn apply_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.apply_component)(world, entity, component);
@@ -76,12 +78,12 @@ impl ReflectComponent {
         unsafe { (self.reflect_component_mut)(world, entity) }
     }
 
-    /// Recklessly fetches a mutable reference to the component of type `C` on `entity`
+    /// Fetches a mutable reference to the component of type `C` on `entity` without guaranteeing unique mutable access to the `world`
     ///
     /// This method does not require exclusive [World] access, and so multiple mutable references can be alive at once.
-    /// If possible you should prefer the safe version of this method, [reflect_component_mut](Self::reflect_component_mut).
+    /// If possible, please prefer the safe version of this method, [reflect_component_mut](Self::reflect_component_mut).
     ///
-    /// If the `Entity` does not have a component of the specified type, `None` is returned instead.
+    /// If the [`Entity`] does not have a component of the specified type, `None` is returned instead.
     ///
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
@@ -106,7 +108,8 @@ impl ReflectComponent {
     /// **Note**: this method uses `Reflect` to create a shallow value-based copy of the component and will not respect `Clone` implementations.
     /// This can have unexpected negative consequences if you are relying on ref-counting or the like.
     ///
-    /// PANICS: the `source_entity` in the `source_world` must have a component of type `C`
+    /// # Panics
+    /// The `source_entity` in the `source_world` must have a component of type `C`
     pub fn copy_component(
         &self,
         source_world: &World,
