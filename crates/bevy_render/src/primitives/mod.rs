@@ -11,6 +11,7 @@ pub struct Aabb {
 }
 
 impl Aabb {
+    #[inline]
     pub fn from_min_max(minimum: Vec3, maximum: Vec3) -> Self {
         let minimum = Vec3A::from(minimum);
         let maximum = Vec3A::from(maximum);
@@ -23,6 +24,7 @@ impl Aabb {
     }
 
     /// Calculate the relative radius of the AABB with respect to a plane
+    #[inline]
     pub fn relative_radius(&self, p_normal: &Vec3A, axes: &[Vec3A]) -> f32 {
         // NOTE: dot products on Vec3A use SIMD and even with the overhead of conversion are net faster than Vec3
         let half_extents = self.half_extents;
@@ -35,16 +37,19 @@ impl Aabb {
         .dot(half_extents)
     }
 
+    #[inline]
     pub fn min(&self) -> Vec3A {
         self.center - self.half_extents
     }
 
+    #[inline]
     pub fn max(&self) -> Vec3A {
         self.center + self.half_extents
     }
 }
 
 impl From<Sphere> for Aabb {
+    #[inline]
     fn from(sphere: Sphere) -> Self {
         Self {
             center: sphere.center,
@@ -60,6 +65,7 @@ pub struct Sphere {
 }
 
 impl Sphere {
+    #[inline]
     pub fn intersects_obb(&self, aabb: &Aabb, local_to_world: &Mat4) -> bool {
         let aabb_center_world = *local_to_world * aabb.center.extend(1.0);
         let axes = [
@@ -129,6 +135,7 @@ impl Frustum {
     // projection matrix is from Foundations of Game Engine Development 2
     // Rendering by Lengyel. Slight modification has been made for when
     // the far plane is infinite but we still want to cull to a far plane.
+    #[inline]
     pub fn from_view_projection(
         view_projection: &Mat4,
         view_translation: &Vec3,
@@ -150,6 +157,7 @@ impl Frustum {
         Self { planes }
     }
 
+    #[inline]
     pub fn intersects_sphere(&self, sphere: &Sphere) -> bool {
         for plane in &self.planes {
             if plane.normal_d().dot(sphere.center.extend(1.0)) + sphere.radius <= 0.0 {
@@ -159,6 +167,7 @@ impl Frustum {
         true
     }
 
+    #[inline]
     pub fn intersects_obb(&self, aabb: &Aabb, model_to_world: &Mat4) -> bool {
         let aabb_center_world = *model_to_world * aabb.center.extend(1.0);
         let axes = [
