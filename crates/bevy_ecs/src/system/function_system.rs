@@ -324,6 +324,7 @@ where
     func: F,
     param_state: Option<Param::Fetch>,
     system_meta: SystemMeta,
+    world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     #[allow(clippy::type_complexity)]
@@ -346,6 +347,7 @@ where
             func,
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
+            world_id: None,
             archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
         }
@@ -405,6 +407,7 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
+        self.world_id = Some(world.id());
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,
@@ -412,6 +415,7 @@ where
     }
 
     fn update_archetypes(&mut self, world: &World) {
+        assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);

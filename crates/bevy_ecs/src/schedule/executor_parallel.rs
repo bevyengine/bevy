@@ -111,12 +111,16 @@ impl ParallelSystemExecutor for ParallelExecutor {
             self.events_sender = Some(sender);
         }
 
-        for (index, container) in systems.iter_mut().enumerate() {
-            let meta = &mut self.system_metadata[index];
-            let system = container.system_mut();
-            system.update_archetypes(world);
-            meta.archetype_component_access
-                .extend(system.archetype_component_access());
+        {
+            #[cfg(feature = "trace")]
+            let _span = bevy_utils::tracing::info_span!("update_archetypes").entered();
+            for (index, container) in systems.iter_mut().enumerate() {
+                let meta = &mut self.system_metadata[index];
+                let system = container.system_mut();
+                system.update_archetypes(world);
+                meta.archetype_component_access
+                    .extend(system.archetype_component_access());
+            }
         }
 
         let compute_pool = world

@@ -51,7 +51,7 @@ pub trait System: Send + Sync + 'static {
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
-    /// Update the system's cached archetypes.
+    /// Update the system's cached [`Archetypes`](crate::archetypes::Archetypes).
     fn update_archetypes(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
     /// The default labels for the system
