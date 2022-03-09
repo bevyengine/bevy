@@ -459,14 +459,7 @@ pub fn queue_sprites(
                 }
 
                 // Calculate vertex data for this item
-
                 let mut uvs = QUAD_UVS;
-                if extracted_sprite.flip_x {
-                    uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
-                }
-                if extracted_sprite.flip_y {
-                    uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
-                }
 
                 // By default, the size of the quad is the size of the texture
                 let mut quad_size = current_image_size;
@@ -476,14 +469,25 @@ pub fn queue_sprites(
                 // floating point inaccuracies from causing incorrect sampling.
                 if let Some(rect) = extracted_sprite.rect {
                     let rect_size = rect.size();
-                    for uv in &mut uvs {
-                        *uv = (rect.min
-                            + *uv * rect_size
-                            + *uv * Vec2::new(-1.0, -1.0)
-                            + Vec2::new(0.5, 0.5))
-                            / current_image_size;
+                    let texel_half_extent = 1.0 / current_image_size / 2.0;
+                    let shift = [
+                        texel_half_extent * Vec2::new(1., -1.),
+                        texel_half_extent * Vec2::new(-1., -1.),
+                        texel_half_extent * Vec2::new(-1., 1.),
+                        texel_half_extent * Vec2::new(1., 1.),
+                    ];
+
+                    for i in 0..4usize {
+                        uvs[i] = (rect.min + uvs[i] * rect_size) / current_image_size + shift[i];
                     }
                     quad_size = rect_size;
+                }
+
+                if extracted_sprite.flip_x {
+                    uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+                }
+                if extracted_sprite.flip_y {
+                    uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
                 }
 
                 // Override the size if a custom one is specified
