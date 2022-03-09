@@ -48,8 +48,8 @@ pub trait DetectChanges {
     /// Note that components and resources are also marked as changed upon insertion.
     ///
     /// For comparison, the previous change tick of a system can be read using the
-    /// [`SystemChangeTick`](crate::system::system_param::SystemChangeTick)
-    /// [`SystemParam`](crate::system::system_param::SystemParam).
+    /// [`SystemChangeTick`](crate::system::SystemChangeTick)
+    /// [`SystemParam`](crate::system::SystemParam).
     fn last_changed(&self) -> u32;
 }
 
