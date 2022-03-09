@@ -562,12 +562,12 @@ impl SystemStage {
         }
     }
 
-    /// All system and component change ticks are scanned for risk of delta overflow once the world
-    /// counter has incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
+    /// All system and component change ticks are scanned once the world counter has incremented
+    /// at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
     /// times since the previous `check_tick` scan.
     ///
     /// During each scan, any change ticks older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE)
-    /// are clamped to that difference, preventing potential false positives due to overflow.
+    /// are clamped to that age. This prevents false positives from appearing due to overflow.
     fn check_change_ticks(&mut self, world: &mut World) {
         let change_tick = world.change_tick();
         let ticks_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
