@@ -346,7 +346,7 @@ impl Components {
     }
 }
 
-/// Stores two [`World`](crate::world::World) "ticks" denoting when the component was added and when it was last changed (added or mutably-deferenced).
+/// Records when a component was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,
@@ -371,7 +371,7 @@ impl ComponentTicks {
     }
 
     #[inline]
-    /// Returns `true` if the component was added or mutably-dereferenced after the system last ran, `false` otherwise.
+    /// Returns `true` if the component was added or mutably dereferenced after the system last ran, `false` otherwise.
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
         // `last_change_tick` and `self.changed`, and we scan periodically to clamp `ComponentTicks` values

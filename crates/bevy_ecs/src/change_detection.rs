@@ -43,19 +43,18 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// ```
 ///
 pub trait DetectChanges {
-    /// Returns true if (and only if) this value been added since the last execution of this
-    /// system.
+    /// Returns `true` if this value was added after the system last ran, `false` otherwise.
     fn is_added(&self) -> bool;
 
-    /// Returns true if (and only if) this value been changed since the last execution of this
-    /// system.
+    /// Returns `true` if this value was added or mutably dereferenced after the system last ran, `false` otherwise.
     fn is_changed(&self) -> bool;
 
-    /// Manually flags this value as having been changed. This normally isn't
-    /// required because accessing this pointer mutably automatically flags this
-    /// value as "changed".
+    /// Flags this value as having been changed.
+    /// 
+    /// Mutably accessing this smart pointer will automatically flag this value as having been changed.
+    /// However, mutation through interior mutability requires manual reporting.
     ///
-    /// **Note**: This operation is irreversible.
+    /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
 
     /// Returns the change tick recording the previous time this component (or resource) was changed.
