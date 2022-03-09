@@ -50,7 +50,7 @@ pub trait DetectChanges {
     fn is_changed(&self) -> bool;
 
     /// Flags this value as having been changed.
-    /// 
+    ///
     /// Mutably accessing this smart pointer will automatically flag this value as having been changed.
     /// However, mutation through interior mutability requires manual reporting.
     ///
