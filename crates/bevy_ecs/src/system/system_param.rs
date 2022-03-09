@@ -1181,11 +1181,13 @@ pub struct SystemChangeTick {
 
 impl SystemChangeTick {
     /// Returns the current [`World`] change tick seen by the system.
+    #[inline]
     pub fn change_tick(&self) -> u32 {
         self.change_tick
     }
 
     /// Returns the [`World`] change tick seen by the system the previous time it ran.
+    #[inline]
     pub fn last_change_tick(&self) -> u32 {
         self.last_change_tick
     }
