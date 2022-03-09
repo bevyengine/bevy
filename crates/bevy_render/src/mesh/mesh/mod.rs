@@ -80,25 +80,6 @@ impl Mesh {
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint32);
 
-    pub const ATTRIBUTE_MODEL_COL0: MeshVertexAttribute =
-        MeshVertexAttribute::new("Model_Column_0", 7, VertexFormat::Float32x4);
-    pub const ATTRIBUTE_MODEL_COL1: MeshVertexAttribute =
-        MeshVertexAttribute::new("Model_Column_1", 8, VertexFormat::Float32x4);
-    pub const ATTRIBUTE_MODEL_COL2: MeshVertexAttribute =
-        MeshVertexAttribute::new("Model_Column_2", 9, VertexFormat::Float32x4);
-    pub const ATTRIBUTE_MODEL_COL3: MeshVertexAttribute =
-        MeshVertexAttribute::new("Model_Column_3", 10, VertexFormat::Float32x4);
-    pub const ATTRIBUTE_INVERSE_MODEL_COL0: MeshVertexAttribute =
-        MeshVertexAttribute::new("Inverse_Model_Column_0", 11, VertexFormat::Float32x4);
-    pub const ATTRIBUTE_INVERSE_MODEL_COL1: MeshVertexAttribute =
-        MeshVertexAttribute::new("Inverse_Model_Column_1", 12, VertexFormat::Float32x4);
-    pub const ATTRIBUTE_INVERSE_MODEL_COL2: MeshVertexAttribute =
-        MeshVertexAttribute::new("Inverse_Model_Column_2", 13, VertexFormat::Float32x4);
-    pub const ATTRIBUTE_INVERSE_MODEL_COL3: MeshVertexAttribute =
-        MeshVertexAttribute::new("Inverse_Model_Column_3", 14, VertexFormat::Float32x4);
-    pub const ATTRIBUTE_FLAGS: MeshVertexAttribute =
-        MeshVertexAttribute::new("Mesh_Flags", 15, VertexFormat::Uint32);
-
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].

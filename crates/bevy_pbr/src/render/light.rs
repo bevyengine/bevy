@@ -253,7 +253,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let vertex_buffer_layout =
-            layout.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(9)])?;
+            layout.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(8)])?;
 
         let instance_buffer_layout = MeshInstanceData::get_layout(0);
 

@@ -2,20 +2,19 @@
 #import bevy_pbr::mesh_struct
 
 struct Vertex {
-    [[location(0)]] i_model_col0: vec4<f32>;
-    [[location(1)]] i_model_col1: vec4<f32>;
-    [[location(2)]] i_model_col2: vec4<f32>;
-    [[location(3)]] i_model_col3: vec4<f32>;
-    [[location(4)]] i_inverse_model_col0: vec4<f32>;
-    [[location(5)]] i_inverse_model_col1: vec4<f32>;
-    [[location(6)]] i_inverse_model_col2: vec4<f32>;
-    [[location(7)]] i_inverse_model_col3: vec4<f32>;
-    [[location(8), interpolate(flat)]] i_mesh_flags: u32;
-    [[location(9)]] position: vec3<f32>;
-    [[location(10)]] normal: vec3<f32>;
-    [[location(11)]] uv: vec2<f32>;
+    [[location(0)]] i_model_col0: vec3<f32>;
+    [[location(1)]] i_model_col1: vec3<f32>;
+    [[location(2)]] i_model_col2: vec3<f32>;
+    [[location(3)]] i_model_col3: vec3<f32>;
+    [[location(4)]] i_inverse_model_col0: vec3<f32>;
+    [[location(5)]] i_inverse_model_col1: vec3<f32>;
+    [[location(6)]] i_inverse_model_col2: vec3<f32>;
+    [[location(7), interpolate(flat)]] i_mesh_flags: u32;
+    [[location(8)]] position: vec3<f32>;
+    [[location(9)]] normal: vec3<f32>;
+    [[location(10)]] uv: vec2<f32>;
 #ifdef VERTEX_TANGENTS
-    [[location(12)]] tangent: vec4<f32>;
+    [[location(11)]] tangent: vec4<f32>;
 #endif
 };
 
@@ -30,13 +29,20 @@ struct VertexOutput {
 #endif
 };
 
-fn vec4_to_mat4x4(c0: vec4<f32>, c1: vec4<f32>, c2: vec4<f32>, c3: vec4<f32>) -> mat4x4<f32> {
-    return mat4x4<f32>(c0, c1, c2, c3);
+fn vec3_to_mat4x4(c0: vec3<f32>, c1: vec3<f32>, c2: vec3<f32>, c3: vec3<f32>) -> mat4x4<f32> {
+    // NOTE: The shader compiler will optimize away multiplications by 0.0 and 1.0 and not use
+    // registers for unused parts of the matrix
+    return mat4x4<f32>(
+        vec4<f32>(c0, 0.0),
+        vec4<f32>(c1, 0.0),
+        vec4<f32>(c2, 0.0),
+        vec4<f32>(c3, 1.0)
+    );
 }
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let model = vec4_to_mat4x4(
+    let model = vec3_to_mat4x4(
         vertex.i_model_col0,
         vertex.i_model_col1,
         vertex.i_model_col2,
@@ -50,17 +56,13 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.world_position = world_position;
     out.clip_position = view.view_proj * world_position;
 
-    let inverse_transpose_model = transpose(vec4_to_mat4x4(
+    // NOTE: transpose is free on the GPU
+    let inverse_transpose_model = transpose(mat3x3<f32>(
         vertex.i_inverse_model_col0,
         vertex.i_inverse_model_col1,
         vertex.i_inverse_model_col2,
-        vertex.i_inverse_model_col3
     ));
-    out.world_normal = mat3x3<f32>(
-        inverse_transpose_model[0].xyz,
-        inverse_transpose_model[1].xyz,
-        inverse_transpose_model[2].xyz
-    ) * vertex.normal;
+    out.world_normal = inverse_transpose_model * vertex.normal;
 #ifdef VERTEX_TANGENTS
     out.world_tangent = vec4<f32>(
         mat3x3<f32>(

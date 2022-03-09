@@ -4,14 +4,15 @@ use crate::{
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_core::{Pod, Zeroable};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{Mat4, Size};
+use bevy_math::{Mat4, Size, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout, VertexAttributeValues},
+    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout, VertexFormatSize},
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{std140::AsStd140, *},
@@ -59,194 +60,53 @@ impl Plugin for MeshRenderPlugin {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+#[repr(C)]
+pub struct MeshInstance {
+    model_col0: Vec3,
+    model_col1: Vec3,
+    model_col2: Vec3,
+    model_col3: Vec3,
+    inverse_model_col0: Vec3,
+    inverse_model_col1: Vec3,
+    inverse_model_col2: Vec3,
+    mesh_flags: u32,
+}
+
 pub struct MeshInstanceData {
-    data: Mesh,
-    size: usize,
-    capacity: usize,
-    buffer: Option<Buffer>,
+    data: BufferVec<MeshInstance>,
 }
 
 impl Default for MeshInstanceData {
     fn default() -> Self {
-        let mut data = Mesh::new(PrimitiveTopology::TriangleList);
-        data.insert_attribute(Mesh::ATTRIBUTE_MODEL_COL0, Vec::<[f32; 4]>::new());
-        data.insert_attribute(Mesh::ATTRIBUTE_MODEL_COL1, Vec::<[f32; 4]>::new());
-        data.insert_attribute(Mesh::ATTRIBUTE_MODEL_COL2, Vec::<[f32; 4]>::new());
-        data.insert_attribute(Mesh::ATTRIBUTE_MODEL_COL3, Vec::<[f32; 4]>::new());
-        data.insert_attribute(Mesh::ATTRIBUTE_INVERSE_MODEL_COL0, Vec::<[f32; 4]>::new());
-        data.insert_attribute(Mesh::ATTRIBUTE_INVERSE_MODEL_COL1, Vec::<[f32; 4]>::new());
-        data.insert_attribute(Mesh::ATTRIBUTE_INVERSE_MODEL_COL2, Vec::<[f32; 4]>::new());
-        data.insert_attribute(Mesh::ATTRIBUTE_INVERSE_MODEL_COL3, Vec::<[f32; 4]>::new());
-        data.insert_attribute(Mesh::ATTRIBUTE_FLAGS, Vec::<u32>::new());
-
         Self {
-            data,
-            size: 0,
-            capacity: 0,
-            buffer: None,
+            data: BufferVec::new(BufferUsages::VERTEX),
         }
     }
 }
 
 impl MeshInstanceData {
-    fn clear(&mut self) {
-        self.size = 0;
-        if let VertexAttributeValues::Float32x4(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_MODEL_COL0).unwrap()
-        {
-            v.clear();
-        }
-        if let VertexAttributeValues::Float32x4(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_MODEL_COL1).unwrap()
-        {
-            v.clear();
-        }
-        if let VertexAttributeValues::Float32x4(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_MODEL_COL2).unwrap()
-        {
-            v.clear();
-        }
-        if let VertexAttributeValues::Float32x4(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_MODEL_COL3).unwrap()
-        {
-            v.clear();
-        }
-
-        if let VertexAttributeValues::Float32x4(v) = self
-            .data
-            .attribute_mut(Mesh::ATTRIBUTE_INVERSE_MODEL_COL0)
-            .unwrap()
-        {
-            v.clear();
-        }
-        if let VertexAttributeValues::Float32x4(v) = self
-            .data
-            .attribute_mut(Mesh::ATTRIBUTE_INVERSE_MODEL_COL1)
-            .unwrap()
-        {
-            v.clear();
-        }
-        if let VertexAttributeValues::Float32x4(v) = self
-            .data
-            .attribute_mut(Mesh::ATTRIBUTE_INVERSE_MODEL_COL2)
-            .unwrap()
-        {
-            v.clear();
-        }
-        if let VertexAttributeValues::Float32x4(v) = self
-            .data
-            .attribute_mut(Mesh::ATTRIBUTE_INVERSE_MODEL_COL3)
-            .unwrap()
-        {
-            v.clear();
-        }
-
-        if let VertexAttributeValues::Uint32(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_FLAGS).unwrap()
-        {
-            v.clear();
-        }
-    }
-    fn push_and_get_index(&mut self, model: Mat4, flags: u32) -> usize {
-        if let VertexAttributeValues::Float32x4(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_MODEL_COL0).unwrap()
-        {
-            v.push(model.x_axis.to_array());
-        }
-        if let VertexAttributeValues::Float32x4(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_MODEL_COL1).unwrap()
-        {
-            v.push(model.y_axis.to_array());
-        }
-        if let VertexAttributeValues::Float32x4(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_MODEL_COL2).unwrap()
-        {
-            v.push(model.z_axis.to_array());
-        }
-        if let VertexAttributeValues::Float32x4(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_MODEL_COL3).unwrap()
-        {
-            v.push(model.w_axis.to_array());
-        }
-
-        let inverse_model = model.inverse();
-        if let VertexAttributeValues::Float32x4(v) = self
-            .data
-            .attribute_mut(Mesh::ATTRIBUTE_INVERSE_MODEL_COL0)
-            .unwrap()
-        {
-            v.push(inverse_model.x_axis.to_array());
-        }
-        if let VertexAttributeValues::Float32x4(v) = self
-            .data
-            .attribute_mut(Mesh::ATTRIBUTE_INVERSE_MODEL_COL1)
-            .unwrap()
-        {
-            v.push(inverse_model.y_axis.to_array());
-        }
-        if let VertexAttributeValues::Float32x4(v) = self
-            .data
-            .attribute_mut(Mesh::ATTRIBUTE_INVERSE_MODEL_COL2)
-            .unwrap()
-        {
-            v.push(inverse_model.z_axis.to_array());
-        }
-        if let VertexAttributeValues::Float32x4(v) = self
-            .data
-            .attribute_mut(Mesh::ATTRIBUTE_INVERSE_MODEL_COL3)
-            .unwrap()
-        {
-            v.push(inverse_model.w_axis.to_array());
-        }
-
-        if let VertexAttributeValues::Uint32(v) =
-            self.data.attribute_mut(Mesh::ATTRIBUTE_FLAGS).unwrap()
-        {
-            v.push(flags);
-        }
-
-        let instance_index = self.size;
-        self.size += 1;
-        instance_index
-    }
-
     pub fn get_layout(first_location: u32) -> VertexBufferLayout {
-        // let mut layout = self
-        //     .data
-        //     .get_mesh_vertex_buffer_layout()
-        //     .get_layout(&[
-        //         Mesh::ATTRIBUTE_MODEL_COL0.at_shader_location(0),
-        //         Mesh::ATTRIBUTE_MODEL_COL1.at_shader_location(1),
-        //         Mesh::ATTRIBUTE_MODEL_COL2.at_shader_location(2),
-        //         Mesh::ATTRIBUTE_MODEL_COL3.at_shader_location(3),
-        //         Mesh::ATTRIBUTE_INVERSE_MODEL_COL0.at_shader_location(4),
-        //         Mesh::ATTRIBUTE_INVERSE_MODEL_COL1.at_shader_location(5),
-        //         Mesh::ATTRIBUTE_INVERSE_MODEL_COL2.at_shader_location(6),
-        //         Mesh::ATTRIBUTE_INVERSE_MODEL_COL3.at_shader_location(7),
-        //         Mesh::ATTRIBUTE_FLAGS.at_shader_location(8),
-        //     ])
-        //     .unwrap();
-        // layout.step_mode = VertexStepMode::Instance;
-        // layout
         let mut offset = 0;
         let mut attributes = Vec::with_capacity(9);
         let mut shader_location = first_location;
-        for _ in 0..8 {
+        let format = VertexFormat::Float32x3;
+        for _ in 0..7 {
             attributes.push(VertexAttribute {
-                format: VertexFormat::Float32x4,
+                format,
                 offset,
                 shader_location,
             });
-            offset += 4 * 4;
+            offset += format.get_size();
             shader_location += 1;
         }
+        let format = VertexFormat::Uint32;
         attributes.push(VertexAttribute {
-            format: VertexFormat::Uint32,
+            format,
             offset,
             shader_location,
         });
-        offset += 4;
+        offset += format.get_size();
         VertexBufferLayout {
             array_stride: offset,
             step_mode: VertexStepMode::Instance,
@@ -254,44 +114,30 @@ impl MeshInstanceData {
         }
     }
 
-    fn get_bytes(&self) -> Vec<u8> {
-        self.data.get_vertex_buffer_data()
+    pub fn clear(&mut self) {
+        self.data.clear();
     }
 
-    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) -> bool {
-        if capacity > self.capacity {
-            self.capacity = capacity;
-            self.buffer = Some(device.create_buffer(&BufferDescriptor {
-                label: "instance_buffer".into(),
-                size: capacity as BufferAddress,
-                usage: BufferUsages::COPY_DST | BufferUsages::VERTEX,
-                mapped_at_creation: false,
-            }));
-            true
-        } else {
-            false
-        }
+    pub fn push_and_get_index(&mut self, model: &Mat4, mesh_flags: u32) -> usize {
+        let inverse_model = model.inverse();
+        self.data.push(MeshInstance {
+            model_col0: model.x_axis.xyz(),
+            model_col1: model.y_axis.xyz(),
+            model_col2: model.z_axis.xyz(),
+            model_col3: model.w_axis.xyz(),
+            inverse_model_col0: inverse_model.x_axis.xyz(),
+            inverse_model_col1: inverse_model.y_axis.xyz(),
+            inverse_model_col2: inverse_model.z_axis.xyz(),
+            mesh_flags,
+        })
     }
 
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        if self.size < 1 {
-            return;
-        }
-        self.reserve(self.size * (4 * 4 * 4 * 2 + 4), device);
-        if let Some(buffer) = &self.buffer {
-            let data = {
-                // #[cfg(feature = "trace")]
-                let span = bevy_utils::tracing::info_span!("instance_buffer_get_bytes");
-                // #[cfg(feature = "trace")]
-                let _guard = span.enter();
-                self.get_bytes()
-            };
-            // #[cfg(feature = "trace")]
-            let span = bevy_utils::tracing::info_span!("instance_buffer_write");
-            // #[cfg(feature = "trace")]
-            let _guard = span.enter();
-            queue.write_buffer(buffer, 0, &data);
-        }
+        self.data.write_buffer(device, queue);
+    }
+
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.data.buffer()
     }
 }
 
@@ -319,7 +165,7 @@ fn prepare_mesh_instance_data(
         instances.push((
             entity,
             (InstanceIndex {
-                index: mesh_instance_data.push_and_get_index(mesh_data.transform, mesh_data.flags)
+                index: mesh_instance_data.push_and_get_index(&mesh_data.transform, mesh_data.flags)
                     as u32,
             },),
         ));
@@ -329,7 +175,7 @@ fn prepare_mesh_instance_data(
 
     mesh_instance_data.write_buffer(&render_device, &render_queue);
     commands.insert_resource(InstanceBuffer {
-        buffer: mesh_instance_data.buffer.as_ref().unwrap().clone(),
+        buffer: mesh_instance_data.buffer().unwrap().clone(),
     });
 }
 
@@ -672,15 +518,15 @@ impl SpecializedMeshPipeline for MeshPipeline {
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut vertex_attributes = vec![
-            Mesh::ATTRIBUTE_POSITION.at_shader_location(9),
-            Mesh::ATTRIBUTE_NORMAL.at_shader_location(10),
-            Mesh::ATTRIBUTE_UV_0.at_shader_location(11),
+            Mesh::ATTRIBUTE_POSITION.at_shader_location(8),
+            Mesh::ATTRIBUTE_NORMAL.at_shader_location(9),
+            Mesh::ATTRIBUTE_UV_0.at_shader_location(10),
         ];
 
         let mut shader_defs = Vec::new();
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
-            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(12));
+            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(11));
         }
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
