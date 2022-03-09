@@ -1164,15 +1164,15 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
     }
 }
 
-/// The looping time-stamp used for change detection
+/// A [`SystemParam`] that reads the previous and current change ticks of the system.
 ///
-/// This is updated each time the system is run (when it is dispatched by the scheduler):
-/// the previous `change_tick` is stored as the `last_change_tick`,
-/// and [`World::change_tick`] is used as the new `change_tick`.
+/// A system's change ticks are updated each time it runs:
+/// - `last_change_tick` copies the previous value of `change_tick`
+/// - `change_tick` copies the current value of [`World::read_change_tick`]
 ///
-/// Changes that occured more recently than the last change tick will be detected by the system.
-/// You can check when changes last occured to a piece of data
-/// by using [`DetectChanges::last_changed`](crate::change_detection::DetectChanges) on the data.
+/// Component change ticks that are more recent than `last_change_tick` will be detected by the system.
+/// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
+/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](crate::change_detection::ResMut).
 #[derive(Debug)]
 pub struct SystemChangeTick {
     last_change_tick: u32,
@@ -1180,12 +1180,12 @@ pub struct SystemChangeTick {
 }
 
 impl SystemChangeTick {
-    /// What is the change tick used by this system?
+    /// Returns the current [`World`] change tick seen by the system.
     pub fn change_tick(&self) -> u32 {
         self.change_tick
     }
 
-    /// What was the change tick of the [`World`] the last time this system ran?
+    /// Returns the [`World`] change tick seen by the system the previous time it ran.
     pub fn last_change_tick(&self) -> u32 {
         self.last_change_tick
     }
