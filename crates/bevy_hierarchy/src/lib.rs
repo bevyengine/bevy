@@ -27,7 +27,7 @@ pub struct HierarchyPlugin;
 
 /// Label enum for the types of systems relating to transform
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum TransformSystem {
+pub enum HierarchySystem {
     /// Propagates changes in transform to childrens' [`GlobalTransform`]
     TransformPropagate,
     /// Updates [`Parent`] when changes in the hierarchy occur
@@ -42,23 +42,23 @@ impl Plugin for HierarchyPlugin {
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                parent_update_system.label(TransformSystem::ParentUpdate),
+                parent_update_system.label(HierarchySystem::ParentUpdate),
             )
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
                 transform_propagate_system::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(TransformSystem::ParentUpdate),
+                    .label(HierarchySystem::TransformPropagate)
+                    .after(HierarchySystem::ParentUpdate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                parent_update_system.label(TransformSystem::ParentUpdate),
+                parent_update_system.label(HierarchySystem::ParentUpdate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 transform_propagate_system::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(TransformSystem::ParentUpdate),
+                    .label(HierarchySystem::TransformPropagate)
+                    .after(HierarchySystem::ParentUpdate),
             );
     }
 }

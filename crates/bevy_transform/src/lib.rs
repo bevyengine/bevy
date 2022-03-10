@@ -78,15 +78,6 @@ impl From<Transform> for TransformBundle {
 #[derive(Default)]
 pub struct TransformPlugin;
 
-/// Label enum for the types of systems relating to transform
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum TransformSystem {
-    /// Propagates changes in transform to childrens' [`GlobalTransform`]
-    TransformPropagate,
-    /// Updates [`Parent`] when changes in the hierarchy occur
-    ParentUpdate,
-}
-
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Transform>()

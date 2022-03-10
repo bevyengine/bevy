@@ -28,6 +28,7 @@ bevy_core = { path = "../bevy_core", version = "0.6.0" }
 bevy_crevice = { path = "../bevy_crevice", version = "0.6.0", features = ["glam"] }
 bevy_derive = { path = "../bevy_derive", version = "0.6.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.6.0" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.6.0" }
 bevy_math = { path = "../bevy_math", version = "0.6.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.6.0", features = ["bevy"] }
 bevy_transform = { path = "../bevy_transform", version = "0.6.0" }
