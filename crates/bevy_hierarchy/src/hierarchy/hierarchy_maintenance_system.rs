@@ -78,6 +78,8 @@ mod test {
         world::World,
     };
 
+    use bevy_transform::components::Transform;
+
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_propagate_system::transform_propagate_system};
 

@@ -1,9 +1,10 @@
-use crate::components::{Children, GlobalTransform, Parent, Transform};
+use crate::components::{Children, Parent};
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, With, Without},
     system::Query,
 };
+use bevy_transform::components::{GlobalTransform, Transform};
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
@@ -82,10 +83,8 @@ mod test {
     };
 
     use super::*;
-    use crate::{
-        hierarchy::{parent_update_system, BuildChildren, BuildWorldChildren},
-        TransformBundle,
-    };
+    use crate::hierarchy::{parent_update_system, BuildChildren, BuildWorldChildren};
+    use bevy_transform::TransformBundle;
 
     #[test]
     fn did_propagate() {
