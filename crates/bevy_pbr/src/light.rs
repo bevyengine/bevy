@@ -293,11 +293,12 @@ impl ClusterConfig {
                 total, z_slices, ..
             } => {
                 let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
-                debug_assert!(
-                    *total >= *z_slices,
-                    "ClusterConfig has more z-slices than total clusters!"
-                );
-                let per_layer = *total as f32 / *z_slices as f32;
+                let mut z_slices = *z_slices;
+                if *total < z_slices {
+                    warn!("ClusterConfig has more z-slices than total clusters!");
+                    z_slices = *total;
+                }
+                let per_layer = *total as f32 / z_slices as f32;
 
                 let y = f32::sqrt(per_layer / aspect_ratio);
 
@@ -314,7 +315,7 @@ impl ClusterConfig {
                     y = 1;
                 }
 
-                UVec3::new(x, y, *z_slices)
+                UVec3::new(x, y, z_slices)
             }
         }
     }
@@ -1261,10 +1262,10 @@ pub fn check_light_mesh_visibility(
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 
-    #[allow(dead_code)]
     fn test_cluster_tiling(config: ClusterConfig, screen_size: UVec2) -> Clusters {
         let dims = config.dimensions_for_screen_size(screen_size);
 
