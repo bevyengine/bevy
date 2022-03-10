@@ -70,8 +70,8 @@ fn star(
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
-    let mut v_color: Vec<u32> = vec![bytemuck::cast([0_u8, 0_u8, 0_u8, 255_u8])];
-    v_color.extend_from_slice(&[bytemuck::cast([255_u8, 255_u8, 0_u8, 255_u8]); 10]);
+    let mut v_color: Vec<u32> = vec![Color::BLACK.as_linear_rgba_u32()];
+    v_color.extend_from_slice(&[Color::YELLOW.as_linear_rgba_u32(); 10]);
     star.insert_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
 
     // Now, we specify the indices of the vertex that are going to compose the
