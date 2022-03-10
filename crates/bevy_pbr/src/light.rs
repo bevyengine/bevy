@@ -293,11 +293,29 @@ impl ClusterConfig {
                 total, z_slices, ..
             } => {
                 let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
-                let per_layer = *total as f32 / *z_slices as f32;
+                let mut z_slices = *z_slices;
+                if *total < z_slices {
+                    warn!("ClusterConfig has more z-slices than total clusters!");
+                    z_slices = *total;
+                }
+                let per_layer = *total as f32 / z_slices as f32;
+
                 let y = f32::sqrt(per_layer / aspect_ratio);
-                let x = (y * aspect_ratio).floor() as u32;
-                let y = y.floor() as u32;
-                UVec3::new(x, y, *z_slices)
+
+                let mut x = (y * aspect_ratio) as u32;
+                let mut y = y as u32;
+
+                // check extremes
+                if x == 0 {
+                    x = 1;
+                    y = per_layer as u32;
+                }
+                if y == 0 {
+                    x = per_layer as u32;
+                    y = 1;
+                }
+
+                UVec3::new(x, y, z_slices)
             }
         }
     }
@@ -369,8 +387,12 @@ impl Clusters {
         near: f32,
         far: f32,
     ) -> Self {
+        debug_assert!(screen_size.x > 0 && screen_size.y > 0);
+        debug_assert!(dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0);
         Clusters::new(
-            (screen_size + UVec2::ONE) / dimensions.xy(),
+            (screen_size.as_vec2() / dimensions.xy().as_vec2())
+                .ceil()
+                .as_uvec2(),
             screen_size,
             dimensions.z,
             near,
@@ -380,13 +402,12 @@ impl Clusters {
 
     fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
         self.tile_size = tile_size;
-        self.axis_slices = UVec3::new(
-            (screen_size.x + 1) / tile_size.x,
-            (screen_size.y + 1) / tile_size.y,
-            z_slices,
-        );
+        self.axis_slices = (screen_size.as_vec2() / tile_size.as_vec2())
+            .ceil()
+            .as_uvec2()
+            .extend(z_slices);
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
-        assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
+        debug_assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
     }
 }
 
@@ -1236,6 +1257,70 @@ pub fn check_light_mesh_visibility(
 
                 // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
                 // to prevent holding unneeded memory
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn test_cluster_tiling(config: ClusterConfig, screen_size: UVec2) -> Clusters {
+        let dims = config.dimensions_for_screen_size(screen_size);
+
+        // note: near & far do not affect tiling
+        let clusters = Clusters::from_screen_size_and_dimensions(screen_size, dims, 5.0, 1000.0);
+
+        // check we cover the screen
+        assert!(clusters.tile_size.x * clusters.axis_slices.x >= screen_size.x);
+        assert!(clusters.tile_size.y * clusters.axis_slices.y >= screen_size.y);
+        // check a smaller number of clusters would not cover the screen
+        assert!(clusters.tile_size.x * (clusters.axis_slices.x - 1) < screen_size.x);
+        assert!(clusters.tile_size.y * (clusters.axis_slices.y - 1) < screen_size.y);
+        // check a smaller tilesize would not cover the screen
+        assert!((clusters.tile_size.x - 1) * clusters.axis_slices.x < screen_size.x);
+        assert!((clusters.tile_size.y - 1) * clusters.axis_slices.y < screen_size.y);
+        // check we don't have more clusters than pixels
+        assert!(clusters.axis_slices.x <= screen_size.x);
+        assert!(clusters.axis_slices.y <= screen_size.y);
+
+        clusters
+    }
+
+    #[test]
+    // check tiling for small screen sizes
+    fn test_default_cluster_setup_small_screensizes() {
+        for x in 1..100 {
+            for y in 1..100 {
+                let screen_size = UVec2::new(x, y);
+                let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
+                assert!(
+                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
+                        <= 4096
+                );
+            }
+        }
+    }
+
+    #[test]
+    // check tiling for long thin screen sizes
+    fn test_default_cluster_setup_small_x() {
+        for x in 1..10 {
+            for y in 1..5000 {
+                let screen_size = UVec2::new(x, y);
+                let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
+                assert!(
+                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
+                        <= 4096
+                );
+
+                let screen_size = UVec2::new(y, x);
+                let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
+                assert!(
+                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
+                        <= 4096
+                );
             }
         }
     }
