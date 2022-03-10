@@ -901,6 +901,9 @@ pub(crate) fn assign_lights_to_clusters(
         }
 
         clusters.update(screen_size, cluster_dimensions);
+        clusters.near = first_slice_depth;
+        clusters.far = far_z;
+
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
         debug_assert!(
             clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z <= 4096
