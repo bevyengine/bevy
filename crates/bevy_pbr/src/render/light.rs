@@ -1,7 +1,7 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
-    DirectionalLightShadowMap, DrawMesh, MeshPipeline, NotShadowCaster, PointLight,
-    PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
+    DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
+    PointLight, PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -333,7 +333,7 @@ pub fn extract_lights(
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    global_point_lights: Res<VisiblePointLights>,
+    global_point_lights: Res<GlobalVisiblePointLights>,
     // visible_point_lights: Query<&VisiblePointLights>,
     mut point_lights: Query<(&PointLight, &mut CubemapVisibleEntities, &GlobalTransform)>,
     mut directional_lights: Query<(
