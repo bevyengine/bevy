@@ -358,7 +358,7 @@ pub struct Clusters {
     /// Tile size
     pub(crate) tile_size: UVec2,
     /// Number of clusters in x / y / z in the view frustum
-    pub(crate) axis_slices: UVec3,
+    pub(crate) dimensions: UVec3,
     /// Distance to the far plane of the first depth slice. The first depth slice is special
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
     pub(crate) near: f32,
@@ -373,7 +373,7 @@ impl Clusters {
         debug_assert!(dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0);
         let mut clusters = Self {
             tile_size: UVec2::ONE,
-            axis_slices: Default::default(),
+            dimensions: Default::default(),
             near,
             far,
             aabbs: Default::default(),
@@ -388,12 +388,12 @@ impl Clusters {
             .ceil()
             .as_uvec2();
         self.tile_size = tile_size;
-        self.axis_slices = (screen_size.as_vec2() / tile_size.as_vec2())
+        self.dimensions = (screen_size.as_vec2() / tile_size.as_vec2())
             .ceil()
             .as_uvec2()
             .extend(cluster_dimensions.z);
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
-        debug_assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
+        debug_assert!(self.dimensions.x * self.dimensions.y * self.dimensions.z <= 4096);
     }
 }
 
@@ -793,7 +793,7 @@ pub(crate) fn assign_lights_to_clusters(
         clusters.lights.clear();
 
         let screen_size = screen_size.unwrap_or_default();
-        let mut cluster_dimensions = config.dimensions_for_screen_size(screen_size);
+        let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
         let view_transform = camera_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
@@ -813,7 +813,7 @@ pub(crate) fn assign_lights_to_clusters(
             }
             ClusterFarZMode::Constant(far) => far,
         };
-        let first_slice_depth = match cluster_dimensions.z {
+        let first_slice_depth = match requested_cluster_dimensions.z {
             1 => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
         };
@@ -822,7 +822,7 @@ pub(crate) fn assign_lights_to_clusters(
         let cluster_factors = calculate_cluster_factors(
             first_slice_depth,
             far_z,
-            cluster_dimensions.z as f32,
+            requested_cluster_dimensions.z as f32,
             is_orthographic,
         );
 
@@ -851,13 +851,13 @@ pub(crate) fn assign_lights_to_clusters(
                 // since we won't adjust z slices we can calculate exact number of slices required in z dimension
                 let z_cluster_min = view_z_to_z_slice(
                     cluster_factors,
-                    cluster_dimensions.z as f32,
+                    requested_cluster_dimensions.z as f32,
                     light_aabb_min.z,
                     is_orthographic,
                 );
                 let z_cluster_max = view_z_to_z_slice(
                     cluster_factors,
-                    cluster_dimensions.z as f32,
+                    requested_cluster_dimensions.z as f32,
                     light_aabb_max.z,
                     is_orthographic,
                 );
@@ -870,7 +870,10 @@ pub(crate) fn assign_lights_to_clusters(
                 // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each dimension
                 let xy_count = (xy_max - xy_min)
                     * 0.5
-                    * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32);
+                    * Vec2::new(
+                        requested_cluster_dimensions.x as f32,
+                        requested_cluster_dimensions.y as f32,
+                    );
 
                 // add up to 2 to each axis to account for overlap
                 let x_overlap = if xy_min.x <= -1.0 { 0.0 } else { 1.0 }
@@ -892,20 +895,20 @@ pub(crate) fn assign_lights_to_clusters(
                     ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate as f32;
                 let xy_ratio = index_ratio.sqrt();
 
-                cluster_dimensions.x =
-                    ((cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
-                cluster_dimensions.y =
-                    ((cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
+                requested_cluster_dimensions.x =
+                    ((requested_cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
+                requested_cluster_dimensions.y =
+                    ((requested_cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
             }
         }
 
-        clusters.update(screen_size, cluster_dimensions);
+        clusters.update(screen_size, requested_cluster_dimensions);
         clusters.near = first_slice_depth;
         clusters.far = far_z;
 
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
         debug_assert!(
-            clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z <= 4096
+            clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
         );
 
         let inverse_projection = camera.projection_matrix.inverse();
@@ -918,9 +921,9 @@ pub(crate) fn assign_lights_to_clusters(
         // so that we can calculate the cluster index in the fragment shader!
         // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
         // along z
-        for y in 0..clusters.axis_slices.y {
-            for x in 0..clusters.axis_slices.x {
-                for z in 0..clusters.axis_slices.z {
+        for y in 0..clusters.dimensions.y {
+            for x in 0..clusters.dimensions.x {
+                for z in 0..clusters.dimensions.z {
                     clusters.aabbs.push(compute_aabb_for_cluster(
                         clusters.near,
                         clusters.far,
@@ -928,7 +931,7 @@ pub(crate) fn assign_lights_to_clusters(
                         screen_size,
                         inverse_projection,
                         is_orthographic,
-                        clusters.axis_slices,
+                        clusters.dimensions,
                         UVec3::new(x, y, z),
                     ));
                 }
@@ -980,14 +983,14 @@ pub(crate) fn assign_lights_to_clusters(
                     );
 
                 let min_cluster = ndc_position_to_cluster(
-                    clusters.axis_slices,
+                    clusters.dimensions,
                     cluster_factors,
                     is_orthographic,
                     light_aabb_xy_ndc_z_view_min,
                     light_aabb_xy_ndc_z_view_min.z,
                 );
                 let max_cluster = ndc_position_to_cluster(
-                    clusters.axis_slices,
+                    clusters.dimensions,
                     cluster_factors,
                     is_orthographic,
                     light_aabb_xy_ndc_z_view_max,
@@ -997,9 +1000,9 @@ pub(crate) fn assign_lights_to_clusters(
                     (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
 
                 for y in min_cluster.y..=max_cluster.y {
-                    let row_offset = y * clusters.axis_slices.x;
+                    let row_offset = y * clusters.dimensions.x;
                     for x in min_cluster.x..=max_cluster.x {
-                        let col_offset = (row_offset + x) * clusters.axis_slices.z;
+                        let col_offset = (row_offset + x) * clusters.dimensions.z;
                         for z in min_cluster.z..=max_cluster.z {
                             // NOTE: cluster_index = (y * dim.x + x) * dim.z + z
                             let cluster_index = (col_offset + z) as usize;
@@ -1256,17 +1259,17 @@ mod test {
         let clusters = Clusters::new(screen_size, dims, 5.0, 1000.0);
 
         // check we cover the screen
-        assert!(clusters.tile_size.x * clusters.axis_slices.x >= screen_size.x);
-        assert!(clusters.tile_size.y * clusters.axis_slices.y >= screen_size.y);
+        assert!(clusters.tile_size.x * clusters.dimensions.x >= screen_size.x);
+        assert!(clusters.tile_size.y * clusters.dimensions.y >= screen_size.y);
         // check a smaller number of clusters would not cover the screen
-        assert!(clusters.tile_size.x * (clusters.axis_slices.x - 1) < screen_size.x);
-        assert!(clusters.tile_size.y * (clusters.axis_slices.y - 1) < screen_size.y);
+        assert!(clusters.tile_size.x * (clusters.dimensions.x - 1) < screen_size.x);
+        assert!(clusters.tile_size.y * (clusters.dimensions.y - 1) < screen_size.y);
         // check a smaller tilesize would not cover the screen
-        assert!((clusters.tile_size.x - 1) * clusters.axis_slices.x < screen_size.x);
-        assert!((clusters.tile_size.y - 1) * clusters.axis_slices.y < screen_size.y);
+        assert!((clusters.tile_size.x - 1) * clusters.dimensions.x < screen_size.x);
+        assert!((clusters.tile_size.y - 1) * clusters.dimensions.y < screen_size.y);
         // check we don't have more clusters than pixels
-        assert!(clusters.axis_slices.x <= screen_size.x);
-        assert!(clusters.axis_slices.y <= screen_size.y);
+        assert!(clusters.dimensions.x <= screen_size.x);
+        assert!(clusters.dimensions.y <= screen_size.y);
 
         clusters
     }
@@ -1279,8 +1282,7 @@ mod test {
                 let screen_size = UVec2::new(x, y);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
-                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
-                        <= 4096
+                    clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
             }
         }
@@ -1294,15 +1296,13 @@ mod test {
                 let screen_size = UVec2::new(x, y);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
-                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
-                        <= 4096
+                    clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
 
                 let screen_size = UVec2::new(y, x);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
-                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
-                        <= 4096
+                    clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
             }
         }
