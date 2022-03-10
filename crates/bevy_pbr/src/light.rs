@@ -353,7 +353,7 @@ impl ClusterConfig {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Default)]
 pub struct Clusters {
     /// Tile size
     pub(crate) tile_size: UVec2,
@@ -368,30 +368,22 @@ pub struct Clusters {
 }
 
 impl Clusters {
-    fn new(screen_size: UVec2, dimensions: UVec3, near: f32, far: f32) -> Self {
-        debug_assert!(screen_size.x > 0 && screen_size.y > 0);
-        debug_assert!(dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0);
-        let mut clusters = Self {
-            tile_size: UVec2::ONE,
-            dimensions: Default::default(),
-            near,
-            far,
-            aabbs: Default::default(),
-            lights: Default::default(),
-        };
-        clusters.update(screen_size, dimensions);
-        clusters
-    }
+    fn update(&mut self, screen_size: UVec2, requested_dimensions: UVec3) {
+        debug_assert!(
+            requested_dimensions.x > 0 && requested_dimensions.y > 0 && requested_dimensions.z > 0
+        );
 
-    fn update(&mut self, screen_size: UVec2, cluster_dimensions: UVec3) {
-        let tile_size = (screen_size.as_vec2() / cluster_dimensions.xy().as_vec2())
+        let tile_size = (screen_size.as_vec2() / requested_dimensions.xy().as_vec2())
             .ceil()
-            .as_uvec2();
+            .as_uvec2()
+            .max(UVec2::ONE);
         self.tile_size = tile_size;
         self.dimensions = (screen_size.as_vec2() / tile_size.as_vec2())
             .ceil()
             .as_uvec2()
-            .extend(cluster_dimensions.z);
+            .extend(requested_dimensions.z)
+            .max(UVec3::ONE);
+
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
         debug_assert!(self.dimensions.x * self.dimensions.y * self.dimensions.z <= 4096);
     }
@@ -501,8 +493,9 @@ pub fn add_clusters(
     for (entity, config) in cameras.iter() {
         let config = config.copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
-        let clusters = Clusters::new(UVec2::ONE, UVec3::ONE, 1.0, 1.0);
-        commands.entity(entity).insert_bundle((clusters, config));
+        commands
+            .entity(entity)
+            .insert_bundle((Clusters::default(), config));
     }
 }
 
@@ -1256,7 +1249,8 @@ mod test {
         let dims = config.dimensions_for_screen_size(screen_size);
 
         // note: near & far do not affect tiling
-        let clusters = Clusters::new(screen_size, dims, 5.0, 1000.0);
+        let mut clusters = Clusters::default();
+        clusters.update(screen_size, dims);
 
         // check we cover the screen
         assert!(clusters.tile_size.x * clusters.dimensions.x >= screen_size.x);
