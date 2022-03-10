@@ -28,7 +28,7 @@ pub struct HierarchyPlugin;
 /// Label enum for the types of systems relating to transform
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum HierarchySystem {
-    /// Propagates changes in transform to childrens' [`GlobalTransform`]
+    /// Propagates changes in transform to childrens' [`GlobalTransform`](bevy_transform::components::GlobalTransform)
     TransformPropagate,
     /// Updates [`Parent`] when changes in the hierarchy occur
     ParentUpdate,
