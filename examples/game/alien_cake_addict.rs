@@ -1,6 +1,4 @@
-use bevy::{
-    core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::CameraPlugin,
-};
+use bevy::{core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -257,7 +255,7 @@ fn focus_camera(
     time: Res<Time>,
     mut game: ResMut<Game>,
     mut transforms: QuerySet<(
-        QueryState<(&mut Transform, &Camera)>,
+        QueryState<(&mut Transform, &Camera), With<Camera3d>>,
         QueryState<&Transform>,
     )>,
 ) {
@@ -293,9 +291,7 @@ fn focus_camera(
     }
     // look at that new camera's actual focus
     for (mut transform, camera) in transforms.q0().iter_mut() {
-        if camera.name == Some(CameraPlugin::CAMERA_3D.to_string()) {
-            *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
-        }
+        *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
     }
 }
 
