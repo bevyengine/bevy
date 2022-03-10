@@ -192,6 +192,18 @@ impl CubemapFrusta {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Line {
+    pub point: Vec3,
+    pub direction: Vec3,
+}
+
+impl Line {
+    pub fn from_point_direction(point: Vec3, direction: Vec3) -> Self {
+        Self { point, direction }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

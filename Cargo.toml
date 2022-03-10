@@ -165,10 +165,18 @@ path = "examples/2d/text2d.rs"
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
+[[example]]
+name = "mouse_tracking"
+path = "examples/2d/mouse_tracking.rs"
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
+
+[[example]]
+name = "screen_to_world"
+path = "examples/3d/screen_to_world.rs"
 
 [[example]]
 name = "lighting"
