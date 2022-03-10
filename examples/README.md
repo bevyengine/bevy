@@ -65,6 +65,7 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
+- [Stree Tests](#stress-tests)
 
 # The Bare Minimum
 
@@ -408,3 +409,9 @@ ruby -run -ehttpd examples/wasm
 To load assets, they need to be available in the folder examples/wasm/assets. Cloning this
 repository will set it up as a symlink on Linux and macOS, but you will need to manually move
 the assets on Windows.
+
+# Stress Tests
+
+Example | File | Description
+--- | --- | ---
+`transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Configurable test for hierarchy and transform propagation performance
