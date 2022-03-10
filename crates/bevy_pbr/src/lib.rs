@@ -35,6 +35,7 @@ pub mod draw_3d_graph {
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
+use bevy_hierarchy::HierarchySystem;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     prelude::Color,
@@ -44,7 +45,6 @@ use bevy_render::{
     view::VisibilitySystems,
     RenderApp, RenderStage,
 };
-use bevy_transform::TransformSystem;
 
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
@@ -86,26 +86,26 @@ impl Plugin for PbrPlugin {
                 CoreStage::PostUpdate,
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(HierarchySystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_directional_light_frusta
                     .label(SimulationLightSystems::UpdateDirectionalLightFrusta)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(HierarchySystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_point_light_frusta
                     .label(SimulationLightSystems::UpdatePointLightFrusta)
-                    .after(TransformSystem::TransformPropagate)
+                    .after(HierarchySystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 check_light_mesh_visibility
                     .label(SimulationLightSystems::CheckLightVisibility)
-                    .after(TransformSystem::TransformPropagate)
+                    .after(HierarchySystem::TransformPropagate)
                     .after(VisibilitySystems::CalculateBounds)
                     .after(SimulationLightSystems::UpdateDirectionalLightFrusta)
                     .after(SimulationLightSystems::UpdatePointLightFrusta)
