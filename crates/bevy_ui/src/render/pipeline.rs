@@ -6,9 +6,12 @@ use bevy_render::{
     view::ViewUniform,
 };
 
+use crate::UiUniform;
+
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub ui_uniform_layout: BindGroupLayout,
 }
 
 impl FromWorld for UiPipeline {
@@ -52,9 +55,26 @@ impl FromWorld for UiPipeline {
             label: Some("ui_image_layout"),
         });
 
+        let ui_uniform_layout =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: BufferSize::new(UiUniform::std140_size_static() as u64),
+                    },
+
+                    count: None,
+                }],
+                label: Some("ui_uniform_layout"),
+            });
+
         UiPipeline {
             view_layout,
             image_layout,
+            ui_uniform_layout,
         }
     }
 }
@@ -64,7 +84,6 @@ pub struct UiPipelineKey {}
 
 impl SpecializedPipeline for UiPipeline {
     type Key = UiPipelineKey;
-    /// FIXME: there are no specialization for now, should this be removed?
     fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
             VertexStepMode::Vertex,
@@ -73,7 +92,7 @@ impl SpecializedPipeline for UiPipeline {
                 VertexFormat::Float32x3,
                 // uv
                 VertexFormat::Float32x2,
-                // color
+                // ui_uniform entry index
                 VertexFormat::Uint32,
             ],
         );
@@ -96,7 +115,11 @@ impl SpecializedPipeline for UiPipeline {
                     write_mask: ColorWrites::ALL,
                 }],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
+            layout: Some(vec![
+                self.view_layout.clone(),
+                self.image_layout.clone(),
+                self.ui_uniform_layout.clone(),
+            ]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

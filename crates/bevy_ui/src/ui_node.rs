@@ -391,3 +391,51 @@ pub struct CalculatedClip {
     /// The rect of the clip
     pub clip: bevy_sprite::Rect,
 }
+
+/// The corner radius of the node
+///
+/// This describes a radius value for each corner of a node, even if they have no [`Border`].
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct CornerRadius {
+    pub top_left: f32,
+    pub bottom_left: f32,
+    pub top_right: f32,
+    pub bottom_right: f32,
+}
+
+impl CornerRadius {
+    /// Creates a [`CornerRadius`] instance with all corners set to the specified radius.
+    pub fn all(corner_radius: f32) -> Self {
+        Self {
+            top_left: corner_radius,
+            bottom_left: corner_radius,
+            top_right: corner_radius,
+            bottom_right: corner_radius,
+        }
+    }
+
+    /// Creates an array with the values for all corners in this order:
+    /// top-left, bottom-left, top-right, bottom-right
+    pub fn to_array(&self) -> [f32; 4] {
+        [
+            self.top_left,
+            self.bottom_left,
+            self.top_right,
+            self.bottom_right,
+        ]
+    }
+}
+
+/// The visual properties of the node's border
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Border {
+    /// The width of the border
+    ///
+    /// This is different from [`Style`] border and it will not cause any displacement inside the node.
+    pub width: f32,
+
+    /// The color of the border
+    pub color: Color,
+}
