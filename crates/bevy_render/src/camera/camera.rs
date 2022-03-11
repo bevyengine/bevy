@@ -193,7 +193,7 @@ impl Camera {
         } else {
             // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
             let p0 = plane_normal * plane.d();
-            let t = (p0 - world_ray.point).dot(normal) / direction_dot_normal;
+            let t = (p0 - world_ray.point).dot(plane_normal) / direction_dot_normal;
             Some(world_ray.point + t * world_ray.direction)
         }
     }
