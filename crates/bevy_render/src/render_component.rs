@@ -107,22 +107,22 @@ fn prepare_uniform_components<C: Component>(
     render_queue: Res<RenderQueue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
-    mut prev_len: Local<usize>,
 ) where
     C: AsStd140 + Clone,
 {
     component_uniforms.uniforms.clear();
-    let mut entities = Vec::with_capacity(*prev_len);
-    for (entity, component) in components.iter() {
-        entities.push((
-            entity,
-            (DynamicUniformIndex::<C> {
-                index: component_uniforms.uniforms.push(component.clone()),
-                marker: PhantomData,
-            },),
-        ));
-    }
-    *prev_len = entities.len();
+    let entities = components
+        .iter()
+        .map(|(entity, component)| {
+            (
+                entity,
+                (DynamicUniformIndex::<C> {
+                    index: component_uniforms.uniforms.push(component.clone()),
+                    marker: PhantomData,
+                },),
+            )
+        })
+        .collect::<Vec<_>>();
     commands.insert_or_spawn_batch(entities);
 
     component_uniforms
