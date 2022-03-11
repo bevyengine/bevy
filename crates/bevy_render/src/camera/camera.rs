@@ -290,26 +290,28 @@ pub fn extract_cameras<M: Component + Default>(
     windows: Res<Windows>,
     images: Res<Assets<Image>>,
     active_camera: Res<ActiveCamera<M>>,
-    query: Query<(Entity, &Camera, &GlobalTransform, &VisibleEntities), With<M>>,
+    query: Query<(&Camera, &GlobalTransform, &VisibleEntities), With<M>>,
 ) {
-    for (entity, camera, transform, visible_entities) in query.iter() {
-        if let Some(size) = camera.target.get_physical_size(&windows, &images) {
-            commands.get_or_spawn(entity).insert_bundle((
-                ExtractedCamera {
-                    target: camera.target.clone(),
-                    physical_size: camera.target.get_physical_size(&windows, &images),
-                },
-                ExtractedView {
-                    projection: camera.projection_matrix,
-                    transform: *transform,
-                    width: size.x.max(1),
-                    height: size.y.max(1),
-                    near: camera.near,
-                    far: camera.far,
-                },
-                visible_entities.clone(),
-                M::default(),
-            ));
+    if let Some(entity) = active_camera.get() {
+        if let Ok((camera, transform, visible_entities)) = query.get(entity) {
+            if let Some(size) = camera.target.get_physical_size(&windows, &images) {
+                commands.get_or_spawn(entity).insert_bundle((
+                    ExtractedCamera {
+                        target: camera.target.clone(),
+                        physical_size: camera.target.get_physical_size(&windows, &images),
+                    },
+                    ExtractedView {
+                        projection: camera.projection_matrix,
+                        transform: *transform,
+                        width: size.x.max(1),
+                        height: size.y.max(1),
+                        near: camera.near,
+                        far: camera.far,
+                    },
+                    visible_entities.clone(),
+                    M::default(),
+                ));
+            }
         }
     }
 
