@@ -255,7 +255,7 @@ fn focus_camera(
     time: Res<Time>,
     mut game: ResMut<Game>,
     mut transforms: QuerySet<(
-        QueryState<(&mut Transform, &Camera), With<Camera3d>>,
+        QueryState<&mut Transform, With<Camera3d>>,
         QueryState<&Transform>,
     )>,
 ) {
@@ -290,7 +290,7 @@ fn focus_camera(
         game.camera_is_focus += camera_motion;
     }
     // look at that new camera's actual focus
-    for (mut transform, camera) in transforms.q0().iter_mut() {
+    for mut transform in transforms.q0().iter_mut() {
         *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
     }
 }
