@@ -8,3 +8,9 @@ pub use fixed_timestep::*;
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
+
+pub mod prelude {
+    //! The Bevy Time Prelude.
+    #[doc(hidden)]
+    pub use crate::{Time, Timer};
+}

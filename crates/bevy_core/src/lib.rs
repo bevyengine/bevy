@@ -3,12 +3,12 @@
 
 mod name;
 mod task_pool_options;
-mod time;
 
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
-pub use time::*;
+
+pub use bevy_time::*;
 
 pub mod prelude {
     //! The Bevy Core Prelude.
@@ -20,7 +20,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::Entity,
     schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
-    system::IntoExclusiveSystem,
+    system::{IntoExclusiveSystem, ResMut},
 };
 use bevy_utils::HashSet;
 use std::ops::Range;
@@ -64,6 +64,10 @@ impl Plugin for CorePlugin {
         register_rust_types(app);
         register_math_types(app);
     }
+}
+
+fn time_system(mut time: ResMut<Time>) {
+    time.update();
 }
 
 fn register_rust_types(app: &mut App) {

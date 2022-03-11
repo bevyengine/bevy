@@ -1,4 +1,3 @@
-use bevy_ecs::system::ResMut;
 use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
@@ -46,7 +45,7 @@ impl Time {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_core::prelude::*;
+    /// # use bevy_time::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_utils::Duration;
     /// # fn main () {
@@ -141,10 +140,6 @@ impl Time {
     pub fn time_since_startup(&self) -> Duration {
         self.time_since_startup
     }
-}
-
-pub(crate) fn time_system(mut time: ResMut<Time>) {
-    time.update();
 }
 
 #[cfg(test)]
