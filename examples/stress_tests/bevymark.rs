@@ -3,7 +3,7 @@
 //! Usage: spawn more entities by clicking on the screen.
 
 use bevy::{
-    core::FixedTimestep,
+    time::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::PresentMode,

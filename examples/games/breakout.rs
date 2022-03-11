@@ -1,7 +1,7 @@
 //! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
-    core::FixedTimestep,
+    time::FixedTimestep,
     math::{const_vec2, const_vec3},
     prelude::*,
     sprite::collide_aabb::{collide, Collision},

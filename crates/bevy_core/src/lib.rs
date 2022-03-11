@@ -8,12 +8,10 @@ pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
 
-pub use bevy_time::*;
-
 pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, Name, Time, Timer};
+    pub use crate::{DefaultTaskPoolOptions, Name};
 }
 
 use bevy_app::prelude::*;
@@ -22,6 +20,7 @@ use bevy_ecs::{
     schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
     system::{IntoExclusiveSystem, ResMut},
 };
+use bevy_time::{FixedTimesteps, Time, Timer};
 use bevy_utils::HashSet;
 use std::ops::Range;
 
