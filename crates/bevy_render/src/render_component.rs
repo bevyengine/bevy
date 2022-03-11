@@ -111,14 +111,19 @@ fn prepare_uniform_components<C: Component>(
     C: AsStd140 + Clone,
 {
     component_uniforms.uniforms.clear();
-    for (entity, component) in components.iter() {
-        commands
-            .get_or_spawn(entity)
-            .insert(DynamicUniformIndex::<C> {
-                index: component_uniforms.uniforms.push(component.clone()),
-                marker: PhantomData,
-            });
-    }
+    let entities = components
+        .iter()
+        .map(|(entity, component)| {
+            (
+                entity,
+                (DynamicUniformIndex::<C> {
+                    index: component_uniforms.uniforms.push(component.clone()),
+                    marker: PhantomData,
+                },),
+            )
+        })
+        .collect::<Vec<_>>();
+    commands.insert_or_spawn_batch(entities);
 
     component_uniforms
         .uniforms
