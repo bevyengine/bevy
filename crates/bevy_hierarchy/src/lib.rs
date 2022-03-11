@@ -4,11 +4,9 @@
 //! Most commonly, these hierarchies are used for inheriting [`Transform`](bevy_transform::Transform) values
 //! from the [`Parent`] to its [`Children`].
 
-/// The basic components of the hierarchy
 mod components;
 pub use components::*;
 
-/// Establishing and updating the transform hierarchy
 mod hierarchy;
 pub use hierarchy::*;
 
@@ -21,7 +19,7 @@ pub use systems::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{components::*, hierarchy::*, HierarchyPlugin};
+    pub use crate::{child_builder::*, components::*, hierarchy::*, HierarchyPlugin};
 }
 
 use bevy_app::prelude::*;
