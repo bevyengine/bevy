@@ -31,7 +31,7 @@ impl Time {
     ///
     /// Calling this method on the [`Time`] resource as part of your app will most likely result in
     /// inaccurate timekeeping, as the resource is ordinarily managed by the
-    /// [`CorePlugin`](crate::CorePlugin).
+    /// [`TimePlugin`](crate::TimePlugin).
     pub fn update(&mut self) {
         self.update_with_instant(Instant::now());
     }
@@ -40,7 +40,7 @@ impl Time {
     ///
     /// This method is provided for use in tests. Calling this method on the [`Time`] resource as
     /// part of your app will most likely result in inaccurate timekeeping, as the resource is
-    /// ordinarily managed by the [`CorePlugin`](crate::CorePlugin).
+    /// ordinarily managed by the [`TimePlugin`](crate::TimePlugin).
     ///
     /// # Examples
     ///

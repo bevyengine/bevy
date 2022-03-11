@@ -3,9 +3,9 @@
 //! Usage: spawn more entities by clicking on the screen.
 
 use bevy::{
-    time::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    time::FixedTimestep,
     window::PresentMode,
 };
 use rand::{thread_rng, Rng};
