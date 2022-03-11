@@ -21,7 +21,7 @@ pub struct CountdownEvent {
 }
 
 impl CountdownEvent {
-    /// Creates a CountdownEvent that must be decremented `n` times for listeners to be
+    /// Creates a [`CountdownEvent`] that must be decremented `n` times for listeners to be
     /// signalled
     pub fn new(n: isize) -> Self {
         let inner = CountdownEventInner {
@@ -100,7 +100,7 @@ mod tests {
         countdown_event.decrement();
         let countdown_event_clone = countdown_event.clone();
         let handle = std::thread::spawn(move || {
-            futures_lite::future::block_on(countdown_event_clone.listen())
+            futures_lite::future::block_on(countdown_event_clone.listen());
         });
 
         // Pause to give the new thread time to start blocking (ugly hack)

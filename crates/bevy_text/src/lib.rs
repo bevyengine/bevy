@@ -41,18 +41,18 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
-            // TODO: uncomment when #2215 is fixed
-            // .register_type::<Text>()
+            .register_type::<Text>()
             .register_type::<VerticalAlign>()
             .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
             .insert_resource(DefaultTextPipeline::default())
             .add_system_to_stage(CoreStage::PostUpdate, text2d_system);
 
-        let render_app = app.sub_app(RenderApp);
-        render_app.add_system_to_stage(
-            RenderStage::Extract,
-            extract_text2d_sprite.after(SpriteSystem::ExtractSprite),
-        );
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_system_to_stage(
+                RenderStage::Extract,
+                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+            );
+        }
     }
 }

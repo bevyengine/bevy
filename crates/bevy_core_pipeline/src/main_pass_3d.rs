@@ -75,14 +75,14 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.get_resource::<DrawFunctions<Opaque3d>>().unwrap();
+            let draw_functions = world.resource::<DrawFunctions<Opaque3d>>();
 
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            for item in opaque_phase.items.iter() {
+            for item in &opaque_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
             }
@@ -109,14 +109,14 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.get_resource::<DrawFunctions<AlphaMask3d>>().unwrap();
+            let draw_functions = world.resource::<DrawFunctions<AlphaMask3d>>();
 
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            for item in alpha_mask_phase.items.iter() {
+            for item in &alpha_mask_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
             }
@@ -145,16 +145,14 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world
-                .get_resource::<DrawFunctions<Transparent3d>>()
-                .unwrap();
+            let draw_functions = world.resource::<DrawFunctions<Transparent3d>>();
 
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            for item in transparent_phase.items.iter() {
+            for item in &transparent_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
             }

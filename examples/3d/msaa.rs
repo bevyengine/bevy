@@ -6,7 +6,7 @@ use bevy::prelude::*;
 /// expensive).
 /// Note that WGPU currently only supports 1 or 4 samples.
 /// Ultimately we plan on supporting whatever is natively supported on a given device.
-/// Check out this issue for more info: https://github.com/gfx-rs/wgpu/issues/1832
+/// Check out [this issue](https://github.com/gfx-rs/wgpu/issues/1832) for more info.
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
@@ -29,17 +29,17 @@ fn setup(
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 2.0 })),
         material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        ..Default::default()
+        ..default()
     });
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..Default::default()
+        ..default()
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 

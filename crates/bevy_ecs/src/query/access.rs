@@ -186,6 +186,10 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.with.union_with(&access.with);
         self.without.union_with(&access.without);
     }
+
+    pub fn read_all(&mut self) {
+        self.access.read_all();
+    }
 }
 
 pub struct FilteredAccessSet<T: SparseSetIndex> {
@@ -208,7 +212,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         // if combined unfiltered access is incompatible, check each filtered access for
         // compatibility
         if !filtered_access.access.is_compatible(&self.combined_access) {
-            for current_filtered_access in self.filtered_accesses.iter() {
+            for current_filtered_access in &self.filtered_accesses {
                 if !current_filtered_access.is_compatible(filtered_access) {
                     return current_filtered_access
                         .access

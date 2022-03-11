@@ -6,7 +6,10 @@ use bevy_core::Name;
 use bevy_ecs::world::World;
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
-use bevy_pbr::{AlphaMode, PbrBundle, StandardMaterial};
+use bevy_pbr::{
+    AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
+    StandardMaterial,
+};
 use bevy_render::{
     camera::{
         Camera, CameraPlugin, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -14,13 +17,17 @@ use bevy_render::{
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
     primitives::{Aabb, Frustum},
+    render_resource::{
+        AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat,
+    },
     texture::{Image, ImageType, TextureError},
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
 use bevy_transform::{
     hierarchy::{BuildWorldChildren, WorldChildBuilder},
-    prelude::{GlobalTransform, Transform},
+    prelude::Transform,
+    TransformBundle,
 };
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
@@ -30,7 +37,6 @@ use gltf::{
 };
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
-use wgpu::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat};
 
 use crate::{Gltf, GltfNode};
 
@@ -119,40 +125,40 @@ async fn load_gltf<'a, 'b>(
                 .read_positions()
                 .map(|v| VertexAttributeValues::Float32x3(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_normals()
                 .map(|v| VertexAttributeValues::Float32x3(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tangents()
                 .map(|v| VertexAttributeValues::Float32x4(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
                 .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
             } else {
                 let len = mesh.count_vertices();
                 let uvs = vec![[0.0, 0.0]; len];
                 bevy_log::debug!("missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs");
-                mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
             // if let Some(vertex_attribute) = reader
             //     .read_colors(0)
             //     .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
             // {
-            //     mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            //     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
             // }
 
             if let Some(indices) = reader.read_indices() {
@@ -242,36 +248,40 @@ async fn load_gltf<'a, 'b>(
         .collect();
 
     // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
-    #[cfg(target_arch = "wasm32")]
-    for gltf_texture in gltf.textures() {
-        let (texture, label) =
-            load_texture(gltf_texture, &buffer_data, &linear_textures, &load_context).await?;
-        load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    load_context
-        .task_pool()
-        .scope(|scope| {
-            gltf.textures().for_each(|gltf_texture| {
-                let linear_textures = &linear_textures;
-                let load_context: &LoadContext = load_context;
-                let buffer_data = &buffer_data;
-                scope.spawn(async move {
-                    load_texture(gltf_texture, buffer_data, linear_textures, load_context).await
-                });
-            });
-        })
-        .into_iter()
-        .filter_map(|res| {
-            if let Err(err) = res.as_ref() {
-                warn!("Error loading glTF texture: {}", err);
-            }
-            res.ok()
-        })
-        .for_each(|(texture, label)| {
+    // See https://github.com/bevyengine/bevy/issues/1924 for more details
+    // The taskpool use is also avoided when there is only one texture for performance reasons and
+    // to avoid https://github.com/bevyengine/bevy/pull/2725
+    if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
+        for gltf_texture in gltf.textures() {
+            let (texture, label) =
+                load_texture(gltf_texture, &buffer_data, &linear_textures, load_context).await?;
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
-        });
+        }
+    } else {
+        #[cfg(not(target_arch = "wasm32"))]
+        load_context
+            .task_pool()
+            .scope(|scope| {
+                gltf.textures().for_each(|gltf_texture| {
+                    let linear_textures = &linear_textures;
+                    let load_context: &LoadContext = load_context;
+                    let buffer_data = &buffer_data;
+                    scope.spawn(async move {
+                        load_texture(gltf_texture, buffer_data, linear_textures, load_context).await
+                    });
+                });
+            })
+            .into_iter()
+            .filter_map(|res| {
+                if let Err(err) = res.as_ref() {
+                    warn!("Error loading glTF texture: {}", err);
+                }
+                res.ok()
+            })
+            .for_each(|(texture, label)| {
+                load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
+            });
+    }
 
     let mut scenes = vec![];
     let mut named_scenes = HashMap::default();
@@ -280,7 +290,7 @@ async fn load_gltf<'a, 'b>(
         let mut world = World::default();
         world
             .spawn()
-            .insert_bundle((Transform::identity(), GlobalTransform::identity()))
+            .insert_bundle(TransformBundle::identity())
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(&node, parent, load_context, &buffer_data);
@@ -339,18 +349,17 @@ async fn load_texture<'a>(
                 .decode_utf8()
                 .unwrap();
             let uri = uri.as_ref();
-            let (bytes, image_type) = match DataUri::parse(uri) {
-                Ok(data_uri) => (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type)),
-                Err(()) => {
-                    let parent = load_context.path().parent().unwrap();
-                    let image_path = parent.join(uri);
-                    let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+            let (bytes, image_type) = if let Ok(data_uri) = DataUri::parse(uri) {
+                (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type))
+            } else {
+                let parent = load_context.path().parent().unwrap();
+                let image_path = parent.join(uri);
+                let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
 
-                    let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
-                    let image_type = ImageType::Extension(extension);
+                let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
+                let image_type = ImageType::Extension(extension);
 
-                    (bytes, image_type)
-                }
+                (bytes, image_type)
             };
 
             Image::from_buffer(
@@ -453,10 +462,9 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn_bundle((
-        Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
-        GlobalTransform::identity(),
-    ));
+    let mut node = world_builder.spawn_bundle(TransformBundle::from(Transform::from_matrix(
+        Mat4::from_cols_array_2d(&transform.matrix()),
+    )));
 
     if let Some(name) = gltf_node.name() {
         node.insert(Name::new(name.to_string()));
@@ -507,6 +515,8 @@ fn load_node(
                 node.insert(Camera {
                     name: Some(CameraPlugin::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
+                    near: perspective_projection.near,
+                    far: perspective_projection.far,
                     ..Default::default()
                 });
                 node.insert(perspective_projection);
@@ -545,6 +555,48 @@ fn load_node(
                         Vec3::from_slice(&bounds.min),
                         Vec3::from_slice(&bounds.max),
                     ));
+            }
+        }
+
+        if let Some(light) = gltf_node.light() {
+            match light.kind() {
+                gltf::khr_lights_punctual::Kind::Directional => {
+                    let mut entity = parent.spawn_bundle(DirectionalLightBundle {
+                        directional_light: DirectionalLight {
+                            color: Color::from(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for directional
+                            // lights in lux (lm/m^2) which is what we need.
+                            illuminance: light.intensity(),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
+                    }
+                }
+                gltf::khr_lights_punctual::Kind::Point => {
+                    let mut entity = parent.spawn_bundle(PointLightBundle {
+                        point_light: PointLight {
+                            color: Color::from(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for point lights in
+                            // candela (lm/sr) which is luminous intensity and we need luminous power.
+                            // For a point light, luminous power = 4 * pi * luminous intensity
+                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                            range: light.range().unwrap_or(20.0),
+                            radius: light.range().unwrap_or(0.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
+                    }
+                }
+                gltf::khr_lights_punctual::Kind::Spot {
+                    inner_cone_angle: _inner_cone_angle,
+                    outer_cone_angle: _outer_cone_angle,
+                } => warn!("Spot lights are not yet supported."),
             }
         }
 
@@ -651,7 +703,7 @@ fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> Addr
     }
 }
 
-/// Maps the primitive_topology form glTF to wgpu.
+/// Maps the `primitive_topology` form glTF to `wgpu`.
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
@@ -725,7 +777,7 @@ fn resolve_node_hierarchy(
         .into_iter()
         .enumerate()
         .map(|(i, (label, node, children))| {
-            for child in children.iter() {
+            for child in &children {
                 if let Some(parent) = parents.get_mut(*child) {
                     *parent = Some(i);
                 } else if !has_errored {
@@ -751,7 +803,7 @@ fn resolve_node_hierarchy(
 
             assert!(parent_children.remove(&index));
             if let Some((_, child_node)) = nodes.get(&index) {
-                parent_node.children.push(child_node.clone())
+                parent_node.children.push(child_node.clone());
             }
             if parent_children.is_empty() {
                 empty_children.push_back(parent_index);

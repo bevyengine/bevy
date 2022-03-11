@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-/// This example illustrates how to use States to control transitioning from a Menu state to an
-/// InGame state.
+/// This example illustrates how to use [`States`] to control transitioning from a `Menu` state to
+/// an `InGame` state.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -45,10 +45,10 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 // vertically center child text
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
             color: NORMAL_BUTTON.into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
@@ -61,7 +61,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     Default::default(),
                 ),
-                ..Default::default()
+                ..default()
             });
         })
         .id();
@@ -99,7 +99,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
-        ..Default::default()
+        ..default()
     });
 }
 

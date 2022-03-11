@@ -14,7 +14,7 @@ impl Node for MainPassDriverNode {
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
+        let extracted_cameras = world.resource::<ExtractedCameraNames>();
         if let Some(camera_2d) = extracted_cameras.entities.get(CameraPlugin::CAMERA_2D) {
             graph.run_sub_graph(
                 crate::draw_2d_graph::NAME,

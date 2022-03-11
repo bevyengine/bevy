@@ -8,16 +8,17 @@ use crate::{
 };
 use std::borrow::Cow;
 
-/// An ECS system that can be added to a [Schedule](crate::schedule::Schedule)
+/// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
-/// Systems are functions with all arguments implementing [SystemParam](crate::system::SystemParam).
+/// Systems are functions with all arguments implementing
+/// [`SystemParam`](crate::system::SystemParam).
 ///
 /// Systems are added to an application using `App::add_system(my_system)`
 /// or similar methods, and will generally run once per pass of the main loop.
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [SystemDescriptor](crate::schedule::SystemDescriptor).
+/// see [`SystemDescriptor`](crate::schedule::SystemDescriptor).
 pub trait System: Send + Sync + 'static {
     /// The system's input. See [`In`](crate::system::In) for
     /// [`FunctionSystem`](crate::system::FunctionSystem)s.

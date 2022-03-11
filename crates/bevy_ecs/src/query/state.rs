@@ -101,10 +101,11 @@ where
 
     #[inline]
     pub fn validate_world(&self, world: &World) {
-        if world.id() != self.world_id {
-            panic!("Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
-                std::any::type_name::<Self>());
-        }
+        assert!(
+            world.id() == self.world_id,
+            "Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
+                std::any::type_name::<Self>(),
+        );
     }
 
     /// Creates a new [`Archetype`].
@@ -276,16 +277,10 @@ where
         }
     }
 
-    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// Returns an [`Iterator`] over the query results for the given [`World`] without updating the query's archetypes.
+    /// Archetypes must be manually updated before by using [`Self::update_archetypes`].
+    ///
     /// This can only be called for read-only queries.
-    ///
-    ///  For permutations of size K of query returning N results, you will get:
-    /// - if K == N: one permutation of all query results
-    /// - if K < N: all possible K-sized combinations of query results, without repetition
-    /// - if K > N: empty set (no K-sized combinations exist)
-    ///
-    /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
-    /// write-queries.
     #[inline]
     pub fn iter_manual<'w, 's>(
         &'s self,
@@ -391,7 +386,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsound.
+    /// with a mismatched [`WorldId`] is unsound.
     #[inline]
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's, QF: Fetch<'w, 's, State = Q::State>>(
         &'s self,
@@ -411,7 +406,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsound.
+    /// with a mismatched [`WorldId`] is unsound.
     #[inline]
     pub(crate) unsafe fn iter_combinations_unchecked_manual<
         'w,
@@ -450,7 +445,7 @@ where
     }
 
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// iter_mut() method, but cannot be chained like a normal [`Iterator`].
+    /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
     #[inline]
     pub fn for_each_mut<'w, 's, FN: FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)>(
         &'s mut self,
@@ -590,7 +585,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsound.
+    /// with a mismatched [`WorldId`] is unsound.
     pub(crate) unsafe fn for_each_unchecked_manual<
         'w,
         's,
@@ -610,7 +605,7 @@ where
             <F::Fetch as Fetch>::init(world, &self.filter_state, last_change_tick, change_tick);
         if Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE {
             let tables = &world.storages().tables;
-            for table_id in self.matched_table_ids.iter() {
+            for table_id in &self.matched_table_ids {
                 let table = &tables[*table_id];
                 fetch.set_table(&self.fetch_state, table);
                 filter.set_table(&self.filter_state, table);
@@ -626,7 +621,7 @@ where
         } else {
             let archetypes = &world.archetypes;
             let tables = &world.storages().tables;
-            for archetype_id in self.matched_archetype_ids.iter() {
+            for archetype_id in &self.matched_archetype_ids {
                 let archetype = &archetypes[*archetype_id];
                 fetch.set_archetype(&self.fetch_state, archetype, tables);
                 filter.set_archetype(&self.filter_state, archetype, tables);
@@ -650,7 +645,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched WorldId is unsound.
+    /// with a mismatched [`WorldId`] is unsound.
     pub(crate) unsafe fn par_for_each_unchecked_manual<
         'w,
         's,
@@ -670,7 +665,7 @@ where
         task_pool.scope(|scope| {
             if QF::IS_DENSE && F::Fetch::IS_DENSE {
                 let tables = &world.storages().tables;
-                for table_id in self.matched_table_ids.iter() {
+                for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
                     let mut offset = 0;
                     while offset < table.len() {
@@ -702,7 +697,7 @@ where
                 }
             } else {
                 let archetypes = &world.archetypes;
-                for archetype_id in self.matched_archetype_ids.iter() {
+                for archetype_id in &self.matched_archetype_ids {
                     let mut offset = 0;
                     let archetype = &archetypes[*archetype_id];
                     while offset < archetype.len() {

@@ -3,13 +3,12 @@ mod colorspace;
 pub use colorspace::*;
 
 use crate::color::{HslRepresentation, SrgbColorSpace};
-use bevy_core::Bytes;
 use bevy_math::{Vec3, Vec4};
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Color {
     /// sRGBA color
@@ -382,7 +381,7 @@ impl Color {
         }
     }
 
-    /// Converts a `Color` to a `[f32; 4]` from sRBG colorspace
+    /// Converts a `Color` to a `[f32; 4]` from sRGB colorspace
     pub fn as_rgba_f32(self: Color) -> [f32; 4] {
         match self {
             Color::Rgba {
@@ -415,7 +414,7 @@ impl Color {
         }
     }
 
-    /// Converts a `Color` to a `[f32; 4]` from linear RBG colorspace
+    /// Converts a `Color` to a `[f32; 4]` from linear RGB colorspace
     #[inline]
     pub fn as_linear_rgba_f32(self: Color) -> [f32; 4] {
         match self {
@@ -486,6 +485,98 @@ impl Color {
                 lightness,
                 alpha,
             } => [hue, saturation, lightness, alpha],
+        }
+    }
+
+    /// Converts Color to a u32 from sRGB colorspace.
+    ///
+    /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
+    /// A will be the most significant byte and R the least significant.
+    pub fn as_rgba_u32(self: Color) -> u32 {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red * 255.0) as u8,
+                (green * 255.0) as u8,
+                (blue * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red.linear_to_nonlinear_srgb() * 255.0) as u8,
+                (green.linear_to_nonlinear_srgb() * 255.0) as u8,
+                (blue.linear_to_nonlinear_srgb() * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                u32::from_le_bytes([
+                    (red * 255.0) as u8,
+                    (green * 255.0) as u8,
+                    (blue * 255.0) as u8,
+                    (alpha * 255.0) as u8,
+                ])
+            }
+        }
+    }
+
+    /// Converts Color to a u32 from linear RGB colorspace.
+    ///
+    /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
+    /// A will be the most significant byte and R the least significant.
+    pub fn as_linear_rgba_u32(self: Color) -> u32 {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red.nonlinear_to_linear_srgb() * 255.0) as u8,
+                (green.nonlinear_to_linear_srgb() * 255.0) as u8,
+                (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => u32::from_le_bytes([
+                (red * 255.0) as u8,
+                (green * 255.0) as u8,
+                (blue * 255.0) as u8,
+                (alpha * 255.0) as u8,
+            ]),
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let [red, green, blue] =
+                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
+                u32::from_le_bytes([
+                    (red.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (green.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
+                    (alpha * 255.0) as u8,
+                ])
+            }
         }
     }
 }
@@ -593,7 +684,7 @@ impl Add<Color> for Color {
 impl AddAssign<Vec4> for Color {
     fn add_assign(&mut self, rhs: Vec4) {
         let rhs: Color = rhs.into();
-        *self += rhs
+        *self += rhs;
     }
 }
 
@@ -615,6 +706,12 @@ impl From<Color> for [f32; 4] {
 impl From<[f32; 4]> for Color {
     fn from([r, g, b, a]: [f32; 4]) -> Self {
         Color::rgba(r, g, b, a)
+    }
+}
+
+impl From<[f32; 3]> for Color {
+    fn from([r, g, b]: [f32; 3]) -> Self {
+        Color::rgb(r, g, b)
     }
 }
 
@@ -1032,58 +1129,6 @@ impl MulAssign<[f32; 3]> for Color {
                 *lightness *= rhs[2];
             }
         }
-    }
-}
-
-impl Bytes for Color {
-    fn write_bytes(&self, buffer: &mut [u8]) {
-        match *self {
-            Color::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                red.nonlinear_to_linear_srgb().write_bytes(buffer);
-                green
-                    .nonlinear_to_linear_srgb()
-                    .write_bytes(&mut buffer[std::mem::size_of::<f32>()..]);
-                blue.nonlinear_to_linear_srgb()
-                    .write_bytes(&mut buffer[2 * std::mem::size_of::<f32>()..]);
-                alpha.write_bytes(&mut buffer[3 * std::mem::size_of::<f32>()..]);
-            }
-            Color::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                red.write_bytes(buffer);
-                green.write_bytes(&mut buffer[std::mem::size_of::<f32>()..]);
-                blue.write_bytes(&mut buffer[2 * std::mem::size_of::<f32>()..]);
-                alpha.write_bytes(&mut buffer[3 * std::mem::size_of::<f32>()..]);
-            }
-            Color::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
-                red.nonlinear_to_linear_srgb().write_bytes(buffer);
-                green
-                    .nonlinear_to_linear_srgb()
-                    .write_bytes(&mut buffer[std::mem::size_of::<f32>()..]);
-                blue.nonlinear_to_linear_srgb()
-                    .write_bytes(&mut buffer[std::mem::size_of::<f32>() * 2..]);
-                alpha.write_bytes(&mut buffer[std::mem::size_of::<f32>() * 3..]);
-            }
-        }
-    }
-
-    fn byte_len(&self) -> usize {
-        std::mem::size_of::<f32>() * 4
     }
 }
 

@@ -9,7 +9,7 @@ pub use render_pass::*;
 use std::ops::Range;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetEvent, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
@@ -23,14 +23,14 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::ViewUniforms,
+    view::{ViewUniforms, Visibility},
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use bevy_window::Windows;
+use bevy_window::{WindowId, Windows};
 
 use bytemuck::{Pod, Zeroable};
 
@@ -59,14 +59,16 @@ pub enum RenderUiSystem {
 }
 
 pub fn build_ui_render(app: &mut App) {
-    let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-    let ui_shader = Shader::from_wgsl(include_str!("ui.wgsl"));
-    shaders.set_untracked(UI_SHADER_HANDLE, ui_shader);
+    load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
+    let mut active_cameras = app.world.resource_mut::<ActiveCameras>();
     active_cameras.add(CAMERA_UI);
 
-    let render_app = app.sub_app(RenderApp);
+    let render_app = match app.get_sub_app_mut(RenderApp) {
+        Ok(render_app) => render_app,
+        Err(_) => return,
+    };
+
     render_app
         .init_resource::<UiPipeline>()
         .init_resource::<SpecializedPipelines<UiPipeline>>()
@@ -90,7 +92,7 @@ pub fn build_ui_render(app: &mut App) {
 
     // Render graph
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
     let mut draw_ui_graph = RenderGraph::default();
     draw_ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
@@ -139,12 +141,16 @@ pub fn extract_uinodes(
         &GlobalTransform,
         &UiColor,
         &UiImage,
+        &Visibility,
         Option<&CalculatedClip>,
     )>,
 ) {
-    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, clip) in uinode_query.iter() {
+    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
+        if !visibility.is_visible {
+            continue;
+        }
         let image = image.0.clone_weak();
         // Skip loading images
         if !images.contains(image.clone_weak()) {
@@ -174,18 +180,18 @@ pub fn extract_text_uinodes(
         &Node,
         &GlobalTransform,
         &Text,
+        &Visibility,
         Option<&CalculatedClip>,
     )>,
 ) {
-    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
-    } else {
-        1.
-    };
+    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, uinode, transform, text, clip) in uinode_query.iter() {
+    for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
+        if !visibility.is_visible {
+            continue;
+        }
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
         if uinode.size == Vec2::ZERO {
             continue;
@@ -280,7 +286,7 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_handle = Default::default();
     let mut last_z = 0.0;
-    for extracted_uinode in extracted_uinodes.uinodes.iter() {
+    for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
                 commands.spawn_bundle((UiBatch {
@@ -408,7 +414,7 @@ pub fn queue_uinodes(
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
-    mut ui_batches: Query<(Entity, &UiBatch)>,
+    ui_batches: Query<(Entity, &UiBatch)>,
     mut views: Query<&mut RenderPhase<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
 ) {
@@ -433,7 +439,7 @@ pub fn queue_uinodes(
         let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
         let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
         for mut transparent_phase in views.iter_mut() {
-            for (entity, batch) in ui_batches.iter_mut() {
+            for (entity, batch) in ui_batches.iter() {
                 image_bind_groups
                     .values
                     .entry(batch.image.clone_weak())

@@ -1,5 +1,5 @@
 use crate::{
-    render_resource::DynamicUniformVec,
+    render_resource::{std140::AsStd140, DynamicUniformVec},
     renderer::{RenderDevice, RenderQueue},
     RenderApp, RenderStage,
 };
@@ -14,7 +14,6 @@ use bevy_ecs::{
         RunSystem, SystemParamItem,
     },
 };
-use crevice::std140::AsStd140;
 use std::{marker::PhantomData, ops::Deref};
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].
@@ -63,12 +62,11 @@ impl<C> Default for UniformComponentPlugin<C> {
 
 impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        app.sub_app(RenderApp)
-            .insert_resource(ComponentUniforms::<C>::default())
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                prepare_uniform_components::<C>.system(),
-            );
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .insert_resource(ComponentUniforms::<C>::default())
+                .add_system_to_stage(RenderStage::Prepare, prepare_uniform_components::<C>);
+        }
     }
 }
 
@@ -145,8 +143,9 @@ where
 {
     fn build(&self, app: &mut App) {
         let system = ExtractComponentSystem::<C>::system(&mut app.world);
-        let render_app = app.sub_app(RenderApp);
-        render_app.add_system_to_stage(RenderStage::Extract, system);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_system_to_stage(RenderStage::Extract, system);
+        }
     }
 }
 

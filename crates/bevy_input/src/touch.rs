@@ -1,4 +1,4 @@
-use bevy_app::EventReader;
+use bevy_ecs::event::EventReader;
 use bevy_ecs::system::ResMut;
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
@@ -220,7 +220,7 @@ impl Touches {
     }
 }
 
-/// Updates the Touches resource with the latest TouchInput events
+/// Updates the `Touches` resource with the latest `TouchInput` events
 pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     mut touch_input_events: EventReader<TouchInput>,

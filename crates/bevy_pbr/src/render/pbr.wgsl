@@ -244,14 +244,22 @@ fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
         return u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        return u32(floor(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w));
+        return min(
+            u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0),
+            lights.cluster_dimensions.z - 1u
+        );
     }
 }
 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
     let xy = vec2<u32>(floor(frag_coord * lights.cluster_factors.xy));
     let z_slice = view_z_to_z_slice(view_z, is_orthographic);
-    return (xy.y * lights.cluster_dimensions.x + xy.x) * lights.cluster_dimensions.z + z_slice;
+    // NOTE: Restricting cluster index to avoid undefined behavior when accessing uniform buffer
+    // arrays based on the cluster index.
+    return min(
+        (xy.y * lights.cluster_dimensions.x + xy.x) * lights.cluster_dimensions.z + z_slice,
+        lights.cluster_dimensions.w - 1u
+    );
 }
 
 struct ClusterOffsetAndCount {
@@ -259,13 +267,15 @@ struct ClusterOffsetAndCount {
     count: u32;
 };
 
+// this must match CLUSTER_COUNT_SIZE in light.rs
+let CLUSTER_COUNT_SIZE = 13u;
 fn unpack_offset_and_count(cluster_index: u32) -> ClusterOffsetAndCount {
     let offset_and_count = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
     var output: ClusterOffsetAndCount;
     // The offset is stored in the upper 24 bits
-    output.offset = (offset_and_count >> 8u) & ((1u << 24u) - 1u);
+    output.offset = (offset_and_count >> CLUSTER_COUNT_SIZE) & ((1u << 32u - CLUSTER_COUNT_SIZE) - 1u);
     // The count is stored in the lower 8 bits
-    output.count = offset_and_count & ((1u << 8u) - 1u);
+    output.count = offset_and_count & ((1u << CLUSTER_COUNT_SIZE) - 1u);
     return output;
 }
 
@@ -381,7 +391,11 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     // a quad (2x2 fragments) being processed not being sampled, and this messing with
     // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     // from LOD 0.
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    return textureSampleCompare(point_shadow_textures, point_shadow_textures_sampler, frag_ls, depth);
+#else
     return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
+#endif
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
@@ -412,7 +426,11 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
     // do the lookup, using HW PCF and comparison
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
     // sampler to avoid use of implicit derivatives causing possible undefined behavior.
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, depth);
+#else
     return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id), depth);
+#endif
 }
 
 fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {

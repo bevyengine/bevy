@@ -1,7 +1,7 @@
 use crate::{
-    AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight, DirectionalLightShadowMap,
-    DrawMesh, MeshPipeline, NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup,
-    VisiblePointLights, SHADOW_SHADER_HANDLE,
+    point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
+    DirectionalLightShadowMap, DrawMesh, MeshPipeline, NotShadowCaster, PointLight,
+    PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -14,7 +14,7 @@ use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
-    mesh::Mesh,
+    mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
@@ -22,14 +22,18 @@ use bevy_render::{
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{std140::AsStd140, *},
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
+    view::{
+        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
+    },
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::warn, HashMap};
-use crevice::std140::AsStd140;
+use bevy_utils::{
+    tracing::{error, warn},
+    HashMap,
+};
 use std::num::NonZeroU32;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
@@ -130,6 +134,7 @@ pub struct GpuLights {
     // TODO: this comes first to work around a WGSL alignment issue. We need to solve this issue before releasing the renderer rework
     directional_lights: [GpuDirectionalLight; MAX_DIRECTIONAL_LIGHTS],
     ambient_color: Vec4,
+    // xyz are x/y/z cluster dimensions and w is the number of clusters
     cluster_dimensions: UVec4,
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
     // z is cluster_dimensions.z / log(far / near)
@@ -142,6 +147,9 @@ pub struct GpuLights {
 pub const MAX_POINT_LIGHTS: usize = 256;
 // FIXME: How should we handle shadows for clustered forward? Limiting to maximum 10
 // point light shadow maps for now
+#[cfg(feature = "webgl")]
+pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 1;
+#[cfg(not(feature = "webgl"))]
 pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHT_SHADOW_MAPS) as u32;
@@ -211,85 +219,57 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ShadowPipelineKey: u32 {
         const NONE               = 0;
-        const VERTEX_TANGENTS    = (1 << 0);
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = ShadowPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << ShadowPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
-impl SpecializedPipeline for ShadowPipeline {
+impl ShadowPipelineKey {
+    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
+    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = 32 - 3;
+
+    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+        let primitive_topology_bits = ((primitive_topology as u32)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
+            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        Self::from_bits(primitive_topology_bits).unwrap()
+    }
+
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
+        let primitive_topology_bits =
+            (self.bits >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS) & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        match primitive_topology_bits {
+            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
+            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
+            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
+            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
+            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
+            _ => PrimitiveTopology::default(),
+        }
+    }
+}
+
+impl SpecializedMeshPipeline for ShadowPipeline {
     type Key = ShadowPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (vertex_array_stride, vertex_attributes) =
-            if key.contains(ShadowPipelineKey::VERTEX_TANGENTS) {
-                (
-                    48,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 40,
-                            shader_location: 2,
-                        },
-                        // Tangent
-                        VertexAttribute {
-                            format: VertexFormat::Float32x4,
-                            offset: 24,
-                            shader_location: 3,
-                        },
-                    ],
-                )
-            } else {
-                (
-                    32,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                )
-            };
-        RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let vertex_buffer_layout =
+            layout.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0)])?;
+
+        Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: vec![],
-                buffers: vec![VertexBufferLayout {
-                    array_stride: vertex_array_stride,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: vertex_attributes,
-                }],
+                buffers: vec![vertex_buffer_layout],
             },
             fragment: None,
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
             primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
+                topology: key.primitive_topology(),
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -315,12 +295,15 @@ impl SpecializedPipeline for ShadowPipeline {
             }),
             multisample: MultisampleState::default(),
             label: Some("shadow_pipeline".into()),
-        }
+        })
     }
 }
 
 #[derive(Component)]
 pub struct ExtractedClusterConfig {
+    /// Special near value for cluster calculations
+    near: f32,
+    far: f32,
     /// Number of clusters in x / y / z in the view frustum
     axis_slices: UVec3,
 }
@@ -337,6 +320,8 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
                 data: clusters.lights.clone(),
             },
             ExtractedClusterConfig {
+                near: clusters.near,
+                far: clusters.far,
                 axis_slices: clusters.axis_slices,
             },
         ));
@@ -356,6 +341,7 @@ pub fn extract_lights(
         &DirectionalLight,
         &mut VisibleEntities,
         &GlobalTransform,
+        &Visibility,
     )>,
 ) {
     commands.insert_resource(ExtractedAmbientLight {
@@ -402,7 +388,13 @@ pub fn extract_lights(
         }
     }
 
-    for (entity, directional_light, visible_entities, transform) in directional_lights.iter_mut() {
+    for (entity, directional_light, visible_entities, transform, visibility) in
+        directional_lights.iter_mut()
+    {
+        if !visibility.is_visible {
+            continue;
+        }
+
         // Calulate the directional light shadow map texel size using the largest x,y dimension of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
@@ -549,7 +541,7 @@ pub fn calculate_cluster_factors(
     if is_orthographic {
         Vec2::new(-near, z_slices / (-far - -near))
     } else {
-        let z_slices_of_ln_zfar_over_znear = z_slices / (far / near).ln();
+        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / (far / near).ln();
         Vec2::new(
             z_slices_of_ln_zfar_over_znear,
             near.ln() * z_slices_of_ln_zfar_over_znear,
@@ -587,14 +579,29 @@ pub fn prepare_lights(
 
     global_light_meta.gpu_point_lights.clear();
     global_light_meta.entity_to_index.clear();
-    let n_point_lights = point_lights.iter().count();
-    if global_light_meta.entity_to_index.capacity() < n_point_lights {
-        global_light_meta.entity_to_index.reserve(n_point_lights);
+
+    let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
+
+    // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
+    // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
+    point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
+        point_light_order(
+            (entity_1, &light_1.shadows_enabled),
+            (entity_2, &light_2.shadows_enabled),
+        )
+    });
+
+    if global_light_meta.entity_to_index.capacity() < point_lights.len() {
+        global_light_meta
+            .entity_to_index
+            .reserve(point_lights.len());
     }
+
     let mut gpu_point_lights = [GpuPointLight::default(); MAX_POINT_LIGHTS];
-    for (index, (entity, light)) in point_lights.iter().enumerate() {
+    for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
-        if light.shadows_enabled {
+        // Lights are sorted, shadow enabled lights are first
+        if light.shadows_enabled && index < MAX_POINT_LIGHT_SHADOW_MAPS {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
         gpu_point_lights[index] = GpuPointLight {
@@ -646,8 +653,10 @@ pub fn prepare_lights(
             &render_device,
             TextureDescriptor {
                 size: Extent3d {
-                    width: directional_light_shadow_map.size as u32,
-                    height: directional_light_shadow_map.size as u32,
+                    width: (directional_light_shadow_map.size as u32)
+                        .min(render_device.limits().max_texture_dimension_2d),
+                    height: (directional_light_shadow_map.size as u32)
+                        .min(render_device.limits().max_texture_dimension_2d),
                     depth_or_array_layers: DIRECTIONAL_SHADOW_LAYERS,
                 },
                 mip_level_count: 1,
@@ -662,12 +671,13 @@ pub fn prepare_lights(
 
         let is_orthographic = extracted_view.projection.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
-            extracted_view.near,
-            extracted_view.far,
+            clusters.near,
+            clusters.far,
             clusters.axis_slices.z as f32,
             is_orthographic,
         );
 
+        let n_clusters = clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z;
         let mut gpu_lights = GpuLights {
             directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
@@ -678,68 +688,68 @@ pub fn prepare_lights(
                 cluster_factors_zw.x,
                 cluster_factors_zw.y,
             ),
-            cluster_dimensions: clusters.axis_slices.extend(0),
+            cluster_dimensions: clusters.axis_slices.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        let mut point_light_count = 0;
-        for (light_entity, light) in point_lights.iter() {
-            if point_light_count < MAX_POINT_LIGHT_SHADOW_MAPS && light.shadows_enabled {
-                point_light_count += 1;
-                let light_index = *global_light_meta
-                    .entity_to_index
-                    .get(&light_entity)
-                    .unwrap();
-                // ignore scale because we don't want to effectively scale light radius and range
-                // by applying those as a view transform to shadow map rendering of objects
-                // and ignore rotation because we want the shadow map projections to align with the axes
-                let view_translation =
-                    GlobalTransform::from_translation(light.transform.translation);
+        for &(light_entity, light) in point_lights
+            .iter()
+            // Lights are sorted, shadow enabled lights are first
+            .take(MAX_POINT_LIGHT_SHADOW_MAPS)
+            .filter(|(_, light)| light.shadows_enabled)
+        {
+            let light_index = *global_light_meta
+                .entity_to_index
+                .get(&light_entity)
+                .unwrap();
+            // ignore scale because we don't want to effectively scale light radius and range
+            // by applying those as a view transform to shadow map rendering of objects
+            // and ignore rotation because we want the shadow map projections to align with the axes
+            let view_translation = GlobalTransform::from_translation(light.transform.translation);
 
-                for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
-                    let depth_texture_view =
-                        point_light_depth_texture
-                            .texture
-                            .create_view(&TextureViewDescriptor {
-                                label: Some("point_light_shadow_map_texture_view"),
-                                format: None,
-                                dimension: Some(TextureViewDimension::D2),
-                                aspect: TextureAspect::All,
-                                base_mip_level: 0,
-                                mip_level_count: None,
-                                base_array_layer: (light_index * 6 + face_index) as u32,
-                                array_layer_count: NonZeroU32::new(1),
-                            });
+            for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
+                let depth_texture_view =
+                    point_light_depth_texture
+                        .texture
+                        .create_view(&TextureViewDescriptor {
+                            label: Some("point_light_shadow_map_texture_view"),
+                            format: None,
+                            dimension: Some(TextureViewDimension::D2),
+                            aspect: TextureAspect::All,
+                            base_mip_level: 0,
+                            mip_level_count: None,
+                            base_array_layer: (light_index * 6 + face_index) as u32,
+                            array_layer_count: NonZeroU32::new(1),
+                        });
 
-                    let view_light_entity = commands
-                        .spawn()
-                        .insert_bundle((
-                            ShadowView {
-                                depth_texture_view,
-                                pass_name: format!(
-                                    "shadow pass point light {} {}",
-                                    light_index,
-                                    face_index_to_name(face_index)
-                                ),
-                            },
-                            ExtractedView {
-                                width: point_light_shadow_map.size as u32,
-                                height: point_light_shadow_map.size as u32,
-                                transform: view_translation * *view_rotation,
-                                projection: cube_face_projection,
-                                near: POINT_LIGHT_NEAR_Z,
-                                far: light.range,
-                            },
-                            RenderPhase::<Shadow>::default(),
-                            LightEntity::Point {
-                                light_entity,
-                                face_index,
-                            },
-                        ))
-                        .id();
-                    view_lights.push(view_light_entity);
-                }
+                let view_light_entity = commands
+                    .spawn()
+                    .insert_bundle((
+                        ShadowView {
+                            depth_texture_view,
+                            pass_name: format!(
+                                "shadow pass point light {} {}",
+                                light_index,
+                                face_index_to_name(face_index)
+                            ),
+                        },
+                        ExtractedView {
+                            width: point_light_shadow_map.size as u32,
+                            height: point_light_shadow_map.size as u32,
+                            transform: view_translation * *view_rotation,
+                            projection: cube_face_projection,
+                            near: POINT_LIGHT_NEAR_Z,
+                            far: light.range,
+                        },
+                        RenderPhase::<Shadow>::default(),
+                        LightEntity::Point {
+                            light_entity,
+                            face_index,
+                        },
+                    ))
+                    .id();
+                view_lights.push(view_light_entity);
             }
         }
 
@@ -830,7 +840,10 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
+                    #[cfg(not(feature = "webgl"))]
                     dimension: Some(TextureViewDimension::CubeArray),
+                    #[cfg(feature = "webgl")]
+                    dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::All,
                     base_mip_level: 0,
                     mip_level_count: None,
@@ -842,7 +855,10 @@ pub fn prepare_lights(
             .create_view(&TextureViewDescriptor {
                 label: Some("directional_light_shadow_map_array_texture_view"),
                 format: None,
+                #[cfg(not(feature = "webgl"))]
                 dimension: Some(TextureViewDimension::D2Array),
+                #[cfg(feature = "webgl")]
+                dimension: Some(TextureViewDimension::D2),
                 aspect: TextureAspect::All,
                 base_mip_level: 0,
                 mip_level_count: None,
@@ -871,20 +887,25 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 }
 
-const CLUSTER_OFFSET_MASK: u32 = (1 << 24) - 1;
-const CLUSTER_COUNT_SIZE: u32 = 8;
-const CLUSTER_COUNT_MASK: u32 = (1 << 8) - 1;
+// this must match CLUSTER_COUNT_SIZE in pbr.wgsl
+// and must be large enough to contain MAX_POINT_LIGHTS
+const CLUSTER_COUNT_SIZE: u32 = 13;
+
+const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - CLUSTER_COUNT_SIZE)) - 1;
+const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
 // that means we can fit say 256 point lights in one uniform
 // buffer, which means the count can be at most 256 so it
-// needs 8 bits.
+// needs 9 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address
 // 16384 values. log2(16384) = 14 bits.
-// This means we can pack the offset into the upper 24 bits of a u32
-// and the count into the lower 8 bits.
+// We use 32 bits to store the pair, so we choose to divide the
+// remaining 9 bits proportionally to give some future room.
+// This means we can pack the offset into the upper 19 bits of a u32
+// and the count into the lower 13 bits.
 // NOTE: This assumes CPU and GPU endianness are the same which is true
 // for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
 fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
@@ -905,7 +926,7 @@ pub struct ViewClusterBindings {
 impl ViewClusterBindings {
     pub const MAX_OFFSETS: usize = 16384 / 4;
     const MAX_UNIFORM_ITEMS: usize = Self::MAX_OFFSETS / 4;
-    const MAX_INDICES: usize = 16384;
+    pub const MAX_INDICES: usize = 16384;
 
     pub fn reserve_and_clear(&mut self) {
         self.cluster_light_index_lists.clear();
@@ -1033,7 +1054,7 @@ pub fn queue_shadows(
     shadow_pipeline: Res<ShadowPipeline>,
     casting_meshes: Query<&Handle<Mesh>, Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    mut pipelines: ResMut<SpecializedPipelines<ShadowPipeline>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<ShadowPipeline>>,
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     view_lights: Query<&ViewLightEntities>,
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
@@ -1063,22 +1084,32 @@ pub fn queue_shadows(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                let mut key = ShadowPipelineKey::empty();
                 if let Ok(mesh_handle) = casting_meshes.get(entity) {
                     if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        if mesh.has_tangents {
-                            key |= ShadowPipelineKey::VERTEX_TANGENTS;
-                        }
-                    }
-                    let pipeline_id =
-                        pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key);
+                        let key =
+                            ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        let pipeline_id = pipelines.specialize(
+                            &mut pipeline_cache,
+                            &shadow_pipeline,
+                            key,
+                            &mesh.layout,
+                        );
 
-                    shadow_phase.add(Shadow {
-                        draw_function: draw_shadow_mesh,
-                        pipeline: pipeline_id,
-                        entity,
-                        distance: 0.0, // TODO: sort back-to-front
-                    });
+                        let pipeline_id = match pipeline_id {
+                            Ok(id) => id,
+                            Err(err) => {
+                                error!("{}", err);
+                                continue;
+                            }
+                        };
+
+                        shadow_phase.add(Shadow {
+                            draw_function: draw_shadow_mesh,
+                            pipeline: pipeline_id,
+                            entity,
+                            distance: 0.0, // TODO: sort back-to-front
+                        });
+                    }
                 }
             }
         }
@@ -1171,13 +1202,13 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-                let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
+                let draw_functions = world.resource::<DrawFunctions<Shadow>>();
                 let render_pass = render_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);
                 let mut draw_functions = draw_functions.write();
                 let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                for item in shadow_phase.items.iter() {
+                for item in &shadow_phase.items {
                     let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                     draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
                 }
