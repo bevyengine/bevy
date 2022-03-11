@@ -13,7 +13,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "tools/scene-viewer", "errors"]
+members = ["crates/*", "examples/ios", "tools/ci", "errors"]
 
 [features]
 default = [
@@ -507,6 +507,10 @@ path = "examples/shader/compute_shader_game_of_life.rs"
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
 
+[[example]]
+name = "scene_viewer"
+path = "examples/tools/scene_viewer.rs"
+
 # Transforms
 [[example]]
 name = "global_vs_local_translation"
@@ -527,7 +531,6 @@ path = "examples/transforms/transform.rs"
 [[example]]
 name = "translation"
 path = "examples/transforms/translation.rs"
-
 # UI (User Interface)
 [[example]]
 name = "button"
