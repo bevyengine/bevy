@@ -151,22 +151,25 @@ impl Camera {
         images: &Assets<Image>,
         camera_transform: &GlobalTransform,
     ) -> Line {
-        let camera_position = camera_transform.compute_matrix();
+        let view_matrix = camera_transform.compute_matrix();
         let window_size = self.target.get_logical_size(windows, images).unwrap();
         let projection_matrix = self.projection_matrix;
 
-        // Normalized device coordinate cursor position from (-1, -1, -1) to (1, 1, 1)
-        let cursor_ndc = (pos_screen / window_size) * 2.0 - Vec2::from([1.0, 1.0]);
-        let cursor_pos_ndc_near: Vec3 = cursor_ndc.extend(-1.0);
-        let cursor_pos_ndc_far: Vec3 = cursor_ndc.extend(1.0);
+        // Normalized device coordinate cursor position from (-1, -1, 1) to (1, 1, 0) where 0 is at the far plane
+        // and 1 is at the near plane.
+        let cursor_ndc = (pos_screen / window_size) * 2.0 - Vec2::ONE;
+        let cursor_pos_ndc_near: Vec3 = cursor_ndc.extend(1.0);
+        let cursor_pos_ndc_far: Vec3 = cursor_ndc.extend(0.0);
 
         // Use near and far ndc points to generate a ray in world space
         // This method is more robust than using the location of the camera as the start of
         // the ray, because ortho cameras have a focal point at infinity!
-        let ndc_to_world: Mat4 = camera_position * projection_matrix.inverse();
-        let cursor_pos_near: Vec3 = ndc_to_world.project_point3(cursor_pos_ndc_near);
-        let cursor_pos_far: Vec3 = ndc_to_world.project_point3(cursor_pos_ndc_far);
-        let ray_direction = cursor_pos_far - cursor_pos_near;
+        let inverse_projection = projection_matrix.inverse();
+        let cursor_pos_view_near = inverse_projection.project_point3(cursor_pos_ndc_near);
+        let cursor_pos_view_far = inverse_projection.project_point3(cursor_pos_ndc_far);
+        let cursor_pos_near = view_matrix.transform_point3(cursor_pos_view_near);
+        let cursor_pos_far = view_matrix.transform_point3(cursor_pos_view_far);
+        let ray_direction = (cursor_pos_far - cursor_pos_near).normalize();
         Line::from_point_direction(cursor_pos_near, ray_direction)
     }
 
@@ -181,14 +184,17 @@ impl Camera {
         camera_transform: &GlobalTransform,
     ) -> Option<Vec3> {
         let world_ray = self.screen_to_world_ray(pos_screen, windows, images, camera_transform);
-        let d = world_ray.point.dot(plane.normal());
-        if d == 0. {
+        let plane_normal = plane.normal();
+        let direction_dot_normal = world_ray.direction.dot(plane_normal);
+        if world_ray.point.extend(1.0).dot(plane.normal_d()).abs() < f32::EPSILON {
+            Some(world_ray.point)
+        } else if direction_dot_normal.abs() < f32::EPSILON {
             None
         } else {
-            let diff = world_ray.point.extend(1.0) - plane.normal_d();
-            let p = diff.dot(plane.normal_d());
-            let dist = p / d;
-            Some(world_ray.point - world_ray.direction * dist)
+            // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
+            let p0 = plane_normal * plane.d();
+            let t = (p0 - world_ray.point).dot(normal) / direction_dot_normal;
+            Some(world_ray.point + t * world_ray.direction)
         }
     }
 
