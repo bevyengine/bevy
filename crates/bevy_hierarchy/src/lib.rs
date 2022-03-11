@@ -1,7 +1,7 @@
 #![warn(missing_docs)]
 //! `bevy_hierarchy` can be used to define hierarchies of entities.
 //!
-//! Most commonly, these hierarchies are used for inheriting [`Transform`](bevy_transform::Transform) values
+//! Most commonly, these hierarchies are used for inheriting [`Transform`](bevy_transform::components::Transform) values
 //! from the [`Parent`] to its [`Children`].
 
 mod components;

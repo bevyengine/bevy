@@ -3,7 +3,7 @@
     entity: 0,
     components: [
       {
-        "type": "bevy_transform::transform::Transform",
+        "type": "bevy_transform::components::transform::Transform",
         "struct": {
           "translation": {
             "type": "glam::vec3::Vec3",

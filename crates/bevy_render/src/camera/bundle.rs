@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_ecs::{bundle::Bundle, prelude::Component};
 use bevy_math::Vec3;
-use bevy_transform::{GlobalTransform, Transform};
+use bevy_transform::components::{GlobalTransform, Transform};
 
 use super::{CameraProjection, ScalingMode};
 

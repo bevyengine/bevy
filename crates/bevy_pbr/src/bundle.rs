@@ -7,7 +7,7 @@ use bevy_render::{
     primitives::{CubemapFrusta, Frustum},
     view::{ComputedVisibility, Visibility, VisibleEntities},
 };
-use bevy_transform::{GlobalTransform, Transform};
+use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
 pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;

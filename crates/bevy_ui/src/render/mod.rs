@@ -26,7 +26,7 @@ use bevy_render::{
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
-use bevy_transform::GlobalTransform;
+use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};

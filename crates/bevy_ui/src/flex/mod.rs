@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
-use bevy_transform::Transform;
+use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
