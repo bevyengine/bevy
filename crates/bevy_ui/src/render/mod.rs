@@ -6,8 +6,7 @@ pub use camera::*;
 pub use pipeline::*;
 pub use render_pass::*;
 
-use std::ops::Range;
-
+use crate::{CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
@@ -15,7 +14,6 @@ use bevy_ecs::prelude::*;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::extract_cameras,
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, SlotInfo, SlotType},
@@ -31,10 +29,8 @@ use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
-
 use bytemuck::{Pod, Zeroable};
-
-use crate::{prelude::CameraUi, CalculatedClip, Node, UiColor, UiImage};
+use std::ops::Range;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -75,7 +71,6 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_system_to_stage(RenderStage::Extract, extract_ui_camera_phases)
-        .add_system_to_stage(RenderStage::Extract, extract_cameras::<CameraUi>)
         .add_system_to_stage(
             RenderStage::Extract,
             extract_uinodes.label(RenderUiSystem::ExtractNode),
@@ -89,7 +84,6 @@ pub fn build_ui_render(app: &mut App) {
         .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
 
     // Render graph
-    let ui_pass_driver_node = UiPassDriverNode::new(&mut render_app.world);
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
     let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
@@ -109,7 +103,7 @@ pub fn build_ui_render(app: &mut App) {
         .unwrap();
     graph.add_sub_graph(draw_ui_graph::NAME, draw_ui_graph);
 
-    graph.add_node(node::UI_PASS_DRIVER, ui_pass_driver_node);
+    graph.add_node(node::UI_PASS_DRIVER, UiPassDriverNode);
     graph
         .add_node_edge(
             bevy_core_pipeline::node::MAIN_PASS_DRIVER,

@@ -12,6 +12,7 @@ pub mod entity;
 pub mod update;
 pub mod widget;
 
+use bevy_render::camera::CameraTypePlugin;
 pub use flex::*;
 pub use focus::*;
 pub use margins::*;
@@ -31,6 +32,8 @@ use bevy_math::{Rect, Size};
 use bevy_transform::TransformSystem;
 use update::{ui_z_system, update_clipping_system};
 
+use crate::prelude::CameraUi;
+
 /// The basic plugin for Bevy UI
 #[derive(Default)]
 pub struct UiPlugin;
@@ -46,7 +49,8 @@ pub enum UiSystem {
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<FlexSurface>()
+        app.add_plugin(CameraTypePlugin::<CameraUi>::default())
+            .init_resource::<FlexSurface>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()

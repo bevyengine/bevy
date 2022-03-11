@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        camera::{extract_cameras, Camera, RenderTarget},
+        camera::{Camera, CameraTypePlugin, RenderTarget},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
         render_phase::RenderPhase,
         render_resource::{
@@ -31,6 +31,7 @@ fn main() {
     let mut app = App::new();
     app.insert_resource(Msaa { samples: 4 }) // Use 4x MSAA
         .add_plugins(DefaultPlugins)
+        .add_plugin(CameraTypePlugin::<FirstPassCamera>::default())
         .add_startup_system(setup)
         .add_system(cube_rotator_system)
         .add_system(rotator_system);
@@ -38,9 +39,7 @@ fn main() {
     let render_app = app.sub_app_mut(RenderApp);
     let driver = FirstPassCameraDriver::new(&mut render_app.world);
     // This will add 3D render phases for the new camera.
-    render_app
-        .add_system_to_stage(RenderStage::Extract, extract_cameras::<FirstPassCamera>)
-        .add_system_to_stage(RenderStage::Extract, extract_first_pass_camera_phases);
+    render_app.add_system_to_stage(RenderStage::Extract, extract_first_pass_camera_phases);
 
     let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
