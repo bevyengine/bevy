@@ -4,7 +4,7 @@ use bevy_ecs::{
     system::{Command, Commands},
     world::World,
 };
-use bevy_hierarchy::hierarchy::ChildBuilder;
+use bevy_hierarchy::ChildBuilder;
 
 use crate::{Scene, SceneSpawner};
 

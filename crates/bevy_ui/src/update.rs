@@ -8,7 +8,7 @@ use bevy_ecs::{
     query::{With, Without},
     system::{Commands, Query},
 };
-use bevy_hierarchy::components::{Children, Parent};
+use bevy_hierarchy::{Children, Parent};
 use bevy_math::Vec2;
 use bevy_sprite::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -139,7 +139,7 @@ mod tests {
         system::{CommandQueue, Commands},
         world::World,
     };
-    use bevy_hierarchy::hierarchy::BuildChildren;
+    use bevy_hierarchy::BuildChildren;
     use bevy_transform::components::Transform;
 
     use crate::Node;

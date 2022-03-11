@@ -3,6 +3,8 @@
 
 /// The basic components of the transform crate
 pub mod components;
+mod systems;
+pub use crate::systems::transform_propagate_system;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -11,7 +13,8 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::bundle::Bundle;
+use bevy_ecs::prelude::*;
+use bevy_hierarchy::HierarchySystem;
 use prelude::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
@@ -74,6 +77,13 @@ impl From<Transform> for TransformBundle {
         Self::from_transform(transform)
     }
 }
+/// Label enum for the systems relating to transform propagaion
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum TransformSystem {
+    /// Propagates changes in transform to childrens' [`GlobalTransform`](bevy_transform::components::GlobalTransform)
+    TransformPropagate,
+}
+
 /// The base plugin for handling [`Transform`] components
 #[derive(Default)]
 pub struct TransformPlugin;
@@ -81,6 +91,19 @@ pub struct TransformPlugin;
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Transform>()
-            .register_type::<GlobalTransform>();
+            .register_type::<GlobalTransform>()
+            // Adding these to startup ensures the first update is "correct"
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                systems::transform_propagate_system
+                    .label(TransformSystem::TransformPropagate)
+                    .after(HierarchySystem::ParentUpdate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                systems::transform_propagate_system
+                    .label(TransformSystem::TransformPropagate)
+                    .after(HierarchySystem::ParentUpdate),
+            );
     }
 }

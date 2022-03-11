@@ -5,9 +5,9 @@ pub use render_layers::*;
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::HierarchySystem;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
+use bevy_transform::TransformSystem;
 
 use crate::{
     camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
@@ -88,13 +88,13 @@ impl Plugin for VisibilityPlugin {
             CoreStage::PostUpdate,
             update_frusta::<OrthographicProjection>
                 .label(UpdateOrthographicFrusta)
-                .after(HierarchySystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             update_frusta::<PerspectiveProjection>
                 .label(UpdatePerspectiveFrusta)
-                .after(HierarchySystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
@@ -103,7 +103,7 @@ impl Plugin for VisibilityPlugin {
                 .after(CalculateBounds)
                 .after(UpdateOrthographicFrusta)
                 .after(UpdatePerspectiveFrusta)
-                .after(HierarchySystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate),
         );
     }
 }
