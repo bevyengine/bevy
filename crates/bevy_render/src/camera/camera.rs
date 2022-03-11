@@ -21,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};

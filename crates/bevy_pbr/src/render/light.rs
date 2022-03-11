@@ -29,7 +29,7 @@ use bevy_render::{
         ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
     },
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::GlobalTransform;
 use bevy_utils::{
     tracing::{error, warn},
     HashMap,

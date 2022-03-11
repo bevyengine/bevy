@@ -28,7 +28,7 @@ use bevy_render::{
     view::{ComputedVisibility, Msaa, Visibility, VisibleEntities},
     RenderApp, RenderStage,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::{GlobalTransform, Transform};
 use std::hash::Hash;
 use std::marker::PhantomData;
 

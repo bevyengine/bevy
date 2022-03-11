@@ -11,7 +11,7 @@ use bevy_render::{
     primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::GlobalTransform;
 use bevy_utils::tracing::warn;
 use bevy_window::Windows;
 

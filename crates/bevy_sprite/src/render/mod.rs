@@ -26,7 +26,7 @@ use bevy_render::{
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
     RenderWorld,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;

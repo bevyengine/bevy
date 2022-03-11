@@ -21,7 +21,7 @@ use bevy_render::{
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::GlobalTransform;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;

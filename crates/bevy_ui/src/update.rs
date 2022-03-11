@@ -11,7 +11,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::Vec2;
 use bevy_sprite::Rect;
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::{GlobalTransform, Transform};
 
 /// The resolution of Z values for UI
 pub const UI_Z_STEP: f32 = 0.001;
@@ -140,7 +140,7 @@ mod tests {
         world::World,
     };
     use bevy_hierarchy::BuildChildren;
-    use bevy_transform::components::Transform;
+    use bevy_transform::Transform;
 
     use crate::Node;
 

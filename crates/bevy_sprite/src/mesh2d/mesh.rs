@@ -17,7 +17,7 @@ use bevy_render::{
     view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::GlobalTransform;
 
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///

@@ -8,7 +8,7 @@ use bevy_render::{
     texture::{Image, DEFAULT_IMAGE_HANDLE},
     view::Visibility,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::{GlobalTransform, Transform};
 
 #[derive(Bundle, Clone)]
 pub struct SpriteBundle {

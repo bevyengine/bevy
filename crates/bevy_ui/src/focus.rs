@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::GlobalTransform;
 use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;

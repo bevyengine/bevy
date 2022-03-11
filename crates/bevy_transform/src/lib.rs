@@ -1,8 +1,8 @@
 #![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
-/// The basic components of the transform crate
-pub mod components;
+mod components;
+pub use components::*;
 mod systems;
 pub use crate::systems::transform_propagate_system;
 
@@ -15,7 +15,6 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::HierarchySystem;
-use prelude::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
 /// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
@@ -80,7 +79,7 @@ impl From<Transform> for TransformBundle {
 /// Label enum for the systems relating to transform propagaion
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum TransformSystem {
-    /// Propagates changes in transform to childrens' [`GlobalTransform`](bevy_transform::components::GlobalTransform)
+    /// Propagates changes in transform to childrens' [`GlobalTransform`](bevy_transform::GlobalTransform)
     TransformPropagate,
 }
 
