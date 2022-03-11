@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        camera::{Camera, CameraTypePlugin, RenderTarget},
+        camera::{ActiveCamera, Camera, CameraTypePlugin, RenderTarget},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
         render_phase::RenderPhase,
         render_resource::{
@@ -64,9 +64,9 @@ fn main() {
 // Add 3D render phases for FIRST_PASS_CAMERA.
 fn extract_first_pass_camera_phases(
     mut commands: Commands,
-    query: Query<Entity, With<FirstPassCamera>>,
+    active: Res<ActiveCamera<FirstPassCamera>>,
 ) {
-    for entity in query.iter() {
+    if let Some(entity) = active.get() {
         commands.get_or_spawn(entity).insert_bundle((
             RenderPhase::<Opaque3d>::default(),
             RenderPhase::<AlphaMask3d>::default(),
