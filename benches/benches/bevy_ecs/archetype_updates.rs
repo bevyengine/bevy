@@ -3,59 +3,111 @@ use bevy_ecs::{
     schedule::{Stage, SystemStage},
     world::World,
 };
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::time::Duration;
 
 criterion_group!(benches, no_archetypes, added_archetypes);
 criterion_main!(benches);
 
 #[derive(Component)]
-struct A(f32);
-#[derive(Component)]
-struct B(f32);
-#[derive(Component)]
-struct C(f32);
-#[derive(Component)]
-struct D(f32);
-#[derive(Component)]
-struct E(f32);
-
-const SYSTEMS: usize = 50;
-
-fn setup() -> (World, SystemStage) {
+struct A<const N: u16>(f32);
+fn setup(system_count: usize) -> (World, SystemStage) {
     let mut world = World::new();
     fn empty() {}
     let mut stage = SystemStage::parallel();
-    for _ in 0..SYSTEMS {
+    for _ in 0..system_count {
         stage.add_system(empty);
     }
     stage.run(&mut world);
     (world, stage)
 }
 
+/// create `count` entities with distinct archetypes
+fn add_archetypes(world: &mut World, count: u16) {
+    for i in 0..count {
+        let mut e = world.spawn();
+        if i & 1 << 0 != 0 {
+            e.insert(A::<0>(1.0));
+        }
+        if i & 1 << 1 != 0 {
+            e.insert(A::<1>(1.0));
+        }
+        if i & 1 << 2 != 0 {
+            e.insert(A::<2>(1.0));
+        }
+        if i & 1 << 3 != 0 {
+            e.insert(A::<3>(1.0));
+        }
+        if i & 1 << 4 != 0 {
+            e.insert(A::<4>(1.0));
+        }
+        if i & 1 << 5 != 0 {
+            e.insert(A::<5>(1.0));
+        }
+        if i & 1 << 6 != 0 {
+            e.insert(A::<6>(1.0));
+        }
+        if i & 1 << 7 != 0 {
+            e.insert(A::<7>(1.0));
+        }
+        if i & 1 << 8 != 0 {
+            e.insert(A::<8>(1.0));
+        }
+        if i & 1 << 9 != 0 {
+            e.insert(A::<9>(1.0));
+        }
+        if i & 1 << 10 != 0 {
+            e.insert(A::<10>(1.0));
+        }
+        if i & 1 << 11 != 0 {
+            e.insert(A::<11>(1.0));
+        }
+        if i & 1 << 12 != 0 {
+            e.insert(A::<12>(1.0));
+        }
+        if i & 1 << 13 != 0 {
+            e.insert(A::<13>(1.0));
+        }
+        if i & 1 << 14 != 0 {
+            e.insert(A::<14>(1.0));
+        }
+        if i & 1 << 15 != 0 {
+            e.insert(A::<15>(1.0));
+        }
+    }
+}
+
 fn no_archetypes(criterion: &mut Criterion) {
-    let (mut world, mut stage) = setup();
-    criterion.bench_function("no_archetypes", |bencher| {
-        bencher.iter(|| {
-            stage.run(&mut world);
-        });
-    });
+    let mut group = criterion.benchmark_group("no_archetypes");
+    for i in 0..=5 {
+        let system_count = i * 20;
+        let (mut world, mut stage) = setup(system_count);
+        group.bench_with_input(
+            BenchmarkId::new("system_count", system_count),
+            &system_count,
+            |bencher, &_system_count| {
+                bencher.iter(|| {
+                    stage.run(&mut world);
+                });
+            },
+        );
+    }
 }
 
 fn added_archetypes(criterion: &mut Criterion) {
-    criterion.bench_function("added_archetypes", |bencher| {
-        bencher.iter(|| {
-            let (mut world, mut stage) = setup();
-            world.spawn_batch(vec![(A(1.0), B(1.0))]);
-            world.spawn_batch(vec![(A(1.0), C(1.0))]);
-            world.spawn_batch(vec![(A(1.0), D(1.0))]);
-            world.spawn_batch(vec![(A(1.0), E(1.0))]);
-            world.spawn_batch(vec![(B(1.0), C(1.0))]);
-            world.spawn_batch(vec![(B(1.0), D(1.0))]);
-            world.spawn_batch(vec![(B(1.0), E(1.0))]);
-            world.spawn_batch(vec![(C(1.0), D(1.0))]);
-            world.spawn_batch(vec![(C(1.0), E(1.0))]);
-            world.spawn_batch(vec![(D(1.0), E(1.0))]);
-            stage.run(&mut world);
-        })
-    });
+    const SYSTEM_COUNT: usize = 100;
+    let mut group = criterion.benchmark_group("added_archetypes");
+    for archetype_count in [100, 200, 500, 1000, 2000, 5000, 10000] {
+        group.bench_with_input(
+            BenchmarkId::new("archetype_count", archetype_count),
+            &archetype_count,
+            |bencher, &archetype_count| {
+                bencher.iter(|| {
+                    let (mut world, mut stage) = setup(SYSTEM_COUNT);
+                    add_archetypes(&mut world, archetype_count);
+                    stage.run(&mut world);
+                })
+            },
+        );
+    }
 }
