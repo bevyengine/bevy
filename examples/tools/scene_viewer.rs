@@ -247,7 +247,7 @@ fn update_lights(
             transform.rotation = Quat::from_euler(
                 EulerRot::ZYX,
                 0.0,
-                time.seconds_since_startup() as f32 * std::f32::consts::TAU / 10.0,
+                time.seconds_since_startup() as f32 * std::f32::consts::TAU / 30.0,
                 -std::f32::consts::FRAC_PI_4,
             );
         }
