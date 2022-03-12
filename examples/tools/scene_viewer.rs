@@ -49,6 +49,7 @@ Controls:
 struct SceneHandle {
     handle: Option<Handle<Scene>>,
     has_camera: bool,
+    has_light: bool,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -58,6 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(SceneHandle {
         handle: Some(asset_server.load(&scene_path)),
         has_camera: false,
+        has_light: false,
     });
 }
 
@@ -82,6 +84,15 @@ fn scene_load_check(
                 .any(|(maybe_camera2d, maybe_camera3d)| {
                     maybe_camera2d.is_some() || maybe_camera3d.is_some()
                 });
+        let mut query = scene
+            .world
+            .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
+        scene_handle.has_light =
+            query
+                .iter(&scene.world)
+                .any(|(maybe_directional_light, maybe_point_light)| {
+                    maybe_directional_light.is_some() || maybe_point_light.is_some()
+                });
 
         commands.spawn_scene(scene_handle.handle.take().unwrap());
         println!("Spawning scene");
@@ -96,7 +107,7 @@ fn camera_spawn_check(
     // scene_handle.handle.is_none() indicates that the scene has been spawned
     // If the scene did not contain a camera, find an approximate bounding box of the scene from
     // its meshes and spawn a camera that fits it in view
-    if scene_handle.handle.is_none() && !scene_handle.has_camera {
+    if scene_handle.handle.is_none() && (!scene_handle.has_camera || !scene_handle.has_light) {
         if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
             return;
         }
@@ -118,35 +129,69 @@ fn camera_spawn_check(
         }
 
         let size = (max - min).length();
-        let center = 0.5 * (max + min);
+        let aabb = Aabb::from_min_max(min, max);
 
-        let transform = Transform::from_translation(center + size * Vec3::new(1.0, 0.5, 1.0))
-            .looking_at(center, Vec3::Y);
-        let view = transform.compute_matrix();
-        let mut perspective_projection = PerspectiveProjection::default();
-        perspective_projection.far = perspective_projection.far.max(size * 10.0);
-        let view_projection = view.inverse() * perspective_projection.get_projection_matrix();
-        let frustum = Frustum::from_view_projection(
-            &view_projection,
-            &transform.translation,
-            &transform.back(),
-            perspective_projection.far(),
-        );
+        if !scene_handle.has_camera {
+            let transform =
+                Transform::from_translation(aabb.center + size * Vec3::new(0.5, 0.25, 0.5))
+                    .looking_at(aabb.center, Vec3::Y);
+            let view = transform.compute_matrix();
+            let mut perspective_projection = PerspectiveProjection::default();
+            perspective_projection.far = perspective_projection.far.max(size * 10.0);
+            let view_projection = view.inverse() * perspective_projection.get_projection_matrix();
+            let frustum = Frustum::from_view_projection(
+                &view_projection,
+                &transform.translation,
+                &transform.back(),
+                perspective_projection.far(),
+            );
 
-        println!("Spawning a 3D perspective camera");
-        commands.spawn_bundle(PerspectiveCameraBundle {
-            camera: Camera {
-                near: perspective_projection.near,
-                far: perspective_projection.far,
+            println!("Spawning a 3D perspective camera");
+            commands.spawn_bundle(PerspectiveCameraBundle {
+                camera: Camera {
+                    near: perspective_projection.near,
+                    far: perspective_projection.far,
+                    ..default()
+                },
+                perspective_projection,
+                frustum,
+                transform,
+                ..PerspectiveCameraBundle::new_3d()
+            });
+
+            scene_handle.has_camera = true;
+        }
+
+        if !scene_handle.has_light {
+            // The same approach as above but now for the scene
+            let sphere = Sphere {
+                center: aabb.center,
+                radius: aabb.half_extents.length(),
+            };
+            let aabb = Aabb::from(sphere);
+            let min = aabb.min();
+            let max = aabb.max();
+
+            println!("Spawning a directional light");
+            commands.spawn_bundle(DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    shadow_projection: OrthographicProjection {
+                        left: min.x,
+                        right: max.x,
+                        bottom: min.y,
+                        top: max.y,
+                        near: min.z,
+                        far: max.z,
+                        ..default()
+                    },
+                    shadows_enabled: false,
+                    ..default()
+                },
                 ..default()
-            },
-            perspective_projection,
-            frustum,
-            transform,
-            ..PerspectiveCameraBundle::new_3d()
-        });
+            });
 
-        scene_handle.has_camera = true;
+            scene_handle.has_light = true;
+        }
     }
 }
 
