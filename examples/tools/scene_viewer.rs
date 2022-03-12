@@ -1,4 +1,12 @@
-use bevy::{asset::AssetServerSettings, input::mouse::MouseMotion, prelude::*};
+use bevy::{
+    asset::{AssetServerSettings, LoadState},
+    input::mouse::MouseMotion,
+    prelude::*,
+    render::{
+        camera::{CameraPlugin, CameraProjection},
+        primitives::{Aabb, Frustum},
+    },
+};
 
 fn main() {
     println!(
@@ -30,39 +38,133 @@ Controls:
         })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
+        .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
+        .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
+        .add_system(camera_controller_check.label("camera_controller_check"))
         .add_system(update_lights)
-        .add_system(camera_controller)
+        .add_system(camera_controller.after("camera_controller_check"))
         .run();
+}
+
+struct SceneHandle {
+    handle: Option<Handle<Scene>>,
+    has_camera: bool,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let scene_path = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf#Scene0".to_string());
-    commands.spawn_scene(asset_server.load(&scene_path));
-    commands
-        .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
-        .insert(CameraController::default());
-    const HALF_SIZE: f32 = 1.0;
-    commands.spawn_bundle(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            shadow_projection: OrthographicProjection {
-                left: -HALF_SIZE,
-                right: HALF_SIZE,
-                bottom: -HALF_SIZE,
-                top: HALF_SIZE,
-                near: -10.0 * HALF_SIZE,
-                far: 10.0 * HALF_SIZE,
+    commands.insert_resource(SceneHandle {
+        handle: Some(asset_server.load(&scene_path)),
+        has_camera: false,
+    });
+}
+
+fn scene_load_check(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut scenes: ResMut<Assets<Scene>>,
+    mut scene_handle: ResMut<SceneHandle>,
+) {
+    if scene_handle.handle.is_some()
+        && asset_server.get_load_state(scene_handle.handle.as_ref().unwrap()) == LoadState::Loaded
+    {
+        let mut to_remove = Vec::new();
+
+        let scene = scenes
+            .get_mut(scene_handle.handle.as_ref().unwrap())
+            .unwrap();
+        let mut query = scene.world.query::<(Entity, &Camera)>();
+        for (entity, camera) in query.iter(&scene.world) {
+            match camera.name.as_deref() {
+                Some(CameraPlugin::CAMERA_3D) if !scene_handle.has_camera => {
+                    scene_handle.has_camera = true;
+                    println!("Model has a 3D camera");
+                }
+                Some(CameraPlugin::CAMERA_2D) if !scene_handle.has_camera => {
+                    scene_handle.has_camera = true;
+                    println!("Model has a 2D camera");
+                }
+                _ => {
+                    to_remove.push(entity);
+                }
+            }
+        }
+
+        for entity in to_remove.drain(..) {
+            scene.world.entity_mut(entity).despawn_recursive();
+        }
+
+        commands.spawn_scene(scene_handle.handle.take().unwrap());
+        println!("Spawning scene");
+    }
+}
+
+fn camera_spawn_check(
+    mut commands: Commands,
+    mut scene_handle: ResMut<SceneHandle>,
+    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
+) {
+    // scene_handle.handle.is_none() indicates that the scene has been spawned
+    // If the scene did not contain a camera, find an approximate bounding box of the scene from
+    // its meshes and spawn a camera that fits it in view
+    if scene_handle.handle.is_none() && !scene_handle.has_camera {
+        if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
+            return;
+        }
+
+        let mut min = Vec3::splat(f32::MAX);
+        let mut max = Vec3::splat(f32::MIN);
+        for (transform, maybe_aabb) in meshes.iter() {
+            let aabb = maybe_aabb.unwrap();
+            // This isn't fully correct for finding the min/max but should be good enough
+            min = min.min(transform.mul_vec3(aabb.min()));
+            max = max.max(transform.mul_vec3(aabb.max()));
+        }
+
+        let size = (max - min).length();
+        let center = 0.5 * (max + min);
+
+        let transform = Transform::from_translation(center + size * Vec3::new(1.0, 0.5, 1.0))
+            .looking_at(center, Vec3::Y);
+        let view = transform.compute_matrix();
+        let mut perspective_projection = PerspectiveProjection::default();
+        perspective_projection.far = perspective_projection.far.max(size * 10.0);
+        let view_projection = view.inverse() * perspective_projection.get_projection_matrix();
+        let frustum = Frustum::from_view_projection(
+            &view_projection,
+            &transform.translation,
+            &transform.back(),
+            perspective_projection.far(),
+        );
+
+        println!("Spawning a 3D perspective camera");
+        commands.spawn_bundle(PerspectiveCameraBundle {
+            camera: Camera {
+                name: Some(CameraPlugin::CAMERA_3D.to_string()),
+                near: perspective_projection.near,
+                far: perspective_projection.far,
                 ..default()
             },
-            shadows_enabled: false,
-            ..default()
-        },
-        ..default()
-    });
+            perspective_projection,
+            frustum,
+            transform,
+            ..PerspectiveCameraBundle::new_3d()
+        });
+
+        scene_handle.has_camera = true;
+    }
+}
+
+// TODO: Register all types in CameraController so that it can be registered
+fn camera_controller_check(
+    mut commands: Commands,
+    camera: Query<Entity, (With<Camera>, Without<CameraController>)>,
+) {
+    if let Ok(entity) = camera.get_single() {
+        commands.entity(entity).insert(CameraController::default());
+    }
 }
 
 const SCALE_STEP: f32 = 0.1;
