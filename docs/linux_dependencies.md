@@ -105,6 +105,7 @@ Note that this template doesn't add Rust to the environment because there are ma
 ```
 
 ## Gentoo
+
 ```bash
    sudo emerge --ask libX11 pkgconf alsa-lib
 ```
