@@ -166,10 +166,10 @@ pub fn ui_focus_system(
             FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
         }
     }
-    // reset lower nodes to None
+    // reset lower nodes to None, except if they're clicked
     for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
         if let Some(mut interaction) = interaction {
-            if *interaction != Interaction::None {
+            if *interaction != Interaction::None && *interaction != Interaction::Clicked {
                 *interaction = Interaction::None;
             }
         }
