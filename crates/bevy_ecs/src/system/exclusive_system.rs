@@ -77,7 +77,6 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
     }
 
     fn run(&mut self, world: &mut World) {
-        self.system.update_archetypes(world);
         self.system.run((), world);
         self.system.apply_buffers(world);
     }

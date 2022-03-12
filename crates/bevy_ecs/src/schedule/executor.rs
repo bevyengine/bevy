@@ -18,7 +18,6 @@ impl ParallelSystemExecutor for SingleThreadedExecutor {
 
     fn run_systems(&mut self, systems: &mut [ParallelSystemContainer], world: &mut World) {
         for system in systems {
-            system.system_mut().update_archetypes(world);
             if system.should_run() {
                 #[cfg(feature = "trace")]
                 let _system_span =

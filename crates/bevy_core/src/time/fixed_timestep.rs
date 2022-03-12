@@ -216,8 +216,9 @@ impl System for FixedTimestep {
         }
     }
 
-    fn update_archetypes(&mut self, world: &World) {
-        self.internal_system.update_archetypes(world);
+    fn update_archetype_component_access(&mut self, world: &World) {
+        self.internal_system
+            .update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: u32) {

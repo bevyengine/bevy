@@ -117,7 +117,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             for (index, container) in systems.iter_mut().enumerate() {
                 let meta = &mut self.system_metadata[index];
                 let system = container.system_mut();
-                system.update_archetypes(world);
+                system.update_archetype_component_access(world);
                 meta.archetype_component_access
                     .extend(system.archetype_component_access());
             }

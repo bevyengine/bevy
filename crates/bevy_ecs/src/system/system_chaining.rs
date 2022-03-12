@@ -91,9 +91,9 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
             .extend(self.system_b.component_access());
     }
 
-    fn update_archetypes(&mut self, world: &World) {
-        self.system_a.update_archetypes(world);
-        self.system_b.update_archetypes(world);
+    fn update_archetype_component_access(&mut self, world: &World) {
+        self.system_a.update_archetype_component_access(world);
+        self.system_b.update_archetype_component_access(world);
 
         self.archetype_component_access
             .extend(self.system_a.archetype_component_access());

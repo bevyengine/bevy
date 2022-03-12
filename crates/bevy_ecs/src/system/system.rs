@@ -45,14 +45,15 @@ pub trait System: Send + Sync + 'static {
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
     /// Runs the system with the given input in the world.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        self.update_archetype_component_access(world);
         // SAFE: world and resources are exclusively borrowed
         unsafe { self.run_unsafe(input, world) }
     }
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
-    /// Update the system's cached [`Archetypes`](crate::archetypes::Archetypes).
-    fn update_archetypes(&mut self, world: &World);
+    /// Update the system's archetype component [`Access`].
+    fn update_archetype_component_access(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
     /// The default labels for the system
     fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {

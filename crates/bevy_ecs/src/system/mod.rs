@@ -138,7 +138,6 @@ mod tests {
         world.spawn().insert(A);
 
         system.initialize(&mut world);
-        system.update_archetypes(&world);
         system.run((), &mut world);
     }
 

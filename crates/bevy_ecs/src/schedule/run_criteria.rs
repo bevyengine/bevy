@@ -62,7 +62,6 @@ impl BoxedRunCriteria {
                 run_criteria.initialize(world);
                 self.initialized = true;
             }
-            run_criteria.update_archetypes(world);
             let should_run = run_criteria.run((), world);
             run_criteria.apply_buffers(world);
             should_run
@@ -113,18 +112,6 @@ impl RunCriteriaContainer {
         match &mut self.inner {
             RunCriteriaInner::Single(system) => system.initialize(world),
             RunCriteriaInner::Piped { system, .. } => system.initialize(world),
-        }
-    }
-
-    pub(crate) fn update_archetypes(&mut self, world: &World) {
-        match &mut self.inner {
-            RunCriteriaInner::Single(system) => {
-                system.update_archetypes(world);
-            }
-
-            RunCriteriaInner::Piped { system, .. } => {
-                system.update_archetypes(world);
-            }
         }
     }
 }
@@ -412,7 +399,7 @@ impl System for RunOnce {
 
     fn initialize(&mut self, _world: &mut World) {}
 
-    fn update_archetypes(&mut self, _world: &World) {}
+    fn update_archetype_component_access(&mut self, _world: &World) {}
 
     fn check_change_tick(&mut self, _change_tick: u32) {}
 }
