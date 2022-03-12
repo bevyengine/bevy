@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::{Camera2d, Camera3d, CameraProjection},
-        primitives::{Aabb, Frustum},
+        primitives::{Aabb, Frustum, Sphere},
     },
 };
 
@@ -105,9 +105,16 @@ fn camera_spawn_check(
         let mut max = Vec3::splat(f32::MIN);
         for (transform, maybe_aabb) in meshes.iter() {
             let aabb = maybe_aabb.unwrap();
-            // This isn't fully correct for finding the min/max but should be good enough
-            min = min.min(transform.mul_vec3(aabb.min()));
-            max = max.max(transform.mul_vec3(aabb.max()));
+            // If the Aabb had not been rotated, applying the non-uniform scale would produce the
+            // correct bounds. However, it could very well be rotated and so we first convert to
+            // a Sphere, and then back to an Aabb to find the conservative min and max points.
+            let sphere = Sphere {
+                center: transform.mul_vec3(aabb.center),
+                radius: (transform.scale * aabb.half_extents).length(),
+            };
+            let aabb = Aabb::from(sphere);
+            min = min.min(aabb.min());
+            max = max.max(aabb.max());
         }
 
         let size = (max - min).length();
