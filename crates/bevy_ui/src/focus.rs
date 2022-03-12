@@ -170,10 +170,8 @@ pub fn ui_focus_system(
     for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
         if let Some(mut interaction) = interaction {
             // don't reset clicked nodes because they're handled separately
-            if *interaction != Interaction::Clicked {
-                if *interaction != Interaction::None {
-                    *interaction = Interaction::None;
-                }
+            if *interaction != Interaction::Clicked && *interaction != Interaction::None {
+                *interaction = Interaction::None;
             }
         }
     }
