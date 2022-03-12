@@ -41,12 +41,12 @@ impl Hash for FloatOrd {
     fn hash<H: Hasher>(&self, state: &mut H) {
         if self.0.is_nan() {
             // Ensure all NaN representations hash to the same value
-            state.write(bytemuck::bytes_of(&f32::NAN));
+            state.write(&f32::to_ne_bytes(f32::NAN));
         } else if self.0 == 0.0 {
             // Ensure both zeroes hash to the same value
-            state.write(bytemuck::bytes_of(&0.0f32));
+            state.write(&f32::to_ne_bytes(0.0f32));
         } else {
-            state.write(bytemuck::bytes_of(&self.0));
+            state.write(&f32::to_ne_bytes(self.0));
         }
     }
 }

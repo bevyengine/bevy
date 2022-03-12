@@ -1,6 +1,5 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::{
     entity::Entity,
@@ -29,6 +28,7 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::FloatOrd;
 use std::hash::Hash;
 use std::marker::PhantomData;
 

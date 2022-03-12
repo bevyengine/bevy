@@ -1,13 +1,11 @@
 #![warn(missing_docs)]
 //! This crate provides core functionality for Bevy Engine.
 
-mod float_ord;
 mod name;
 mod task_pool_options;
 mod time;
 
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
-pub use float_ord::*;
 pub use name::*;
 pub use task_pool_options::*;
 pub use time::*;

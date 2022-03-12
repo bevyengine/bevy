@@ -1,5 +1,4 @@
 use crate::{CalculatedClip, Node};
-use bevy_core::FloatOrd;
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -10,6 +9,7 @@ use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::FloatOrd;
 use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
