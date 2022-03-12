@@ -6,8 +6,7 @@ pub use camera::*;
 pub use pipeline::*;
 pub use render_pass::*;
 
-use std::ops::Range;
-
+use crate::{CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
@@ -15,7 +14,6 @@ use bevy_ecs::prelude::*;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::ActiveCameras,
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, SlotInfo, SlotType},
@@ -31,10 +29,8 @@ use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
-
 use bytemuck::{Pod, Zeroable};
-
-use crate::{CalculatedClip, Node, UiColor, UiImage};
+use std::ops::Range;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -60,9 +56,6 @@ pub enum RenderUiSystem {
 
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
-
-    let mut active_cameras = app.world.resource_mut::<ActiveCameras>();
-    active_cameras.add(CAMERA_UI);
 
     let render_app = match app.get_sub_app_mut(RenderApp) {
         Ok(render_app) => render_app,

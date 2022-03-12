@@ -23,7 +23,7 @@ use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{ActiveCameras, CameraPlugin, RenderTarget},
+    camera::{ActiveCamera, Camera2d, Camera3d, RenderTarget},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
@@ -367,23 +367,20 @@ pub fn extract_clear_color(
 
 pub fn extract_core_pipeline_camera_phases(
     mut commands: Commands,
-    active_cameras: Res<ActiveCameras>,
+    active_2d: Res<ActiveCamera<Camera2d>>,
+    active_3d: Res<ActiveCamera<Camera3d>>,
 ) {
-    if let Some(camera_2d) = active_cameras.get(CameraPlugin::CAMERA_2D) {
-        if let Some(entity) = camera_2d.entity {
-            commands
-                .get_or_spawn(entity)
-                .insert(RenderPhase::<Transparent2d>::default());
-        }
+    if let Some(entity) = active_2d.get() {
+        commands
+            .get_or_spawn(entity)
+            .insert(RenderPhase::<Transparent2d>::default());
     }
-    if let Some(camera_3d) = active_cameras.get(CameraPlugin::CAMERA_3D) {
-        if let Some(entity) = camera_3d.entity {
-            commands.get_or_spawn(entity).insert_bundle((
-                RenderPhase::<Opaque3d>::default(),
-                RenderPhase::<AlphaMask3d>::default(),
-                RenderPhase::<Transparent3d>::default(),
-            ));
-        }
+    if let Some(entity) = active_3d.get() {
+        commands.get_or_spawn(entity).insert_bundle((
+            RenderPhase::<Opaque3d>::default(),
+            RenderPhase::<AlphaMask3d>::default(),
+            RenderPhase::<Transparent3d>::default(),
+        ));
     }
 }
 

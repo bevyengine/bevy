@@ -4,7 +4,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
-    camera::ExtractedCameraNames,
+    camera::ActiveCamera,
     render_graph::*,
     render_phase::*,
     render_resource::{
@@ -14,20 +14,21 @@ use bevy_render::{
     view::*,
 };
 
-use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta, CAMERA_UI};
+use crate::prelude::CameraUi;
+
+use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta};
 
 pub struct UiPassDriverNode;
 
-impl bevy_render::render_graph::Node for UiPassDriverNode {
+impl Node for UiPassDriverNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.resource::<ExtractedCameraNames>();
-        if let Some(camera_ui) = extracted_cameras.entities.get(CAMERA_UI) {
-            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(*camera_ui)])?;
+        if let Some(camera_ui) = world.resource::<ActiveCamera<CameraUi>>().get() {
+            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(camera_ui)])?;
         }
 
         Ok(())
@@ -49,7 +50,7 @@ impl UiPassNode {
     }
 }
 
-impl bevy_render::render_graph::Node for UiPassNode {
+impl Node for UiPassNode {
     fn input(&self) -> Vec<SlotInfo> {
         vec![SlotInfo::new(UiPassNode::IN_VIEW, SlotType::Entity)]
     }

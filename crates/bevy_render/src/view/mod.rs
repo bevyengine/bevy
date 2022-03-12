@@ -9,7 +9,7 @@ use wgpu::{
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, ExtractedCameraNames},
+    camera::ExtractedCamera,
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
@@ -174,20 +174,14 @@ fn prepare_view_uniforms(
 #[allow(clippy::too_many_arguments)]
 fn prepare_view_targets(
     mut commands: Commands,
-    camera_names: Res<ExtractedCameraNames>,
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    cameras: Query<&ExtractedCamera>,
+    cameras: Query<(Entity, &ExtractedCamera)>,
 ) {
-    for entity in camera_names.entities.values().copied() {
-        let camera = if let Ok(camera) = cameras.get(entity) {
-            camera
-        } else {
-            continue;
-        };
+    for (entity, camera) in cameras.iter() {
         if let Some(size) = camera.physical_size {
             if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
                 let sampled_target = if msaa.samples > 1 {
