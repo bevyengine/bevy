@@ -4,7 +4,6 @@ use bevy_ecs::{
     world::World,
 };
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::time::Duration;
 
 criterion_group!(benches, no_archetypes, added_archetypes);
 criterion_main!(benches);
