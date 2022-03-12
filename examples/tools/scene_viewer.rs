@@ -3,7 +3,7 @@ use bevy::{
     input::mouse::MouseMotion,
     prelude::*,
     render::{
-        camera::{CameraPlugin, CameraProjection},
+        camera::{Camera2d, Camera3d, CameraProjection},
         primitives::{Aabb, Frustum},
     },
 };
@@ -70,31 +70,18 @@ fn scene_load_check(
     if scene_handle.handle.is_some()
         && asset_server.get_load_state(scene_handle.handle.as_ref().unwrap()) == LoadState::Loaded
     {
-        let mut to_remove = Vec::new();
-
         let scene = scenes
             .get_mut(scene_handle.handle.as_ref().unwrap())
             .unwrap();
-        let mut query = scene.world.query::<(Entity, &Camera)>();
-        for (entity, camera) in query.iter(&scene.world) {
-            match camera.name.as_deref() {
-                Some(CameraPlugin::CAMERA_3D) if !scene_handle.has_camera => {
-                    scene_handle.has_camera = true;
-                    println!("Model has a 3D camera");
-                }
-                Some(CameraPlugin::CAMERA_2D) if !scene_handle.has_camera => {
-                    scene_handle.has_camera = true;
-                    println!("Model has a 2D camera");
-                }
-                _ => {
-                    to_remove.push(entity);
-                }
-            }
-        }
-
-        for entity in to_remove.drain(..) {
-            scene.world.entity_mut(entity).despawn_recursive();
-        }
+        let mut query = scene
+            .world
+            .query::<(Option<&Camera2d>, Option<&Camera3d>)>();
+        scene_handle.has_camera =
+            query
+                .iter(&scene.world)
+                .any(|(maybe_camera2d, maybe_camera3d)| {
+                    maybe_camera2d.is_some() || maybe_camera3d.is_some()
+                });
 
         commands.spawn_scene(scene_handle.handle.take().unwrap());
         println!("Spawning scene");
@@ -142,7 +129,6 @@ fn camera_spawn_check(
         println!("Spawning a 3D perspective camera");
         commands.spawn_bundle(PerspectiveCameraBundle {
             camera: Camera {
-                name: Some(CameraPlugin::CAMERA_3D.to_string()),
                 near: perspective_projection.near,
                 far: perspective_projection.far,
                 ..default()
