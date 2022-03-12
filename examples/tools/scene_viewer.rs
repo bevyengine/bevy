@@ -47,7 +47,8 @@ Controls:
 }
 
 struct SceneHandle {
-    handle: Option<Handle<Scene>>,
+    handle: Handle<Scene>,
+    is_loaded: bool,
     has_camera: bool,
     has_light: bool,
 }
@@ -57,7 +58,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .nth(1)
         .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf#Scene0".to_string());
     commands.insert_resource(SceneHandle {
-        handle: Some(asset_server.load(&scene_path)),
+        handle: asset_server.load(&scene_path),
+        is_loaded: false,
         has_camera: false,
         has_light: false,
     });
@@ -69,33 +71,33 @@ fn scene_load_check(
     mut scenes: ResMut<Assets<Scene>>,
     mut scene_handle: ResMut<SceneHandle>,
 ) {
-    if scene_handle.handle.is_some()
-        && asset_server.get_load_state(scene_handle.handle.as_ref().unwrap()) == LoadState::Loaded
+    if !scene_handle.is_loaded
+        && asset_server.get_load_state(&scene_handle.handle) == LoadState::Loaded
     {
-        let scene = scenes
-            .get_mut(scene_handle.handle.as_ref().unwrap())
-            .unwrap();
-        let mut query = scene
-            .world
-            .query::<(Option<&Camera2d>, Option<&Camera3d>)>();
-        scene_handle.has_camera =
-            query
-                .iter(&scene.world)
-                .any(|(maybe_camera2d, maybe_camera3d)| {
-                    maybe_camera2d.is_some() || maybe_camera3d.is_some()
-                });
-        let mut query = scene
-            .world
-            .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
-        scene_handle.has_light =
-            query
-                .iter(&scene.world)
-                .any(|(maybe_directional_light, maybe_point_light)| {
-                    maybe_directional_light.is_some() || maybe_point_light.is_some()
-                });
+        if let Some(scene) = scenes.get_mut(&scene_handle.handle) {
+            let mut query = scene
+                .world
+                .query::<(Option<&Camera2d>, Option<&Camera3d>)>();
+            scene_handle.has_camera =
+                query
+                    .iter(&scene.world)
+                    .any(|(maybe_camera2d, maybe_camera3d)| {
+                        maybe_camera2d.is_some() || maybe_camera3d.is_some()
+                    });
+            let mut query = scene
+                .world
+                .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
+            scene_handle.has_light =
+                query
+                    .iter(&scene.world)
+                    .any(|(maybe_directional_light, maybe_point_light)| {
+                        maybe_directional_light.is_some() || maybe_point_light.is_some()
+                    });
 
-        commands.spawn_scene(scene_handle.handle.take().unwrap());
-        println!("Spawning scene");
+            commands.spawn_scene(scene_handle.handle.clone_weak());
+            scene_handle.is_loaded = true;
+            println!("Spawning scene");
+        }
     }
 }
 
@@ -104,10 +106,9 @@ fn camera_spawn_check(
     mut scene_handle: ResMut<SceneHandle>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
 ) {
-    // scene_handle.handle.is_none() indicates that the scene has been spawned
     // If the scene did not contain a camera, find an approximate bounding box of the scene from
     // its meshes and spawn a camera that fits it in view
-    if scene_handle.handle.is_none() && (!scene_handle.has_camera || !scene_handle.has_light) {
+    if scene_handle.is_loaded && (!scene_handle.has_camera || !scene_handle.has_light) {
         if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
             return;
         }
