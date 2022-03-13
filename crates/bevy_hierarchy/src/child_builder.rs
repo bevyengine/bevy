@@ -1,4 +1,4 @@
-use crate::prelude::{Children, Parent, PreviousParent};
+use crate::prelude::{Children, Parent};
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
@@ -20,8 +20,7 @@ impl Command for AddChild {
     fn write(self, world: &mut World) {
         world
             .entity_mut(self.child)
-            // FIXME: don't erase the previous parent (see #1545)
-            .insert_bundle((Parent(self.parent), PreviousParent(self.parent)));
+            .insert(Parent(self.parent));
         if let Some(mut children) = world.get_mut::<Children>(self.parent) {
             children.0.push(self.child);
         } else {
@@ -45,8 +44,7 @@ impl Command for InsertChildren {
         for child in self.children.iter() {
             world
                 .entity_mut(*child)
-                // FIXME: don't erase the previous parent (see #1545)
-                .insert_bundle((Parent(self.parent), PreviousParent(self.parent)));
+                .insert(Parent(self.parent));
         }
         {
             if let Some(mut children) = world.get_mut::<Children>(self.parent) {
@@ -72,8 +70,7 @@ impl Command for PushChildren {
         for child in self.children.iter() {
             world
                 .entity_mut(*child)
-                // FIXME: don't erase the previous parent (see #1545)
-                .insert_bundle((Parent(self.parent), PreviousParent(self.parent)));
+                .insert(Parent(self.parent));
         }
         {
             let mut added = false;
@@ -110,7 +107,7 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
         }
         if remove_parent {
             if let Some(parent) = child.remove::<Parent>() {
-                child.insert(PreviousParent(parent.0));
+                // child.insert(PreviousParent(parent.0));
             }
         }
     }
@@ -246,7 +243,7 @@ impl<'w> WorldChildBuilder<'w> {
             .world
             .spawn()
             .insert_bundle(bundle)
-            .insert_bundle((Parent(parent_entity), PreviousParent(parent_entity)))
+            .insert(Parent(parent_entity))
             .id();
         self.current_entity = Some(entity);
         if let Some(mut parent) = self.world.get_entity_mut(parent_entity) {
@@ -265,7 +262,7 @@ impl<'w> WorldChildBuilder<'w> {
         let entity = self
             .world
             .spawn()
-            .insert_bundle((Parent(parent_entity), PreviousParent(parent_entity)))
+            .insert(Parent(parent_entity))
             .id();
         self.current_entity = Some(entity);
         if let Some(mut parent) = self.world.get_entity_mut(parent_entity) {
@@ -325,8 +322,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             for child in children.iter() {
                 world
                     .entity_mut(*child)
-                    // FIXME: don't erase the previous parent (see #1545)
-                    .insert_bundle((Parent(parent), PreviousParent(parent)));
+                    .insert(Parent(parent));
             }
             // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
@@ -347,8 +343,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             for child in children.iter() {
                 world
                     .entity_mut(*child)
-                    // FIXME: don't erase the previous parent (see #1545)
-                    .insert_bundle((Parent(parent), PreviousParent(parent)));
+                    .insert(Parent(parent));
             }
             // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
@@ -376,7 +371,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             }
             if remove_parent {
                 if let Some(parent) = child.remove::<Parent>() {
-                    child.insert(PreviousParent(parent.0));
+                    // child.insert(PreviousParent(parent.0));
                 }
             }
         }
@@ -414,8 +409,7 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
         for child in children.iter() {
             self.world
                 .entity_mut(*child)
-                // FIXME: don't erase the previous parent (see #1545)
-                .insert_bundle((Parent(parent), PreviousParent(parent)));
+                .insert(Parent(parent));
         }
         if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
             children_component.0.extend(children.iter().cloned());
@@ -435,8 +429,7 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
         for child in children.iter() {
             self.world
                 .entity_mut(*child)
-                // FIXME: don't erase the previous parent (see #1545)
-                .insert_bundle((Parent(parent), PreviousParent(parent)));
+                .insert(Parent(parent));
         }
         if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
             children_component.0.insert_from_slice(index, children);
