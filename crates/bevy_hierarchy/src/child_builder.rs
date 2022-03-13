@@ -39,12 +39,11 @@ fn push_add_events(world: &mut World, parent: Entity, children: &[Entity]) {
 }
 
 fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
-    if let Some(mut parent) = world.get_entity_mut(parent) {
-        if let Some(mut children) = parent.get_mut::<Children>() {
-            children.0.push(child);
-        } else {
-            parent.insert(Children(smallvec::smallvec![child]));
-        }
+    let mut parent = world.entity_mut(parent);
+    if let Some(mut children) = parent.get_mut::<Children>() {
+        children.0.push(child);
+    } else {
+        parent.insert(Children(smallvec::smallvec![child]));
     }
 }
 
@@ -62,16 +61,15 @@ fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option
 
 fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
     let mut remove = false;
-    if let Some(mut parent) = world.get_entity_mut(parent) {
-        if let Some(mut children) = parent.get_mut::<Children>() {
-            if let Some(idx) = children.iter().position(|x| *x == child) {
-                children.0.remove(idx);
-                remove = children.is_empty();
-            }
+    let mut parent = world.entity_mut(parent);
+    if let Some(mut children) = parent.get_mut::<Children>() {
+        if let Some(idx) = children.iter().position(|x| *x == child) {
+            children.0.remove(idx);
+            remove = children.is_empty();
         }
-        if remove {
-            parent.remove::<Children>();
-        }
+    }
+    if remove {
+        parent.remove::<Children>();
     }
 }
 
@@ -464,6 +462,9 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
             .expect("Cannot add children without a parent. Try creating an entity first.");
         update_old_parents(self.world, parent, children);
         if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
+            children_component
+                .0
+                .retain(|value| !children.contains(value));
             children_component.0.extend(children.iter().cloned());
         } else {
             self.world
@@ -479,6 +480,9 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
             .expect("Cannot add children without a parent. Try creating an entity first.");
         update_old_parents(self.world, parent, children);
         if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
+            children_component
+                .0
+                .retain(|value| !children.contains(value));
             children_component.0.insert_from_slice(index, children);
         } else {
             self.world
