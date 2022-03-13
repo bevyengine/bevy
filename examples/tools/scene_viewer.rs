@@ -263,6 +263,7 @@ fn update_lights(
 #[derive(Component)]
 struct CameraController {
     pub enabled: bool,
+    pub initialized: bool,
     pub sensitivity: f32,
     pub key_forward: KeyCode,
     pub key_back: KeyCode,
@@ -283,6 +284,7 @@ impl Default for CameraController {
     fn default() -> Self {
         Self {
             enabled: true,
+            initialized: false,
             sensitivity: 0.5,
             key_forward: KeyCode::W,
             key_back: KeyCode::S,
@@ -316,6 +318,12 @@ fn camera_controller(
     }
 
     for (mut transform, mut options) in query.iter_mut() {
+        if !options.initialized {
+            let (_roll, yaw, pitch) = transform.rotation.to_euler(EulerRot::ZYX);
+            options.yaw = yaw;
+            options.pitch = pitch;
+            options.initialized = true;
+        }
         if !options.enabled {
             continue;
         }
