@@ -60,19 +60,19 @@ fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option
     }
 }
 
-fn remove_from_children(world: &mut World, parent: Entity, child: Entity) -> Option<Entity> {
+fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
     let mut remove = false;
-    let mut parent = world.get_entity_mut(parent)?;
-    if let Some(mut children) = parent.get_mut::<Children>() {
-        if let Some(idx) = children.iter().position(|x| *x == child) {
-            children.0.remove(idx);
-            remove = children.is_empty();
+    if let Some(mut parent) = world.get_entity_mut(parent) {
+        if let Some(mut children) = parent.get_mut::<Children>() {
+            if let Some(idx) = children.iter().position(|x| *x == child) {
+                children.0.remove(idx);
+                remove = children.is_empty();
+            }
+        }
+        if remove {
+            parent.remove::<Children>();
         }
     }
-    if remove {
-        parent.remove::<Children>();
-    }
-    Some(parent.id())
 }
 
 fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
