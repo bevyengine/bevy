@@ -13,6 +13,9 @@ pub use hierarchy::*;
 mod child_builder;
 pub use child_builder::*;
 
+mod events;
+pub use events::*;
+
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
@@ -29,6 +32,9 @@ pub struct HierarchyPlugin;
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Children>()
-           .register_type::<Parent>();
+            .register_type::<Parent>()
+            .add_event::<ChildAdded>()
+            .add_event::<ChildMoved>()
+            .add_event::<ChildRemoved>();
     }
 }

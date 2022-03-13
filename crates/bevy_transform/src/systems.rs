@@ -85,9 +85,7 @@ mod test {
     use crate::components::{GlobalTransform, Transform};
     use crate::systems::transform_propagate_system;
     use crate::TransformBundle;
-    use bevy_hierarchy::{
-        BuildChildren, BuildWorldChildren, Children, Parent,
-    };
+    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
 
     #[test]
     fn did_propagate() {
