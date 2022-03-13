@@ -226,7 +226,7 @@ fn extract_materials<M: SpecializedMaterial>(
     let mut materials = Vec::with_capacity(*prev_len);
     for (entity, computed_visibility, material) in query.iter() {
         if computed_visibility.is_visible {
-            materials.push((entity, (material.clone(),)));
+            materials.push((entity, (material.clone_weak(),)));
         }
     }
     *prev_len = materials.len();
