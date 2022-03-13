@@ -200,9 +200,14 @@ fn camera_spawn_check(
 fn camera_controller_check(
     mut commands: Commands,
     camera: Query<Entity, (With<Camera>, Without<CameraController>)>,
+    mut found_camera: Local<bool>,
 ) {
-    if let Ok(entity) = camera.get_single() {
+    if *found_camera {
+        return;
+    }
+    if let Some(entity) = camera.iter().next() {
         commands.entity(entity).insert(CameraController::default());
+        *found_camera = true;
     }
 }
 
