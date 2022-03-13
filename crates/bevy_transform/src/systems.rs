@@ -86,7 +86,7 @@ mod test {
     use crate::systems::transform_propagate_system;
     use crate::TransformBundle;
     use bevy_hierarchy::{
-        parent_update_system, BuildChildren, BuildWorldChildren, Children, Parent,
+        BuildChildren, BuildWorldChildren, Children, Parent,
     };
 
     #[test]
