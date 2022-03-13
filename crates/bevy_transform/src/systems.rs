@@ -94,7 +94,6 @@ mod test {
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
@@ -139,7 +138,6 @@ mod test {
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();

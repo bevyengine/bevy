@@ -474,12 +474,12 @@ mod tests {
         assert_eq!(*world.get::<Parent>(children[1]).unwrap(), Parent(parent));
 
         assert_eq!(
-            *world.get::<PreviousParent>(children[0]).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(children[0]).unwrap(),
+            Parent(parent)
         );
         assert_eq!(
-            *world.get::<PreviousParent>(children[1]).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(children[1]).unwrap(),
+            Parent(parent)
         );
     }
 
@@ -513,12 +513,12 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
 
         assert_eq!(
-            *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(child1).unwrap(),
+            Parent(parent)
         );
         assert_eq!(
-            *world.get::<PreviousParent>(child2).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(child2).unwrap(),
+            Parent(parent)
         );
 
         {
@@ -535,12 +535,12 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
         assert_eq!(
-            *world.get::<PreviousParent>(child3).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(child3).unwrap(),
+            Parent(parent)
         );
         assert_eq!(
-            *world.get::<PreviousParent>(child4).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(child4).unwrap(),
+            Parent(parent)
         );
 
         let remove_children = [child1, child4];
@@ -557,14 +557,6 @@ mod tests {
         );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child4).is_none());
-        assert_eq!(
-            *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(parent)
-        );
-        assert_eq!(
-            *world.get::<PreviousParent>(child4).unwrap(),
-            PreviousParent(parent)
-        );
     }
 
     #[test]
@@ -592,12 +584,12 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
 
         assert_eq!(
-            *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(child1).unwrap(),
+            Parent(parent)
         );
         assert_eq!(
-            *world.get::<PreviousParent>(child2).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(child2).unwrap(),
+            Parent(parent)
         );
 
         world.entity_mut(parent).insert_children(1, &entities[3..]);
@@ -609,12 +601,12 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
         assert_eq!(
-            *world.get::<PreviousParent>(child3).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(child3).unwrap(),
+            Parent(parent)
         );
         assert_eq!(
-            *world.get::<PreviousParent>(child4).unwrap(),
-            PreviousParent(parent)
+            *world.get::<Parent>(child4).unwrap(),
+            Parent(parent)
         );
 
         let remove_children = [child1, child4];
@@ -626,14 +618,6 @@ mod tests {
         );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child4).is_none());
-        assert_eq!(
-            *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(parent)
-        );
-        assert_eq!(
-            *world.get::<PreviousParent>(child4).unwrap(),
-            PreviousParent(parent)
-        );
     }
 
     #[test]
