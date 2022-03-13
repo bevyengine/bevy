@@ -7,6 +7,16 @@ use bevy_ecs::{
 };
 use smallvec::SmallVec;
 
+fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
+    if let Some(mut parent) = world.get_entity_mut(parent) {
+        if let Some(mut children) = parent.get_mut::<Children>() {
+            children.0.push(child);
+        } else {
+            parent.insert(Children(smallvec::smallvec![child]));
+        }
+    }
+}
+
 fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option<Entity> {
     let mut child = world.entity_mut(child);
     if let Some(mut parent) = child.get_mut::<Parent>() {
@@ -104,6 +114,7 @@ impl Command for PushChildren {
         }
         let mut parent = world.entity_mut(self.parent);
         if let Some(mut children) = parent.get_mut::<Children>() {
+            children.0.retain(|child| !self.children.contains(child));
             children.0.extend(self.children.iter().cloned());
         } else {
             parent.insert(Children(self.children));
@@ -251,16 +262,9 @@ impl<'w> WorldChildBuilder<'w> {
             .world
             .spawn()
             .insert_bundle(bundle)
-            .insert(Parent(parent_entity))
             .id();
+        push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
-        if let Some(mut parent) = self.world.get_entity_mut(parent_entity) {
-            if let Some(mut children) = parent.get_mut::<Children>() {
-                children.0.push(entity);
-            } else {
-                parent.insert(Children(smallvec::smallvec![entity]));
-            }
-        }
         self.world.entity_mut(entity)
     }
 
@@ -268,14 +272,8 @@ impl<'w> WorldChildBuilder<'w> {
     pub fn spawn(&mut self) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
         let entity = self.world.spawn().insert(Parent(parent_entity)).id();
+        push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
-        if let Some(mut parent) = self.world.get_entity_mut(parent_entity) {
-            if let Some(mut children) = parent.get_mut::<Children>() {
-                children.0.push(entity);
-            } else {
-                parent.insert(Children(smallvec::smallvec![entity]));
-            }
-        }
         self.world.entity_mut(entity)
     }
 
@@ -324,12 +322,15 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             // SAFE: parent entity is not modified and its location is updated manually
             let world = unsafe { self.world_mut() };
             for child in children.iter() {
-                world.entity_mut(*child).insert(Parent(parent));
+                if let Some(previous) = update_parent(world, *child, parent) {
+                    remove_from_children(world, previous, *child);
+                }
             }
             // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
         if let Some(mut children_component) = self.get_mut::<Children>() {
+            children_component.0.retain(|value| !children.contains(value));
             children_component.0.extend(children.iter().cloned());
         } else {
             self.insert(Children::with(children));
@@ -343,13 +344,16 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             // SAFE: parent entity is not modified and its location is updated manually
             let world = unsafe { self.world_mut() };
             for child in children.iter() {
-                world.entity_mut(*child).insert(Parent(parent));
+                if let Some(previous) = update_parent(world, *child, parent) {
+                    remove_from_children(world, previous, *child);
+                }
             }
             // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
 
         if let Some(mut children_component) = self.get_mut::<Children>() {
+            children_component.0.retain(|value| !children.contains(value));
             children_component.0.insert_from_slice(index, children);
         } else {
             self.insert(Children::with(children));
