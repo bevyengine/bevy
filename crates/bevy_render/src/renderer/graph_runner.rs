@@ -8,6 +8,8 @@ use std::ops::Deref;
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
+#[cfg(feature = "gpu_profiler")]
+use crate::gpu_profiler::GpuProfiler;
 use crate::{
     render_graph::{
         Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
@@ -50,11 +52,15 @@ impl RenderGraphRunner {
         queue: &wgpu::Queue,
         world: &World,
     ) -> Result<(), RenderGraphRunnerError> {
+        #[cfg(feature = "gpu_profiler")]
+        let profiler = world.get_resource::<GpuProfiler>().unwrap();
         let command_encoder =
             render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         let mut render_context = RenderContext {
             render_device,
             command_encoder,
+            #[cfg(feature = "gpu_profiler")]
+            profiler: profiler.clone(),
         };
 
         Self::run_graph(graph, None, &mut render_context, world, &[])?;
@@ -63,6 +69,8 @@ impl RenderGraphRunner {
             let span = info_span!("submit_graph_commands");
             #[cfg(feature = "trace")]
             let _guard = span.enter();
+            #[cfg(feature = "gpu_profiler")]
+            profiler.resolve_queries(&mut render_context.command_encoder);
             queue.submit(vec![render_context.command_encoder.finish()]);
         }
         Ok(())

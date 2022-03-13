@@ -59,12 +59,15 @@ impl Default for WgpuSettings {
             limits
         };
 
+        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        #[cfg(feature = "gpu_profiler")]
+        let features = features | wgpu::Features::TIMESTAMP_QUERY;
         Self {
             device_label: Default::default(),
             backends,
             power_preference: PowerPreference::HighPerformance,
             priority,
-            features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+            features,
             disabled_features: None,
             limits,
             constrained_limits: None,
