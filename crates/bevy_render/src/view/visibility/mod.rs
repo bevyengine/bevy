@@ -1,5 +1,6 @@
 mod render_layers;
 
+use bevy_math::Vec3A;
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
@@ -186,7 +187,7 @@ pub fn check_visibility(
                 let model = transform.compute_matrix();
                 let model_sphere = Sphere {
                     center: model.transform_point3a(model_aabb.center),
-                    radius: model_aabb.half_extents.length(),
+                    radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
                 };
                 // Do quick sphere-based frustum culling
                 if !frustum.intersects_sphere(&model_sphere, false) {
