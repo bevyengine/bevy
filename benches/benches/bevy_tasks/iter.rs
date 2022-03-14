@@ -1,4 +1,4 @@
-use bevy::tasks::{ParallelIterator, TaskPoolBuilder};
+use bevy_tasks::{ParallelIterator, TaskPoolBuilder};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 struct ParChunks<'a, T>(std::slice::Chunks<'a, T>);

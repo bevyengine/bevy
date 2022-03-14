@@ -19,6 +19,9 @@ impl_reflect_value!(DVec4(PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Mat3(PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Mat4(PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Quat(PartialEq, Serialize, Deserialize));
+impl_reflect_value!(DMat3(PartialEq, Serialize, Deserialize));
+impl_reflect_value!(DMat4(PartialEq, Serialize, Deserialize));
+impl_reflect_value!(DQuat(PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(IVec2);
 impl_from_reflect_value!(IVec3);
@@ -36,3 +39,6 @@ impl_from_reflect_value!(DVec4);
 impl_from_reflect_value!(Mat3);
 impl_from_reflect_value!(Mat4);
 impl_from_reflect_value!(Quat);
+impl_from_reflect_value!(DMat3);
+impl_from_reflect_value!(DMat4);
+impl_from_reflect_value!(DQuat);

@@ -100,11 +100,11 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                     custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
                     color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
                     flip_x: flipped,
-                    ..Default::default()
+                    ..default()
                 },
                 texture: texture_handle.clone(),
                 transform,
-                ..Default::default()
+                ..default()
             })
             .id();
 
@@ -126,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert_bundle(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
-                ..Default::default()
+                ..default()
             },
             text: Text {
                 sections: vec![
@@ -147,9 +147,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                     },
                 ],
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         });
 }
 
@@ -245,7 +245,7 @@ fn collision_system(
 ) {
     let mut rnd = rand::thread_rng();
 
-    let window = windows.get_primary().unwrap();
+    let window = windows.primary();
 
     let ceiling = window.height() / 2.;
     let ground = -(window.height() / 2.);

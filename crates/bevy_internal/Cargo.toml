@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
-trace = [ "bevy_app/trace", "bevy_ecs/trace", "bevy_render/trace" ]
+trace = [ "bevy_app/trace", "bevy_ecs/trace", "bevy_log/trace", "bevy_render/trace" ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = [ "bevy_log/tracing-tracy" ]
 wgpu_trace = ["bevy_render/wgpu_trace"]
@@ -24,7 +24,7 @@ tga = ["bevy_render/tga"]
 jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
 
-# Audio format support (MP3 is enabled by default)
+# Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
 vorbis = ["bevy_audio/vorbis"]

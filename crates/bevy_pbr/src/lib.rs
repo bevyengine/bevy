@@ -84,17 +84,9 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                // NOTE: Must come after add_clusters!
-                update_clusters
-                    .label(SimulationLightSystems::UpdateClusters)
-                    .after(TransformSystem::TransformPropagate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
-                    .after(TransformSystem::TransformPropagate)
-                    .after(SimulationLightSystems::UpdateClusters),
+                    .after(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -124,8 +116,7 @@ impl Plugin for PbrPlugin {
             );
 
         app.world
-            .get_resource_mut::<Assets<StandardMaterial>>()
-            .unwrap()
+            .resource_mut::<Assets<StandardMaterial>>()
             .set_untracked(
                 Handle::<StandardMaterial>::default(),
                 StandardMaterial {
@@ -180,7 +171,7 @@ impl Plugin for PbrPlugin {
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
             .unwrap();

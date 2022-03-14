@@ -69,7 +69,7 @@ tga = ["bevy_internal/tga"]
 jpeg = ["bevy_internal/jpeg"]
 bmp = ["bevy_internal/bmp"]
 
-# Audio format support (MP3 is enabled by default)
+# Audio format support (vorbis is enabled by default)
 flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
@@ -98,7 +98,9 @@ bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features =
 bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false, features = ["webgl"] }
+bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false, features = [
+  "webgl",
+] }
 
 [dev-dependencies]
 anyhow = "1.0.4"
@@ -128,7 +130,7 @@ name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
 
 [[example]]
-name = "2d_rotation"
+name = "rotation"
 path = "examples/2d/rotation.rs"
 
 [[example]]
@@ -304,6 +306,10 @@ path = "examples/async_tasks/external_source_external_thread.rs"
 name = "audio"
 path = "examples/audio/audio.rs"
 
+[[example]]
+name = "audio_control"
+path = "examples/audio/audio_control.rs"
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -425,6 +431,10 @@ name = "mouse_input_events"
 path = "examples/input/mouse_input_events.rs"
 
 [[example]]
+name = "mouse_grab"
+path = "examples/input/mouse_grab.rs"
+
+[[example]]
 name = "touch_input"
 path = "examples/input/touch_input.rs"
 
@@ -466,6 +476,10 @@ path = "examples/shader/shader_defs.rs"
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
+
+[[example]]
+name = "shader_material_screenspace_texture"
+path = "examples/shader/shader_material_screenspace_texture.rs"
 
 [[example]]
 name = "shader_material_glsl"
@@ -513,6 +527,10 @@ path = "examples/ui/ui.rs"
 [[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
+
+[[example]]
+name = "low_power"
+path = "examples/window/low_power.rs"
 
 [[example]]
 name = "multiple_windows"
