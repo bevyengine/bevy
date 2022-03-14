@@ -323,7 +323,8 @@ impl<'w> WorldChildBuilder<'w> {
     /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
     pub fn spawn_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
-        let entity = self.world
+        let entity = self
+            .world
             .spawn()
             .insert_bundle(bundle)
             .insert(Parent(parent_entity))
