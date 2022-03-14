@@ -135,7 +135,6 @@ fn update_clipping(
 mod tests {
     use bevy_ecs::{
         component::Component,
-        event::Events,
         schedule::{Schedule, Stage, SystemStage},
         system::{CommandQueue, Commands},
         world::World,
@@ -165,11 +164,6 @@ mod tests {
     #[test]
     fn test_ui_z_system() {
         let mut world = World::default();
-
-        world.insert_resource(Events::<ChildAdded>::default());
-        world.insert_resource(Events::<ChildRemoved>::default());
-        world.insert_resource(Events::<ChildMoved>::default());
-
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
         commands.spawn_bundle(node_with_transform("0"));

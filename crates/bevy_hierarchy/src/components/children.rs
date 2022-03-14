@@ -26,7 +26,7 @@ impl MapEntities for Children {
 
 // TODO: We need to impl either FromWorld or Default so Children can be registered as Reflect.
 // This is because Reflect deserialize by creating an instance and apply a patch on top.
-// However Children should only ever be set with a real user-defined entities.  Its worth looking 
+// However Children should only ever be set with a real user-defined entities. Its worth looking
 // into better ways to handle cases like this.
 impl FromWorld for Children {
     fn from_world(_world: &mut World) -> Self {

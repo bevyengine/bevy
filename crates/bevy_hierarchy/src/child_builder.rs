@@ -12,8 +12,7 @@ use bevy_ecs::{
 use smallvec::SmallVec;
 
 fn push_move_events(world: &mut World, events: SmallVec<[ChildMoved; 8]>) {
-    {
-        let mut removed = world.resource_mut::<Events<ChildRemoved>>();
+    if let Some(mut removed) = world.get_resource_mut::<Events<ChildRemoved>>() {
         for evt in events.iter() {
             removed.send(ChildRemoved {
                 child: evt.child,
@@ -22,19 +21,21 @@ fn push_move_events(world: &mut World, events: SmallVec<[ChildMoved; 8]>) {
         }
     }
 
-    let mut moved_events = world.resource_mut::<Events<ChildMoved>>();
-    for evt in events {
-        moved_events.send(evt);
+    if let Some(mut moved) = world.get_resource_mut::<Events<ChildMoved>>() {
+        for evt in events {
+            moved.send(evt);
+        }
     }
 }
 
 fn push_add_events(world: &mut World, parent: Entity, children: &[Entity]) {
-    let mut added = world.resource_mut::<Events<ChildAdded>>();
-    for child in children.iter() {
-        added.send(ChildAdded {
-            child: *child,
-            parent,
-        });
+    if let Some(mut added) = world.get_resource_mut::<Events<ChildAdded>>() {
+        for child in children.iter() {
+            added.send(ChildAdded {
+                child: *child,
+                parent,
+            });
+        }
     }
 }
 
@@ -106,17 +107,19 @@ impl Command for AddChild {
         }
         if let Some(previous) = previous {
             remove_from_children(world, previous, self.child);
-            world
-                .resource_mut::<Events<ChildRemoved>>()
-                .send(ChildRemoved {
+            if let Some(mut removed) = world.get_resource_mut::<Events<ChildRemoved>>() {
+                removed.send(ChildRemoved {
                     child: self.child,
                     parent: previous,
                 });
-            world.resource_mut::<Events<ChildMoved>>().send(ChildMoved {
-                child: self.child,
-                previous_parent: previous,
-                new_parent: self.parent,
-            });
+            }
+            if let Some(mut removed) = world.get_resource_mut::<Events<ChildMoved>>() {
+                removed.send(ChildMoved {
+                    child: self.child,
+                    previous_parent: previous,
+                    new_parent: self.parent,
+                });
+            }
         }
         let mut parent = world.entity_mut(self.parent);
         if let Some(mut children) = parent.get_mut::<Children>() {
@@ -126,10 +129,12 @@ impl Command for AddChild {
         } else {
             parent.insert(Children(smallvec::smallvec![self.child]));
         }
-        world.resource_mut::<Events<ChildAdded>>().send(ChildAdded {
-            child: self.child,
-            parent: self.parent,
-        });
+        if let Some(mut added) = world.get_resource_mut::<Events<ChildAdded>>() {
+            added.send(ChildAdded {
+                child: self.child,
+                parent: self.parent,
+            });
+        }
     }
 }
 
@@ -190,8 +195,7 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
         });
     }
 
-    {
-        let mut removed = world.resource_mut::<Events<ChildRemoved>>();
+    if let Some(mut removed) = world.get_resource_mut::<Events<ChildRemoved>>() {
         for evt in events {
             removed.send(evt);
         }
@@ -331,12 +335,12 @@ impl<'w> WorldChildBuilder<'w> {
             .id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
-        self.world
-            .resource_mut::<Events<ChildAdded>>()
-            .send(ChildAdded {
+        if let Some(mut added) = self.world.get_resource_mut::<Events<ChildAdded>>() {
+            added.send(ChildAdded {
                 child: entity,
                 parent: parent_entity,
             });
+        }
         self.world.entity_mut(entity)
     }
 
@@ -346,12 +350,12 @@ impl<'w> WorldChildBuilder<'w> {
         let entity = self.world.spawn().insert(Parent(parent_entity)).id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
-        self.world
-            .resource_mut::<Events<ChildAdded>>()
-            .send(ChildAdded {
+        if let Some(mut added) = self.world.get_resource_mut::<Events<ChildAdded>>() {
+            added.send(ChildAdded {
                 child: entity,
                 parent: parent_entity,
             });
+        }
         self.world.entity_mut(entity)
     }
 
@@ -510,11 +514,10 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
 #[cfg(test)]
 mod tests {
     use super::{BuildChildren, BuildWorldChildren};
-    use crate::prelude::{ChildAdded, ChildMoved, ChildRemoved, Children, Parent};
+    use crate::prelude::{Children, Parent};
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        event::Events,
         system::{CommandQueue, Commands},
         world::World,
     };
@@ -526,11 +529,6 @@ mod tests {
     #[test]
     fn build_children() {
         let mut world = World::default();
-
-        world.insert_resource(Events::<ChildAdded>::default());
-        world.insert_resource(Events::<ChildRemoved>::default());
-        world.insert_resource(Events::<ChildMoved>::default());
-
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
 
@@ -557,11 +555,6 @@ mod tests {
     #[test]
     fn push_and_insert_and_remove_children_commands() {
         let mut world = World::default();
-
-        world.insert_resource(Events::<ChildAdded>::default());
-        world.insert_resource(Events::<ChildRemoved>::default());
-        world.insert_resource(Events::<ChildMoved>::default());
-
         let entities = world
             .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
             .collect::<Vec<Entity>>();
@@ -625,11 +618,6 @@ mod tests {
     #[test]
     fn push_and_insert_and_remove_children_world() {
         let mut world = World::default();
-
-        world.insert_resource(Events::<ChildAdded>::default());
-        world.insert_resource(Events::<ChildRemoved>::default());
-        world.insert_resource(Events::<ChildMoved>::default());
-
         let entities = world
             .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
             .collect::<Vec<Entity>>();
@@ -678,11 +666,6 @@ mod tests {
     #[test]
     fn regression_push_children_same_archetype() {
         let mut world = World::new();
-
-        world.insert_resource(Events::<ChildAdded>::default());
-        world.insert_resource(Events::<ChildRemoved>::default());
-        world.insert_resource(Events::<ChildMoved>::default());
-
         let child = world.spawn().id();
         world.spawn().push_children(&[child]);
     }

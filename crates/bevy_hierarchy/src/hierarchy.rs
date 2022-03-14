@@ -111,13 +111,16 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
-        event::Events,
         system::{CommandQueue, Commands},
         world::World,
     };
 
     use super::DespawnRecursiveExt;
+<<<<<<< HEAD:crates/bevy_hierarchy/src/hierarchy.rs
     use crate::{child_builder::BuildChildren, components::Children, ChildAdded, ChildMoved, ChildRemoved};
+=======
+    use crate::{components::Children, hierarchy::BuildChildren};
+>>>>>>> e7ef4a51 (Scenes are Worlds too):crates/bevy_transform/src/hierarchy/hierarchy.rs
 
     #[derive(Component, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Debug)]
     struct Idx(u32);
@@ -128,11 +131,6 @@ mod tests {
     #[test]
     fn despawn_recursive() {
         let mut world = World::default();
-
-        world.insert_resource(Events::<ChildAdded>::default());
-        world.insert_resource(Events::<ChildRemoved>::default());
-        world.insert_resource(Events::<ChildMoved>::default());
-
         let mut queue = CommandQueue::default();
         let grandparent_entity;
         {
