@@ -112,6 +112,12 @@ impl Plugin for TransformPlugin {
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
             )
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                transform_propagate_system::transform_propagate_flat_system
+                    .label(TransformSystem::TransformPropagate)
+                    .after(TransformSystem::ParentUpdate),
+            )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 parent_update_system.label(TransformSystem::ParentUpdate),
@@ -119,6 +125,12 @@ impl Plugin for TransformPlugin {
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 transform_propagate_system::transform_propagate_system
+                    .label(TransformSystem::TransformPropagate)
+                    .after(TransformSystem::ParentUpdate),
+            )
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                transform_propagate_system::transform_propagate_flat_system
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
             );

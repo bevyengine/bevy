@@ -6,7 +6,7 @@ use bevy_ecs::{
 };
 
 /// Used for [`transform_propagate_system`]. Ignore otherwise.
-pub struct Pending {
+pub(crate) struct Pending {
     parent: *const GlobalTransform,
     changed: bool,
     child: Entity,
@@ -21,12 +21,25 @@ unsafe impl Sync for Pending {}
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
-pub fn transform_propagate_system(
+pub(crate) fn transform_propagate_flat_system(
+    mut root_query: Query<
+        (&Transform, &mut GlobalTransform),
+        (Without<Parent>, Without<Children>, Changed<Transform>),
+    >,
+) {
+    for (transform, mut global_transform) in root_query.iter_mut() {
+        *global_transform = GlobalTransform::from(*transform);
+    }
+}
+
+/// Update [`GlobalTransform`] component of entities based on entity hierarchy and
+/// [`Transform`] component.
+pub(crate) fn transform_propagate_system(
     mut root_query: Query<
         (
             &Transform,
             Changed<Transform>,
-            Option<&Children>,
+            &Children,
             &mut GlobalTransform,
         ),
         Without<Parent>,
@@ -49,13 +62,11 @@ pub fn transform_propagate_system(
             changed = true;
         }
 
-        if let Some(children) = children {
-            pending.extend(children.0.iter().map(|child| Pending {
-                parent: &*global_transform as *const GlobalTransform,
-                changed,
-                child: *child,
-            }));
-        }
+        pending.extend(children.0.iter().map(|child| Pending {
+            parent: &*global_transform as *const GlobalTransform,
+            changed,
+            child: *child,
+        }));
 
         while let Some(mut current) = pending.pop() {
             if let Ok((transform, changed, children, mut global_transform)) =
