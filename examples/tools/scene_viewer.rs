@@ -6,6 +6,7 @@ use bevy::{
         camera::{Camera2d, Camera3d, CameraProjection},
         primitives::{Aabb, Frustum, Sphere},
     },
+    scene::InstanceId,
 };
 
 fn main() {
@@ -48,6 +49,7 @@ Controls:
 
 struct SceneHandle {
     handle: Handle<Scene>,
+    instance_id: Option<InstanceId>,
     is_loaded: bool,
     has_camera: bool,
     has_light: bool,
@@ -59,6 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf#Scene0".to_string());
     commands.insert_resource(SceneHandle {
         handle: asset_server.load(&scene_path),
+        instance_id: None,
         is_loaded: false,
         has_camera: false,
         has_light: false,
@@ -66,38 +69,45 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn scene_load_check(
-    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut scenes: ResMut<Assets<Scene>>,
     mut scene_handle: ResMut<SceneHandle>,
+    mut scene_spawner: ResMut<SceneSpawner>,
 ) {
-    if !scene_handle.is_loaded
-        && asset_server.get_load_state(&scene_handle.handle) == LoadState::Loaded
-    {
-        if let Some(scene) = scenes.get_mut(&scene_handle.handle) {
-            let mut query = scene
-                .world
-                .query::<(Option<&Camera2d>, Option<&Camera3d>)>();
-            scene_handle.has_camera =
-                query
-                    .iter(&scene.world)
-                    .any(|(maybe_camera2d, maybe_camera3d)| {
-                        maybe_camera2d.is_some() || maybe_camera3d.is_some()
-                    });
-            let mut query = scene
-                .world
-                .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
-            scene_handle.has_light =
-                query
-                    .iter(&scene.world)
-                    .any(|(maybe_directional_light, maybe_point_light)| {
-                        maybe_directional_light.is_some() || maybe_point_light.is_some()
-                    });
+    match scene_handle.instance_id {
+        None if asset_server.get_load_state(&scene_handle.handle) == LoadState::Loaded => {
+            if let Some(scene) = scenes.get_mut(&scene_handle.handle) {
+                let mut query = scene
+                    .world
+                    .query::<(Option<&Camera2d>, Option<&Camera3d>)>();
+                scene_handle.has_camera =
+                    query
+                        .iter(&scene.world)
+                        .any(|(maybe_camera2d, maybe_camera3d)| {
+                            maybe_camera2d.is_some() || maybe_camera3d.is_some()
+                        });
+                let mut query = scene
+                    .world
+                    .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
+                scene_handle.has_light =
+                    query
+                        .iter(&scene.world)
+                        .any(|(maybe_directional_light, maybe_point_light)| {
+                            maybe_directional_light.is_some() || maybe_point_light.is_some()
+                        });
 
-            commands.spawn_scene(scene_handle.handle.clone_weak());
-            scene_handle.is_loaded = true;
-            println!("Spawning scene");
+                scene_handle.instance_id =
+                    Some(scene_spawner.spawn(scene_handle.handle.clone_weak()));
+                println!("Spawning scene...");
+            }
         }
+        Some(instance_id) if !scene_handle.is_loaded => {
+            if scene_spawner.instance_is_ready(instance_id) {
+                println!("...done!");
+                scene_handle.is_loaded = true;
+            }
+        }
+        _ => {}
     }
 }
 
