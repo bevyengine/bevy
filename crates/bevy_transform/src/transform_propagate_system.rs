@@ -76,9 +76,8 @@ pub(crate) fn transform_propagate_system(
                 // SAFE: The pointers here are generated only during this one traversal
                 // from one given run of the system.
                 let global_matrix = unsafe {
-                    let parent = current.parent.as_ref().unwrap();
                     if current.changed {
-                        *global_transform = parent.mul_transform(*transform);
+                        *global_transform = current.parent.read().mul_transform(*transform);
                     }
                     &*global_transform as *const GlobalTransform
                 };
