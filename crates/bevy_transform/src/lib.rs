@@ -129,7 +129,7 @@ impl Plugin for TransformPlugin {
                     .after(TransformSystem::ParentUpdate),
             )
             .add_startup_system_to_stage(
-                StartupStage::PostStartup,
+                CoreStage::PostUpdate,
                 transform_propagate_system::transform_propagate_flat_system
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
