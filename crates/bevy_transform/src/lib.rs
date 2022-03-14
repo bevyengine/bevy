@@ -128,7 +128,7 @@ impl Plugin for TransformPlugin {
                     .label(TransformSystem::TransformPropagate)
                     .after(TransformSystem::ParentUpdate),
             )
-            .add_startup_system_to_stage(
+            .add_system_to_stage(
                 CoreStage::PostUpdate,
                 transform_propagate_system::transform_propagate_flat_system
                     .label(TransformSystem::TransformPropagate)
