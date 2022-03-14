@@ -53,6 +53,8 @@ pub(crate) fn transform_propagate_system(
         ),
         With<Parent>,
     >,
+    // Stack space for the depth-first search of a given hierarchy. Used as a Local to
+    // avoid reallocating the stack space used here.
     mut pending: Local<Vec<Pending>>,
 ) {
     for (transform, is_changed, children, mut global_transform) in root_query.iter_mut() {
