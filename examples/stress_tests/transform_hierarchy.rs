@@ -1,5 +1,5 @@
 //! hierarchy and transform propagation stress test
-//! set the test parameters inside [main]
+//! set the test parameters (cfg) inside [`main`]
 
 use bevy::{
     prelude::*,
@@ -24,6 +24,8 @@ fn main() {
         },
     };
 
+    println!("\n{:#?}", cfg);
+
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(cfg)
@@ -34,6 +36,7 @@ fn main() {
 }
 
 /// test configuration
+#[derive(Debug)]
 struct Cfg {
     /// which test case should be inserted
     test_case: TestCase,
@@ -44,6 +47,7 @@ struct Cfg {
 }
 
 #[allow(unused)]
+#[derive(Debug)]
 enum TestCase {
     /// a uniform tree, exponentially growing with depth
     Tree {
@@ -62,20 +66,22 @@ enum TestCase {
     },
     /// one or multiple humanoid rigs
     Humanoids {
-        /// number of active instances (uses the specified [UpdateFilter])
+        /// number of active instances (uses the specified [`UpdateFilter`])
         active: u32,
-        /// numer of inactive instances (always inactive)
+        /// number of inactive instances (always inactive)
         inactive: u32,
     },
 }
 
-/// restrict which nodes are updated
+/// a filter to restrict which nodes are updated
+#[derive(Debug)]
 struct UpdateFilter {
     /// starting depth (inclusive)
     min_depth: u32,
     /// end depth (inclusive)
     max_depth: u32,
-    /// probability (evaluated at insertion time, not during update)
+    /// probability of a node to get updated (evaluated at insertion time, not during update)
+    /// 0 (never) .. 1 (always)
     probability: f32,
 }
 
@@ -89,19 +95,8 @@ impl Default for UpdateFilter {
     }
 }
 
-/// visibility of nodes
-#[allow(unused)]
-#[derive(PartialEq)]
-enum VisibleNodes {
-    /// draw nothing
-    None,
-    /// draw only leaves
-    Leaves,
-    /// draw all nodes
-    All,
-}
-
 /// visual configuration
+#[derive(Debug)]
 struct Visuals {
     /// visibility of nodes
     visible_nodes: VisibleNodes,
@@ -111,11 +106,23 @@ struct Visuals {
     unique_materials: bool,
 }
 
-// update component with some per-component value
+/// visibility of nodes
+#[allow(unused)]
+#[derive(PartialEq, Debug)]
+enum VisibleNodes {
+    /// draw nothing
+    None,
+    /// draw only leaves
+    Leaves,
+    /// draw all nodes
+    All,
+}
+
+/// update component with some per-component value
 #[derive(Component)]
 struct Update(f32);
 
-// update positions system
+/// update positions system
 fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut Update)>) {
     for (mut t, mut u) in query.iter_mut() {
         u.0 += time.delta_seconds() * 0.1;
@@ -123,6 +130,7 @@ fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut Update)>) {
     }
 }
 
+/// set translation based on the angle `a`
 fn set_translation(translation: &mut Vec3, a: f32) {
     translation.x = a.cos() * 32.0;
     translation.y = a.sin() * 32.0;
@@ -196,7 +204,7 @@ fn setup(
                     &mut *meshes,
                     &mut *materials,
                     &UpdateFilter {
-                        // disable by setting update probability
+                        // force inactive by setting the probability < 0
                         probability: -1.0,
                         ..cfg.update_filter
                     },
@@ -213,14 +221,15 @@ fn setup(
         }
     };
 
-    println!("{:#?}", result);
+    println!("\n{:#?}", result);
 }
 
+/// overview of the inserted hierarchy
 #[derive(Default, Debug)]
 struct InsertResult {
     /// total number of nodes inserted
     inserted_nodes: usize,
-    /// number of nodes that get moved each frame
+    /// number of nodes that get updated each frame
     active_nodes: usize,
     /// number of nodes that get rendered
     drawn_nodes: usize,
@@ -238,8 +247,8 @@ impl InsertResult {
     }
 }
 
-// spawns a tree defined by a parent map (excluding root)
-// the parent map must be ordered (parent must exist before child)
+/// spawns a tree defined by a parent map (excluding root)
+/// the parent map must be ordered (parent must exist before child)
 fn spawn_tree(
     parent_map: &[usize],
     commands: &mut Commands,
@@ -318,8 +327,7 @@ fn spawn_tree(
             let mut cmd = commands.spawn();
 
             // check whether or not to update this node
-            let update = (update_filter.probability >= 1.0
-                || rng.gen::<f32>() <= update_filter.probability)
+            let update = (rng.gen::<f32>() <= update_filter.probability)
                 && (depth >= update_filter.min_depth && depth <= update_filter.max_depth);
 
             // check whether or not to draw this node
@@ -348,14 +356,13 @@ fn spawn_tree(
                     default_mesh.clone()
                 };
 
+                // material: red (entities with `Update` component) or white (entities without `Update`)
                 let material = if visuals.unique_materials {
                     create_material(if update { Color::RED } else { Color::WHITE })
+                } else if update {
+                    default_material_update.clone()
                 } else {
-                    if update {
-                        default_material_update.clone()
-                    } else {
-                        default_material.clone()
-                    }
+                    default_material.clone()
                 };
 
                 let mut bundle = MaterialMesh2dBundle {
@@ -364,8 +371,8 @@ fn spawn_tree(
                     transform,
                     ..default()
                 };
-
                 set_translation(&mut bundle.transform.translation, sep);
+
                 cmd.insert_bundle(bundle);
             } else {
                 // only insert the components necessary for the transform propagation
@@ -388,7 +395,7 @@ fn spawn_tree(
 
 /// generate a tree `depth` levels deep, where each node has `branch_width` children
 fn gen_tree(depth: u32, branch_width: u32) -> Vec<usize> {
-    // calculate total count
+    // calculate the total count of branches
     let mut count: usize = 0;
     for i in 0..(depth - 1) {
         count += TryInto::<usize>::try_into(branch_width.pow(i)).unwrap();
@@ -401,7 +408,7 @@ fn gen_tree(depth: u32, branch_width: u32) -> Vec<usize> {
         .collect()
 }
 
-/// recursive part of [gen_non_uniform_tree]
+/// recursive part of [`gen_non_uniform_tree`]
 fn add_children_non_uniform(
     tree: &mut Vec<usize>,
     parent: usize,
@@ -427,7 +434,7 @@ fn gen_non_uniform_tree(max_depth: u32, max_branch_width: u32) -> Vec<usize> {
     tree
 }
 
-// parent map for a decently complex humanoid rig (based on mixamo rig)
+/// parent map for a decently complex humanoid rig (based on mixamo rig)
 const HUMANOID_RIG: [usize; 67] = [
     // (0: root)
     0,  // 1: hips
