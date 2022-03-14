@@ -4,71 +4,75 @@ use bevy_ecs::{
     query::{Changed, With, Without},
     system::Query,
 };
+use smallvec::SmallVec;
+use std::ptr::NonNull;
+
+struct Pending {
+    parent: NonNull<GlobalTransform>,
+    changed: bool,
+    child: Entity,
+}
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
 pub fn transform_propagate_system(
     mut root_query: Query<
-        (Entity, Option<&Children>, &Transform, &mut GlobalTransform),
+        (
+            Option<&Children>,
+            &Transform,
+            Changed<Transform>,
+            &mut GlobalTransform,
+        ),
         Without<Parent>,
     >,
-    mut transform_query: Query<(&Transform, &mut GlobalTransform), With<Parent>>,
-    changed_transform_query: Query<Entity, Changed<Transform>>,
-    children_query: Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
+    mut transform_query: Query<
+        (
+            &Transform,
+            Changed<Transform>,
+            Option<&Children>,
+            &mut GlobalTransform,
+        ),
+        With<Parent>,
+    >,
 ) {
-    for (entity, children, transform, mut global_transform) in root_query.iter_mut() {
+    let mut pending = SmallVec::<[Pending; 128]>::new();
+    for (children, transform, is_changed, mut global_transform) in root_query.iter_mut() {
+        debug_assert!(pending.is_empty());
         let mut changed = false;
-        if changed_transform_query.get(entity).is_ok() {
+        if is_changed {
             *global_transform = GlobalTransform::from(*transform);
             changed = true;
         }
 
         if let Some(children) = children {
-            for child in children.0.iter() {
-                propagate_recursive(
-                    &global_transform,
-                    &changed_transform_query,
-                    &mut transform_query,
-                    &children_query,
-                    *child,
+            unsafe {
+                pending.extend(children.0.iter().map(|child| Pending {
+                    parent: NonNull::new_unchecked(&mut *global_transform as *mut GlobalTransform),
                     changed,
-                );
+                    child: *child,
+                }));
             }
         }
-    }
-}
 
-fn propagate_recursive(
-    parent: &GlobalTransform,
-    changed_transform_query: &Query<Entity, Changed<Transform>>,
-    transform_query: &mut Query<(&Transform, &mut GlobalTransform), With<Parent>>,
-    children_query: &Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
-    entity: Entity,
-    mut changed: bool,
-) {
-    changed |= changed_transform_query.get(entity).is_ok();
-
-    let global_matrix = {
-        if let Ok((transform, mut global_transform)) = transform_query.get_mut(entity) {
-            if changed {
-                *global_transform = parent.mul_transform(*transform);
+        while let Some(mut current) = pending.pop() {
+            if let Ok((transform, changed, children, mut global_transform)) =
+                transform_query.get_mut(current.child)
+            {
+                current.changed |= changed;
+                let global_matrix = unsafe {
+                    if current.changed {
+                        *global_transform = current.parent.as_ref().mul_transform(*transform);
+                    }
+                    NonNull::new_unchecked(&mut *global_transform as *mut GlobalTransform)
+                };
+                if let Some(children) = children {
+                    pending.extend(children.0.iter().map(|child| Pending {
+                        parent: global_matrix,
+                        changed: current.changed,
+                        child: *child,
+                    }));
+                }
             }
-            *global_transform
-        } else {
-            return;
-        }
-    };
-
-    if let Ok(Some(children)) = children_query.get(entity) {
-        for child in children.0.iter() {
-            propagate_recursive(
-                &global_matrix,
-                changed_transform_query,
-                transform_query,
-                children_query,
-                *child,
-                changed,
-            );
         }
     }
 }
