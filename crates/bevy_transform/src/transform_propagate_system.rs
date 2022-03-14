@@ -5,10 +5,9 @@ use bevy_ecs::{
     system::Query,
 };
 use smallvec::SmallVec;
-use std::ptr::NonNull;
 
 struct Pending {
-    parent: NonNull<GlobalTransform>,
+    parent: *const GlobalTransform,
     changed: bool,
     child: Entity,
 }
@@ -18,9 +17,9 @@ struct Pending {
 pub fn transform_propagate_system(
     mut root_query: Query<
         (
-            Option<&Children>,
             &Transform,
             Changed<Transform>,
+            Option<&Children>,
             &mut GlobalTransform,
         ),
         Without<Parent>,
@@ -36,7 +35,7 @@ pub fn transform_propagate_system(
     >,
 ) {
     let mut pending = SmallVec::<[Pending; 128]>::new();
-    for (children, transform, is_changed, mut global_transform) in root_query.iter_mut() {
+    for (transform, is_changed, children, mut global_transform) in root_query.iter_mut() {
         debug_assert!(pending.is_empty());
         let mut changed = false;
         if is_changed {
@@ -45,13 +44,11 @@ pub fn transform_propagate_system(
         }
 
         if let Some(children) = children {
-            unsafe {
-                pending.extend(children.0.iter().map(|child| Pending {
-                    parent: NonNull::new_unchecked(&mut *global_transform as *mut GlobalTransform),
-                    changed,
-                    child: *child,
-                }));
-            }
+            pending.extend(children.0.iter().map(|child| Pending {
+                parent: &*global_transform as *const GlobalTransform,
+                changed,
+                child: *child,
+            }));
         }
 
         while let Some(mut current) = pending.pop() {
@@ -60,10 +57,11 @@ pub fn transform_propagate_system(
             {
                 current.changed |= changed;
                 let global_matrix = unsafe {
+                    let parent = current.parent.as_ref().unwrap();
                     if current.changed {
-                        *global_transform = current.parent.as_ref().mul_transform(*transform);
+                        *global_transform = parent.mul_transform(*transform);
                     }
-                    NonNull::new_unchecked(&mut *global_transform as *mut GlobalTransform)
+                    &*global_transform as *const GlobalTransform
                 };
                 if let Some(children) = children {
                     pending.extend(children.0.iter().map(|child| Pending {
