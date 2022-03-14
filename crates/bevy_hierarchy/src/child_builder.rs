@@ -323,7 +323,11 @@ impl<'w> WorldChildBuilder<'w> {
     /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
     pub fn spawn_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
-        let entity = self.world.spawn().insert_bundle(bundle).id();
+        let entity = self.world
+            .spawn()
+            .insert_bundle(bundle)
+            .insert(Parent(parent_entity))
+            .id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
         self.world
@@ -505,10 +509,11 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
 #[cfg(test)]
 mod tests {
     use super::{BuildChildren, BuildWorldChildren};
-    use crate::prelude::{Children, Parent};
+    use crate::prelude::{ChildAdded, ChildMoved, ChildRemoved, Children, Parent};
     use bevy_ecs::{
         component::Component,
         entity::Entity,
+        event::Events,
         system::{CommandQueue, Commands},
         world::World,
     };
@@ -520,6 +525,11 @@ mod tests {
     #[test]
     fn build_children() {
         let mut world = World::default();
+
+        world.insert_resource(Events::<ChildAdded>::default());
+        world.insert_resource(Events::<ChildRemoved>::default());
+        world.insert_resource(Events::<ChildMoved>::default());
+
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
 
@@ -546,6 +556,10 @@ mod tests {
     #[test]
     fn push_and_insert_and_remove_children_commands() {
         let mut world = World::default();
+
+        world.insert_resource(Events::<ChildAdded>::default());
+        world.insert_resource(Events::<ChildRemoved>::default());
+        world.insert_resource(Events::<ChildMoved>::default());
 
         let entities = world
             .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
@@ -611,6 +625,10 @@ mod tests {
     fn push_and_insert_and_remove_children_world() {
         let mut world = World::default();
 
+        world.insert_resource(Events::<ChildAdded>::default());
+        world.insert_resource(Events::<ChildRemoved>::default());
+        world.insert_resource(Events::<ChildMoved>::default());
+
         let entities = world
             .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
             .collect::<Vec<Entity>>();
@@ -659,6 +677,11 @@ mod tests {
     #[test]
     fn regression_push_children_same_archetype() {
         let mut world = World::new();
+
+        world.insert_resource(Events::<ChildAdded>::default());
+        world.insert_resource(Events::<ChildRemoved>::default());
+        world.insert_resource(Events::<ChildMoved>::default());
+
         let child = world.spawn().id();
         world.spawn().push_children(&[child]);
     }

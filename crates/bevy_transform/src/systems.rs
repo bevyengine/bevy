@@ -77,6 +77,7 @@ fn propagate_recursive(
 #[cfg(test)]
 mod test {
     use bevy_ecs::{
+        event::Events,
         schedule::{Schedule, Stage, SystemStage},
         system::{CommandQueue, Commands},
         world::World,
@@ -85,11 +86,15 @@ mod test {
     use crate::components::{GlobalTransform, Transform};
     use crate::systems::transform_propagate_system;
     use crate::TransformBundle;
-    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
+    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent, ChildAdded, ChildMoved, ChildRemoved};
 
     #[test]
     fn did_propagate() {
         let mut world = World::default();
+
+        world.insert_resource(Events::<ChildAdded>::default());
+        world.insert_resource(Events::<ChildRemoved>::default());
+        world.insert_resource(Events::<ChildMoved>::default());
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(transform_propagate_system);
@@ -134,6 +139,10 @@ mod test {
     #[test]
     fn did_propagate_command_buffer() {
         let mut world = World::default();
+
+        world.insert_resource(Events::<ChildAdded>::default());
+        world.insert_resource(Events::<ChildRemoved>::default());
+        world.insert_resource(Events::<ChildMoved>::default());
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(transform_propagate_system);
