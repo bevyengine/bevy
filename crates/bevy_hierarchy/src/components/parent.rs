@@ -9,12 +9,12 @@ use std::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.
-#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
+#[derive(Component, Debug, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub(crate) Entity);
 
-// TODO: We need to impl either FromWorld or Default so Parent can be registered as Properties.
-// This is because Properties deserialize by creating an instance and apply a patch on top.
+// TODO: We need to impl either FromWorld or Default so Parent can be registered as Reflect.
+// This is because Reflect deserialize by creating an instance and apply a patch on top.
 // However Parent should only ever be set with a real user-defined entity.  Its worth looking into
 // better ways to handle cases like this.
 impl FromWorld for Parent {

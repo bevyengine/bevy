@@ -50,9 +50,9 @@ fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
 fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option<Entity> {
     let mut child = world.entity_mut(child);
     if let Some(mut parent) = child.get_mut::<Parent>() {
-        let previous = *parent;
+        let previous = parent.0;
         *parent = Parent(new_parent);
-        Some(*previous)
+        Some(previous)
     } else {
         child.insert(Parent(new_parent));
         None

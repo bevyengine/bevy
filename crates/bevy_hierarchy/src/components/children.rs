@@ -1,14 +1,16 @@
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
+    prelude::FromWorld,
     reflect::{ReflectComponent, ReflectMapEntities},
+    world::World,
 };
 use bevy_reflect::Reflect;
 use smallvec::SmallVec;
 use std::ops::Deref;
 
 /// Contains references to the child entities of this entity
-#[derive(Component, Default, Clone, Debug, Reflect)]
+#[derive(Component, Debug, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
@@ -19,6 +21,16 @@ impl MapEntities for Children {
         }
 
         Ok(())
+    }
+}
+
+// TODO: We need to impl either FromWorld or Default so Children can be registered as Reflect.
+// This is because Reflect deserialize by creating an instance and apply a patch on top.
+// However Children should only ever be set with a real user-defined entities.  Its worth looking 
+// into better ways to handle cases like this.
+impl FromWorld for Children {
+    fn from_world(_world: &mut World) -> Self {
+        Children(SmallVec::new())
     }
 }
 
