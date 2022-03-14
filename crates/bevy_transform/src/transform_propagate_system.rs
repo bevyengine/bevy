@@ -2,15 +2,22 @@ use crate::components::{Children, GlobalTransform, Parent, Transform};
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, With, Without},
-    system::Query,
+    system::{Local, Query},
 };
-use smallvec::SmallVec;
 
-struct Pending {
+/// Used for [`transform_propagate_system`]. Ignore otherwise.
+pub struct Pending {
     parent: *const GlobalTransform,
     changed: bool,
     child: Entity,
 }
+
+// SAFE: Values are cleared after every frame and cannot otherwise be
+// constructed without transmute.
+unsafe impl Send for Pending {}
+// SAFE: Values are cleared after every frame and cannot otherwise be
+// constructed without transmute.
+unsafe impl Sync for Pending {}
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
@@ -33,10 +40,9 @@ pub fn transform_propagate_system(
         ),
         With<Parent>,
     >,
+    mut pending: Local<Vec<Pending>>,
 ) {
-    let mut pending = SmallVec::<[Pending; 128]>::new();
     for (transform, is_changed, children, mut global_transform) in root_query.iter_mut() {
-        debug_assert!(pending.is_empty());
         let mut changed = false;
         if is_changed {
             *global_transform = GlobalTransform::from(*transform);
@@ -56,6 +62,8 @@ pub fn transform_propagate_system(
                 transform_query.get_mut(current.child)
             {
                 current.changed |= changed;
+                // SAFE: The pointers here are generated only during this one traversal
+                // from one given run of the system.
                 let global_matrix = unsafe {
                     let parent = current.parent.as_ref().unwrap();
                     if current.changed {
@@ -73,6 +81,7 @@ pub fn transform_propagate_system(
             }
         }
     }
+    debug_assert!(pending.is_empty());
 }
 
 #[cfg(test)]
