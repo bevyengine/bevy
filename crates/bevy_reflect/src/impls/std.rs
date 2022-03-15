@@ -426,4 +426,12 @@ mod tests {
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
+
+    #[test]
+    fn should_not_partial_eq_option() {
+        // Option<T> does not contain a `PartialEq` implementation, so it should return `None`
+        let a: &dyn Reflect = &Some(123);
+        let b: &dyn Reflect = &Some(123);
+        assert_eq!(None, a.reflect_partial_eq(b));
+    }
 }
