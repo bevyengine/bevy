@@ -1366,15 +1366,10 @@ where
 unsafe impl<'w, 's, S: SystemParamState, P: SystemParam + 'static> SystemParamState
     for StaticSystemParamState<S, P>
 {
-    type Config = S::Config;
-
-    fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self {
-        Self(S::init(world, system_meta, config), PhantomData)
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        Self(S::init(world, system_meta), PhantomData)
     }
 
-    fn default_config() -> Self::Config {
-        S::default_config()
-    }
     fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
         self.0.new_archetype(archetype, system_meta)
     }
