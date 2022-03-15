@@ -28,7 +28,7 @@ jobs:
       #   - Adds a meta tag that forces Google not to index any page on the site.
       - name: Pre-docs-build
         run: |
-          sed -i "s/icon.png/icon-docs-dev.png" src/lib.rs
+          sed -i.bak "s/icon.png/icon-docs-dev.png/" src/lib.rs
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
