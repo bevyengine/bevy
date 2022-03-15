@@ -323,48 +323,7 @@ pub fn dds_format_to_texture_format(
                     TextureFormat::Bc7RgbaUnorm
                 }
             }
-            DxgiFormat::Unknown
-            | DxgiFormat::R32G32B32_Typeless
-            | DxgiFormat::R32G32B32_Float
-            | DxgiFormat::R32G32B32_UInt
-            | DxgiFormat::R32G32B32_SInt
-            | DxgiFormat::R32G8X24_Typeless
-            | DxgiFormat::D32_Float_S8X24_UInt
-            | DxgiFormat::R32_Float_X8X24_Typeless
-            | DxgiFormat::X32_Typeless_G8X24_UInt
-            | DxgiFormat::R10G10B10A2_UInt
-            | DxgiFormat::X24_Typeless_G8_UInt
-            | DxgiFormat::D16_UNorm
-            | DxgiFormat::A8_UNorm
-            | DxgiFormat::R1_UNorm
-            | DxgiFormat::R8G8_B8G8_UNorm
-            | DxgiFormat::G8R8_G8B8_UNorm
-            | DxgiFormat::B5G6R5_UNorm
-            | DxgiFormat::B5G5R5A1_UNorm
-            | DxgiFormat::B8G8R8X8_UNorm
-            | DxgiFormat::R10G10B10_XR_Bias_A2_UNorm
-            | DxgiFormat::B8G8R8X8_Typeless
-            | DxgiFormat::B8G8R8X8_UNorm_sRGB
-            | DxgiFormat::AYUV
-            | DxgiFormat::Y410
-            | DxgiFormat::Y416
-            | DxgiFormat::NV12
-            | DxgiFormat::P010
-            | DxgiFormat::P016
-            | DxgiFormat::Format_420_Opaque
-            | DxgiFormat::YUY2
-            | DxgiFormat::Y210
-            | DxgiFormat::Y216
-            | DxgiFormat::NV11
-            | DxgiFormat::AI44
-            | DxgiFormat::IA44
-            | DxgiFormat::P8
-            | DxgiFormat::A8P8
-            | DxgiFormat::B4G4R4A4_UNorm
-            | DxgiFormat::P208
-            | DxgiFormat::V208
-            | DxgiFormat::V408
-            | DxgiFormat::Force_UInt => {
+            _ => {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
                     "{:?}",
                     dxgi_format
