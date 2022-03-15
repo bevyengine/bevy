@@ -289,6 +289,8 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
+            // NOTE: Load this after renderer initialization so that it knows about the supported
+            // compressed texture formats
             .add_plugin(ImagePlugin);
     }
 }

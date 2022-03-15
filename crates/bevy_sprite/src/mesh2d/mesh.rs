@@ -192,6 +192,7 @@ impl FromWorld for Mesh2dPipeline {
             GpuImage {
                 texture,
                 texture_view,
+                texture_format: image.texture_descriptor.format,
                 sampler,
                 size: Size::new(
                     image.texture_descriptor.size.width as f32,

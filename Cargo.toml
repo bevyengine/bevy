@@ -64,10 +64,15 @@ wgpu_trace = ["bevy_internal/wgpu_trace"]
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_internal/hdr"]
 png = ["bevy_internal/png"]
-dds = ["bevy_internal/dds"]
 tga = ["bevy_internal/tga"]
 jpeg = ["bevy_internal/jpeg"]
 bmp = ["bevy_internal/bmp"]
+basis-universal = ["bevy_internal/basis-universal"]
+dds = ["bevy_internal/dds"]
+ktx2 = ["bevy_internal/ktx2"]
+# For ktx2 supercompression
+zlib = ["bevy_internal/zlib"]
+zstd = ["bevy_internal/zstd"]
 
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_internal/flac"]

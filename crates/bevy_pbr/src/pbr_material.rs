@@ -123,6 +123,7 @@ bitflags::bitflags! {
         const ALPHA_MODE_OPAQUE          = (1 << 6);
         const ALPHA_MODE_MASK            = (1 << 7);
         const ALPHA_MODE_BLEND           = (1 << 8);
+        const TWO_COMPONENT_NORMAL_MAP   = (1 << 9);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -246,6 +247,22 @@ impl RenderAsset for StandardMaterial {
             flags |= StandardMaterialFlags::UNLIT;
         }
         let has_normal_map = material.normal_map_texture.is_some();
+        if has_normal_map {
+            match gpu_images
+                .get(material.normal_map_texture.as_ref().unwrap())
+                .unwrap()
+                .texture_format
+            {
+                // All 2-component unorm formats
+                TextureFormat::Rg8Unorm
+                | TextureFormat::Rg16Unorm
+                | TextureFormat::Bc5RgUnorm
+                | TextureFormat::EacRg11Unorm => {
+                    flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP
+                }
+                _ => {}
+            }
+        }
         // NOTE: 0.5 is from the glTF default - do we want this?
         let mut alpha_cutoff = 0.5;
         match material.alpha_mode {
