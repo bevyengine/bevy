@@ -77,7 +77,7 @@ impl From<Transform> for TransformBundle {
         Self::from_transform(transform)
     }
 }
-/// Label enum for the systems relating to transform propagaion
+/// Label enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum TransformSystem {
     /// Propagates changes in transform to childrens' [`GlobalTransform`](crate::components::GlobalTransform)
