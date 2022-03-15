@@ -65,10 +65,7 @@ impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_uniform_components::<C>.system(),
-                );
+                .add_system_to_stage(RenderStage::Prepare, prepare_uniform_components::<C>);
         }
     }
 }
@@ -114,14 +111,19 @@ fn prepare_uniform_components<C: Component>(
     C: AsStd140 + Clone,
 {
     component_uniforms.uniforms.clear();
-    for (entity, component) in components.iter() {
-        commands
-            .get_or_spawn(entity)
-            .insert(DynamicUniformIndex::<C> {
-                index: component_uniforms.uniforms.push(component.clone()),
-                marker: PhantomData,
-            });
-    }
+    let entities = components
+        .iter()
+        .map(|(entity, component)| {
+            (
+                entity,
+                (DynamicUniformIndex::<C> {
+                    index: component_uniforms.uniforms.push(component.clone()),
+                    marker: PhantomData,
+                },),
+            )
+        })
+        .collect::<Vec<_>>();
+    commands.insert_or_spawn_batch(entities);
 
     component_uniforms
         .uniforms

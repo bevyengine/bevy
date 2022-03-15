@@ -79,10 +79,10 @@ impl DynamicScene {
         world: &mut World,
         entity_map: &mut EntityMap,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
+        let registry = world.resource::<TypeRegistryArc>().clone();
         let type_registry = registry.read();
 
-        for scene_entity in self.entities.iter() {
+        for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
@@ -91,7 +91,7 @@ impl DynamicScene {
                 .or_insert_with(|| world.spawn().id());
 
             // Apply/ add each component to the given entity.
-            for component in scene_entity.components.iter() {
+            for component in &scene_entity.components {
                 let registration = type_registry
                     .get_with_name(component.type_name())
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {

@@ -3,7 +3,7 @@ use crate::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
     },
-    system::{ConfigurableSystem, In, IntoChainSystem, Local, Res, ResMut},
+    system::{In, IntoChainSystem, Local, Res, ResMut},
 };
 use std::{any::TypeId, fmt::Debug, hash::Hash};
 use thiserror::Error;
@@ -98,23 +98,22 @@ impl<T> State<T>
 where
     T: StateData,
 {
-    pub fn on_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
-            state.stack.last().unwrap() == pred.as_ref().unwrap() && state.transition.is_none()
+    pub fn on_update(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
+            state.stack.last().unwrap() == &pred && state.transition.is_none()
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Update.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Update.into_label(pred_clone))
     }
 
-    pub fn on_inactive_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
-            .transition
-        {
+    pub fn on_inactive_update(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>, mut is_inactive: Local<bool>| match &state.transition {
             Some(StateTransition::Pausing(ref relevant, _))
             | Some(StateTransition::Resuming(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
+                if relevant == &pred {
                     *is_inactive = !*is_inactive;
                 }
                 false
@@ -122,31 +121,29 @@ where
             Some(_) => false,
             None => *is_inactive,
         })
-        .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::InactiveUpdate.into_label(s))
+        .label_discard_if_duplicate(StateCallback::InactiveUpdate.into_label(pred_clone))
     }
 
-    pub fn on_in_stack_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
-            .transition
-        {
+    pub fn on_in_stack_update(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>, mut is_in_stack: Local<bool>| match &state.transition {
             Some(StateTransition::Entering(ref relevant, _))
             | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
+                if relevant == &pred {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
             }
             Some(StateTransition::ExitingFull(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
+                if relevant == &pred {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
             }
             Some(StateTransition::Startup) => {
-                if state.stack.last().unwrap() == pred.as_ref().unwrap() {
+                if state.stack.last().unwrap() == &pred {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
@@ -154,78 +151,75 @@ where
             Some(_) => false,
             None => *is_in_stack,
         })
-        .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::InStackUpdate.into_label(s))
+        .label_discard_if_duplicate(StateCallback::InStackUpdate.into_label(pred_clone))
     }
 
-    pub fn on_enter(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+    pub fn on_enter(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Entering(_, entering) => entering == pred.as_ref().unwrap(),
-                    StateTransition::Startup => {
-                        state.stack.last().unwrap() == pred.as_ref().unwrap()
-                    }
+                    StateTransition::Entering(_, entering) => entering == &pred,
+                    StateTransition::Startup => state.stack.last().unwrap() == &pred,
                     _ => false,
                 })
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Enter.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Enter.into_label(pred_clone))
     }
 
-    pub fn on_exit(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+    pub fn on_exit(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
                     StateTransition::ExitingToResume(exiting, _)
-                    | StateTransition::ExitingFull(exiting, _) => exiting == pred.as_ref().unwrap(),
+                    | StateTransition::ExitingFull(exiting, _) => exiting == &pred,
                     _ => false,
                 })
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Exit.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Exit.into_label(pred_clone))
     }
 
-    pub fn on_pause(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+    pub fn on_pause(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Pausing(pausing, _) => pausing == pred.as_ref().unwrap(),
+                    StateTransition::Pausing(pausing, _) => pausing == &pred,
                     _ => false,
                 })
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Pause.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Pause.into_label(pred_clone))
     }
 
-    pub fn on_resume(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+    pub fn on_resume(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Resuming(_, resuming) => resuming == pred.as_ref().unwrap(),
+                    StateTransition::Resuming(_, resuming) => resuming == &pred,
                     _ => false,
                 })
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Resume.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Resume.into_label(pred_clone))
     }
 
     pub fn on_update_set(s: T) -> SystemSet {
@@ -397,6 +391,11 @@ where
 
     pub fn inactives(&self) -> &[T] {
         self.stack.split_last().map(|(_, rest)| rest).unwrap()
+    }
+
+    /// Clears the scheduled state operation.
+    pub fn clear_schedule(&mut self) {
+        self.scheduled = None;
     }
 }
 
@@ -635,7 +634,7 @@ mod test {
         ];
 
         stage.run(&mut world);
-        let mut collected = world.get_resource_mut::<Vec<&'static str>>().unwrap();
+        let mut collected = world.resource_mut::<Vec<&'static str>>();
         let mut count = 0;
         for (found, expected) in collected.drain(..).zip(EXPECTED) {
             assert_eq!(found, *expected);
@@ -644,7 +643,7 @@ mod test {
         // If not equal, some elements weren't executed
         assert_eq!(EXPECTED.len(), count);
         assert_eq!(
-            world.get_resource::<State<MyState>>().unwrap().current(),
+            world.resource::<State<MyState>>().current(),
             &MyState::Final
         );
     }
@@ -667,7 +666,7 @@ mod test {
         world.insert_resource("control");
         let mut stage = SystemStage::parallel().with_system(should_run_once);
         stage.run(&mut world);
-        assert!(*world.get_resource::<bool>().unwrap(), "after control");
+        assert!(*world.resource::<bool>(), "after control");
 
         world.insert_resource(false);
         world.insert_resource("test");
@@ -675,7 +674,7 @@ mod test {
             .with_system_set(State::<AppState>::get_driver())
             .with_system(should_run_once);
         stage.run(&mut world);
-        assert!(*world.get_resource::<bool>().unwrap(), "after test");
+        assert!(*world.resource::<bool>(), "after test");
     }
 
     #[test]
@@ -718,19 +717,19 @@ mod test {
         stage.run(&mut world);
 
         // A. Restart state
-        let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
+        let mut state = world.resource_mut::<State<LoadState>>();
         let result = state.restart();
         assert!(matches!(result, Ok(())));
         stage.run(&mut world);
 
         // B. Restart state (overwrite schedule)
-        let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
+        let mut state = world.resource_mut::<State<LoadState>>();
         state.set(LoadState::Finish).unwrap();
         state.overwrite_restart();
         stage.run(&mut world);
 
         // C. Fail restart state (transition already scheduled)
-        let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
+        let mut state = world.resource_mut::<State<LoadState>>();
         state.set(LoadState::Finish).unwrap();
         let result = state.restart();
         assert!(matches!(result, Err(StateError::StateAlreadyQueued)));
@@ -749,7 +748,7 @@ mod test {
             LoadStatus::EnterFinish,
         ];
 
-        let mut collected = world.get_resource_mut::<Vec<LoadStatus>>().unwrap();
+        let mut collected = world.resource_mut::<Vec<LoadStatus>>();
         let mut count = 0;
         for (found, expected) in collected.drain(..).zip(EXPECTED) {
             assert_eq!(found, *expected);
@@ -758,7 +757,7 @@ mod test {
         // If not equal, some elements weren't executed
         assert_eq!(EXPECTED.len(), count);
         assert_eq!(
-            world.get_resource::<State<LoadState>>().unwrap().current(),
+            world.resource::<State<LoadState>>().current(),
             &LoadState::Finish
         );
     }

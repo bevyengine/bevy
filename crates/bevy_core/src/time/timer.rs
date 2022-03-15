@@ -180,7 +180,7 @@ impl Timer {
             self.stopwatch.reset();
             self.finished = self.just_finished();
         }
-        self.repeating = repeating
+        self.repeating = repeating;
     }
 
     /// Advance the timer by `delta` seconds.

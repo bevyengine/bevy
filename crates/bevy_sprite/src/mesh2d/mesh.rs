@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -7,7 +7,7 @@ use bevy_ecs::{
 use bevy_math::{Mat4, Size};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::{GpuBufferInfo, Mesh},
+    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -43,20 +43,18 @@ pub const MESH2D_SHADER_HANDLE: HandleUntyped =
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
-            MESH2D_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("mesh2d.wgsl")),
-        );
-        shaders.set_untracked(
+        load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
             MESH2D_STRUCT_HANDLE,
-            Shader::from_wgsl(include_str!("mesh2d_struct.wgsl"))
-                .with_import_path("bevy_sprite::mesh2d_struct"),
+            "mesh2d_struct.wgsl",
+            Shader::from_wgsl
         );
-        shaders.set_untracked(
+        load_internal_asset!(
+            app,
             MESH2D_VIEW_BIND_GROUP_HANDLE,
-            Shader::from_wgsl(include_str!("mesh2d_view_bind_group.wgsl"))
-                .with_import_path("bevy_sprite::mesh2d_view_bind_group"),
+            "mesh2d_view_bind_group.wgsl",
+            Shader::from_wgsl
         );
 
         app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
@@ -64,7 +62,7 @@ impl Plugin for Mesh2dRenderPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<Mesh2dPipeline>()
-                .init_resource::<SpecializedPipelines<Mesh2dPipeline>>()
+                .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_system_to_stage(RenderStage::Extract, extract_mesh2d)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups);
@@ -125,7 +123,7 @@ pub struct Mesh2dPipeline {
 
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -168,7 +166,7 @@ impl FromWorld for Mesh2dPipeline {
             let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world.get_resource_mut::<RenderQueue>().unwrap();
+            let render_queue = world.resource_mut::<RenderQueue>();
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -234,7 +232,6 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                        = 0;
-        const VERTEX_TANGENTS             = (1 << 0);
         const MSAA_RESERVED_BITS          = Mesh2dPipelineKey::MSAA_MASK_BITS << Mesh2dPipelineKey::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Mesh2dPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << Mesh2dPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -276,84 +273,37 @@ impl Mesh2dPipelineKey {
     }
 }
 
-impl SpecializedPipeline for Mesh2dPipeline {
+impl SpecializedMeshPipeline for Mesh2dPipeline {
     type Key = Mesh2dPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (vertex_array_stride, vertex_attributes) =
-            if key.contains(Mesh2dPipelineKey::VERTEX_TANGENTS) {
-                (
-                    48,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 40,
-                            shader_location: 2,
-                        },
-                        // Tangent
-                        VertexAttribute {
-                            format: VertexFormat::Float32x4,
-                            offset: 24,
-                            shader_location: 3,
-                        },
-                    ],
-                )
-            } else {
-                (
-                    32,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                )
-            };
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut vertex_attributes = vec![
+            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
+            Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
+            Mesh::ATTRIBUTE_UV_0.at_shader_location(2),
+        ];
+
         let mut shader_defs = Vec::new();
-        if key.contains(Mesh2dPipelineKey::VERTEX_TANGENTS) {
+        if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
         #[cfg(feature = "webgl")]
         shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
 
-        RenderPipelineDescriptor {
+        let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
+
+        Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH2D_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![VertexBufferLayout {
-                    array_stride: vertex_array_stride,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: vertex_attributes,
-                }],
+                buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
                 shader: MESH2D_SHADER_HANDLE.typed::<Shader>(),
@@ -382,7 +332,7 @@ impl SpecializedPipeline for Mesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("transparent_mesh2d_pipeline".into()),
-        }
+        })
     }
 }
 

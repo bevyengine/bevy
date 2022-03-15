@@ -71,9 +71,7 @@ impl RenderGraph {
 
     /// Creates an [`GraphInputNode`] with the specified slots if not already present.
     pub fn set_input(&mut self, inputs: Vec<SlotInfo>) -> NodeId {
-        if self.input_node.is_some() {
-            panic!("Graph already has an input node");
-        }
+        assert!(self.input_node.is_none(), "Graph already has an input node");
 
         let id = self.add_node("GraphInputNode", GraphInputNode { inputs });
         self.input_node = Some(id);

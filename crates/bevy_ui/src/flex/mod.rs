@@ -1,9 +1,9 @@
 mod convert;
 
 use crate::{CalculatedSize, Node, Style};
-use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
+    event::EventReader,
     query::{Changed, FilterFetch, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };
@@ -218,11 +218,7 @@ pub fn flex_node_system(
     }
 
     // assume one window for time being...
-    let logical_to_physical_factor = if let Some(primary_window) = windows.get_primary() {
-        primary_window.scale_factor()
-    } else {
-        1.
-    };
+    let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
 
     if scale_factor_events.iter().next_back().is_some() {
         update_changed(
@@ -282,17 +278,22 @@ pub fn flex_node_system(
             to_logical(layout.size.width),
             to_logical(layout.size.height),
         );
+        // only trigger change detection when the new value is different
         if node.size != new_size {
             node.size = new_size;
         }
-        let position = &mut transform.translation;
-        position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+        let mut new_position = transform.translation;
+        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
+        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
             if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
-                position.x -= to_logical(parent_layout.size.width / 2.0);
-                position.y -= to_logical(parent_layout.size.height / 2.0);
+                new_position.x -= to_logical(parent_layout.size.width / 2.0);
+                new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
+        }
+        // only trigger change detection when the new value is different
+        if transform.translation != new_position {
+            transform.translation = new_position;
         }
     }
 }
