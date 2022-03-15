@@ -12,6 +12,11 @@ bevy_ecs = { path = "../crates/bevy_ecs" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 
 [[bench]]
+name = "ecs_bench_suite"
+path = "benches/bevy_ecs/ecs_bench_suite/mod.rs"
+harness = false
+
+[[bench]]
 name = "system_stage"
 path = "benches/bevy_ecs/stages.rs"
 harness = false
