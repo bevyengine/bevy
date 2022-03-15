@@ -367,10 +367,56 @@ impl FromReflect for Cow<'static, str> {
 
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::{PI, TAU};
     use crate::Reflect;
+    use bevy_utils::HashMap;
 
     #[test]
     fn can_serialize_duration() {
         assert!(std::time::Duration::ZERO.serializable().is_some());
+    }
+
+    #[test]
+    fn should_partial_eq() {
+        // === i32 === //
+        let a: &dyn Reflect = &123_i32;
+        let b: &dyn Reflect = &123_i32;
+        let c: &dyn Reflect = &321_i32;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+
+        // === f32 === //
+        let a: &dyn Reflect = &PI;
+        let b: &dyn Reflect = &PI;
+        let c: &dyn Reflect = &TAU;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+
+        // === String === //
+        let a: &dyn Reflect = &String::from("Hello");
+        let b: &dyn Reflect = &String::from("Hello");
+        let c: &dyn Reflect = &String::from("World");
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+
+        // === Vec === //
+        let a: &dyn Reflect = &vec![1, 2, 3];
+        let b: &dyn Reflect = &vec![1, 2, 3];
+        let c: &dyn Reflect = &vec![3, 2, 1];
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+
+        // === HashMap === //
+        let mut a = HashMap::new();
+        a.insert(0usize, 1.23_f64);
+        let b = a.clone();
+        let mut c = HashMap::new();
+        c.insert(0usize, 3.21_f64);
+
+        let a: &dyn Reflect = &a;
+        let b: &dyn Reflect = &b;
+        let c: &dyn Reflect = &c;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 }
