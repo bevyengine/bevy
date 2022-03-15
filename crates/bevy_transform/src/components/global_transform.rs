@@ -14,7 +14,7 @@ use std::ops::Mul;
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](super::Parent).
+/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///

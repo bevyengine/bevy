@@ -502,6 +502,27 @@ path = "examples/shader/compute_shader_game_of_life.rs"
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
 
+# Transforms
+[[example]]
+name = "global_vs_local_translation"
+path = "examples/transforms/global_vs_local_translation.rs"
+
+[[example]]
+name = "3d_rotation"
+path = "examples/transforms/3d_rotation.rs"
+
+[[example]]
+name = "scale"
+path = "examples/transforms/scale.rs"
+
+[[example]]
+name = "transform"
+path = "examples/transforms/transform.rs"
+
+[[example]]
+name = "translation"
+path = "examples/transforms/translation.rs"
+
 # UI (User Interface)
 [[example]]
 name = "button"
