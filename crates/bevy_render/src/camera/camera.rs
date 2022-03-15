@@ -219,7 +219,7 @@ impl<T: Component + Default> Default for CameraTypePlugin<T> {
 }
 
 impl<T: Component + Default> Plugin for CameraTypePlugin<T> {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.init_resource::<ActiveCamera<T>>()
             .add_startup_system_to_stage(StartupStage::PostStartup, set_active_camera::<T>)
             .add_system_to_stage(CoreStage::PostUpdate, set_active_camera::<T>);

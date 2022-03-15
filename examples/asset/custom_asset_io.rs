@@ -46,7 +46,7 @@ impl AssetIo for CustomAssetIo {
 struct CustomAssetIoPlugin;
 
 impl Plugin for CustomAssetIoPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         // must get a hold of the task pool in order to create the asset server
 
         let task_pool = app.world.resource::<bevy::tasks::IoTaskPool>().0.clone();

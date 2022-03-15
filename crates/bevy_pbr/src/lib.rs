@@ -56,7 +56,7 @@ pub const SHADOW_SHADER_HANDLE: HandleUntyped =
 pub struct PbrPlugin;
 
 impl Plugin for PbrPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,

@@ -52,7 +52,7 @@ struct CustomMaterial;
 pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         let render_device = app.world.resource::<RenderDevice>();
         let buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("time uniform buffer"),

@@ -23,7 +23,7 @@ use bevy_asset::{AddAsset, Assets};
 pub struct ImagePlugin;
 
 impl Plugin for ImagePlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         #[cfg(any(
             feature = "png",
             feature = "dds",

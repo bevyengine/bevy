@@ -57,7 +57,7 @@ impl<T: Asset> Default for HandleMap<T> {
 }
 
 impl Plugin for DebugAssetServerPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(self: Box<Self>, app: &mut bevy_app::App) {
         let mut debug_asset_app = App::new();
         debug_asset_app
             .insert_resource(IoTaskPool(

@@ -59,7 +59,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 pub struct GameOfLifeComputePlugin;
 
 impl Plugin for GameOfLifeComputePlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<GameOfLifePipeline>()

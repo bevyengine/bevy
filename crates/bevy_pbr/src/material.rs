@@ -199,7 +199,7 @@ impl<M: SpecializedMaterial> Default for MaterialPlugin<M> {
 }
 
 impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::default())
             .add_plugin(RenderAssetPlugin::<M>::default());

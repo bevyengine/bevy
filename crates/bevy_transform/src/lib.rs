@@ -89,7 +89,7 @@ pub enum TransformSystem {
 pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             // Adding these to startup ensures the first update is "correct"

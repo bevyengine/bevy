@@ -58,7 +58,7 @@ impl<C> Default for UniformComponentPlugin<C> {
 }
 
 impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
@@ -143,7 +143,7 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C>
 where
     <C::Filter as WorldQuery>::Fetch: FilterFetch,
 {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(RenderStage::Extract, extract_components::<C>);
         }

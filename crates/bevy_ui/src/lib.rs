@@ -48,7 +48,7 @@ pub enum UiSystem {
 }
 
 impl Plugin for UiPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.add_plugin(CameraTypePlugin::<CameraUi>::default())
             .init_resource::<FlexSurface>()
             .register_type::<AlignContent>()

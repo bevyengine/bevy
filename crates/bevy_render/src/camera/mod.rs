@@ -17,7 +17,7 @@ use bevy_app::{App, CoreStage, Plugin};
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.register_type::<Camera>()
             .register_type::<Visibility>()
             .register_type::<ComputedVisibility>()

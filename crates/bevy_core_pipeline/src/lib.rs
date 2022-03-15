@@ -111,7 +111,7 @@ pub enum CorePipelineRenderSystems {
 }
 
 impl Plugin for CorePipelinePlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.init_resource::<ClearColor>()
             .init_resource::<RenderTargetClearColors>();
 

@@ -256,7 +256,7 @@ pub const COLORED_MESH2D_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13828845428412094821);
 
 impl Plugin for ColoredMesh2dPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         // Load our custom shader
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         shaders.set_untracked(

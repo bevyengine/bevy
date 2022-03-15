@@ -38,7 +38,7 @@ use winit::dpi::LogicalSize;
 pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)

@@ -38,7 +38,7 @@ pub type DefaultTextPipeline = TextPipeline<Entity>;
 pub struct TextPlugin;
 
 impl Plugin for TextPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .register_type::<Text>()

@@ -37,7 +37,7 @@ pub enum HierarchySystem {
 }
 
 impl Plugin for HierarchyPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
             .register_type::<PreviousParent>()

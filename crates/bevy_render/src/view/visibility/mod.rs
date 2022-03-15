@@ -77,7 +77,7 @@ pub enum VisibilitySystems {
 pub struct VisibilityPlugin;
 
 impl Plugin for VisibilityPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(self: Box<Self>, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
         app.add_system_to_stage(

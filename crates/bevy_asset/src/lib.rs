@@ -80,7 +80,7 @@ pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
 }
 
 impl Plugin for AssetPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         if !app.world.contains_resource::<AssetServer>() {
             let task_pool = app.world.resource::<IoTaskPool>().0.clone();
 

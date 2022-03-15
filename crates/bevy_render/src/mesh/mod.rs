@@ -13,7 +13,7 @@ use bevy_asset::AddAsset;
 pub struct MeshPlugin;
 
 impl Plugin for MeshPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.add_asset::<Mesh>()
             .add_plugin(RenderAssetPlugin::<Mesh>::default());
     }

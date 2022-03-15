@@ -14,7 +14,7 @@ use bevy_app::prelude::*;
 pub struct DiagnosticsPlugin;
 
 impl Plugin for DiagnosticsPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.init_resource::<Diagnostics>();
     }
 }

@@ -27,7 +27,7 @@ pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
 pub struct WireframePlugin;
 
 impl Plugin for WireframePlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(self: Box<Self>, app: &mut bevy_app::App) {
         load_internal_asset!(
             app,
             WIREFRAME_SHADER_HANDLE,

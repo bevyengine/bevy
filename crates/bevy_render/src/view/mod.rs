@@ -25,7 +25,7 @@ use bevy_transform::components::GlobalTransform;
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         app.init_resource::<Msaa>().add_plugin(VisibilityPlugin);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {

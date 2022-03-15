@@ -110,7 +110,7 @@ impl Default for LogSettings {
 }
 
 impl Plugin for LogPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         #[cfg(feature = "trace")]
         {
             let old_handler = panic::take_hook();

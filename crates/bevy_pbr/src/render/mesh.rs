@@ -34,7 +34,7 @@ pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
 
 impl Plugin for MeshRenderPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(self: Box<Self>, app: &mut bevy_app::App) {
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,

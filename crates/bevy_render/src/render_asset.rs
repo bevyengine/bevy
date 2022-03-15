@@ -53,7 +53,7 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 }
 
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
-    fn build(&self, app: &mut App) {
+    fn build(self: Box<Self>, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedAssets<A>>()
