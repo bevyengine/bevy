@@ -1,7 +1,4 @@
-use std::{
-    num::NonZeroU64,
-    ops::{Deref, DerefMut},
-};
+use std::num::NonZeroU64;
 
 use bevy_crevice::std430::{self, AsStd430, Std430};
 use bevy_utils::tracing::warn;
@@ -121,18 +118,12 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
             queue.write_buffer(storage_buffer, 0, &self.scratch[range]);
         }
     }
-}
 
-impl<T: AsStd430, U: AsStd430> Deref for StorageBuffer<T, U> {
-    type Target = Vec<T>;
-
-    fn deref(&self) -> &Self::Target {
+    pub fn values(&self) -> &[T] {
         &self.values
     }
-}
 
-impl<T: AsStd430, U: AsStd430> DerefMut for StorageBuffer<T, U> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+    pub fn values_mut(&mut self) -> &mut [T] {
         &mut self.values
     }
 }
