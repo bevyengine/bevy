@@ -110,11 +110,11 @@ pub fn dds_format_to_texture_format(
                     TextureFormat::Bc3RgbaUnorm
                 }
             }
-            // TODO: X8Comment
-            // FIXME: Map to argb format and user has to know to ignore the alpha channel?
             D3DFormat::A1R5G5B5
             | D3DFormat::R5G6B5
+            // FIXME: Map to argb format and user has to know to ignore the alpha channel?
             | D3DFormat::X8R8G8B8
+            // FIXME: Map to argb format and user has to know to ignore the alpha channel?
             | D3DFormat::X8B8G8R8
             | D3DFormat::A2R10G10B10
             | D3DFormat::R8G8B8
