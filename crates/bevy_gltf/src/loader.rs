@@ -4,6 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_ecs::world::World;
+use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
@@ -24,11 +25,8 @@ use bevy_render::{
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
-use bevy_transform::{
-    hierarchy::{BuildWorldChildren, WorldChildBuilder},
-    prelude::Transform,
-    TransformBundle,
-};
+use bevy_transform::{components::Transform, TransformBundle};
+
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
