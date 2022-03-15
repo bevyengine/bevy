@@ -9,6 +9,10 @@ pub struct WinitWindows {
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
     pub window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
     pub winit_to_window_id: HashMap<winit::window::WindowId, WindowId>,
+    // Some winit functions, such as `set_window_icon` can only be used from the main thread. If
+    // they are used in another thread, the app will hang. This marker ensures `WinitWindows` is
+    // only ever accessed with bevy's non-send functions and in NonSend systems.
+    _not_send_sync: core::marker::PhantomData<*const ()>,
 }
 
 impl WinitWindows {
@@ -127,10 +131,12 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
-        match winit_window.set_cursor_grab(window_descriptor.cursor_locked) {
-            Ok(_) => {}
-            Err(winit::error::ExternalError::NotSupported(_)) => {}
-            Err(err) => Err(err).unwrap(),
+        if window_descriptor.cursor_locked {
+            match winit_window.set_cursor_grab(true) {
+                Ok(_) => {}
+                Err(winit::error::ExternalError::NotSupported(_)) => {}
+                Err(err) => Err(err).unwrap(),
+            }
         }
 
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);

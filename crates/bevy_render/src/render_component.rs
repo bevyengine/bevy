@@ -62,12 +62,11 @@ impl<C> Default for UniformComponentPlugin<C> {
 
 impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp)
-            .insert_resource(ComponentUniforms::<C>::default())
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                prepare_uniform_components::<C>.system(),
-            );
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .insert_resource(ComponentUniforms::<C>::default())
+                .add_system_to_stage(RenderStage::Prepare, prepare_uniform_components::<C>);
+        }
     }
 }
 
@@ -112,14 +111,19 @@ fn prepare_uniform_components<C: Component>(
     C: AsStd140 + Clone,
 {
     component_uniforms.uniforms.clear();
-    for (entity, component) in components.iter() {
-        commands
-            .get_or_spawn(entity)
-            .insert(DynamicUniformIndex::<C> {
-                index: component_uniforms.uniforms.push(component.clone()),
-                marker: PhantomData,
-            });
-    }
+    let entities = components
+        .iter()
+        .map(|(entity, component)| {
+            (
+                entity,
+                (DynamicUniformIndex::<C> {
+                    index: component_uniforms.uniforms.push(component.clone()),
+                    marker: PhantomData,
+                },),
+            )
+        })
+        .collect::<Vec<_>>();
+    commands.insert_or_spawn_batch(entities);
 
     component_uniforms
         .uniforms
@@ -144,8 +148,9 @@ where
 {
     fn build(&self, app: &mut App) {
         let system = ExtractComponentSystem::<C>::system(&mut app.world);
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app.add_system_to_stage(RenderStage::Extract, system);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_system_to_stage(RenderStage::Extract, system);
+        }
     }
 }
 

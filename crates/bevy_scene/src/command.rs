@@ -14,7 +14,7 @@ pub struct SpawnScene {
 
 impl Command for SpawnScene {
     fn write(self, world: &mut World) {
-        let mut spawner = world.get_resource_mut::<SceneSpawner>().unwrap();
+        let mut spawner = world.resource_mut::<SceneSpawner>();
         spawner.spawn(self.scene_handle);
     }
 }
@@ -36,7 +36,7 @@ pub struct SpawnSceneAsChild {
 
 impl Command for SpawnSceneAsChild {
     fn write(self, world: &mut World) {
-        let mut spawner = world.get_resource_mut::<SceneSpawner>().unwrap();
+        let mut spawner = world.resource_mut::<SceneSpawner>();
         spawner.spawn_as_child(self.scene_handle, self.parent);
     }
 }

@@ -8,6 +8,7 @@ use bevy_ecs::{
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
+/// Updates parents when the hierarchy is changed
 pub fn parent_update_system(
     mut commands: Commands,
     removed_parent_query: Query<(Entity, &PreviousParent), Without<Parent>>,

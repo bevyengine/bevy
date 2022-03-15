@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 //! This crate is about everything concerning the highest-level, application layer of a Bevy
 //! app.
 
@@ -11,14 +12,16 @@ mod ci_testing;
 
 pub use app::*;
 pub use bevy_derive::DynamicPlugin;
-pub use bevy_ecs::event::*;
 pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupStage};
+    pub use crate::{
+        app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupSchedule, StartupStage,
+    };
 }
 
 use bevy_ecs::schedule::StageLabel;
@@ -28,11 +31,6 @@ use bevy_ecs::schedule::StageLabel;
 /// The relative stages are added by [`App::add_default_stages`].
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum CoreStage {
-    /// Runs only once at the beginning of the app.
-    ///
-    /// Consists of the sub-stages defined in [`StartupStage`]. Systems added here are
-    /// referred to as "startup systems".
-    Startup,
     /// Name of app stage that runs before all other app stages
     First,
     /// Name of app stage responsible for performing setup before an update. Runs before UPDATE.
@@ -45,6 +43,15 @@ pub enum CoreStage {
     /// Name of app stage that runs after all other app stages
     Last,
 }
+
+/// The label for the Startup [`Schedule`](bevy_ecs::schedule::Schedule),
+/// which runs once at the beginning of the app.
+///
+/// When targeting a [`Stage`](bevy_ecs::schedule::Stage) inside this Schedule,
+/// you need to use [`StartupStage`] instead.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub struct StartupSchedule;
+
 /// The names of the default App startup stages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum StartupStage {

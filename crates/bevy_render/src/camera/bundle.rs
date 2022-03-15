@@ -1,36 +1,48 @@
 use crate::{
-    camera::{
-        Camera, CameraPlugin, DepthCalculation, OrthographicProjection, PerspectiveProjection,
-        ScalingMode,
-    },
+    camera::{Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection},
     primitives::Frustum,
     view::VisibleEntities,
 };
-use bevy_ecs::bundle::Bundle;
+use bevy_ecs::{bundle::Bundle, prelude::Component};
 use bevy_math::Vec3;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use super::CameraProjection;
+use super::{CameraProjection, ScalingMode};
+
+#[derive(Component, Default)]
+pub struct Camera3d;
+
+#[derive(Component, Default)]
+pub struct Camera2d;
 
 /// Component bundle for camera entities with perspective projection
 ///
 /// Use this for 3D rendering.
 #[derive(Bundle)]
-pub struct PerspectiveCameraBundle {
+pub struct PerspectiveCameraBundle<M: Component> {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub marker: M,
 }
 
-impl PerspectiveCameraBundle {
-    pub fn new_3d() -> Self {
-        Default::default()
+impl Default for PerspectiveCameraBundle<Camera3d> {
+    fn default() -> Self {
+        PerspectiveCameraBundle::new_3d()
     }
+}
 
-    pub fn with_name(name: &str) -> Self {
+impl PerspectiveCameraBundle<Camera3d> {
+    pub fn new_3d() -> Self {
+        PerspectiveCameraBundle::new()
+    }
+}
+
+impl<M: Component + Default> PerspectiveCameraBundle<M> {
+    pub fn new() -> Self {
         let perspective_projection = PerspectiveProjection::default();
         let view_projection = perspective_projection.get_projection_matrix();
         let frustum = Frustum::from_view_projection(
@@ -41,7 +53,6 @@ impl PerspectiveCameraBundle {
         );
         PerspectiveCameraBundle {
             camera: Camera {
-                name: Some(name.to_string()),
                 near: perspective_projection.near,
                 far: perspective_projection.far,
                 ..Default::default()
@@ -51,13 +62,8 @@ impl PerspectiveCameraBundle {
             frustum,
             transform: Default::default(),
             global_transform: Default::default(),
+            marker: M::default(),
         }
-    }
-}
-
-impl Default for PerspectiveCameraBundle {
-    fn default() -> Self {
-        PerspectiveCameraBundle::with_name(CameraPlugin::CAMERA_3D)
     }
 }
 
@@ -65,16 +71,47 @@ impl Default for PerspectiveCameraBundle {
 ///
 /// Use this for 2D games, isometric games, CAD-like 3D views.
 #[derive(Bundle)]
-pub struct OrthographicCameraBundle {
+pub struct OrthographicCameraBundle<M: Component> {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub marker: M,
 }
 
-impl OrthographicCameraBundle {
+impl OrthographicCameraBundle<Camera3d> {
+    pub fn new_3d() -> Self {
+        let orthographic_projection = OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical,
+            depth_calculation: DepthCalculation::Distance,
+            ..Default::default()
+        };
+        let view_projection = orthographic_projection.get_projection_matrix();
+        let frustum = Frustum::from_view_projection(
+            &view_projection,
+            &Vec3::ZERO,
+            &Vec3::Z,
+            orthographic_projection.far(),
+        );
+        OrthographicCameraBundle {
+            camera: Camera {
+                near: orthographic_projection.near,
+                far: orthographic_projection.far,
+                ..Default::default()
+            },
+            orthographic_projection,
+            visible_entities: VisibleEntities::default(),
+            frustum,
+            transform: Default::default(),
+            global_transform: Default::default(),
+            marker: Camera3d,
+        }
+    }
+}
+
+impl OrthographicCameraBundle<Camera2d> {
     /// Create an orthographic projection camera to render 2D content.
     ///
     /// The projection creates a camera space where X points to the right of the screen,
@@ -112,7 +149,6 @@ impl OrthographicCameraBundle {
         );
         OrthographicCameraBundle {
             camera: Camera {
-                name: Some(CameraPlugin::CAMERA_2D.to_string()),
                 near: orthographic_projection.near,
                 far: orthographic_projection.far,
                 ..Default::default()
@@ -122,58 +158,7 @@ impl OrthographicCameraBundle {
             frustum,
             transform,
             global_transform: Default::default(),
-        }
-    }
-
-    pub fn new_3d() -> Self {
-        let orthographic_projection = OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical,
-            depth_calculation: DepthCalculation::Distance,
-            ..Default::default()
-        };
-        let view_projection = orthographic_projection.get_projection_matrix();
-        let frustum = Frustum::from_view_projection(
-            &view_projection,
-            &Vec3::ZERO,
-            &Vec3::Z,
-            orthographic_projection.far(),
-        );
-        OrthographicCameraBundle {
-            camera: Camera {
-                name: Some(CameraPlugin::CAMERA_3D.to_string()),
-                near: orthographic_projection.near,
-                far: orthographic_projection.far,
-                ..Default::default()
-            },
-            orthographic_projection,
-            visible_entities: VisibleEntities::default(),
-            frustum,
-            transform: Default::default(),
-            global_transform: Default::default(),
-        }
-    }
-
-    pub fn with_name(name: &str) -> Self {
-        let orthographic_projection = OrthographicProjection::default();
-        let view_projection = orthographic_projection.get_projection_matrix();
-        let frustum = Frustum::from_view_projection(
-            &view_projection,
-            &Vec3::ZERO,
-            &Vec3::Z,
-            orthographic_projection.far(),
-        );
-        OrthographicCameraBundle {
-            camera: Camera {
-                name: Some(name.to_string()),
-                near: orthographic_projection.near,
-                far: orthographic_projection.far,
-                ..Default::default()
-            },
-            orthographic_projection,
-            visible_entities: VisibleEntities::default(),
-            frustum,
-            transform: Default::default(),
-            global_transform: Default::default(),
+            marker: Camera2d,
         }
     }
 }

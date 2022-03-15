@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -45,15 +45,17 @@ render = [
 # Optional bevy crates
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
-bevy_render = ["bevy_internal/bevy_render"]
-bevy_text = ["bevy_internal/bevy_text"]
-bevy_pbr = ["bevy_internal/bevy_pbr"]
-bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
+bevy_pbr = ["bevy_internal/bevy_pbr"]
+bevy_render = ["bevy_internal/bevy_render"]
+bevy_sprite = ["bevy_internal/bevy_sprite"]
+bevy_text = ["bevy_internal/bevy_text"]
+bevy_ui = ["bevy_internal/bevy_ui"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
+# Tracing features
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 trace = ["bevy_internal/trace"]
@@ -67,7 +69,7 @@ tga = ["bevy_internal/tga"]
 jpeg = ["bevy_internal/jpeg"]
 bmp = ["bevy_internal/bmp"]
 
-# Audio format support (MP3 is enabled by default)
+# Audio format support (vorbis is enabled by default)
 flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
@@ -82,26 +84,33 @@ serialize = ["bevy_internal/serialize"]
 wayland = ["bevy_internal/wayland"]
 x11 = ["bevy_internal/x11"]
 
-# enable rendering of font glyphs using subpixel accuracy
+# Enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
-# enable systems that allow for automated testing on CI
+# Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
+# Enable the "debug asset server" for hot reloading internal assets
+debug_asset_server = ["bevy_internal/debug_asset_server"]
+
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.5.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.5.0", default-features = false, features = ["webgl"] }
+bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false, features = [
+  "webgl",
+] }
 
 [dev-dependencies]
 anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
+bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
+crossbeam-channel = "0.5.0"
 
 [[example]]
 name = "hello_world"
@@ -115,6 +124,22 @@ path = "examples/2d/contributors.rs"
 [[example]]
 name = "many_sprites"
 path = "examples/2d/many_sprites.rs"
+
+[[example]]
+name = "move_sprite"
+path = "examples/2d/move_sprite.rs"
+
+[[example]]
+name = "rotation"
+path = "examples/2d/rotation.rs"
+
+[[example]]
+name = "mesh2d"
+path = "examples/2d/mesh2d.rs"
+
+[[example]]
+name = "mesh2d_manual"
+path = "examples/2d/mesh2d_manual.rs"
 
 [[example]]
 name = "rect"
@@ -190,6 +215,10 @@ name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
+name = "render_to_texture"
+path = "examples/3d/render_to_texture.rs"
+
+[[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
 
@@ -239,6 +268,10 @@ name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
 
 [[example]]
+name = "headless_defaults"
+path = "examples/app/headless_defaults.rs"
+
+[[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
 
@@ -264,10 +297,18 @@ path = "examples/asset/hot_asset_reloading.rs"
 name = "async_compute"
 path = "examples/async_tasks/async_compute.rs"
 
+[[example]]
+name = "external_source_external_thread"
+path = "examples/async_tasks/external_source_external_thread.rs"
+
 # Audio
 [[example]]
 name = "audio"
 path = "examples/audio/audio.rs"
+
+[[example]]
+name = "audio_control"
+path = "examples/audio/audio_control.rs"
 
 # Diagnostics
 [[example]]
@@ -288,12 +329,20 @@ name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
 
 [[example]]
+name = "custom_query_param"
+path = "examples/ecs/custom_query_param.rs"
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 
 [[example]]
 name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
+
+[[example]]
+name = "generic_system"
+path = "examples/ecs/generic_system.rs"
 
 [[example]]
 name = "hierarchy"
@@ -344,6 +393,10 @@ path = "examples/game/alien_cake_addict.rs"
 name = "breakout"
 path = "examples/game/breakout.rs"
 
+[[example]]
+name = "game_menu"
+path = "examples/game/game_menu.rs"
+
 # Input
 [[example]]
 name = "char_input_events"
@@ -378,6 +431,10 @@ name = "mouse_input_events"
 path = "examples/input/mouse_input_events.rs"
 
 [[example]]
+name = "mouse_grab"
+path = "examples/input/mouse_grab.rs"
+
+[[example]]
 name = "touch_input"
 path = "examples/input/touch_input.rs"
 
@@ -409,12 +466,36 @@ path = "examples/scene/scene.rs"
 
 # Shaders
 [[example]]
+name = "custom_vertex_attribute"
+path = "examples/shader/custom_vertex_attribute.rs"
+
+[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
+
+[[example]]
+name = "shader_material_screenspace_texture"
+path = "examples/shader/shader_material_screenspace_texture.rs"
+
+[[example]]
+name = "shader_material_glsl"
+path = "examples/shader/shader_material_glsl.rs"
+
+[[example]]
+name = "shader_instancing"
+path = "examples/shader/shader_instancing.rs"
+
+[[example]]
+name = "animate_shader"
+path = "examples/shader/animate_shader.rs"
+
+[[example]]
+name = "compute_shader_game_of_life"
+path = "examples/shader/compute_shader_game_of_life.rs"
 
 # Tools
 [[example]]
@@ -448,6 +529,10 @@ name = "clear_color"
 path = "examples/window/clear_color.rs"
 
 [[example]]
+name = "low_power"
+path = "examples/window/low_power.rs"
+
+[[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
 
@@ -462,27 +547,6 @@ path = "examples/window/transparent_window.rs"
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
-
-# WASM
-[[example]]
-name = "hello_wasm"
-path = "examples/wasm/hello_wasm.rs"
-required-features = []
-
-[[example]]
-name = "assets_wasm"
-path = "examples/wasm/assets_wasm.rs"
-required-features = ["bevy_winit"]
-
-[[example]]
-name = "headless_wasm"
-path = "examples/wasm/headless_wasm.rs"
-required-features = []
-
-[[example]]
-name = "winit_wasm"
-path = "examples/wasm/winit_wasm.rs"
-required-features = ["bevy_winit"]
 
 # Android
 [[example]]

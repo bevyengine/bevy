@@ -397,9 +397,9 @@ macro_rules! impl_sparse_set_index {
 
 impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
-/// A collection of [ComponentSparseSet] storages, indexed by [ComponentId]
+/// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
 ///
-/// Can be accessed via [Storages](crate::storage::Storages)
+/// Can be accessed via [`Storages`](crate::storage::Storages)
 #[derive(Default)]
 pub struct SparseSets {
     sets: SparseSet<ComponentId, ComponentSparseSet>,
@@ -466,7 +466,7 @@ mod tests {
 
         {
             let iter_results = set.values().collect::<Vec<_>>();
-            assert_eq!(iter_results, vec![&Foo(1), &Foo(2), &Foo(3)])
+            assert_eq!(iter_results, vec![&Foo(1), &Foo(2), &Foo(3)]);
         }
 
         assert_eq!(set.remove(e2), Some(Foo(2)));

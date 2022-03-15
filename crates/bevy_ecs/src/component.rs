@@ -9,7 +9,6 @@ use std::{
     alloc::Layout,
     any::{Any, TypeId},
 };
-use thiserror::Error;
 
 /// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
 /// multiple different types of components, but only one of them per type.
@@ -180,7 +179,7 @@ pub struct ComponentDescriptor {
 impl ComponentDescriptor {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: *mut u8) {
-        x.cast::<T>().drop_in_place()
+        x.cast::<T>().drop_in_place();
     }
 
     pub fn new<T: Component>() -> Self {
@@ -244,16 +243,6 @@ pub struct Components {
     resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
 }
 
-#[derive(Debug, Error)]
-pub enum ComponentsError {
-    #[error("A component of type {name:?} ({type_id:?}) already exists")]
-    ComponentAlreadyExists {
-        type_id: TypeId,
-        name: String,
-        existing_id: ComponentId,
-    },
-}
-
 impl Components {
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
@@ -289,7 +278,7 @@ impl Components {
 
     /// # Safety
     ///
-    /// `id` must be a valid [ComponentId]
+    /// `id` must be a valid [`ComponentId`]
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());

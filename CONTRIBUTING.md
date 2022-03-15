@@ -83,7 +83,7 @@ Check out the next section for details on how this plays out.
 
 Some Bevy Org members are also [Triage Team](https://github.com/orgs/bevyengine/teams/triage-team) members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community. Existing Bevy Engine Org members can [automatically request membership](https://github.com/orgs/bevyengine/teams/triage-team/members). Once again, if you are interested don't hesitate to apply. We generally accept membership requests.
 
-We heavily limit who has merge rights within the org because this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction. Currently, only @cart can merge every class of change. @mockersf is allowed to merge small "uncontroversial" changes, provided they have two approvals.
+We heavily limit who has merge rights within the org because this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction. Currently, only @cart can merge every class of change. @mockersf is allowed to merge small "uncontroversial" changes, provided these changes have at least two approvals. Same goes for @alice-i-cecile and doc related changes. If there is an emergency that needs a quick resolution and @cart is not around, both @mockersf and @alice-i-cecile are allowed to merge changes that resolve the emergency.
 
 ## How we work together
 
@@ -252,7 +252,7 @@ To locally lint your files using the same workflow as our CI:
    1. Install [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli).
    2. Run `markdownlint -f -c .github/linters/.markdown-lint.yml .` in the root directory of the Bevy project.
 5. Push your changes to your fork on Github and open a Pull Request.
-6. If you're account is new on github, one of the Bevy org members [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/) using the `bors try` command.
+6. If your account is new on github, one of the Bevy org members [will need to manually trigger CI for your PR](https://github.blog/changelog/2021-04-22-github-actions-maintainers-must-approve-first-time-contributor-workflow-runs/) using the `bors try` command.
 7. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to @cart's final judgement.
 8. When your PR is ready to merge, @cart will review it and suggest final changes. If those changes are minimal he may even apply them directly to speed up merging.
 

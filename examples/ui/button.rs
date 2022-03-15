@@ -1,10 +1,12 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, winit::WinitSettings};
 
 /// This example illustrates how to create a button that changes color and text based on its
 /// interaction state.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+        .insert_resource(WinitSettings::desktop_app())
         .add_startup_system(setup)
         .add_system(button_system)
         .run();
@@ -53,10 +55,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 // vertically center child text
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
             color: NORMAL_BUTTON.into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
@@ -69,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     Default::default(),
                 ),
-                ..Default::default()
+                ..default()
             });
         });
 }

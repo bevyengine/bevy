@@ -11,9 +11,11 @@ use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::texture::Image;
 use serde::{Deserialize, Serialize};
 
+/// Describes how to resize the Image node
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect_value(Component, Serialize, Deserialize)]
 pub enum ImageMode {
+    /// Keep the aspect ratio of the image
     KeepAspect,
 }
 
@@ -23,6 +25,7 @@ impl Default for ImageMode {
     }
 }
 
+/// Updates calculated size of the node based on the image provided
 pub fn image_node_system(
     textures: Res<Assets<Image>>,
     mut query: Query<(&mut CalculatedSize, &UiImage), With<ImageMode>>,

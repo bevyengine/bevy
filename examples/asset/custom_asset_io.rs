@@ -49,12 +49,7 @@ impl Plugin for CustomAssetIoPlugin {
     fn build(&self, app: &mut App) {
         // must get a hold of the task pool in order to create the asset server
 
-        let task_pool = app
-            .world
-            .get_resource::<bevy::tasks::IoTaskPool>()
-            .expect("`IoTaskPool` resource not found.")
-            .0
-            .clone();
+        let task_pool = app.world.resource::<bevy::tasks::IoTaskPool>().0.clone();
 
         let asset_io = {
             // the platform default asset io requires a reference to the app
@@ -80,7 +75,7 @@ fn main() {
             // `CorePlugin' and `AssetPlugin`. It needs to be after the
             // CorePlugin, so that the IO task pool has already been constructed.
             // And it must be before the `AssetPlugin` so that the asset plugin
-            // doesn't create another instance of an assert server. In general,
+            // doesn't create another instance of an asset server. In general,
             // the AssetPlugin should still run so that other aspects of the
             // asset system are initialized correctly.
             group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
@@ -93,6 +88,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
-        ..Default::default()
+        ..default()
     });
 }

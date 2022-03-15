@@ -46,7 +46,6 @@ pub enum PhysicsSystem {
 /// ordering can then change between invocations.
 ///
 /// Lastly a system with run criterion _done_ is used to exit the app.
-/// ```
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -88,7 +87,10 @@ fn main() {
                 // Here we create a _not done_ criteria by piping the output of
                 // the `is_done` system and inverting the output.
                 // Notice a string literal also works as a label.
-                .with_run_criteria(RunCriteria::pipe("is_done_label", inverse.system()))
+                .with_run_criteria(RunCriteria::pipe(
+                    "is_done_label",
+                    IntoSystem::into_system(inverse),
+                ))
                 // `collision` and `sfx` are not ordered with respect to
                 // each other, and may run in any order
                 .with_system(collision)

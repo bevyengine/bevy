@@ -3,15 +3,15 @@ use crate::{
     ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
 };
 use bevy_app::Plugin;
-use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Size};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::{GpuBufferInfo, Mesh},
+    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -35,29 +35,29 @@ pub const MESH_SHADER_HANDLE: HandleUntyped =
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
-            MESH_SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("mesh.wgsl")),
-        );
-        shaders.set_untracked(
+        load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
             MESH_STRUCT_HANDLE,
-            Shader::from_wgsl(include_str!("mesh_struct.wgsl"))
-                .with_import_path("bevy_pbr::mesh_struct"),
+            "mesh_struct.wgsl",
+            Shader::from_wgsl
         );
-        shaders.set_untracked(
+        load_internal_asset!(
+            app,
             MESH_VIEW_BIND_GROUP_HANDLE,
-            Shader::from_wgsl(include_str!("mesh_view_bind_group.wgsl"))
-                .with_import_path("bevy_pbr::mesh_view_bind_group"),
+            "mesh_view_bind_group.wgsl",
+            Shader::from_wgsl
         );
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
-        app.sub_app_mut(RenderApp)
-            .init_resource::<MeshPipeline>()
-            .add_system_to_stage(RenderStage::Extract, extract_meshes)
-            .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
-            .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<MeshPipeline>()
+                .add_system_to_stage(RenderStage::Extract, extract_meshes)
+                .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
+                .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+        }
     }
 }
 
@@ -165,7 +165,7 @@ pub struct MeshPipeline {
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -301,7 +301,7 @@ impl FromWorld for MeshPipeline {
             let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world.get_resource_mut::<RenderQueue>().unwrap();
+            let render_queue = world.resource_mut::<RenderQueue>();
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -328,6 +328,10 @@ impl FromWorld for MeshPipeline {
                 texture,
                 texture_view,
                 sampler,
+                size: Size::new(
+                    image.texture_descriptor.size.width as f32,
+                    image.texture_descriptor.size.height as f32,
+                ),
             }
         };
         MeshPipeline {
@@ -362,8 +366,7 @@ bitflags::bitflags! {
     /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
-        const VERTEX_TANGENTS             = (1 << 0);
-        const TRANSPARENT_MAIN_PASS       = (1 << 1);
+        const TRANSPARENT_MAIN_PASS       = (1 << 0);
         const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -405,70 +408,27 @@ impl MeshPipelineKey {
     }
 }
 
-impl SpecializedPipeline for MeshPipeline {
+impl SpecializedMeshPipeline for MeshPipeline {
     type Key = MeshPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (vertex_array_stride, vertex_attributes) =
-            if key.contains(MeshPipelineKey::VERTEX_TANGENTS) {
-                (
-                    48,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv (GOTCHA! uv is no longer third in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 40,
-                            shader_location: 2,
-                        },
-                        // Tangent
-                        VertexAttribute {
-                            format: VertexFormat::Float32x4,
-                            offset: 24,
-                            shader_location: 3,
-                        },
-                    ],
-                )
-            } else {
-                (
-                    32,
-                    vec![
-                        // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 12,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        VertexAttribute {
-                            format: VertexFormat::Float32x3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                        // Uv
-                        VertexAttribute {
-                            format: VertexFormat::Float32x2,
-                            offset: 24,
-                            shader_location: 2,
-                        },
-                    ],
-                )
-            };
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut vertex_attributes = vec![
+            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
+            Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
+            Mesh::ATTRIBUTE_UV_0.at_shader_location(2),
+        ];
+
         let mut shader_defs = Vec::new();
-        if key.contains(MeshPipelineKey::VERTEX_TANGENTS) {
+        if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
+
+        let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
         if key.contains(MeshPipelineKey::TRANSPARENT_MAIN_PASS) {
@@ -489,16 +449,12 @@ impl SpecializedPipeline for MeshPipeline {
         #[cfg(feature = "webgl")]
         shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
 
-        RenderPipelineDescriptor {
+        Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![VertexBufferLayout {
-                    array_stride: vertex_array_stride,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: vertex_attributes,
-                }],
+                buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -542,7 +498,7 @@ impl SpecializedPipeline for MeshPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some(label),
-        }
+        })
     }
 }
 
