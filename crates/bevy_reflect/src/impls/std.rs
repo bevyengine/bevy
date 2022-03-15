@@ -377,36 +377,43 @@ mod tests {
     }
 
     #[test]
-    fn should_partial_eq() {
-        // === i32 === //
+    fn should_partial_eq_i32() {
         let a: &dyn Reflect = &123_i32;
         let b: &dyn Reflect = &123_i32;
         let c: &dyn Reflect = &321_i32;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
 
-        // === f32 === //
+    #[test]
+    fn should_partial_eq_f32() {
         let a: &dyn Reflect = &PI;
         let b: &dyn Reflect = &PI;
         let c: &dyn Reflect = &TAU;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
 
-        // === String === //
+    #[test]
+    fn should_partial_eq_string() {
         let a: &dyn Reflect = &String::from("Hello");
         let b: &dyn Reflect = &String::from("Hello");
         let c: &dyn Reflect = &String::from("World");
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
 
-        // === Vec === //
+    #[test]
+    fn should_partial_eq_vec() {
         let a: &dyn Reflect = &vec![1, 2, 3];
         let b: &dyn Reflect = &vec![1, 2, 3];
         let c: &dyn Reflect = &vec![3, 2, 1];
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
 
-        // === HashMap === //
+    #[test]
+    fn should_partial_eq_hash_map() {
         let mut a = HashMap::new();
         a.insert(0usize, 1.23_f64);
         let b = a.clone();
