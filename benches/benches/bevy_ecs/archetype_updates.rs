@@ -10,6 +10,7 @@ criterion_main!(benches);
 
 #[derive(Component)]
 struct A<const N: u16>(f32);
+
 fn setup(system_count: usize) -> (World, SystemStage) {
     let mut world = World::new();
     fn empty() {}
@@ -101,11 +102,17 @@ fn added_archetypes(criterion: &mut Criterion) {
             BenchmarkId::new("archetype_count", archetype_count),
             &archetype_count,
             |bencher, &archetype_count| {
-                bencher.iter(|| {
-                    let (mut world, mut stage) = setup(SYSTEM_COUNT);
-                    add_archetypes(&mut world, archetype_count);
-                    stage.run(&mut world);
-                })
+                bencher.iter_batched(
+                    || {
+                        let (mut world, stage) = setup(SYSTEM_COUNT);
+                        add_archetypes(&mut world, archetype_count);
+                        (world, stage)
+                    },
+                    |(mut world, mut stage)| {
+                        stage.run(&mut world);
+                    },
+                    criterion::BatchSize::LargeInput,
+                )
             },
         );
     }
