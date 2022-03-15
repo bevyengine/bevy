@@ -4,7 +4,6 @@
 /// The basic components of the transform crate
 pub mod components;
 mod systems;
-pub use crate::systems::transform_propagate_system;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -97,29 +96,25 @@ impl Plugin for TransformPlugin {
                 StartupStage::PostStartup,
                 systems::transform_propagate_system
                     .label(TransformSystem::TransformPropagate)
-                    .after(TransformSystem::ParentUpdate),
+                    .after(HierarchySystem::ParentUpdate),
             )
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                transform_propagate_system::transform_propagate_flat_system
+                systems::transform_propagate_flat_system
                     .label(TransformSystem::TransformPropagate)
-                    .after(TransformSystem::ParentUpdate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                parent_update_system.label(TransformSystem::ParentUpdate),
+                    .after(HierarchySystem::ParentUpdate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 systems::transform_propagate_system
                     .label(TransformSystem::TransformPropagate)
-                    .after(TransformSystem::ParentUpdate),
+                    .after(HierarchySystem::ParentUpdate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                transform_propagate_system::transform_propagate_flat_system
+                systems::transform_propagate_flat_system
                     .label(TransformSystem::TransformPropagate)
-                    .after(TransformSystem::ParentUpdate),
+                    .after(HierarchySystem::ParentUpdate),
             );
     }
 }

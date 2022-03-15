@@ -58,35 +58,32 @@ pub(crate) fn transform_propagate_system(
     // avoid reallocating the stack space used here.
     mut pending: Local<Vec<Pending>>,
 ) {
-    for (transform, is_changed, children, mut global_transform) in root_query.iter_mut() {
-        let mut changed = false;
-        if is_changed {
+    for (transform, changed, children, mut global_transform) in root_query.iter_mut() {
+        if changed {
             *global_transform = GlobalTransform::from(*transform);
-            changed = true;
         }
 
-        pending.extend(children.0.iter().map(|child| Pending {
+        pending.extend(children.iter().map(|child| Pending {
             parent: &*global_transform as *const GlobalTransform,
             changed,
             child: *child,
         }));
 
-        while let Some(mut current) = pending.pop() {
-            if let Ok((transform, changed, children, mut global_transform)) =
+        while let Some(current) = pending.pop() {
+            if let Ok((transform, mut changed, children, mut global_transform)) =
                 transform_query.get_mut(current.child)
             {
-                current.changed |= changed;
-                // SAFE: The pointers here are generated only during this one traversal
-                // from one given run of the system.
-                let global_matrix = unsafe {
-                    if current.changed {
+                changed |= current.changed;
+                if changed {
+                    // SAFE: The pointers here are generated only during this one traversal
+                    // from one given run of the system.
+                    unsafe {
                         *global_transform = current.parent.read().mul_transform(*transform);
-                    }
-                    &*global_transform as *const GlobalTransform
-                };
+                    };
+                }
                 if let Some(children) = children {
-                    pending.extend(children.0.iter().map(|child| Pending {
-                        parent: global_matrix,
+                    pending.extend(children.iter().map(|child| Pending {
+                        parent: &*global_transform as *const GlobalTransform,
                         changed: current.changed,
                         child: *child,
                     }));
