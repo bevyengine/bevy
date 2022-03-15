@@ -762,7 +762,7 @@ impl App {
         T: Plugin,
     {
         debug!("added plugin: {}", plugin.name());
-        plugin.build(self);
+        Box::new(plugin).build(self);
         self
     }
 
@@ -814,7 +814,7 @@ impl App {
     /// #
     /// # struct MyOwnPlugin;
     /// # impl Plugin for MyOwnPlugin {
-    /// #     fn build(&self, app: &mut App){;}
+    /// #     fn build(self: Box<Self>, app: &mut App){;}
     /// # }
     /// #
     /// App::new()
