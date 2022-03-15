@@ -12,20 +12,20 @@ use crate::renderer::{RenderDevice, RenderQueue};
 use super::Buffer;
 
 /// A helper for a storage buffer binding with a body, or a variable-sized array, or both.
-pub struct StorageBuffer<T: AsStd430, U: AsStd430> {
-    body: T,
-    values: Vec<U>,
+pub struct StorageBuffer<T: AsStd430, U: AsStd430 = ()> {
+    body: U,
+    values: Vec<T>,
     scratch: Vec<u8>,
     storage_buffer: Option<Buffer>,
 }
 
-impl<T: AsStd430 + Default, U: AsStd430> Default for StorageBuffer<T, U> {
+impl<T: AsStd430, U: AsStd430 + Default> Default for StorageBuffer<T, U> {
     /// Creates a new [`StorageBuffer`]
     ///
     /// This does not immediately allocate system/video RAM buffers.
     fn default() -> Self {
         Self {
-            body: T::default(),
+            body: U::default(),
             values: Vec::new(),
             scratch: Vec::new(),
             storage_buffer: None,
@@ -36,8 +36,8 @@ impl<T: AsStd430 + Default, U: AsStd430> Default for StorageBuffer<T, U> {
 impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
     // NOTE: AsStd430::std430_size_static() uses size_of internally but trait functions cannot be
     // marked as const functions
-    const BODY_SIZE: usize = std::mem::size_of::<T>();
-    const ITEM_SIZE: usize = std::mem::size_of::<U>();
+    const BODY_SIZE: usize = std::mem::size_of::<U>();
+    const ITEM_SIZE: usize = std::mem::size_of::<T>();
 
     /// Gets the reference to the underlying buffer, if one has been allocated.
     #[inline]
@@ -55,7 +55,7 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
     }
 
     #[inline]
-    pub fn set_body(&mut self, body: T) {
+    pub fn set_body(&mut self, body: U) {
         self.body = body;
     }
 
@@ -124,7 +124,7 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
 }
 
 impl<T: AsStd430, U: AsStd430> Deref for StorageBuffer<T, U> {
-    type Target = Vec<U>;
+    type Target = Vec<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.values
