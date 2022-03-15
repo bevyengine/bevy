@@ -1,5 +1,6 @@
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_hierarchy::inheritance::Heritable;
 use bevy_math::{const_vec3, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::Reflect;
 use std::ops::Mul;
@@ -275,5 +276,16 @@ impl Mul<Vec3> for GlobalTransform {
     #[inline]
     fn mul(self, value: Vec3) -> Self::Output {
         self.mul_vec3(value)
+    }
+}
+
+impl Heritable for GlobalTransform {
+    type Source = Transform;
+    fn root(&mut self, source: &Transform) {
+        *self = GlobalTransform::from(*source)
+    }
+
+    fn inherit(&mut self, parent: &GlobalTransform, source: &Transform) {
+        *self = parent.mul_transform(*source);
     }
 }

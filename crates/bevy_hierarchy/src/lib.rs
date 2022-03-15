@@ -13,13 +13,22 @@ pub use hierarchy::*;
 mod child_builder;
 pub use child_builder::*;
 
+/// Traits, systems, and plugins for hierarchical inheritance.
+pub mod inheritance;
+
 mod systems;
 pub use systems::*;
 
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{child_builder::*, components::*, hierarchy::*, HierarchyPlugin};
+    pub use crate::{
+        child_builder::*,
+        components::*,
+        hierarchy::*,
+        inheritance::{Heritable, HeritableAppExt},
+        HierarchyPlugin,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -34,6 +43,8 @@ pub struct HierarchyPlugin;
 pub enum HierarchySystem {
     /// Updates [`Parent`] when changes in the hierarchy occur
     ParentUpdate,
+    /// Updates [`Parent`] when changes in the hierarchy occur
+    InheritancePropagation,
 }
 
 impl Plugin for HierarchyPlugin {
