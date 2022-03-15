@@ -51,6 +51,7 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
                 #bevy_reflect_path::struct_partial_eq(self, value)
             }
         });
+    let debug_fn = derive_data.traits().get_debug_impl();
 
     let get_type_registration_impl = derive_data.get_type_registration();
     let (impl_generics, ty_generics, where_clause) = derive_data.generics().split_for_impl();
@@ -177,6 +178,8 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
             fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+
+            #debug_fn
         }
     })
 }
@@ -210,6 +213,7 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
                 #bevy_reflect_path::tuple_struct_partial_eq(self, value)
             }
         });
+    let debug_fn = derive_data.traits().get_debug_impl();
 
     let (impl_generics, ty_generics, where_clause) = derive_data.generics().split_for_impl();
     TokenStream::from(quote! {
@@ -312,6 +316,8 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
             fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                 #partial_eq_fn
             }
+
+            #debug_fn
         }
     })
 }
@@ -333,6 +339,7 @@ pub(crate) fn impl_value(
     let serialize_fn = reflect_attrs
         .get_serialize_impl(bevy_reflect_path)
         .unwrap_or_else(|| quote!(None));
+    let debug_fn = reflect_attrs.get_debug_impl();
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
@@ -405,6 +412,8 @@ pub(crate) fn impl_value(
             fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
                 #serialize_fn
             }
+
+            #debug_fn
         }
     })
 }
