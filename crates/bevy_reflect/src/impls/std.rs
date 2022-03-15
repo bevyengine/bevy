@@ -367,9 +367,9 @@ impl FromReflect for Cow<'static, str> {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::{PI, TAU};
     use crate::Reflect;
     use bevy_utils::HashMap;
+    use std::f32::consts::{PI, TAU};
 
     #[test]
     fn can_serialize_duration() {
