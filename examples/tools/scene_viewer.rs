@@ -56,9 +56,19 @@ struct SceneHandle {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let scene_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf#Scene0".to_string());
+    let scene_path = std::env::args().nth(1).map_or_else(
+        || "assets/models/FlightHelmet/FlightHelmet.gltf#Scene0".to_string(),
+        |s| {
+            if let Some(index) = s.find("#Scene") {
+                if index + 6 < s.len() && s[index + 6..].chars().all(char::is_numeric) {
+                    return s;
+                }
+                return format!("{}#Scene0", &s[..index]);
+            }
+            format!("{}#Scene0", s)
+        },
+    );
+    info!("Loading {}", scene_path);
     commands.insert_resource(SceneHandle {
         handle: asset_server.load(&scene_path),
         instance_id: None,
