@@ -13,6 +13,13 @@ use std::ops::Deref;
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub(crate) Entity);
 
+impl Parent {
+    /// Gets the [`Entity`] ID of the parent.
+    pub fn get(&self) -> Entity {
+        self.0
+    }
+}
+
 // TODO: We need to impl either FromWorld or Default so Parent can be registered as Reflect.
 // This is because Reflect deserialize by creating an instance and apply a patch on top.
 // However Parent should only ever be set with a real user-defined entity.  Its worth looking into

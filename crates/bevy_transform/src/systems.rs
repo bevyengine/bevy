@@ -82,18 +82,10 @@ mod test {
         world::World,
     };
 
-<<<<<<< HEAD:crates/bevy_transform/src/systems.rs
     use crate::components::{GlobalTransform, Transform};
     use crate::systems::transform_propagate_system;
     use crate::TransformBundle;
-    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent, ChildAdded, ChildMoved, ChildRemoved};
-=======
-    use super::*;
-    use crate::{
-        hierarchy::{BuildChildren, BuildWorldChildren},
-        TransformBundle,
-    };
->>>>>>> e7ef4a51 (Scenes are Worlds too):crates/bevy_transform/src/transform_propagate_system.rs
+    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children};
 
     #[test]
     fn did_propagate() {
@@ -185,36 +177,38 @@ mod test {
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
 
         // Add parent entities
-        let mut command_queue = CommandQueue::default();
-        let mut commands = Commands::new(&mut command_queue, &world);
         let mut children = Vec::new();
-        let parent = commands
-            .spawn()
-            .insert(Transform::from_xyz(1.0, 0.0, 0.0))
-            .id();
-        commands.entity(parent).with_children(|parent| {
-            children.push(
-                parent
-                    .spawn()
-                    .insert(Transform::from_xyz(0.0, 2.0, 0.0))
-                    .id(),
-            );
-            children.push(
-                parent
-                    .spawn()
-                    .insert(Transform::from_xyz(0.0, 3.0, 0.0))
-                    .id(),
-            );
-        });
-        command_queue.apply(&mut world);
-        schedule.run(&mut world);
+        let parent = {
+            let mut command_queue = CommandQueue::default();
+            let mut commands = Commands::new(&mut command_queue, &world);
+            let parent = commands
+                .spawn()
+                .insert(Transform::from_xyz(1.0, 0.0, 0.0))
+                .id();
+            commands.entity(parent).with_children(|parent| {
+                children.push(
+                    parent
+                        .spawn()
+                        .insert(Transform::from_xyz(0.0, 2.0, 0.0))
+                        .id(),
+                );
+                children.push(
+                    parent
+                        .spawn()
+                        .insert(Transform::from_xyz(0.0, 3.0, 0.0))
+                        .id(),
+                );
+            });
+            command_queue.apply(&mut world);
+            schedule.run(&mut world);
+            parent
+        };
 
         assert_eq!(
             world
@@ -227,9 +221,13 @@ mod test {
         );
 
         // Parent `e1` to `e2`.
-        (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
-
-        schedule.run(&mut world);
+        {
+            let mut command_queue = CommandQueue::default();
+            let mut commands = Commands::new(&mut command_queue, &world);
+            commands.entity(children[1]).add_child(children[0]);
+            command_queue.apply(&mut world);
+            schedule.run(&mut world);
+        }
 
         assert_eq!(
             world

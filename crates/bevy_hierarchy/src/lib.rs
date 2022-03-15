@@ -23,7 +23,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
 
 /// The base plugin for handling [`Parent`] and [`Children`] components
 #[derive(Default)]

@@ -116,11 +116,7 @@ mod tests {
     };
 
     use super::DespawnRecursiveExt;
-<<<<<<< HEAD:crates/bevy_hierarchy/src/hierarchy.rs
-    use crate::{child_builder::BuildChildren, components::Children, ChildAdded, ChildMoved, ChildRemoved};
-=======
-    use crate::{components::Children, hierarchy::BuildChildren};
->>>>>>> e7ef4a51 (Scenes are Worlds too):crates/bevy_transform/src/hierarchy/hierarchy.rs
+    use crate::{child_builder::BuildChildren, components::Children};
 
     #[derive(Component, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Debug)]
     struct Idx(u32);
