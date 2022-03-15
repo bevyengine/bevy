@@ -531,6 +531,7 @@ path = "examples/transforms/transform.rs"
 [[example]]
 name = "translation"
 path = "examples/transforms/translation.rs"
+
 # UI (User Interface)
 [[example]]
 name = "button"

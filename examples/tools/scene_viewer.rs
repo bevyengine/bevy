@@ -98,12 +98,12 @@ fn scene_load_check(
 
                 scene_handle.instance_id =
                     Some(scene_spawner.spawn(scene_handle.handle.clone_weak()));
-                println!("Spawning scene...");
+                info!("Spawning scene...");
             }
         }
         Some(instance_id) if !scene_handle.is_loaded => {
             if scene_spawner.instance_is_ready(instance_id) {
-                println!("...done!");
+                info!("...done!");
                 scene_handle.is_loaded = true;
             }
         }
@@ -157,7 +157,7 @@ fn camera_spawn_check(
                 perspective_projection.far(),
             );
 
-            println!("Spawning a 3D perspective camera");
+            info!("Spawning a 3D perspective camera");
             commands.spawn_bundle(PerspectiveCameraBundle {
                 camera: Camera {
                     near: perspective_projection.near,
@@ -183,7 +183,7 @@ fn camera_spawn_check(
             let min = aabb.min();
             let max = aabb.max();
 
-            println!("Spawning a directional light");
+            info!("Spawning a directional light");
             commands.spawn_bundle(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadow_projection: OrthographicProjection {
