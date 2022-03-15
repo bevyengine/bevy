@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// This system toggles scale factor overrides when enter is pressed
 fn toggle_override(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
-    let window = windows.get_primary_mut().unwrap();
+    let window = windows.primary_mut();
     if input.just_pressed(KeyCode::Return) {
         window.set_scale_factor_override(window.scale_factor_override().xor(Some(1.)));
     }
@@ -72,7 +72,7 @@ fn toggle_override(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
 
 /// This system changes the scale factor override when up or down is pressed
 fn change_scale_factor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
-    let window = windows.get_primary_mut().unwrap();
+    let window = windows.primary_mut();
     if input.just_pressed(KeyCode::Up) {
         window.set_scale_factor_override(window.scale_factor_override().map(|n| n + 1.));
     } else if input.just_pressed(KeyCode::Down) {

@@ -4,6 +4,7 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 /// * [`LogPlugin`](bevy_log::LogPlugin)
 /// * [`CorePlugin`](bevy_core::CorePlugin)
 /// * [`TransformPlugin`](bevy_transform::TransformPlugin)
+/// * [`HierarchyPlugin`](bevy_hierarchy::HierarchyPlugin)
 /// * [`DiagnosticsPlugin`](bevy_diagnostic::DiagnosticsPlugin)
 /// * [`InputPlugin`](bevy_input::InputPlugin)
 /// * [`WindowPlugin`](bevy_window::WindowPlugin)
@@ -27,6 +28,7 @@ impl PluginGroup for DefaultPlugins {
         group.add(bevy_log::LogPlugin::default());
         group.add(bevy_core::CorePlugin::default());
         group.add(bevy_transform::TransformPlugin::default());
+        group.add(bevy_hierarchy::HierarchyPlugin::default());
         group.add(bevy_diagnostic::DiagnosticsPlugin::default());
         group.add(bevy_input::InputPlugin::default());
         group.add(bevy_window::WindowPlugin::default());

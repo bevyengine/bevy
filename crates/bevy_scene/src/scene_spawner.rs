@@ -7,8 +7,8 @@ use bevy_ecs::{
     system::Command,
     world::{Mut, World},
 };
+use bevy_hierarchy::{AddChild, Parent};
 use bevy_reflect::TypeRegistryArc;
-use bevy_transform::{hierarchy::AddChild, prelude::Parent};
 use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;

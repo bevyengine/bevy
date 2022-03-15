@@ -4,6 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_ecs::{prelude::FromWorld, world::World};
+use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
@@ -12,7 +13,7 @@ use bevy_pbr::{
 };
 use bevy_render::{
     camera::{
-        Camera, CameraPlugin, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        Camera, Camera2d, Camera3d, CameraProjection, OrthographicProjection, PerspectiveProjection,
     },
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
@@ -23,11 +24,8 @@ use bevy_render::{
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
-use bevy_transform::{
-    hierarchy::{BuildWorldChildren, WorldChildBuilder},
-    prelude::Transform,
-    TransformBundle,
-};
+use bevy_transform::{components::Transform, TransformBundle};
+
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
@@ -526,11 +524,10 @@ fn load_node(
                 };
 
                 node.insert(Camera {
-                    name: Some(CameraPlugin::CAMERA_2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
                 });
-                node.insert(orthographic_projection);
+                node.insert(orthographic_projection).insert(Camera2d);
             }
             gltf::camera::Projection::Perspective(perspective) => {
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
@@ -545,13 +542,13 @@ fn load_node(
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
                 node.insert(Camera {
-                    name: Some(CameraPlugin::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     near: perspective_projection.near,
                     far: perspective_projection.far,
                     ..Default::default()
                 });
                 node.insert(perspective_projection);
+                node.insert(Camera3d);
             }
         }
     }

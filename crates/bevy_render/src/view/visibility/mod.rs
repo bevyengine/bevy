@@ -6,7 +6,8 @@ use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::components::GlobalTransform;
+use bevy_transform::TransformSystem;
 
 use crate::{
     camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
