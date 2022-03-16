@@ -6,7 +6,7 @@ use bevy_ecs::prelude::*;
 /// These types are typically publicly read-only, relying on a "source"
 /// companion component that is used to compute the new state of a by
 /// composing the source and it's parent.
-pub trait Heritable: Component {
+pub trait Heritable: Component + Copy {
     /// The source component where the base state is sourced from.
     type Source: Component;
     /// Updates the base state of a root-level component based on the companion
@@ -33,88 +33,75 @@ impl HeritableAppExt for App {
                 .label(HierarchySystem::InheritancePropagation)
                 .after(HierarchySystem::ParentUpdate),
         )
-        .add_startup_system_to_stage(
-            StartupStage::PostStartup,
-            inheritance_system_flat::<T>
-                .label(HierarchySystem::InheritancePropagation)
-                .after(HierarchySystem::ParentUpdate),
-        )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             inheritance_system::<T>
                 .label(HierarchySystem::InheritancePropagation)
                 .after(HierarchySystem::ParentUpdate),
         )
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            inheritance_system_flat::<T>
-                .label(HierarchySystem::InheritancePropagation)
-                .after(HierarchySystem::ParentUpdate),
-        )
     }
 }
 
-struct Pending<T> {
-    parent: *const T,
-    child: Entity,
-    changed: bool,
-}
-
-// SAFE: Pending a private type that is completely flushed at the each inheritance system
-// run. Never accessed from multiple threads.
-unsafe impl<T> Send for Pending<T> {}
-// SAFE: Pending a private type that is completely flushed at the each inheritance system
-// run. Never accessed from multiple threads.
-unsafe impl<T> Sync for Pending<T> {}
-
-fn inheritance_system_flat<T: Heritable>(
-    mut root_query: Query<
-        (&T::Source, &mut T),
-        (Without<Parent>, Without<Children>, Changed<T::Source>),
-    >,
+/// Update children in a hierarchy based on the properties of their parents.
+pub fn inheritance_system<T: Heritable>(
+    mut root_query: Query<(Entity, Option<&Children>, &T::Source, &mut T), Without<Parent>>,
+    mut source_query: Query<(&T::Source, &mut T), With<Parent>>,
+    changed_query: Query<Entity, Changed<T::Source>>,
+    children_query: Query<Option<&Children>, (With<Parent>, With<T>)>,
 ) {
-    for (source, mut component) in root_query.iter_mut() {
-        component.root(source);
-    }
-}
-
-fn inheritance_system<T: Heritable>(
-    mut root_query: Query<(&T::Source, &mut T, Changed<T::Source>, &Children), Without<Parent>>,
-    mut query: Query<(&T::Source, Changed<T::Source>, &mut T, Option<&Children>), With<Parent>>,
-    mut pending: Local<Vec<Pending<T>>>,
-) {
-    for (source, mut component, changed, children) in root_query.iter_mut() {
-        if changed {
-            component.root(source);
+    for (entity, children, source, mut root_component) in root_query.iter_mut() {
+        let mut changed = false;
+        if changed_query.get(entity).is_ok() {
+            root_component.root(source);
+            changed = true;
         }
 
-        pending.extend(children.0.iter().map(|child| Pending {
-            parent: &*component as *const T,
-            changed,
-            child: *child,
-        }));
-
-        while let Some(current) = pending.pop() {
-            if let Ok((source, mut changed, mut component, children)) = query.get_mut(current.child)
-            {
-                changed |= current.changed;
-                if changed {
-                    // SAFE: The pointers used here are all created during the current traversal
-                    // of the hierarchy and are cannot be moved during the middle of it.
-                    unsafe {
-                        component.inherit(&current.parent.read(), source);
-                    }
-                }
-
-                if let Some(children) = children {
-                    pending.extend(children.0.iter().map(|child| Pending {
-                        parent: &*component as *const T,
-                        changed,
-                        child: *child,
-                    }));
-                }
+        if let Some(children) = children {
+            for child in children.iter() {
+                propagate_recursive(
+                    &*root_component,
+                    &changed_query,
+                    &mut source_query,
+                    &children_query,
+                    *child,
+                    changed,
+                );
             }
         }
     }
-    debug_assert!(pending.is_empty());
+}
+
+fn propagate_recursive<T: Heritable>(
+    parent: &T,
+    changed_query: &Query<Entity, Changed<T::Source>>,
+    source_query: &mut Query<(&T::Source, &mut T), With<Parent>>,
+    children_query: &Query<Option<&Children>, (With<Parent>, With<T>)>,
+    entity: Entity,
+    mut changed: bool,
+) {
+    changed |= changed_query.get(entity).is_ok();
+
+    let component = {
+        if let Ok((source, mut component)) = source_query.get_mut(entity) {
+            if changed {
+                component.inherit(parent, source);
+            }
+            *component
+        } else {
+            return;
+        }
+    };
+
+    if let Ok(Some(children)) = children_query.get(entity) {
+        for child in children.iter() {
+            propagate_recursive(
+                &component,
+                changed_query,
+                source_query,
+                children_query,
+                *child,
+                changed,
+            );
+        }
+    }
 }

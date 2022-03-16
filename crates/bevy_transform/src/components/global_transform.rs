@@ -20,7 +20,7 @@ use std::ops::Mul;
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] in the system
-/// [`transform_propagate_system`](crate::transform_propagate_system).
+/// [`inheritance_system`](bevy_hierarchy::inheritance::inheritance_system).
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
@@ -287,5 +287,195 @@ impl Heritable for GlobalTransform {
 
     fn inherit(&mut self, parent: &GlobalTransform, source: &Transform) {
         *self = parent.mul_transform(*source);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bevy_ecs::{
+        schedule::{Schedule, Stage, SystemStage},
+        system::{CommandQueue, Commands},
+        world::World,
+    };
+
+    use crate::components::{GlobalTransform, Transform};
+    use crate::TransformBundle;
+    use bevy_hierarchy::{
+        inheritance::inheritance_system, parent_update_system, BuildChildren, BuildWorldChildren,
+        Children, Parent,
+    };
+
+    #[test]
+    fn did_propagate() {
+        let mut world = World::default();
+
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(inheritance_system::<GlobalTransform>);
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        // Root entity
+        world
+            .spawn()
+            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
+
+        let mut children = Vec::new();
+        world
+            .spawn()
+            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .with_children(|parent| {
+                children.push(
+                    parent
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
+                        .id(),
+                );
+                children.push(
+                    parent
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
+                        .id(),
+                );
+            });
+        schedule.run(&mut world);
+
+        assert_eq!(
+            *world.get::<GlobalTransform>(children[0]).unwrap(),
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
+        );
+
+        assert_eq!(
+            *world.get::<GlobalTransform>(children[1]).unwrap(),
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
+        );
+    }
+
+    #[test]
+    fn did_propagate_command_buffer() {
+        let mut world = World::default();
+
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(inheritance_system::<GlobalTransform>);
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        // Root entity
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        let mut children = Vec::new();
+        commands
+            .spawn_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .with_children(|parent| {
+                children.push(
+                    parent
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
+                        .id(),
+                );
+                children.push(
+                    parent
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
+                        .id(),
+                );
+            });
+        queue.apply(&mut world);
+        schedule.run(&mut world);
+
+        assert_eq!(
+            *world.get::<GlobalTransform>(children[0]).unwrap(),
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
+        );
+
+        assert_eq!(
+            *world.get::<GlobalTransform>(children[1]).unwrap(),
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
+        );
+    }
+
+    #[test]
+    fn correct_children() {
+        let mut world = World::default();
+
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(inheritance_system::<GlobalTransform>);
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        // Add parent entities
+        let mut command_queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut command_queue, &world);
+        let mut children = Vec::new();
+        let parent = commands
+            .spawn()
+            .insert(Transform::from_xyz(1.0, 0.0, 0.0))
+            .id();
+        commands.entity(parent).with_children(|parent| {
+            children.push(
+                parent
+                    .spawn()
+                    .insert(Transform::from_xyz(0.0, 2.0, 0.0))
+                    .id(),
+            );
+            children.push(
+                parent
+                    .spawn()
+                    .insert(Transform::from_xyz(0.0, 3.0, 0.0))
+                    .id(),
+            );
+        });
+        command_queue.apply(&mut world);
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            children,
+        );
+
+        // Parent `e1` to `e2`.
+        (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![children[1]]
+        );
+
+        assert_eq!(
+            world
+                .get::<Children>(children[1])
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![children[0]]
+        );
+
+        assert!(world.despawn(children[0]));
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![children[1]]
+        );
     }
 }

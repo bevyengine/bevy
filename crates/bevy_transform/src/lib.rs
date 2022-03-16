@@ -3,8 +3,6 @@
 
 /// The basic components of the transform crate
 pub mod components;
-mod systems;
-pub use crate::systems::transform_propagate_system;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -33,7 +31,7 @@ use prelude::{GlobalTransform, Transform};
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] in the system
-/// [`transform_propagate_system`].
+/// [`inheritance_system`](bevy_hierarchy::inheritance::inheritance_system).
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
