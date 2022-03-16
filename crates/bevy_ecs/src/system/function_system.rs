@@ -427,7 +427,7 @@ where
         );
     }
     fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
-        vec![Box::new(self.func.system_label())]
+        vec![self.func.as_system_label()]
     }
 }
 
@@ -454,11 +454,6 @@ pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync 
         world: &World,
         change_tick: u32,
     ) -> Out;
-
-    #[inline]
-    fn system_label(&self) -> SystemTypeIdLabel {
-        SystemTypeIdLabel(self.type_id())
-    }
 }
 
 macro_rules! impl_system_function {
@@ -511,3 +506,21 @@ macro_rules! impl_system_function {
 }
 
 all_tuples!(impl_system_function, 0, 16, F);
+
+pub trait AsSystemLabel<Marker> {
+    fn as_system_label(&self) -> Box<dyn SystemLabel>;
+}
+
+impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
+    AsSystemLabel<(In, Out, Param, Marker)> for T
+{
+    fn as_system_label(&self) -> Box<dyn SystemLabel> {
+        Box::new(SystemTypeIdLabel(self.type_id()))
+    }
+}
+
+impl<T: SystemLabel> AsSystemLabel<()> for T {
+    fn as_system_label(&self) -> Box<dyn SystemLabel> {
+        self.dyn_clone()
+    }
+}

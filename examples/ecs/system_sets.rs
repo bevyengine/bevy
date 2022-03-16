@@ -57,7 +57,7 @@ fn main() {
                 .with_run_criteria(run_for_a_second)
                 .with_system(update_velocity)
                 // Make movement run after update_velocity
-                .with_system(movement.after(update_velocity.system_label())),
+                .with_system(movement.after(update_velocity)),
         )
         .add_system_set(
             SystemSet::new()
