@@ -1,17 +1,17 @@
 use bevy_ecs::prelude::*;
-use cgmath::*;
+use glam::*;
 
 #[derive(Component, Copy, Clone)]
-struct Transform(Matrix4<f32>);
+struct Transform(Mat4);
 
 #[derive(Component, Copy, Clone)]
-struct Position(Vector3<f32>);
+struct Position(Vec3);
 
 #[derive(Component, Copy, Clone)]
-struct Rotation(Vector3<f32>);
+struct Rotation(Vec3);
 
 #[derive(Component, Copy, Clone)]
-struct Velocity(Vector3<f32>);
+struct Velocity(Vec3);
 
 pub struct Benchmark;
 
@@ -24,17 +24,11 @@ impl Benchmark {
         let mut world = World::new();
         world.spawn_batch((0..10_000).map(|_| {
             (
-                Transform(Matrix4::from_scale(1.0)),
-                Position(Vector3::unit_x()),
-                Rotation(Vector3::unit_x()),
-                Velocity(Vector3::unit_x()),
+                Transform(Mat4::from_scale(Vec3::ONE)),
+                Position(Vec3::X),
+                Rotation(Vec3::X),
+                Velocity(Vec3::X),
             )
         }));
-        // world.spawn_batch_new(SoaBatch::new((
-        //     vec![Transform(Matrix4::from_scale(1.0)); 10000],
-        //     vec![Position(Vector3::unit_x()); 10000],
-        //     vec![Rotation(Vector3::unit_x()); 10000],
-        //     vec![Velocity(Vector3::unit_x()); 10000],
-        // )));
     }
 }

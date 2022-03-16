@@ -12,12 +12,12 @@ impl Benchmark {
         let entity = world.spawn().insert(A(0.0)).id();
         fn query_system(In(entity): In<Entity>, mut query: Query<&mut A>) {
             for _ in 0..100_000 {
-                let mut a = query.get_mut(entity).unwrap(); 
+                let mut a = query.get_mut(entity).unwrap();
                 a.0 += 1.0;
             }
         }
 
-        let mut system = query_system.system();
+        let mut system = IntoSystem::into_system(query_system);
         system.initialize(&mut world);
         for archetype in world.archetypes().iter() {
             system.new_archetype(archetype);
@@ -29,4 +29,3 @@ impl Benchmark {
         self.2.run(self.1, &mut self.0);
     }
 }
-

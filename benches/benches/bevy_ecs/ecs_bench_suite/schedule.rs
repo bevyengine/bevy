@@ -44,9 +44,9 @@ impl Benchmark {
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
         let mut stage = SystemStage::parallel();
-        stage.add_system(ab.system());
-        stage.add_system(cd.system());
-        stage.add_system(ce.system());
+        stage.add_system(ab);
+        stage.add_system(cd);
+        stage.add_system(ce);
         stage.run(&mut world);
 
         Self(world, stage)

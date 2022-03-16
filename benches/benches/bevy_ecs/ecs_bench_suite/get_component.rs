@@ -16,7 +16,7 @@ impl<'w> Benchmark<'w> {
 
     pub fn run(&mut self) {
         for _x in 0..100000 {
-            let mut a = unsafe {self.2.get_unchecked_manual(&mut self.0, self.1).unwrap() };
+            let mut a = unsafe { self.2.get_unchecked(&mut self.0, self.1).unwrap() };
             a.0 += 1.0;
         }
     }

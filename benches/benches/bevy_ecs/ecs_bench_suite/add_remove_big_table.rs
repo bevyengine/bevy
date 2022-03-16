@@ -1,21 +1,21 @@
-use bev_ecs::prelude::*;
-use cgmath::*;
+use bevy_ecs::prelude::*;
+use glam::*;
 
 #[derive(Component, Copy, Clone)]
-struct A(Matrix4<f32>);
+struct A(Mat4);
 #[derive(Component, Copy, Clone)]
-struct B(Matrix4<f32>);
+struct B(Mat4);
 
 #[derive(Component, Copy, Clone)]
-struct C(Matrix4<f32>);
+struct C(Mat4);
 #[derive(Component, Copy, Clone)]
-struct D(Matrix4<f32>);
+struct D(Mat4);
 
 #[derive(Component, Copy, Clone)]
-struct E(Matrix4<f32>);
+struct E(Mat4);
 
 #[derive(Component, Copy, Clone)]
-struct F(Matrix4<f32>);
+struct F(Mat4);
 pub struct Benchmark(World, Vec<Entity>);
 
 impl Benchmark {
@@ -23,13 +23,18 @@ impl Benchmark {
         let mut world = World::default();
         let mut entities = Vec::with_capacity(10_000);
         for _ in 0..10_000 {
-            entities.push(world.spawn().insert_bundle((
-                A(Matrix4::from_scale(1.0)),
-                B(Matrix4::from_scale(1.0)),
-                C(Matrix4::from_scale(1.0)),
-                D(Matrix4::from_scale(1.0)),
-                E(Matrix4::from_scale(1.0)),
-            )).id());
+            entities.push(
+                world
+                    .spawn()
+                    .insert_bundle((
+                        A(Mat4::from_scale(Vec3::ONE)),
+                        B(Mat4::from_scale(Vec3::ONE)),
+                        C(Mat4::from_scale(Vec3::ONE)),
+                        D(Mat4::from_scale(Vec3::ONE)),
+                        E(Mat4::from_scale(Vec3::ONE)),
+                    ))
+                    .id(),
+            );
         }
 
         Self(world, entities)
@@ -37,7 +42,9 @@ impl Benchmark {
 
     pub fn run(&mut self) {
         for entity in &self.1 {
-            self.0.entity_mut(*entity).insert(F(Matrix4::from_scale(1.0)));
+            self.0
+                .entity_mut(*entity)
+                .insert(F(Mat4::from_scale(Vec3::ONE)));
         }
 
         for entity in &self.1 {

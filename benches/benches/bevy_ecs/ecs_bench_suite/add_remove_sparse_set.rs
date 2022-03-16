@@ -1,12 +1,9 @@
-use bevy_ecs::{
-    prelude::*,
-    component::{ComponentDescriptor, StorageType}
-};
+use bevy_ecs::prelude::*;
 
 #[derive(Component)]
 struct A(f32);
 #[derive(Component)]
-#[storage = "SparseSet"]
+#[component(storage = "SparseSet")]
 struct B(f32);
 
 pub struct Benchmark(World, Vec<Entity>);

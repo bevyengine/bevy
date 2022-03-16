@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 
 macro_rules! create_entities {
     ($world:ident; $( $variants:ident ),*) => {
@@ -11,6 +11,8 @@ macro_rules! create_entities {
         )*
     };
 }
+
+#[derive(Component)]
 struct Data(f32);
 
 pub struct Benchmark<'w>(World, QueryState<&'w mut Data>);

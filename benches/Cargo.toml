@@ -7,6 +7,7 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dev-dependencies]
+glam = "0.20"
 criterion = "0.3"
 bevy_ecs = { path = "../crates/bevy_ecs" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
