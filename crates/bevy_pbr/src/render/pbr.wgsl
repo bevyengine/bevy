@@ -467,6 +467,155 @@ struct FragmentInput {
 
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
+#ifdef DEPTH
+    let p_clip = view.view_proj * in.world_position;
+    let p_ndc = p_clip.xyz / p_clip.w;
+    return vec4<f32>(p_ndc.z, p_ndc.z, p_ndc.z, 1.0);
+#else
+#ifdef INTERPOLATED_VERTEX_NORMALS
+    return vec4<f32>(in.world_normal, 1.0);
+#else
+#ifdef INTERPOLATED_VERTEX_TANGENTS
+
+#ifdef VERTEX_TANGENTS
+    return vec4<f32>(in.world_tangent.rgb, 1.0);
+#else
+    return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+#endif
+
+#else
+#ifdef TANGENT_SPACE_NORMAL_MAP
+
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+    return vec4<f32>(
+        textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb,
+        1.0
+    );
+#else
+    return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+#endif
+
+#else
+#ifdef NORMAL_MAPPED_NORMAL
+
+        var N: vec3<f32> = normalize(in.world_normal);
+
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+        var T: vec3<f32> = normalize(in.world_tangent.xyz - N * dot(in.world_tangent.xyz, N));
+        var B: vec3<f32> = cross(N, T) * in.world_tangent.w;
+#endif
+#endif
+
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
+            if (!in.is_front) {
+                N = -N;
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+                T = -T;
+                B = -B;
+#endif
+#endif
+            }
+        }
+
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+        let TBN = mat3x3<f32>(T, B, N);
+        N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
+#endif
+#endif
+
+    return vec4<f32>(N, 1.0);
+
+#else
+#ifdef BASE_COLOR
+    return material.base_color;
+#else
+#ifdef BASE_COLOR_TEXTURE
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+        return textureSample(base_color_texture, base_color_sampler, in.uv);
+    } else {
+        return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+    }
+#else
+#ifdef EMISSIVE
+    return material.emissive;
+#else
+#ifdef EMISSIVE_TEXTURE
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
+        return vec4<f32>(
+            textureSample(emissive_texture, emissive_sampler, in.uv).rgb,
+            1.0
+        );
+    } else {
+        return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+    }
+#else
+#ifdef ROUGHNESS
+    return vec4<f32>(
+        material.perceptual_roughness,
+        material.perceptual_roughness,
+        material.perceptual_roughness,
+        1.0
+    );
+#else
+#ifdef ROUGHNESS_TEXTURE
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
+        let perceptual_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, in.uv).g;
+        return vec4<f32>(
+            perceptual_roughness,
+            perceptual_roughness,
+            perceptual_roughness,
+            1.0
+        );
+    } else {
+        return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+    }
+#else
+#ifdef METALLIC
+    return vec4<f32>(
+        material.metallic,
+        material.metallic,
+        material.metallic,
+        1.0
+    );
+#else
+#ifdef METALLIC_TEXTURE
+    if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
+        let metallic = textureSample(metallic_roughness_texture, metallic_roughness_sampler, in.uv).b;
+        return vec4<f32>(
+            metallic,
+            metallic,
+            metallic,
+            1.0
+        );
+    } else {
+        return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+    }
+#else
+#ifdef REFLECTANCE
+    return vec4<f32>(
+        material.reflectance,
+        material.reflectance,
+        material.reflectance,
+        1.0
+    );
+#else
+#ifdef OCCLUSION_TEXTURE
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
+            let occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
+    return vec4<f32>(
+        occlusion,
+        occlusion,
+        occlusion,
+        1.0
+    );
+        } else {
+        return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+    }
+#else
+
     var output_color: vec4<f32> = material.base_color;
     if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
@@ -540,6 +689,13 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
             // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
             output_color.a = 1.0;
+#ifdef ALPHA_MASK
+            discard;
+#endif
+#ifdef ALPHA_BLEND
+            discard;
+#endif
+
         } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
             if (output_color.a >= material.alpha_cutoff) {
                 // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
@@ -549,6 +705,19 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 // NOTE: This and any other discards mean that early-z testing cannot be done!
                 discard;
             }
+#ifdef OPAQUE
+            discard;
+#endif
+#ifdef ALPHA_BLEND
+            discard;
+#endif
+        } else {
+#ifdef OPAQUE
+            discard;
+#endif
+#ifdef ALPHA_MASK
+            discard;
+#endif
         }
 
         var V: vec3<f32>;
@@ -662,4 +831,19 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     }
 
     return output_color;
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
 }
