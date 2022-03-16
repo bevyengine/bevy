@@ -44,27 +44,23 @@ impl HeritableAppExt for App {
 
 /// Update children in a hierarchy based on the properties of their parents.
 pub fn inheritance_system<T: Heritable>(
-    mut root_query: Query<(Entity, Option<&Children>, &T::Source, &mut T), Without<Parent>>,
-    mut source_query: Query<(&T::Source, &mut T), With<Parent>>,
-    changed_query: Query<Entity, Changed<T::Source>>,
+    mut root_query: Query<(Option<&Children>, &T::Source, Changed<T::Source>, &mut T), Without<Parent>>,
+    mut source_query: Query<(&T::Source, Changed<T::Source>, &mut T), With<Parent>>,
     children_query: Query<Option<&Children>, (With<Parent>, With<T>)>,
 ) {
-    for (entity, children, source, mut root_component) in root_query.iter_mut() {
-        let mut changed = false;
-        if changed_query.get(entity).is_ok() {
+    for (children, source, source_changed, mut root_component) in root_query.iter_mut() {
+        if source_changed {
             root_component.root(source);
-            changed = true;
         }
 
         if let Some(children) = children {
             for child in children.iter() {
                 propagate_recursive(
                     &*root_component,
-                    &changed_query,
                     &mut source_query,
                     &children_query,
                     *child,
-                    changed,
+                    source_changed,
                 );
             }
         }
@@ -73,16 +69,14 @@ pub fn inheritance_system<T: Heritable>(
 
 fn propagate_recursive<T: Heritable>(
     parent: &T,
-    changed_query: &Query<Entity, Changed<T::Source>>,
-    source_query: &mut Query<(&T::Source, &mut T), With<Parent>>,
+    source_query: &mut Query<(&T::Source, Changed<T::Source>, &mut T), With<Parent>>,
     children_query: &Query<Option<&Children>, (With<Parent>, With<T>)>,
     entity: Entity,
     mut changed: bool,
 ) {
-    changed |= changed_query.get(entity).is_ok();
-
     let component = {
-        if let Ok((source, mut component)) = source_query.get_mut(entity) {
+        if let Ok((source, source_changed, mut component)) = source_query.get_mut(entity) {
+            changed |= source_changed;
             if changed {
                 component.inherit(parent, source);
             }
@@ -96,7 +90,6 @@ fn propagate_recursive<T: Heritable>(
         for child in children.iter() {
             propagate_recursive(
                 &component,
-                changed_query,
                 source_query,
                 children_query,
                 *child,
