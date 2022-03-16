@@ -23,6 +23,9 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
       #   - Adds a meta tag that forces Google not to index any page on the site.
