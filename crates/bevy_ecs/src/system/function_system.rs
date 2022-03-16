@@ -2,6 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
     query::{Access, FilteredAccessSet},
+    schedule::SystemLabel,
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
         SystemParamState,
@@ -9,7 +10,11 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, marker::PhantomData};
+use std::{
+    any::{Any, TypeId},
+    borrow::Cow,
+    marker::PhantomData,
+};
 
 /// The metadata of a [`System`].
 pub struct SystemMeta {
@@ -421,6 +426,18 @@ where
             self.system_meta.name.as_ref(),
         );
     }
+    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+        vec![Box::new(self.func.system_label())]
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
+pub struct SystemTypeIdLabel(pub(crate) TypeId);
+
+impl SystemLabel for SystemTypeIdLabel {
+    fn dyn_clone(&self) -> Box<dyn SystemLabel> {
+        Box::new(*self)
+    }
 }
 
 /// A trait implemented for all functions that can be used as [`System`]s.
@@ -437,6 +454,11 @@ pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync 
         world: &World,
         change_tick: u32,
     ) -> Out;
+
+    #[inline]
+    fn system_label(&self) -> SystemTypeIdLabel {
+        SystemTypeIdLabel(self.type_id())
+    }
 }
 
 macro_rules! impl_system_function {

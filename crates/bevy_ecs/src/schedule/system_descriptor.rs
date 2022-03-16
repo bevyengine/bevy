@@ -105,9 +105,9 @@ pub struct ParallelSystemDescriptor {
 
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
     ParallelSystemDescriptor {
+        labels: system.default_labels(),
         system,
         run_criteria: None,
-        labels: Vec::new(),
         before: Vec::new(),
         after: Vec::new(),
         ambiguity_sets: Vec::new(),
