@@ -43,7 +43,7 @@ pub struct HierarchyPlugin;
 pub enum HierarchySystem {
     /// Updates [`Parent`] when changes in the hierarchy occur
     ParentUpdate,
-    /// Updates [`Parent`] when changes in the hierarchy occur
+    /// Propagates inherited properties from [`Parent`] to [`Children`].
     InheritancePropagation,
 }
 
