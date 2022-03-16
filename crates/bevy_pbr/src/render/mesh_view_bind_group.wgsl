@@ -13,10 +13,11 @@ struct View {
 };
 
 struct PointLight {
-    // NOTE: [2][2] [2][3] [3][2] [3][3]
-    projection_lr: vec4<f32>;
+    // The lower-right 2x2 values of the left-handed projection matrix [2][2] [2][3] [3][2] [3][3]
+    projection_lh_lr: vec4<f32>;
     color_inverse_square_range: vec4<f32>;
-    position_radius: vec4<f32>;
+    // Position is left-handed
+    position_lh_radius: vec4<f32>;
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32;
     shadow_depth_bias: f32;

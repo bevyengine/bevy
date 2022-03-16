@@ -20,7 +20,6 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
-use bevy_transform::components::GlobalTransform;
 
 pub struct ViewPlugin;
 
@@ -77,7 +76,8 @@ pub fn extract_msaa(mut commands: Commands, msaa: Res<Msaa>) {
 #[derive(Component)]
 pub struct ExtractedView {
     pub projection: Mat4,
-    pub transform: GlobalTransform,
+    pub view: Mat4,
+    pub position: Vec3,
     pub width: u32,
     pub height: u32,
     pub near: f32,
@@ -147,7 +147,7 @@ fn prepare_view_uniforms(
     view_uniforms.uniforms.clear();
     for (entity, camera) in views.iter() {
         let projection = camera.projection;
-        let view = camera.transform.compute_matrix();
+        let view = camera.view;
         let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
@@ -155,7 +155,7 @@ fn prepare_view_uniforms(
                 view,
                 inverse_view,
                 projection,
-                world_position: camera.transform.translation,
+                world_position: camera.position,
                 near: camera.near,
                 far: camera.far,
                 width: camera.width as f32,

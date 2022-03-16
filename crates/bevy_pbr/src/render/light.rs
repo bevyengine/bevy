@@ -1,7 +1,8 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
-    PointLight, PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
+    PointLight, PointLightShadowMap, SetMeshBindGroup, VisiblePointLights,
+    DIRECTIONAL_LIGHT_SHADOW_SHADER_HANDLE, POINT_LIGHT_SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -83,10 +84,11 @@ pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 #[repr(C)]
 #[derive(Copy, Clone, AsStd140, AsStd430, Default, Debug)]
 pub struct GpuPointLight {
-    // The lower-right 2x2 values of the projection matrix 22 23 32 33
-    projection_lr: Vec4,
+    // The lower-right 2x2 values of the left-handed projection matrix [2][2] [2][3] [3][2] [3][3]
+    projection_lh_lr: Vec4,
     color_inverse_square_range: Vec4,
-    position_radius: Vec4,
+    // Position is left-handed
+    position_lh_radius: Vec4,
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
@@ -297,6 +299,7 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ShadowPipelineKey: u32 {
         const NONE               = 0;
+        const POINT_LIGHT        = (1 << 0);
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = ShadowPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << ShadowPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
@@ -354,7 +357,11 @@ impl SpecializedMeshPipeline for ShadowPipeline {
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
+                shader: if key.contains(ShadowPipelineKey::POINT_LIGHT) {
+                    POINT_LIGHT_SHADOW_SHADER_HANDLE.typed::<Shader>()
+                } else {
+                    DIRECTIONAL_LIGHT_SHADOW_SHADER_HANDLE.typed::<Shader>()
+                },
                 entry_point: "vertex".into(),
                 shader_defs,
                 buffers: vec![vertex_buffer_layout],
@@ -541,39 +548,41 @@ pub(crate) struct CubeMapFace {
 }
 
 // see https://www.khronos.org/opengl/wiki/Cubemap_Texture
+// NOTE: Cube maps are LEFT-handed!
 pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
-    // 0 	GL_TEXTURE_CUBE_MAP_POSITIVE_X
-    CubeMapFace {
-        target: NEGATIVE_X,
-        up: NEGATIVE_Y,
-    },
-    // 1 	GL_TEXTURE_CUBE_MAP_NEGATIVE_X
+    // +x
     CubeMapFace {
         target: Vec3::X,
-        up: NEGATIVE_Y,
+        up: Vec3::Y,
     },
-    // 2 	GL_TEXTURE_CUBE_MAP_POSITIVE_Y
+    // -x
     CubeMapFace {
-        target: NEGATIVE_Y,
-        up: Vec3::Z,
+        target: NEGATIVE_X,
+        up: Vec3::Y,
     },
-    // 3 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
+    // +y
     CubeMapFace {
         target: Vec3::Y,
         up: NEGATIVE_Z,
     },
-    // 4 	GL_TEXTURE_CUBE_MAP_POSITIVE_Z
+    // -y
     CubeMapFace {
-        target: NEGATIVE_Z,
-        up: NEGATIVE_Y,
+        target: NEGATIVE_Y,
+        up: Vec3::Z,
     },
-    // 5 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+    // +z
     CubeMapFace {
         target: Vec3::Z,
-        up: NEGATIVE_Y,
+        up: Vec3::Y,
+    },
+    // -z
+    CubeMapFace {
+        target: NEGATIVE_Z,
+        up: Vec3::Y,
     },
 ];
 
+// NOTE: left-handed, light to fragment
 fn face_index_to_name(face_index: usize) -> &'static str {
     match face_index {
         0 => "+x",
@@ -692,11 +701,13 @@ pub fn prepare_lights(
     light_meta.view_gpu_lights.clear();
 
     // Pre-calculate for PointLights
+    // NOTE: Cubemaps are left-handed so use a left-handed projection and convert the light
+    // position to left-handed y-up
     let cube_face_projection =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
+        Mat4::perspective_infinite_reverse_lh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Mat4::look_at_lh(Vec3::ZERO, *target, *up))
         .collect::<Vec<_>>();
 
     global_light_meta.gpu_point_lights.clear();
@@ -726,8 +737,13 @@ pub fn prepare_lights(
         if light.shadows_enabled && index < MAX_POINT_LIGHT_SHADOW_MAPS {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
+        let light_position_world_lh = Vec3::new(
+            light.transform.translation.x,
+            light.transform.translation.y,
+            -light.transform.translation.z,
+        );
         gpu_point_lights.push(GpuPointLight {
-            projection_lr: Vec4::new(
+            projection_lh_lr: Vec4::new(
                 cube_face_projection.z_axis.z,
                 cube_face_projection.z_axis.w,
                 cube_face_projection.w_axis.z,
@@ -739,7 +755,7 @@ pub fn prepare_lights(
                 * light.intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
-            position_radius: light.transform.translation.extend(light.radius),
+            position_lh_radius: light_position_world_lh.extend(light.radius),
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
@@ -823,10 +839,13 @@ pub fn prepare_lights(
                 .entity_to_index
                 .get(&light_entity)
                 .unwrap();
-            // ignore scale because we don't want to effectively scale light radius and range
-            // by applying those as a view transform to shadow map rendering of objects
-            // and ignore rotation because we want the shadow map projections to align with the axes
-            let view_translation = GlobalTransform::from_translation(light.transform.translation);
+
+            let light_position_world_lh = Vec3::new(
+                light.transform.translation.x,
+                light.transform.translation.y,
+                -light.transform.translation.z,
+            );
+            let view_translation = Mat4::from_translation(light_position_world_lh);
 
             for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                 let depth_texture_view =
@@ -843,6 +862,8 @@ pub fn prepare_lights(
                             array_layer_count: NonZeroU32::new(1),
                         });
 
+                let view = view_translation * *view_rotation;
+
                 let view_light_entity = commands
                     .spawn()
                     .insert_bundle((
@@ -857,7 +878,9 @@ pub fn prepare_lights(
                         ExtractedView {
                             width: point_light_shadow_map.size as u32,
                             height: point_light_shadow_map.size as u32,
-                            transform: view_translation * *view_rotation,
+                            position: light_position_world_lh,
+                            // Inverse here as the Mat4::look_at_* seem to produce inverse matrices
+                            view: view.inverse(),
                             projection: cube_face_projection,
                             near: POINT_LIGHT_NEAR_Z,
                             far: light.range,
@@ -942,7 +965,8 @@ pub fn prepare_lights(
                         ExtractedView {
                             width: directional_light_shadow_map.size as u32,
                             height: directional_light_shadow_map.size as u32,
-                            transform: GlobalTransform::from_matrix(view.inverse()),
+                            position: Vec3::ZERO,
+                            view: view.inverse(),
                             projection,
                             near: light.near,
                             far: light.far,
@@ -1317,25 +1341,34 @@ pub fn queue_shadows(
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, mut shadow_phase) =
                 view_light_shadow_phases.get_mut(view_light_entity).unwrap();
-            let visible_entities = match light_entity {
-                LightEntity::Directional { light_entity } => directional_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get directional light visible entities"),
+            let (visible_entities, is_point_light) = match light_entity {
+                LightEntity::Directional { light_entity } => (
+                    directional_light_entities
+                        .get(*light_entity)
+                        .expect("Failed to get directional light visible entities"),
+                    false,
+                ),
                 LightEntity::Point {
                     light_entity,
                     face_index,
-                } => point_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get point light visible entities")
-                    .get(*face_index),
+                } => (
+                    point_light_entities
+                        .get(*light_entity)
+                        .expect("Failed to get point light visible entities")
+                        .get(*face_index),
+                    true,
+                ),
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
                 if let Ok(mesh_handle) = casting_meshes.get(entity) {
                     if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        let key =
+                        let mut key =
                             ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        if is_point_light {
+                            key |= ShadowPipelineKey::POINT_LIGHT;
+                        }
                         let pipeline_id = pipelines.specialize(
                             &mut pipeline_cache,
                             &shadow_pipeline,

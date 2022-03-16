@@ -181,6 +181,10 @@ name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
+name = "cubemap"
+path = "examples/3d/cubemap.rs"
+
+[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 

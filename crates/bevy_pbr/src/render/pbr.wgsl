@@ -292,12 +292,15 @@ fn get_light_id(index: u32) -> u32 {
 #endif
 }
 
+var<private> flip_z: vec4<f32> = vec4<f32>(1.0, 1.0, -1.0, 1.0);
+
 fn point_light(
     world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
     R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
 ) -> vec3<f32> {
-    let light_to_frag = light.position_radius.xyz - world_position.xyz;
-    let distance_square = dot(light_to_frag, light_to_frag);
+    // NOTE: Light position is left-handed so flip z to get right-handed
+    let frag_to_light = light.position_lh_radius.xyz * flip_z.xyz - world_position.xyz;
+    let distance_square = dot(frag_to_light, frag_to_light);
     let rangeAttenuation =
         getDistanceAttenuation(distance_square, light.color_inverse_square_range.w);
 
@@ -305,10 +308,10 @@ fn point_light(
     // Representative Point Area Lights.
     // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
     let a = roughness;
-    let centerToRay = dot(light_to_frag, R) * R - light_to_frag;
-    let closestPoint = light_to_frag + centerToRay * saturate(light.position_radius.w * inverseSqrt(dot(centerToRay, centerToRay)));
+    let centerToRay = dot(frag_to_light, R) * R - frag_to_light;
+    let closestPoint = frag_to_light + centerToRay * saturate(light.position_lh_radius.w * inverseSqrt(dot(centerToRay, centerToRay)));
     let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
-    let normalizationFactor = a / saturate(a + (light.position_radius.w * 0.5 * LspecLengthInverse));
+    let normalizationFactor = a / saturate(a + (light.position_lh_radius.w * 0.5 * LspecLengthInverse));
     let specularIntensity = normalizationFactor * normalizationFactor;
 
     var L: vec3<f32> = closestPoint * LspecLengthInverse; // normalize() equivalent?
@@ -321,7 +324,7 @@ fn point_light(
 
     // Diffuse.
     // Comes after specular since its NoL is used in the lighting equation.
-    L = normalize(light_to_frag);
+    L = normalize(frag_to_light);
     H = normalize(L + V);
     NoL = saturate(dot(N, L));
     NoH = saturate(dot(N, H));
@@ -362,32 +365,42 @@ fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal
     return (specular_light + diffuse) * light.color.rgb * NoL;
 }
 
-fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
+// NOTE: All cubemap processing is done using LEFT-handed coordinates and transformations!
+fn fetch_point_shadow(
+    light_id: u32,
+    frag_position_rh: vec4<f32>,
+    surface_normal_rh: vec3<f32>
+) -> f32 {
     let light = point_lights.data[light_id];
+
+    // NOTE: Convert right-handed y-up world coordinates to left-handed y-up
+    let frag_position_lh = frag_position_rh * flip_z;
+    let surface_normal_lh = surface_normal_rh * flip_z.xyz;
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
-    let surface_to_light = light.position_radius.xyz - frag_position.xyz;
-    let surface_to_light_abs = abs(surface_to_light);
-    let distance_to_light = max(surface_to_light_abs.x, max(surface_to_light_abs.y, surface_to_light_abs.z));
+    let light_to_frag_lh = frag_position_lh.xyz - light.position_lh_radius.xyz;
+    let light_to_frag_lh_abs = abs(light_to_frag_lh);
+    let distance_to_light = max(light_to_frag_lh_abs.x, max(light_to_frag_lh_abs.y, light_to_frag_lh_abs.z));
 
     // The normal bias here is already scaled by the texel size at 1 world unit from the light.
     // The texel size increases proportionally with distance from the light so multiplying by
     // distance to light scales the normal bias to the texel size at the fragment distance.
-    let normal_offset = light.shadow_normal_bias * distance_to_light * surface_normal.xyz;
-    let depth_offset = light.shadow_depth_bias * normalize(surface_to_light.xyz);
-    let offset_position = frag_position.xyz + normal_offset + depth_offset;
+    let normal_offset = light.shadow_normal_bias * distance_to_light * surface_normal_lh.xyz;
+    let depth_offset = light.shadow_depth_bias * normalize(-light_to_frag_lh.xyz);
+    let offset_frag_position_lh = frag_position_lh.xyz + normal_offset + depth_offset;
 
     // similar largest-absolute-axis trick as above, but now with the offset fragment position
-    let frag_ls = light.position_radius.xyz - offset_position.xyz;
-    let abs_position_ls = abs(frag_ls);
+    let offset_light_to_frag_lh = offset_frag_position_lh.xyz - light.position_lh_radius.xyz;
+    let abs_position_ls = abs(offset_light_to_frag_lh);
     let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
 
     // NOTE: These simplifications come from multiplying:
-    // projection * vec4(0, 0, -major_axis_magnitude, 1.0)
+    // projection * vec4(0, 0, major_axis_magnitude, 1.0)
     // and keeping only the terms that have any impact on the depth.
     // Projection-agnostic approach:
-    let zw = -major_axis_magnitude * light.projection_lr.xy + light.projection_lr.zw;
+    // NOTE: Left-handed y-up so z in front of the camera is positive
+    let zw = major_axis_magnitude * light.projection_lh_lr.xy + light.projection_lh_lr.zw;
     let depth = zw.x / zw.y;
 
     // do the lookup, using HW PCF and comparison
@@ -397,9 +410,9 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     // from LOD 0.
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompare(point_shadow_textures, point_shadow_textures_sampler, frag_ls, depth);
+    return textureSampleCompare(point_shadow_textures, point_shadow_textures_sampler, offset_light_to_frag_lh, depth);
 #else
-    return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
+    return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, offset_light_to_frag_lh, i32(light_id), depth);
 #endif
 }
 

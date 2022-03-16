@@ -303,7 +303,8 @@ pub fn extract_cameras<M: Component + Default>(
                     },
                     ExtractedView {
                         projection: camera.projection_matrix,
-                        transform: *transform,
+                        view: transform.compute_matrix(),
+                        position: transform.translation,
                         width: size.x.max(1),
                         height: size.y.max(1),
                         near: camera.near,

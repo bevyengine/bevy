@@ -1068,12 +1068,18 @@ pub fn update_point_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
 ) {
+    // NOTE: Despite point light shadow cubemaps being left-handed, we do the frustum culling using
+    // right-handed projections to avoid having to convert the aabbs and model tranforms from
+    // right- to left-handed.
     let projection =
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
-    let view_rotations = CUBE_MAP_FACES
+    let mut view_rotations = CUBE_MAP_FACES
         .iter()
         .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
+    // NOTE: Swap the last two rotations as they are the +z and -z rotations and the cubemaps are
+    // left-handed so the z direction is swapped
+    view_rotations.swap(4, 5);
 
     for (entity, transform, point_light, mut cubemap_frusta) in views.iter_mut() {
         // The frusta are used for culling meshes to the light for shadow mapping
