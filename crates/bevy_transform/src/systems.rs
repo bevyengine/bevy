@@ -28,9 +28,9 @@ pub(crate) fn transform_propagate_flat_system(
         (Without<Parent>, Without<Children>, Changed<Transform>),
     >,
 ) {
-    for (transform, mut global_transform) in root_query.iter_mut() {
+    root_query.for_each_mut(|(transform, mut global_transform)| {
         *global_transform = GlobalTransform::from(*transform);
-    }
+    });
 }
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
@@ -58,7 +58,7 @@ pub(crate) fn transform_propagate_system(
     // avoid reallocating the stack space used here.
     mut pending: Local<Vec<Pending>>,
 ) {
-    for (transform, changed, children, mut global_transform) in root_query.iter_mut() {
+    root_query.for_each_mut(|(transform, changed, children, mut global_transform)| {
         if changed {
             *global_transform = GlobalTransform::from(*transform);
         }
@@ -90,7 +90,7 @@ pub(crate) fn transform_propagate_system(
                 }
             }
         }
-    }
+    });
     debug_assert!(pending.is_empty());
 }
 
