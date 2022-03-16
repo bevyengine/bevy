@@ -44,7 +44,10 @@ impl HeritableAppExt for App {
 
 /// Update children in a hierarchy based on the properties of their parents.
 pub fn inheritance_system<T: Heritable>(
-    mut root_query: Query<(Option<&Children>, &T::Source, Changed<T::Source>, &mut T), Without<Parent>>,
+    mut root_query: Query<
+        (Option<&Children>, &T::Source, Changed<T::Source>, &mut T),
+        Without<Parent>,
+    >,
     mut source_query: Query<(&T::Source, Changed<T::Source>, &mut T), With<Parent>>,
     children_query: Query<Option<&Children>, (With<Parent>, With<T>)>,
 ) {
@@ -88,13 +91,7 @@ fn propagate_recursive<T: Heritable>(
 
     if let Ok(Some(children)) = children_query.get(entity) {
         for child in children.iter() {
-            propagate_recursive(
-                &component,
-                source_query,
-                children_query,
-                *child,
-                changed,
-            );
+            propagate_recursive(&component, source_query, children_query, *child, changed);
         }
     }
 }
