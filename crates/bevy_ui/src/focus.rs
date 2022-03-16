@@ -106,18 +106,28 @@ pub fn ui_focus_system(
             |(entity, node, global_transform, interaction, focus_policy, clip)| {
                 let position = global_transform.translation;
                 let ui_position = position.truncate();
-                let extents = node.size / 2.0;
-                let mut min = ui_position - extents;
-                let mut max = ui_position + extents;
-                if let Some(clip) = clip {
-                    min = Vec2::max(min, clip.clip.min);
-                    max = Vec2::min(max, clip.clip.max);
-                }
+                let extents = (node.size / 2.0) * global_transform.scale.truncate();
+                let mut min = -extents;
+                let mut max = extents;
+                // if let Some(clip) = clip {
+                //     min = Vec2::max(min, clip.clip.min);
+                //     max = Vec2::min(max, clip.clip.max);
+                // }
+
                 // if the current cursor position is within the bounds of the node, consider it for
                 // clicking
                 let contains_cursor = if let Some(cursor_position) = cursor_position {
-                    (min.x..max.x).contains(&cursor_position.x)
-                        && (min.y..max.y).contains(&cursor_position.y)
+                    // project cursor position onto node's local basis vectors
+                    let projected_cursor_position = {
+                        let delta = cursor_position - ui_position;
+                        Vec2::new(
+                            delta.dot(global_transform.local_x().truncate()),
+                            delta.dot(global_transform.local_y().truncate()),
+                        )
+                    };
+
+                    (min.x..max.x).contains(&projected_cursor_position.x)
+                        && (min.y..max.y).contains(&projected_cursor_position.y)
                 } else {
                     false
                 };
