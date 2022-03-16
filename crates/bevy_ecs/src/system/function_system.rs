@@ -432,6 +432,7 @@ where
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
+/// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
 pub struct SystemTypeIdLabel(pub(crate) TypeId);
 
 impl SystemLabel for SystemTypeIdLabel {
