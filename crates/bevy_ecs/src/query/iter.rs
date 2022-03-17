@@ -149,7 +149,11 @@ where
             .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
             .sum();
 
-        (0, Some(max_size))
+        // TODO: it's _probably possible to use const generics to have specialized implementation
+        // of size_hint based on whether this is true or not.
+        let archetype_query = F::Fetch::IS_ARCHETYPAL && QF::IS_ARCHETYPAL;
+        let min_size = if archetype_query { max_size } else { 0 };
+        (min_size, Some(max_size))
     }
 }
 
