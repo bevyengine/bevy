@@ -212,9 +212,8 @@ impl SystemStage {
         for container in &mut self.parallel {
             let system = container.system_mut();
             #[cfg(feature = "trace")]
-            let span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name());
-            #[cfg(feature = "trace")]
-            let _guard = span.enter();
+            let _span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name())
+                .entered();
             system.apply_buffers(world);
         }
     }
@@ -836,12 +835,11 @@ impl Stage for SystemStage {
                 for container in &mut self.exclusive_at_start {
                     if should_run(container, &self.run_criteria, default_should_run) {
                         #[cfg(feature = "trace")]
-                        let system_span = bevy_utils::tracing::info_span!(
+                        let _system_span = bevy_utils::tracing::info_span!(
                             "exclusive_system",
                             name = &*container.name()
-                        );
-                        #[cfg(feature = "trace")]
-                        let _guard = system_span.enter();
+                        )
+                        .entered();
                         container.system_mut().run(world);
                     }
                 }
@@ -858,12 +856,11 @@ impl Stage for SystemStage {
                 for container in &mut self.exclusive_before_commands {
                     if should_run(container, &self.run_criteria, default_should_run) {
                         #[cfg(feature = "trace")]
-                        let system_span = bevy_utils::tracing::info_span!(
+                        let _system_span = bevy_utils::tracing::info_span!(
                             "exclusive_system",
                             name = &*container.name()
-                        );
-                        #[cfg(feature = "trace")]
-                        let _guard = system_span.enter();
+                        )
+                        .entered();
                         container.system_mut().run(world);
                     }
                 }
@@ -873,12 +870,11 @@ impl Stage for SystemStage {
                     for container in &mut self.parallel {
                         if container.should_run {
                             #[cfg(feature = "trace")]
-                            let span = bevy_utils::tracing::info_span!(
+                            let _span = bevy_utils::tracing::info_span!(
                                 "system_commands",
                                 name = &*container.name()
-                            );
-                            #[cfg(feature = "trace")]
-                            let _guard = span.enter();
+                            )
+                            .entered();
                             container.system_mut().apply_buffers(world);
                         }
                     }
@@ -888,12 +884,11 @@ impl Stage for SystemStage {
                 for container in &mut self.exclusive_at_end {
                     if should_run(container, &self.run_criteria, default_should_run) {
                         #[cfg(feature = "trace")]
-                        let system_span = bevy_utils::tracing::info_span!(
+                        let _system_span = bevy_utils::tracing::info_span!(
                             "exclusive_system",
                             name = &*container.name()
-                        );
-                        #[cfg(feature = "trace")]
-                        let _guard = system_span.enter();
+                        )
+                        .entered();
                         container.system_mut().run(world);
                     }
                 }
