@@ -3,7 +3,7 @@ use crate::{
     ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
 };
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -11,7 +11,10 @@ use bevy_ecs::{
 use bevy_math::{Mat4, Size};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
+    mesh::{
+        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+        GpuBufferInfo, Mesh, MeshVertexBufferLayout,
+    },
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -78,6 +81,30 @@ bitflags::bitflags! {
     }
 }
 
+#[derive(Component)]
+pub struct SkinnedMeshJoints {
+    pub joints: UniformVec<Mat4>,
+}
+
+impl SkinnedMeshJoints {
+    #[inline]
+    pub fn build(
+        skin: &SkinnedMesh,
+        inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
+        joints: &Query<&GlobalTransform>,
+    ) -> Option<Self> {
+        let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
+        let bindposes = inverse_bindposes.iter();
+        let skin_joints = skin.joints.iter();
+        let mut buffer = UniformVec::default();
+        for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(256) {
+            let joint_matrix = joints.get(*joint).ok()?.compute_matrix();
+            buffer.push(joint_matrix * *inverse_bindpose);
+        }
+        Some(Self { joints: buffer })
+    }
+}
+
 pub fn extract_meshes(
     mut commands: Commands,
     mut previous_caster_len: Local<usize>,
@@ -88,6 +115,7 @@ pub fn extract_meshes(
             &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
+            Option<&SkinnedMesh>,
             Option<&NotShadowReceiver>,
         ),
         Without<NotShadowCaster>,
@@ -98,13 +126,16 @@ pub fn extract_meshes(
             &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
+            Option<&SkinnedMesh>,
             Option<&NotShadowReceiver>,
         ),
         With<NotShadowCaster>,
     >,
+    inverse_bindposes: Res<Assets<SkinnedMeshInverseBindposes>>,
+    joint_query: Query<&GlobalTransform>,
 ) {
     let mut caster_values = Vec::with_capacity(*previous_caster_len);
-    for (entity, computed_visibility, transform, handle, not_receiver) in caster_query.iter() {
+    for (entity, computed_visibility, transform, mesh, skin, not_receiver) in caster_query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
@@ -112,7 +143,7 @@ pub fn extract_meshes(
         caster_values.push((
             entity,
             (
-                handle.clone_weak(),
+                mesh.clone_weak(),
                 MeshUniform {
                     flags: if not_receiver.is_some() {
                         MeshFlags::empty().bits
@@ -124,12 +155,21 @@ pub fn extract_meshes(
                 },
             ),
         ));
+
+        // TODO: This can be expensive, can we move this to prepare?
+        if let Some(skin) = skin {
+            if let Some(uniform) = SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query) {
+                commands.entity(entity).insert(uniform);
+            }
+        }
     }
     *previous_caster_len = caster_values.len();
     commands.insert_or_spawn_batch(caster_values);
 
     let mut not_caster_values = Vec::with_capacity(*previous_not_caster_len);
-    for (entity, computed_visibility, transform, handle, not_receiver) in not_caster_query.iter() {
+    for (entity, computed_visibility, transform, mesh, skin, not_receiver) in
+        not_caster_query.iter()
+    {
         if !computed_visibility.is_visible {
             continue;
         }
@@ -137,7 +177,7 @@ pub fn extract_meshes(
         not_caster_values.push((
             entity,
             (
-                handle.clone_weak(),
+                mesh.clone_weak(),
                 MeshUniform {
                     flags: if not_receiver.is_some() {
                         MeshFlags::empty().bits
@@ -150,6 +190,12 @@ pub fn extract_meshes(
                 NotShadowCaster,
             ),
         ));
+        // TODO: This can be expensive, can we move this to prepare?
+        if let Some(skin) = skin {
+            if let Some(uniform) = SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query) {
+                commands.entity(entity).insert(uniform);
+            }
+        }
     }
     *previous_not_caster_len = not_caster_values.len();
     commands.insert_or_spawn_batch(not_caster_values);

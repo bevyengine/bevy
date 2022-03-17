@@ -1,4 +1,5 @@
 mod conversions;
+pub mod skinning;
 
 use crate::{
     primitives::Aabb,

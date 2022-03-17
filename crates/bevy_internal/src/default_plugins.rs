@@ -37,16 +37,8 @@ impl PluginGroup for DefaultPlugins {
         group.add(bevy_asset::debug_asset_server::DebugAssetServerPlugin::default());
         group.add(bevy_scene::ScenePlugin::default());
 
-<<<<<<< HEAD
         #[cfg(feature = "bevy_winit")]
         group.add(bevy_winit::WinitPlugin::default());
-=======
-        #[cfg(feature = "bevy_animation_rig")]
-        group.add(bevy_animation_rig::AnimationRigPlugin::default());
-
-        #[cfg(feature = "bevy_render")]
-        group.add(RenderPlugin::default());
->>>>>>> looong/skeleton-animation
 
         #[cfg(feature = "bevy_render")]
         group.add(bevy_render::RenderPlugin::default());
