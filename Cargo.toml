@@ -17,6 +17,7 @@ members = ["crates/*", "examples/ios", "tools/ci", "errors"]
 
 [features]
 default = [
+  "bevy_animation_rig",
   "bevy_audio",
   "bevy_gilrs",
   "bevy_winit",
@@ -43,6 +44,7 @@ render = [
 ]
 
 # Optional bevy crates
+bevy_animation_rig = ["bevy_internal/bevy_animation_rig"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -230,6 +232,15 @@ path = "examples/3d/update_gltf_scene.rs"
 [[example]]
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
+
+# Animation
+[[example]]
+name = "custom_skinned_mesh"
+path = "examples/animation/custom_skinned_mesh.rs"
+
+[[example]]
+name = "gltf_skinned_mesh"
+path = "examples/animation/gltf_skinned_mesh.rs"
 
 # Application
 [[example]]
