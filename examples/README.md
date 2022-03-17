@@ -103,6 +103,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `3d_scene` | [`3d/3d_scene.rs`](./3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
+`cubemap` | [`3d/cubemap.rs`](./3d/cubemap.rs) | Demonstrates point light shadow cubemaps with a single point light in the center surrounded by some specifically-placed floating boxes and walls.
 `lighting` | [`3d/lighting.rs`](./3d/lighting.rs) | Illustrates various lighting options in a simple scene
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
 `many_cubes` | [`3d/many_cubes.rs`](./3d/many_cubes.rs) | Simple benchmark to test per-entity draw overhead

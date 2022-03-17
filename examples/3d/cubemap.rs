@@ -40,6 +40,9 @@ fn setup(
     let small = 0.25;
     let big = 2.5;
 
+    // NOTE: These 0.25 offset positions correspond with the cubemap face axes so that when
+    // inspecting the point light shadow cubemap faces in RenderDoc/Xcode or similar, they
+    // can be validated as being correct.
     for [x, y, z, bx, by, bz] in [
         [1.0, 0.0, 0.25, 0.1, 1.0, 1.0],
         [-1.0, 0.0, 0.25, 0.1, 1.0, 1.0],
