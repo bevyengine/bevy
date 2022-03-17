@@ -59,6 +59,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<MeshPipeline>()
                 .add_system_to_stage(RenderStage::Extract, extract_meshes)
                 .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
+                .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups)
                 .add_system_to_stage(RenderStage::Queue, queue_skinned_mesh_bind_group);
@@ -610,16 +611,28 @@ pub struct SkinnedMeshBindGroup {
     pub value: BindGroup,
 }
 
+pub fn prepare_skinned_meshes(
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut skinned_meshes: Query<&mut SkinnedMeshJoints>,
+) {
+    for mut joints in skinned_meshes.iter_mut() {
+        let len = joints.buffer.len();
+        joints.buffer.reserve(len, &render_device);
+        joints.buffer.write_buffer(&render_device, &render_queue);
+    }
+}
+
 pub fn queue_skinned_mesh_bind_group(
+    mut prev_len: Local<usize>,
     mut commands: Commands,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
-    mut skinned_meshes: Query<(Entity, &mut SkinnedMeshJoints)>,
+    skinned_meshes: Query<(Entity, &SkinnedMeshJoints)>,
 ) {
-    for (entity, mut joints) in skinned_meshes.iter_mut() {
-        let len = joints.buffer.len();
-        joints.buffer.reserve(len, &render_device);
-        commands.entity(entity).insert(SkinnedMeshBindGroup {
+    let mut values = Vec::with_capacity(*prev_len);
+    for (entity, joints) in skinned_meshes.iter() {
+        values.push((entity, (SkinnedMeshBindGroup {
             value: render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,
@@ -628,8 +641,10 @@ pub fn queue_skinned_mesh_bind_group(
                 label: Some("skinned_mesh_bind_group"),
                 layout: &mesh_pipeline.skinned_mesh_layout,
             }),
-        });
+        },)));
     }
+    *prev_len = values.len();
+    commands.insert_or_spawn_batch(values);
 }
 
 #[derive(Component)]
