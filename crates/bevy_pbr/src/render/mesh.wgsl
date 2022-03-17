@@ -18,6 +18,10 @@ struct VertexOutput {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
 #endif
+#ifdef SKINNED
+    [[location(4)]] joint_indexes: vec4<u16>;
+    [[location(5)]] joint_weights: vec4<f32>;
+#endif
 };
 
 [[group(2), binding(0)]]

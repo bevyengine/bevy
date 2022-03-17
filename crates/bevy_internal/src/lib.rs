@@ -85,12 +85,6 @@ pub mod window {
     pub use bevy_window::*;
 }
 
-#[cfg(feature = "bevy_animation_rig")]
-pub mod animation_rig {
-    //! Skinned mesh rendering.
-    pub use bevy_animation_rig::*;
-}
-
 #[cfg(feature = "bevy_audio")]
 pub mod audio {
     //! Provides types and plugins for audio playback.
