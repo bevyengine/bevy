@@ -70,7 +70,9 @@ impl<'w> EntityRef<'w> {
     /// Gets an immutable reference to the component of type `T` associated with
     /// this entity without ensuring there are no unique borrows active and without
     /// ensuring that the returned reference will stay valid.
+    ///
     /// # Safety
+    ///
     /// - The returned reference must never alias a mutable borrow of this component.
     /// - The returned reference must not be used after this component is moved which
     ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
@@ -85,7 +87,9 @@ impl<'w> EntityRef<'w> {
     /// Gets a mutable reference to the component of type `T` associated with
     /// this entity without ensuring there are no other borrows active and without
     /// ensuring that the returned reference will stay valid.
+    ///
     /// # Safety
+    ///
     /// - The returned reference must never alias a mutable borrow of this component.
     /// - The returned reference must not be used after this component is moved which
     ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
@@ -176,7 +180,9 @@ impl<'w> EntityMut<'w> {
     /// Gets an immutable reference to the component of type `T` associated with
     /// this entity without ensuring there are no unique borrows active and without
     /// ensuring that the returned reference will stay valid.
+    ///
     /// # Safety
+    ///
     /// - The returned reference must never alias a mutable borrow of this component.
     /// - The returned reference must not be used after this component is moved which
     ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
@@ -191,7 +197,9 @@ impl<'w> EntityMut<'w> {
     /// Gets a mutable reference to the component of type `T` associated with
     /// this entity without ensuring there are no other borrows active and without
     /// ensuring that the returned reference will stay valid.
+    ///
     /// # Safety
+    ///
     /// - The returned reference must never alias a mutable borrow of this component.
     /// - The returned reference must not be used after this component is moved which
     ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
