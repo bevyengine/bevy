@@ -17,7 +17,6 @@ members = ["crates/*", "examples/ios", "tools/ci", "errors"]
 
 [features]
 default = [
-  "bevy_animation_rig",
   "bevy_audio",
   "bevy_gilrs",
   "bevy_winit",
@@ -44,7 +43,6 @@ render = [
 ]
 
 # Optional bevy crates
-bevy_animation_rig = ["bevy_internal/bevy_animation_rig"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
