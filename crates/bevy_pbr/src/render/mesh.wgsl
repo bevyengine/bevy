@@ -19,7 +19,7 @@ struct VertexOutput {
     [[location(3)]] world_tangent: vec4<f32>;
 #endif
 #ifdef SKINNED
-    [[location(4)]] joint_indexes: vec4<u16>;
+    [[location(4)]] joint_indexes: vec2<u32>;
     [[location(5)]] joint_weights: vec4<f32>;
 #endif
 };
@@ -27,19 +27,33 @@ struct VertexOutput {
 [[group(2), binding(0)]]
 var<uniform> mesh: Mesh;
 
+#ifdef SKINNED
+[[group(3), binding(0)]]
+var<uniform> skinned_mesh: SkinnedMesh;
+#endif
+
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
-
     var out: VertexOutput;
     out.uv = vertex.uv;
-    out.world_position = world_position;
-    out.clip_position = view.view_proj * world_position;
+#ifdef SKINNED
+    var model = skin_model(vertex.joint_indexes, vertex.joint_weights, skinned_mesh);
+    out.world_position = model * vec4<f32>(vertex.position, 1.0);
+    out.world_normal = = mat3x3<f32>(
+        model[0].xyz,
+        model[1].xyz,
+        model[2].xyz
+    ) * vertex.normal;
+#else
+    out.world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
     out.world_normal = mat3x3<f32>(
         mesh.inverse_transpose_model[0].xyz,
         mesh.inverse_transpose_model[1].xyz,
         mesh.inverse_transpose_model[2].xyz
     ) * vertex.normal;
+#endif
+
+    out.clip_position = view.view_proj * world_position;
 #ifdef VERTEX_TANGENTS
     out.world_tangent = vec4<f32>(
         mat3x3<f32>(
