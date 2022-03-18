@@ -1,8 +1,8 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    math::{DVec2, DVec3},
     prelude::*,
 };
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -26,40 +26,74 @@ fn setup(
         base_color: Color::PINK,
         ..default()
     });
-    for x in 0..WIDTH {
-        for y in 0..HEIGHT {
-            // introduce spaces to break any kind of moiré pattern
-            if x % 10 == 0 || y % 10 == 0 {
-                continue;
+
+    match std::env::args().nth(1).as_deref() {
+        Some("sphere") => {
+            // NOTE: This pattern is good for testing performance of culling as it provides roughly
+            // the same number of visible meshes regardless of the viewing angle.
+            const N_POINTS: usize = WIDTH * HEIGHT * 4;
+            // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
+            let radius = WIDTH as f64 * 2.5;
+            let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
+            for i in 0..N_POINTS {
+                let spherical_polar_theta_phi =
+                    fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
+                let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
+                commands.spawn_bundle(PbrBundle {
+                    mesh: mesh.clone_weak(),
+                    material: material.clone_weak(),
+                    transform: Transform::from_translation((radius * unit_sphere_p).as_vec3()),
+                    ..default()
+                });
             }
-            // cube
-            commands.spawn_bundle(PbrBundle {
-                mesh: mesh.clone_weak(),
-                material: material.clone_weak(),
-                transform: Transform::from_xyz((x as f32) * 2.5, (y as f32) * 2.5, 0.0),
+
+            // camera
+            commands.spawn_bundle(PerspectiveCameraBundle::default());
+        }
+        _ => {
+            // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
+            // as the number of visible meshes rises and falls depending on the viewing angle.
+            for x in 0..WIDTH {
+                for y in 0..HEIGHT {
+                    // introduce spaces to break any kind of moiré pattern
+                    if x % 10 == 0 || y % 10 == 0 {
+                        continue;
+                    }
+                    // cube
+                    commands.spawn_bundle(PbrBundle {
+                        mesh: mesh.clone_weak(),
+                        material: material.clone_weak(),
+                        transform: Transform::from_xyz((x as f32) * 2.5, (y as f32) * 2.5, 0.0),
+                        ..default()
+                    });
+                    commands.spawn_bundle(PbrBundle {
+                        mesh: mesh.clone_weak(),
+                        material: material.clone_weak(),
+                        transform: Transform::from_xyz(
+                            (x as f32) * 2.5,
+                            HEIGHT as f32 * 2.5,
+                            (y as f32) * 2.5,
+                        ),
+                        ..default()
+                    });
+                    commands.spawn_bundle(PbrBundle {
+                        mesh: mesh.clone_weak(),
+                        material: material.clone_weak(),
+                        transform: Transform::from_xyz((x as f32) * 2.5, 0.0, (y as f32) * 2.5),
+                        ..default()
+                    });
+                    commands.spawn_bundle(PbrBundle {
+                        mesh: mesh.clone_weak(),
+                        material: material.clone_weak(),
+                        transform: Transform::from_xyz(0.0, (x as f32) * 2.5, (y as f32) * 2.5),
+                        ..default()
+                    });
+                }
+            }
+            // camera
+            commands.spawn_bundle(PerspectiveCameraBundle {
+                transform: Transform::from_xyz(WIDTH as f32, HEIGHT as f32, WIDTH as f32),
                 ..default()
-            });
-            commands.spawn_bundle(PbrBundle {
-                mesh: mesh.clone_weak(),
-                material: material.clone_weak(),
-                transform: Transform::from_xyz(
-                    (x as f32) * 2.5,
-                    HEIGHT as f32 * 2.5,
-                    (y as f32) * 2.5,
-                ),
-                ..Default::default()
-            });
-            commands.spawn_bundle(PbrBundle {
-                mesh: mesh.clone_weak(),
-                material: material.clone_weak(),
-                transform: Transform::from_xyz((x as f32) * 2.5, 0.0, (y as f32) * 2.5),
-                ..Default::default()
-            });
-            commands.spawn_bundle(PbrBundle {
-                mesh: mesh.clone_weak(),
-                material: material.clone_weak(),
-                transform: Transform::from_xyz(0.0, (x as f32) * 2.5, (y as f32) * 2.5),
-                ..Default::default()
             });
         }
     }
@@ -72,20 +106,30 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(0.0, HEIGHT as f32 * 2.5, 0.0),
             scale: Vec3::splat(5.0),
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
-    });
-
-    // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(WIDTH as f32, HEIGHT as f32, WIDTH as f32),
         ..default()
     });
 
-    commands.spawn_bundle(DirectionalLightBundle {
-        ..Default::default()
-    });
+    commands.spawn_bundle(DirectionalLightBundle { ..default() });
+}
+
+// NOTE: This epsilon value is apparently optimal for optimizing for the average
+// nearest-neighbor distance. See:
+// http://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/
+// for details.
+const EPSILON: f64 = 0.36;
+fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
+    DVec2::new(
+        2.0 * std::f64::consts::PI * (i as f64 / golden_ratio),
+        (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
+    )
+}
+
+fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
+    let (sin_theta, cos_theta) = p.x.sin_cos();
+    let (sin_phi, cos_phi) = p.y.sin_cos();
+    DVec3::new(cos_theta * sin_phi, sin_theta * sin_phi, cos_phi)
 }
 
 // System for rotating the camera

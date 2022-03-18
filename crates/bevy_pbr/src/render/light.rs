@@ -303,6 +303,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
 pub struct ExtractedClusterConfig {
     /// Special near value for cluster calculations
     near: f32,
+    far: f32,
     /// Number of clusters in x / y / z in the view frustum
     axis_slices: UVec3,
 }
@@ -320,6 +321,7 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
             },
             ExtractedClusterConfig {
                 near: clusters.near,
+                far: clusters.far,
                 axis_slices: clusters.axis_slices,
             },
         ));
@@ -670,7 +672,7 @@ pub fn prepare_lights(
         let is_orthographic = extracted_view.projection.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
             clusters.near,
-            extracted_view.far,
+            clusters.far,
             clusters.axis_slices.z as f32,
             is_orthographic,
         );
@@ -924,7 +926,7 @@ pub struct ViewClusterBindings {
 impl ViewClusterBindings {
     pub const MAX_OFFSETS: usize = 16384 / 4;
     const MAX_UNIFORM_ITEMS: usize = Self::MAX_OFFSETS / 4;
-    const MAX_INDICES: usize = 16384;
+    pub const MAX_INDICES: usize = 16384;
 
     pub fn reserve_and_clear(&mut self) {
         self.cluster_light_index_lists.clear();

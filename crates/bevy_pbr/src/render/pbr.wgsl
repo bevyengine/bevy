@@ -58,6 +58,7 @@ let STANDARD_MATERIAL_FLAGS_UNLIT_BIT: u32                      = 32u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 64u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 128u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 256u;
+let STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP: u32       = 512u;
 
 [[group(1), binding(0)]]
 var<uniform> material: StandardMaterial;
@@ -515,7 +516,16 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
         let TBN = mat3x3<f32>(T, B, N);
-        N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
+        // Nt is the tangent-space normal.
+        var Nt: vec3<f32>;
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+            // Only use the xy components and derive z for 2-component normal maps.
+            Nt = vec3<f32>(textureSample(normal_map_texture, normal_map_sampler, in.uv).rg * 2.0 - 1.0, 0.0);
+            Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
+        } else {
+            Nt = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0;
+        }
+        N = normalize(TBN * Nt);
 #endif
 #endif
 
