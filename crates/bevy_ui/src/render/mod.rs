@@ -6,7 +6,7 @@ pub use camera::*;
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{CalculatedClip, Node, UiColor, UiImage};
+use crate::{CalculatedClip, Node, UiColor, UiImage, prelude::GlobalRectTransform};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
@@ -26,7 +26,6 @@ use bevy_render::{
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
-use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
@@ -113,7 +112,7 @@ pub fn build_ui_render(app: &mut App) {
 }
 
 pub struct ExtractedUiNode {
-    pub transform: Mat4,
+    pub transform: GlobalRectTransform,
     pub color: Color,
     pub rect: Rect,
     pub image: Handle<Image>,
@@ -131,7 +130,7 @@ pub fn extract_uinodes(
     images: Res<Assets<Image>>,
     uinode_query: Query<(
         &Node,
-        &GlobalTransform,
+        &GlobalRectTransform,
         &UiColor,
         &UiImage,
         &Visibility,
@@ -150,7 +149,7 @@ pub fn extract_uinodes(
             continue;
         }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
-            transform: transform.compute_matrix(),
+            transform: *transform,
             color: color.0,
             rect: bevy_sprite::Rect {
                 min: Vec2::ZERO,
@@ -171,7 +170,7 @@ pub fn extract_text_uinodes(
     uinode_query: Query<(
         Entity,
         &Node,
-        &GlobalTransform,
+        &GlobaRectlTransform,
         &Text,
         &Visibility,
         Option<&CalculatedClip>,
@@ -203,15 +202,15 @@ pub fn extract_text_uinodes(
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
 
-                let transform =
-                    Mat4::from_rotation_translation(transform.rotation, transform.translation)
-                        * Mat4::from_scale(transform.scale / scale_factor)
-                        * Mat4::from_translation(
-                            alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                        );
+                // let transform = 
+                //     Mat4::from_rotation_translation(transform.rotation, transform.translation)
+                //         * Mat4::from_scale(transform.scale / scale_factor)
+                //         * Mat4::from_translation(
+                //             alignment_offset * scale_factor + text_glyph.position.extend(0.),
+                //         );
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    transform,
+                    transform: GlobalRectTransform::default(),
                     color,
                     rect,
                     image: texture,
@@ -258,7 +257,7 @@ const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
-    pub z: f32,
+    pub depth: u32,
 }
 
 pub fn prepare_uinodes(
@@ -273,19 +272,19 @@ pub fn prepare_uinodes(
     // sort by increasing z for correct transparency
     extracted_uinodes
         .uinodes
-        .sort_by(|a, b| FloatOrd(a.transform.w_axis[2]).cmp(&FloatOrd(b.transform.w_axis[2])));
+        .sort_by(|a, b| a.transform.depth.cmp(&b.transform.depth));
 
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_handle = Default::default();
-    let mut last_z = 0.0;
+    let mut last_depth = 0;
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
                 commands.spawn_bundle((UiBatch {
                     range: start..end,
                     image: current_batch_handle,
-                    z: last_z,
+                    depth: last_depth,
                 },));
                 start = end;
             }
@@ -375,7 +374,7 @@ pub fn prepare_uinodes(
             });
         }
 
-        last_z = extracted_uinode.transform.w_axis[2];
+        last_depth = extracted_uinode.transform.depth;
         end += QUAD_INDICES.len() as u32;
     }
 
@@ -384,7 +383,7 @@ pub fn prepare_uinodes(
         commands.spawn_bundle((UiBatch {
             range: start..end,
             image: current_batch_handle,
-            z: last_z,
+            depth: last_depth,
         },));
     }
 
@@ -458,7 +457,7 @@ pub fn queue_uinodes(
                     draw_function: draw_ui_function,
                     pipeline,
                     entity,
-                    sort_key: FloatOrd(batch.z),
+                    sort_key: FloatOrd(batch.depth as f32),
                 });
             }
         }

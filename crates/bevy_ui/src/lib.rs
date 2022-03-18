@@ -54,7 +54,6 @@ impl Plugin for UiPlugin {
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
-            .register_type::<CalculatedSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
             .register_type::<FlexDirection>()

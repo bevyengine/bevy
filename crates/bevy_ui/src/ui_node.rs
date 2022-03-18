@@ -348,14 +348,6 @@ impl Default for FlexWrap {
     }
 }
 
-/// The calculated size of the node
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
-pub struct CalculatedSize {
-    /// The size of the node
-    pub size: Size,
-}
-
 /// The color of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]

@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Style, Val};
+use crate::Style, Val;
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -49,7 +49,7 @@ pub fn text_system(
     mut text_queries: QuerySet<(
         QueryState<Entity, Or<(Changed<Text>, Changed<Style>)>>,
         QueryState<Entity, (With<Text>, With<Style>)>,
-        QueryState<(&Text, &Style, &mut CalculatedSize)>,
+        QueryState<(&Text, &Style, &mut RectTransform)>,
     )>,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary());
@@ -78,7 +78,7 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.q2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
+        if let Ok((text, style, mut transform)) = query.get_mut(entity) {
             let node_size = Size::new(
                 text_constraint(
                     style.min_size.width,
@@ -117,7 +117,7 @@ pub fn text_system(
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
-                    calculated_size.size = Size {
+                    transform.size = Size {
                         width: scale_value(text_layout_info.size.width, inv_scale_factor),
                         height: scale_value(text_layout_info.size.height, inv_scale_factor),
                     };

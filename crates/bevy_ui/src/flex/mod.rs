@@ -1,6 +1,6 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style};
+use crate::{Node, Style};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
@@ -76,7 +76,7 @@ impl FlexSurface {
         &mut self,
         entity: Entity,
         style: &Style,
-        calculated_size: CalculatedSize,
+        calculated_size: Size<f32>,
         scale_factor: f64,
     ) {
         let stretch = &mut self.stretch;
@@ -204,11 +204,11 @@ pub fn flex_node_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
-    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
+    node_query: Query<(Entity, &Style, Option<&GlobalRectTransform>), (With<Node>, Changed<Style>)>,
+    full_node_query: Query<(Entity, &Style, Option<&GlobalRectTransform>), With<Node>>,
     changed_size_query: Query<
-        (Entity, &Style, &CalculatedSize),
-        (With<Node>, Changed<CalculatedSize>),
+        (Entity, &Style, &GlobalRectTransform),
+        (With<Node>, Changed<GlobalRectTransform>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
@@ -234,15 +234,15 @@ pub fn flex_node_system(
     fn update_changed<F: WorldQuery>(
         flex_surface: &mut FlexSurface,
         scaling_factor: f64,
-        query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
+        query: Query<(Entity, &Style, Option<&GlobalRectTransform>), F>,
     ) where
         F::Fetch: FilterFetch,
     {
         // update changed nodes
-        for (entity, style, calculated_size) in query.iter() {
+        for (entity, style, transform) in query.iter() {
             // TODO: remove node from old hierarchy if its root has changed
-            if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
+            if let Some(transform) = transform {
+                flex_surface.upsert_leaf(entity, style, transform.size, scaling_factor);
             } else {
                 flex_surface.upsert_node(entity, style, scaling_factor);
             }

@@ -9,7 +9,6 @@ use bevy_ecs::{
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_transform::components::GlobalTransform;
 use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -66,7 +65,7 @@ pub fn ui_focus_system(
     mut node_query: Query<(
         Entity,
         &Node,
-        &GlobalTransform,
+        &GlobalRectTransform,
         Option<&mut Interaction>,
         Option<&FocusPolicy>,
         Option<&CalculatedClip>,
@@ -104,11 +103,9 @@ pub fn ui_focus_system(
         .iter_mut()
         .filter_map(
             |(entity, node, global_transform, interaction, focus_policy, clip)| {
-                let position = global_transform.translation;
-                let ui_position = position.truncate();
                 let extents = node.size / 2.0;
-                let mut min = ui_position - extents;
-                let mut max = ui_position + extents;
+                let mut min = global_transform.position - extents;
+                let mut max = global_transform.position + extents;
                 if let Some(clip) = clip {
                     min = Vec2::max(min, clip.clip.min);
                     max = Vec2::min(max, clip.clip.max);
@@ -123,7 +120,7 @@ pub fn ui_focus_system(
                 };
 
                 if contains_cursor {
-                    Some((entity, focus_policy, interaction, FloatOrd(position.z)))
+                    Some((entity, focus_policy, interaction, global_transform.depth))
                 } else {
                     if let Some(mut interaction) = interaction {
                         if *interaction == Interaction::Hovered
