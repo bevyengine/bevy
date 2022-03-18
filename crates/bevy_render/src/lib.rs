@@ -177,15 +177,12 @@ impl Plugin for RenderPlugin {
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
-                let render_span = bevy_utils::tracing::info_span!("renderer subapp");
-                #[cfg(feature = "trace")]
-                let _render_guard = render_span.enter();
+                let _render_span = bevy_utils::tracing::info_span!("renderer subapp").entered();
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush")
+                            .entered();
 
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
@@ -203,9 +200,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "extract");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "extract").entered();
 
                     // extract
                     extract(app_world, render_app);
@@ -213,9 +209,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "prepare");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "prepare").entered();
 
                     // prepare
                     let prepare = render_app
@@ -227,9 +222,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "queue");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "queue").entered();
 
                     // queue
                     let queue = render_app
@@ -241,9 +235,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "sort");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "sort").entered();
 
                     // phase sort
                     let phase_sort = render_app
@@ -255,9 +248,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "render");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "render").entered();
 
                     // render
                     let render = render_app
@@ -269,9 +261,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "cleanup");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "cleanup").entered();
 
                     // cleanup
                     let cleanup = render_app
