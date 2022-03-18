@@ -75,7 +75,7 @@ pub struct App {
     plugin_name_added: HashSet<String>,
     /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
     /// <https://github.com/bevyengine/bevy/issues/4231>
-    is_from_plugin_build: bool,
+    is_building_plugin: bool,
 }
 
 impl Debug for App {
@@ -139,7 +139,7 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
-            is_from_plugin_build: false,
+            is_building_plugin: false,
         }
     }
 
@@ -170,8 +170,8 @@ impl App {
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
-        if app.is_from_plugin_build {
-            panic!("App::Run() is called from a Plugin::Build(), which might result in other initialization code not run.");
+        if app.is_building_plugin {
+            panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
         }
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
@@ -865,9 +865,9 @@ impl App {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
-        self.is_from_plugin_build = true;
+        self.is_building_plugin = true;
         plugin.build(self);
-        self.is_from_plugin_build = false;
+        self.is_building_plugin = false;
         self.plugin_registry.push(plugin);
         Ok(self)
     }
