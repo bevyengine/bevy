@@ -328,7 +328,9 @@ where
                 n / k_factorial
             });
 
-        (0, max_combinations)
+        let archetype_query = F::Fetch::IS_ARCHETYPAL && QF::IS_ARCHETYPAL;
+        let min_combinations = if archetype_query { max_size } else { 0 };
+        (min_combinations, max_combinations)
     }
 }
 

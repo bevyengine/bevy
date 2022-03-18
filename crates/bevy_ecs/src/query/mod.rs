@@ -52,41 +52,21 @@ mod tests {
         world.spawn().insert_bundle((A(4),));
 
         let mut a_query = world.query::<&A>();
-        assert_eq!(a_query.iter_combinations::<0>(&world).count(), 0);
-        assert_eq!(
-            a_query.iter_combinations::<0>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(a_query.iter_combinations::<1>(&world).count(), 4);
-        assert_eq!(
-            a_query.iter_combinations::<1>(&world).size_hint(),
-            (0, Some(4))
-        );
-        assert_eq!(a_query.iter_combinations::<2>(&world).count(), 6);
-        assert_eq!(
-            a_query.iter_combinations::<2>(&world).size_hint(),
-            (0, Some(6))
-        );
-        assert_eq!(a_query.iter_combinations::<3>(&world).count(), 4);
-        assert_eq!(
-            a_query.iter_combinations::<3>(&world).size_hint(),
-            (0, Some(4))
-        );
-        assert_eq!(a_query.iter_combinations::<4>(&world).count(), 1);
-        assert_eq!(
-            a_query.iter_combinations::<4>(&world).size_hint(),
-            (0, Some(1))
-        );
-        assert_eq!(a_query.iter_combinations::<5>(&world).count(), 0);
-        assert_eq!(
-            a_query.iter_combinations::<5>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(a_query.iter_combinations::<1024>(&world).count(), 0);
-        assert_eq!(
-            a_query.iter_combinations::<1024>(&world).size_hint(),
-            (0, Some(0))
-        );
+        let w = &world;
+        assert_eq!(a_query.iter_combinations::<0>(w).count(), 0);
+        assert_eq!(a_query.iter_combinations::<0>(w).size_hint().1, Some(0));
+        assert_eq!(a_query.iter_combinations::<1>(w).count(), 4);
+        assert_eq!(a_query.iter_combinations::<1>(w).size_hint().1, Some(4));
+        assert_eq!(a_query.iter_combinations::<2>(w).count(), 6);
+        assert_eq!(a_query.iter_combinations::<2>(w).size_hint().1, Some(6));
+        assert_eq!(a_query.iter_combinations::<3>(w).count(), 4);
+        assert_eq!(a_query.iter_combinations::<3>(w).size_hint().1, Some(4));
+        assert_eq!(a_query.iter_combinations::<4>(w).count(), 1);
+        assert_eq!(a_query.iter_combinations::<4>(w).size_hint().1, Some(1));
+        assert_eq!(a_query.iter_combinations::<5>(w).count(), 0);
+        assert_eq!(a_query.iter_combinations::<5>(w).size_hint().1, Some(0));
+        assert_eq!(a_query.iter_combinations::<1024>(w).count(), 0);
+        assert_eq!(a_query.iter_combinations::<1024>(w).size_hint().1, Some(0));
 
         let values: Vec<[&A; 2]> = world.query::<&A>().iter_combinations(&world).collect();
         assert_eq!(
@@ -152,86 +132,41 @@ mod tests {
         world.spawn().insert_bundle((A(3),));
         world.spawn().insert_bundle((A(4),));
 
-        let mut a_query_with_b = world.query_filtered::<&A, With<B>>();
-        assert_eq!(a_query_with_b.iter_combinations::<0>(&world).count(), 0);
-        assert_eq!(
-            a_query_with_b.iter_combinations::<0>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(a_query_with_b.iter_combinations::<1>(&world).count(), 1);
-        assert_eq!(
-            a_query_with_b.iter_combinations::<1>(&world).size_hint(),
-            (0, Some(1))
-        );
-        assert_eq!(a_query_with_b.iter_combinations::<2>(&world).count(), 0);
-        assert_eq!(
-            a_query_with_b.iter_combinations::<2>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(a_query_with_b.iter_combinations::<3>(&world).count(), 0);
-        assert_eq!(
-            a_query_with_b.iter_combinations::<3>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(a_query_with_b.iter_combinations::<4>(&world).count(), 0);
-        assert_eq!(
-            a_query_with_b.iter_combinations::<4>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(a_query_with_b.iter_combinations::<5>(&world).count(), 0);
-        assert_eq!(
-            a_query_with_b.iter_combinations::<5>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(a_query_with_b.iter_combinations::<1024>(&world).count(), 0);
-        assert_eq!(
-            a_query_with_b.iter_combinations::<1024>(&world).size_hint(),
-            (0, Some(0))
-        );
+        let mut a_with_b = world.query_filtered::<&A, With<B>>();
+        let w = &world;
+        assert_eq!(a_with_b.iter_combinations::<0>(w).count(), 0);
+        assert_eq!(a_with_b.iter_combinations::<0>(w).size_hint().1, Some(0));
+        assert_eq!(a_with_b.iter_combinations::<1>(w).count(), 1);
+        assert_eq!(a_with_b.iter_combinations::<1>(w).size_hint().1, Some(1));
+        assert_eq!(a_with_b.iter_combinations::<2>(w).count(), 0);
+        assert_eq!(a_with_b.iter_combinations::<2>(w).size_hint().1, Some(0));
+        assert_eq!(a_with_b.iter_combinations::<3>(w).count(), 0);
+        assert_eq!(a_with_b.iter_combinations::<3>(w).size_hint().1, Some(0));
+        assert_eq!(a_with_b.iter_combinations::<4>(w).count(), 0);
+        assert_eq!(a_with_b.iter_combinations::<4>(w).size_hint().1, Some(0));
+        assert_eq!(a_with_b.iter_combinations::<5>(w).count(), 0);
+        assert_eq!(a_with_b.iter_combinations::<5>(w).size_hint().1, Some(0));
+        assert_eq!(a_with_b.iter_combinations::<1024>(w).count(), 0);
+        assert_eq!(a_with_b.iter_combinations::<1024>(w).size_hint().1, Some(0));
 
-        let mut a_query_without_b = world.query_filtered::<&A, Without<B>>();
-        assert_eq!(a_query_without_b.iter_combinations::<0>(&world).count(), 0);
-        assert_eq!(
-            a_query_without_b.iter_combinations::<0>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(a_query_without_b.iter_combinations::<1>(&world).count(), 3);
-        assert_eq!(
-            a_query_without_b.iter_combinations::<1>(&world).size_hint(),
-            (0, Some(3))
-        );
-        assert_eq!(a_query_without_b.iter_combinations::<2>(&world).count(), 3);
-        assert_eq!(
-            a_query_without_b.iter_combinations::<2>(&world).size_hint(),
-            (0, Some(3))
-        );
-        assert_eq!(a_query_without_b.iter_combinations::<3>(&world).count(), 1);
-        assert_eq!(
-            a_query_without_b.iter_combinations::<3>(&world).size_hint(),
-            (0, Some(1))
-        );
-        assert_eq!(a_query_without_b.iter_combinations::<4>(&world).count(), 0);
-        assert_eq!(
-            a_query_without_b.iter_combinations::<4>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(a_query_without_b.iter_combinations::<5>(&world).count(), 0);
-        assert_eq!(
-            a_query_without_b.iter_combinations::<5>(&world).size_hint(),
-            (0, Some(0))
-        );
-        assert_eq!(
-            a_query_without_b.iter_combinations::<1024>(&world).count(),
-            0
-        );
-        assert_eq!(
-            a_query_without_b
-                .iter_combinations::<1024>(&world)
-                .size_hint(),
-            (0, Some(0))
-        );
+        let mut a_wout_b = world.query_filtered::<&A, Without<B>>();
+        let w = &world;
+        assert_eq!(a_wout_b.iter_combinations::<0>(w).count(), 0);
+        assert_eq!(a_wout_b.iter_combinations::<0>(w).size_hint().1, Some(0));
+        assert_eq!(a_wout_b.iter_combinations::<1>(w).count(), 3);
+        assert_eq!(a_wout_b.iter_combinations::<1>(w).size_hint().1, Some(3));
+        assert_eq!(a_wout_b.iter_combinations::<2>(w).count(), 3);
+        assert_eq!(a_wout_b.iter_combinations::<2>(w).size_hint().1, Some(3));
+        assert_eq!(a_wout_b.iter_combinations::<3>(w).count(), 1);
+        assert_eq!(a_wout_b.iter_combinations::<3>(w).size_hint().1, Some(1));
+        assert_eq!(a_wout_b.iter_combinations::<4>(w).count(), 0);
+        assert_eq!(a_wout_b.iter_combinations::<4>(w).size_hint().1, Some(0));
+        assert_eq!(a_wout_b.iter_combinations::<5>(w).count(), 0);
+        assert_eq!(a_wout_b.iter_combinations::<5>(w).size_hint().1, Some(0));
+        assert_eq!(a_wout_b.iter_combinations::<1024>(w).count(), 0);
+        assert_eq!(a_wout_b.iter_combinations::<1024>(w).size_hint().1, Some(0));
 
-        let values: HashSet<[&A; 2]> = a_query_without_b.iter_combinations(&world).collect();
+        let values: HashSet<[&A; 2]> = a_wout_b.iter_combinations(&world).collect();
         assert_eq!(
             values,
             [[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)],]
@@ -239,7 +174,7 @@ mod tests {
                 .collect::<HashSet<_>>()
         );
 
-        let values: HashSet<[&A; 3]> = a_query_without_b.iter_combinations(&world).collect();
+        let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
         assert_eq!(
             values,
             [[&A(2), &A(3), &A(4)],].into_iter().collect::<HashSet<_>>()
@@ -269,7 +204,7 @@ mod tests {
             c.0 += 1000;
         }
 
-        let values: HashSet<[&A; 3]> = a_query_without_b.iter_combinations(&world).collect();
+        let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
         assert_eq!(
             values,
             [[&A(12), &A(103), &A(1004)],]
