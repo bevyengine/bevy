@@ -1,12 +1,14 @@
+use crate::render_resource::CachedComputePipelineId;
 use crate::{
     mesh::{InnerMeshVertexBufferLayout, MeshVertexBufferLayout, MissingVertexAttributeError},
     render_resource::{
-        CachedPipelineId, ComputePipelineDescriptor, PipelineCache, RenderPipelineDescriptor,
+        CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache, RenderPipelineDescriptor,
         VertexBufferLayout,
     },
 };
 use bevy_utils::{
-    hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap, PreHashMapExt,
+    default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap,
+    PreHashMapExt,
 };
 use std::{fmt::Debug, hash::Hash};
 use thiserror::Error;
@@ -17,14 +19,12 @@ pub trait SpecializedRenderPipeline {
 }
 
 pub struct SpecializedRenderPipelines<S: SpecializedRenderPipeline> {
-    cache: HashMap<S::Key, CachedPipelineId>,
+    cache: HashMap<S::Key, CachedRenderPipelineId>,
 }
 
 impl<S: SpecializedRenderPipeline> Default for SpecializedRenderPipelines<S> {
     fn default() -> Self {
-        Self {
-            cache: Default::default(),
-        }
+        Self { cache: default() }
     }
 }
 
@@ -34,7 +34,7 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
         cache: &mut PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
-    ) -> CachedPipelineId {
+    ) -> CachedRenderPipelineId {
         *self.cache.entry(key.clone()).or_insert_with(|| {
             let descriptor = specialize_pipeline.specialize(key);
             cache.queue_render_pipeline(descriptor)
@@ -48,14 +48,12 @@ pub trait SpecializedComputePipeline {
 }
 
 pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
-    cache: HashMap<S::Key, CachedPipelineId>,
+    cache: HashMap<S::Key, CachedComputePipelineId>,
 }
 
 impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
     fn default() -> Self {
-        Self {
-            cache: Default::default(),
-        }
+        Self { cache: default() }
     }
 }
 
@@ -65,7 +63,7 @@ impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
         cache: &mut PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
-    ) -> CachedPipelineId {
+    ) -> CachedComputePipelineId {
         *self.cache.entry(key.clone()).or_insert_with(|| {
             let descriptor = specialize_pipeline.specialize(key);
             cache.queue_compute_pipeline(descriptor)
@@ -83,8 +81,9 @@ pub trait SpecializedMeshPipeline {
 }
 
 pub struct SpecializedMeshPipelines<S: SpecializedMeshPipeline> {
-    mesh_layout_cache: PreHashMap<InnerMeshVertexBufferLayout, HashMap<S::Key, CachedPipelineId>>,
-    vertex_layout_cache: HashMap<VertexBufferLayout, HashMap<S::Key, CachedPipelineId>>,
+    mesh_layout_cache:
+        PreHashMap<InnerMeshVertexBufferLayout, HashMap<S::Key, CachedRenderPipelineId>>,
+    vertex_layout_cache: HashMap<VertexBufferLayout, HashMap<S::Key, CachedRenderPipelineId>>,
 }
 
 impl<S: SpecializedMeshPipeline> Default for SpecializedMeshPipelines<S> {
@@ -104,7 +103,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
         specialize_pipeline: &S,
         key: S::Key,
         layout: &MeshVertexBufferLayout,
-    ) -> Result<CachedPipelineId, SpecializedMeshPipelineError> {
+    ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
         let map = self
             .mesh_layout_cache
             .get_or_insert_with(layout, Default::default);
@@ -138,7 +137,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                 Ok(*entry.insert(match layout_map.entry(key) {
                     Entry::Occupied(entry) => {
                         if cfg!(debug_assertions) {
-                            let stored_descriptor = cache.get_render_pipeline_descriptor(*entry.get()).expect("The cached pipeline is not a render pipeline.");
+                            let stored_descriptor = cache.get_render_pipeline_descriptor(*entry.get());
                             if stored_descriptor != &descriptor {
                                 error!("The cached pipeline descriptor for {} is not equal to the generated descriptor for the given key. This means the SpecializePipeline implementation uses 'unused' MeshVertexBufferLayout information to specialize the pipeline. This is not allowed because it would invalidate the pipeline cache.", std::any::type_name::<S>());
                             }

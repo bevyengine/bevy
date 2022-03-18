@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod camera;
 pub mod color;
 pub mod mesh;

@@ -171,16 +171,16 @@ enum GameOfLifeState {
 
 struct DispatchGameOfLife {
     state: GameOfLifeState,
-    init_pipeline: CachedPipelineId,
-    update_pipeline: CachedPipelineId,
+    init_pipeline: CachedComputePipelineId,
+    update_pipeline: CachedComputePipelineId,
 }
 
 impl Default for DispatchGameOfLife {
     fn default() -> Self {
         Self {
             state: GameOfLifeState::NotReady,
-            init_pipeline: CachedPipelineId::INVALID,
-            update_pipeline: CachedPipelineId::INVALID,
+            init_pipeline: CachedComputePipelineId::INVALID,
+            update_pipeline: CachedComputePipelineId::INVALID,
         }
     }
 }
@@ -209,12 +209,16 @@ impl render_graph::Node for DispatchGameOfLife {
         // if the corresponding pipeline has loaded, transition to the next stage
         match self.state {
             GameOfLifeState::NotReady => {
-                if let CachedPipelineState::Ok(_) = pipeline_cache.get_state(self.init_pipeline) {
+                if let CachedPipelineState::Ok(_) =
+                    pipeline_cache.get_compute_pipeline_state(self.init_pipeline)
+                {
                     self.state = GameOfLifeState::Init
                 }
             }
             GameOfLifeState::Init => {
-                if let CachedPipelineState::Ok(_) = pipeline_cache.get_state(self.update_pipeline) {
+                if let CachedPipelineState::Ok(_) =
+                    pipeline_cache.get_compute_pipeline_state(self.update_pipeline)
+                {
                     self.state = GameOfLifeState::Update
                 }
             }

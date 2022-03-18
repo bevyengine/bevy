@@ -1,6 +1,6 @@
 use crate::{
     render_phase::TrackedRenderPass,
-    render_resource::{CachedPipelineId, PipelineCache},
+    render_resource::{CachedRenderPipelineId, PipelineCache},
 };
 use bevy_app::App;
 use bevy_ecs::{
@@ -162,8 +162,8 @@ pub trait EntityPhaseItem: PhaseItem {
     fn entity(&self) -> Entity;
 }
 
-pub trait CachedPipelinePhaseItem: PhaseItem {
-    fn cached_pipeline(&self) -> CachedPipelineId;
+pub trait CachedRenderPipelinePhaseItem: PhaseItem {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId;
 }
 
 /// A [`PhaseItem`] that can be batched dynamically.
@@ -224,7 +224,7 @@ impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E {
 }
 
 pub struct SetItemPipeline;
-impl<P: CachedPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
+impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type Param = SRes<PipelineCache>;
     #[inline]
     fn render<'w>(
