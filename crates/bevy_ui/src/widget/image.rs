@@ -1,4 +1,4 @@
-use crate::{UiImage, prelude::RectTransform};
+use crate::{CalculatedSize, UiImage};
 use bevy_asset::Assets;
 use bevy_ecs::{
     component::Component,
@@ -28,17 +28,17 @@ impl Default for ImageMode {
 /// Updates calculated size of the node based on the image provided
 pub fn image_node_system(
     textures: Res<Assets<Image>>,
-    mut query: Query<(&mut RectTransform, &UiImage), With<ImageMode>>,
+    mut query: Query<(&mut CalculatedSize, &UiImage), With<ImageMode>>,
 ) {
-    for (mut transform, image) in query.iter_mut() {
+    for (mut calculated_size, image) in query.iter_mut() {
         if let Some(texture) = textures.get(image.0.clone_weak()) {
             let size = Size {
                 width: texture.texture_descriptor.size.width as f32,
                 height: texture.texture_descriptor.size.height as f32,
             };
             // Update only if size has changed to avoid needless layout calculations
-            if size != transform.size {
-                transform.size = size;
+            if size != calculated_size.size {
+                calculated_size.size = size;
             }
         }
     }

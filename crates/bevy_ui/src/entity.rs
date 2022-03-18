@@ -2,45 +2,15 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
+    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
 };
 use bevy_ecs::{bundle::Bundle, prelude::Component};
-use bevy_transform::prelude::{Transform, GlobalTransform};
 use bevy_render::{
     camera::{Camera, DepthCalculation, OrthographicProjection, WindowOrigin},
     view::{Visibility, VisibleEntities},
 };
 use bevy_text::Text;
-use bevy_math::{Vec2, Size};
-
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct RectTransform {
-    pub position: Vec2,
-    pub size: Size<f32>,
-}
-
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct GlobalRectTransform {
-    pub position: Vec2,
-    pub size: Size<f32>,
-    pub depth: u32,
-}
-
-impl GlobalRectTransform {
-    pub fn canvas_depth(&self) -> u16 {
-        (self.depth >> 16) as u16
-    }
-
-    pub fn entity_depth(&self) -> u16 {
-        (self.depth & 0xFFFF) as u16
-    }
-
-    pub fn inherit(&mut self, parent: &Self, source: RectTransform) {
-        self.position = parent.position + source.position;
-        self.size = source.size;
-        self.depth = parent.depth + 1;
-    }
-}
+use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
 #[derive(Bundle, Clone, Debug, Default)]
@@ -56,9 +26,9 @@ pub struct NodeBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
-    pub transform: RectTransform,
+    pub transform: Transform,
     /// The global transform of the node
-    pub global_transform: GlobalRectTransform,
+    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
 }
@@ -72,6 +42,8 @@ pub struct ImageBundle {
     pub style: Style,
     /// Configures how the image should scale
     pub image_mode: ImageMode,
+    /// The calculated size based on the given image
+    pub calculated_size: CalculatedSize,
     /// The color of the node
     pub color: UiColor,
     /// The image of the node
@@ -79,9 +51,9 @@ pub struct ImageBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
-    pub transform: RectTransform,
+    pub transform: Transform,
     /// The global transform of the node
-    pub global_transform: GlobalRectTransform,
+    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
 }
@@ -95,12 +67,14 @@ pub struct TextBundle {
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
+    /// The calculated size based on the given image
+    pub calculated_size: CalculatedSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
-    pub transform: RectTransform,
+    pub transform: Transform,
     /// The global transform of the node
-    pub global_transform: GlobalRectTransform,
+    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
 }
@@ -111,6 +85,7 @@ impl Default for TextBundle {
             focus_policy: FocusPolicy::Pass,
             text: Default::default(),
             node: Default::default(),
+            calculated_size: Default::default(),
             style: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -137,9 +112,9 @@ pub struct ButtonBundle {
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
-    pub transform: RectTransform,
+    pub transform: Transform,
     /// The global transform of the node
-    pub global_transform: GlobalRectTransform,
+    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
 }

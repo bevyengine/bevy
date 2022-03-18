@@ -1,9 +1,6 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{
-    CalculatedClip, Overflow, Style,
-    entity::RectTransform,
-};
+use crate::{CalculatedClip, Overflow, Style};
 
 use super::Node;
 use bevy_ecs::{
@@ -14,45 +11,57 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::Vec2;
 use bevy_sprite::Rect;
+use bevy_transform::components::{GlobalTransform, Transform};
 
-const MAX_CANVAS_DEPTH: u32 = u16::MAX as u32;
+/// The resolution of Z values for UI
+pub const UI_Z_STEP: f32 = 0.001;
 
 /// Updates transforms of nodes to fit with the z system
 pub fn ui_z_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    mut node_query: Query<(&mut RectTransform, Option<&Children>), With<Node>>,
+    mut node_query: Query<&mut Transform, With<Node>>,
+    children_query: Query<&Children>,
 ) {
-    for (depth, entity) in root_node_query.iter().enumerate() {
-        let mut entity_depth = depth * MAX_CANVAS_DEPTH;
-        update_hierarchy(
+    let mut current_global_z = 0.0;
+    for entity in root_node_query.iter() {
+        current_global_z = update_hierarchy(
+            &children_query,
             &mut node_query,
             entity,
-            &mut entity_depth,
+            current_global_z,
+            current_global_z,
         );
     }
 }
 
 fn update_hierarchy(
-    node_query: &mut Query<(&mut RectTransform, Option<&Children>), With<Node>>,
+    children_query: &Query<&Children>,
+    node_query: &mut Query<&mut Transform, With<Node>>,
     entity: Entity,
-    depth: &mut u32,
-) {
-    if let Ok((mut transform, children)) = node_query.get_mut(entity) {
+    parent_global_z: f32,
+    mut current_global_z: f32,
+) -> f32 {
+    current_global_z += UI_Z_STEP;
+    if let Ok(mut transform) = node_query.get_mut(entity) {
+        let new_z = current_global_z - parent_global_z;
         // only trigger change detection when the new value is different
-        if transform.depth != depth {
-            transform.depth = depth;
-        }
-        if let Some(children) = children {
-            *depth += 1;
-            for child in children.iter().cloned() {
-                update_hierarchy(
-                    node_query,
-                    child,
-                    depth,
-                );
-            }
+        if transform.translation.z != new_z {
+            transform.translation.z = new_z;
         }
     }
+    if let Ok(children) = children_query.get(entity) {
+        let current_parent_global_z = current_global_z;
+        for child in children.iter().cloned() {
+            current_global_z = update_hierarchy(
+                children_query,
+                node_query,
+                child,
+                current_parent_global_z,
+                current_global_z,
+            );
+        }
+    }
+    current_global_z
 }
 
 /// Updates clipping for all nodes
