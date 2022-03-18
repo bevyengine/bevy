@@ -181,7 +181,7 @@ pub struct QuerySet<'w, 's, T> {
     change_tick: u32,
 }
 
-#[docs(hidden)]
+#[doc(hidden)]
 pub struct QuerySetState<T>(T);
 
 impl_query_set!();
