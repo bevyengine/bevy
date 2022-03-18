@@ -13,11 +13,11 @@ pub(crate) struct Pending {
 }
 
 // SAFE: Access to the parent pointer is only usable in this module, the values
-// are cleared after every system execution, and the system only uses one 
+// are cleared after every system execution, and the system only uses one
 // thread. There is no way to move this type across multiple threads.
 unsafe impl Send for Pending {}
 // SAFE: Access to the parent pointer is only usable in this module, the values
-// are cleared after every system execution, and the system only uses one 
+// are cleared after every system execution, and the system only uses one
 // thread. There is no way to access this type across multiple threads.
 unsafe impl Sync for Pending {}
 
