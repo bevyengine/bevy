@@ -6,22 +6,23 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 
-/// Used for [`transform_propagate_system`]. Ignore otherwise.
 pub(crate) struct Pending {
     parent: *const GlobalTransform,
     changed: bool,
     child: Entity,
 }
 
-// SAFE: Values are cleared after every frame and cannot otherwise be
-// constructed without transmute.
+// SAFE: Access to the parent pointer is only usable in this module, the values
+// are cleared after every system execution, and the system only uses one 
+// thread. There is no way to move this type across multiple threads.
 unsafe impl Send for Pending {}
-// SAFE: Values are cleared after every frame and cannot otherwise be
-// constructed without transmute.
+// SAFE: Access to the parent pointer is only usable in this module, the values
+// are cleared after every system execution, and the system only uses one 
+// thread. There is no way to access this type across multiple threads.
 unsafe impl Sync for Pending {}
 
-/// Update [`GlobalTransform`] component of entities based on entity hierarchy and
-/// [`Transform`] component.
+/// Update [`GlobalTransform`] component of entities without children or parents
+/// based on the [`Transform`] component.
 pub(crate) fn transform_propagate_flat_system(
     mut root_query: Query<
         (&Transform, &mut GlobalTransform),
