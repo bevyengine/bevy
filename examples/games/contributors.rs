@@ -1,3 +1,32 @@
+//! This example collects a list of all contributors to the bevy source code and renders a bouncing
+//! bevy logo for each of them, showing how to combine multiple systems to
+//! - load some external information on startup
+//! - animate 2d sprites with some basic collision detection and physics simulation
+//! - uses a [`Timer`] to periodically highlight different logos
+//! - displays the highlighted contributors name using the [`TextBundle`] from [`bevy::ui`].
+//!
+//! This is broken down into distinct, simple systems that build upon each other.
+//! The `setup_contributor_selection` system generates a list of contributors, generates a
+//! random starting position, `Velocity` and color for each of them, and spawns one entity for
+//! each contributor into the world, consisting of a [`SpriteBundle`] for rendering the logo,
+//! the initial choose `Velocity` as well as the colour.
+//!
+//! The `setup` system then sets up the [`OrthographicCamera`](OrthographicCameraBundle) for 2D
+//! rendering, the [`UiCamera`](UiCameraBundle) for rendering the text, and the [`TextBundle`] to
+//! display the contributor name.
+//!
+//! The `velocity_system` applies some simple gravity simulation to the velocity of entities.
+//!
+//! The `move_system` system then uses that velocity to update the sprites position, based on the
+//! time that has passed since the last update.
+//!
+//! The `collision_system` system makes sure all bouncing logos stay inside the viewport by checking
+//! for collisions with the four edges, and updating the velocity.
+//!
+//! At last, the `select` system checks if the `SelectTimer` has expired and if it has, updates
+//! the contributor text, resets the color of the currently highlighted sprite, and highlights the
+//! next one.
+
 use bevy::{prelude::*, utils::HashSet};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
