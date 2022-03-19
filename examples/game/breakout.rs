@@ -62,9 +62,7 @@ fn main() {
 }
 
 #[derive(Component)]
-struct Paddle {
-    speed: f32,
-}
+struct Paddle;
 
 #[derive(Component)]
 struct Ball;
@@ -106,9 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Paddle {
-            speed: PADDLE_SPEED,
-        })
+        .insert(Paddle)
         .insert(Collider::Paddle);
     // ball
     let ball_velocity = BALL_SPEED * INITIAL_BALL_DIRECTION.extend(0.0).normalize();
@@ -260,9 +256,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn paddle_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Paddle, &mut Transform)>,
+    mut query: Query<&mut Transform, With<Paddle>>,
 ) {
-    let (paddle, mut transform) = query.single_mut();
+    let mut transform = query.single_mut();
     let mut direction = 0.0;
     if keyboard_input.pressed(KeyCode::Left) {
         direction -= 1.0;
@@ -274,7 +270,7 @@ fn paddle_movement_system(
 
     let translation = &mut transform.translation;
     // move the paddle horizontally
-    translation.x += direction * paddle.speed * TIME_STEP;
+    translation.x += direction * 400.0 * TIME_STEP;
     // bound the paddle within the walls
     translation.x = translation.x.min(PADDLE_BOUNDS).max(-PADDLE_BOUNDS);
 }
