@@ -221,7 +221,6 @@ fn camera_spawn_check(
     }
 }
 
-// TODO: Register all types in CameraController so that it can be registered
 fn camera_controller_check(
     mut commands: Commands,
     camera: Query<Entity, (With<Camera>, Without<CameraController>)>,
