@@ -308,7 +308,8 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// }
 /// ```
 pub struct In<In>(pub In);
-pub(crate) struct InputMarker;
+#[doc(hidden)]
+pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
