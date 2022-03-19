@@ -108,11 +108,10 @@ struct ScratchRenderWorld(World);
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let options = app
-            .world
-            .get_resource::<settings::WgpuSettings>()
-            .cloned()
-            .unwrap_or_default();
+        if !app.world.contains_resource::<settings::WgpuSettings>() {
+            app.world.insert_resource(settings::WgpuSettings::default());
+        }
+        let options = app.world.resource::<settings::WgpuSettings>().clone();
 
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()

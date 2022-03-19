@@ -245,11 +245,9 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
         if let Some(fragment_shader) = &self.fragment_shader {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
-        descriptor.layout = Some(vec![
-            self.mesh_pipeline.view_layout.clone(),
-            self.material_layout.clone(),
-            self.mesh_pipeline.mesh_layout.clone(),
-        ]);
+
+        let descriptor_layout = descriptor.layout.as_mut().unwrap();
+        descriptor_layout.insert(1, self.material_layout.clone());
 
         M::specialize(&mut descriptor, key.material_key, layout)?;
         Ok(descriptor)

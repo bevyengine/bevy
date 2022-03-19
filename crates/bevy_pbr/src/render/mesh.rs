@@ -26,9 +26,14 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
+use std::num::NonZeroU64;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
+
+const MAX_JOINTS: usize = 256;
+const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
+const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
@@ -164,7 +169,7 @@ pub fn extract_meshes(
 
 #[derive(Component)]
 pub struct SkinnedMeshJoints {
-    pub buffer: UniformVec<Mat4>,
+    pub buffer: BufferVec<Mat4>,
 }
 
 impl SkinnedMeshJoints {
@@ -178,7 +183,7 @@ impl SkinnedMeshJoints {
         let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
         let bindposes = inverse_bindposes.iter();
         let skin_joints = skin.joints.iter();
-        let mut buffer = UniformVec::default();
+        let mut buffer = BufferVec::new(BufferUsages::UNIFORM);
         for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(max_joint_count) {
             let joint_matrix = joints.get(*joint).ok()?.compute_matrix();
             buffer.push(joint_matrix * *inverse_bindpose);
@@ -195,7 +200,6 @@ pub fn extract_skinned_meshes(
     joint_query: Query<&GlobalTransform>,
     wgpu_settings: Res<WgpuSettings>,
 ) {
-    const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
     let mut values = Vec::with_capacity(*previous_len);
     let max_joint_count =
         (wgpu_settings.limits.max_uniform_buffer_binding_size as usize) / JOINT_SIZE;
@@ -357,8 +361,8 @@ impl FromWorld for MeshPipeline {
                     visibility: ShaderStages::VERTEX,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(Mat4::std140_size_static() as u64 * 256),
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(Mat4::std140_size_static() as u64),
                     },
                     count: None,
                 }],
@@ -511,8 +515,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
             shader_defs.push(String::from("SKINNED"));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(4));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(5));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
             bind_group_layout.push(self.skinned_mesh_layout.clone());
         }
 
@@ -625,8 +629,7 @@ pub fn prepare_skinned_meshes(
     mut skinned_meshes: Query<&mut SkinnedMeshJoints>,
 ) {
     for mut joints in skinned_meshes.iter_mut() {
-        let len = joints.buffer.len();
-        joints.buffer.reserve(len, &render_device);
+        joints.buffer.reserve(JOINT_BUFFER_SIZE, &render_device);
         joints.buffer.write_buffer(&render_device, &render_queue);
     }
 }
@@ -646,7 +649,11 @@ pub fn queue_skinned_mesh_bind_group(
                 value: render_device.create_bind_group(&BindGroupDescriptor {
                     entries: &[BindGroupEntry {
                         binding: 0,
-                        resource: joints.buffer.binding().unwrap(),
+                        resource: BindingResource::Buffer(BufferBinding {
+                            buffer: joints.buffer.buffer().unwrap(),
+                            offset: 0,
+                            size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
+                        }),
                     }],
                     label: Some("skinned_mesh_bind_group"),
                     layout: &mesh_pipeline.skinned_mesh_layout,
@@ -792,7 +799,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
 
 pub struct SetSkinnedMeshBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetSkinnedMeshBindGroup<I> {
-    type Param = SQuery<Option<Read<SkinnedMeshBindGroup>>>;
+    type Param = SQuery<Read<SkinnedMeshBindGroup>>;
     #[inline]
     fn render<'w>(
         _view: Entity,
@@ -800,7 +807,7 @@ impl<const I: usize> EntityRenderCommand for SetSkinnedMeshBindGroup<I> {
         mesh_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Ok(Some(mesh_bind_group)) = mesh_query.get(item) {
+        if let Ok(mesh_bind_group) = mesh_query.get(item) {
             pass.set_bind_group(I, &mesh_bind_group.value, &[]);
         }
         RenderCommandResult::Success

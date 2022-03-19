@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::AmbientLight,
+    pbr::{wireframe::WireframePlugin, AmbientLight},
     prelude::*,
     render::mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -14,6 +14,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // .add_plugin(WireframePlugin)
         .insert_resource(AmbientLight {
             brightness: 1.0,
             ..Default::default()
@@ -37,12 +38,10 @@ fn setup(
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
     // Create a camera
-    let mut camera = OrthographicCameraBundle::new_2d();
-    camera.orthographic_projection.near = -1.0;
-    camera.orthographic_projection.far = 1.0;
-    camera.orthographic_projection.scale = 0.005;
-    camera.transform = Transform::from_xyz(0.0, 1.0, 0.0);
-    commands.spawn_bundle(camera);
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
 
     // Create inverse bindpose matrices for a skeleton consists of 2 joints
     let inverse_bindposes =

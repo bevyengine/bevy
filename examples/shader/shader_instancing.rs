@@ -2,7 +2,10 @@ use bevy::{
     core_pipeline::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
     math::prelude::*,
-    pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
+    pbr::{
+        MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup,
+        SetSkinnedMeshBindGroup,
+    },
     prelude::*,
     render::{
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},

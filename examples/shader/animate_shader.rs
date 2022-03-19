@@ -240,6 +240,7 @@ type DrawCustom = (
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
     SetTimeBindGroup<2>,
+    SetSkinnedMeshBindGroup<3>,
     DrawMesh,
 );
 

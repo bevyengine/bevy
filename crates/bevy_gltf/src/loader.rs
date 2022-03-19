@@ -175,10 +175,12 @@ async fn load_gltf<'a, 'b>(
             //     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
             // }
 
-            if let Some(vertex_attribute) = reader
-                .read_joints(0)
-                .map(|v| VertexAttributeValues::Uint16x4(v.into_u16().collect()))
-            {
+            if let Some(iter) = reader.read_joints(0) {
+                let vertex_attribute = VertexAttributeValues::Uint32x4(
+                    iter.into_u16()
+                        .map(|v| [v[0] as u32, v[1] as u32, v[2] as u32, v[3] as u32])
+                        .collect(),
+                );
                 mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, vertex_attribute);
             }
 
