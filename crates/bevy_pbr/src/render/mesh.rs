@@ -632,16 +632,19 @@ pub fn queue_skinned_mesh_bind_group(
 ) {
     let mut values = Vec::with_capacity(*prev_len);
     for (entity, joints) in skinned_meshes.iter() {
-        values.push((entity, (SkinnedMeshBindGroup {
-            value: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: joints.buffer.binding().unwrap(),
-                }],
-                label: Some("skinned_mesh_bind_group"),
-                layout: &mesh_pipeline.skinned_mesh_layout,
-            }),
-        },)));
+        values.push((
+            entity,
+            (SkinnedMeshBindGroup {
+                value: render_device.create_bind_group(&BindGroupDescriptor {
+                    entries: &[BindGroupEntry {
+                        binding: 0,
+                        resource: joints.buffer.binding().unwrap(),
+                    }],
+                    label: Some("skinned_mesh_bind_group"),
+                    layout: &mesh_pipeline.skinned_mesh_layout,
+                }),
+            },),
+        ));
     }
     *prev_len = values.len();
     commands.insert_or_spawn_batch(values);
