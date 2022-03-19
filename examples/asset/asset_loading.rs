@@ -46,7 +46,7 @@ fn setup(
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
         base_color: Color::rgb(0.8, 0.7, 0.6),
-        ..Default::default()
+        ..default()
     });
 
     // monkey
@@ -54,30 +54,30 @@ fn setup(
         mesh: monkey_handle,
         material: material_handle.clone(),
         transform: Transform::from_xyz(-3.0, 0.0, 0.0),
-        ..Default::default()
+        ..default()
     });
     // cube
     commands.spawn_bundle(PbrBundle {
         mesh: cube_handle,
         material: material_handle.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..Default::default()
+        ..default()
     });
     // sphere
     commands.spawn_bundle(PbrBundle {
         mesh: sphere_handle,
         material: material_handle,
         transform: Transform::from_xyz(3.0, 0.0, 0.0),
-        ..Default::default()
+        ..default()
     });
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        ..Default::default()
+        ..default()
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

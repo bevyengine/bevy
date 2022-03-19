@@ -1,5 +1,6 @@
 use crate::WindowCloseRequested;
-use bevy_app::{AppExit, EventReader, EventWriter};
+use bevy_app::AppExit;
+use bevy_ecs::event::{EventReader, EventWriter};
 
 pub fn exit_on_window_close_system(
     mut app_exit_events: EventWriter<AppExit>,

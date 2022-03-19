@@ -158,9 +158,7 @@ impl ParallelExecutor {
     /// `update_archetypes` and updates cached `archetype_component_access`.
     fn update_archetypes(&mut self, systems: &mut [ParallelSystemContainer], world: &World) {
         #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!("update_archetypes");
-        #[cfg(feature = "trace")]
-        let _guard = span.enter();
+        let _span = bevy_utils::tracing::info_span!("update_archetypes").entered();
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -186,9 +184,7 @@ impl ParallelExecutor {
         world: &'scope World,
     ) {
         #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!("prepare_systems");
-        #[cfg(feature = "trace")]
-        let _guard = span.enter();
+        let _span = bevy_utils::tracing::info_span!("prepare_systems").entered();
         self.should_run.clear();
         for (index, (system_data, system)) in
             self.system_metadata.iter_mut().zip(systems).enumerate()
@@ -350,11 +346,7 @@ mod tests {
 
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
-        while let Ok(event) = world
-            .get_resource::<Receiver<SchedulingEvent>>()
-            .unwrap()
-            .try_recv()
-        {
+        while let Ok(event) = world.resource::<Receiver<SchedulingEvent>>().try_recv() {
             events.push(event);
         }
         events

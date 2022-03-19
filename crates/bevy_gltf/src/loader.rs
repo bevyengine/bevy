@@ -3,7 +3,8 @@ use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
 use bevy_core::Name;
-use bevy_ecs::world::World;
+use bevy_ecs::{prelude::FromWorld, world::World};
+use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
@@ -12,23 +13,19 @@ use bevy_pbr::{
 };
 use bevy_render::{
     camera::{
-        Camera, CameraPlugin, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        Camera, Camera2d, Camera3d, CameraProjection, OrthographicProjection, PerspectiveProjection,
     },
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
     primitives::{Aabb, Frustum},
-    render_resource::{
-        AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat,
-    },
-    texture::{Image, ImageType, TextureError},
+    render_resource::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor},
+    renderer::RenderDevice,
+    texture::{CompressedImageFormats, Image, ImageType, TextureError},
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
-use bevy_transform::{
-    hierarchy::{BuildWorldChildren, WorldChildBuilder},
-    prelude::Transform,
-    TransformBundle,
-};
+use bevy_transform::{components::Transform, TransformBundle};
+
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
@@ -62,8 +59,9 @@ pub enum GltfError {
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
-#[derive(Default)]
-pub struct GltfLoader;
+pub struct GltfLoader {
+    supported_compressed_formats: CompressedImageFormats,
+}
 
 impl AssetLoader for GltfLoader {
     fn load<'a>(
@@ -71,7 +69,9 @@ impl AssetLoader for GltfLoader {
         bytes: &'a [u8],
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<()>> {
-        Box::pin(async move { Ok(load_gltf(bytes, load_context).await?) })
+        Box::pin(async move {
+            Ok(load_gltf(bytes, load_context, self.supported_compressed_formats).await?)
+        })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -79,10 +79,21 @@ impl AssetLoader for GltfLoader {
     }
 }
 
+impl FromWorld for GltfLoader {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            supported_compressed_formats: CompressedImageFormats::from_features(
+                world.resource::<RenderDevice>().features(),
+            ),
+        }
+    }
+}
+
 /// Loads an entire glTF file.
 async fn load_gltf<'a, 'b>(
     bytes: &'a [u8],
     load_context: &'a mut LoadContext<'b>,
+    supported_compressed_formats: CompressedImageFormats,
 ) -> Result<(), GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
@@ -253,8 +264,14 @@ async fn load_gltf<'a, 'b>(
     // to avoid https://github.com/bevyengine/bevy/pull/2725
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
         for gltf_texture in gltf.textures() {
-            let (texture, label) =
-                load_texture(gltf_texture, &buffer_data, &linear_textures, load_context).await?;
+            let (texture, label) = load_texture(
+                gltf_texture,
+                &buffer_data,
+                &linear_textures,
+                load_context,
+                supported_compressed_formats,
+            )
+            .await?;
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
         }
     } else {
@@ -267,7 +284,14 @@ async fn load_gltf<'a, 'b>(
                     let load_context: &LoadContext = load_context;
                     let buffer_data = &buffer_data;
                     scope.spawn(async move {
-                        load_texture(gltf_texture, buffer_data, linear_textures, load_context).await
+                        load_texture(
+                            gltf_texture,
+                            buffer_data,
+                            linear_textures,
+                            load_context,
+                            supported_compressed_formats,
+                        )
+                        .await
                     });
                 });
             })
@@ -336,13 +360,20 @@ async fn load_texture<'a>(
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
     load_context: &LoadContext<'a>,
+    supported_compressed_formats: CompressedImageFormats,
 ) -> Result<(Image, String), GltfError> {
+    let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let mut texture = match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset() as usize;
             let end = (view.offset() + view.length()) as usize;
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            Image::from_buffer(buffer, ImageType::MimeType(mime_type))?
+            Image::from_buffer(
+                buffer,
+                ImageType::MimeType(mime_type),
+                supported_compressed_formats,
+                is_srgb,
+            )?
         }
         gltf::image::Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
@@ -365,13 +396,12 @@ async fn load_texture<'a>(
             Image::from_buffer(
                 &bytes,
                 mime_type.map(ImageType::MimeType).unwrap_or(image_type),
+                supported_compressed_formats,
+                is_srgb,
             )?
         }
     };
     texture.sampler_descriptor = texture_sampler(&gltf_texture);
-    if (linear_textures).contains(&gltf_texture.index()) {
-        texture.texture_descriptor.format = TextureFormat::Rgba8Unorm;
-    }
 
     Ok((texture, texture_label(&gltf_texture)))
 }
@@ -494,11 +524,10 @@ fn load_node(
                 };
 
                 node.insert(Camera {
-                    name: Some(CameraPlugin::CAMERA_2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
                 });
-                node.insert(orthographic_projection);
+                node.insert(orthographic_projection).insert(Camera2d);
             }
             gltf::camera::Projection::Perspective(perspective) => {
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
@@ -513,13 +542,13 @@ fn load_node(
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
                 node.insert(Camera {
-                    name: Some(CameraPlugin::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     near: perspective_projection.near,
                     far: perspective_projection.far,
                     ..Default::default()
                 });
                 node.insert(perspective_projection);
+                node.insert(Camera3d);
             }
         }
     }

@@ -65,6 +65,11 @@ pub mod tasks {
     pub use bevy_tasks::*;
 }
 
+pub mod hierarchy {
+    //! Entity hierarchies and property inheritance
+    pub use bevy_hierarchy::*;
+}
+
 pub mod transform {
     //! Local and global transforms (e.g. translation, scale, rotation).
     pub use bevy_transform::*;

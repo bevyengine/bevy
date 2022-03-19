@@ -4,7 +4,7 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 // TODO: fix name?
 /// Converts a [`DynamicImage`] to an [`Image`].
-pub(crate) fn image_to_texture(dyn_img: DynamicImage) -> Image {
+pub(crate) fn image_to_texture(dyn_img: DynamicImage, is_srgb: bool) -> Image {
     use bevy_core::cast_slice;
     let width;
     let height;
@@ -17,7 +17,11 @@ pub(crate) fn image_to_texture(dyn_img: DynamicImage) -> Image {
             let i = DynamicImage::ImageLuma8(i).into_rgba8();
             width = i.width();
             height = i.height();
-            format = TextureFormat::Rgba8UnormSrgb;
+            format = if is_srgb {
+                TextureFormat::Rgba8UnormSrgb
+            } else {
+                TextureFormat::Rgba8Unorm
+            };
 
             data = i.into_raw();
         }
@@ -25,7 +29,11 @@ pub(crate) fn image_to_texture(dyn_img: DynamicImage) -> Image {
             let i = DynamicImage::ImageLumaA8(i).into_rgba8();
             width = i.width();
             height = i.height();
-            format = TextureFormat::Rgba8UnormSrgb;
+            format = if is_srgb {
+                TextureFormat::Rgba8UnormSrgb
+            } else {
+                TextureFormat::Rgba8Unorm
+            };
 
             data = i.into_raw();
         }
@@ -33,14 +41,22 @@ pub(crate) fn image_to_texture(dyn_img: DynamicImage) -> Image {
             let i = DynamicImage::ImageRgb8(i).into_rgba8();
             width = i.width();
             height = i.height();
-            format = TextureFormat::Rgba8UnormSrgb;
+            format = if is_srgb {
+                TextureFormat::Rgba8UnormSrgb
+            } else {
+                TextureFormat::Rgba8Unorm
+            };
 
             data = i.into_raw();
         }
         DynamicImage::ImageRgba8(i) => {
             width = i.width();
             height = i.height();
-            format = TextureFormat::Rgba8UnormSrgb;
+            format = if is_srgb {
+                TextureFormat::Rgba8UnormSrgb
+            } else {
+                TextureFormat::Rgba8Unorm
+            };
 
             data = i.into_raw();
         }
@@ -49,14 +65,22 @@ pub(crate) fn image_to_texture(dyn_img: DynamicImage) -> Image {
 
             width = i.width();
             height = i.height();
-            format = TextureFormat::Bgra8UnormSrgb;
+            format = if is_srgb {
+                TextureFormat::Bgra8UnormSrgb
+            } else {
+                TextureFormat::Bgra8Unorm
+            };
 
             data = i.into_raw();
         }
         DynamicImage::ImageBgra8(i) => {
             width = i.width();
             height = i.height();
-            format = TextureFormat::Bgra8UnormSrgb;
+            format = if is_srgb {
+                TextureFormat::Bgra8UnormSrgb
+            } else {
+                TextureFormat::Bgra8Unorm
+            };
 
             data = i.into_raw();
         }

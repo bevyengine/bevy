@@ -50,13 +50,13 @@ fn setup(
         material: materials.add(CustomMaterial {
             color: Color::WHITE,
         }),
-        ..Default::default()
+        ..default()
     });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 

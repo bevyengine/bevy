@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app"
-version = "0.6.0"
+version = "0.7.0-dev"
 edition = "2021"
 description = "Provides core App functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -15,10 +15,10 @@ default = ["bevy_reflect"]
 
 [dependencies]
 # bevy
-bevy_derive = { path = "../bevy_derive", version = "0.6.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.6.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.6.0", optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.6.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.7.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.7.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.7.0-dev", optional = true }
+bevy_utils = { path = "../bevy_utils", version = "0.7.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
@@ -31,4 +31,4 @@ web-sys = { version = "0.3", features = [ "Window" ] }
 
 [dev-dependencies]
 # bevy
-bevy_log = { path = "../bevy_log", version = "0.6.0" }
+bevy_log = { path = "../bevy_log", version = "0.7.0-dev" }

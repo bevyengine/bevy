@@ -258,12 +258,12 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
 
 impl<M: SpecializedMaterial> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let asset_server = world.resource::<AssetServer>();
+        let render_device = world.resource::<RenderDevice>();
         let material_layout = M::bind_group_layout(render_device);
 
         MaterialPipeline {
-            mesh_pipeline: world.get_resource::<MeshPipeline>().unwrap().clone(),
+            mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             material_layout,
             vertex_shader: M::vertex_shader(asset_server),
             fragment_shader: M::fragment_shader(asset_server),
