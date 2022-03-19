@@ -31,7 +31,6 @@ fn main() {
                 .with_run_criteria(FixedTimestep::step(5.0))
                 .with_system(spawn_bonus),
         )
-        .add_system(bevy::input::system::exit_on_esc_system)
         .run();
 }
 
