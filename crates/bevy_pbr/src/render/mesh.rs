@@ -362,7 +362,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(Mat4::std140_size_static() as u64),
+                        min_binding_size: BufferSize::new(JOINT_BUFFER_SIZE as u64),
                     },
                     count: None,
                 }],

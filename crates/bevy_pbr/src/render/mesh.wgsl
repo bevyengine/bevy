@@ -29,20 +29,34 @@ var<uniform> mesh: Mesh;
 
 #ifdef SKINNED
 struct SkinnedMesh {
-    data: array<mat4x4<f32>>;
+    data: array<mat4x4<f32>, 256u>;
 };
 
 [[group(3), binding(0)]]
-var<storage> joint_matrices: SkinnedMesh;
+var<uniform> joint_matrices: SkinnedMesh;
+
+/// HACK: This works around naga not supporting matrix addition in SPIR-V 
+// translations. See https://github.com/gfx-rs/naga/issues/1527
+fn add_matrix(
+    a: mat4x4<f32>,
+    b: mat4x4<f32>,
+) -> mat4x4<f32> {
+    return mat4x4<f32>(
+        a.x + b.x,
+        a.y + b.y,
+        a.z + b.z,
+        a.w + b.w,
+    );
+}
 
 fn skin_model(
     indexes: vec4<u32>,
     weights: vec4<f32>,
 ) -> mat4x4<f32> {
-    return weights.x * joint_matrices.data[indexes.x] +
-           weights.y * joint_matrices.data[indexes.y] +
-           weights.z * joint_matrices.data[indexes.z] +
-           weights.w * joint_matrices.data[indexes.w];
+    var matrix = weights.x * joint_matrices.data[indexes.x];
+    matrix = add_matrix(matrix, weights.y * joint_matrices.data[indexes.y]);
+    matrix = add_matrix(matrix, weights.z * joint_matrices.data[indexes.z]);
+    return add_matrix(matrix, weights.w * joint_matrices.data[indexes.w]);
 }
 #endif
 
