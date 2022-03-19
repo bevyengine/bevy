@@ -634,13 +634,13 @@ fn load_node(
                 }
 
                 let primitive_label = primitive_label(&mesh, &primitive);
+                let bounds = primitive.bounding_box();
                 let mesh_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&primitive_label));
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                let bounds = primitive.bounding_box();
-                parent
+                let node = parent
                     .spawn_bundle(PbrBundle {
                         mesh: load_context.get_handle(mesh_asset_path),
                         material: load_context.get_handle(material_asset_path),
@@ -649,7 +649,13 @@ fn load_node(
                     .insert(Aabb::from_min_max(
                         Vec3::from_slice(&bounds.min),
                         Vec3::from_slice(&bounds.max),
-                    ));
+                    ))
+                    .id();
+
+                // Mark for adding skinned mesh
+                if let Some(skin) = gltf_node.skin() {
+                    entity_to_skin_index_map.insert(node, skin.index());
+                }
             }
         }
 

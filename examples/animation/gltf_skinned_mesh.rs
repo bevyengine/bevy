@@ -18,12 +18,10 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create a camera
-    let mut camera = OrthographicCameraBundle::new_2d();
-    camera.orthographic_projection.near = -1.0;
-    camera.orthographic_projection.far = 1.0;
-    camera.orthographic_projection.scale = 0.005;
-    camera.transform = Transform::from_xyz(0.0, 1.0, 0.0);
-    commands.spawn_bundle(camera);
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
     commands.spawn_scene(asset_server.load::<Scene, _>("models/SimpleSkin/SimpleSkin.gltf#Scene0"));
