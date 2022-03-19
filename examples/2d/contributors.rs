@@ -245,7 +245,7 @@ fn collision_system(
 ) {
     let mut rnd = rand::thread_rng();
 
-    let window = windows.get_primary().unwrap();
+    let window = windows.primary();
 
     let ceiling = window.height() / 2.;
     let ground = -(window.height() / 2.);

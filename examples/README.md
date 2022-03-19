@@ -52,6 +52,7 @@ git checkout v0.4.0
   - [Shaders](#shaders)
   - [Tests](#tests)
   - [Tools](#tools)
+  - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
 - [Platform-Specific Examples](#platform-specific-examples)
@@ -203,6 +204,7 @@ Example | File | Description
 `keyboard_modifiers` | [`input/keyboard_modifiers.rs`](./input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift)
 `mouse_input` | [`input/mouse_input.rs`](./input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 `mouse_input_events` | [`input/mouse_input_events.rs`](./input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
+`mouse_grab` | [`input/mouse_grab.rs`](./input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen
 `touch_input` | [`input/touch_input.rs`](./input/touch_input.rs) | Displays touch presses, releases, and cancels
 `touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_events.rs) | Prints out all touch inputs
 
@@ -246,6 +248,16 @@ Example | File | Description
 --- | --- | ---
 `bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
 
+## Transforms
+
+Example | File | Description
+--- | --- | ---
+`global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
+`3d_rotation` | [`transforms/3d_rotation.rs`](./transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
+`scale` | [`transforms/scale.rs`](./transforms/scale.rs) | Illustrates how to scale an object in each direction
+`transform` | [`transforms/transfrom.rs`](./transforms/transform.rs) | Shows multiple transformations of objects
+`translation` | [`transforms/translation.rs`](./transforms/translation.rs) | Illustrates how to move an object along an axis
+
 ## UI (User Interface)
 
 Example | File | Description
@@ -261,6 +273,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
+`low_power` | [`window/low_power.rs`](./window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 `multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 `transparent_window` | [`window/transparent_window.rs`](./window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration

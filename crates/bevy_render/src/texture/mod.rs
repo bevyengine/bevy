@@ -1,13 +1,23 @@
+#[cfg(feature = "basis-universal")]
+mod basis;
+#[cfg(feature = "dds")]
+mod dds;
 #[cfg(feature = "hdr")]
 mod hdr_texture_loader;
 #[allow(clippy::module_inception)]
 mod image;
 mod image_texture_loader;
+#[cfg(feature = "ktx2")]
+mod ktx2;
 mod texture_cache;
 
 pub(crate) mod image_texture_conversion;
 
 pub use self::image::*;
+#[cfg(feature = "ktx2")]
+pub use self::ktx2::*;
+#[cfg(feature = "dds")]
+pub use dds::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 
@@ -29,7 +39,9 @@ impl Plugin for ImagePlugin {
             feature = "dds",
             feature = "tga",
             feature = "jpeg",
-            feature = "bmp"
+            feature = "bmp",
+            feature = "basis-universal",
+            feature = "ktx2",
         ))]
         {
             app.init_asset_loader::<ImageTextureLoader>();

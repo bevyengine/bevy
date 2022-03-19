@@ -1,12 +1,15 @@
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
+    winit::WinitSettings,
 };
 
 /// This example illustrates the various features of Bevy UI.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+        .insert_resource(WinitSettings::desktop_app())
         .add_startup_system(setup)
         .add_system(mouse_scroll)
         .run();

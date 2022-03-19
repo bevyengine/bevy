@@ -109,9 +109,7 @@ impl App {
     /// See [`Schedule::run_once`] for more details.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
-        let bevy_frame_update_span = info_span!("frame");
-        #[cfg(feature = "trace")]
-        let _bevy_frame_update_guard = bevy_frame_update_span.enter();
+        let _bevy_frame_update_span = info_span!("frame").entered();
         self.schedule.run(&mut self.world);
         for sub_app in self.sub_apps.values_mut() {
             (sub_app.runner)(&mut self.world, &mut sub_app.app);
@@ -124,9 +122,7 @@ impl App {
     /// level documentation.
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
-        let bevy_app_run_span = info_span!("bevy_app");
-        #[cfg(feature = "trace")]
-        let _bevy_app_run_guard = bevy_app_run_span.enter();
+        let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));

@@ -186,12 +186,12 @@ impl<T: Asset> Assets<T> {
 
     /// Get a mutable iterator over all assets in the collection.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (HandleId, &mut T)> {
-        for id in self.assets.keys() {
+        self.assets.iter_mut().map(|(k, v)| {
             self.events.send(AssetEvent::Modified {
-                handle: Handle::weak(*id),
+                handle: Handle::weak(*k),
             });
-        }
-        self.assets.iter_mut().map(|(k, v)| (*k, v))
+            (*k, v)
+        })
     }
 
     /// Get an iterator over all [`HandleId`]'s in the collection.
