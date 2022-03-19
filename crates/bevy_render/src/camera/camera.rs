@@ -8,7 +8,6 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::DetectChanges,
     query::Added,
     reflect::ReflectComponent,
     system::{ParamSet, Query, Res},

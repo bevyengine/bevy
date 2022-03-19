@@ -388,14 +388,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn archetype_component_access(&self) -> #path::query::Access<#path::archetype::ArchetypeComponentId> {
-                self.state.archetype_component_access()
-            }
-
-            fn component_access_set(&self) -> #path::query::FilteredAccessSet<#path::component::ComponentId> {
-                self.state.component_access_set()
-            }
-
             fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
                 self.state.new_archetype(archetype, system_meta)
             }
