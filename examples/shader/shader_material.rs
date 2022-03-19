@@ -48,7 +48,7 @@ fn setup(
 
 // This is the struct that will be passed to your shader
 #[derive(Debug, Clone, TypeUuid)]
-#[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
+#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 pub struct CustomMaterial {
     color: Color,
 }

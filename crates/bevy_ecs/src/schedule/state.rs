@@ -3,7 +3,7 @@ use crate::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
     },
-    system::{ConfigurableSystem, In, IntoChainSystem, Local, Res, ResMut},
+    system::{In, IntoChainSystem, Local, Res, ResMut},
 };
 use std::{any::TypeId, fmt::Debug, hash::Hash};
 use thiserror::Error;
@@ -98,23 +98,22 @@ impl<T> State<T>
 where
     T: StateData,
 {
-    pub fn on_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
-            state.stack.last().unwrap() == pred.as_ref().unwrap() && state.transition.is_none()
+    pub fn on_update(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
+            state.stack.last().unwrap() == &pred && state.transition.is_none()
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Update.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Update.into_label(pred_clone))
     }
 
-    pub fn on_inactive_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_inactive: Local<bool>, pred: Local<Option<T>>| match &state
-            .transition
-        {
+    pub fn on_inactive_update(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>, mut is_inactive: Local<bool>| match &state.transition {
             Some(StateTransition::Pausing(ref relevant, _))
             | Some(StateTransition::Resuming(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
+                if relevant == &pred {
                     *is_inactive = !*is_inactive;
                 }
                 false
@@ -122,31 +121,29 @@ where
             Some(_) => false,
             None => *is_inactive,
         })
-        .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::InactiveUpdate.into_label(s))
+        .label_discard_if_duplicate(StateCallback::InactiveUpdate.into_label(pred_clone))
     }
 
-    pub fn on_in_stack_update(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, mut is_in_stack: Local<bool>, pred: Local<Option<T>>| match &state
-            .transition
-        {
+    pub fn on_in_stack_update(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>, mut is_in_stack: Local<bool>| match &state.transition {
             Some(StateTransition::Entering(ref relevant, _))
             | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
+                if relevant == &pred {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
             }
             Some(StateTransition::ExitingFull(_, ref relevant)) => {
-                if relevant == pred.as_ref().unwrap() {
+                if relevant == &pred {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
             }
             Some(StateTransition::Startup) => {
-                if state.stack.last().unwrap() == pred.as_ref().unwrap() {
+                if state.stack.last().unwrap() == &pred {
                     *is_in_stack = !*is_in_stack;
                 }
                 false
@@ -154,78 +151,75 @@ where
             Some(_) => false,
             None => *is_in_stack,
         })
-        .config(|(_, _, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::InStackUpdate.into_label(s))
+        .label_discard_if_duplicate(StateCallback::InStackUpdate.into_label(pred_clone))
     }
 
-    pub fn on_enter(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+    pub fn on_enter(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Entering(_, entering) => entering == pred.as_ref().unwrap(),
-                    StateTransition::Startup => {
-                        state.stack.last().unwrap() == pred.as_ref().unwrap()
-                    }
+                    StateTransition::Entering(_, entering) => entering == &pred,
+                    StateTransition::Startup => state.stack.last().unwrap() == &pred,
                     _ => false,
                 })
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Enter.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Enter.into_label(pred_clone))
     }
 
-    pub fn on_exit(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+    pub fn on_exit(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
                     StateTransition::ExitingToResume(exiting, _)
-                    | StateTransition::ExitingFull(exiting, _) => exiting == pred.as_ref().unwrap(),
+                    | StateTransition::ExitingFull(exiting, _) => exiting == &pred,
                     _ => false,
                 })
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Exit.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Exit.into_label(pred_clone))
     }
 
-    pub fn on_pause(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+    pub fn on_pause(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Pausing(pausing, _) => pausing == pred.as_ref().unwrap(),
+                    StateTransition::Pausing(pausing, _) => pausing == &pred,
                     _ => false,
                 })
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Pause.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Pause.into_label(pred_clone))
     }
 
-    pub fn on_resume(s: T) -> RunCriteriaDescriptor {
-        (|state: Res<State<T>>, pred: Local<Option<T>>| {
+    pub fn on_resume(pred: T) -> RunCriteriaDescriptor {
+        let pred_clone = pred.clone();
+        (move |state: Res<State<T>>| {
             state
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::Resuming(_, resuming) => resuming == pred.as_ref().unwrap(),
+                    StateTransition::Resuming(_, resuming) => resuming == &pred,
                     _ => false,
                 })
         })
-        .config(|(_, pred)| *pred = Some(Some(s.clone())))
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Resume.into_label(s))
+        .label_discard_if_duplicate(StateCallback::Resume.into_label(pred_clone))
     }
 
     pub fn on_update_set(s: T) -> SystemSet {

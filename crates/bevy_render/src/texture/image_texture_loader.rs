@@ -9,7 +9,20 @@ use crate::texture::{Image, ImageType, TextureError};
 #[derive(Clone, Default)]
 pub struct ImageTextureLoader;
 
-const FILE_EXTENSIONS: &[&str] = &["png", "dds", "tga", "jpg", "jpeg", "bmp"];
+const FILE_EXTENSIONS: &[&str] = &[
+    #[cfg(feature = "png")]
+    "png",
+    #[cfg(feature = "dds")]
+    "dds",
+    #[cfg(feature = "tga")]
+    "tga",
+    #[cfg(feature = "jpeg")]
+    "jpg",
+    #[cfg(feature = "jpeg")]
+    "jpeg",
+    #[cfg(feature = "bmp")]
+    "bmp",
+];
 
 impl AssetLoader for ImageTextureLoader {
     fn load<'a>(
@@ -61,7 +74,7 @@ mod tests {
     #[test]
     fn test_supported_file_extensions() {
         for ext in FILE_EXTENSIONS {
-            assert!(image::ImageFormat::from_extension(ext).is_some())
+            assert!(image::ImageFormat::from_extension(ext).is_some());
         }
     }
 }

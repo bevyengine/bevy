@@ -222,7 +222,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         // compatibility
         let mut conflicts = HashSet::<usize>::default();
         if !filtered_access.access.is_compatible(&self.combined_access) {
-            for current_filtered_access in self.filtered_accesses.iter() {
+            for current_filtered_access in &self.filtered_accesses {
                 if !current_filtered_access.is_compatible(filtered_access) {
                     conflicts.extend(
                         current_filtered_access
@@ -272,6 +272,11 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             .extend(&filtered_access_set.combined_access);
         self.filtered_accesses
             .extend(filtered_access_set.filtered_accesses);
+    }
+
+    pub fn clear(&mut self) {
+        self.combined_access.clear();
+        self.filtered_accesses.clear();
     }
 }
 

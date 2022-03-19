@@ -25,7 +25,7 @@ impl<'de> Visitor<'de> for EntityVisitor {
     type Value = Entity;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("expected Entity")
+        formatter.write_str("Entity")
     }
 
     fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
@@ -33,5 +33,12 @@ impl<'de> Visitor<'de> for EntityVisitor {
         E: serde::de::Error,
     {
         Ok(Entity::from_raw(v))
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Entity::from_raw(v as u32))
     }
 }

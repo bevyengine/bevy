@@ -26,7 +26,8 @@ use bevy_render::{
 use bevy_scene::Scene;
 use bevy_transform::{
     hierarchy::{BuildWorldChildren, WorldChildBuilder},
-    prelude::{GlobalTransform, Transform},
+    prelude::Transform,
+    TransformBundle,
 };
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
@@ -124,40 +125,40 @@ async fn load_gltf<'a, 'b>(
                 .read_positions()
                 .map(|v| VertexAttributeValues::Float32x3(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_normals()
                 .map(|v| VertexAttributeValues::Float32x3(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tangents()
                 .map(|v| VertexAttributeValues::Float32x4(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
                 .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
             } else {
                 let len = mesh.count_vertices();
                 let uvs = vec![[0.0, 0.0]; len];
                 bevy_log::debug!("missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs");
-                mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
             // if let Some(vertex_attribute) = reader
             //     .read_colors(0)
             //     .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
             // {
-            //     mesh.set_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            //     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
             // }
 
             if let Some(indices) = reader.read_indices() {
@@ -289,7 +290,7 @@ async fn load_gltf<'a, 'b>(
         let mut world = World::default();
         world
             .spawn()
-            .insert_bundle((Transform::identity(), GlobalTransform::identity()))
+            .insert_bundle(TransformBundle::identity())
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(&node, parent, load_context, &buffer_data);
@@ -348,18 +349,17 @@ async fn load_texture<'a>(
                 .decode_utf8()
                 .unwrap();
             let uri = uri.as_ref();
-            let (bytes, image_type) = match DataUri::parse(uri) {
-                Ok(data_uri) => (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type)),
-                Err(()) => {
-                    let parent = load_context.path().parent().unwrap();
-                    let image_path = parent.join(uri);
-                    let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
+            let (bytes, image_type) = if let Ok(data_uri) = DataUri::parse(uri) {
+                (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type))
+            } else {
+                let parent = load_context.path().parent().unwrap();
+                let image_path = parent.join(uri);
+                let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
 
-                    let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
-                    let image_type = ImageType::Extension(extension);
+                let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
+                let image_type = ImageType::Extension(extension);
 
-                    (bytes, image_type)
-                }
+                (bytes, image_type)
             };
 
             Image::from_buffer(
@@ -462,10 +462,9 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn_bundle((
-        Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
-        GlobalTransform::identity(),
-    ));
+    let mut node = world_builder.spawn_bundle(TransformBundle::from(Transform::from_matrix(
+        Mat4::from_cols_array_2d(&transform.matrix()),
+    )));
 
     if let Some(name) = gltf_node.name() {
         node.insert(Name::new(name.to_string()));
@@ -516,6 +515,8 @@ fn load_node(
                 node.insert(Camera {
                     name: Some(CameraPlugin::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
+                    near: perspective_projection.near,
+                    far: perspective_projection.far,
                     ..Default::default()
                 });
                 node.insert(perspective_projection);
@@ -776,7 +777,7 @@ fn resolve_node_hierarchy(
         .into_iter()
         .enumerate()
         .map(|(i, (label, node, children))| {
-            for child in children.iter() {
+            for child in &children {
                 if let Some(parent) = parents.get_mut(*child) {
                     *parent = Some(i);
                 } else if !has_errored {
@@ -802,7 +803,7 @@ fn resolve_node_hierarchy(
 
             assert!(parent_children.remove(&index));
             if let Some((_, child_node)) = nodes.get(&index) {
-                parent_node.children.push(child_node.clone())
+                parent_node.children.push(child_node.clone());
             }
             if parent_children.is_empty() {
                 empty_children.push_back(parent_index);
