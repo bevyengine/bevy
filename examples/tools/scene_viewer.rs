@@ -342,7 +342,7 @@ fn camera_controller(
         mouse_delta += mouse_event.delta;
     }
 
-    for (mut transform, mut options) in query.iter_mut() {
+    if let Ok((mut transform, mut options)) = query.get_single_mut() {
         if !options.initialized {
             let (_roll, yaw, pitch) = transform.rotation.to_euler(EulerRot::ZYX);
             options.yaw = yaw;
@@ -350,7 +350,7 @@ fn camera_controller(
             options.initialized = true;
         }
         if !options.enabled {
-            continue;
+            return;
         }
 
         // Handle key input
