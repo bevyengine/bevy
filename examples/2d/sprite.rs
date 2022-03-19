@@ -1,3 +1,8 @@
+//! Shows how to render simple rectangle sprite with a single color.
+//!
+//! Since this [`Sprite`] is not generated from an image, we have create it directly when spawning
+//! the [`SpriteBundle`] and specify the size using `custom_size`.
+
 use bevy::prelude::*;
 
 fn main() {
