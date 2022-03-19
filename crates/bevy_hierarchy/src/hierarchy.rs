@@ -57,13 +57,12 @@ fn despawn_children(world: &mut World, entity: Entity) {
 impl Command for DespawnRecursive {
     fn write(self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!(
+        let _span = bevy_utils::tracing::info_span!(
             "command",
             name = "DespawnRecursive",
             entity = bevy_utils::tracing::field::debug(self.entity)
-        );
-        #[cfg(feature = "trace")]
-        let _guard = span.enter();
+        )
+        .entered();
         despawn_with_children_recursive(world, self.entity);
     }
 }
@@ -71,13 +70,12 @@ impl Command for DespawnRecursive {
 impl Command for DespawnChildrenRecursive {
     fn write(self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!(
+        let _span = bevy_utils::tracing::info_span!(
             "command",
             name = "DespawnChildrenRecursive",
             entity = bevy_utils::tracing::field::debug(self.entity)
-        );
-        #[cfg(feature = "trace")]
-        let _guard = span.enter();
+        )
+        .entered();
         despawn_children(world, self.entity);
     }
 }
@@ -110,12 +108,11 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         let entity = self.id();
 
         #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!(
+        let _span = bevy_utils::tracing::info_span!(
             "despawn_recursive",
             entity = bevy_utils::tracing::field::debug(entity)
-        );
-        #[cfg(feature = "trace")]
-        let _guard = span.enter();
+        )
+        .entered();
 
         // SAFE: EntityMut is consumed so even though the location is no longer
         // valid, it cannot be accessed again with the invalid location.
@@ -128,12 +125,11 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         let entity = self.id();
 
         #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!(
+        let _span = bevy_utils::tracing::info_span!(
             "despawn_descendants",
             entity = bevy_utils::tracing::field::debug(entity)
-        );
-        #[cfg(feature = "trace")]
-        let _guard = span.enter();
+        )
+        .entered();
 
         // SAFE: The location is updated.
         unsafe {
