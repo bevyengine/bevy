@@ -1,5 +1,6 @@
 mod conversions;
 pub mod skinning;
+pub use wgpu::PrimitiveTopology;
 
 use crate::{
     primitives::Aabb,
@@ -15,8 +16,8 @@ use bevy_utils::{EnumVariantMeta, Hashed};
 use std::{collections::BTreeMap, hash::Hash};
 use thiserror::Error;
 use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexAttribute,
-    VertexFormat, VertexStepMode,
+    util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
+    VertexStepMode,
 };
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
