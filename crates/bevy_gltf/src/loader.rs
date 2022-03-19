@@ -309,9 +309,11 @@ async fn load_gltf<'a, 'b>(
 
     let mut scenes = vec![];
     let mut named_scenes = HashMap::default();
+    let mut scene_to_nodes = HashMap::default();
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
+        let mut nodes_per_scene = Vec::with_capacity(scene.nodes().count());
         world
             .spawn()
             .insert_bundle(TransformBundle::identity())
@@ -322,6 +324,7 @@ async fn load_gltf<'a, 'b>(
                         err = Some(result);
                         return;
                     }
+                    nodes_per_scene.push(nodes[node.index()].clone());
                 }
             });
         if let Some(Err(err)) = err {
@@ -333,7 +336,8 @@ async fn load_gltf<'a, 'b>(
         if let Some(name) = scene.name() {
             named_scenes.insert(name.to_string(), scene_handle.clone());
         }
-        scenes.push(scene_handle);
+        scenes.push(scene_handle.clone());
+        scene_to_nodes.insert(scene_handle, nodes_per_scene);
     }
 
     load_context.set_default_asset(LoadedAsset::new(Gltf {
@@ -349,6 +353,7 @@ async fn load_gltf<'a, 'b>(
         named_materials,
         nodes,
         named_nodes,
+        scene_to_nodes,
     }));
 
     Ok(())
@@ -1007,5 +1012,47 @@ mod test {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "l2");
         assert_eq!(result[0].1.children.len(), 0);
+    }
+
+    use super::Gltf;
+    use bevy_app::{App, AppExit, EventWriter};
+    use bevy_asset::{AssetServer, Assets, Handle};
+    use bevy_ecs::system::{Commands, Res};
+    use bevy_internal::DefaultPlugins;
+    use bevy_scene::Scene;
+
+    #[test]
+    fn test_scene_to_nodes() {
+        App::new()
+            .add_plugins(DefaultPlugins)
+            .add_startup_system(setup)
+            .add_system(spawn_gltf_objects)
+            .run();
+    }
+
+    fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+        let handle: Handle<Gltf> = assets.load("FlightHelmet.gltf");
+        commands.insert_resource(handle);
+    }
+
+    pub fn spawn_gltf_objects(
+        gltf_handle: Res<Handle<Gltf>>,
+        assets_gltf: Res<Assets<Gltf>>,
+        assets_gltfnode: Res<Assets<GltfNode>>,
+        mut exit: EventWriter<AppExit>,
+    ) {
+        // if the GLTF has loaded, we can navigate its contents
+        if let Some(gltf) = assets_gltf.get(gltf_handle.clone()) {
+            let scene_handle: &Handle<Scene> = &gltf.scenes[0];
+            let nodes: Vec<&GltfNode> = gltf.scene_to_nodes[scene_handle]
+                .iter()
+                .filter_map(|handle| assets_gltfnode.get(handle))
+                .collect::<Vec<_>>();
+            assert_eq!(nodes.len(), 1);
+            assert_eq!(nodes[0].children[0].children.len(), 6);
+
+            // If the asserts ran successfully, we can exit the app
+            exit.send(AppExit);
+        }
     }
 }

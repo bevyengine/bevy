@@ -37,6 +37,7 @@ pub struct Gltf {
     pub nodes: Vec<Handle<GltfNode>>,
     pub named_nodes: HashMap<String, Handle<GltfNode>>,
     pub default_scene: Option<Handle<Scene>>,
+    pub scene_to_nodes: HashMap<Handle<Scene>, Vec<Handle<GltfNode>>>,
 }
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`] and
