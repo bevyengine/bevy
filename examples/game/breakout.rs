@@ -27,8 +27,8 @@ const INITIAL_BALL_DIRECTION: Vec2 = const_vec2!([0.5, -0.5]);
 const PLAY_AREA_BOUNDS: Vec2 = const_vec2!([900.0, 600.0]);
 const WALL_THICKNESS: f32 = 10.0;
 
-const BRICK_ROWS: i8 = 4;
-const BRICK_COLUMNS: i8 = 5;
+const BRICK_ROWS: u8 = 4;
+const BRICK_COLUMNS: u8 = 5;
 const BRICK_SPACING: f32 = 20.0;
 const BRICK_SIZE: Vec3 = const_vec3!([150.0, 30.0, 1.0]);
 
