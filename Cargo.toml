@@ -507,6 +507,10 @@ path = "examples/shader/compute_shader_game_of_life.rs"
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
 
+[[example]]
+name = "scene_viewer"
+path = "examples/tools/scene_viewer.rs"
+
 # Transforms
 [[example]]
 name = "global_vs_local_translation"
