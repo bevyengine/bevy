@@ -804,13 +804,13 @@ mod tests {
             }
             fn hold_component<'w>(&mut self, world: &'w World, entity: Entity) -> Holder<'w> {
                 let q = self.state_q.get(world);
-                let a = unsafe { q.get_unchecked(entity) }.unwrap();
+                let a = q.get_inner(entity).unwrap();
                 Holder { value: a }
             }
             fn hold_components<'w>(&mut self, world: &'w World) -> Vec<Holder<'w>> {
                 let mut components = Vec::new();
                 let q = self.state_q.get(world);
-                for a in unsafe { q.iter_unsafe() } {
+                for a in q.iter_inner() {
                     components.push(Holder { value: a });
                 }
                 components
