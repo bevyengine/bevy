@@ -79,6 +79,7 @@ struct Collider;
 #[derive(Component)]
 struct Brick;
 
+// This resource tracks the game's score
 struct Scoreboard {
     score: usize,
 }
@@ -270,7 +271,7 @@ fn paddle_movement_system(
 
     let translation = &mut transform.translation;
     // move the paddle horizontally
-    translation.x += direction * 400.0 * TIME_STEP;
+    translation.x += direction * PADDLE_SPEED * TIME_STEP;
     // bound the paddle within the walls
     translation.x = translation.x.min(PADDLE_BOUNDS).max(-PADDLE_BOUNDS);
 }
