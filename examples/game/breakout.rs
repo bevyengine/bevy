@@ -7,18 +7,18 @@ use bevy::{
     sprite::collide_aabb::{collide, Collision},
 };
 
-// Sets the amount of time that should elapse between each physics step
+// Defines the amount of time that should elapse between each physics step.
 const TIME_STEP: f32 = 1.0 / 60.0;
 
-// These constants are in `Transform` units:
-// with the default 2D camera they correspond 1:1 with screen pixels
+// These constants are defined in `Transform` units.
+// Using the default 2D camera they correspond 1:1 with screen pixels.
 // The `const_vec3!` macros are needed as functions that operate on floats cannot be constant in Rust.
 const PADDLE_HEIGHT: f32 = -215.0;
 const PADDLE_SIZE: Vec3 = const_vec3!([120.0, 30.0, 0.0]);
 const PADDLE_SPEED: f32 = 500.0;
 const PADDLE_BOUNDS: f32 = 380.0;
 
-// We set the z-value of the ball to 1 so it renders on top in the case of overlapping sprites
+// We set the z-value of the ball to 1 so it renders on top in the case of overlapping sprites.
 const BALL_STARTING_POSITION: Vec3 = const_vec3!([0.0, -50.0, 1.0]);
 const BALL_SIZE: Vec3 = const_vec3!([30.0, 30.0, 0.0]);
 const BALL_SPEED: f32 = 400.0;
@@ -121,7 +121,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .insert(Ball {
-            // We can create a velocity by multiplying our speed by a normalized direction
+            // We can create a velocity by multiplying our speed by a normalized direction.
             velocity: BALL_SPEED * INITIAL_BALL_DIRECTION.extend(0.0).normalize(),
         });
     // scoreboard
