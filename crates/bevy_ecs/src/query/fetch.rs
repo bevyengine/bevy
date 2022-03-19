@@ -659,6 +659,7 @@ impl<T: Component> WorldQuery for &mut T {
     type ReadOnlyFetch = ReadOnlyWriteFetch<T>;
 }
 
+/// The [`Fetch`] of `&mut T`.
 #[doc(hidden)]
 pub struct WriteFetch<T> {
     table_components: NonNull<T>,
