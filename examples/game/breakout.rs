@@ -12,7 +12,7 @@ const TIME_STEP: f32 = 1.0 / 60.0;
 
 // These constants are in `Transform` units:
 // with the default 2D camera they correspond 1:1 with screen pixels
-// These macros are needed as functions that operate on floats cannot be constant in Rust :(
+// The `const_vec3!` macros are needed as functions that operate on floats cannot be constant in Rust.
 const PADDLE_HEIGHT: f32 = -215.0;
 const PADDLE_SIZE: Vec3 = const_vec3!([120.0, 30.0, 0.0]);
 const PADDLE_SPEED: f32 = 500.0;
