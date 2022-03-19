@@ -22,7 +22,6 @@ const PADDLE_BOUNDS: f32 = 380.0;
 const BALL_STARTING_POSITION: Vec3 = const_vec3!([0.0, -50.0, 1.0]);
 const BALL_SIZE: Vec3 = const_vec3!([30.0, 30.0, 0.0]);
 const BALL_SPEED: f32 = 400.0;
-// This vector is later extended into three dimensions and then normalized
 const INITIAL_BALL_DIRECTION: Vec2 = const_vec2!([0.5, -0.5]);
 
 const PLAY_AREA_BOUNDS: Vec2 = const_vec2!([900.0, 600.0]);
