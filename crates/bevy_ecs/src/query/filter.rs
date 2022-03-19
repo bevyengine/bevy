@@ -78,11 +78,13 @@ impl<T: Component> WorldQuery for With<T> {
     type ReadOnlyFetch = WithFetch<T>;
 }
 
+/// The [`Fetch`] of [`With`].
 #[doc(hidden)]
 pub struct WithFetch<T> {
     marker: PhantomData<T>,
 }
 
+/// The [`FetchState`] of [`With`].
 #[doc(hidden)]
 pub struct WithState<T> {
     component_id: ComponentId,
@@ -201,11 +203,13 @@ impl<T: Component> WorldQuery for Without<T> {
     type ReadOnlyFetch = WithoutFetch<T>;
 }
 
+/// The [`Fetch`] of [`Without`].
 #[doc(hidden)]
 pub struct WithoutFetch<T> {
     marker: PhantomData<T>,
 }
 
+/// The [`FetchState`] of [`Without`].
 #[doc(hidden)]
 pub struct WithoutState<T> {
     component_id: ComponentId,
@@ -324,6 +328,7 @@ unsafe impl<T> ReadOnlyFetch for WithoutFetch<T> {}
 /// ```
 pub struct Or<T>(pub T);
 
+/// The [`Fetch`] of [`Or`].
 #[doc(hidden)]
 pub struct OrFetch<T: FilterFetch> {
     fetch: T,
@@ -627,7 +632,9 @@ impl_tick_filter!(
     /// # bevy_ecs::system::assert_is_system(print_add_name_component);
     /// ```
     Added,
+    /// The [`FetchState`] of [`Added`].
     AddedState,
+    /// The [`Fetch`] of [`Added`].
     AddedFetch,
     ComponentTicks::is_added
 );
@@ -668,7 +675,9 @@ impl_tick_filter!(
     /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
     /// ```
     Changed,
+    /// The [`FetchState`] of [`Changed`].
     ChangedState,
+    /// The [`Fetch`] of [`Changed`].
     ChangedFetch,
     ComponentTicks::is_changed
 );
