@@ -1,6 +1,7 @@
 use bevy::{
     asset::{AssetServerSettings, LoadState},
     input::mouse::MouseMotion,
+    math::Vec3A,
     prelude::*,
     render::{
         camera::{Camera2d, Camera3d, CameraProjection},
@@ -8,6 +9,9 @@ use bevy::{
     },
     scene::InstanceId,
 };
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+struct CameraControllerCheckSystem;
 
 fn main() {
     println!(
@@ -41,9 +45,9 @@ Controls:
         .add_startup_system(setup)
         .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
         .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
-        .add_system(camera_controller_check.label("camera_controller_check"))
+        .add_system(camera_controller_check.label(CameraControllerCheckSystem))
         .add_system(update_lights)
-        .add_system(camera_controller.after("camera_controller_check"))
+        .add_system(camera_controller.after(CameraControllerCheckSystem))
         .run();
 }
 
@@ -133,16 +137,16 @@ fn camera_spawn_check(
             return;
         }
 
-        let mut min = Vec3::splat(f32::MAX);
-        let mut max = Vec3::splat(f32::MIN);
+        let mut min = Vec3A::splat(f32::MAX);
+        let mut max = Vec3A::splat(f32::MIN);
         for (transform, maybe_aabb) in meshes.iter() {
             let aabb = maybe_aabb.unwrap();
             // If the Aabb had not been rotated, applying the non-uniform scale would produce the
             // correct bounds. However, it could very well be rotated and so we first convert to
             // a Sphere, and then back to an Aabb to find the conservative min and max points.
             let sphere = Sphere {
-                center: transform.mul_vec3(aabb.center),
-                radius: (transform.scale * aabb.half_extents).length(),
+                center: Vec3A::from(transform.mul_vec3(Vec3::from(aabb.center))),
+                radius: (Vec3A::from(transform.scale) * aabb.half_extents).length(),
             };
             let aabb = Aabb::from(sphere);
             min = min.min(aabb.min());
@@ -150,12 +154,13 @@ fn camera_spawn_check(
         }
 
         let size = (max - min).length();
-        let aabb = Aabb::from_min_max(min, max);
+        let aabb = Aabb::from_min_max(Vec3::from(min), Vec3::from(max));
 
         if !scene_handle.has_camera {
-            let transform =
-                Transform::from_translation(aabb.center + size * Vec3::new(0.5, 0.25, 0.5))
-                    .looking_at(aabb.center, Vec3::Y);
+            let transform = Transform::from_translation(
+                Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
+            )
+            .looking_at(Vec3::from(aabb.center), Vec3::Y);
             let view = transform.compute_matrix();
             let mut perspective_projection = PerspectiveProjection::default();
             perspective_projection.far = perspective_projection.far.max(size * 10.0);
