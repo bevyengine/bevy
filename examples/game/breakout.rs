@@ -54,7 +54,7 @@ fn main() {
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(paddle_movement_system)
                 .with_system(ball_collision_system)
-                .with_system(ball_movement_system),
+                .with_system(apply_velocity_system),
         )
         .add_system(scoreboard_system)
         .add_system(bevy::input::system::exit_on_esc_system)
@@ -67,8 +67,12 @@ struct Paddle {
 }
 
 #[derive(Component)]
-struct Ball {
-    velocity: Vec3,
+struct Ball;
+
+#[derive(Component)]
+struct Velocity {
+    x: f32,
+    y: f32,
 }
 
 #[derive(Component)]
@@ -107,6 +111,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(Collider::Paddle);
     // ball
+    let ball_velocity = BALL_SPEED * INITIAL_BALL_DIRECTION.extend(0.0).normalize();
+
     commands
         .spawn_bundle(SpriteBundle {
             transform: Transform {
@@ -120,9 +126,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Ball {
-            // We can create a velocity by multiplying our speed by a normalized direction.
-            velocity: BALL_SPEED * INITIAL_BALL_DIRECTION.extend(0.0).normalize(),
+        .insert(Ball)
+        .insert(Velocity {
+            x: ball_velocity.x,
+            y: ball_velocity.y,
         });
     // scoreboard
     commands.spawn_bundle(TextBundle {
@@ -272,9 +279,11 @@ fn paddle_movement_system(
     translation.x = translation.x.min(PADDLE_BOUNDS).max(-PADDLE_BOUNDS);
 }
 
-fn ball_movement_system(mut ball_query: Query<(&Ball, &mut Transform)>) {
-    let (ball, mut transform) = ball_query.single_mut();
-    transform.translation += ball.velocity * TIME_STEP;
+fn apply_velocity_system(mut query: Query<(&mut Transform, &Velocity)>) {
+    for (mut transform, velocity) in query.iter_mut() {
+        transform.translation.x += velocity.x * TIME_STEP;
+        transform.translation.y += velocity.y * TIME_STEP;
+    }
 }
 
 fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
@@ -285,12 +294,11 @@ fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
 fn ball_collision_system(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
-    mut ball_query: Query<(&mut Ball, &Transform)>,
+    mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Collider, &Transform)>,
 ) {
-    let (mut ball, ball_transform) = ball_query.single_mut();
+    let (mut ball_velocity, ball_transform) = ball_query.single_mut();
     let ball_size = ball_transform.scale.truncate();
-    let velocity = &mut ball.velocity;
 
     // check collision with walls
     for (collider_entity, collider, transform) in collider_query.iter() {
@@ -314,21 +322,21 @@ fn ball_collision_system(
             // only reflect if the ball's velocity is going in the opposite direction of the
             // collision
             match collision {
-                Collision::Left => reflect_x = velocity.x > 0.0,
-                Collision::Right => reflect_x = velocity.x < 0.0,
-                Collision::Top => reflect_y = velocity.y < 0.0,
-                Collision::Bottom => reflect_y = velocity.y > 0.0,
+                Collision::Left => reflect_x = ball_velocity.x > 0.0,
+                Collision::Right => reflect_x = ball_velocity.x < 0.0,
+                Collision::Top => reflect_y = ball_velocity.y < 0.0,
+                Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
                 Collision::Inside => { /* do nothing */ }
             }
 
             // reflect velocity on the x-axis if we hit something on the x-axis
             if reflect_x {
-                velocity.x = -velocity.x;
+                ball_velocity.x = -ball_velocity.x;
             }
 
             // reflect velocity on the y-axis if we hit something on the y-axis
             if reflect_y {
-                velocity.y = -velocity.y;
+                ball_velocity.y = -ball_velocity.y;
             }
 
             // break if this collide is on a solid, otherwise continue check whether a solid is
