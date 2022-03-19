@@ -59,9 +59,7 @@ impl Node for MainPass3dNode {
             // Run the opaque pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
-            let span = info_span!("main_opaque_pass_3d");
-            #[cfg(feature = "trace")]
-            let _guard = span.enter();
+            let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
@@ -98,9 +96,7 @@ impl Node for MainPass3dNode {
             // Run the alpha mask pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
-            let span = info_span!("main_alpha_mask_pass_3d");
-            #[cfg(feature = "trace")]
-            let _guard = span.enter();
+            let _main_alpha_mask_pass_3d_span = info_span!("main_alpha_mask_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
@@ -136,9 +132,7 @@ impl Node for MainPass3dNode {
             // Run the transparent pass, sorted back-to-front
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
-            let span = info_span!("main_transparent_pass_3d");
-            #[cfg(feature = "trace")]
-            let _guard = span.enter();
+            let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
