@@ -20,6 +20,7 @@ use bevy_render::{
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
+    settings::WgpuSettings,
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
@@ -172,12 +173,13 @@ impl SkinnedMeshJoints {
         skin: &SkinnedMesh,
         inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
         joints: &Query<&GlobalTransform>,
+        max_joint_count: usize,
     ) -> Option<Self> {
         let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
         let bindposes = inverse_bindposes.iter();
         let skin_joints = skin.joints.iter();
         let mut buffer = UniformVec::default();
-        for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(256) {
+        for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(max_joint_count) {
             let joint_matrix = joints.get(*joint).ok()?.compute_matrix();
             buffer.push(joint_matrix * *inverse_bindpose);
         }
@@ -191,14 +193,20 @@ pub fn extract_skinned_meshes(
     query: Query<(Entity, &ComputedVisibility, &SkinnedMesh)>,
     inverse_bindposes: Res<Assets<SkinnedMeshInverseBindposes>>,
     joint_query: Query<&GlobalTransform>,
+    wgpu_settings: Res<WgpuSettings>,
 ) {
+    const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
     let mut values = Vec::with_capacity(*previous_len);
+    let max_joint_count =
+        (wgpu_settings.limits.max_uniform_buffer_binding_size as usize) / JOINT_SIZE;
     for (entity, computed_visibility, skin) in query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
         // TODO: This can be expensive, can we move this to prepare?
-        if let Some(uniform) = SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query) {
+        if let Some(uniform) =
+            SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, max_joint_count)
+        {
             values.push((entity, (uniform,)));
         }
     }
