@@ -1348,6 +1348,7 @@ impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
     }
 }
 
+/// The [`SystemParamState`] of [`StaticSystemParam`].
 #[doc(hidden)]
 pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
 
