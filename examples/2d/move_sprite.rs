@@ -1,3 +1,11 @@
+//! Renders a single, moving sprite in a 2D scene.
+//!
+//! The `setup` systems creates the 2D camera by spawning a [`OrthographicCameraBundle`], and the
+//! entity in form of a [`SpriteBundle`], loading an image via the [`AssetServer`].
+//!
+//! The `movement_system` then animates the sprite moving up and down, changing direction when the
+//! y offset reaches a threshold.
+
 use bevy::prelude::*;
 
 fn main() {
