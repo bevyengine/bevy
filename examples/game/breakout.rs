@@ -74,11 +74,10 @@ struct Velocity {
 }
 
 #[derive(Component)]
-enum Collider {
-    Solid,
-    Scorable,
-    Paddle,
-}
+struct Collider;
+
+#[derive(Component)]
+struct Brick;
 
 struct Scoreboard {
     score: usize,
@@ -105,7 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .insert(Paddle)
-        .insert(Collider::Paddle);
+        .insert(Collider);
     // ball
     let ball_velocity = BALL_SPEED * INITIAL_BALL_DIRECTION.extend(0.0).normalize();
 
@@ -176,7 +175,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Collider::Solid);
+        .insert(Collider);
     // right
     commands
         .spawn_bundle(SpriteBundle {
@@ -191,7 +190,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Collider::Solid);
+        .insert(Collider);
     // bottom
     commands
         .spawn_bundle(SpriteBundle {
@@ -206,7 +205,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Collider::Solid);
+        .insert(Collider);
     // top
     commands
         .spawn_bundle(SpriteBundle {
@@ -221,7 +220,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Collider::Solid);
+        .insert(Collider);
 
     // Add bricks
     let bricks_width = BRICK_COLUMNS as f32 * (BRICK_SIZE.x + BRICK_SPACING) - BRICK_SPACING;
@@ -249,7 +248,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     ..default()
                 })
-                .insert(Collider::Scorable);
+                .insert(Collider)
+                .insert(Brick);
         }
     }
 }
@@ -291,13 +291,13 @@ fn ball_collision_system(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
-    collider_query: Query<(Entity, &Collider, &Transform)>,
+    collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.single_mut();
     let ball_size = ball_transform.scale.truncate();
 
     // check collision with walls
-    for (collider_entity, collider, transform) in collider_query.iter() {
+    for (collider_entity, transform, maybe_brick) in collider_query.iter() {
         let collision = collide(
             ball_transform.translation,
             ball_size,
@@ -305,8 +305,8 @@ fn ball_collision_system(
             transform.scale.truncate(),
         );
         if let Some(collision) = collision {
-            // scorable colliders should be despawned and increment the scoreboard on collision
-            if let Collider::Scorable = *collider {
+            // Bricks should be despawned and increment the scoreboard on collision
+            if maybe_brick.is_some() {
                 scoreboard.score += 1;
                 commands.entity(collider_entity).despawn();
             }
@@ -333,12 +333,6 @@ fn ball_collision_system(
             // reflect velocity on the y-axis if we hit something on the y-axis
             if reflect_y {
                 ball_velocity.y = -ball_velocity.y;
-            }
-
-            // break if this collide is on a solid, otherwise continue check whether a solid is
-            // also in collision
-            if let Collider::Solid = *collider {
-                break;
             }
         }
     }
