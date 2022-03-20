@@ -378,6 +378,10 @@ impl AddAsset for App {
     }
 }
 
+/// Loads an internal asset.
+///
+/// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
+/// using the conventional API. See [`DebugAssetServerPlugin`].
 #[cfg(feature = "debug_asset_server")]
 #[macro_export]
 macro_rules! load_internal_asset {
@@ -399,6 +403,10 @@ macro_rules! load_internal_asset {
     }};
 }
 
+/// Loads an internal asset.
+///
+/// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
+/// using the conventional API. See [`DebugAssetServerPlugin`].
 #[cfg(not(feature = "debug_asset_server"))]
 #[macro_export]
 macro_rules! load_internal_asset {
