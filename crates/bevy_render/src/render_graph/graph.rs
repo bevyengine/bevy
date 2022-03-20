@@ -112,10 +112,10 @@ impl RenderGraph {
                 for input_edge in node_state.edges.input_edges.iter() {
                     match input_edge {
                         Edge::SlotEdge {
-                            input_node: _,
-                            input_index: _,
                             output_node,
                             output_index: _,
+                            input_node: _,
+                            input_index: _,
                         } => {
                             if let Ok(output_node) = self.get_node_state_mut(*output_node) {
                                 output_node
@@ -142,18 +142,18 @@ impl RenderGraph {
                 for output_edge in node_state.edges.output_edges.iter() {
                     match output_edge {
                         Edge::SlotEdge {
-                            input_node,
-                            input_index: _,
                             output_node: _,
                             output_index: _,
+                            input_node,
+                            input_index: _,
                         } => {
                             if let Ok(input_node) = self.get_node_state_mut(*input_node) {
                                 input_node.edges.remove_input_edge(output_edge.clone()).ok();
                             }
                         }
                         Edge::NodeEdge {
-                            input_node,
                             output_node: _,
+                            input_node,
                         } => {
                             if let Ok(input_node) = self.get_node_state_mut(*input_node) {
                                 input_node.edges.remove_input_edge(output_edge.clone()).ok();
