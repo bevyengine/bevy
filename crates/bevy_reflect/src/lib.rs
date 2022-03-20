@@ -472,12 +472,17 @@ mod tests {
 
         let mut registry = TypeRegistry::default();
         registry.register::<u32>();
-        registry.register::<isize>();
-        registry.register::<usize>();
-        registry.register::<Bar>();
-        registry.register::<String>();
         registry.register::<i8>();
         registry.register::<i32>();
+        registry.register::<usize>();
+        registry.register::<isize>();
+        registry.register::<Foo>();
+        registry.register::<Bar>();
+        registry.register::<String>();
+        registry.register::<Vec<isize>>();
+        registry.register::<HashMap<usize, i8>>();
+        registry.register::<(i32, Vec<isize>, Bar)>();
+        registry.register::<[u32; 2]>();
 
         let serializer = ReflectSerializer::new(&foo, &registry);
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
