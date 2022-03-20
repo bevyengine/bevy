@@ -169,6 +169,6 @@ type DrawWireframes = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
-    SetSkinnedMeshBindGroup<3>,
+    SetSkinnedMeshBindGroup<2>,
     DrawMesh,
 );

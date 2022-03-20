@@ -1,8 +1,7 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, MeshPipeline, NotShadowCaster, PointLight,
-    PointLightShadowMap, SetMeshBindGroup, VisiblePointLights,
-    SHADOW_SHADER_HANDLE,
+    PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;

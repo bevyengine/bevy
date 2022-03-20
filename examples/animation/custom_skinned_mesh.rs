@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{wireframe::WireframePlugin, AmbientLight},
+    pbr::AmbientLight,
     prelude::*,
     render::mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -14,7 +14,6 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // .add_plugin(WireframePlugin)
         .insert_resource(AmbientLight {
             brightness: 1.0,
             ..Default::default()

@@ -7,4 +7,8 @@ struct Mesh {
     flags: u32;
 };
 
+struct SkinnedMesh {
+    data: array<mat4x4<f32>, 256u>;
+};
+
 let MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u;
