@@ -30,7 +30,6 @@ var<uniform> mesh: Mesh;
 #ifdef SKINNED
 [[group(3), binding(0)]]
 var<uniform> joint_matrices: SkinnedMesh;
-
 #import bevy_pbr::skinning
 #endif
 
