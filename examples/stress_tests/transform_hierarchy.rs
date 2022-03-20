@@ -1,5 +1,24 @@
-//! hierarchy and transform propagation stress test
-//! set the test parameters (cfg) inside [`main`]
+//! Hierarchy and transform propagation stress test.
+//!
+//! Running this example:
+//!
+//! ```
+//! cargo r --release --example transform_hierarchy -- <configuration name>
+//! ```
+//!
+//! | Configuration        | Description                                                       |
+//! | -------------------- | ----------------------------------------------------------------- |
+//! | `large_tree`         | A fairly wide and deep tree.                                      |
+//! | `wide_tree`          | A shallow but very wide tree.                                     |
+//! | `deep_tree`          | A deep but not very wide tree.                                    |
+//! | `chain`              | A chain. 2500 levels deep.                                        |
+//! | `update_leaves`      | Same as `large_tree`, but only leaves are updated.                |
+//! | `update_shallow`     | Same as `large_tree`, but only the first few levels are updated.  |
+//! | `humanoids_active`   | 4000 active humanoid rigs.                                        |
+//! | `humanoids_inactive` | 4000 humanoid rigs. Only 10 are active.                           |
+//! | `humanoids_mixed`    | 2000 inactive and 2000 active humanoid rigs.                      |
+//! | `drawing`            | A rendering-heavy configuration. Meshes and materials are shared. |
+//! | `drawing_unique`     | Same as `drawing`, but all meshes and materials are unique.       |
 
 use bevy::{
     prelude::*,
@@ -7,21 +26,245 @@ use bevy::{
 };
 use rand::Rng;
 
+/// pre-defined test configurations with name
+const CONFIGS: [(&str, Cfg); 11] = [
+    (
+        "large_tree",
+        Cfg {
+            test_case: TestCase::NonUniformTree {
+                depth: 18,
+                branch_width: 8,
+            },
+            update_filter: UpdateFilter {
+                probability: 0.5,
+                min_depth: 0,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::None,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "wide_tree",
+        Cfg {
+            test_case: TestCase::Tree {
+                depth: 3,
+                branch_width: 500,
+            },
+            update_filter: UpdateFilter {
+                probability: 0.5,
+                min_depth: 0,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::None,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "deep_tree",
+        Cfg {
+            test_case: TestCase::NonUniformTree {
+                depth: 25,
+                branch_width: 2,
+            },
+            update_filter: UpdateFilter {
+                probability: 0.5,
+                min_depth: 0,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::None,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "chain",
+        Cfg {
+            test_case: TestCase::Tree {
+                depth: 2500,
+                branch_width: 1,
+            },
+            update_filter: UpdateFilter {
+                probability: 0.5,
+                min_depth: 0,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::None,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "update_leaves",
+        Cfg {
+            test_case: TestCase::Tree {
+                depth: 18,
+                branch_width: 2,
+            },
+            update_filter: UpdateFilter {
+                probability: 0.5,
+                min_depth: 17,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::None,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "update_shallow",
+        Cfg {
+            test_case: TestCase::Tree {
+                depth: 18,
+                branch_width: 2,
+            },
+            update_filter: UpdateFilter {
+                probability: 0.5,
+                min_depth: 0,
+                max_depth: 8,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::None,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "humanoids_active",
+        Cfg {
+            test_case: TestCase::Humanoids {
+                active: 4000,
+                inactive: 0,
+            },
+            update_filter: UpdateFilter {
+                probability: 1.0,
+                min_depth: 0,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::None,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "humanoids_inactive",
+        Cfg {
+            test_case: TestCase::Humanoids {
+                active: 10,
+                inactive: 3990,
+            },
+            update_filter: UpdateFilter {
+                probability: 1.0,
+                min_depth: 0,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::None,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "humanoids_mixed",
+        Cfg {
+            test_case: TestCase::Humanoids {
+                active: 2000,
+                inactive: 2000,
+            },
+            update_filter: UpdateFilter {
+                probability: 1.0,
+                min_depth: 0,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::None,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "drawing",
+        Cfg {
+            test_case: TestCase::Humanoids {
+                active: 150,
+                inactive: 500,
+            },
+            update_filter: UpdateFilter {
+                probability: 1.0,
+                min_depth: 0,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::All,
+                unique_meshes: false,
+                unique_materials: false,
+            },
+        },
+    ),
+    (
+        "drawing_unique",
+        Cfg {
+            test_case: TestCase::Humanoids {
+                active: 150,
+                inactive: 500,
+            },
+            update_filter: UpdateFilter {
+                probability: 1.0,
+                min_depth: 0,
+                max_depth: u32::MAX,
+            },
+            visuals: Visuals {
+                visible_nodes: VisibleNodes::All,
+                unique_meshes: true,
+                unique_materials: true,
+            },
+        },
+    ),
+];
+
+fn print_available_configs() {
+    println!("available configurations:");
+    for (name, _) in CONFIGS {
+        println!("  {name}");
+    }
+}
+
 fn main() {
-    let cfg = Cfg {
-        test_case: TestCase::NonUniformTree {
-            depth: 18,
-            branch_width: 8,
+    // parse arg and find test configuration
+    let cfg: Cfg = match std::env::args().nth(1) {
+        Some(arg) => match CONFIGS.iter().find(|(name, _)| *name == arg) {
+            Some((name, cfg)) => {
+                println!("test configuration: {name}");
+                cfg.clone()
+            }
+            None => {
+                println!("test configuration \"{arg}\" not found.\n");
+                print_available_configs();
+                return;
+            }
         },
-        update_filter: UpdateFilter {
-            probability: 0.5,
-            ..default()
-        },
-        visuals: Visuals {
-            visible_nodes: VisibleNodes::None,
-            unique_meshes: false,
-            unique_materials: false,
-        },
+        None => {
+            println!("missing argument: <test configuration>\n");
+            print_available_configs();
+            return;
+        }
     };
 
     println!("\n{:#?}", cfg);
@@ -36,7 +279,7 @@ fn main() {
 }
 
 /// test configuration
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Cfg {
     /// which test case should be inserted
     test_case: TestCase,
@@ -47,7 +290,7 @@ struct Cfg {
 }
 
 #[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum TestCase {
     /// a uniform tree, exponentially growing with depth
     Tree {
@@ -74,7 +317,7 @@ enum TestCase {
 }
 
 /// a filter to restrict which nodes are updated
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct UpdateFilter {
     /// starting depth (inclusive)
     min_depth: u32,
@@ -96,7 +339,7 @@ impl Default for UpdateFilter {
 }
 
 /// visual configuration
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Visuals {
     /// visibility of nodes
     visible_nodes: VisibleNodes,
@@ -108,7 +351,7 @@ struct Visuals {
 
 /// visibility of nodes
 #[allow(unused)]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 enum VisibleNodes {
     /// draw nothing
     None,

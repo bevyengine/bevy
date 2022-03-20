@@ -65,7 +65,7 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
-- [Stree Tests](#stress-tests)
+- [Stress Tests](#stress-tests)
 
 # The Bare Minimum
 
@@ -412,6 +412,8 @@ the assets on Windows.
 
 # Stress Tests
 
+These examples are used to test the performance and stability of various parts of the engine in an isolated way.
+
 Example | File | Description
 --- | --- | ---
-`transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Configurable test for hierarchy and transform propagation performance
+`transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
