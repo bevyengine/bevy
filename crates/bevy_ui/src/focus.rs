@@ -56,8 +56,8 @@ pub struct State {
     entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
-/// The system that sets Interaction for all UI elements based on the mouse cursor activity
-#[allow(clippy::type_complexity)]
+/// The system that sets Interaction for all UI elements based on the mouse and touch cursor
+/// activity
 pub fn ui_focus_system(
     state: Local<State>,
     windows: Res<Windows>,
@@ -96,7 +96,13 @@ fn focus_ui<Cursor: CursorResource>(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let cursor_position = windows.get_cursor_position();
+    let cursor_position = match windows.get_cursor_position() {
+        None => {
+            set_all_interactions_to_none(node_query);
+            return;
+        }
+        Some(cursor_position) => cursor_position,
+    };
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
@@ -135,19 +141,13 @@ fn focus_ui<Cursor: CursorResource>(
                 }
                 // if the current cursor position is within the bounds of the node, consider it for
                 // clicking
-                let contains_cursor = if let Some(cursor_position) = cursor_position {
-                    (min.x..max.x).contains(&cursor_position.x)
-                        && (min.y..max.y).contains(&cursor_position.y)
-                } else {
-                    false
-                };
+                let contains_cursor = (min.x..max.x).contains(&cursor_position.x)
+                    && (min.y..max.y).contains(&cursor_position.y);
 
                 if contains_cursor {
                     Some((entity, focus_policy, interaction, FloatOrd(position.z)))
                 } else {
-                    if *interaction == Interaction::Hovered
-                        || (cursor_position.is_none() && *interaction != Interaction::None)
-                    {
+                    if *interaction == Interaction::Hovered {
                         *interaction = Interaction::None;
                     }
                     None
@@ -187,6 +187,23 @@ fn focus_ui<Cursor: CursorResource>(
         if *interaction != Interaction::None {
             *interaction = Interaction::None;
         }
+    }
+}
+
+fn set_all_interactions_to_none(
+    mut node_query: Query<(
+        Entity,
+        &Node,
+        &GlobalTransform,
+        &mut Interaction,
+        Option<&FocusPolicy>,
+        Option<&CalculatedClip>,
+    )>,
+) {
+    for (_entity, _node, _global_transform, mut interaction, _focus_policy, _clip) in
+        node_query.iter_mut()
+    {
+        *interaction = Interaction::None;
     }
 }
 
