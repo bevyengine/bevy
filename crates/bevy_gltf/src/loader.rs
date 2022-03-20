@@ -18,7 +18,7 @@ use bevy_render::{
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
     primitives::{Aabb, Frustum},
-    render_resource::{AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor},
+    render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
     renderer::RenderDevice,
     texture::{CompressedImageFormats, Image, ImageType, TextureError},
     view::VisibleEntities,
@@ -473,6 +473,11 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             metallic_roughness_texture,
             normal_map_texture,
             double_sided: material.double_sided(),
+            cull_mode: if material.double_sided() {
+                None
+            } else {
+                Some(Face::Back)
+            },
             occlusion_texture,
             emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
             emissive_texture,
