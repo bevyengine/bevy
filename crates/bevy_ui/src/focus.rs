@@ -67,7 +67,7 @@ pub fn ui_focus_system(
         Entity,
         &Node,
         &GlobalTransform,
-        Option<&mut Interaction>,
+        &mut Interaction,
         Option<&FocusPolicy>,
         Option<&CalculatedClip>,
     )>,
@@ -91,7 +91,7 @@ fn focus_ui<Cursor: CursorResource>(
         Entity,
         &Node,
         &GlobalTransform,
-        Option<&mut Interaction>,
+        &mut Interaction,
         Option<&FocusPolicy>,
         Option<&CalculatedClip>,
     )>,
@@ -108,13 +108,11 @@ fn focus_ui<Cursor: CursorResource>(
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
     if mouse_released {
-        for (_entity, _node, _global_transform, interaction, _focus_policy, _clip) in
+        for (_entity, _node, _global_transform, mut interaction, _focus_policy, _clip) in
             node_query.iter_mut()
         {
-            if let Some(mut interaction) = interaction {
-                if *interaction == Interaction::Clicked {
-                    *interaction = Interaction::None;
-                }
+            if *interaction == Interaction::Clicked {
+                *interaction = Interaction::None;
             }
         }
     }
@@ -125,7 +123,7 @@ fn focus_ui<Cursor: CursorResource>(
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
         .filter_map(
-            |(entity, node, global_transform, interaction, focus_policy, clip)| {
+            |(entity, node, global_transform, mut interaction, focus_policy, clip)| {
                 let position = global_transform.translation;
                 let ui_position = position.truncate();
                 let extents = node.size / 2.0;
@@ -147,12 +145,10 @@ fn focus_ui<Cursor: CursorResource>(
                 if contains_cursor {
                     Some((entity, focus_policy, interaction, FloatOrd(position.z)))
                 } else {
-                    if let Some(mut interaction) = interaction {
-                        if *interaction == Interaction::Hovered
-                            || (cursor_position.is_none() && *interaction != Interaction::None)
-                        {
-                            *interaction = Interaction::None;
-                        }
+                    if *interaction == Interaction::Hovered
+                        || (cursor_position.is_none() && *interaction != Interaction::None)
+                    {
+                        *interaction = Interaction::None;
                     }
                     None
                 }
@@ -164,21 +160,19 @@ fn focus_ui<Cursor: CursorResource>(
 
     let mut moused_over_z_sorted_nodes = moused_over_z_sorted_nodes.into_iter();
     // set Clicked or Hovered on top nodes
-    for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes.by_ref() {
-        if let Some(mut interaction) = interaction {
-            if mouse_clicked {
-                // only consider nodes with Interaction "clickable"
-                if *interaction != Interaction::Clicked {
-                    *interaction = Interaction::Clicked;
-                    // if the mouse was simultaneously released, reset this Interaction in the next
-                    // frame
-                    if mouse_released {
-                        state.entities_to_reset.push(entity);
-                    }
+    for (entity, focus_policy, mut interaction, _) in moused_over_z_sorted_nodes.by_ref() {
+        if mouse_clicked {
+            // only consider nodes with Interaction "clickable"
+            if *interaction != Interaction::Clicked {
+                *interaction = Interaction::Clicked;
+                // if the mouse was simultaneously released, reset this Interaction in the next
+                // frame
+                if mouse_released {
+                    state.entities_to_reset.push(entity);
                 }
-            } else if *interaction == Interaction::None {
-                *interaction = Interaction::Hovered;
             }
+        } else if *interaction == Interaction::None {
+            *interaction = Interaction::Hovered;
         }
 
         match focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
@@ -189,11 +183,9 @@ fn focus_ui<Cursor: CursorResource>(
         }
     }
     // reset lower nodes to None
-    for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
-        if let Some(mut interaction) = interaction {
-            if *interaction != Interaction::None {
-                *interaction = Interaction::None;
-            }
+    for (_entity, _focus_policy, mut interaction, _) in moused_over_z_sorted_nodes {
+        if *interaction != Interaction::None {
+            *interaction = Interaction::None;
         }
     }
 }
