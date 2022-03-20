@@ -103,7 +103,10 @@ impl RenderGraph {
 
     /// Removes the `node` with the `name` from the graph.
     /// If the name is does not exist, nothing happens.
-    pub fn remove_node(&mut self, name: impl Into<Cow<'static, str>>) {
+    pub fn remove_node(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Result<(), RenderGraphError> {
         let name = name.into();
         if let Some(id) = self.node_names.remove(&name) {
             if let Some(node_state) = self.nodes.remove(&id) {
@@ -118,10 +121,7 @@ impl RenderGraph {
                             input_index: _,
                         } => {
                             if let Ok(output_node) = self.get_node_state_mut(*output_node) {
-                                output_node
-                                    .edges
-                                    .remove_output_edge(input_edge.clone())
-                                    .ok();
+                                output_node.edges.remove_output_edge(input_edge.clone())?;
                             }
                         }
                         Edge::NodeEdge {
@@ -129,10 +129,7 @@ impl RenderGraph {
                             output_node,
                         } => {
                             if let Ok(output_node) = self.get_node_state_mut(*output_node) {
-                                output_node
-                                    .edges
-                                    .remove_output_edge(input_edge.clone())
-                                    .ok();
+                                output_node.edges.remove_output_edge(input_edge.clone())?;
                             }
                         }
                     }
@@ -148,7 +145,7 @@ impl RenderGraph {
                             input_index: _,
                         } => {
                             if let Ok(input_node) = self.get_node_state_mut(*input_node) {
-                                input_node.edges.remove_input_edge(output_edge.clone()).ok();
+                                input_node.edges.remove_input_edge(output_edge.clone())?;
                             }
                         }
                         Edge::NodeEdge {
@@ -156,13 +153,15 @@ impl RenderGraph {
                             input_node,
                         } => {
                             if let Ok(input_node) = self.get_node_state_mut(*input_node) {
-                                input_node.edges.remove_input_edge(output_edge.clone()).ok();
+                                input_node.edges.remove_input_edge(output_edge.clone())?;
                             }
                         }
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Retrieves the [`NodeState`] referenced by the `label`.
