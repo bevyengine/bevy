@@ -56,8 +56,17 @@ pub struct State {
     entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
-/// The system that sets Interaction for all UI elements based on the mouse and touch cursor
-/// activity
+pub type NodeQuery<'a> = (
+    Entity,
+    &'a Node,
+    &'a GlobalTransform,
+    &'a mut Interaction,
+    Option<&'a FocusPolicy>,
+    Option<&'a CalculatedClip>,
+);
+
+/// The system that sets Interaction for all UI elements based on the mouse cursor activity
+#[allow(clippy::type_complexity)]
 pub fn ui_focus_system(
     state: Local<State>,
     windows: Res<Windows>,
@@ -96,32 +105,21 @@ fn focus_ui<Cursor: CursorResource>(
         Option<&CalculatedClip>,
     )>,
 ) {
+    reset_interactions(
+        &mut node_query,
+        &mouse_button_input,
+        &touches_input,
+        &windows.get_cursor_position(),
+        &mut state,
+    );
+
     let cursor_position = match windows.get_cursor_position() {
-        None => {
-            set_all_interactions_to_none(node_query);
-            return;
-        }
+        None => return,
         Some(cursor_position) => cursor_position,
     };
 
-    // reset entities that were both clicked and released in the last frame
-    for entity in state.entities_to_reset.drain(..) {
-        if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
-            *interaction = Interaction::None;
-        }
-    }
-
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
-    if mouse_released {
-        for (_entity, _node, _global_transform, mut interaction, _focus_policy, _clip) in
-            node_query.iter_mut()
-        {
-            if *interaction == Interaction::Clicked {
-                *interaction = Interaction::None;
-            }
-        }
-    }
 
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_released(0);
@@ -129,7 +127,7 @@ fn focus_ui<Cursor: CursorResource>(
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
         .filter_map(
-            |(entity, node, global_transform, mut interaction, focus_policy, clip)| {
+            |(entity, node, global_transform, interaction, focus_policy, clip)| {
                 let position = global_transform.translation;
                 let ui_position = position.truncate();
                 let extents = node.size / 2.0;
@@ -147,9 +145,6 @@ fn focus_ui<Cursor: CursorResource>(
                 if contains_cursor {
                     Some((entity, focus_policy, interaction, FloatOrd(position.z)))
                 } else {
-                    if *interaction == Interaction::Hovered {
-                        *interaction = Interaction::None;
-                    }
                     None
                 }
             },
@@ -158,19 +153,14 @@ fn focus_ui<Cursor: CursorResource>(
 
     moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
 
-    let mut moused_over_z_sorted_nodes = moused_over_z_sorted_nodes.into_iter();
     // set Clicked or Hovered on top nodes
-    for (entity, focus_policy, mut interaction, _) in moused_over_z_sorted_nodes.by_ref() {
+    for (entity, focus_policy, mut interaction, _) in moused_over_z_sorted_nodes {
         if mouse_clicked {
-            // only consider nodes with Interaction "clickable"
-            if *interaction != Interaction::Clicked {
-                *interaction = Interaction::Clicked;
-                // if the mouse was simultaneously released, reset this Interaction in the next
-                // frame
-                if mouse_released {
-                    state.entities_to_reset.push(entity);
-                }
+            // if the mouse was simultaneously released, reset this Interaction in the next frame
+            if *interaction != Interaction::Clicked && mouse_released {
+                state.entities_to_reset.push(entity);
             }
+            *interaction = Interaction::Clicked;
         } else if *interaction == Interaction::None {
             *interaction = Interaction::Hovered;
         }
@@ -182,16 +172,10 @@ fn focus_ui<Cursor: CursorResource>(
             FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
         }
     }
-    // reset lower nodes to None
-    for (_entity, _focus_policy, mut interaction, _) in moused_over_z_sorted_nodes {
-        if *interaction != Interaction::None {
-            *interaction = Interaction::None;
-        }
-    }
 }
 
-fn set_all_interactions_to_none(
-    mut node_query: Query<(
+fn reset_interactions(
+    node_query: &mut Query<(
         Entity,
         &Node,
         &GlobalTransform,
@@ -199,11 +183,29 @@ fn set_all_interactions_to_none(
         Option<&FocusPolicy>,
         Option<&CalculatedClip>,
     )>,
+    mouse_button_input: &Input<MouseButton>,
+    touches_input: &Touches,
+    cursor_position: &Option<Vec2>,
+    state: &mut State,
 ) {
+    let mouse_release =
+        mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
+    let input_should_leave_button_clicked = cursor_position.is_some() && !mouse_release;
+
     for (_entity, _node, _global_transform, mut interaction, _focus_policy, _clip) in
         node_query.iter_mut()
     {
+        if input_should_leave_button_clicked && *interaction == Interaction::Clicked {
+            continue;
+        }
         *interaction = Interaction::None;
+    }
+
+    // reset entities that were both clicked and released in the last frame
+    for entity in state.entities_to_reset.drain(..) {
+        if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
+            *interaction = Interaction::None;
+        }
     }
 }
 
