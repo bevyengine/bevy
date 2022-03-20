@@ -134,10 +134,9 @@ impl ShaderCache {
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
                 let shader_module = render_device.create_shader_module(&module_descriptor);
-                use futures_util::future::FutureExt;
                 let error = render_device.wgpu_device().pop_error_scope();
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
-                    error.now_or_never()
+                    futures_helper::now_or_never(error)
                 {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
@@ -664,5 +663,39 @@ impl<'a> Iterator for ErrorSources<'a> {
         let current = self.current;
         self.current = self.current.and_then(std::error::Error::source);
         current
+    }
+}
+
+mod futures_helper {
+    use std::{
+        future::Future,
+        task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+    };
+
+    pub fn now_or_never<F: Future>(future: F) -> Option<F::Output> {
+        let noop_waker = noop_waker();
+        let mut cx = Context::from_waker(&noop_waker);
+
+        futures_lite::pin!(future);
+        match future.poll(&mut cx) {
+            Poll::Ready(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    unsafe fn noop_clone(_data: *const ()) -> RawWaker {
+        noop_raw_waker()
+    }
+
+    unsafe fn noop(_data: *const ()) {}
+
+    const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(noop_clone, noop, noop, noop);
+
+    fn noop_raw_waker() -> RawWaker {
+        RawWaker::new(std::ptr::null(), &NOOP_WAKER_VTABLE)
+    }
+
+    fn noop_waker() -> Waker {
+        unsafe { Waker::from_raw(noop_raw_waker()) }
     }
 }
