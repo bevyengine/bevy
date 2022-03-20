@@ -39,11 +39,10 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef SKINNED
     var model = skin_model(vertex.joint_indexes, vertex.joint_weights);
     out.world_position = model * vec4<f32>(vertex.position, 1.0);
-    out.world_normal = mat3x3<f32>(
-        model[0].xyz,
-        model[1].xyz,
-        model[2].xyz
-    ) * vertex.normal;
+    out.world_normal = skin_normals(model, vertex.normal);
+#ifdef VERTEX_TANGENTS
+    out.world_tangent = skin_tangents(model, vertex.tangent);
+#endif
 #else
     out.world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
     out.world_normal = mat3x3<f32>(
@@ -51,11 +50,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         mesh.inverse_transpose_model[1].xyz,
         mesh.inverse_transpose_model[2].xyz
     ) * vertex.normal;
-#endif
-
-    // out.clip_position = view.view_proj * world_position;
-    out.uv = vertex.uv;
-    out.clip_position = view.view_proj * out.world_position;
 #ifdef VERTEX_TANGENTS
     out.world_tangent = vec4<f32>(
         mat3x3<f32>(
@@ -66,6 +60,10 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         vertex.tangent.w
     );
 #endif
+#endif
+
+    out.uv = vertex.uv;
+    out.clip_position = view.view_proj * out.world_position;
     return out;
 }
 

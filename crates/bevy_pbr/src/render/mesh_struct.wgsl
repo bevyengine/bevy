@@ -7,8 +7,10 @@ struct Mesh {
     flags: u32;
 };
 
+#ifdef SKINNED
 struct SkinnedMesh {
     data: array<mat4x4<f32>, 256u>;
 };
+#endif
 
 let MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u;
