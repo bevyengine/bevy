@@ -18,6 +18,7 @@ pub use clear_pass_driver::*;
 pub use main_pass_2d::*;
 pub use main_pass_3d::*;
 pub use main_pass_driver::*;
+pub use upscaling::*;
 
 use std::ops::Range;
 
@@ -41,7 +42,6 @@ use bevy_render::{
 use tonemapping::TonemappingNode;
 use tonemapping::TonemappingPlugin;
 use upscaling::UpscalingNode;
-use upscaling::UpscalingPlugin;
 
 /// When used as a resource, sets the color that is used to clear the screen between frames.
 ///

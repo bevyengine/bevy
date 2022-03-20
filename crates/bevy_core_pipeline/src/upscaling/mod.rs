@@ -70,8 +70,43 @@ impl FromWorld for UpscalingPipeline {
     }
 }
 
+#[repr(u8)]
+pub enum UpscalingMode {
+    Filtering = 0,
+    Nearest = 1,
+}
+
+bitflags::bitflags! {
+    #[repr(transparent)]
+    pub struct UpscalingPipelineKey: u32 {
+        const NONE                         = 0;
+        const UPSCALING_MODE_RESERVED_BITS = UpscalingPipelineKey::UPSCALING_MODE_MASK_BITS << UpscalingPipelineKey::UPSCALING_MODE_SHIFT_BITS;
+    }
+}
+
+impl UpscalingPipelineKey {
+    const UPSCALING_MODE_MASK_BITS: u32 = 0b1111; // enough for 16 different modes
+    const UPSCALING_MODE_SHIFT_BITS: u32 = 32 - 4;
+
+    pub fn from_upscaling_mode(upscaling_mode: UpscalingMode) -> Self {
+        let upscaling_mode_bits = ((upscaling_mode as u32) & Self::UPSCALING_MODE_MASK_BITS)
+            << Self::UPSCALING_MODE_SHIFT_BITS;
+        UpscalingPipelineKey::from_bits(upscaling_mode_bits).unwrap()
+    }
+
+    pub fn upscaling_mode(&self) -> UpscalingMode {
+        let upscaling_mode_bits =
+            (self.bits >> Self::UPSCALING_MODE_SHIFT_BITS) & Self::UPSCALING_MODE_MASK_BITS;
+        match upscaling_mode_bits {
+            0 => UpscalingMode::Filtering,
+            1 => UpscalingMode::Nearest,
+            other => panic!("invalid upscaling mode bits in UpscalingPipelineKey: {other}"),
+        }
+    }
+}
+
 impl SpecializedPipeline for UpscalingPipeline {
-    type Key = ();
+    type Key = UpscalingPipelineKey;
 
     fn specialize(&self, _: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
@@ -113,7 +148,8 @@ fn queue_upscaling_bind_groups(
     view_targets: Query<Entity, With<ExtractedView>>,
 ) {
     for entity in view_targets.iter() {
-        let pipeline = pipelines.specialize(&mut render_pipeline_cache, &upscaling_pipeline, ());
+        let key = UpscalingPipelineKey::from_upscaling_mode(UpscalingMode::Filtering);
+        let pipeline = pipelines.specialize(&mut render_pipeline_cache, &upscaling_pipeline, key);
 
         commands.entity(entity).insert(UpscalingTarget { pipeline });
     }
