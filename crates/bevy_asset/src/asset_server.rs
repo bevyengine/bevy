@@ -78,12 +78,11 @@ pub struct AssetServerInternal {
 #[derive(Clone)]
 /// Loads assets from the filesystem on the background.
 ///
-/// The asset server is the primary way of loading assets in bevy. It keeps track of
-/// the load state of the assets it manages and can even reload them from the
-/// filesystem [if you tell it to]!
+/// The asset server is the primary way of loading assets in bevy. It keeps track of the load state
+/// of the assets it manages and can even reload them from the filesystem [if you tell it to]!
 ///
-/// The asset server is a _resource_, so in order to accesss it in a system you
-/// need a `Res` accessor, like this:
+/// The asset server is a _resource_, so in order to accesss it in a system you need a `Res`
+/// accessor, like this:
 ///
 /// ```rust
 /// fn my_system(mut commands: Commands, asset_server: Res<AssetServer>)
