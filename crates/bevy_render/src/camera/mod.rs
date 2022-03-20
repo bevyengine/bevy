@@ -37,6 +37,8 @@ impl Plugin for CameraPlugin {
                 crate::camera::camera_system::<PerspectiveProjection>,
             )
             .add_plugin(CameraTypePlugin::<Camera3d>::default())
-            .add_plugin(CameraTypePlugin::<Camera2d>::default());
+            .add_plugin(CameraTypePlugin::<Camera2d>::default())
+            .register_type::<Camera3d>()
+            .register_type::<Camera2d>();
     }
 }
