@@ -121,6 +121,7 @@ impl AssetServer {
         }
     }
 
+    /// Returns the associated asset I/O.
     pub fn asset_io(&self) -> &dyn AssetIo {
         &*self.server.asset_io
     }
