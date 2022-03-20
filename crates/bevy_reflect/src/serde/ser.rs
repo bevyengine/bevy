@@ -2,7 +2,7 @@ use crate::{
     serde::type_fields, Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct,
     Tuple, TupleStruct, TypeRegistry, VariantType,
 };
-use serde::ser::Error;
+use serde::ser::SerializeTuple;
 use serde::{
     ser::{SerializeMap, SerializeSeq},
     Serialize, Serializer,
@@ -40,6 +40,13 @@ fn get_serializable<'a, E: serde::ser::Error>(
     Ok(reflect_serialize.get_serializable(reflect_value))
 }
 
+/// A general purpose serializer for reflected types.
+///
+/// The serialized data will take the form of a map containing the following entries:
+/// 1. `type`: The _full_ [type name]
+/// 2. `value`: The serialized value of the reflected type
+///
+/// [type name]: std::any::type_name
 pub struct ReflectSerializer<'a> {
     pub value: &'a dyn Reflect,
     pub registry: &'a TypeRegistry,
@@ -56,6 +63,40 @@ impl<'a> Serialize for ReflectSerializer<'a> {
     where
         S: serde::Serializer,
     {
+        let mut state = serializer.serialize_map(Some(2))?;
+        state.serialize_entry(type_fields::TYPE, self.value.type_name())?;
+        state.serialize_entry(
+            type_fields::VALUE,
+            &TypedReflectSerializer::new(self.value, self.registry),
+        )?;
+        state.end()
+    }
+}
+
+/// A serializer for reflected types whose type is known and does not require
+/// serialization to include other metadata about it.
+pub struct TypedReflectSerializer<'a> {
+    pub value: &'a dyn Reflect,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> TypedReflectSerializer<'a> {
+    pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
+        TypedReflectSerializer { value, registry }
+    }
+}
+
+impl<'a> Serialize for TypedReflectSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // Handle both Value case and types that have a custom `Serialize`
+        let serializable = get_serializable::<S::Error>(self.value, self.registry);
+        if let Ok(serializable) = serializable {
+            return serializable.borrow().serialize(serializer);
+        }
+
         match self.value.reflect_ref() {
             ReflectRef::Struct(value) => StructSerializer {
                 struct_value: value,
@@ -92,11 +133,7 @@ impl<'a> Serialize for ReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
-            ReflectRef::Value(value) => ReflectValueSerializer {
-                registry: self.registry,
-                value,
-            }
-            .serialize(serializer),
+            ReflectRef::Value(_) => Err(serializable.err().unwrap()),
         }
     }
 }
@@ -111,13 +148,9 @@ impl<'a> Serialize for ReflectValueSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(type_fields::TYPE, self.value.type_name())?;
-        state.serialize_entry(
-            type_fields::VALUE,
-            get_serializable::<S::Error>(self.value, self.registry)?.borrow(),
-        )?;
-        state.end()
+        get_serializable::<S::Error>(self.value, self.registry)?
+            .borrow()
+            .serialize(serializer)
     }
 }
 
@@ -131,35 +164,14 @@ impl<'a> Serialize for StructSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(2))?;
-
-        state.serialize_entry(type_fields::TYPE, self.struct_value.type_name())?;
-        state.serialize_entry(
-            type_fields::STRUCT,
-            &StructValueSerializer {
-                struct_value: self.struct_value,
-                registry: self.registry,
-            },
-        )?;
-        state.end()
-    }
-}
-
-pub struct StructValueSerializer<'a> {
-    pub struct_value: &'a dyn Struct,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for StructValueSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_map(Some(self.struct_value.field_len()))?;
         let serialization_data = self
             .registry
-            .get_with_name(self.struct_value.type_name())
+            .get(self.struct_value.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
+
+        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let mut state =
+            serializer.serialize_map(Some(self.struct_value.field_len() - ignored_len))?;
 
         for (index, value) in self.struct_value.iter_fields().enumerate() {
             if serialization_data
@@ -169,7 +181,7 @@ impl<'a> Serialize for StructValueSerializer<'a> {
                 continue;
             }
             let key = self.struct_value.name_at(index).unwrap();
-            state.serialize_entry(key, &ReflectSerializer::new(value, self.registry))?;
+            state.serialize_entry(key, &TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
     }
@@ -185,36 +197,12 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(2))?;
-
-        state.serialize_entry(type_fields::TYPE, self.tuple_struct.type_name())?;
-        state.serialize_entry(
-            type_fields::TUPLE_STRUCT,
-            &TupleStructValueSerializer {
-                tuple_struct: self.tuple_struct,
-                registry: self.registry,
-            },
-        )?;
-        state.end()
-    }
-}
-
-pub struct TupleStructValueSerializer<'a> {
-    pub tuple_struct: &'a dyn TupleStruct,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for TupleStructValueSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_seq(Some(self.tuple_struct.field_len()))?;
         let serialization_data = self
             .registry
-            .get_with_name(self.tuple_struct.type_name())
+            .get(self.tuple_struct.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-
+        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let mut state = serializer.serialize_tuple(self.tuple_struct.field_len() - ignored_len)?;
         for (index, value) in self.tuple_struct.iter_fields().enumerate() {
             if serialization_data
                 .map(|data| data.is_ignored_field(index))
@@ -222,7 +210,7 @@ impl<'a> Serialize for TupleStructValueSerializer<'a> {
             {
                 continue;
             }
-            state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
+            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
     }
@@ -238,11 +226,9 @@ impl<'a> Serialize for EnumSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(2))?;
-
-        state.serialize_entry(type_fields::TYPE, self.enum_value.type_name())?;
+        let mut state = serializer.serialize_map(Some(1))?;
         state.serialize_entry(
-            type_fields::ENUM,
+            self.enum_value.variant_name(),
             &EnumValueSerializer {
                 enum_value: self.enum_value,
                 registry: self.registry,
@@ -262,36 +248,26 @@ impl<'a> Serialize for EnumValueSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let variant_type = self.enum_value.variant_type();
-        let variant_name = self.enum_value.variant_name();
-
-        let mut state = if matches!(variant_type, VariantType::Unit) {
-            serializer.serialize_map(Some(1))?
-        } else {
-            serializer.serialize_map(Some(2))?
-        };
-
-        state.serialize_entry(type_fields::VARIANT, variant_name)?;
-
         match self.enum_value.variant_type() {
             VariantType::Struct => {
-                state.serialize_key(type_fields::STRUCT)?;
-                state.serialize_value(&StructVariantSerializer {
-                    enum_value: self.enum_value,
-                    registry: self.registry,
-                })?;
+                let mut state = serializer.serialize_map(Some(self.enum_value.field_len()))?;
+                for field in self.enum_value.iter_fields() {
+                    let key = field.name().expect("named field");
+                    let value = TypedReflectSerializer::new(field.value(), self.registry);
+                    state.serialize_entry(key, &value)?;
+                }
+                state.end()
             }
             VariantType::Tuple => {
-                state.serialize_key(type_fields::TUPLE)?;
-                state.serialize_value(&TupleVariantSerializer {
-                    enum_value: self.enum_value,
-                    registry: self.registry,
-                })?;
+                let mut state = serializer.serialize_tuple(self.enum_value.field_len())?;
+                for field in self.enum_value.iter_fields() {
+                    let value = TypedReflectSerializer::new(field.value(), self.registry);
+                    state.serialize_element(&value)?;
+                }
+                state.end()
             }
-            _ => {}
+            VariantType::Unit => serializer.serialize_unit(),
         }
-
-        state.end()
     }
 }
 
@@ -305,10 +281,10 @@ impl<'a> Serialize for TupleVariantSerializer<'a> {
     where
         S: Serializer,
     {
-        let field_len = self.enum_value.field_len();
-        let mut state = serializer.serialize_seq(Some(field_len))?;
+        let mut state = serializer.serialize_tuple(self.enum_value.field_len())?;
         for field in self.enum_value.iter_fields() {
-            state.serialize_element(&ReflectSerializer::new(field.value(), self.registry))?;
+            let value = TypedReflectSerializer::new(field.value(), self.registry);
+            state.serialize_element(&value)?;
         }
         state.end()
     }
@@ -324,16 +300,11 @@ impl<'a> Serialize for StructVariantSerializer<'a> {
     where
         S: Serializer,
     {
-        let field_len = self.enum_value.field_len();
-        let mut state = serializer.serialize_map(Some(field_len))?;
-        for (index, field) in self.enum_value.iter_fields().enumerate() {
-            let name = field.name().ok_or_else(|| {
-                S::Error::custom(format_args!(
-                    "struct variant missing name for field at index {}",
-                    index
-                ))
-            })?;
-            state.serialize_entry(name, &ReflectSerializer::new(field.value(), self.registry))?;
+        let mut state = serializer.serialize_map(Some(self.enum_value.field_len()))?;
+        for field in self.enum_value.iter_fields() {
+            let key = field.name().expect("named field");
+            let value = TypedReflectSerializer::new(field.value(), self.registry);
+            state.serialize_entry(key, &value)?;
         }
         state.end()
     }
@@ -349,34 +320,10 @@ impl<'a> Serialize for TupleSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(2))?;
-
-        state.serialize_entry(type_fields::TYPE, self.tuple.type_name())?;
-        state.serialize_entry(
-            type_fields::TUPLE,
-            &TupleValueSerializer {
-                tuple: self.tuple,
-                registry: self.registry,
-            },
-        )?;
-        state.end()
-    }
-}
-
-pub struct TupleValueSerializer<'a> {
-    pub tuple: &'a dyn Tuple,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for TupleValueSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_seq(Some(self.tuple.field_len()))?;
+        let mut state = serializer.serialize_tuple(self.tuple.field_len())?;
 
         for value in self.tuple.iter_fields() {
-            state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
+            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
     }
@@ -392,35 +339,11 @@ impl<'a> Serialize for MapSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(2))?;
-
-        state.serialize_entry(type_fields::TYPE, self.map.type_name())?;
-        state.serialize_entry(
-            type_fields::MAP,
-            &MapValueSerializer {
-                map: self.map,
-                registry: self.registry,
-            },
-        )?;
-        state.end()
-    }
-}
-
-pub struct MapValueSerializer<'a> {
-    pub map: &'a dyn Map,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for MapValueSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
         let mut state = serializer.serialize_map(Some(self.map.len()))?;
         for (key, value) in self.map.iter() {
             state.serialize_entry(
-                &ReflectSerializer::new(key, self.registry),
-                &ReflectSerializer::new(value, self.registry),
+                &TypedReflectSerializer::new(key, self.registry),
+                &TypedReflectSerializer::new(value, self.registry),
             )?;
         }
         state.end()
@@ -437,32 +360,9 @@ impl<'a> Serialize for ListSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(type_fields::TYPE, self.list.type_name())?;
-        state.serialize_entry(
-            type_fields::LIST,
-            &ListValueSerializer {
-                list: self.list,
-                registry: self.registry,
-            },
-        )?;
-        state.end()
-    }
-}
-
-pub struct ListValueSerializer<'a> {
-    pub list: &'a dyn List,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for ListValueSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
         let mut state = serializer.serialize_seq(Some(self.list.len()))?;
         for value in self.list.iter() {
-            state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
+            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
     }
@@ -478,32 +378,9 @@ impl<'a> Serialize for ArraySerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(type_fields::TYPE, self.array.type_name())?;
-        state.serialize_entry(
-            type_fields::ARRAY,
-            &ArrayValueSerializer {
-                array: self.array,
-                registry: self.registry,
-            },
-        )?;
-        state.end()
-    }
-}
-
-pub struct ArrayValueSerializer<'a> {
-    pub array: &'a dyn Array,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for ArrayValueSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_seq(Some(self.array.len()))?;
+        let mut state = serializer.serialize_tuple(self.array.len())?;
         for value in self.array.iter() {
-            state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
+            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
     }
@@ -511,19 +388,111 @@ impl<'a> Serialize for ArrayValueSerializer<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::ReflectSerializer;
     use crate as bevy_reflect;
-    use crate::prelude::*;
-    use crate::TypeRegistry;
+    use crate::serde::ReflectSerializer;
+    use crate::{Reflect, ReflectSerialize, TypeRegistry};
+    use bevy_utils::HashMap;
     use ron::ser::PrettyConfig;
+    use serde::Serialize;
+
+    #[derive(Reflect, Debug, PartialEq)]
+    struct MyStruct {
+        primitive_value: i8,
+        option_value: Option<String>,
+        tuple_value: (f32, usize),
+        list_value: Vec<i32>,
+        array_value: [i32; 5],
+        map_value: HashMap<u8, usize>,
+        struct_value: SomeStruct,
+        tuple_struct_value: SomeTupleStruct,
+        custom_serialize: CustomSerialize,
+    }
+
+    #[derive(Reflect, Debug, PartialEq, Serialize)]
+    struct SomeStruct {
+        foo: i64,
+    }
+
+    #[derive(Reflect, Debug, PartialEq)]
+    struct SomeTupleStruct(String);
+
+    /// Implements a custom serialize using #[reflect(Serialize)].
+    ///
+    /// For testing purposes, this is just the auto-generated one from deriving.
+    #[derive(Reflect, Debug, PartialEq, Serialize)]
+    #[reflect(Serialize)]
+    struct CustomSerialize {
+        value: usize,
+        #[serde(rename = "renamed")]
+        inner_struct: SomeStruct,
+    }
 
     fn get_registry() -> TypeRegistry {
         let mut registry = TypeRegistry::default();
-        registry.register::<usize>();
-        registry.register::<f32>();
+        registry.register::<MyStruct>();
+        registry.register::<SomeStruct>();
+        registry.register::<SomeTupleStruct>();
+        registry.register::<CustomSerialize>();
         registry.register::<String>();
-        registry.register::<(f32, f32)>();
+        registry.register::<Option<String>>();
+        registry.register_type_data::<Option<String>, ReflectSerialize>();
         registry
+    }
+
+    #[test]
+    fn should_serialize() {
+        let mut map = HashMap::new();
+        map.insert(64, 32);
+
+        let input = MyStruct {
+            primitive_value: 123,
+            option_value: Some(String::from("Hello world!")),
+            tuple_value: (3.14, 1337),
+            list_value: vec![-2, -1, 0, 1, 2],
+            array_value: [-2, -1, 0, 1, 2],
+            map_value: map,
+            struct_value: SomeStruct { foo: 999999999 },
+            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            custom_serialize: CustomSerialize {
+                value: 100,
+                inner_struct: SomeStruct { foo: 101 },
+            },
+        };
+
+        let registry = get_registry();
+        let serializer = ReflectSerializer::new(&input, &registry);
+
+        let output = ron::ser::to_string_pretty(&serializer, Default::default()).unwrap();
+        let expected = r#"{
+    "type": "bevy_reflect::serde::ser::tests::MyStruct",
+    "value": {
+        "primitive_value": 123,
+        "option_value": Some("Hello world!"),
+        "tuple_value": (3.14, 1337),
+        "list_value": [
+            -2,
+            -1,
+            0,
+            1,
+            2,
+        ],
+        "array_value": (-2, -1, 0, 1, 2),
+        "map_value": {
+            64: 32,
+        },
+        "struct_value": {
+            "foo": 999999999,
+        },
+        "tuple_struct_value": ("Tuple Struct"),
+        "custom_serialize": (
+            value: 100,
+            renamed: (
+                foo: 101,
+            ),
+        ),
+    },
+}"#;
+        assert_eq!(expected, output);
     }
 
     #[test]
@@ -547,8 +516,8 @@ mod tests {
         let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
-    "enum": {
-        "variant": "Unit",
+    "value": {
+        "Unit": (),
     },
 }"#;
         assert_eq!(expected, output);
@@ -559,14 +528,8 @@ mod tests {
         let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
-    "enum": {
-        "variant": "NewType",
-        "tuple": [
-            {
-                "type": "usize",
-                "value": 123,
-            },
-        ],
+    "value": {
+        "NewType": (123),
     },
 }"#;
         assert_eq!(expected, output);
@@ -577,18 +540,8 @@ mod tests {
         let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
-    "enum": {
-        "variant": "Tuple",
-        "tuple": [
-            {
-                "type": "f32",
-                "value": 1.23,
-            },
-            {
-                "type": "f32",
-                "value": 3.21,
-            },
-        ],
+    "value": {
+        "Tuple": (1.23, 3.21),
     },
 }"#;
         assert_eq!(expected, output);
@@ -601,16 +554,12 @@ mod tests {
         let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
-    "enum": {
-        "variant": "Struct",
-        "struct": {
-            "value": {
-                "type": "alloc::string::String",
-                "value": "I <3 Enums",
-            },
+    "value": {
+        "Struct": {
+            "value": "I <3 Enums",
         },
     },
 }"#;
-        assert_eq!(expected, output.replace('\r', ""));
+        assert_eq!(expected, output);
     }
 }
