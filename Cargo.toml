@@ -409,6 +409,10 @@ name = "breakout"
 path = "examples/game/breakout.rs"
 
 [[example]]
+name = "contributors"
+path = "examples/tools/contributors.rs"
+
+[[example]]
 name = "game_menu"
 path = "examples/game/game_menu.rs"
 
@@ -531,10 +535,6 @@ name = "transform_hierarchy"
 path = "examples/stress_tests/transform_hierarchy.rs"
 
 # Tools
-
-[[example]]
-name = "contributors"
-path = "examples/tools/contributors.rs"
 
 [[example]]
 name = "scene_viewer"

@@ -199,6 +199,7 @@ Example | File | Description
 --- | --- | ---
 `alien_cake_addict` | [`game/alien_cake_addict.rs`](./game/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
 `breakout` | [`game/breakout.rs`](./game/breakout.rs) | An implementation of the classic game "Breakout"
+`contributors` | [`2d/contributors.rs`](./game/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `game_menu` | [`game/game_menu.rs`](./game/game_menu.rs) | A simple game menu
 
 ## Input
@@ -272,7 +273,6 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`contributors` | [`2d/contributors.rs`](./tools/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `scene_viewer` | [`tools/scene_viewer.rs`](./tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer -- /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory.
 
 ## Transforms
