@@ -1,6 +1,6 @@
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::Size;
+use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
 use bevy_render::color::Color;
 use serde::{Deserialize, Serialize};
@@ -154,5 +154,5 @@ impl Default for TextStyle {
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Text2dSize {
-    pub size: Size,
+    pub size: Vec2,
 }

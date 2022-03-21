@@ -5,7 +5,7 @@ use bevy_ecs::{
     query::{Changed, QueryState, With},
     system::{Local, Query, QuerySet, Res, ResMut},
 };
-use bevy_math::{Size, Vec3};
+use bevy_math::{Vec2, Vec3};
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -34,7 +34,7 @@ impl Default for Text2dBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             text_2d_size: Text2dSize {
-                size: Size::default(),
+                size: Vec2::default(),
             },
             visibility: Default::default(),
         }
@@ -56,7 +56,7 @@ pub fn extract_text2d_sprite(
         if !visibility.is_visible {
             continue;
         }
-        let (width, height) = (calculated_size.size.width, calculated_size.size.height);
+        let (width, height) = (calculated_size.size.x, calculated_size.size.y);
 
         if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
             let text_glyphs = &text_layout.glyphs;
@@ -148,7 +148,7 @@ pub fn text2d_system(
                 &text.sections,
                 scale_factor,
                 text.alignment,
-                Size::new(f32::MAX, f32::MAX),
+                Vec2::new(f32::MAX, f32::MAX),
                 &mut *font_atlas_set_storage,
                 &mut *texture_atlases,
                 &mut *textures,
@@ -165,10 +165,10 @@ pub fn text2d_system(
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
-                    calculated_size.size = Size {
-                        width: scale_value(text_layout_info.size.width, 1. / scale_factor),
-                        height: scale_value(text_layout_info.size.height, 1. / scale_factor),
-                    };
+                    calculated_size.size = Vec2::new(
+                        scale_value(text_layout_info.size.x, 1. / scale_factor),
+                        scale_value(text_layout_info.size.y, 1. / scale_factor),
+                    );
                 }
             }
         }
