@@ -402,19 +402,19 @@ path = "examples/ecs/timers.rs"
 # Games
 [[example]]
 name = "alien_cake_addict"
-path = "examples/game/alien_cake_addict.rs"
+path = "examples/games/alien_cake_addict.rs"
 
 [[example]]
 name = "breakout"
-path = "examples/game/breakout.rs"
+path = "examples/games/breakout.rs"
 
 [[example]]
 name = "contributors"
-path = "examples/tools/contributors.rs"
+path = "examples/games/contributors.rs"
 
 [[example]]
 name = "game_menu"
-path = "examples/game/game_menu.rs"
+path = "examples/games/game_menu.rs"
 
 # Input
 [[example]]

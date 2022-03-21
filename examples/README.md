@@ -197,10 +197,10 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`alien_cake_addict` | [`game/alien_cake_addict.rs`](./game/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
-`breakout` | [`game/breakout.rs`](./game/breakout.rs) | An implementation of the classic game "Breakout"
-`contributors` | [`2d/contributors.rs`](./game/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
-`game_menu` | [`game/game_menu.rs`](./game/game_menu.rs) | A simple game menu
+`alien_cake_addict` | [`games/alien_cake_addict.rs`](./games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
+`breakout` | [`games/breakout.rs`](./games/breakout.rs) | An implementation of the classic game "Breakout"
+`contributors` | [`games/contributors.rs`](./games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+`game_menu` | [`games/game_menu.rs`](./games/game_menu.rs) | A simple game menu
 
 ## Input
 
