@@ -83,12 +83,30 @@ pub enum NodeRunError {
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].
 #[derive(Debug)]
 pub struct Edges {
-    pub id: NodeId,
-    pub input_edges: Vec<Edge>,
-    pub output_edges: Vec<Edge>,
+    id: NodeId,
+    input_edges: Vec<Edge>,
+    output_edges: Vec<Edge>,
 }
 
 impl Edges {
+    /// Returns all "input edges" (edges going "in") for this node .
+    #[inline]
+    pub fn input_edges(&self) -> &[Edge] {
+        &self.input_edges
+    }
+
+    /// Returns all "output edges" (edges going "out") for this node .
+    #[inline]
+    pub fn output_edges(&self) -> &[Edge] {
+        &self.output_edges
+    }
+
+    /// Returns this node's id.
+    #[inline]
+    pub fn id(&self) -> NodeId {
+        self.id
+    }
+
     /// Adds an edge to the `input_edges` if it does not already exist.
     pub(crate) fn add_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
         if self.has_input_edge(&edge) {

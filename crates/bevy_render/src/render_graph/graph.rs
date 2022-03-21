@@ -112,7 +112,7 @@ impl RenderGraph {
             if let Some(node_state) = self.nodes.remove(&id) {
                 // Remove all edges from other nodes to this one. Note that as we're removing this
                 // node, we don't need to remove its input edges
-                for input_edge in node_state.edges.input_edges.iter() {
+                for input_edge in node_state.edges.input_edges().iter() {
                     match input_edge {
                         Edge::SlotEdge {
                             output_node,
@@ -136,7 +136,7 @@ impl RenderGraph {
                 }
                 // Remove all edges from this node to other nodes. Note that as we're removing this
                 // node, we don't need to remove its output edges
-                for output_edge in node_state.edges.output_edges.iter() {
+                for output_edge in node_state.edges.output_edges().iter() {
                     match output_edge {
                         Edge::SlotEdge {
                             output_node: _,
@@ -398,7 +398,7 @@ impl RenderGraph {
                 if let Some(Edge::SlotEdge {
                     output_node: current_output_node,
                     ..
-                }) = input_node_state.edges.input_edges.iter().find(|e| {
+                }) = input_node_state.edges.input_edges().iter().find(|e| {
                     if let Edge::SlotEdge {
                         input_index: current_input_index,
                         ..
@@ -438,9 +438,9 @@ impl RenderGraph {
         let output_node_state = self.get_node_state(edge.get_output_node());
         let input_node_state = self.get_node_state(edge.get_input_node());
         if let Ok(output_node_state) = output_node_state {
-            if output_node_state.edges.output_edges.contains(edge) {
+            if output_node_state.edges.output_edges().contains(edge) {
                 if let Ok(input_node_state) = input_node_state {
-                    if input_node_state.edges.input_edges.contains(edge) {
+                    if input_node_state.edges.input_edges().contains(edge) {
                         return true;
                     }
                 }
@@ -483,7 +483,7 @@ impl RenderGraph {
         let node = self.get_node_state(label)?;
         Ok(node
             .edges
-            .input_edges
+            .input_edges()
             .iter()
             .map(|edge| (edge, edge.get_output_node()))
             .map(move |(edge, output_node_id)| {
@@ -500,7 +500,7 @@ impl RenderGraph {
         let node = self.get_node_state(label)?;
         Ok(node
             .edges
-            .output_edges
+            .output_edges()
             .iter()
             .map(|edge| (edge, edge.get_input_node()))
             .map(move |(edge, input_node_id)| (edge, self.get_node_state(input_node_id).unwrap())))
