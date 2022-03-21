@@ -32,6 +32,9 @@ pub trait AssetLoader: Send + Sync + 'static {
 /// and scripts. In Bevy, an asset is any struct that has an unique type id, as shown below:
 ///
 /// ```rust
+/// use bevy_reflect::TypeUuid;
+/// use serde::Deserialize;
+///
 /// #[derive(Debug, Deserialize, TypeUuid)]
 /// #[uuid = "39cadc56-aa9c-4543-8640-a018b74b5052"]
 /// pub struct CustomAsset {
@@ -73,15 +76,15 @@ impl<T: Asset> LoadedAsset<T> {
         self.dependencies.push(asset_path.to_owned());
     }
 
-    #[must_use]
     /// Adds a dependency on another asset at the provided path.
+    #[must_use]
     pub fn with_dependency(mut self, asset_path: AssetPath) -> Self {
         self.add_dependency(asset_path);
         self
     }
 
-    #[must_use]
     /// Adds dependencies on other assets at the provided paths.
+    #[must_use]
     pub fn with_dependencies(mut self, mut asset_paths: Vec<AssetPath<'static>>) -> Self {
         for asset_path in asset_paths.drain(..) {
             self.add_dependency(asset_path);

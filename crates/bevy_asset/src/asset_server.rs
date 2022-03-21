@@ -85,10 +85,13 @@ pub struct AssetServerInternal {
 /// accessor, like this:
 ///
 /// ```rust
+/// use bevy_asset::AssetServer;
+/// use bevy_ecs::prelude::{Commands, Res};
+
 /// fn my_system(mut commands: Commands, asset_server: Res<AssetServer>)
 /// {
-///     let asset_handle = asset_server.load("cool_picture.png");
-///     // do something with the asset handle...
+///     // Now you can do whatever you want with the asset server, such as loading an asset:
+///     // let asset_handle: Handle<Image> = asset_server.load("cool_picture.png");
 /// }
 /// ```
 ///
