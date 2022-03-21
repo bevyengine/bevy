@@ -414,6 +414,12 @@ the assets on Windows.
 
 These examples are used to test the performance and stability of various parts of the engine in an isolated way.
 
+Due to the focus on performance it's recommended to run the stress tests in release mode:
+
+```sh
+cargo run --release --example <example name>
+```
+
 Example | File | Description
 --- | --- | ---
 `transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance

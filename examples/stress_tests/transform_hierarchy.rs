@@ -16,18 +16,13 @@
 //! | `update_shallow`     | Same as `large_tree`, but only the first few levels are updated.  |
 //! | `humanoids_active`   | 4000 active humanoid rigs.                                        |
 //! | `humanoids_inactive` | 4000 humanoid rigs. Only 10 are active.                           |
-//! | `humanoids_mixed`    | 2000 inactive and 2000 active humanoid rigs.                      |
-//! | `drawing`            | A rendering-heavy configuration. Meshes and materials are shared. |
-//! | `drawing_unique`     | Same as `drawing`, but all meshes and materials are unique.       |
+//! | `humanoids_mixed`    | 2000 active and 2000 inactive humanoid rigs.                      |
 
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-};
+use bevy::prelude::*;
 use rand::Rng;
 
 /// pre-defined test configurations with name
-const CONFIGS: [(&str, Cfg); 11] = [
+const CONFIGS: [(&str, Cfg); 9] = [
     (
         "large_tree",
         Cfg {
@@ -39,11 +34,6 @@ const CONFIGS: [(&str, Cfg); 11] = [
                 probability: 0.5,
                 min_depth: 0,
                 max_depth: u32::MAX,
-            },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::None,
-                unique_meshes: false,
-                unique_materials: false,
             },
         },
     ),
@@ -59,11 +49,6 @@ const CONFIGS: [(&str, Cfg); 11] = [
                 min_depth: 0,
                 max_depth: u32::MAX,
             },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::None,
-                unique_meshes: false,
-                unique_materials: false,
-            },
         },
     ),
     (
@@ -77,11 +62,6 @@ const CONFIGS: [(&str, Cfg); 11] = [
                 probability: 0.5,
                 min_depth: 0,
                 max_depth: u32::MAX,
-            },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::None,
-                unique_meshes: false,
-                unique_materials: false,
             },
         },
     ),
@@ -97,11 +77,6 @@ const CONFIGS: [(&str, Cfg); 11] = [
                 min_depth: 0,
                 max_depth: u32::MAX,
             },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::None,
-                unique_meshes: false,
-                unique_materials: false,
-            },
         },
     ),
     (
@@ -115,11 +90,6 @@ const CONFIGS: [(&str, Cfg); 11] = [
                 probability: 0.5,
                 min_depth: 17,
                 max_depth: u32::MAX,
-            },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::None,
-                unique_meshes: false,
-                unique_materials: false,
             },
         },
     ),
@@ -135,11 +105,6 @@ const CONFIGS: [(&str, Cfg); 11] = [
                 min_depth: 0,
                 max_depth: 8,
             },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::None,
-                unique_meshes: false,
-                unique_materials: false,
-            },
         },
     ),
     (
@@ -153,11 +118,6 @@ const CONFIGS: [(&str, Cfg); 11] = [
                 probability: 1.0,
                 min_depth: 0,
                 max_depth: u32::MAX,
-            },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::None,
-                unique_meshes: false,
-                unique_materials: false,
             },
         },
     ),
@@ -173,11 +133,6 @@ const CONFIGS: [(&str, Cfg); 11] = [
                 min_depth: 0,
                 max_depth: u32::MAX,
             },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::None,
-                unique_meshes: false,
-                unique_materials: false,
-            },
         },
     ),
     (
@@ -192,49 +147,6 @@ const CONFIGS: [(&str, Cfg); 11] = [
                 min_depth: 0,
                 max_depth: u32::MAX,
             },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::None,
-                unique_meshes: false,
-                unique_materials: false,
-            },
-        },
-    ),
-    (
-        "drawing",
-        Cfg {
-            test_case: TestCase::Humanoids {
-                active: 150,
-                inactive: 500,
-            },
-            update_filter: UpdateFilter {
-                probability: 1.0,
-                min_depth: 0,
-                max_depth: u32::MAX,
-            },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::All,
-                unique_meshes: false,
-                unique_materials: false,
-            },
-        },
-    ),
-    (
-        "drawing_unique",
-        Cfg {
-            test_case: TestCase::Humanoids {
-                active: 150,
-                inactive: 500,
-            },
-            update_filter: UpdateFilter {
-                probability: 1.0,
-                min_depth: 0,
-                max_depth: u32::MAX,
-            },
-            visuals: Visuals {
-                visible_nodes: VisibleNodes::All,
-                unique_meshes: true,
-                unique_materials: true,
-            },
         },
     ),
 ];
@@ -247,7 +159,7 @@ fn print_available_configs() {
 }
 
 fn main() {
-    // parse arg and find test configuration
+    // parse cli argument and find the selected test configuration
     let cfg: Cfg = match std::env::args().nth(1) {
         Some(arg) => match CONFIGS.iter().find(|(name, _)| *name == arg) {
             Some((name, cfg)) => {
@@ -270,9 +182,9 @@ fn main() {
     println!("\n{:#?}", cfg);
 
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(cfg)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(MinimalPlugins)
+        .add_plugin(TransformPlugin::default())
         .add_startup_system(setup)
         .add_system(update)
         .run()
@@ -285,8 +197,6 @@ struct Cfg {
     test_case: TestCase,
     /// which entities should be updated
     update_filter: UpdateFilter,
-    /// which entities should be displayed
-    visuals: Visuals,
 }
 
 #[allow(unused)]
@@ -328,39 +238,6 @@ struct UpdateFilter {
     probability: f32,
 }
 
-impl Default for UpdateFilter {
-    fn default() -> Self {
-        Self {
-            min_depth: 0,
-            max_depth: u32::MAX,
-            probability: f32::MAX,
-        }
-    }
-}
-
-/// visual configuration
-#[derive(Debug, Clone)]
-struct Visuals {
-    /// visibility of nodes
-    visible_nodes: VisibleNodes,
-    /// insert a unique mesh for each node, otherwise share the same mesh
-    unique_meshes: bool,
-    /// insert a unique material for each node, otherwise share the same material
-    unique_materials: bool,
-}
-
-/// visibility of nodes
-#[allow(unused)]
-#[derive(PartialEq, Debug, Clone)]
-enum VisibleNodes {
-    /// draw nothing
-    None,
-    /// draw only leaves
-    Leaves,
-    /// draw all nodes
-    All,
-}
-
 /// update component with some per-component value
 #[derive(Component)]
 struct Update(f32);
@@ -379,12 +256,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
     translation.y = a.sin() * 32.0;
 }
 
-fn setup(
-    mut commands: Commands,
-    cfg: Res<Cfg>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands, cfg: Res<Cfg>) {
     let mut cam = OrthographicCameraBundle::new_2d();
     cam.transform.translation.z = 100.0;
     commands.spawn_bundle(cam);
@@ -395,30 +267,14 @@ fn setup(
             branch_width,
         } => {
             let tree = gen_tree(depth, branch_width);
-            spawn_tree(
-                &tree,
-                &mut commands,
-                &mut *meshes,
-                &mut *materials,
-                &cfg.update_filter,
-                &cfg.visuals,
-                default(),
-            )
+            spawn_tree(&tree, &mut commands, &cfg.update_filter, default())
         }
         TestCase::NonUniformTree {
             depth,
             branch_width,
         } => {
             let tree = gen_non_uniform_tree(depth, branch_width);
-            spawn_tree(
-                &tree,
-                &mut commands,
-                &mut *meshes,
-                &mut *materials,
-                &cfg.update_filter,
-                &cfg.visuals,
-                default(),
-            )
+            spawn_tree(&tree, &mut commands, &cfg.update_filter, default())
         }
         TestCase::Humanoids { active, inactive } => {
             let mut result = InsertResult::default();
@@ -428,10 +284,7 @@ fn setup(
                 result.combine(spawn_tree(
                     &HUMANOID_RIG,
                     &mut commands,
-                    &mut *meshes,
-                    &mut *materials,
                     &cfg.update_filter,
-                    &cfg.visuals,
                     Transform::from_xyz(
                         rng.gen::<f32>() * 500.0 - 250.0,
                         rng.gen::<f32>() * 500.0 - 250.0,
@@ -444,14 +297,11 @@ fn setup(
                 result.combine(spawn_tree(
                     &HUMANOID_RIG,
                     &mut commands,
-                    &mut *meshes,
-                    &mut *materials,
                     &UpdateFilter {
                         // force inactive by setting the probability < 0
                         probability: -1.0,
                         ..cfg.update_filter
                     },
-                    &cfg.visuals,
                     Transform::from_xyz(
                         rng.gen::<f32>() * 500.0 - 250.0,
                         rng.gen::<f32>() * 500.0 - 250.0,
@@ -474,8 +324,6 @@ struct InsertResult {
     inserted_nodes: usize,
     /// number of nodes that get updated each frame
     active_nodes: usize,
-    /// number of nodes that get rendered
-    drawn_nodes: usize,
     /// maximum depth of the hierarchy tree
     maximum_depth: usize,
 }
@@ -484,7 +332,6 @@ impl InsertResult {
     fn combine(&mut self, rhs: Self) -> &mut Self {
         self.inserted_nodes += rhs.inserted_nodes;
         self.active_nodes += rhs.active_nodes;
-        self.drawn_nodes += rhs.drawn_nodes;
         self.maximum_depth = self.maximum_depth.max(rhs.maximum_depth);
         self
     }
@@ -495,10 +342,7 @@ impl InsertResult {
 fn spawn_tree(
     parent_map: &[usize],
     commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<ColorMaterial>,
     update_filter: &UpdateFilter,
-    visuals: &Visuals,
     root_transform: Transform,
 ) -> InsertResult {
     // total count (# of nodes + root)
@@ -518,21 +362,6 @@ fn spawn_tree(
         assert!(parent_idx <= i, "invalid spawn order");
         node_info[parent_idx].child_count += 1;
     }
-
-    let mut create_mesh = || -> Mesh2dHandle {
-        meshes
-            .add(Mesh::from(shape::Quad {
-                size: Vec2::splat(8.0),
-                flip: false,
-            }))
-            .into()
-    };
-    let mut create_material =
-        |color: Color| -> Handle<ColorMaterial> { materials.add(ColorMaterial::from(color)) };
-
-    let default_mesh = create_mesh();
-    let default_material = create_material(Color::WHITE);
-    let default_material_update = create_material(Color::RED);
 
     // insert root
     ents.push(
@@ -573,10 +402,6 @@ fn spawn_tree(
             let update = (rng.gen::<f32>() <= update_filter.probability)
                 && (depth >= update_filter.min_depth && depth <= update_filter.max_depth);
 
-            // check whether or not to draw this node
-            let draw = visuals.visible_nodes == VisibleNodes::All
-                || (visuals.visible_nodes == VisibleNodes::Leaves && info.child_count == 0);
-
             if update {
                 cmd.insert(Update(sep));
                 result.active_nodes += 1;
@@ -590,37 +415,8 @@ fn spawn_tree(
                 Transform::from_translation(translation)
             };
 
-            if draw {
-                result.drawn_nodes += 1;
-
-                let mesh = if visuals.unique_meshes {
-                    create_mesh()
-                } else {
-                    default_mesh.clone()
-                };
-
-                // material: red (entities with `Update` component) or white (entities without `Update`)
-                let material = if visuals.unique_materials {
-                    create_material(if update { Color::RED } else { Color::WHITE })
-                } else if update {
-                    default_material_update.clone()
-                } else {
-                    default_material.clone()
-                };
-
-                let mut bundle = MaterialMesh2dBundle {
-                    mesh,
-                    material,
-                    transform,
-                    ..default()
-                };
-                set_translation(&mut bundle.transform.translation, sep);
-
-                cmd.insert_bundle(bundle);
-            } else {
-                // only insert the components necessary for the transform propagation
-                cmd.insert(transform).insert(GlobalTransform::default());
-            }
+            // only insert the components necessary for the transform propagation
+            cmd.insert(transform).insert(GlobalTransform::default());
 
             cmd.id()
         };
