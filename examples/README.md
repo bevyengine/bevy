@@ -51,6 +51,7 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
+  - [Stress Tests](#stress-tests)
   - [Tests](#tests)
   - [Tools](#tools)
   - [Transforms](#transforms)
@@ -68,7 +69,6 @@ git checkout v0.4.0
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
     - [Loading Assets](#loading-assets)
-- [Stress Tests](#stress-tests)
 
 # The Bare Minimum
 
@@ -244,6 +244,23 @@ Example | File | Description
 `animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to pass changing data like the time since startup into a shader.
 `compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader simulating Conway's Game of Life
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
+
+## Stress Tests
+
+These examples are used to test the performance and stability of various parts of the engine in an isolated way.
+
+Due to the focus on performance it's recommended to run the stress tests in release mode:
+
+```sh
+cargo run --release --example <example name>
+```
+
+Example | File | Description
+--- | --- | ---
+`bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+`many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
+`many_cubes` | [`3d/many_cubes.rs`](./3d/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
+`transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
 
 ## Tests
 
