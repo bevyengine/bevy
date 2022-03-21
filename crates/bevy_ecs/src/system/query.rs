@@ -758,7 +758,7 @@ where
     pub fn get_multiple_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> impl Iterator<Item = Result<<Q::Fetch as Fetch>::Item, QueryEntityError>> {
+    ) -> impl Iterator<Item = Result<<Q::Fetch as Fetch<'_, 's>>::Item, QueryEntityError>> {
         // Preallocating the HashSet used to check uniqueness based on the expected maximum amount of space
         let entities_seen = HashSet::with_capacity(N);
 
@@ -1150,7 +1150,7 @@ impl<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, const N: usize> Iterator
 where
     F::Fetch: FilterFetch,
 {
-    type Item = Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>;
+    type Item = Result<<Q::Fetch as Fetch<'q, 's>>::Item, QueryEntityError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < N {
