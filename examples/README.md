@@ -257,9 +257,9 @@ cargo run --release --example <example name>
 
 Example | File | Description
 --- | --- | ---
-`bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
-`many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
-`many_cubes` | [`3d/many_cubes.rs`](./3d/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
+`bevymark` | [`tools/bevymark.rs`](./stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+`many_sprites` | [`2d/many_sprites.rs`](./stress_tests/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
+`many_cubes` | [`3d/many_cubes.rs`](./stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
 `transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
 
 ## Tests
@@ -272,7 +272,7 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+`contributors` | [`2d/contributors.rs`](./tools/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 `scene_viewer` | [`tools/scene_viewer.rs`](./tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer -- /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory.
 
 ## Transforms
