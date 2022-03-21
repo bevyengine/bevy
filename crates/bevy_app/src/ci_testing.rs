@@ -2,10 +2,10 @@ use serde::Deserialize;
 
 use crate::{app::AppExit, App};
 
-/// Configuration for automated testing on CI
+/// A configuration for automated testing on CI.
 #[derive(Deserialize)]
 pub struct CiTestingConfig {
-    /// Number of frames after wich Bevy should exit
+    /// The number of frames after which `bevy` should exit.
     pub exit_after: Option<u32>,
 }
 
