@@ -2,13 +2,12 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
+        self, Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
         QueryState, WorldQuery,
     },
     world::{Mut, World},
 };
 use bevy_tasks::TaskPool;
-use bevy_utils::{AHashExt, HashSet};
 use std::{any::TypeId, fmt::Debug};
 use thiserror::Error;
 
@@ -710,9 +709,8 @@ where
     pub fn get_multiple<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> impl Iterator<Item = Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QueryEntityError>>
-    {
-        entities.into_iter().map(|entity| self.get(entity))
+    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        todo!()
     }
 
     /// Returns the query results for the provided Array of [`Entity`]s.
@@ -759,18 +757,16 @@ where
     pub fn get_multiple_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> GetMultipleMut<'w, 's, '_, Q, F, N> {
-        // Preallocating the HashSet used to check uniqueness based on the expected maximum amount of space
-        let entities_seen = HashSet::with_capacity(N);
-
-        // This is an iterator adaptor struct
-        // used to capture the value of `entities_seen` into the iterator returned
-        GetMultipleMut {
-            seen: entities_seen,
-            query: self,
-            index: 0,
-            array: entities,
+    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        for entity_i in entities {
+            for entity_j in entities {
+                if entity_i == entity_j {
+                    return Err(QueryEntityError::AliasedMutability);
+                }
+            }
         }
+
+        todo!()
     }
 
     /// Returns the query result for the given [`Entity`].
@@ -1128,46 +1124,6 @@ where
                     self.change_tick,
                 )
                 .is_ok()
-        }
-    }
-}
-
-/// An iterator adaptor struct used for [`Query::get_multiple_mut`]('Query::get_multiple_mut`)
-// See <https://stackoverflow.com/a/49813195> for more exposition
-pub struct GetMultipleMut<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, const N: usize>
-where
-    F::Fetch: FilterFetch,
-{
-    // PERF: we could probably make this faster in common cases using a PetitSet
-    // or other set optimized for small sizes
-    seen: HashSet<Entity>,
-    query: &'q mut Query<'w, 's, Q, F>,
-    index: usize,
-    array: [Entity; N],
-}
-
-impl<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, const N: usize> Iterator
-    for GetMultipleMut<'w, 's, 'q, Q, F, N>
-where
-    F::Fetch: FilterFetch,
-{
-    type Item = Result<<Q::Fetch as Fetch<'q, 's>>::Item, QueryEntityError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < N {
-            let entity = self.array[self.index];
-            self.index += 1;
-            Some({
-                // Returns true if the entity was not already present in the HashSet
-                if self.seen.insert(entity) {
-                    // SAFE: entities are checked for uniqueness using a HashSet
-                    unsafe { Query::<'q, 's, Q, F>::get_unchecked(self.query, entity) }
-                } else {
-                    Err(QueryEntityError::AliasedMutability)
-                }
-            })
-        } else {
-            None
         }
     }
 }

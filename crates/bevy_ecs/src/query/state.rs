@@ -733,7 +733,7 @@ where
 }
 
 /// An error that occurs when retrieving a specific [`Entity`]'s query result.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone, Copy)]
 pub enum QueryEntityError {
     #[error("The given entity does not have the requested component.")]
     QueryDoesNotMatch,
