@@ -4,6 +4,7 @@
 //! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
 mod flex;
 mod focus;
+mod geometry;
 mod margins;
 mod render;
 mod ui_node;
@@ -15,6 +16,7 @@ pub mod widget;
 use bevy_render::camera::CameraTypePlugin;
 pub use flex::*;
 pub use focus::*;
+pub use geometry::*;
 pub use margins::*;
 pub use render::*;
 pub use ui_node::*;
@@ -22,13 +24,13 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, ui_node::*, widget::Button, Interaction, Margins};
+    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, Margins};
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
-use bevy_math::{Rect, Size};
+use bevy_math::Size;
 use bevy_transform::TransformSystem;
 use update::{ui_z_system, update_clipping_system};
 
@@ -69,7 +71,7 @@ impl Plugin for UiPlugin {
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()
-            .register_type::<Rect<Val>>()
+            .register_type::<UiRect<Val>>()
             .register_type::<Style>()
             .register_type::<UiColor>()
             .register_type::<UiImage>()
