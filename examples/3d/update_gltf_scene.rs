@@ -42,7 +42,7 @@ fn setup(
     commands.spawn_bundle(SceneBundle {
         transform: Transform::from_xyz(0.0, 0.0, -1.0),
         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
-        ..Default::default()
+        ..default()
     });
 
     // Spawn a second scene, and keep its `instance_id`

@@ -119,7 +119,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     commands.spawn_bundle(SceneBundle {
                         transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         scene: cell_scene.clone(),
-                        ..Default::default()
+                        ..default()
                     });
                     Cell { height }
                 })
@@ -138,10 +138,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                         game.player.j as f32,
                     ),
                     rotation: Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
-                    ..Default::default()
+                    ..default()
                 },
                 scene: asset_server.load("models/AlienCake/alien.glb#Scene0"),
-                ..Default::default()
+                ..default()
             })
             .id(),
     );
@@ -326,7 +326,7 @@ fn spawn_bonus(
                     game.bonus.j as f32,
                 ),
                 scene: game.bonus.handle.clone(),
-                ..Default::default()
+                ..default()
             })
             .with_children(|children| {
                 children.spawn_bundle(PointLightBundle {
