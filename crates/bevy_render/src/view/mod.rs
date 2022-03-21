@@ -309,27 +309,6 @@ fn prepare_view_targets(
                     view.hdr,
                 );
 
-                /*let sampled_target = if msaa.samples > 1 {
-                    let sampled_texture = texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("sampled_color_attachment_texture"),
-                            size: Extent3d {
-                                width: size.x,
-                                height: size.y,
-                                depth_or_array_layers: 1,
-                            },
-                            mip_level_count: 1,
-                            sample_count: msaa.samples,
-                            dimension: TextureDimension::D2,
-                            format: TextureFormat::bevy_default(),
-                            usage: TextureUsages::RENDER_ATTACHMENT,
-                        },
-                    );
-                    Some(sampled_texture.default_view.clone())
-                } else {
-                    None
-                };*/
                 commands.entity(entity).insert(view_target);
             }
         }

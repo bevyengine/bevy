@@ -61,8 +61,8 @@ impl Node for TonemappingNode {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let in_texture = graph.get_input_texture(Self::IN_TEXTURE)?;
 
-        let render_pipeline_cache = world.get_resource::<RenderPipelineCache>().unwrap();
-        let tonemapping_pipeline = world.get_resource::<TonemappingPipeline>().unwrap();
+        let render_pipeline_cache = world.resource::<RenderPipelineCache>();
+        let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
 
         let (target, tonemapping_target) = match self.query.get_manual(world, view_entity) {
             Ok(query) => query,
