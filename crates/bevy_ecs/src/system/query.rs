@@ -278,41 +278,6 @@ where
         }
     }
 
-    /// Creates a new [`Query`] from a [`QueryState`]
-    ///
-    /// For performance reasons (and to enable change detection), queries cache internal state.
-    /// This data must be stored somewhere,
-    /// and so [`World::query`] must return a [`QueryState`], rather than a [`Query`].
-    /// However, it can often be more convenient to work with a [`Query`] instead.
-    ///
-    /// As queries can modify the entity-component data in ways that could conflict dangerously,
-    /// this method requires a mutable reference to the [`World`],
-    /// ensuring only one query is active at once.
-    /// This can be quite restrictive: consider using [`SystemState::new`](crate::system::SystemState::new) if this is a problem.
-    ///
-    /// # Example
-    /// ```rust
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component)]
-    /// struct PowerLevel(u64);
-    ///
-    /// let mut world = World::new();
-    /// world.spawn().insert(PowerLevel(9001));
-    ///
-    /// let query_state = world.query::<&PowerLevel>();
-    /// let query = Query::from_state(&mut world, &query_state);
-    /// let power_level = query.single();
-    ///
-    /// assert!(power_level.0 > 9000);
-    /// ```
-    pub fn from_state(world: &'w mut World, state: &'s QueryState<Q, F>) -> Self {
-        let last_change_tick = world.last_change_tick();
-        let change_tick = world.change_tick();
-
-        // SAFE: the `World` is borrowed mutably, so no other queries can have simultaneous access
-        unsafe { Self::new(world, state, last_change_tick, change_tick) }
-    }
-
     /// Returns an [`Iterator`] over the query results.
     ///
     /// This can only return immutable data (mutable data will be cast to an immutable form).
