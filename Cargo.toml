@@ -592,3 +592,9 @@ icon = "@mipmap/ic_launcher"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
+
+# Stress Tests
+[[example]]
+name = "transform_hierarchy"
+path = "examples/stress_tests/transform_hierarchy.rs"
+
