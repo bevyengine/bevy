@@ -759,7 +759,7 @@ where
     pub fn get_multiple_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> GetMultipleMut<Q, F, N> {
+    ) -> GetMultipleMut<'w, 's, '_, Q, F, N> {
         // Preallocating the HashSet used to check uniqueness based on the expected maximum amount of space
         let entities_seen = HashSet::with_capacity(N);
 
@@ -1132,9 +1132,9 @@ where
     }
 }
 
-/// Iterator adaptor struct used for [`Query::get_multiple_mut`]('Query::get_multiple_mut`)
-/// See <https://stackoverflow.com/a/49813195> for more exposition
-struct GetMultipleMut<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, const N: usize>
+/// An iterator adaptor struct used for [`Query::get_multiple_mut`]('Query::get_multiple_mut`)
+// See <https://stackoverflow.com/a/49813195> for more exposition
+pub struct GetMultipleMut<'w, 's, 'q, Q: WorldQuery, F: WorldQuery, const N: usize>
 where
     F::Fetch: FilterFetch,
 {
