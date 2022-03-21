@@ -1,5 +1,6 @@
 mod clear_pass;
 mod clear_pass_driver;
+pub mod fullscreen_vertex_shader;
 mod main_pass_2d;
 mod main_pass_3d;
 mod main_pass_driver;
@@ -23,6 +24,7 @@ pub use upscaling::*;
 use std::ops::Range;
 
 use bevy_app::{App, Plugin};
+use bevy_asset::load_internal_asset;
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -42,6 +44,8 @@ use bevy_render::{
 use tonemapping::TonemappingNode;
 use tonemapping::TonemappingPlugin;
 use upscaling::UpscalingNode;
+
+use crate::fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE;
 
 /// When used as a resource, sets the color that is used to clear the screen between frames.
 ///
@@ -122,6 +126,13 @@ pub enum CorePipelineRenderSystems {
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            FULLSCREEN_SHADER_HANDLE,
+            "fullscreen_vertex_shader/fullscreen.wgsl",
+            Shader::from_wgsl
+        );
+
         app.init_resource::<ClearColor>()
             .init_resource::<RenderTargetClearColors>()
             .add_plugin(TonemappingPlugin)

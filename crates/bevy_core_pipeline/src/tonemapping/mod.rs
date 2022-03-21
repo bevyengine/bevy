@@ -12,6 +12,8 @@ use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
 use bevy_reflect::TypeUuid;
 
+use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+
 const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);
 
@@ -91,12 +93,7 @@ impl SpecializedPipeline for TonemappingPipeline {
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
             layout: Some(vec![self.hdr_texture_bind_group.clone()]),
-            vertex: VertexState {
-                shader: TONEMAPPING_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
-                entry_point: "vs_main".into(),
-                buffers: vec![],
-            },
+            vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: TONEMAPPING_SHADER_HANDLE.typed(),
                 shader_defs: vec![],

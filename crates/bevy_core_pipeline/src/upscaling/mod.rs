@@ -12,6 +12,8 @@ use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
 use bevy_reflect::TypeUuid;
 
+use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+
 const UPSCALING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 14589267395627146578);
 
@@ -112,12 +114,7 @@ impl SpecializedPipeline for UpscalingPipeline {
         RenderPipelineDescriptor {
             label: Some("upscaling pipeline".into()),
             layout: Some(vec![self.ldr_texture_bind_group.clone()]),
-            vertex: VertexState {
-                shader: UPSCALING_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
-                entry_point: "vs_main".into(),
-                buffers: vec![],
-            },
+            vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: UPSCALING_SHADER_HANDLE.typed(),
                 shader_defs: vec![],
