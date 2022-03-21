@@ -708,9 +708,9 @@ where
     /// ```
     #[inline]
     pub fn get_multiple<const N: usize>(
-        &'s self,
+        &self,
         entities: [Entity; N],
-    ) -> impl Iterator<Item = Result<<Q::ReadOnlyFetch as Fetch>::Item, QueryEntityError>> {
+    ) -> impl Iterator<Item = Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QueryEntityError>> {
         entities.into_iter().map(|entity| self.get(entity))
     }
 
