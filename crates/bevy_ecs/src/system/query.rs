@@ -645,8 +645,8 @@ where
 
     /// Returns the read-only query results for the provided Array of [`Entity`]s.
     ///
-    /// These values follow the order of your input Array (if anyy).
-    /// In case of a nonexisting entity or mismatched component,
+    /// These values follow the order of your input array.
+    /// In case of a nonexisting entity,
     /// a [`QueryEntityError`] is returned instead.
     ///
     /// If you need to verify the identity of each item returned,
@@ -680,12 +680,9 @@ where
 
     /// Returns the query results for the provided Array of [`Entity`]s.
     ///
-    /// These values follow the order of your input Array (if any).
-    /// In case of nonunique entities, a nonexisting entity or a mismatched component,
+    /// These values follow the order of your input array.
+    /// In case of nonunique or nonexisting entities or a mismatched component,
     /// a [`QueryEntityError`] is returned instead.
-    ///
-    /// If you need to verify the identity of each item returned,
-    /// add [`Entity`] to your [`Query`].
     ///
     /// If you absolutely cannot afford the overhead of verifying uniqueness in this way,
     /// you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
