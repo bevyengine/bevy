@@ -1140,7 +1140,7 @@ where
     // PERF: we could probably make this faster in common cases using a PetitSet
     // or other set optimized for small sizes
     seen: HashSet<Entity>,
-    query: &'q Query<'w, 's, Q, F>,
+    query: &'q mut Query<'w, 's, Q, F>,
     index: usize,
     array: [Entity; N],
 }
