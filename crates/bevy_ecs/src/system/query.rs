@@ -623,7 +623,7 @@ where
     /// ```
     #[inline]
     pub fn get(
-        &'s self,
+        &self,
         entity: Entity,
     ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
@@ -710,7 +710,8 @@ where
     pub fn get_multiple<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> impl Iterator<Item = Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QueryEntityError>> {
+    ) -> impl Iterator<Item = Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QueryEntityError>>
+    {
         entities.into_iter().map(|entity| self.get(entity))
     }
 
@@ -758,7 +759,7 @@ where
     pub fn get_multiple_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> impl Iterator<Item = Result<<Q::Fetch as Fetch<'_, 's>>::Item, QueryEntityError>> {
+    ) -> GetMultipleMut<Q, F, N> {
         // Preallocating the HashSet used to check uniqueness based on the expected maximum amount of space
         let entities_seen = HashSet::with_capacity(N);
 
@@ -1160,7 +1161,7 @@ where
                 // Returns true if the entity was not already present in the HashSet
                 if self.seen.insert(entity) {
                     // SAFE: entities are checked for uniqueness using a HashSet
-                    unsafe { Query::<'w, 's, Q, F>::get_unchecked(self.query, entity) }
+                    unsafe { Query::<'q, 's, Q, F>::get_unchecked(self.query, entity) }
                 } else {
                     Err(QueryEntityError::AliasedMutability)
                 }
