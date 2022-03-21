@@ -1,5 +1,4 @@
-//! This crate is about everything concerning the highest-level, application layer of a `bevy`
-//! app.
+//! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
 #![warn(missing_docs)]
 
@@ -29,7 +28,7 @@ use bevy_ecs::schedule::StageLabel;
 
 /// The names of the default [`App`] stages.
 ///
-/// The relative [`Stage`](bevy_ecs::schedule::Stage)s are added by [`App::add_default_stages`].
+/// The relative [`Stages`](bevy_ecs::schedule::Stage) are added by [`App::add_default_stages`].
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum CoreStage {
     /// The [`Stage`](bevy_ecs::schedule::Stage) that runs before all other app stages.

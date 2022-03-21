@@ -10,7 +10,9 @@ use std::{cell::RefCell, rc::Rc};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::{prelude::*, JsCast};
 
-/// Determines the method used to run an [App]'s [`Schedule`](bevy_ecs::schedule::Schedule).
+/// Determines the method used to run an [`App`]'s [`Schedule`](bevy_ecs::schedule::Schedule).
+///
+/// It is used in the [`ScheduleRunnerSettings`].
 #[derive(Copy, Clone, Debug)]
 pub enum RunMode {
     /// Indicates that the [`App`]'s schedule should run repeatedly.
@@ -30,6 +32,8 @@ impl Default for RunMode {
 }
 
 /// The configuration information for the [`ScheduleRunnerPlugin`].
+///
+/// It gets added as a [`Resource`](bevy_ecs::system::Resource) inside of the [`ScheduleRunnerPlugin`].
 #[derive(Copy, Clone, Default)]
 pub struct ScheduleRunnerSettings {
     /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.

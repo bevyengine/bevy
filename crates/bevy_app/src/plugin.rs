@@ -1,7 +1,7 @@
 use crate::App;
 use std::any::Any;
 
-/// A collection of `bevy` app logic and configuration.
+/// A collection of Bevy app logic and configuration.
 ///
 /// Plugins configure an [`App`]. When an [`App`] registers a plugin,
 /// the plugin's [`Plugin::build`] function is run.

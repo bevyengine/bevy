@@ -24,11 +24,10 @@ bevy_utils::define_label!(AppLabel);
 /// an ECS-based application. It also stores a pointer to a [runner function](Self::set_runner).
 /// The runner is responsible for managing the application's event loop and applying the
 /// [`Schedule`] to the [`World`] to drive application logic.
-/// [`App`]s are constructed with the builder pattern.
 ///
 /// # Examples
 ///
-/// Here is a simple "Hello World" `bevy` app:
+/// Here is a simple "Hello World" Bevy app:
 ///
 /// ```
 /// # use bevy_app::prelude::*;
@@ -52,7 +51,7 @@ pub struct App {
     pub world: World,
     /// The [runner function](Self::set_runner) is primarily responsible for managing
     /// the application's event loop and advancing the [`Schedule`].
-    /// Typically, it is not configured manually, but set by one of `bevy`'s built-in plugins.
+    /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
@@ -578,8 +577,7 @@ impl App {
     ///   world changes that happened during the update stage.
     /// - **Last:** Runs right before the end of the schedule execution cycle.
     ///
-    /// The labels for those stages are defined in the [`CoreStage`] and [`StartupStage`]
-    /// enums.
+    /// The labels for those stages are defined in the [`CoreStage`] and [`StartupStage`] `enum`s.
     ///
     /// # Examples
     ///
@@ -635,7 +633,7 @@ impl App {
 
     /// Inserts a [`Resource`] to the current [`App`] and overwrites any [`Resource`] previously added of the same type.
     ///
-    /// A [`Resource`] in `bevy` represents globally unique data. [`Resource`]s must be added to `bevy` apps
+    /// A [`Resource`] in Bevy represents globally unique data. [`Resource`]s must be added to Bevy apps
     /// before using them. This happens with [`insert_resource`](Self::insert_resource).
     ///
     /// See [`init_resource`](Self::init_resource) for [`Resource`]s that implement [`Default`] or [`FromWorld`].
@@ -728,7 +726,7 @@ impl App {
     /// presence of a main loop in the app is desired, it is the responsibility of the runner
     /// function to provide it.
     ///
-    /// The runner function is usually not set manually, but by `bevy` integrated plugins
+    /// The runner function is usually not set manually, but by Bevy integrated plugins
     /// (e.g. `WinitPlugin`).
     ///
     /// # Examples
@@ -753,10 +751,10 @@ impl App {
 
     /// Adds a single [`Plugin`].
     ///
-    /// One of `bevy`'s core principles is modularity. All `bevy` engine features are implemented
+    /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
     /// as [`Plugin`]s. This includes internal features like the renderer.
     ///
-    /// `bevy` also provides a few sets of default [`Plugin`]s. See [`add_plugins`](Self::add_plugins).
+    /// Bevy also provides a few sets of default [`Plugin`]s. See [`add_plugins`](Self::add_plugins).
     ///
     /// # Examples
     ///
@@ -805,7 +803,7 @@ impl App {
     /// Adds a group of [`Plugin`]s with an initializer method.
     ///
     /// Can be used to add a group of [`Plugin`]s, where the group is modified
-    /// before insertion into a `bevy` application. For example, you can add
+    /// before insertion into a Bevy application. For example, you can add
     /// additional [`Plugin`]s at a specific place in the [`PluginGroup`], or deactivate
     /// specific [`Plugin`]s while keeping the rest.
     ///
