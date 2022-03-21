@@ -228,7 +228,7 @@ where
         let location = world
             .entities
             .get(entity)
-            .ok_or(QueryEntityError::NoSuchEntity)?;
+            .ok_or(QueryEntityError::NoSuchEntity(entity))?;
         if !self
             .matched_archetypes
             .contains(location.archetype_id.index())
@@ -738,7 +738,7 @@ pub enum QueryEntityError {
     #[error("The given entity does not have the requested component.")]
     QueryDoesNotMatch,
     #[error("The requested entity does not exist.")]
-    NoSuchEntity,
+    NoSuchEntity(Entity),
     #[error("The same entity was accessed mutably more than once.")]
-    AliasedMutability,
+    AliasedMutability(Entity),
 }

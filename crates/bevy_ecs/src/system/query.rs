@@ -761,7 +761,7 @@ where
         for entity_i in entities {
             for entity_j in entities {
                 if entity_i == entity_j {
-                    return Err(QueryEntityError::AliasedMutability);
+                    return Err(QueryEntityError::AliasedMutability(entity_i));
                 }
             }
         }
