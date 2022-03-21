@@ -4,8 +4,8 @@ use std::path::Path;
 
 /// Watches for changes to files on the local filesystem.
 ///
-/// When hot-reloading is enabled, the [`AssetServer`] uses this to reload assets when their source
-/// files are modified.
+/// When hot-reloading is enabled, the [`AssetServer`](crate::AssetServer) uses this to reload
+/// assets when their source files are modified.
 pub struct FilesystemWatcher {
     pub watcher: RecommendedWatcher,
     pub receiver: Receiver<Result<Event>>,

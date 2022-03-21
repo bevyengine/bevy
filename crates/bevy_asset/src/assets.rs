@@ -281,7 +281,7 @@ pub trait AddAsset {
     /// Registers `T` as a supported internal asset in the application.
     ///
     /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
-    /// using the conventional API. See [`DebugAssetServerPlugin`].
+    /// using the conventional API. See `DebugAssetServerPlugin`.
     ///
     /// Adding the same type again after it has been added does nothing.
     fn add_debug_asset<T: Clone>(&mut self) -> &mut Self
@@ -298,7 +298,7 @@ pub trait AddAsset {
     /// Adds an asset loader `T` for internal assets using default values.
     ///
     /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
-    /// using the conventional API. See [`DebugAssetServerPlugin`].
+    /// using the conventional API. See `DebugAssetServerPlugin`.
     ///
     /// The default values may come from the `World` or from `T::default()`.
     fn init_debug_asset_loader<T>(&mut self) -> &mut Self
@@ -381,7 +381,7 @@ impl AddAsset for App {
 /// Loads an internal asset.
 ///
 /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
-/// using the conventional API. See [`DebugAssetServerPlugin`].
+/// using the conventional API. See `DebugAssetServerPlugin`.
 #[cfg(feature = "debug_asset_server")]
 #[macro_export]
 macro_rules! load_internal_asset {
@@ -406,7 +406,7 @@ macro_rules! load_internal_asset {
 /// Loads an internal asset.
 ///
 /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
-/// using the conventional API. See [`DebugAssetServerPlugin`].
+/// using the conventional API. See `DebugAssetServerPlugin`.
 #[cfg(not(feature = "debug_asset_server"))]
 #[macro_export]
 macro_rules! load_internal_asset {
