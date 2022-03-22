@@ -715,6 +715,14 @@ impl From<[f32; 3]> for Color {
     }
 }
 
+impl From<u32> for Color {
+    /// eg. Color::from(0xFF0000FF)
+    fn from(val: u32) -> Self {
+        let [r, g, b, a] = val.to_le_bytes();
+        Color::rgba_u8(r, g, b, a)
+    }
+}
+
 impl From<Color> for Vec4 {
     fn from(color: Color) -> Self {
         let color: [f32; 4] = color.into();
