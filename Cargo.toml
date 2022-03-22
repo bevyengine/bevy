@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.6.0"
+version = "0.7.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -99,11 +99,11 @@ bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.7.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.7.0-dev", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false, features = [
+bevy_internal = { path = "crates/bevy_internal", version = "0.7.0-dev", default-features = false, features = [
   "webgl",
 ] }
 
@@ -182,6 +182,10 @@ path = "examples/3d/lighting.rs"
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
+
+[[example]]
+name = "manual_gltf_animation_player"
+path = "examples/3d/manual_gltf_animation_player.rs"
 
 [[example]]
 name = "many_cubes"
@@ -516,6 +520,10 @@ path = "examples/shader/compute_shader_game_of_life.rs"
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
 
+[[example]]
+name = "scene_viewer"
+path = "examples/tools/scene_viewer.rs"
+
 # Transforms
 [[example]]
 name = "global_vs_local_translation"
@@ -597,3 +605,9 @@ icon = "@mipmap/ic_launcher"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
+
+# Stress Tests
+[[example]]
+name = "transform_hierarchy"
+path = "examples/stress_tests/transform_hierarchy.rs"
+

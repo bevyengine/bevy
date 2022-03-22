@@ -766,7 +766,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, view_lights, mesh_view_bind_group) = view_query.get(view).unwrap();
+        let (view_uniform, view_lights, mesh_view_bind_group) = view_query.get_inner(view).unwrap();
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
@@ -810,7 +810,7 @@ impl<const I: usize> EntityRenderCommand for SetSkinnedMeshBindGroup<I> {
         mesh_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Ok(mesh_bind_group) = mesh_query.get(item) {
+        if let Ok(mesh_bind_group) = mesh_query.get_inner(item) {
             pass.set_bind_group(I, &mesh_bind_group.value, &[]);
         }
         RenderCommandResult::Success

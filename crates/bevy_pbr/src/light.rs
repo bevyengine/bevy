@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
@@ -640,8 +640,8 @@ fn cluster_space_light_aabb(
     light_sphere: &Sphere,
 ) -> (Vec3, Vec3) {
     let light_aabb_view = Aabb {
-        center: (inverse_view_transform * light_sphere.center.extend(1.0)).xyz(),
-        half_extents: Vec3::splat(light_sphere.radius),
+        center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
+        half_extents: Vec3A::splat(light_sphere.radius),
     };
     let (mut light_aabb_view_min, mut light_aabb_view_max) =
         (light_aabb_view.min(), light_aabb_view.max());
@@ -798,13 +798,13 @@ pub(crate) fn assign_lights_to_clusters(
                 false
             } else {
                 let light_sphere = Sphere {
-                    center: light.translation,
+                    center: Vec3A::from(light.translation),
                     radius: light.range,
                 };
 
                 let light_in_view = frusta
                     .iter()
-                    .any(|frustum| frustum.intersects_sphere(&light_sphere));
+                    .any(|frustum| frustum.intersects_sphere(&light_sphere, true));
 
                 if light_in_view {
                     lights_in_view_count += 1;
@@ -875,12 +875,12 @@ pub(crate) fn assign_lights_to_clusters(
             let mut cluster_index_estimate = 0.0;
             for light in lights.iter() {
                 let light_sphere = Sphere {
-                    center: light.translation,
+                    center: Vec3A::from(light.translation),
                     radius: light.range,
                 };
 
                 // Check if the light is within the view frustum
-                if !frustum.intersects_sphere(&light_sphere) {
+                if !frustum.intersects_sphere(&light_sphere, true) {
                     continue;
                 }
 
@@ -965,12 +965,12 @@ pub(crate) fn assign_lights_to_clusters(
 
         for light in lights.iter() {
             let light_sphere = Sphere {
-                center: light.translation,
+                center: Vec3A::from(light.translation),
                 radius: light.range,
             };
 
             // Check if the light is within the view frustum
-            if !frustum.intersects_sphere(&light_sphere) {
+            if !frustum.intersects_sphere(&light_sphere, true) {
                 continue;
             }
 
@@ -1174,7 +1174,7 @@ pub fn check_light_mesh_visibility(
 
             // If we have an aabb and transform, do frustum culling
             if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
+                if !frustum.intersects_obb(aabb, &transform.compute_matrix(), true) {
                     continue;
                 }
             }
@@ -1209,7 +1209,7 @@ pub fn check_light_mesh_visibility(
 
                 let view_mask = maybe_view_mask.copied().unwrap_or_default();
                 let light_sphere = Sphere {
-                    center: transform.translation,
+                    center: Vec3A::from(transform.translation),
                     radius: point_light.range,
                 };
 
@@ -1242,7 +1242,7 @@ pub fn check_light_mesh_visibility(
                             .iter()
                             .zip(cubemap_visible_entities.iter_mut())
                         {
-                            if frustum.intersects_obb(aabb, &model_to_world) {
+                            if frustum.intersects_obb(aabb, &model_to_world, true) {
                                 computed_visibility.is_visible = true;
                                 visible_entities.entities.push(entity);
                             }
