@@ -646,6 +646,14 @@ where
         Ok(array_of_results.map(|result| result.unwrap()))
     }
 
+    #[inline]
+    pub fn multiple<const N: usize>(
+        &'s self,
+        entities: [Entity; N],
+    ) -> [<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N] {
+        self.get_multiple(entities).unwrap()
+    }
+
     /// Returns the query result for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
@@ -721,6 +729,14 @@ where
 
         // Since we have verified that all entities are present, we can safely unwrap
         Ok(array_of_results.map(|result| result.unwrap()))
+    }
+
+    #[inline]
+    pub fn multiple_mut<const N: usize>(
+        &'s mut self,
+        entities: [Entity; N],
+    ) -> [<Q::Fetch as Fetch<'_, 's>>::Item; N] {
+        self.get_multiple_mut(entities).unwrap()
     }
 
     /// Returns the query result for the given [`Entity`].
