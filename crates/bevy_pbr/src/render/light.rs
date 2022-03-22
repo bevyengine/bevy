@@ -1,7 +1,7 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, MeshPipeline, NotShadowCaster, PointLight,
-    PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
+    PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, MESH_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -261,9 +261,9 @@ impl SpecializedMeshPipeline for ShadowPipeline {
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
+                shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
-                shader_defs: vec![],
+                shader_defs: vec!["SHADOW_MAPPING".to_string()],
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: None,

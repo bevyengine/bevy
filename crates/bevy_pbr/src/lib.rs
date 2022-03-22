@@ -48,8 +48,6 @@ use bevy_transform::TransformSystem;
 
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
-pub const SHADOW_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
 /// Sets up the entire PBR infrastructure of bevy.
 #[derive(Default)]
@@ -58,12 +56,6 @@ pub struct PbrPlugin;
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            SHADOW_SHADER_HANDLE,
-            "render/depth.wgsl",
-            Shader::from_wgsl
-        );
 
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
