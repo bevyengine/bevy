@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
-        QueryState, ReadOnlyFetch, WorldQuery,
+        Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryItem, QueryIter,
+        QueryState, ReadOnlyFetch, ReadOnlyQueryItem, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -602,10 +602,7 @@ where
     /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
     #[inline]
-    pub fn get(
-        &self,
-        entity: Entity,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QueryEntityError> {
+    pub fn get(&self, entity: Entity) -> Result<ReadOnlyQueryItem<Q>, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -643,10 +640,7 @@ where
     /// # bevy_ecs::system::assert_is_system(poison_system);
     /// ```
     #[inline]
-    pub fn get_mut(
-        &mut self,
-        entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch>::Item, QueryEntityError> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<QueryItem<Q>, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -672,7 +666,7 @@ where
     pub unsafe fn get_unchecked(
         &'s self,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<QueryItem<Q>, QueryEntityError> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state.get_unchecked_manual::<Q::Fetch>(
@@ -836,7 +830,7 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
-    pub fn single(&self) -> <Q::ReadOnlyFetch as Fetch<'_, 's>>::Item {
+    pub fn single(&self) -> ReadOnlyQueryItem<Q> {
         self.get_single().unwrap()
     }
 
@@ -871,9 +865,7 @@ where
     /// }
     /// # bevy_ecs::system::assert_is_system(player_scoring_system);
     /// ```
-    pub fn get_single(
-        &self,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QuerySingleError> {
+    pub fn get_single(&self) -> Result<ReadOnlyQueryItem<Q>, QuerySingleError> {
         let mut query = self.iter();
         let first = query.next();
         let extra = query.next().is_some();
@@ -912,7 +904,7 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
     #[track_caller]
-    pub fn single_mut(&mut self) -> <Q::Fetch as Fetch<'_, '_>>::Item {
+    pub fn single_mut(&mut self) -> QueryItem<Q> {
         self.get_single_mut().unwrap()
     }
 
@@ -938,9 +930,7 @@ where
     /// }
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
     /// ```
-    pub fn get_single_mut(
-        &mut self,
-    ) -> Result<<Q::Fetch as Fetch<'_, '_>>::Item, QuerySingleError> {
+    pub fn get_single_mut(&mut self) -> Result<QueryItem<Q>, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();
@@ -1081,7 +1071,7 @@ where
     pub fn get_inner(
         &'s self,
         entity: Entity,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<ReadOnlyQueryItem<'w, 's, Q>, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
