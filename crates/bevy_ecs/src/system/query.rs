@@ -2,7 +2,7 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        self, Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
+        Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
         QueryState, WorldQuery,
     },
     world::{Mut, World},
@@ -652,8 +652,8 @@ where
     pub fn get_multiple<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
-        self.state.get_multiple(entities)
+    ) -> [Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QueryEntityError>; N] {
+        self.state.get_multiple(self.world, entities)
     }
 
     /// Returns the read-only query items for the provided Array of [`Entity`]s.
@@ -665,8 +665,8 @@ where
     pub fn multiple<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> [<Q::ReadOnlyFetch as Fetch<'_, '_>>::Item; N] {
-        self.state.multiple(entities)
+    ) -> [<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N] {
+        self.state.multiple(self.world, entities)
     }
 
     /// Returns the query results for the provided Array of [`Entity`]s.
@@ -681,8 +681,8 @@ where
     pub fn get_multiple_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
-        self.state.get_multiple_mut(entities)
+    ) -> [Result<<Q::Fetch as Fetch<'_, 's>>::Item, QueryEntityError>; N] {
+        unsafe { self.state.get_multiple_mut_unchecked(self.world, entities) }
     }
 
     /// Returns the query items for the provided Array of [`Entity`]s.
@@ -691,10 +691,10 @@ where
     /// Panics if any entities do not exist, or any entities are repeated.
     #[inline]
     pub fn multiple_mut<const N: usize>(
-        &self,
+        &mut self,
         entities: [Entity; N],
-    ) -> [<Q::Fetch as Fetch<'_, '_>>::Item; N] {
-        self.state.multiple_mut(entities)
+    ) -> [<Q::Fetch as Fetch<'_, 's>>::Item; N] {
+        unsafe { self.state.multiple_mut_unchecked(self.world, entities) }
     }
 
     /// Returns the query result for the given [`Entity`].
