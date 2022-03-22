@@ -648,34 +648,12 @@ where
     /// These values follow the order of your input array.
     /// In case of a nonexisting entity,
     /// a [`QueryEntityError`] is returned instead.
-    ///
-    /// If you need to verify the identity of each item returned,
-    /// add [`Entity`] to your [`Query`].
-    ///
-    /// # Example
-    /// ```rust
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component, PartialEq, Debug)]
-    /// struct A(u64);
-    ///
-    /// let mut world = World::new();
-    /// let entity_1 = world.spawn().insert(A(1)).id();
-    /// let entity_2 = world.spawn().insert(A(2)).id();
-    /// let entity_3 = world.spawn().insert(A(3)).id();
-    ///
-    /// let query_state = world.query::<&A>();
-    /// let a_query = Query::from_state(&mut world, &query_state);
-    /// let mut a_iterator = a_query.get_multiple([entity_3, entity_2, entity_1]).map(|i|i.unwrap());
-    /// assert_eq!(*a_iterator.next().unwrap(), A(3));
-    /// assert_eq!(*a_iterator.next().unwrap(), A(2));
-    /// assert_eq!(*a_iterator.next().unwrap(), A(1));
-    /// ```
     #[inline]
     pub fn get_multiple<const N: usize>(
         &self,
         entities: [Entity; N],
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
-        todo!()
+        self.state.get_multiple(entities)
     }
 
     /// Returns the query results for the provided Array of [`Entity`]s.
@@ -686,49 +664,12 @@ where
     ///
     /// If you absolutely cannot afford the overhead of verifying uniqueness in this way,
     /// you can (carefully) call the unsafe [`get_unchecked`](Self::get_unchecked) method repeatedly instead.
-    ///
-    /// # Example
-    /// ```rust
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component, PartialEq, Debug)]
-    /// struct A(u64);
-    ///
-    /// let mut world = World::new();
-    /// let entity_1 = world.spawn().insert(A(1)).id();
-    /// let entity_2 = world.spawn().insert(A(2)).id();
-    /// let entity_3 = world.spawn().insert(A(3)).id();
-    ///
-    /// let query_state = world.query::<&mut A>();
-    /// let mut a_query = Query::from_state(&mut world, &query_state);
-    /// let mut a_iterator = a_query.get_multiple_mut([entity_1, entity_3]).map(|i|i.unwrap());
-    /// let mut a_1 = a_iterator.next().unwrap();
-    /// let mut a_3 = a_iterator.next().unwrap();
-    ///
-    /// *a_1 = A(11);
-    /// *a_3 = A(33);
-    ///
-    /// // Manually drop references so we can access the `World` again
-    /// std::mem::drop(a_iterator);
-    /// std::mem::drop(a_query);
-    ///
-    /// assert_eq!(*world.get::<A>(entity_1).unwrap(), A(11));
-    /// assert_eq!(*world.get::<A>(entity_2).unwrap(), A(2));
-    /// assert_eq!(*world.get::<A>(entity_3).unwrap(), A(33));
-    /// ```
     #[inline]
     pub fn get_multiple_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
-        for entity_i in entities {
-            for entity_j in entities {
-                if entity_i == entity_j {
-                    return Err(QueryEntityError::AliasedMutability(entity_i));
-                }
-            }
-        }
-
-        todo!()
+        self.state.get_multiple_mut(entities)
     }
 
     /// Returns the query result for the given [`Entity`].
