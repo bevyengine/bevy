@@ -153,6 +153,12 @@ where
         }
     }
 
+    /// Returns the read-only query results for the given array of [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// Note that the unlike [`QueryState::get_multiple_mut`], the entities passed in do not need to be unique.
     #[inline]
     pub fn get_multiple<'w, 's, const N: usize>(
         &'s mut self,
@@ -203,6 +209,10 @@ where
         }
     }
 
+    /// Returns the query results for the given array of [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     #[inline]
     pub fn get_multiple_mut<'w, 's, const N: usize>(
         &'s mut self,
