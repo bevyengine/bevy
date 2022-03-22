@@ -6,6 +6,9 @@ use bevy::{
     scene::InstanceId,
 };
 
+/// This illustrates loading animations from GLTF files and manually playing them.
+/// Note that a higher level animation api is in the works. This exists to illustrate how to
+/// read and build a custom GLTF animator, not to illustrate a final Bevy animation api.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
