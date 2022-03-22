@@ -309,7 +309,15 @@ pub trait WorldQuery {
         + ReadOnlyFetch;
 }
 
+/// The item type returned when you iterate a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState)
+///
+/// Unlike [`ReadOnlyQueryItem`], this type may allow mutable access to the component data.
 pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::Fetch as Fetch<'w, 's>>::Item;
+
+/// The item type returned when you iterate a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState)
+///
+/// Unlike [`QueryItem`], this type only permits immutable access to the component data.
+pub type ReadOnlyQueryItem<'w, 's, Q> = <<Q as WorldQuery>::ReadOnlyFetch as Fetch<'w, 's>>::Item;
 
 /// Types that implement this trait are responsible for fetching query items from tables or
 /// archetypes.
