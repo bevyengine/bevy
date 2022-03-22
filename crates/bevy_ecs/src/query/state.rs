@@ -153,6 +153,15 @@ where
         }
     }
 
+    #[inline]
+    pub fn get_multiple<'w, 's, const N: usize>(
+        &'s mut self,
+        world: &'w World,
+        entities: [Entity; N],
+    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        todo!()
+    }
+
     /// Gets the query result for the given [`World`] and [`Entity`].
     #[inline]
     pub fn get_mut<'w, 's>(
@@ -170,6 +179,15 @@ where
                 world.read_change_tick(),
             )
         }
+    }
+
+    #[inline]
+    pub fn get_multiple_mut<'w, 's, const N: usize>(
+        &'s mut self,
+        world: &'w mut World,
+        entities: [Entity; N],
+    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        todo!()
     }
 
     #[inline]

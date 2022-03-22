@@ -618,6 +618,14 @@ where
         }
     }
 
+    #[inline]
+    pub fn get_multiple<const N: usize>(
+        &'s self,
+        entities: [Entity; N],
+    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
+        todo!()
+    }
+
     /// Returns the query result for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
@@ -657,6 +665,14 @@ where
                 self.change_tick,
             )
         }
+    }
+
+    #[inline]
+    pub fn get_multiple_mut<const N: usize>(
+        &'s mut self,
+        entities: [Entity; N],
+    ) -> Result<[<Q::Fetch as Fetch>::Item; N], QueryEntityError> {
+        todo!()
     }
 
     /// Returns the query result for the given [`Entity`].
