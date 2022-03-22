@@ -14,7 +14,8 @@ use std::fmt::Debug;
 
 /// Events that involve assets of type `T`.
 ///
-/// Events sent via the [`Assets`] struct will always be sent with a _Weak_ handle.
+/// Events sent via the [`Assets`] struct will always be sent with a _Weak_ handle, because the
+/// asset may not exist by the time the event is handled.
 pub enum AssetEvent<T: Asset> {
     #[allow(missing_docs)]
     Created { handle: Handle<T> },
@@ -263,7 +264,7 @@ impl<T: Asset> Assets<T> {
         self.assets.len()
     }
 
-    /// Returns true if there are no stored assets.
+    /// Returns `true` if there are no stored assets.
     pub fn is_empty(&self) -> bool {
         self.assets.is_empty()
     }

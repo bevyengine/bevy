@@ -79,25 +79,29 @@ pub struct AssetServerInternal {
 /// Loads assets from the filesystem on the background.
 ///
 /// The asset server is the primary way of loading assets in bevy. It keeps track of the load state
-/// of the assets it manages and can even reload them from the filesystem [if you tell it to]!
+/// of the assets it manages and can even reload them from the filesystem with
+/// [`AssetServer::watch_for_changes`]!
 ///
 /// The asset server is a _resource_, so in order to accesss it in a system you need a `Res`
 /// accessor, like this:
 ///
-/// ```rust
-/// use bevy_asset::AssetServer;
+/// ```rust,no_run
+/// use bevy_asset::{AssetServer, Handle};
 /// use bevy_ecs::prelude::{Commands, Res};
-
+///
+/// # #[derive(Debug, bevy_reflect::TypeUuid)]
+/// # #[uuid = "00000000-0000-0000-0000-000000000000"]
+/// # struct Image;
+///
 /// fn my_system(mut commands: Commands, asset_server: Res<AssetServer>)
 /// {
 ///     // Now you can do whatever you want with the asset server, such as loading an asset:
-///     // let asset_handle: Handle<Image> = asset_server.load("cool_picture.png");
+///     let asset_handle: Handle<Image> = asset_server.load("cool_picture.png");
 /// }
 /// ```
 ///
 /// See the [`asset_loading`] example for more information.
 ///
-/// [if you tell it to]: AssetServer::watch_for_changes
 /// [`asset_loading`]: https://github.com/bevyengine/bevy/tree/latest/examples/asset/asset_loading.rs
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
@@ -146,7 +150,10 @@ impl AssetServer {
         Assets::new(self.server.asset_ref_counter.channel.sender.clone())
     }
 
-    /// Adds the provided loader as an asset loader for `T` assets.
+    /// Adds the provided asset loader to the server.
+    ///
+    /// If `loader` has one or more supported extensions in conflict with loaders that came before
+    /// it, it will replace them.
     pub fn add_loader<T>(&self, loader: T)
     where
         T: AssetLoader,

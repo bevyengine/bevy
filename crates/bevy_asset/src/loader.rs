@@ -48,7 +48,7 @@ pub trait AssetLoader: Send + Sync + 'static {
 /// with [`Assets::add`] or load them from the filesystem with [`AssetServer::load`].
 pub trait Asset: TypeUuid + AssetDynamic {}
 
-/// A untyped version of the [`Asset`] trait.
+/// An untyped version of the [`Asset`] trait.
 pub trait AssetDynamic: Downcast + TypeUuidDynamic + Send + Sync + 'static {}
 impl_downcast!(AssetDynamic);
 
