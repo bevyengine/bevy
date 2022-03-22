@@ -751,10 +751,13 @@ where
 }
 
 /// An error that occurs when retrieving a specific [`Entity`]'s query result.
+// TODO: return the TypeID or invalid Entity as part of this error
 #[derive(Error, Debug)]
 pub enum QueryEntityError {
     #[error("The given entity does not have the requested component.")]
     QueryDoesNotMatch,
     #[error("The requested entity does not exist.")]
     NoSuchEntity,
+    #[error("The entity was requested mutably more than once.")]
+    AliasedMutability,
 }
