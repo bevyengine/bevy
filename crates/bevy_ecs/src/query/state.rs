@@ -159,6 +159,32 @@ where
     /// returned instead.
     ///
     /// Note that the unlike [`QueryState::get_multiple_mut`], the entities passed in do not need to be unique.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct A(usize);
+    ///
+    /// let mut world = World::new();
+    /// let mut entities: [Entity; 3] = [Entity::from_raw(0); 3];
+    ///
+    /// world.spawn().insert(A(42));
+    ///
+    /// for i in 0..3 {
+    ///     entities[i] = world.spawn().insert(A(i)).id();
+    /// }
+    ///
+    /// world.spawn().insert(A(73));
+    ///
+    /// let mut query_state = world.query::<&A>();
+    ///
+    /// let component_values = query_state.get_multiple(&world, entities).unwrap();
+    ///
+    /// assert_eq!(component_values, [&A(0), &A(1), &A(2)])
+    /// ```
     #[inline]
     pub fn get_multiple<'w, 's, const N: usize>(
         &'s mut self,
@@ -213,6 +239,36 @@ where
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct A(usize);
+    ///
+    /// let mut world = World::new();
+    /// let mut entities: [Entity; 3] = [Entity::from_raw(0); 3];
+    ///
+    /// world.spawn().insert(A(42));
+    ///
+    /// for i in 0..3 {
+    ///     entities[i] = world.spawn().insert(A(i)).id();
+    /// }
+    ///
+    /// world.spawn().insert(A(73));
+    ///
+    /// let mut query_state = world.query::<&mut A>();
+    ///
+    /// let mut mutable_component_values = query_state.get_multiple_mut(&mut world, entities).unwrap();
+    ///
+    /// for mut a in mutable_component_values.iter_mut(){
+    ///     a.0 += 5;
+    /// }
+    ///
+    /// let component_values = query_state.get_multiple(&world, entities).unwrap();
+    ///
+    /// assert_eq!(component_values, [&A(5), &A(6), &A(7)])
+    /// ```
     #[inline]
     pub fn get_multiple_mut<'w, 's, const N: usize>(
         &'s mut self,
