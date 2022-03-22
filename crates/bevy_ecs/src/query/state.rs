@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{
         Access, Fetch, FetchState, FilterFetch, FilteredAccess, NopFetch, QueryCombinationIter,
-        QueryIter, WorldQuery,
+        QueryItem, QueryIter, ReadOnlyQueryItem, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -140,7 +140,7 @@ where
         &'s mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<ReadOnlyQueryItem<'w, 's, Q>, QueryEntityError> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -159,7 +159,7 @@ where
         &'s mut self,
         world: &'w mut World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<QueryItem<'w, 's, Q>, QueryEntityError> {
         self.update_archetypes(world);
         // SAFETY: query has unique world access
         unsafe {
@@ -177,7 +177,7 @@ where
         &'s self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<ReadOnlyQueryItem<'w, 's, Q>, QueryEntityError> {
         self.validate_world(world);
         // SAFETY: query is read only and world is validated
         unsafe {
@@ -201,7 +201,7 @@ where
         &'s mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<QueryItem<'w, 's, Q>, QueryEntityError> {
         self.update_archetypes(world);
         self.get_unchecked_manual::<Q::Fetch>(
             world,
