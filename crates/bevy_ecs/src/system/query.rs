@@ -637,8 +637,8 @@ where
 
         // If any of the entities were not present, return an error
         for result in &array_of_results {
-            if result.is_err() {
-                return Err(QueryEntityError::NoSuchEntity);
+            if let Err(QueryEntityError::NoSuchEntity(entity)) = result {
+                return Err(QueryEntityError::NoSuchEntity(*entity));
             }
         }
 
@@ -703,7 +703,7 @@ where
         for i in 0..N {
             for j in 0..i {
                 if entities[i] == entities[j] {
-                    return Err(QueryEntityError::AliasedMutability);
+                    return Err(QueryEntityError::AliasedMutability(entities[i]));
                 }
             }
         }
@@ -724,8 +724,8 @@ where
 
         // If any of the entities were not present, return an error
         for result in &array_of_results {
-            if result.is_err() {
-                return Err(QueryEntityError::NoSuchEntity);
+            if let Err(QueryEntityError::NoSuchEntity(entity)) = result {
+                return Err(QueryEntityError::NoSuchEntity(*entity));
             }
         }
 
