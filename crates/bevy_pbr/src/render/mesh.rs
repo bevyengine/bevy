@@ -33,7 +33,7 @@ pub struct MeshRenderPlugin;
 
 const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
-const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
+pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
