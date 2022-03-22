@@ -401,7 +401,7 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, mesh2d_view_bind_group) = view_query.get(view).unwrap();
+        let (view_uniform, mesh2d_view_bind_group) = view_query.get_inner(view).unwrap();
         pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
         RenderCommandResult::Success

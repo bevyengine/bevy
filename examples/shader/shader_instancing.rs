@@ -240,7 +240,7 @@ impl EntityRenderCommand for DrawMeshInstanced {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let mesh_handle = mesh_query.get(item).unwrap();
-        let instance_buffer = instance_buffer_query.get(item).unwrap();
+        let instance_buffer = instance_buffer_query.get_inner(item).unwrap();
 
         let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
             Some(gpu_mesh) => gpu_mesh,
