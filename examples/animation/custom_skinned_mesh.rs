@@ -79,7 +79,7 @@ fn setup(
     mesh.insert_attribute(
         Mesh::ATTRIBUTE_JOINT_INDEX,
         vec![
-            [0u32, 0, 0, 0],
+            [0u16, 0, 0, 0],
             [0, 0, 0, 0],
             [0, 1, 0, 0],
             [0, 1, 0, 0],
