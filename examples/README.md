@@ -50,7 +50,7 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
-- [Stress Tests](#stress-tests)
+  - [Stress Tests](#stress-tests)
   - [Tests](#tests)
   - [Tools](#tools)
   - [Transforms](#transforms)
@@ -239,7 +239,7 @@ Example | File | Description
 `compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader simulating Conway's Game of Life
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
 
-# Stress Tests
+## Stress Tests
 
 These examples are used to test the performance and stability of various parts of the engine in an isolated way.
 
