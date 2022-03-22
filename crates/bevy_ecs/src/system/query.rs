@@ -623,7 +623,27 @@ where
         &'s self,
         entities: [Entity; N],
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
-        todo!()
+        let array_of_results = entities.map(|entity| {
+            // SAFETY: query is read only
+            unsafe {
+                self.state.get_unchecked_manual::<Q::ReadOnlyFetch>(
+                    self.world,
+                    entity,
+                    self.last_change_tick,
+                    self.change_tick,
+                )
+            }
+        });
+
+        // If any of the entities were not present, return an error
+        for result in &array_of_results {
+            if result.is_err() {
+                return Err(QueryEntityError::NoSuchEntity);
+            }
+        }
+
+        // Since we have verified that all entities are present, we can safely unwrap
+        Ok(array_of_results.map(|result| result.unwrap()))
     }
 
     /// Returns the query result for the given [`Entity`].
@@ -672,7 +692,35 @@ where
         &'s mut self,
         entities: [Entity; N],
     ) -> Result<[<Q::Fetch as Fetch>::Item; N], QueryEntityError> {
-        todo!()
+        for i in 0..N {
+            for j in 0..i {
+                if entities[i] == entities[j] {
+                    return Err(QueryEntityError::AliasedMutability);
+                }
+            }
+        }
+
+        let array_of_results = entities.map(|entity| {
+            // SAFETY: query is read only
+            unsafe {
+                self.state.get_unchecked_manual::<Q::Fetch>(
+                    self.world,
+                    entity,
+                    self.last_change_tick,
+                    self.change_tick,
+                )
+            }
+        });
+
+        // If any of the entities were not present, return an error
+        for result in &array_of_results {
+            if result.is_err() {
+                return Err(QueryEntityError::NoSuchEntity);
+            }
+        }
+
+        // Since we have verified that all entities are present, we can safely unwrap
+        Ok(array_of_results.map(|result| result.unwrap()))
     }
 
     /// Returns the query result for the given [`Entity`].
