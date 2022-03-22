@@ -246,6 +246,8 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
+        // MeshPipeline::specialize's current implementation guarantees that the returned 
+        // specialized descriptor has a populated layout
         let descriptor_layout = descriptor.layout.as_mut().unwrap();
         descriptor_layout.insert(1, self.material_layout.clone());
 
