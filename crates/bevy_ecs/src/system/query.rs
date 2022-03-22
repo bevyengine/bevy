@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
-        QueryState, ReadOnlyFetch, WorldQuery,
+        verify_entities_unique, Fetch, FilterFetch, NopFetch, QueryCombinationIter,
+        QueryEntityError, QueryIter, QueryState, ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -631,27 +631,16 @@ where
         &self,
         entities: [Entity; N],
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
-        let array_of_results = entities.map(|entity| {
-            // SAFETY: query is read only
-            unsafe {
-                self.state.get_unchecked_manual::<Q::ReadOnlyFetch>(
+        // SAFE: Query is read-only
+        unsafe {
+            self.state
+                .get_multiple_unchecked_manual::<Q::ReadOnlyFetch, N>(
                     self.world,
-                    entity,
+                    entities,
                     self.last_change_tick,
                     self.change_tick,
                 )
-            }
-        });
-
-        // If any of the entities were not present, return an error
-        for result in &array_of_results {
-            if let Err(QueryEntityError::NoSuchEntity(entity)) = result {
-                return Err(QueryEntityError::NoSuchEntity(*entity));
-            }
         }
-
-        // Since we have verified that all entities are present, we can safely unwrap
-        Ok(array_of_results.map(|result| result.unwrap()))
     }
 
     /// Returns the read-only query items for the provided array of [`Entity`]
@@ -749,37 +738,17 @@ where
         &mut self,
         entities: [Entity; N],
     ) -> Result<[<Q::Fetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
-        for i in 0..N {
-            for j in 0..i {
-                if entities[i] == entities[j] {
-                    return Err(QueryEntityError::AliasedMutability(entities[i]));
-                }
-            }
+        verify_entities_unique(entities)?;
+
+        // SAFE: scheduler ensures safe Query world access, and entities are checked for uniqueness
+        unsafe {
+            self.state.get_multiple_unchecked_manual::<Q::Fetch, N>(
+                self.world,
+                entities,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
-
-        let array_of_results = entities.map(|entity| {
-            // SAFETY: Entities are checked for uniqueness above,
-            // the scheduler ensure that we do not have conflicting world access,
-            // and we require &mut self to avoid any other simultaneous operations on this Query
-            unsafe {
-                self.state.get_unchecked_manual::<Q::Fetch>(
-                    self.world,
-                    entity,
-                    self.last_change_tick,
-                    self.change_tick,
-                )
-            }
-        });
-
-        // If any of the entities were not present, return an error
-        for result in &array_of_results {
-            if let Err(QueryEntityError::NoSuchEntity(entity)) = result {
-                return Err(QueryEntityError::NoSuchEntity(*entity));
-            }
-        }
-
-        // Since we have verified that all entities are present, we can safely unwrap
-        Ok(array_of_results.map(|result| result.unwrap()))
     }
 
     /// Returns the query items for the provided array of [`Entity`]
