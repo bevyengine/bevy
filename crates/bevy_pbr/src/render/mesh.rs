@@ -28,6 +28,8 @@ pub struct MeshRenderPlugin;
 
 pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
+pub const VIEW_STRUCT_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 14142064219470328457);
 pub const MESH_STRUCT_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
 pub const MESH_SHADER_HANDLE: HandleUntyped =
@@ -40,6 +42,12 @@ impl Plugin for MeshRenderPlugin {
             app,
             MESH_STRUCT_HANDLE,
             "mesh_struct.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            VIEW_STRUCT_HANDLE,
+            "view_struct.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
