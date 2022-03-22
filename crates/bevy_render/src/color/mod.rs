@@ -184,6 +184,14 @@ impl Color {
     }
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// eg. `Color::rgba_hex_u32(0xFF0000FF)`
+    pub fn rgba_hex_u32(input: u32) -> Color {
+        let [r, g, b, a] = input.to_le_bytes();
+        Self::rgba_u8(r, g, b, a)
+    }
+
+    /// New `Color` from sRGB colorspace.
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
         Color::rgba_u8(r, g, b, u8::MAX)
     }
@@ -712,14 +720,6 @@ impl From<[f32; 4]> for Color {
 impl From<[f32; 3]> for Color {
     fn from([r, g, b]: [f32; 3]) -> Self {
         Color::rgb(r, g, b)
-    }
-}
-
-impl From<u32> for Color {
-    /// eg. Color::from(0xFF0000FF)
-    fn from(val: u32) -> Self {
-        let [r, g, b, a] = val.to_le_bytes();
-        Color::rgba_u8(r, g, b, a)
     }
 }
 
