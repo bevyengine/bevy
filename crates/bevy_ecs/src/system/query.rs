@@ -2,7 +2,7 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryItem, QueryIter,
+        FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryItem, QueryIter,
         QueryState, ReadOnlyFetch, ReadOnlyQueryItem, WorldQuery,
     },
     world::{Mut, World},
@@ -454,10 +454,7 @@ where
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn for_each<'this>(
-        &'this self,
-        f: impl FnMut(<Q::ReadOnlyFetch as Fetch<'this, 's>>::Item),
-    ) {
+    pub fn for_each<'this>(&'this self, f: impl FnMut(ReadOnlyQueryItem<'this, 's, Q>)) {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -492,7 +489,7 @@ where
     /// # bevy_ecs::system::assert_is_system(gravity_system);
     /// ```
     #[inline]
-    pub fn for_each_mut<'a, FN: FnMut(<Q::Fetch as Fetch<'a, 'a>>::Item)>(&'a mut self, f: FN) {
+    pub fn for_each_mut<'a, FN: FnMut(QueryItem<'a, 'a, Q>)>(&'a mut self, f: FN) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -530,7 +527,7 @@ where
         &'this self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::ReadOnlyFetch as Fetch<'this, 's>>::Item) + Send + Sync + Clone,
+        f: impl Fn(ReadOnlyQueryItem<'this, 's, Q>) + Send + Sync + Clone,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
@@ -550,7 +547,7 @@ where
     /// Runs `f` on each query result in parallel using the given [`TaskPool`].
     /// See [`Self::par_for_each`] for more details.
     #[inline]
-    pub fn par_for_each_mut<'a, FN: Fn(<Q::Fetch as Fetch<'a, 'a>>::Item) + Send + Sync + Clone>(
+    pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, 'a, Q>) + Send + Sync + Clone>(
         &'a mut self,
         task_pool: &TaskPool,
         batch_size: usize,

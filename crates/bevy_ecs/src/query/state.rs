@@ -427,7 +427,7 @@ where
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
     #[inline]
-    pub fn for_each<'w, 's, FN: FnMut(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item)>(
+    pub fn for_each<'w, 's, FN: FnMut(ReadOnlyQueryItem<'w, 's, Q>)>(
         &'s mut self,
         world: &'w World,
         func: FN,
@@ -447,7 +447,7 @@ where
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
     /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
     #[inline]
-    pub fn for_each_mut<'w, 's, FN: FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)>(
+    pub fn for_each_mut<'w, 's, FN: FnMut(QueryItem<'w, 's, Q>)>(
         &'s mut self,
         world: &'w mut World,
         func: FN,
@@ -474,7 +474,7 @@ where
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn for_each_unchecked<'w, 's, FN: FnMut(<Q::Fetch as Fetch<'w, 's>>::Item)>(
+    pub unsafe fn for_each_unchecked<'w, 's, FN: FnMut(QueryItem<'w, 's, Q>)>(
         &'s mut self,
         world: &'w World,
         func: FN,
@@ -493,11 +493,7 @@ where
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
     #[inline]
-    pub fn par_for_each<
-        'w,
-        's,
-        FN: Fn(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
-    >(
+    pub fn par_for_each<'w, 's, FN: Fn(ReadOnlyQueryItem<'w, 's, Q>) + Send + Sync + Clone>(
         &'s mut self,
         world: &'w World,
         task_pool: &TaskPool,
@@ -520,11 +516,7 @@ where
 
     /// Runs `func` on each query result in parallel using the given `task_pool`.
     #[inline]
-    pub fn par_for_each_mut<
-        'w,
-        's,
-        FN: Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
-    >(
+    pub fn par_for_each_mut<'w, 's, FN: Fn(QueryItem<'w, 's, Q>) + Send + Sync + Clone>(
         &'s mut self,
         world: &'w mut World,
         task_pool: &TaskPool,
@@ -557,7 +549,7 @@ where
     pub unsafe fn par_for_each_unchecked<
         'w,
         's,
-        FN: Fn(<Q::Fetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone,
+        FN: Fn(QueryItem<'w, 's, Q>) + Send + Sync + Clone,
     >(
         &'s mut self,
         world: &'w World,
