@@ -277,8 +277,8 @@ where
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
-    /// assert_eq!(query_state.get_multiple_mut(&mut world, [wrong_entity]), Err(QueryEntityError::NoSuchEntity(wrong_entity)));
-    /// assert_eq!(query_state.get_multiple_mut(&mut world, [entities[0], entities[0]]), Err(QueryEntityError::AliasedMutability(entities[0])));
+    /// assert_eq!(query_state.get_multiple_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
+    /// assert_eq!(query_state.get_multiple_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
     #[inline]
     pub fn get_multiple_mut<'w, 's, const N: usize>(
