@@ -297,6 +297,7 @@ where
 
         // SAFE: the entities are checked for uniqueness above
         // No other references to the query can be live, as this method takes &mut self
+        // The World cannot be modified in other ways as we take &mut World
         unsafe {
             let array_of_results = entities.map(move |e| self.get_unchecked(world, e));
 
