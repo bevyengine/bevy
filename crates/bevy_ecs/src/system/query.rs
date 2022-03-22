@@ -652,7 +652,7 @@ where
     pub fn get_multiple<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> [Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QueryEntityError>; N] {
+    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
         self.state.get_multiple(self.world, entities)
     }
 
@@ -681,8 +681,8 @@ where
     pub fn get_multiple_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> [Result<<Q::Fetch as Fetch<'_, 's>>::Item, QueryEntityError>; N] {
-        unsafe { self.state.get_multiple_mut_unchecked(self.world, entities) }
+    ) -> Result<[<Q::Fetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
+        self.state.get_multiple_mut(self.world, entities)
     }
 
     /// Returns the query items for the provided Array of [`Entity`]s.
@@ -694,7 +694,7 @@ where
         &mut self,
         entities: [Entity; N],
     ) -> [<Q::Fetch as Fetch<'_, 's>>::Item; N] {
-        unsafe { self.state.multiple_mut_unchecked(self.world, entities) }
+        self.state.multiple_mut(self.world, entities)
     }
 
     /// Returns the query result for the given [`Entity`].

@@ -214,12 +214,20 @@ where
     /// assert_eq!(*a_iterator.next().unwrap(), A(1));
     /// ```
     #[inline]
-    pub fn get_multiple<'s, 'w, const N: usize>(
+    pub fn get_multiple<'w, 's, const N: usize>(
         &'s self,
         world: &'w World,
         entities: [Entity; N],
-    ) -> [Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError>; N] {
-        entities.map(move |e| self.get_manual(world, e))
+    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        let array_of_results = entities.map(move |e| self.get(world, e));
+
+        // If any of the entities were missing, return the first error
+        for result in array_of_results {
+            result?;
+        }
+
+        // At this point, we're guaranteed that all results are okay
+        Ok(array_of_results.map(move |result| result.unwrap()))
     }
 
     /// Returns the read-only query items for the provided Array of [`Entity`]s.
@@ -228,48 +236,12 @@ where
     ///
     /// Panics if any entities do not exist.
     #[inline]
-    pub fn multiple<'s, 'w, const N: usize>(
+    pub fn multiple<'w, 's, const N: usize>(
         &'s self,
         world: &'w World,
         entities: [Entity; N],
     ) -> [<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N] {
-        entities.map(|e| self.get_manual(world, e).unwrap())
-    }
-
-    // world aliased mutability blah blah
-    #[inline]
-    pub unsafe fn get_multiple_mut_unchecked<'s, 'w, const N: usize>(
-        &'s self,
-        world: &'w World,
-        entities: [Entity; N],
-    ) -> [Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>; N] {
-        let mut idx = 0;
-        entities.map(move |e| {
-            entities[..idx]
-                .iter()
-                .find(|prev_e| **prev_e == e)
-                .ok_or(QueryEntityError::AliasedMutability(e))?;
-            idx += 1;
-            self.get_unchecked_manual(world, e)
-        })
-    }
-
-    // world aliased mutaiblity blah blah
-    #[inline]
-    pub unsafe fn multiple_mut_unchecked<'s, 'w, const N: usize>(
-        &'s self,
-        world: &'w World,
-        entities: [Entity; N],
-    ) -> [<Q::Fetch as Fetch<'w, 's>>::Item; N] {
-        let mut idx = 0;
-        entities.map(|e| {
-            entities[..idx]
-                .iter()
-                .find(|prev_e| **prev_e == e)
-                .unwrap_or_else(|| panic!());
-            idx += 1;
-            self.get_unchecked(world, e).unwrap()
-        })
+        self.get_multiple(world, entities).unwrap()
     }
 
     /// Returns the query results for the provided Array of [`Entity`]s.
@@ -309,12 +281,33 @@ where
     /// assert_eq!(*world.get::<A>(entity_3).unwrap(), A(33));
     /// ```
     #[inline]
-    pub fn get_multiple_mut<'s, 'w, const N: usize>(
-        &'s self,
+    pub fn get_multiple_mut<'w, 's, const N: usize>(
+        &'s mut self,
         world: &'w mut World,
         entities: [Entity; N],
-    ) -> [Result<<Q::Fetch as Fetch<'w, 's>>::Item, QueryEntityError>; N] {
-        unsafe { self.get_multiple_mut_unchecked(world, entities) }
+    ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        // Brute force verification of uniqueness
+        for entity_i in entities {
+            for entity_j in entities {
+                if entity_i == entity_j {
+                    return Err(QueryEntityError::AliasedMutability(entity_i));
+                }
+            }
+        }
+
+        // SAFE: the entities are checked for uniqueness above
+        // No other references to the query can be live, as this method takes &mut self
+        unsafe {
+            let array_of_results = entities.map(move |e| self.get_unchecked(world, e));
+
+            // If any of the entities were missing, return the first error
+            for result in array_of_results {
+                result?;
+            }
+
+            // At this point, we're guaranteed that all results are okay
+            Ok(array_of_results.map(move |result| result.unwrap()))
+        }
     }
 
     /// Returns the query items for the provided Array of [`Entity`]s.
@@ -323,12 +316,12 @@ where
     ///
     /// Panics if any entities do not exist, or any entities are repeated.
     #[inline]
-    pub fn multiple_mut<'s, 'w, const N: usize>(
-        &'s self,
+    pub fn multiple_mut<'w, 's, const N: usize>(
+        &'s mut self,
         world: &'w mut World,
         entities: [Entity; N],
     ) -> [<Q::Fetch as Fetch<'w, 's>>::Item; N] {
-        unsafe { self.multiple_mut_unchecked(world, entities) }
+        self.get_multiple_mut(world, entities).unwrap()
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
