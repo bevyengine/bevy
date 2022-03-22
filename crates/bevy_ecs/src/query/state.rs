@@ -164,6 +164,7 @@ where
     ///
     /// ```rust
     /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::query::QueryEntityError;
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -183,7 +184,11 @@ where
     ///
     /// let component_values = query_state.get_multiple(&world, entities).unwrap();
     ///
-    /// assert_eq!(component_values, [&A(0), &A(1), &A(2)])
+    /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
+    ///
+    /// let wrong_entity = Entity::from_raw(365);
+    ///
+    /// assert_eq!(query_state.get_multiple(&world, [wrong_entity]), Err(QueryEntityError::NoSuchEntity(wrong_entity)));
     /// ```
     #[inline]
     pub fn get_multiple<'w, 's, const N: usize>(
@@ -242,6 +247,7 @@ where
     ///
     /// ```rust
     /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::query::QueryEntityError;
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -267,7 +273,12 @@ where
     ///
     /// let component_values = query_state.get_multiple(&world, entities).unwrap();
     ///
-    /// assert_eq!(component_values, [&A(5), &A(6), &A(7)])
+    /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
+    ///
+    /// let wrong_entity = Entity::from_raw(365);
+    ///
+    /// assert_eq!(query_state.get_multiple_mut(&mut world, [wrong_entity]), Err(QueryEntityError::NoSuchEntity(wrong_entity)));
+    /// assert_eq!(query_state.get_multiple_mut(&mut world, [entities[0], entities[0]]), Err(QueryEntityError::AliasedMutability(entities[0])));
     /// ```
     #[inline]
     pub fn get_multiple_mut<'w, 's, const N: usize>(
@@ -870,7 +881,7 @@ where
 
 /// An error that occurs when retrieving a specific [`Entity`]'s query result.
 // TODO: return the type_name as part of this error
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Clone, Copy)]
 pub enum QueryEntityError {
     #[error("The given entity does not have the requested component.")]
     QueryDoesNotMatch,
