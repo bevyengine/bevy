@@ -656,6 +656,19 @@ where
         self.state.get_multiple(entities)
     }
 
+    /// Returns the read-only query items for the provided Array of [`Entity`]s.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any entities do not exist.
+    #[inline]
+    pub fn multiple<const N: usize>(
+        &self,
+        entities: [Entity; N],
+    ) -> [<Q::ReadOnlyFetch as Fetch<'_, '_>>::Item; N] {
+        self.state.multiple(entities)
+    }
+
     /// Returns the query results for the provided Array of [`Entity`]s.
     ///
     /// These values follow the order of your input array.
@@ -668,8 +681,20 @@ where
     pub fn get_multiple_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+    ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
         self.state.get_multiple_mut(entities)
+    }
+
+    /// Returns the query items for the provided Array of [`Entity`]s.
+    ///
+    /// # Panics
+    /// Panics if any entities do not exist, or any entities are repeated.
+    #[inline]
+    pub fn multiple_mut<const N: usize>(
+        &self,
+        entities: [Entity; N],
+    ) -> [<Q::Fetch as Fetch<'_, '_>>::Item; N] {
+        self.state.multiple_mut(entities)
     }
 
     /// Returns the query result for the given [`Entity`].

@@ -221,6 +221,19 @@ where
         todo!()
     }
 
+    /// Returns the read-only query items for the provided Array of [`Entity`]s.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any entities do not exist.
+    #[inline]
+    pub fn multiple<const N: usize>(
+        &self,
+        entities: [Entity; N],
+    ) -> [<Q::ReadOnlyFetch as Fetch<'_, '_>>::Item; N] {
+        self.get_multiple(entities).unwrap()
+    }
+
     /// Returns the query results for the provided Array of [`Entity`]s.
     ///
     /// These values follow the order of your input array.
@@ -261,7 +274,7 @@ where
     pub fn get_multiple_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, '_>>::Item; N], QueryEntityError> {
+    ) -> Result<[<Q::Fetch as Fetch<'_, '_>>::Item; N], QueryEntityError> {
         for entity_i in entities {
             for entity_j in entities {
                 if entity_i == entity_j {
@@ -271,6 +284,19 @@ where
         }
 
         todo!()
+    }
+
+    /// Returns the query items for the provided Array of [`Entity`]s.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any entities do not exist, or any entities are repeated.
+    #[inline]
+    pub fn multiple_mut<const N: usize>(
+        &self,
+        entities: [Entity; N],
+    ) -> [<Q::Fetch as Fetch<'_, '_>>::Item; N] {
+        self.get_multiple_mut(entities).unwrap()
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
