@@ -628,7 +628,7 @@ where
     /// See [`Query::multiple`] for the infallible equivalent.
     #[inline]
     pub fn get_multiple<const N: usize>(
-        &'s self,
+        &self,
         entities: [Entity; N],
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
         let array_of_results = entities.map(|entity| {
@@ -691,7 +691,7 @@ where
     /// ```
     #[inline]
     pub fn multiple<const N: usize>(
-        &'s self,
+        &self,
         entities: [Entity; N],
     ) -> [<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N] {
         self.get_multiple(entities).unwrap()
@@ -746,9 +746,9 @@ where
     /// See [`Query::multiple_mut`] for the infallible equivalent.
     #[inline]
     pub fn get_multiple_mut<const N: usize>(
-        &'s mut self,
+        &mut self,
         entities: [Entity; N],
-    ) -> Result<[<Q::Fetch as Fetch>::Item; N], QueryEntityError> {
+    ) -> Result<[<Q::Fetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
         for i in 0..N {
             for j in 0..i {
                 if entities[i] == entities[j] {
@@ -825,7 +825,7 @@ where
     /// ```
     #[inline]
     pub fn multiple_mut<const N: usize>(
-        &'s mut self,
+        &mut self,
         entities: [Entity; N],
     ) -> [<Q::Fetch as Fetch<'_, 's>>::Item; N] {
         self.get_multiple_mut(entities).unwrap()
