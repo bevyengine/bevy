@@ -709,7 +709,9 @@ where
         }
 
         let array_of_results = entities.map(|entity| {
-            // SAFETY: query is read only
+            // SAFETY: Entities are checked for uniqueness above,
+            // the scheduler ensure that we do not have conflicting world access,
+            // and we require &mut self to avoid any other simultaneous operations on this Query
             unsafe {
                 self.state.get_unchecked_manual::<Q::Fetch>(
                     self.world,
