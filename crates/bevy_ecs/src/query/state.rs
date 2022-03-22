@@ -467,8 +467,6 @@ where
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
-    /// This can only be called for read-only queries.
-    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
