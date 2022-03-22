@@ -159,7 +159,29 @@ where
         world: &'w World,
         entities: [Entity; N],
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
-        todo!()
+        self.update_archetypes(world);
+
+        let array_of_results = entities.map(|entity| {
+            // SAFETY: query is read only
+            unsafe {
+                self.get_unchecked_manual::<Q::ReadOnlyFetch>(
+                    world,
+                    entity,
+                    world.last_change_tick(),
+                    world.read_change_tick(),
+                )
+            }
+        });
+
+        // If any of the entities were not present, return an error
+        for result in &array_of_results {
+            if result.is_err() {
+                return Err(QueryEntityError::NoSuchEntity);
+            }
+        }
+
+        // Since we have verified that all entities are present, we can safely unwrap
+        Ok(array_of_results.map(|result| result.unwrap()))
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
@@ -186,8 +208,38 @@ where
         &'s mut self,
         world: &'w mut World,
         entities: [Entity; N],
-    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
-        todo!()
+    ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        self.update_archetypes(world);
+
+        for i in 0..N {
+            for j in 0..i {
+                if entities[i] == entities[j] {
+                    return Err(QueryEntityError::AliasedMutability);
+                }
+            }
+        }
+
+        let array_of_results = entities.map(|entity| {
+            // SAFETY: entity list is checked for uniqueness, and we require exclusive access to the World
+            unsafe {
+                self.get_unchecked_manual::<Q::Fetch>(
+                    world,
+                    entity,
+                    world.last_change_tick(),
+                    world.read_change_tick(),
+                )
+            }
+        });
+
+        // If any of the entities were not present, return an error
+        for result in &array_of_results {
+            if result.is_err() {
+                return Err(QueryEntityError::NoSuchEntity);
+            }
+        }
+
+        // Since we have verified that all entities are present, we can safely unwrap
+        Ok(array_of_results.map(|result| result.unwrap()))
     }
 
     #[inline]
