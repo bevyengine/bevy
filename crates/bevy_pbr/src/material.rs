@@ -308,7 +308,6 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     mut pipeline_cache: ResMut<PipelineCache>,
-
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,
