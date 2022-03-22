@@ -51,9 +51,9 @@ where
 {
     /// Register a press for input `input`.
     pub fn press(&mut self, input: T) {
-        if !self.pressed(input) {
+        // Returns `true` if the `input` wasn't pressed.
+        if self.pressed.insert(input) {
             self.just_pressed.insert(input);
-            self.pressed.insert(input);
         }
     }
 
@@ -69,8 +69,8 @@ where
 
     /// Register a release for input `input`.
     pub fn release(&mut self, input: T) {
-        if self.pressed(input) {
-            self.pressed.remove(&input);
+        // Returns `true` if the `input` was pressed.
+        if self.pressed.remove(&input) {
             self.just_released.insert(input);
         }
     }
