@@ -176,11 +176,7 @@ async fn load_gltf<'a, 'b>(
             // }
 
             if let Some(iter) = reader.read_joints(0) {
-                let vertex_attribute = VertexAttributeValues::Uint32x4(
-                    iter.into_u16()
-                        .map(|v| [v[0] as u32, v[1] as u32, v[2] as u32, v[3] as u32])
-                        .collect(),
-                );
+                let vertex_attribute = VertexAttributeValues::Uint16x4(iter.into_u16().collect());
                 mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, vertex_attribute);
             }
 
