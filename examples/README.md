@@ -104,6 +104,7 @@ Example | File | Description
 `3d_scene` | [`3d/3d_scene.rs`](./3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 `lighting` | [`3d/lighting.rs`](./3d/lighting.rs) | Illustrates various lighting options in a simple scene
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
+`manual_gltf_animation_player` | [`3d/manual_gltf_animation_player.rs`](./3d/manual_gltf_animation_player.rs) | Loads and manually renders a gltf file with animations
 `many_cubes` | [`3d/many_cubes.rs`](./3d/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
