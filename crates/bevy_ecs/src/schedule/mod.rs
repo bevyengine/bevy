@@ -3,6 +3,7 @@
 //! When using Bevy ECS, systems are usually not run directly, but are inserted into a
 //!  [`Stage`], which then lives within a [`Schedule`].
 
+mod ambiguity_detection;
 mod executor;
 mod executor_parallel;
 pub mod graph_utils;
@@ -14,6 +15,7 @@ mod system_container;
 mod system_descriptor;
 mod system_set;
 
+pub use ambiguity_detection::*;
 pub use executor::*;
 pub use executor_parallel::*;
 pub use graph_utils::GraphNode;
