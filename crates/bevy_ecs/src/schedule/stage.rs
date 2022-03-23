@@ -52,9 +52,9 @@ pub enum AmbiguityReportLevel {
 ///
 /// By default only a warning with the number of unresolved ambiguities detected will be reported per [`SystemStage`].
 /// This behavior can be changed by explicitly adding this resource using the following constructors:
-/// * [ReportExecutionOrderAmbiguities::off()] - Disables all messages reported by the ambiguity checker.
-/// * [ReportExecutionOrderAmbiguities::minimal()] - Displays only the number of unresolved ambiguities detected by the ambiguity checker.
-/// * [ReportExecutionOrderAmbiguities::verbose()] - Displays a full report of ambiguities detected by the ambiguity checker.
+/// * [`ReportExecutionOrderAmbiguities::off()`] - Disables all messages reported by the ambiguity checker.
+/// * [`ReportExecutionOrderAmbiguities::minimal()`] - Displays only the number of unresolved ambiguities detected by the ambiguity checker.
+/// * [`ReportExecutionOrderAmbiguities::verbose()`] - Displays a full report of ambiguities detected by the ambiguity checker.
 ///
 /// The ambiguity checker will ignore ambiguities within official Bevy crates.
 /// To ignore a custom crate, use [`ReportExecutionOrderAmbiguities::ignore`]
@@ -583,10 +583,6 @@ impl SystemStage {
             ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
             world: &World,
         ) -> usize {
-            if ambiguities.is_empty() {
-                return offset;
-            }
-
             for (i, (system_a_index, system_b_index, conflicting_indexes)) in
                 ambiguities.iter().enumerate()
             {
@@ -605,7 +601,8 @@ impl SystemStage {
                 );
             }
 
-            return ambiguities.len();
+            // We can't merge the SystemContainer arrays, so instead we manually keep track of how high we've counted :upside_down:
+            ambiguities.len()
         }
 
         let parallel = find_ambiguities(&self.parallel, &ambiguity_report.ignore_crates);
