@@ -126,4 +126,14 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
     pub fn values_mut(&mut self) -> &mut [T] {
         &mut self.values
     }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.values.clear();
+    }
+
+    #[inline]
+    pub fn push(&mut self, value: T) {
+        self.values.push(value);
+    }
 }

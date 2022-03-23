@@ -357,6 +357,7 @@ impl RenderAsset for StandardMaterial {
 pub struct StandardMaterialKey {
     normal_map: bool,
     cull_mode: Option<Face>,
+    use_storage_buffers: bool,
 }
 
 impl SpecializedMaterial for StandardMaterial {
@@ -369,6 +370,9 @@ impl SpecializedMaterial for StandardMaterial {
         StandardMaterialKey {
             normal_map: render_asset.has_normal_map,
             cull_mode: render_asset.cull_mode,
+            // NOTE: Clustered-forward rendering requires 3 storage buffer bindings so check that
+            // at least that many are supported.
+            use_storage_buffers: render_device.limits().max_storage_buffers_per_shader_stage >= 3,
         }
     }
 
@@ -386,6 +390,14 @@ impl SpecializedMaterial for StandardMaterial {
                 .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
         }
         descriptor.primitive.cull_mode = key.cull_mode;
+        if !key.use_storage_buffers {
+            descriptor
+                .fragment
+                .as_mut()
+                .unwrap()
+                .shader_defs
+                .push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
+        }
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }

@@ -41,6 +41,7 @@ use bevy_render::{
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedMeshPipelines},
+    renderer::RenderDevice,
     view::VisibilitySystems,
     RenderApp, RenderStage,
 };
@@ -126,6 +127,15 @@ impl Plugin for PbrPlugin {
                 },
             );
 
+        // NOTE: 3 storage buffer bindings are needed for clustered-forward rendering so check
+        // that at least that many are supported
+        let use_storage_buffers = app
+            .world
+            .resource::<RenderDevice>()
+            .limits()
+            .max_storage_buffers_per_shader_stage
+            >= 3;
+
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
@@ -164,7 +174,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<ShadowPipeline>()
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()
-            .init_resource::<GlobalLightMeta>()
+            .insert_resource(GlobalLightMeta::new(use_storage_buffers))
             .init_resource::<SpecializedMeshPipelines<ShadowPipeline>>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);

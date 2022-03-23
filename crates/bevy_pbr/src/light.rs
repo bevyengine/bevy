@@ -9,6 +9,7 @@ use bevy_render::{
     color::Color,
     prelude::Image,
     primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
+    renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
@@ -709,6 +710,7 @@ pub(crate) fn assign_lights_to_clusters(
     lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut max_point_lights_warning_emitted: Local<bool>,
+    render_device: Res<RenderDevice>,
 ) {
     global_lights.entities.clear();
     lights.clear();
@@ -727,7 +729,10 @@ pub(crate) fn assign_lights_to_clusters(
             ),
     );
 
-    if lights.len() > MAX_POINT_LIGHTS {
+    // NOTE: Clustered-forward rendering requires 3 buffer bindings so only use storage buffers
+    // if at least 3 are supported
+    let use_storage_buffers = render_device.limits().max_storage_buffers_per_shader_stage >= 3;
+    if !use_storage_buffers && lights.len() > MAX_POINT_LIGHTS {
         lights.sort_by(|light_1, light_2| {
             point_light_order(
                 (&light_1.entity, &light_1.shadows_enabled),
