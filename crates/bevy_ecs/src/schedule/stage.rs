@@ -619,8 +619,8 @@ impl SystemStage {
         unresolved_count += at_end.len();
 
         if unresolved_count > 0 {
-            println!("{unresolved_count} unresolved system order ambiguities detected in one of your stages: you might want to \
-            add an explicit system ordering between some of these systems to avoid logic errors. \n");
+            println!("One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
+            You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
 
             if ambiguity_report.level != AmbiguityReportLevel::Verbose {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
