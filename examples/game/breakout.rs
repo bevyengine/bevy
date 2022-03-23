@@ -107,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Paddle)
         .insert(Collider);
     // ball
-    let ball_velocity = BALL_SPEED * INITIAL_BALL_DIRECTION.extend(0.0).normalize();
+    let ball_velocity = INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED;
 
     commands
         .spawn_bundle(SpriteBundle {
