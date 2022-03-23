@@ -926,3 +926,77 @@ pub enum QueryEntityError {
     #[error("The entity was requested mutably more than once.")]
     AliasedMutability(Entity),
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{prelude::*, query::QueryEntityError};
+
+    #[test]
+    fn get_multiple_unchecked_manual_uniqueness() {
+        let mut world = World::new();
+
+        let entities: Vec<Entity> = (0..10).map(|_| world.spawn().id()).collect();
+
+        let query_state = world.query::<Entity>();
+
+        // These don't matter for the test
+        let last_change_tick = world.last_change_tick();
+        let change_tick = world.read_change_tick();
+
+        // It's best to test get_multiple_unchecked_manual directly,
+        // as it is shared and unsafe
+        // We don't care about aliased mutabilty for the read-only equivalent
+        assert!(unsafe {
+            query_state
+                .get_multiple_unchecked_manual::<10>(
+                    &world,
+                    entities.clone().try_into().unwrap(),
+                    last_change_tick,
+                    change_tick,
+                )
+                .is_ok()
+        });
+
+        assert_eq!(
+            unsafe {
+                query_state
+                    .get_multiple_unchecked_manual(
+                        &world,
+                        [entities[0], entities[0]],
+                        last_change_tick,
+                        change_tick,
+                    )
+                    .unwrap_err()
+            },
+            QueryEntityError::AliasedMutability(entities[0])
+        );
+
+        assert_eq!(
+            unsafe {
+                query_state
+                    .get_multiple_unchecked_manual(
+                        &world,
+                        [entities[0], entities[1], entities[0]],
+                        last_change_tick,
+                        change_tick,
+                    )
+                    .unwrap_err()
+            },
+            QueryEntityError::AliasedMutability(entities[0])
+        );
+
+        assert_eq!(
+            unsafe {
+                query_state
+                    .get_multiple_unchecked_manual(
+                        &world,
+                        [entities[9], entities[9]],
+                        last_change_tick,
+                        change_tick,
+                    )
+                    .unwrap_err()
+            },
+            QueryEntityError::AliasedMutability(entities[9])
+        );
+    }
+}
