@@ -7,9 +7,14 @@ use std::marker::PhantomData;
 /// This is used for ensuring systems are executed soundly.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Access<T: SparseSetIndex> {
+    /// Does this access require reading from all values?
     reads_all: bool,
-    /// A combined set of T read and write accesses.
+    /// The values that can be read from
+    ///
+    /// Note that the ability to write to data implies the ability to read from it,
+    /// and so this must always be a superset of `writes`.
     reads: FixedBitSet,
+    /// The values that can be written to
     writes: FixedBitSet,
     marker: PhantomData<T>,
 }
@@ -93,8 +98,7 @@ impl<T: SparseSetIndex> Access<T> {
         } else if other.reads_all {
             0 == self.writes.count_ones(..)
         } else {
-            self.writes.is_disjoint(&other.reads)
-                && self.reads.is_disjoint(&other.writes)
+            self.writes.is_disjoint(&other.reads) && self.reads.is_disjoint(&other.writes)
         }
     }
 
