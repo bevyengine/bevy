@@ -424,6 +424,7 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_lights(
     mut commands: Commands,
     ambient_light: Res<AmbientLight>,
