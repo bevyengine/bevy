@@ -16,7 +16,7 @@ pub struct Access<T: SparseSetIndex> {
     reads: FixedBitSet,
     /// The values that can be written to
     writes: FixedBitSet,
-    marker: PhantomData<T>,
+    _marker: PhantomData<T>,
 }
 
 impl<T: SparseSetIndex> Default for Access<T> {
@@ -25,7 +25,7 @@ impl<T: SparseSetIndex> Default for Access<T> {
             reads_all: false,
             reads: Default::default(),
             writes: Default::default(),
-            marker: PhantomData,
+            _marker: PhantomData,
         }
     }
 }
