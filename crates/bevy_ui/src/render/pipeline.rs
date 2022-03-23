@@ -66,29 +66,17 @@ impl SpecializedPipeline for UiPipeline {
     type Key = UiPipelineKey;
     /// FIXME: there are no specialization for now, should this be removed?
     fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
-        let vertex_buffer_layout = VertexBufferLayout {
-            array_stride: 24,
-            step_mode: VertexStepMode::Vertex,
-            attributes: vec![
-                // Position
-                VertexAttribute {
-                    format: VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                // UV
-                VertexAttribute {
-                    format: VertexFormat::Float32x2,
-                    offset: 12,
-                    shader_location: 1,
-                },
-                VertexAttribute {
-                    format: VertexFormat::Uint32,
-                    offset: 20,
-                    shader_location: 2,
-                },
+        let vertex_layout = VertexBufferLayout::from_vertex_formats(
+            VertexStepMode::Vertex,
+            vec![
+                // position
+                VertexFormat::Float32x3,
+                // uv
+                VertexFormat::Float32x2,
+                // color
+                VertexFormat::Uint32,
             ],
-        };
+        );
         let shader_defs = Vec::new();
 
         RenderPipelineDescriptor {
@@ -96,7 +84,7 @@ impl SpecializedPipeline for UiPipeline {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![vertex_buffer_layout],
+                buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),

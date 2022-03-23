@@ -466,7 +466,7 @@ mod tests {
 
         {
             let iter_results = set.values().collect::<Vec<_>>();
-            assert_eq!(iter_results, vec![&Foo(1), &Foo(2), &Foo(3)])
+            assert_eq!(iter_results, vec![&Foo(1), &Foo(2), &Foo(3)]);
         }
 
         assert_eq!(set.remove(e2), Some(Foo(2)));

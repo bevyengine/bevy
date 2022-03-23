@@ -103,7 +103,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         let mut max_x: f32 = std::f32::MIN;
         let mut max_y: f32 = std::f32::MIN;
 
-        for sg in section_glyphs.iter() {
+        for sg in &section_glyphs {
             let scaled_font = scaled_fonts[sg.section_index];
             let glyph = &sg.glyph;
             min_x = min_x.min(glyph.position.x);

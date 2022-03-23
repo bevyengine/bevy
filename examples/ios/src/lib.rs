@@ -5,10 +5,9 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            vsync: true,
             resizable: false,
             mode: WindowMode::BorderlessFullscreen,
-            ..Default::default()
+            ..default()
         })
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
@@ -29,7 +28,7 @@ fn touch_camera(
             *last_position = None;
         }
         if let Some(last_position) = *last_position {
-            let window = windows.get_primary().unwrap();
+            let window = windows.primary();
             let mut transform = camera.single_mut();
             *transform = Transform::from_xyz(
                 transform.translation.x
@@ -54,14 +53,14 @@ fn setup_scene(
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
-        ..Default::default()
+        ..default()
     });
     // cube
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..Default::default()
+        ..default()
     });
     // sphere
     commands.spawn_bundle(PbrBundle {
@@ -71,7 +70,7 @@ fn setup_scene(
         })),
         material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
-        ..Default::default()
+        ..default()
     });
     // light
     commands.spawn_bundle(PointLightBundle {
@@ -79,14 +78,14 @@ fn setup_scene(
         point_light: PointLight {
             intensity: 5000.0,
             shadows_enabled: true,
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 

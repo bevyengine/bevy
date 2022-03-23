@@ -10,7 +10,7 @@ use bevy_math::Size;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
-use bevy_window::Windows;
+use bevy_window::{WindowId, Windows};
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -34,8 +34,8 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
     }
 }
 
-/// Computes the size of a text block and updates the Text Glyphs with the
-/// new computed glyphs from the layout
+/// Updates the layout and size information whenever the text or style is changed.
+/// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
@@ -52,11 +52,7 @@ pub fn text_system(
         QueryState<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor()
-    } else {
-        1.
-    };
+    let scale_factor = windows.scale_factor(WindowId::primary());
 
     let inv_scale_factor = 1. / scale_factor;
 

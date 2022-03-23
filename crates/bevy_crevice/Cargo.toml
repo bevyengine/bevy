@@ -1,7 +1,7 @@
 [package]
 name = "bevy_crevice"
 description = "Create GLSL-compatible versions of structs with explicitly-initialized padding (Bevy version)"
-version = "0.6.0"
+version = "0.7.0-dev"
 edition = "2021"
 authors = ["Lucien Greathouse <me@lpghatguy.com>"]
 documentation = "https://docs.rs/crevice"
@@ -23,7 +23,7 @@ std = []
 # default-members = ["crevice-derive", "crevice-tests"]
 
 [dependencies]
-bevy-crevice-derive = { version = "0.6.0", path = "bevy-crevice-derive" }
+bevy-crevice-derive = { version = "0.7.0-dev", path = "bevy-crevice-derive" }
 
 bytemuck = "1.4.1"
 mint = "0.5.8"

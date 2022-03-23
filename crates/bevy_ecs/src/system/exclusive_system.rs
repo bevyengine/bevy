@@ -107,7 +107,7 @@ where
 {
     fn exclusive_system(self) -> ExclusiveSystemCoerced {
         ExclusiveSystemCoerced {
-            system: Box::new(self.system()),
+            system: Box::new(IntoSystem::into_system(self)),
             archetype_generation: ArchetypeGeneration::initial(),
         }
     }
@@ -148,14 +148,14 @@ mod tests {
         world.insert_resource(0usize);
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+        assert_eq!(*world.resource::<usize>(), 1);
 
         let mut stage = SystemStage::parallel().with_system(removal.exclusive_system());
         world.spawn().insert(Foo(0.0f32));
         world.insert_resource(0usize);
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+        assert_eq!(*world.resource::<usize>(), 1);
     }
 
     #[test]
@@ -175,6 +175,6 @@ mod tests {
             .with_system(count_entities.exclusive_system());
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<Vec<usize>>().unwrap(), vec![0, 1]);
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1]);
     }
 }

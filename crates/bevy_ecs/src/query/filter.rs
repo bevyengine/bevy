@@ -11,6 +11,9 @@ use std::{cell::UnsafeCell, marker::PhantomData, ptr};
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
+///
+/// This trait is automatically implemented for every type that implements [`Fetch`] trait and
+/// specifies `bool` as the associated type for [`Fetch::Item`].
 pub trait FilterFetch: for<'w, 's> Fetch<'w, 's> {
     /// # Safety
     ///
@@ -65,7 +68,7 @@ where
 ///         println!("{} is looking lovely today!", name.name);
 ///     }
 /// }
-/// # compliment_entity_system.system();
+/// # bevy_ecs::system::assert_is_system(compliment_entity_system);
 /// ```
 pub struct With<T>(PhantomData<T>);
 
@@ -76,11 +79,13 @@ impl<T: Component> WorldQuery for With<T> {
 }
 
 /// The [`Fetch`] of [`With`].
+#[doc(hidden)]
 pub struct WithFetch<T> {
     marker: PhantomData<T>,
 }
 
 /// The [`FetchState`] of [`With`].
+#[doc(hidden)]
 pub struct WithState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -188,7 +193,7 @@ unsafe impl<T> ReadOnlyFetch for WithFetch<T> {}
 ///         println!("{} has no permit!", name.name);
 ///     }
 /// }
-/// # no_permit_system.system();
+/// # bevy_ecs::system::assert_is_system(no_permit_system);
 /// ```
 pub struct Without<T>(PhantomData<T>);
 
@@ -199,11 +204,13 @@ impl<T: Component> WorldQuery for Without<T> {
 }
 
 /// The [`Fetch`] of [`Without`].
+#[doc(hidden)]
 pub struct WithoutFetch<T> {
     marker: PhantomData<T>,
 }
 
 /// The [`FetchState`] of [`Without`].
+#[doc(hidden)]
 pub struct WithoutState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -317,11 +324,12 @@ unsafe impl<T> ReadOnlyFetch for WithoutFetch<T> {}
 ///         println!("Entity {:?} got a new style or color", entity);
 ///     }
 /// }
-/// # print_cool_entity_system.system();
+/// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
 /// ```
 pub struct Or<T>(pub T);
 
 /// The [`Fetch`] of [`Or`].
+#[doc(hidden)]
 pub struct OrFetch<T: FilterFetch> {
     fetch: T,
     matches: bool,
@@ -455,6 +463,7 @@ macro_rules! impl_tick_filter {
         $(#[$meta])*
         pub struct $name<T>(PhantomData<T>);
 
+        #[doc(hidden)]
         $(#[$fetch_meta])*
         pub struct $fetch_name<T> {
             table_ticks: *const UnsafeCell<ComponentTicks>,
@@ -466,6 +475,7 @@ macro_rules! impl_tick_filter {
             change_tick: u32,
         }
 
+        #[doc(hidden)]
         $(#[$state_meta])*
         pub struct $state_name<T> {
             component_id: ComponentId,
@@ -619,7 +629,7 @@ impl_tick_filter!(
     ///     }
     /// }
     ///
-    /// # print_add_name_component.system();
+    /// # bevy_ecs::system::assert_is_system(print_add_name_component);
     /// ```
     Added,
     /// The [`FetchState`] of [`Added`].
@@ -662,7 +672,7 @@ impl_tick_filter!(
     ///     }
     /// }
     ///
-    /// # print_moving_objects_system.system();
+    /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
     /// ```
     Changed,
     /// The [`FetchState`] of [`Changed`].
