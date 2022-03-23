@@ -275,7 +275,7 @@ where
 
         // SAFE: method requires exclusive world access
         unsafe {
-            self.get_multiple_unchecked_manual::<Q::Fetch, N>(
+            self.get_multiple_unchecked_manual(
                 world,
                 entities,
                 world.last_change_tick(),
@@ -400,18 +400,13 @@ where
     ///
     /// This does not check for unique access to subsets of the entity-component data.
     /// To be safe, make sure mutable queries have unique access to the components they query.
-    pub(crate) unsafe fn get_multiple_unchecked_manual<
-        's,
-        'w,
-        QF: Fetch<'w, 's, State = Q::State>,
-        const N: usize,
-    >(
+    pub(crate) unsafe fn get_multiple_unchecked_manual<'s, 'w, const N: usize>(
         &'s self,
         world: &'w World,
         entities: [Entity; N],
         last_change_tick: u32,
         change_tick: u32,
-    ) -> Result<[<QF as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+    ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
         // Verify that all entities are unique
         for i in 0..N {
             for j in 0..i {
@@ -422,7 +417,7 @@ where
         }
 
         let array_of_results = entities.map(|entity| {
-            self.get_unchecked_manual::<QF>(world, entity, last_change_tick, change_tick)
+            self.get_unchecked_manual::<Q::Fetch>(world, entity, last_change_tick, change_tick)
         });
 
         // If any of the entities were not present, return an error

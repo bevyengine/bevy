@@ -736,7 +736,7 @@ where
     ) -> Result<[<Q::Fetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
         // SAFE: scheduler ensures safe Query world access
         unsafe {
-            self.state.get_multiple_unchecked_manual::<Q::Fetch, N>(
+            self.state.get_multiple_unchecked_manual(
                 self.world,
                 entities,
                 self.last_change_tick,
