@@ -68,10 +68,7 @@ struct Paddle;
 struct Ball;
 
 #[derive(Component)]
-struct Velocity {
-    x: f32,
-    y: f32,
-}
+struct Velocity(Vec2);
 
 #[derive(Component)]
 struct Collider;
@@ -125,10 +122,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Velocity {
-            x: ball_velocity.x,
-            y: ball_velocity.y,
-        });
+        .insert(Velocity(ball_velocity));
     // scoreboard
     commands.spawn_bundle(TextBundle {
         text: Text {
@@ -281,8 +275,8 @@ fn paddle_movement_system(
 
 fn apply_velocity_system(mut query: Query<(&mut Transform, &Velocity)>) {
     for (mut transform, velocity) in query.iter_mut() {
-        transform.translation.x += velocity.x * TIME_STEP;
-        transform.translation.y += velocity.y * TIME_STEP;
+        transform.translation.x += velocity.0.x * TIME_STEP;
+        transform.translation.y += velocity.0.y * TIME_STEP;
     }
 }
 
@@ -322,21 +316,21 @@ fn ball_collision_system(
             // only reflect if the ball's velocity is going in the opposite direction of the
             // collision
             match collision {
-                Collision::Left => reflect_x = ball_velocity.x > 0.0,
-                Collision::Right => reflect_x = ball_velocity.x < 0.0,
-                Collision::Top => reflect_y = ball_velocity.y < 0.0,
-                Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
+                Collision::Left => reflect_x = ball_velocity.0.x > 0.0,
+                Collision::Right => reflect_x = ball_velocity.0.x < 0.0,
+                Collision::Top => reflect_y = ball_velocity.0.y < 0.0,
+                Collision::Bottom => reflect_y = ball_velocity.0.y > 0.0,
                 Collision::Inside => { /* do nothing */ }
             }
 
             // reflect velocity on the x-axis if we hit something on the x-axis
             if reflect_x {
-                ball_velocity.x = -ball_velocity.x;
+                ball_velocity.0.x = -ball_velocity.0.x;
             }
 
             // reflect velocity on the y-axis if we hit something on the y-axis
             if reflect_y {
-                ball_velocity.y = -ball_velocity.y;
+                ball_velocity.0.y = -ball_velocity.0.y;
             }
         }
     }
