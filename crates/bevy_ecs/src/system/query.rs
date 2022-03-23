@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        verify_entities_unique, Fetch, FilterFetch, NopFetch, QueryCombinationIter,
-        QueryEntityError, QueryIter, QueryState, ReadOnlyFetch, WorldQuery,
+        Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
+        QueryState, ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -631,16 +631,12 @@ where
         &self,
         entities: [Entity; N],
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
-        // SAFE: Query is read-only
-        unsafe {
-            self.state
-                .get_multiple_unchecked_manual::<Q::ReadOnlyFetch, N>(
-                    self.world,
-                    entities,
-                    self.last_change_tick,
-                    self.change_tick,
-                )
-        }
+        self.state.get_multiple_read_only_manual(
+            self.world,
+            entities,
+            self.last_change_tick,
+            self.change_tick,
+        )
     }
 
     /// Returns the read-only query items for the provided array of [`Entity`]
@@ -738,9 +734,7 @@ where
         &mut self,
         entities: [Entity; N],
     ) -> Result<[<Q::Fetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
-        verify_entities_unique(entities)?;
-
-        // SAFE: scheduler ensures safe Query world access, and entities are checked for uniqueness
+        // SAFE: scheduler ensures safe Query world access
         unsafe {
             self.state.get_multiple_unchecked_manual::<Q::Fetch, N>(
                 self.world,

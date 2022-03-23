@@ -198,15 +198,12 @@ where
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
         self.update_archetypes(world);
 
-        // SAFE: query is read-only
-        unsafe {
-            self.get_multiple_unchecked_manual::<Q::ReadOnlyFetch, N>(
-                world,
-                entities,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            )
-        }
+        self.get_multiple_read_only_manual(
+            world,
+            entities,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
@@ -276,9 +273,7 @@ where
     ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
         self.update_archetypes(world);
 
-        verify_entities_unique(entities)?;
-
-        // SAFE: method requires exclusive world access, and entities are checked for uniqueness
+        // SAFE: method requires exclusive world access
         unsafe {
             self.get_multiple_unchecked_manual::<Q::Fetch, N>(
                 world,
@@ -366,15 +361,45 @@ where
         }
     }
 
+    /// Gets the read-only query results for the given [`World`] and array of [`Entity`], where the last change and
+    /// the current change tick are given.
+    pub(crate) fn get_multiple_read_only_manual<'s, 'w, const N: usize>(
+        &'s self,
+        world: &'w World,
+        entities: [Entity; N],
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        // SAFE: fetch is read-only
+        let array_of_results = unsafe {
+            entities.map(|entity| {
+                self.get_unchecked_manual::<Q::ReadOnlyFetch>(
+                    world,
+                    entity,
+                    last_change_tick,
+                    change_tick,
+                )
+            })
+        };
+
+        // If any of the entities were not present, return an error
+        for result in &array_of_results {
+            if let Err(QueryEntityError::NoSuchEntity(entity)) = result {
+                return Err(QueryEntityError::NoSuchEntity(*entity));
+            }
+        }
+
+        // Since we have verified that all entities are present, we can safely unwrap
+        Ok(array_of_results.map(|result| result.unwrap()))
+    }
+
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
     ///
     /// # Safety
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
     ///
-    /// If you are calling this method with a mutable query, you must verify that `entities` is free of duplicates:
-    /// use [`verify_entities_unique`] to do so efficiently for small `N`.
+    /// This does not check for unique access to subsets of the entity-component data.
+    /// To be safe, make sure mutable queries have unique access to the components they query.
     pub(crate) unsafe fn get_multiple_unchecked_manual<
         's,
         'w,
@@ -387,6 +412,15 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[<QF as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        // Verify that all entities are unique
+        for i in 0..N {
+            for j in 0..i {
+                if entities[i] == entities[j] {
+                    return Err(QueryEntityError::AliasedMutability(entities[i]));
+                }
+            }
+        }
+
         let array_of_results = entities.map(|entity| {
             self.get_unchecked_manual::<QF>(world, entity, last_change_tick, change_tick)
         });
@@ -895,18 +929,4 @@ pub enum QueryEntityError {
     NoSuchEntity(Entity),
     #[error("The entity was requested mutably more than once.")]
     AliasedMutability(Entity),
-}
-
-#[inline]
-pub(crate) fn verify_entities_unique<const N: usize>(
-    entities: [Entity; N],
-) -> Result<(), QueryEntityError> {
-    for i in 0..N {
-        for j in 0..i {
-            if entities[i] == entities[j] {
-                return Err(QueryEntityError::AliasedMutability(entities[i]));
-            }
-        }
-    }
-    Ok(())
 }
