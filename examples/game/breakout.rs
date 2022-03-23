@@ -92,7 +92,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(UiCameraBundle::default());
     // paddle
     commands
-        .spawn_bundle(SpriteBundle {
+        .spawn()
+        .insert(Paddle)
+        .insert_bundle(SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(0.0, PADDLE_HEIGHT, 0.0),
                 scale: PADDLE_SIZE,
@@ -104,13 +106,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Paddle)
         .insert(Collider);
     // ball
     let ball_velocity = INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED;
 
     commands
-        .spawn_bundle(SpriteBundle {
+        .spawn()
+        .insert(Ball)
+        .insert_bundle(SpriteBundle {
             transform: Transform {
                 scale: BALL_SIZE,
                 translation: BALL_STARTING_POSITION,
@@ -122,7 +125,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Ball)
         .insert(Velocity {
             x: ball_velocity.x,
             y: ball_velocity.y,
@@ -237,7 +239,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ) + bricks_offset;
             // brick
             commands
-                .spawn_bundle(SpriteBundle {
+                .spawn()
+                .insert(Brick)
+                .insert_bundle(SpriteBundle {
                     sprite: Sprite {
                         color: BRICK_COLOR,
                         ..default()
@@ -249,8 +253,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     ..default()
                 })
-                .insert(Collider)
-                .insert(Brick);
+                .insert(Collider);
         }
     }
 }
