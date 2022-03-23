@@ -214,6 +214,7 @@ mod tests {
     use bevy_app::App;
     use bevy_ecs::event::Events;
     use bevy_ecs::prelude::ParallelSystemDescriptorCoercion;
+    use bevy_ecs::query::Changed;
     use bevy_input::touch::{touch_screen_input_system, TouchInput, TouchPhase};
     use bevy_math::Vec3;
 
@@ -457,6 +458,35 @@ mod tests {
         assert_eq!(&Interaction::Hovered, app.get_interaction(entity));
     }
 
+    #[test]
+    fn change_detection_journey() {
+        let mut app = TestApp::new();
+        app.spawn_node_entity_at(10., 10.);
+
+        app.run_step();
+
+        app.expect_no_changed_interaction("mouse does still not touch target");
+        app.run_step();
+
+        app.set_cursor_position(Some((10., 10.)));
+        app.expect_changed_interaction("mouse hovers target");
+        app.run_step();
+
+        app.expect_no_changed_interaction("mouse still hovers target");
+        app.run_step();
+
+        app.set_mouse_clicked();
+        app.expect_changed_interaction("mouse clicked target");
+        app.run_step();
+
+        app.expect_no_changed_interaction("mouse button still clicked");
+        app.run_step();
+
+        app.set_cursor_position(Some((0., 0.)));
+        app.expect_no_changed_interaction("mouse dragged away, but button still clicked");
+        app.run_step();
+    }
+
     struct TestApp {
         app: App,
     }
@@ -466,9 +496,12 @@ mod tests {
             let mut app = App::new();
             app.init_resource::<Input<MouseButton>>()
                 .init_resource::<Touches>()
+                .init_resource::<WindowsDouble>()
+                .init_resource::<ChangedInteractionExpectation>()
                 .add_event::<TouchInput>()
+                .add_system(touch_screen_input_system.before("under_test"))
                 .add_system(focus_ui::<WindowsDouble>.label("under_test"))
-                .add_system(touch_screen_input_system.before("under_test"));
+                .add_system(watch_changes.after("under_test"));
 
             TestApp { app }
         }
@@ -561,6 +594,49 @@ mod tests {
 
         fn get_interaction(&self, entity: Entity) -> &Interaction {
             self.app.world.get::<Interaction>(entity).unwrap()
+        }
+
+        fn expect_changed_interaction(&mut self, message: &str) {
+            let mut changed_interaction_expectation = self
+                .app
+                .world
+                .get_resource_mut::<ChangedInteractionExpectation>()
+                .unwrap();
+            changed_interaction_expectation.0 = Some(true);
+            changed_interaction_expectation.1 = message.to_string();
+        }
+
+        fn expect_no_changed_interaction(&mut self, message: &str) {
+            let mut changed_interaction_expectation = self
+                .app
+                .world
+                .get_resource_mut::<ChangedInteractionExpectation>()
+                .unwrap();
+            changed_interaction_expectation.0 = Some(false);
+            changed_interaction_expectation.1 = message.to_string();
+        }
+    }
+
+    #[derive(Default)]
+    struct ChangedInteractionExpectation(Option<bool>, String);
+
+    fn watch_changes(
+        query: Query<Entity, Changed<Interaction>>,
+        expected_changed_interaction: Res<ChangedInteractionExpectation>,
+    ) {
+        match expected_changed_interaction.0 {
+            Some(true) => assert!(
+                query.iter().count() > 0,
+                "{}",
+                expected_changed_interaction.1.as_str()
+            ),
+            Some(false) => assert_eq!(
+                query.iter().count(),
+                0,
+                "{}",
+                expected_changed_interaction.1.as_str()
+            ),
+            None => {}
         }
     }
 
