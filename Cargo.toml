@@ -193,6 +193,10 @@ name = "many_cubes"
 path = "examples/3d/many_cubes.rs"
 
 [[example]]
+name = "many_lights"
+path = "examples/3d/many_lights.rs"
+
+[[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
