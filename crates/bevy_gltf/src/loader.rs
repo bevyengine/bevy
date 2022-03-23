@@ -253,11 +253,15 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
 
-            for (positions, normals, tangents) in reader.read_morph_targets() {
-                let morph_target = mesh.add_morph_target();
-                morph_target.position_displacement = positions.map(|v| v.map(Into::into).collect());
-                morph_target.normal_displacement = normals.map(|v| v.map(Into::into).collect());
-                morph_target.tangent_displacement = tangents.map(|v| v.map(Into::into).collect());
+            {
+                let morph_targets = mesh.morph_targets_mut();
+                for (positions, normals, tangents) in reader.read_morph_targets() {
+                    morph_targets.add_target(
+                        positions.map(|v| v.collect()),
+                        normals.map(|v| v.collect()),
+                        tangents.map(|v| v.collect()),
+                    );
+                }
             }
 
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {

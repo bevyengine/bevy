@@ -1,24 +1,23 @@
 mod conversions;
-mod morph_target;
+pub mod morph_target;
 
 use crate::{
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::{Buffer, VertexBufferLayout, TextureFormat, Extent3d},
+    render_resource::{Buffer, VertexBufferLayout},
     renderer::{RenderDevice, RenderQueue},
-    texture::{GpuImage, Image},
 };
 use bevy_core::cast_slice;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-pub use morph_target::*;
 use bevy_utils::{EnumVariantMeta, Hashed};
+use morph_target::*;
 use std::{collections::BTreeMap, hash::Hash};
 use thiserror::Error;
 use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexAttribute,
-    VertexFormat, VertexStepMode,
+    util::BufferInitDescriptor, BufferDescriptor, BufferUsages, IndexFormat, PrimitiveTopology,
+    VertexAttribute, VertexFormat, VertexStepMode,
 };
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -34,7 +33,7 @@ pub struct Mesh {
     /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
-    morph_targets: Vec<MorphTarget>,
+    morph_targets: MorphTargets,
     indices: Option<Indices>,
 }
 
@@ -56,8 +55,6 @@ pub struct Mesh {
 /// }
 /// ```
 impl Mesh {
-    const MORPH_TARGET_PIXEL_SIZE: usize = std::mem::size_of::<Vec4>();
-
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Position", 0, VertexFormat::Float32x3);
@@ -93,7 +90,7 @@ impl Mesh {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
-            morph_targets: Vec::new(),
+            morph_targets: Default::default(),
             indices: None,
         }
     }
@@ -145,26 +142,6 @@ impl Mesh {
             .map(|data| &mut data.values)
     }
 
-    /// Creates a blank new [`MorphTarget`] and returns a mutable reference to it.
-    pub fn add_morph_target(&mut self) -> &mut MorphTarget {
-        self.morph_targets.push(MorphTarget {
-            position_displacement: None,
-            normal_displacement: None,
-            tangent_displacement: None,
-        });
-        self.morph_targets.last_mut().unwrap()
-    }
-
-    /// Retrieves the morph target at a given index.
-    pub fn morph_target(&self, target_idx: usize) -> Option<&MorphTarget> {
-        self.morph_targets.get(target_idx)
-    }
-
-    /// Retrieves the morph target at a given index mutably.
-    pub fn morph_target_mut(&mut self, target_idx: usize) -> Option<&mut MorphTarget> {
-        self.morph_targets.get_mut(target_idx)
-    }
-
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
     /// vertex attributes and are therefore only useful for the [`PrimitiveTopology`] variants
     /// that use triangles.
@@ -183,6 +160,18 @@ impl Mesh {
     #[inline]
     pub fn indices_mut(&mut self) -> Option<&mut Indices> {
         self.indices.as_mut()
+    }
+
+    /// Retrieves the vertex `indices` of the mesh mutably.
+    #[inline]
+    pub fn morph_targets(&self) -> &MorphTargets {
+        &self.morph_targets
+    }
+
+    /// Retrieves the vertex `indices` of the mesh mutably.
+    #[inline]
+    pub fn morph_targets_mut(&mut self) -> &mut MorphTargets {
+        &mut self.morph_targets
     }
 
     /// Computes and returns the index data of the mesh as bytes.
@@ -234,15 +223,6 @@ impl Mesh {
                         "{:?} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute_id, attribute_len, previous_vertex_count);
             }
             vertex_count = Some(attribute_len);
-        }
-
-        for (idx, morph_target) in self.morph_targets.iter().enumerate() {
-            let morph_target_len = morph_target.count_vertices();
-            if let Some(previous_vertex_count) = vertex_count {
-                assert_eq!(previous_vertex_count, morph_target_len,
-                        "Morph target {} has a different vertex count ({}) than other attributes ({}) in this mesh.", idx, morph_target_len, previous_vertex_count);
-            }
-            vertex_count = Some(morph_target_len);
         }
 
         vertex_count.unwrap_or(0)
@@ -384,59 +364,6 @@ impl Mesh {
         }
 
         None
-    }
-
-    /// Creates a [`Image`] from the morph target data stored within the mesh.
-    ///
-    /// Returns `None` if there is no morph target data.
-    fn create_morph_target_image(&self) -> Option<Image> {
-        if self.morph_targets.is_empty() {
-            return None;
-        }
-
-        const TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
-        let vertex_count = self.count_vertices();
-        let size = Extent3d {
-            width: vertex_count as u32,
-            // 3 attributes per morph target: position, normal, tangent.
-            height: self.morph_targets.len() as u32 * 3,
-            depth_or_array_layers: 1u32,
-        };
-        let mut data: Vec<u8> =
-            vec![0u8; size.width as usize * size.height as usize * Self::MORPH_TARGET_PIXEL_SIZE];
-        let row_size = vertex_count * Self::MORPH_TARGET_PIXEL_SIZE;
-        let mut offset = 0;
-        for morph_target in self.morph_targets.iter() {
-            Self::write_morph_target_row(
-                morph_target.position_displacement.as_ref(),
-                &mut data[offset..offset + row_size],
-            );
-            offset += row_size;
-            Self::write_morph_target_row(
-                morph_target.normal_displacement.as_ref(),
-                &mut data[offset..offset + row_size],
-            );
-            offset += row_size;
-            Self::write_morph_target_row(
-                morph_target.tangent_displacement.as_ref(),
-                &mut data[offset..offset + row_size],
-            );
-            offset += row_size;
-        }
-
-        Some(Image::new(size, TextureDimension::D2, data, TEXTURE_FORMAT))
-    }
-
-    fn write_morph_target_row(row: Option<&Vec<Vec3>>, dst: &mut [u8]) {
-        const VEC3_SIZE: usize = std::mem::size_of::<Vec3>();
-        if let Some(row) = row {
-            let src: &[u8] = cast_slice(row);
-            let src_chunks = src.chunks_exact(VEC3_SIZE);
-            let dst_chunks = dst.chunks_exact_mut(Self::MORPH_TARGET_PIXEL_SIZE);
-            for (src, dst) in src_chunks.zip(dst_chunks) {
-                dst[0..VEC3_SIZE].copy_from_slice(src);
-            }
-        }
     }
 }
 
@@ -839,7 +766,7 @@ impl From<&Indices> for IndexFormat {
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
     pub vertex_buffer: Buffer,
-    pub morph_target_image: Option<GpuImage>,
+    pub morph_buffers: Option<MorphTargetBuffers>,
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
@@ -859,6 +786,13 @@ pub enum GpuBufferInfo {
     },
 }
 
+#[derive(Debug, Clone)]
+pub struct MorphTargetBuffers {
+    pub displacement_buffer: Buffer,
+    pub range_uniform_buffer: Buffer,
+    pub final_displacement_buffer: Buffer,
+}
+
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
@@ -874,9 +808,6 @@ impl RenderAsset for Mesh {
         mesh: Self::ExtractedAsset,
         param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let morph_target_image = mesh
-            .create_morph_target_image()
-            .and_then(|image| Image::prepare_asset(image, param).ok());
         let (render_device, _) = &param;
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -885,9 +816,22 @@ impl RenderAsset for Mesh {
             contents: &vertex_buffer_data,
         });
 
+        let vertex_count = mesh.count_vertices();
+        let morph_buffers = if mesh.morph_targets().is_empty() {
+            None
+        } else {
+            let morph_targets = mesh.morph_targets();
+            Some(MorphTargetBuffers {
+                displacement_buffer: morph_targets.build_displacement_buffer(render_device),
+                range_uniform_buffer: morph_targets.build_range_buffer(render_device),
+                final_displacement_buffer: morph_targets
+                    .build_final_displacement_buffer(render_device, vertex_count),
+            })
+        };
+
         let buffer_info = mesh.get_index_buffer_bytes().map_or(
             GpuBufferInfo::NonIndexed {
-                vertex_count: mesh.count_vertices() as u32,
+                vertex_count: vertex_count as u32,
             },
             |data| GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -904,7 +848,7 @@ impl RenderAsset for Mesh {
 
         Ok(GpuMesh {
             vertex_buffer,
-            morph_target_image,
+            morph_buffers,
             buffer_info,
             primitive_topology: mesh.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
