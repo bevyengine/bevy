@@ -18,7 +18,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
@@ -1055,7 +1055,7 @@ pub fn queue_shadows(
     casting_meshes: Query<&Handle<Mesh>, Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<ShadowPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     view_lights: Query<&ViewLightEntities>,
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
@@ -1119,7 +1119,7 @@ pub fn queue_shadows(
 pub struct Shadow {
     pub distance: f32,
     pub entity: Entity,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -1143,9 +1143,9 @@ impl EntityPhaseItem for Shadow {
     }
 }
 
-impl CachedPipelinePhaseItem for Shadow {
+impl CachedRenderPipelinePhaseItem for Shadow {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }

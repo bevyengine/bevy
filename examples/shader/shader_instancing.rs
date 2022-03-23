@@ -101,7 +101,7 @@ fn queue_custom(
     custom_pipeline: Res<CustomPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
     material_meshes: Query<
         (Entity, &MeshUniform, &Handle<Mesh>),

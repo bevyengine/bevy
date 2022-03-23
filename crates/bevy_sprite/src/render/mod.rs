@@ -109,7 +109,7 @@ impl SpritePipelineKey {
     }
 }
 
-impl SpecializedPipeline for SpritePipeline {
+impl SpecializedRenderPipeline for SpritePipeline {
     type Key = SpritePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -338,8 +338,8 @@ pub fn queue_sprites(
     mut sprite_meta: ResMut<SpriteMeta>,
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
-    mut pipelines: ResMut<SpecializedPipelines<SpritePipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
