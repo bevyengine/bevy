@@ -362,7 +362,10 @@ pub struct StandardMaterialKey {
 impl SpecializedMaterial for StandardMaterial {
     type Key = StandardMaterialKey;
 
-    fn key(render_asset: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {
+    fn key(
+        render_device: &RenderDevice,
+        render_asset: &<Self as RenderAsset>::PreparedAsset,
+    ) -> Self::Key {
         StandardMaterialKey {
             normal_map: render_asset.has_normal_map,
             cull_mode: render_asset.cull_mode,

@@ -94,7 +94,7 @@ impl RenderAsset for CustomMaterial {
 impl SpecializedMaterial for CustomMaterial {
     type Key = ();
 
-    fn key(_: &<CustomMaterial as RenderAsset>::PreparedAsset) -> Self::Key {}
+    fn key(_: &RenderDevice, _: &<CustomMaterial as RenderAsset>::PreparedAsset) -> Self::Key {}
 
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,

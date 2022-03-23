@@ -86,7 +86,11 @@ impl<M: Material2d> SpecializedMaterial2d for M {
     type Key = ();
 
     #[inline]
-    fn key(_material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {}
+    fn key(
+        _render_device: &RenderDevice,
+        _material: &<Self as RenderAsset>::PreparedAsset,
+    ) -> Self::Key {
+    }
 
     #[inline]
     fn specialize(
@@ -136,7 +140,10 @@ pub trait SpecializedMaterial2d: Asset + RenderAsset {
     /// Extract the [`SpecializedMaterial2d::Key`] for the "prepared" version of this material. This key will be
     /// passed in to the [`SpecializedMaterial2d::specialize`] function when compiling the [`RenderPipeline`](bevy_render::render_resource::RenderPipeline)
     /// for a given entity's material.
-    fn key(material: &<Self as RenderAsset>::PreparedAsset) -> Self::Key;
+    fn key(
+        render_device: &RenderDevice,
+        material: &<Self as RenderAsset>::PreparedAsset,
+    ) -> Self::Key;
 
     /// Specializes the given `descriptor` according to the given `key`.
     fn specialize(
@@ -292,6 +299,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     mut pipeline_cache: ResMut<PipelineCache>,
+    render_device: Res<RenderDevice>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,
@@ -301,6 +309,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
     if material2d_meshes.is_empty() {
         return;
     }
+    let render_device = render_device.into_inner();
     for (visible_entities, mut transparent_phase) in views.iter_mut() {
         let draw_transparent_pbr = transparent_draw_functions
             .read()
@@ -318,7 +327,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
                         let mesh_key = msaa_key
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
-                        let material_key = M::key(material2d);
+                        let material_key = M::key(render_device, material2d);
                         let pipeline_id = pipelines.specialize(
                             &mut pipeline_cache,
                             &material2d_pipeline,
