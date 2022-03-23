@@ -154,12 +154,12 @@ impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
     }
 
     fn before<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
-        self.before.push(label.as_system_label());
+        self.before.push(Box::new(label.as_system_label()));
         self
     }
 
     fn after<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
-        self.after.push(label.as_system_label());
+        self.after.push(Box::new(label.as_system_label()));
         self
     }
 
