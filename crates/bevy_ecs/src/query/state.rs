@@ -382,6 +382,7 @@ where
             })
         };
 
+        // TODO: Replace with TryMap once https://github.com/rust-lang/rust/issues/79711 is stabilized
         // If any of the entities were not present, return an error
         for result in &array_of_results {
             if let Err(QueryEntityError::NoSuchEntity(entity)) = result {
