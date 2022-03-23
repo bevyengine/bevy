@@ -11,25 +11,9 @@ use bevy::{
     window::WindowDescriptor,
 };
 use std::borrow::Cow;
-use std::ops::Deref;
 
 const SIZE: (u32, u32) = (1280, 720);
 const WORKGROUP_SIZE: u32 = 8;
-
-// the layout descriptor of the bind group of game of life compute shader
-const BIND_GROUP_LAYOUT: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
-    label: None,
-    entries: &[BindGroupLayoutEntry {
-        binding: 0,
-        visibility: ShaderStages::COMPUTE,
-        ty: BindingType::StorageTexture {
-            access: StorageTextureAccess::ReadWrite,
-            format: TextureFormat::Rgba8Unorm,
-            view_dimension: TextureViewDimension::D2,
-        },
-        count: None,
-    }],
-};
 
 fn main() {
     App::new()
@@ -80,12 +64,11 @@ impl Plugin for GameOfLifeComputePlugin {
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<GameOfLifePipeline>()
-            .init_resource::<SpecializedComputePipelines<GameOfLifePipeline>>()
             .add_system_to_stage(RenderStage::Extract, extract_game_of_life_image)
             .add_system_to_stage(RenderStage::Queue, queue_bind_group);
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
-        render_graph.add_node("game_of_life", DispatchGameOfLife::default());
+        render_graph.add_node("game_of_life", GameOfLifeNode::default());
         render_graph
             .add_node_edge("game_of_life", MAIN_PASS_DEPENDENCIES)
             .unwrap();
@@ -118,106 +101,92 @@ fn queue_bind_group(
     commands.insert_resource(GameOfLifeImageBindGroup(bind_group));
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
-pub enum GameOfLifePipelineKey {
-    Init,
-    Update,
-}
-
 pub struct GameOfLifePipeline {
     texture_bind_group_layout: BindGroupLayout,
-    shader: Handle<Shader>,
+    init_pipeline: CachedComputePipelineId,
+    update_pipeline: CachedComputePipelineId,
 }
 
 impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let asset_server = world.resource::<AssetServer>();
-
-        let texture_bind_group_layout = render_device.create_bind_group_layout(&BIND_GROUP_LAYOUT);
-        let shader = asset_server.load("shaders/game_of_life.wgsl");
+        let texture_bind_group_layout =
+            world
+                .resource::<RenderDevice>()
+                .create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    label: None,
+                    entries: &[BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::StorageTexture {
+                            access: StorageTextureAccess::ReadWrite,
+                            format: TextureFormat::Rgba8Unorm,
+                            view_dimension: TextureViewDimension::D2,
+                        },
+                        count: None,
+                    }],
+                });
+        let shader = world
+            .resource::<AssetServer>()
+            .load("shaders/game_of_life.wgsl");
+        let mut pipeline_cache = world.resource_mut::<PipelineCache>();
+        let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: None,
+            layout: Some(vec![texture_bind_group_layout.clone()]),
+            shader: shader.clone(),
+            shader_defs: vec![],
+            entry_point: Cow::from("init"),
+        });
+        let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: None,
+            layout: Some(vec![texture_bind_group_layout.clone()]),
+            shader,
+            shader_defs: vec![],
+            entry_point: Cow::from("update"),
+        });
 
         GameOfLifePipeline {
             texture_bind_group_layout,
-            shader,
-        }
-    }
-}
-
-impl SpecializedComputePipeline for GameOfLifePipeline {
-    type Key = GameOfLifePipelineKey;
-
-    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
-        let entry_point = match key {
-            GameOfLifePipelineKey::Init => "init",
-            GameOfLifePipelineKey::Update => "update",
-        };
-
-        ComputePipelineDescriptor {
-            label: None,
-            layout: Some(vec![self.texture_bind_group_layout.clone()]),
-            shader: self.shader.clone(),
-            shader_defs: vec![],
-            entry_point: Cow::from(entry_point),
+            init_pipeline,
+            update_pipeline,
         }
     }
 }
 
 enum GameOfLifeState {
-    NotReady,
+    Loading,
     Init,
     Update,
 }
 
-struct DispatchGameOfLife {
+struct GameOfLifeNode {
     state: GameOfLifeState,
-    init_pipeline: CachedComputePipelineId,
-    update_pipeline: CachedComputePipelineId,
 }
 
-impl Default for DispatchGameOfLife {
+impl Default for GameOfLifeNode {
     fn default() -> Self {
         Self {
-            state: GameOfLifeState::NotReady,
-            init_pipeline: CachedComputePipelineId::INVALID,
-            update_pipeline: CachedComputePipelineId::INVALID,
+            state: GameOfLifeState::Loading,
         }
     }
 }
 
-impl render_graph::Node for DispatchGameOfLife {
+impl render_graph::Node for GameOfLifeNode {
     fn update(&mut self, world: &mut World) {
-        let world = world.cell();
-
-        let mut pipelines = world
-            .get_resource_mut::<SpecializedComputePipelines<GameOfLifePipeline>>()
-            .unwrap();
-        let mut pipeline_cache = world.get_resource_mut::<PipelineCache>().unwrap();
-        let game_of_life_pipeline = world.get_resource::<GameOfLifePipeline>().unwrap();
-
-        self.init_pipeline = pipelines.specialize(
-            &mut pipeline_cache,
-            game_of_life_pipeline.deref(),
-            GameOfLifePipelineKey::Init,
-        );
-        self.update_pipeline = pipelines.specialize(
-            &mut pipeline_cache,
-            game_of_life_pipeline.deref(),
-            GameOfLifePipelineKey::Update,
-        );
+        let pipeline = world.resource::<GameOfLifePipeline>();
+        let pipeline_cache = world.resource::<PipelineCache>();
 
         // if the corresponding pipeline has loaded, transition to the next stage
         match self.state {
-            GameOfLifeState::NotReady => {
+            GameOfLifeState::Loading => {
                 if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(self.init_pipeline)
+                    pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
                 {
                     self.state = GameOfLifeState::Init
                 }
             }
             GameOfLifeState::Init => {
                 if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(self.update_pipeline)
+                    pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
                 {
                     self.state = GameOfLifeState::Update
                 }
@@ -234,6 +203,7 @@ impl render_graph::Node for DispatchGameOfLife {
     ) -> Result<(), render_graph::NodeRunError> {
         let texture_bind_group = &world.resource::<GameOfLifeImageBindGroup>().0;
         let pipeline_cache = world.resource::<PipelineCache>();
+        let pipeline = world.resource::<GameOfLifePipeline>();
 
         let mut pass = render_context
             .command_encoder
@@ -243,17 +213,17 @@ impl render_graph::Node for DispatchGameOfLife {
 
         // select the pipeline based on the current state
         match self.state {
-            GameOfLifeState::NotReady => {}
+            GameOfLifeState::Loading => {}
             GameOfLifeState::Init => {
                 let init_pipeline = pipeline_cache
-                    .get_compute_pipeline(self.init_pipeline)
+                    .get_compute_pipeline(pipeline.init_pipeline)
                     .unwrap();
                 pass.set_pipeline(init_pipeline);
                 pass.dispatch(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
             }
             GameOfLifeState::Update => {
                 let update_pipeline = pipeline_cache
-                    .get_compute_pipeline(self.update_pipeline)
+                    .get_compute_pipeline(pipeline.update_pipeline)
                     .unwrap();
                 pass.set_pipeline(update_pipeline);
                 pass.dispatch(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
