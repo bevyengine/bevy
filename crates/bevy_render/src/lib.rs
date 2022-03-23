@@ -46,6 +46,7 @@ use crate::{
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
+use bevy_ecs::schedule::ReportExecutionOrderAmbiguities;
 use std::ops::{Deref, DerefMut};
 
 /// Contains the default Bevy rendering backend based on wgpu.

@@ -231,11 +231,11 @@ where
     }
 
     fn silence_ambiguity_checks(self) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).silence_ambiguity_checks()
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).silence_ambiguity_checks()
     }
 
     fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(self.system())).ambiguous_with(label)
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).ambiguous_with(label)
     }
 }
 

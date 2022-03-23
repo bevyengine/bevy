@@ -28,7 +28,10 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{entity::Entity, schedule::ParallelSystemDescriptorCoercion};
+use bevy_ecs::{
+    entity::Entity,
+    schedule::{ParallelSystemDescriptorCoercion, ReportExecutionOrderAmbiguities},
+};
 use bevy_render::{RenderApp, RenderStage};
 use bevy_sprite::SpriteSystem;
 
