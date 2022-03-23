@@ -96,10 +96,22 @@ impl IntoSystemDescriptor<()> for ExclusiveSystemCoerced {
     }
 }
 
+/// Whether or not system order ambiguities should be reported for this specific system
+///
+/// See the methods on [`ParallelSystemDescriptor`] to set this for a given system.
+///
+/// The overall behavior is configured using the
+/// [`ReportExecutionOrderAmbiguities`](crate::schedule::ReportExecutionOrderAmbiguities) resource.
 pub enum AmbiguityDetection {
     Check,
     Ignore,
     IgnoreWithLabel(Vec<BoxedSystemLabel>),
+}
+
+impl Default for AmbiguityDetection {
+    fn default() -> Self {
+        AmbiguityDetection::Check
+    }
 }
 
 /// Encapsulates a parallel system and information on when it runs in a `SystemStage`.
