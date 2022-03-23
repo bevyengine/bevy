@@ -11,10 +11,7 @@ use crate::{
     },
     world::{World, WorldId},
 };
-use bevy_utils::{
-    tracing::{info, warn},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -579,47 +576,36 @@ impl SystemStage {
         }
 
         debug_assert!(!self.systems_modified);
-        use std::fmt::Write;
+
         fn write_display_names_of_pairs(
-            string: &mut String,
+            offset: usize,
             systems: &[impl SystemContainer],
-            mut ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
+            ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
             world: &World,
-            output_prefix: &str,
-        ) {
-            use std::collections::hash_map;
-
-            let mut ambiguities_map: hash_map::HashMap<Vec<ComponentId>, Vec<usize>> =
-                hash_map::HashMap::new();
-
-            for (index_a, index_b, components) in ambiguities.drain(..) {
-                let systems = ambiguities_map.entry(components).or_default();
-                if !systems.contains(&index_a) {
-                    systems.push(index_a);
-                }
-                if !systems.contains(&index_b) {
-                    systems.push(index_b);
-                }
+        ) -> usize {
+            if ambiguities.is_empty() {
+                return offset;
             }
 
-            for (idx, (conflicts, systems_indices)) in ambiguities_map.drain().enumerate() {
-                let system_names = systems_indices
-                    .iter()
-                    .map(|index| systems[*index].name())
-                    .collect::<Vec<_>>();
+            for (i, (system_a_index, system_b_index, conflicting_indexes)) in
+                ambiguities.iter().enumerate()
+            {
+                let _system_a_name = systems[*system_a_index].name();
+                let _system_b_name = systems[*system_b_index].name();
 
-                let system_components = conflicts
+                let _conflicting_components = conflicting_indexes
                     .iter()
                     .map(|id| world.components().get_info(*id).unwrap().name())
                     .collect::<Vec<_>>();
 
-                writeln!(
-                    string,
-                    "{}.{} - Systems:\n     {:?}\n   - Conflict on the following components/resources:\n     {:?}",
-                    output_prefix, idx, system_names, system_components
-                )
-                .unwrap();
+                let _ambiguity_number = i + offset;
+
+                println!(
+                    "{_ambiguity_number}. {_system_a_name} conflicts with {_system_b_name} on {_conflicting_components:?}"
+                );
             }
+
+            return ambiguities.len();
         }
 
         let parallel = find_ambiguities(&self.parallel, &ambiguity_report.ignore_crates);
@@ -636,62 +622,26 @@ impl SystemStage {
         unresolved_count += at_end.len();
 
         if unresolved_count > 0 {
-            let mut details = String::from("");
+            println!("{unresolved_count} unresolved system order ambiguities detected in one of your stages: you might want to \
+            add an explicit system ordering between some of these systems to avoid logic errors. \n");
 
             if ambiguity_report.level != AmbiguityReportLevel::Verbose {
-                write!(details, " Set the level of the ReportExecutionOrderAmbiguities resource to AmbiguityReportLevel::Verbose for more details.").unwrap();
-            }
-
-            warn!(
-                "{} unresolved ambiguities detected.{}",
-                unresolved_count, &details
-            );
-        }
-
-        if !(parallel.is_empty()
-            && at_start.is_empty()
-            && before_commands.is_empty()
-            && at_end.is_empty())
-            && ambiguity_report.level == AmbiguityReportLevel::Verbose
-        {
-            let mut string = "Execution order ambiguities detected, you might want to \
-                    add an explicit dependency relation between some of these systems:\n"
-                .to_owned();
-            if !parallel.is_empty() {
-                writeln!(string, "1. Parallel systems:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.parallel, parallel, world, "1");
-            }
-            if !at_start.is_empty() {
-                writeln!(string, "2. Exclusive systems at start of stage:").unwrap();
-                write_display_names_of_pairs(
-                    &mut string,
-                    &self.exclusive_at_start,
-                    at_start,
-                    world,
-                    "2",
-                );
-            }
-            if !before_commands.is_empty() {
-                writeln!(string, "3. Exclusive systems before commands of stage:").unwrap();
-                write_display_names_of_pairs(
-                    &mut string,
+                println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
+            } else {
+                // TODO: clean up this logic once exclusive systems are more compatible with parallel systems
+                // allowing us to merge these collections
+                let mut offset = 1;
+                offset = write_display_names_of_pairs(offset, &self.parallel, parallel, world);
+                offset =
+                    write_display_names_of_pairs(offset, &self.exclusive_at_start, at_start, world);
+                offset = write_display_names_of_pairs(
+                    offset,
                     &self.exclusive_before_commands,
                     before_commands,
                     world,
-                    "3",
                 );
+                write_display_names_of_pairs(offset, &self.exclusive_at_end, at_end, world);
             }
-            if !at_end.is_empty() {
-                writeln!(string, "4. Exclusive systems at end of stage:").unwrap();
-                write_display_names_of_pairs(
-                    &mut string,
-                    &self.exclusive_at_end,
-                    at_end,
-                    world,
-                    "4",
-                );
-            }
-            info!("{}", string);
         }
     }
 
