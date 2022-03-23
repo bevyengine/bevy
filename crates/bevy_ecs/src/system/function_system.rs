@@ -10,7 +10,7 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{any::TypeId, borrow::Cow, fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{borrow::Cow, fmt::Debug, hash::Hash, marker::PhantomData};
 
 /// The metadata of a [`System`].
 pub struct SystemMeta {
