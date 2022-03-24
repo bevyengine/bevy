@@ -167,8 +167,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Collider);
 
     // Ball
-    let ball_velocity = INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED;
-
     commands
         .spawn()
         .insert(Ball)
@@ -184,7 +182,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Velocity(ball_velocity));
+        .insert(Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED));
 
     // Scoreboard
     commands.spawn_bundle(TextBundle {
