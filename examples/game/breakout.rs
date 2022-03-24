@@ -141,7 +141,7 @@ impl WallBundle {
                     // This is used to determine the order of our sprites
                     translation: location.position().extend(0.0),
                     // The z-scale of 2D objects must always be 1.0,
-                    // or their ordering will be affected in surpirising ways.
+                    // or their ordering will be affected in surprising ways.
                     // See https://github.com/bevyengine/bevy/issues/4149
                     scale: location.size().extend(1.0),
                     ..default()
