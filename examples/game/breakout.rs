@@ -229,9 +229,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(WallBundle::new(WallLocation::Top));
 
     // Add bricks
-    let bricks_width = BRICK_COLUMNS as f32 * (BRICK_SIZE.x + BRICK_SPACING) - BRICK_SPACING;
+    let brick_width = BRICK_COLUMNS as f32 * (BRICK_SIZE.x + BRICK_SPACING) - BRICK_SPACING;
     // center the bricks and move them up a bit
-    let bricks_offset = Vec3::new(-(bricks_width - BRICK_SIZE.x) / 2.0, BRICK_Y_OFFSET, 0.0);
+    let brick_offset = Vec3::new((BRICK_SIZE.x - brick_width) / 2.0, BRICK_Y_OFFSET, 0.0);
+
     for row in 0..BRICK_ROWS {
         let y_position = row as f32 * (BRICK_SIZE.y + BRICK_SPACING);
         for column in 0..BRICK_COLUMNS {
@@ -239,7 +240,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 column as f32 * (BRICK_SIZE.x + BRICK_SPACING),
                 y_position,
                 0.0,
-            ) + bricks_offset;
+            ) + brick_offset;
+
             // brick
             commands
                 .spawn()
