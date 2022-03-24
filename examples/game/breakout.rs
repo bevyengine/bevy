@@ -81,11 +81,11 @@ struct Brick;
 // This bundle is a collection of the components that define a "wall" in our game
 #[derive(Bundle)]
 struct WallBundle {
-    collider: Collider,
     // You can nest bundles inside of other bundles like this
     // Allowing you to compose their functionality
     #[bundle]
     sprite_bundle: SpriteBundle,
+    collider: Collider,
 }
 
 /// Which side of the arena is this wall located on?
