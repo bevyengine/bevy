@@ -376,10 +376,11 @@ where
         };
 
         // TODO: Replace with TryMap once https://github.com/rust-lang/rust/issues/79711 is stabilized
-        // If any of the entities were not present, return an error
+        // If any of the get calls failed, bubble up the error
         for result in &array_of_results {
-            if let Err(QueryEntityError::NoSuchEntity(entity)) = result {
-                return Err(QueryEntityError::NoSuchEntity(*entity));
+            match result {
+                Ok(_) => (),
+                Err(error) => return Err(*error),
             }
         }
 
@@ -416,10 +417,11 @@ where
             self.get_unchecked_manual::<Q::Fetch>(world, entity, last_change_tick, change_tick)
         });
 
-        // If any of the entities were not present, return an error
+        // If any of the get calls failed, bubble up the error
         for result in &array_of_results {
-            if let Err(QueryEntityError::NoSuchEntity(entity)) = result {
-                return Err(QueryEntityError::NoSuchEntity(*entity));
+            match result {
+                Ok(_) => (),
+                Err(error) => return Err(*error),
             }
         }
 
