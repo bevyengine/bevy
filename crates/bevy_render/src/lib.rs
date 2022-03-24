@@ -107,6 +107,10 @@ pub struct RenderApp;
 #[derive(Default)]
 struct ScratchRenderWorld(World);
 
+/// The number of entities used in the render world in the previous frame.
+#[derive(Default)]
+struct ReserveCount(u32);
+
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
@@ -176,7 +180,8 @@ impl Plugin for RenderPlugin {
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server)
-                .init_resource::<RenderGraph>();
+                .init_resource::<RenderGraph>()
+                .init_resource::<ReserveCount>();
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
@@ -187,13 +192,10 @@ impl Plugin for RenderPlugin {
                         bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush")
                             .entered();
 
-                    // reserve all existing app entities for use in render_app
+                    // reserve the number of entities used in the previous frame for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let meta_len = app_world.entities().meta_len();
-                    render_app
-                        .world
-                        .entities()
-                        .reserve_entities(meta_len as u32);
+                    let count = render_app.world.resource::<ReserveCount>().0;
+                    render_app.world.entities().reserve_entities(count);
 
                     // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
                     // these entities cannot be accessed without spawning directly onto them
@@ -273,6 +275,9 @@ impl Plugin for RenderPlugin {
                         .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
                         .unwrap();
                     cleanup.run(&mut render_app.world);
+
+                    render_app.world.resource_mut::<ReserveCount>().0 =
+                        render_app.world.entities().meta.len() as u32;
 
                     render_app.world.clear_entities();
                 }
