@@ -112,7 +112,7 @@ fn queue_custom(
         | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
     for (view, mut transparent_phase) in views.iter_mut() {
-        let inverse_view_row_2 = view.view.inverse().row(2);
+        let view_row_2 = view.view.row(2);
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let pipeline = pipelines
@@ -122,9 +122,7 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
-                    // gives the z component of translation of the mesh in view space
-                    distance: inverse_view_row_2.dot(mesh_uniform.transform.col(3)),
+                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
                 });
             }
         }

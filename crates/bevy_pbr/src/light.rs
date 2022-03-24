@@ -812,9 +812,6 @@ pub(crate) fn assign_lights_to_clusters(
                 lights
                     .iter()
                     .map(|light| {
-                        // NOTE: row 2 of the inverse view matrix dotted with the world space
-                        // translation gives the z component of translation of the mesh in view
-                        // space
                         -inverse_view_row_2.dot(light.translation.extend(1.0)) + light.range
                     })
                     .reduce(f32::max)
