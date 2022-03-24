@@ -16,7 +16,8 @@ const TIME_STEP: f32 = 1.0 / 60.0;
 const PADDLE_SIZE: Vec3 = const_vec3!([120.0, 30.0, 0.0]);
 const PADDLE_Y_OFFSET: f32 = -215.0;
 const PADDLE_SPEED: f32 = 500.0;
-const PADDLE_BOUNDS: f32 = 380.0;
+// How close can the paddle get to the wall
+const PADDLE_PADDING: f32 = 10.0;
 
 // We set the z-value of the ball to 1 so it renders on top in the case of overlapping sprites.
 const BALL_STARTING_POSITION: Vec3 = const_vec3!([0.0, -50.0, 1.0]);
@@ -264,8 +265,9 @@ fn move_paddle(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Paddle>>,
 ) {
-    let mut transform = query.single_mut();
+    let mut paddle_transform = query.single_mut();
     let mut direction = 0.0;
+
     if keyboard_input.pressed(KeyCode::Left) {
         direction -= 1.0;
     }
@@ -274,11 +276,17 @@ fn move_paddle(
         direction += 1.0;
     }
 
-    let translation = &mut transform.translation;
-    // move the paddle horizontally
-    translation.x += direction * PADDLE_SPEED * TIME_STEP;
-    // bound the paddle within the walls
-    translation.x = translation.x.min(PADDLE_BOUNDS).max(-PADDLE_BOUNDS);
+    // Move the paddle horizontally
+    paddle_transform.translation.x += direction * PADDLE_SPEED * TIME_STEP;
+
+    // Bound the paddle within the walls
+    // This is maximum x value that the paddle's transform can have without leaving the play area
+    let paddle_bounds =
+        (PLAY_AREA_BOUNDS.x - WALL_THICKNESS - PADDLE_SIZE.x) / 2.0 - PADDLE_PADDING;
+    paddle_transform.translation.x = paddle_transform
+        .translation
+        .x
+        .clamp(-paddle_bounds, paddle_bounds);
 }
 
 fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
