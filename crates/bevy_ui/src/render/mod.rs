@@ -64,7 +64,7 @@ pub fn build_ui_render(app: &mut App) {
 
     render_app
         .init_resource::<UiPipeline>()
-        .init_resource::<SpecializedPipelines<UiPipeline>>()
+        .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
@@ -403,8 +403,8 @@ pub fn queue_uinodes(
     mut ui_meta: ResMut<UiMeta>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
-    mut pipelines: ResMut<SpecializedPipelines<UiPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
