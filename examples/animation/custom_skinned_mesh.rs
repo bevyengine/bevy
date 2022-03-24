@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 
+use rand::Rng;
 use bevy::{
     pbr::AmbientLight,
     prelude::*,
@@ -116,12 +117,11 @@ fn setup(
     ])));
 
     let mesh = meshes.add(mesh);
-    // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
-    for i in 0..10 {
+    for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
             .spawn_bundle((
-                Transform::from_xyz(0.0, 1.0, 0.0),
+                Transform::from_xyz(i as f32 * 1.5, 0.0, 0.0),
                 GlobalTransform::identity(),
             ))
             .id();
@@ -139,11 +139,15 @@ fn setup(
         // Each joint in this vector corresponds to each inverse bindpose matrix in `SkinnedMeshInverseBindposes`.
         let joint_entities = vec![joint_0, joint_1];
 
+        // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
         commands
             .spawn_bundle(PbrBundle {
                 mesh: mesh.clone(),
-                material: materials.add(Color::WHITE.into()),
-                transform: Transform::from_xyz(i as f32, 0.0, 0.0),
+                material: materials.add(Color::rgb(
+                    rand::thread_rng().gen_range(0.0..1.0),
+                    rand::thread_rng().gen_range(0.0..1.0),
+                    rand::thread_rng().gen_range(0.0..1.0),
+                ).into()),
                 ..Default::default()
             })
             .insert(SkinnedMesh {
