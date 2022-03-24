@@ -76,6 +76,66 @@ struct Collider;
 #[derive(Component)]
 struct Brick;
 
+// This bundle is a collection of the components that define a "wall" in our game
+#[derive(Bundle)]
+struct WallBundle {
+    collider: Collider,
+    // You can nest bundles inside of other bundles like this
+    // Allowing you to compose their functionality
+    #[bundle]
+    sprite_bundle: SpriteBundle,
+}
+
+/// Which side of the arena is this wall located on?
+enum WallLocation {
+    Left,
+    Right,
+    Bottom,
+    Top,
+}
+
+impl WallBundle {
+    // This "builder method" allows us to reuse logic across our wall entities,
+    // making our code easier to read and less prone to bugs when we change the logic
+    fn new(orientation: WallLocation) -> WallBundle {
+        // This allows us to just use `Left`, rather than `WallOrientation::Left` everywhere
+        use WallLocation::*;
+
+        let translation = match orientation {
+            Left => Vec2::new(-PLAY_AREA_BOUNDS.x / 2.0, 0.0),
+            Right => Vec2::new(PLAY_AREA_BOUNDS.x / 2.0, 0.0),
+            Bottom => Vec2::new(0.0, -PLAY_AREA_BOUNDS.y / 2.0),
+            Top => Vec2::new(0.0, PLAY_AREA_BOUNDS.y / 2.0),
+        }
+        // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
+        .extend(0.0);
+
+        let scale = match orientation {
+            Left => Vec2::new(WALL_THICKNESS, PLAY_AREA_BOUNDS.y + WALL_THICKNESS),
+            Right => Vec2::new(WALL_THICKNESS, PLAY_AREA_BOUNDS.y + WALL_THICKNESS),
+            Bottom => Vec2::new(PLAY_AREA_BOUNDS.x + WALL_THICKNESS, WALL_THICKNESS),
+            Top => Vec2::new(PLAY_AREA_BOUNDS.x + WALL_THICKNESS, WALL_THICKNESS),
+        }
+        .extend(1.0);
+
+        WallBundle {
+            sprite_bundle: SpriteBundle {
+                transform: Transform {
+                    translation,
+                    scale,
+                    ..default()
+                },
+                sprite: Sprite {
+                    color: WALL_COLOR,
+                    ..default()
+                },
+                ..default()
+            },
+            collider: Collider,
+        }
+    }
+}
+
 // This resource tracks the game's score
 struct Scoreboard {
     score: usize,
@@ -87,6 +147,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // cameras
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
+
     // paddle
     commands
         .spawn()
@@ -104,6 +165,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .insert(Collider);
+
     // ball
     let ball_velocity = INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED;
 
@@ -123,6 +185,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .insert(Velocity(ball_velocity));
+
     // scoreboard
     commands.spawn_bundle(TextBundle {
         text: Text {
@@ -158,66 +221,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
-    // left
-    commands
-        .spawn_bundle(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(-PLAY_AREA_BOUNDS.x / 2.0, 0.0, 0.0),
-                scale: Vec3::new(WALL_THICKNESS, PLAY_AREA_BOUNDS.y + WALL_THICKNESS, 1.0),
-                ..default()
-            },
-            sprite: Sprite {
-                color: WALL_COLOR,
-                ..default()
-            },
-            ..default()
-        })
-        .insert(Collider);
-    // right
-    commands
-        .spawn_bundle(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(PLAY_AREA_BOUNDS.x / 2.0, 0.0, 0.0),
-                scale: Vec3::new(WALL_THICKNESS, PLAY_AREA_BOUNDS.y + WALL_THICKNESS, 1.0),
-                ..default()
-            },
-            sprite: Sprite {
-                color: WALL_COLOR,
-                ..default()
-            },
-            ..default()
-        })
-        .insert(Collider);
-    // bottom
-    commands
-        .spawn_bundle(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0.0, -PLAY_AREA_BOUNDS.y / 2.0, 0.0),
-                scale: Vec3::new(PLAY_AREA_BOUNDS.x + WALL_THICKNESS, WALL_THICKNESS, 1.0),
-                ..default()
-            },
-            sprite: Sprite {
-                color: WALL_COLOR,
-                ..default()
-            },
-            ..default()
-        })
-        .insert(Collider);
-    // top
-    commands
-        .spawn_bundle(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0.0, PLAY_AREA_BOUNDS.y / 2.0, 0.0),
-                scale: Vec3::new(PLAY_AREA_BOUNDS.x + WALL_THICKNESS, WALL_THICKNESS, 1.0),
-                ..default()
-            },
-            sprite: Sprite {
-                color: WALL_COLOR,
-                ..default()
-            },
-            ..default()
-        })
-        .insert(Collider);
+    // walls
+    commands.spawn_bundle(WallBundle::new(WallLocation::Left));
+    commands.spawn_bundle(WallBundle::new(WallLocation::Right));
+    commands.spawn_bundle(WallBundle::new(WallLocation::Bottom));
+    commands.spawn_bundle(WallBundle::new(WallLocation::Top));
 
     // Add bricks
     let bricks_width = BRICK_COLUMNS as f32 * (BRICK_SIZE.x + BRICK_SPACING) - BRICK_SPACING;
