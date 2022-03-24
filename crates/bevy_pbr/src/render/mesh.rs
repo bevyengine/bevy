@@ -25,6 +25,7 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
+use smallvec::SmallVec;
 use std::num::NonZeroU64;
 
 #[derive(Default)]
@@ -191,18 +192,19 @@ impl SkinnedMeshJoints {
         let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
         let bindposes = inverse_bindposes.iter();
         let skin_joints = skin.joints.iter();
-        buffer.reserve(bindposes.len().min(MAX_JOINTS));
-        let start = buffer.len();
+        let mut temp =
+            SmallVec::<[Mat4; MAX_JOINTS]>::with_capacity(bindposes.len().min(MAX_JOINTS));
         for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(MAX_JOINTS) {
             let joint_matrix = joints.get(*joint).ok()?.compute_matrix();
-            buffer.push(joint_matrix * *inverse_bindpose);
+            temp.push(joint_matrix * *inverse_bindpose);
         }
 
+        let start = buffer.len();
+        buffer.extend(temp);
         // Pad to 256 byte alignment
         while buffer.len() % 4 != 0 {
             buffer.push(Mat4::ZERO);
         }
-
         Some(Self {
             index: start as u32,
         })
