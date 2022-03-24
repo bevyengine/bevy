@@ -637,20 +637,16 @@ mod tests {
     #[test]
     fn table_add_remove_many() {
         let mut world = World::default();
-        #[cfg(miri)]
-        let mut entities = Vec::with_capacity(10);
-        #[cfg(not(miri))]
-        let mut entities = Vec::with_capacity(1_000);
-
-        let to;
-        #[cfg(miri)]
-        {
-            to = 10;
-        }
-        #[cfg(not(miri))]
-        {
-            to = 1000;
-        }
+      #[cfg(miri)]
+      let (mut entities, to) = {
+          let to = 10;
+          (Vec::with_capacity(to), to)
+      };
+      #[cfg(not(miri))]
+      let (mut entities, to) = {
+          let to = 10_000;
+          (Vec::with_capacity(to), to)
+      };
 
         for _ in 0..to {
             entities.push(world.spawn().insert(B(0)).id());
