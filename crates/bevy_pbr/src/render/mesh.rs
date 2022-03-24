@@ -232,7 +232,7 @@ pub fn extract_skinned_meshes(
         if !computed_visibility.is_visible {
             continue;
         }
-        // TODO: This can be expensive, can we move this to prepare?
+        // PERF: This can be expensive, can we move this to prepare?
         if let Some(skinned_joints) =
             SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut joints)
         {
