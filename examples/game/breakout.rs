@@ -14,7 +14,7 @@ const TIME_STEP: f32 = 1.0 / 60.0;
 // Using the default 2D camera they correspond 1:1 with screen pixels.
 // The `const_vec3!` macros are needed as functions that operate on floats cannot be constant in Rust.
 const PADDLE_SIZE: Vec3 = const_vec3!([120.0, 30.0, 0.0]);
-const PADDLE_Y_OFFSET: f32 = -215.0;
+const GAP_BETWEEN_PADDLE_AND_FLOOR: f32 = 100.0;
 const PADDLE_SPEED: f32 = 500.0;
 // How close can the paddle get to the wall
 const PADDLE_PADDING: f32 = 10.0;
@@ -26,14 +26,20 @@ const BALL_SPEED: f32 = 400.0;
 const INITIAL_BALL_DIRECTION: Vec2 = const_vec2!([0.5, -0.5]);
 
 const WALL_THICKNESS: f32 = 10.0;
-const ARENA_WIDTH: f32 = 900.;
-const ARENA_HEIGHT: f32 = 600.;
+// x coordinates
+const LEFT_WALL: f32 = -450.;
+const RIGHT_WALL: f32 = 450.;
+// y coordinates
+const BOTTOM_WALL: f32 = -300.;
+const TOP_WALL: f32 = 300.;
 
-const BRICK_COLUMNS: u8 = 5;
-const BRICK_ROWS: u8 = 4;
-const BRICK_SPACING_X: f32 = 40.0;
-const BRICK_SPACING_Y: f32 = 40.0;
-const BRICK_Y_OFFSET: f32 = 100.0;
+const BRICK_SIZE: Vec2 = const_vec2!([80., 40.]);
+// These values are exact
+const GAP_BETWEEN_PADDLE_AND_BRICKS: f32 = 120.0;
+const GAP_BETWEEN_BRICKS: f32 = 40.0;
+// These values are lower bounds, as the number of bricks is computed
+const GAP_BETWEEN_BRICKS_AND_CEILING: f32 = 50.0;
+const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 50.0;
 
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
@@ -100,19 +106,26 @@ enum WallLocation {
 impl WallLocation {
     fn position(&self) -> Vec2 {
         match self {
-            WallLocation::Left => Vec2::new(-ARENA_WIDTH / 2., 0.),
-            WallLocation::Right => Vec2::new(ARENA_WIDTH / 2., 0.),
-            WallLocation::Bottom => Vec2::new(0., -ARENA_HEIGHT / 2.),
-            WallLocation::Top => Vec2::new(0., ARENA_HEIGHT / 2.),
+            WallLocation::Left => Vec2::new(LEFT_WALL, 0.),
+            WallLocation::Right => Vec2::new(RIGHT_WALL, 0.),
+            WallLocation::Bottom => Vec2::new(0., BOTTOM_WALL),
+            WallLocation::Top => Vec2::new(0., TOP_WALL),
         }
     }
 
     fn size(&self) -> Vec2 {
+        // Make sure we haven't messed up our left and right
+        assert!(LEFT_WALL < RIGHT_WALL);
+        assert!(BOTTOM_WALL < TOP_WALL);
+
+        let arena_height = TOP_WALL - BOTTOM_WALL;
+        let arena_width = RIGHT_WALL - LEFT_WALL;
+
         match self {
-            WallLocation::Left => Vec2::new(WALL_THICKNESS, ARENA_HEIGHT + WALL_THICKNESS),
-            WallLocation::Right => Vec2::new(WALL_THICKNESS, ARENA_HEIGHT + WALL_THICKNESS),
-            WallLocation::Bottom => Vec2::new(ARENA_WIDTH + WALL_THICKNESS, WALL_THICKNESS),
-            WallLocation::Top => Vec2::new(ARENA_WIDTH + WALL_THICKNESS, WALL_THICKNESS),
+            WallLocation::Left => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
+            WallLocation::Right => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
+            WallLocation::Bottom => Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS),
+            WallLocation::Top => Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS),
         }
     }
 }
@@ -156,12 +169,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(UiCameraBundle::default());
 
     // Paddle
+    let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
+
     commands
         .spawn()
         .insert(Paddle)
         .insert_bundle(SpriteBundle {
             transform: Transform {
-                translation: Vec3::new(0.0, PADDLE_Y_OFFSET, 0.0),
+                translation: Vec3::new(0.0, paddle_y, 0.0),
                 scale: PADDLE_SIZE,
                 ..default()
             },
@@ -233,34 +248,43 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(WallBundle::new(WallLocation::Top));
 
     // Bricks
-    let total_width_of_bricks = ARENA_WIDTH - 2. * BRICK_SPACING_X;
-
-    let width_available_for_bricks =
-        total_width_of_bricks - (BRICK_COLUMNS - 1) as f32 * BRICK_SPACING_X;
-    let brick_width = width_available_for_bricks / BRICK_COLUMNS as f32;
-
-    let total_height_of_bricks = ARENA_HEIGHT / 2.0 - BRICK_Y_OFFSET;
-    let height_available_for_bricks =
-        total_height_of_bricks - (BRICK_ROWS - 2) as f32 * BRICK_SPACING_Y;
-    let brick_height = height_available_for_bricks / BRICK_ROWS as f32;
-
     // Negative scales result in flipped sprites / meshes,
     // which is definitely not what we want here
-    assert!(brick_width > 0.0);
-    assert!(brick_height > 0.0);
+    assert!(BRICK_SIZE.x > 0.0);
+    assert!(BRICK_SIZE.y > 0.0);
 
-    // Center the bricks and move them up a bit
-    let brick_offset = Vec2::new(
-        -(total_width_of_bricks - brick_width) / 2.0,
-        BRICK_Y_OFFSET + BRICK_SPACING_Y,
-    );
+    let total_width_of_bricks = (RIGHT_WALL - LEFT_WALL) - 2. * GAP_BETWEEN_BRICKS_AND_SIDES;
+    let bottom_edge_of_bricks = paddle_y + GAP_BETWEEN_PADDLE_AND_BRICKS;
+    let total_height_of_bricks = TOP_WALL - bottom_edge_of_bricks - GAP_BETWEEN_BRICKS_AND_CEILING;
 
-    for row in 0..BRICK_ROWS {
-        for column in 0..BRICK_COLUMNS {
+    assert!(total_width_of_bricks > 0.0);
+    assert!(total_height_of_bricks > 0.0);
+
+    // Given the space available, compute how many rows and columns of bricks we can fit
+    let n_columns = (total_width_of_bricks / (BRICK_SIZE.x + GAP_BETWEEN_BRICKS)).floor() as usize;
+    let n_rows = (total_height_of_bricks / (BRICK_SIZE.y + GAP_BETWEEN_BRICKS)).floor() as usize;
+    let n_vertical_gaps = n_columns - 1;
+
+    // Because we need to round the number of columns,
+    // the space on the top and sides of the bricks only captures a lower bound, not an exact value
+    let center_of_bricks = (LEFT_WALL + RIGHT_WALL) / 2.0;
+    let left_edge_of_bricks = center_of_bricks
+        // Space taken up by the bricks    
+        - (n_columns as f32 / 2.0 * BRICK_SIZE.x)
+        // Space taken up by the gaps
+        - n_vertical_gaps as f32 / 2.0 * GAP_BETWEEN_BRICKS;
+
+    // In Bevy, the `translation` of an entity describes the center point,
+    // not its bottom-left corner
+    let offset_x = left_edge_of_bricks + BRICK_SIZE.x / 2.;
+    let offset_y = bottom_edge_of_bricks + BRICK_SIZE.y / 2.;
+
+    for row in 0..n_rows {
+        for column in 0..n_columns {
             let brick_position = Vec2::new(
-                column as f32 * (brick_width + BRICK_SPACING_X),
-                row as f32 * (brick_height + BRICK_SPACING_X),
-            ) + brick_offset;
+                offset_x + column as f32 * (BRICK_SIZE.x + GAP_BETWEEN_BRICKS),
+                offset_y + row as f32 * (BRICK_SIZE.y + GAP_BETWEEN_BRICKS),
+            );
 
             // brick
             commands
@@ -273,7 +297,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     transform: Transform {
                         translation: brick_position.extend(0.0),
-                        scale: Vec3::new(brick_width, brick_height, 1.0),
+                        scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
                         ..default()
                     },
                     ..default()
@@ -298,15 +322,15 @@ fn move_paddle(
         direction += 1.0;
     }
 
-    // This is the maximum x value that the paddle's transform can have without leaving the play area
-    let paddle_bounds = (ARENA_WIDTH - WALL_THICKNESS - PADDLE_SIZE.x) / 2.0 - PADDLE_PADDING;
-
     // Calculate the new horizontal paddle position based on player input
     let new_paddle_position = paddle_transform.translation.x + direction * PADDLE_SPEED * TIME_STEP;
 
     // Update the paddle position,
     // making sure it doesn't cause the paddle to leave the arena
-    paddle_transform.translation.x = new_paddle_position.clamp(-paddle_bounds, paddle_bounds);
+    let left_bound = LEFT_WALL + WALL_THICKNESS / 2.0 + PADDLE_SIZE.x / 2.0 + PADDLE_PADDING;
+    let right_bound = RIGHT_WALL - WALL_THICKNESS / 2.0 - PADDLE_SIZE.x / 2.0 - PADDLE_PADDING;
+
+    paddle_transform.translation.x = new_paddle_position.clamp(left_bound, right_bound);
 }
 
 fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
