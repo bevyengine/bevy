@@ -147,6 +147,8 @@ fn queue_wireframes(
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
+                        // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
+                        // gives the z component of translation of the mesh in view space
                         distance: inverse_view_row_2.dot(mesh_uniform.transform.col(3)),
                     });
                 }

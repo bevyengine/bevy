@@ -149,7 +149,7 @@ fn queue_custom(
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
-        let view_row_2 = view.view.row(2);
+        let inverse_view_row_2 = view.view.inverse().row(2);
         for (entity, mesh_handle, mesh_uniform, is_red) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let key =
@@ -166,7 +166,9 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
+                    // gives the z component of translation of the mesh in view space
+                    distance: inverse_view_row_2.dot(mesh_uniform.transform.col(3)),
                 });
             }
         }
