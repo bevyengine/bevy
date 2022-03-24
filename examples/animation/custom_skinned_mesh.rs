@@ -115,38 +115,42 @@ fn setup(
         0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8,
     ])));
 
-    // Create joint entities
-    let joint_0 = commands
-        .spawn_bundle((
-            Transform::from_xyz(0.0, 1.0, 0.0),
-            GlobalTransform::identity(),
-        ))
-        .id();
-    let joint_1 = commands
-        .spawn_bundle((
-            AnimatedJoint,
-            Transform::identity(),
-            GlobalTransform::identity(),
-        ))
-        .id();
-
-    // Set joint_1 as a child of joint_0.
-    commands.entity(joint_0).push_children(&[joint_1]);
-
-    // Each joint in this vector corresponds to each inverse bindpose matrix in `SkinnedMeshInverseBindposes`.
-    let joint_entities = vec![joint_0, joint_1];
-
+    let mesh = meshes.add(mesh);
     // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(mesh),
-            material: materials.add(Color::WHITE.into()),
-            ..Default::default()
-        })
-        .insert(SkinnedMesh {
-            inverse_bindposes,
-            joints: joint_entities,
-        });
+    for i in 0..10 {
+        // Create joint entities
+        let joint_0 = commands
+            .spawn_bundle((
+                Transform::from_xyz(0.0, 1.0, 0.0),
+                GlobalTransform::identity(),
+            ))
+            .id();
+        let joint_1 = commands
+            .spawn_bundle((
+                AnimatedJoint,
+                Transform::identity(),
+                GlobalTransform::identity(),
+            ))
+            .id();
+
+        // Set joint_1 as a child of joint_0.
+        commands.entity(joint_0).push_children(&[joint_1]);
+
+        // Each joint in this vector corresponds to each inverse bindpose matrix in `SkinnedMeshInverseBindposes`.
+        let joint_entities = vec![joint_0, joint_1];
+
+        commands
+            .spawn_bundle(PbrBundle {
+                mesh: mesh.clone(),
+                material: materials.add(Color::WHITE.into()),
+                transform: Transform::from_xyz(i as f32, 0.0, 0.0),
+                ..Default::default()
+            })
+            .insert(SkinnedMesh {
+                inverse_bindposes: inverse_bindposes.clone(),
+                joints: joint_entities,
+            });
+    }
 }
 
 /// Animate the joint marked with [`AnimatedJoint`] component.
