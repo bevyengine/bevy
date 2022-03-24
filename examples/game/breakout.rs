@@ -52,11 +52,11 @@ fn main() {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(paddle_movement_system)
-                .with_system(ball_collision_system)
-                .with_system(apply_velocity_system),
+                .with_system(move_paddle)
+                .with_system(check_for_collisions)
+                .with_system(apply_velocity),
         )
-        .add_system(scoreboard_system)
+        .add_system(update_scoreboard)
         .add_system(bevy::input::system::exit_on_esc_system)
         .run();
 }
@@ -252,7 +252,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     }
 }
 
-fn paddle_movement_system(
+fn move_paddle(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Paddle>>,
 ) {
@@ -273,19 +273,19 @@ fn paddle_movement_system(
     translation.x = translation.x.min(PADDLE_BOUNDS).max(-PADDLE_BOUNDS);
 }
 
-fn apply_velocity_system(mut query: Query<(&mut Transform, &Velocity)>) {
+fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
     for (mut transform, velocity) in query.iter_mut() {
         transform.translation.x += velocity.0.x * TIME_STEP;
         transform.translation.y += velocity.0.y * TIME_STEP;
     }
 }
 
-fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
     let mut text = query.single_mut();
     text.sections[1].value = format!("{}", scoreboard.score);
 }
 
-fn ball_collision_system(
+fn check_for_collisions(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
