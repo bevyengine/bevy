@@ -114,12 +114,11 @@ impl WallLocation {
     }
 
     fn size(&self) -> Vec2 {
-        // Make sure we haven't messed up our left and right
-        assert!(LEFT_WALL < RIGHT_WALL);
-        assert!(BOTTOM_WALL < TOP_WALL);
-
         let arena_height = TOP_WALL - BOTTOM_WALL;
         let arena_width = RIGHT_WALL - LEFT_WALL;
+        // Make sure we haven't messed up our constants
+        assert!(arena_height > 0.0);
+        assert!(arena_width > 0.0);
 
         match self {
             WallLocation::Left => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
