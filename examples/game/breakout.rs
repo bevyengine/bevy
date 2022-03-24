@@ -35,13 +35,13 @@ const BRICK_SIZE: Vec3 = const_vec3!([150.0, 30.0, 1.0]);
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
-const BACKGROUND_COLOR: Color = Color::rgb(0.95, 0.95, 0.95);
+const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 const PADDLE_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
 const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const WALL_COLOR: Color = Color::DARK_GRAY;
-const TEXT_COLOR: Color = Color::BLUE;
-const SCORE_COLOR: Color = Color::RED;
+const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
+const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
+const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
