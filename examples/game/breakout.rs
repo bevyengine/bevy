@@ -33,13 +33,13 @@ const RIGHT_WALL: f32 = 450.;
 const BOTTOM_WALL: f32 = -300.;
 const TOP_WALL: f32 = 300.;
 
-const BRICK_SIZE: Vec2 = const_vec2!([80., 40.]);
+const BRICK_SIZE: Vec2 = const_vec2!([100., 30.]);
 // These values are exact
 const GAP_BETWEEN_PADDLE_AND_BRICKS: f32 = 120.0;
-const GAP_BETWEEN_BRICKS: f32 = 40.0;
+const GAP_BETWEEN_BRICKS: f32 = 5.0;
 // These values are lower bounds, as the number of bricks is computed
 const GAP_BETWEEN_BRICKS_AND_CEILING: f32 = 50.0;
-const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 50.0;
+const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 20.0;
 
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
