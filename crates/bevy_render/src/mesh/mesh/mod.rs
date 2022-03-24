@@ -79,7 +79,6 @@ impl Mesh {
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointWeight", 5, VertexFormat::Float32x4);
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
-    /// TODO: This could fit in a Uint16x4 instead of a Uint32x4
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint16x4);
 

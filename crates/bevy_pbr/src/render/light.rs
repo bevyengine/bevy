@@ -2,7 +2,7 @@ use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, MeshPipeline, NotShadowCaster, PointLight,
     PointLightShadowMap, SetMeshBindGroup, SetSkinnedMeshBindGroup, VisiblePointLights,
-    JOINT_BUFFER_SIZE, SHADOW_SHADER_HANDLE,
+    SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -189,21 +189,7 @@ impl FromWorld for ShadowPipeline {
         });
 
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
-
-        let skinned_mesh_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(JOINT_BUFFER_SIZE as u64),
-                    },
-                    count: None,
-                }],
-                label: Some("mesh_layout"),
-            });
+        let skinned_mesh_layout = mesh_pipeline.skinned_mesh_layout.clone();
 
         ShadowPipeline {
             view_layout,
