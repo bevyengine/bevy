@@ -370,6 +370,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        self.validate_world(world);
+
         // SAFE: fetch is read-only
         let array_of_results = unsafe {
             entities.map(|entity| {
@@ -408,6 +410,8 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
+        self.validate_world(world);
+
         // Verify that all entities are unique
         for i in 0..N {
             for j in 0..i {
@@ -998,5 +1002,35 @@ mod tests {
             },
             QueryEntityError::AliasedMutability(entities[9])
         );
+    }
+
+    #[test]
+    #[should_panic]
+    fn right_world_get() {
+        let mut world_1 = World::new();
+        let world_2 = World::new();
+
+        let mut query_state = world_1.query::<Entity>();
+        let _panics = query_state.get(&world_2, Entity::from_raw(0));
+    }
+
+    #[test]
+    #[should_panic]
+    fn right_world_get_multiple() {
+        let mut world_1 = World::new();
+        let world_2 = World::new();
+
+        let mut query_state = world_1.query::<Entity>();
+        let _panics = query_state.get_multiple(&world_2, []);
+    }
+
+    #[test]
+    #[should_panic]
+    fn right_world_get_multiple_mut() {
+        let mut world_1 = World::new();
+        let mut world_2 = World::new();
+
+        let mut query_state = world_1.query::<Entity>();
+        let _panics = query_state.get_multiple_mut(&mut world_2, []);
     }
 }
