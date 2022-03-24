@@ -251,11 +251,11 @@ where
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
-    /// let wrong_entity = World::from_raw(57);
+    /// let wrong_entity = Entity::from_raw(57);
     /// let invalid_entity = world.spawn().id();
     ///
     /// assert_eq!(query_state.get_multiple_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
-    /// assert_eq!(query_state.get_multiple_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch);
+    /// assert_eq!(query_state.get_multiple_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch(invalid_entity));
     /// assert_eq!(query_state.get_multiple_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
     #[inline]
