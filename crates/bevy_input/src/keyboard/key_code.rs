@@ -1,36 +1,3 @@
-use crate::{ElementState, Input};
-use bevy_ecs::event::EventReader;
-use bevy_ecs::system::ResMut;
-
-/// A key input event from a keyboard device
-#[derive(Debug, Clone)]
-pub struct KeyboardInput {
-    pub scan_code: u32,
-    pub key_code: Option<KeyCode>,
-    pub state: ElementState,
-}
-
-/// Updates the `Input<KeyCode>` resource with the latest `KeyboardInput` events
-pub fn keyboard_input_system(
-    mut keyboard_input: ResMut<Input<KeyCode>>,
-    mut keyboard_input_events: EventReader<KeyboardInput>,
-) {
-    keyboard_input.clear();
-    for event in keyboard_input_events.iter() {
-        if let KeyboardInput {
-            key_code: Some(key_code),
-            state,
-            ..
-        } = event
-        {
-            match state {
-                ElementState::Pressed => keyboard_input.press(*key_code),
-                ElementState::Released => keyboard_input.release(*key_code),
-            }
-        }
-    }
-}
-
 /// The key code of a keyboard input.
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
