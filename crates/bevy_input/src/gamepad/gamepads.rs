@@ -6,7 +6,7 @@ pub struct Gamepad(pub usize);
 
 /// Container of unique connected [`Gamepad`]s
 ///
-/// [`Gamepad`]s are registered and deregistered in [`gamepad_connection_system`]
+/// [`Gamepad`]s are registered and deregistered in [`gamepad_connection_system`](crate::gamepad::gamepad_connection_system)
 #[derive(Default)]
 pub struct Gamepads {
     gamepads: HashSet<Gamepad>,
