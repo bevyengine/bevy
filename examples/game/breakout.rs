@@ -276,17 +276,16 @@ fn move_paddle(
         direction += 1.0;
     }
 
-    // Move the paddle horizontally
-    paddle_transform.translation.x += direction * PADDLE_SPEED * TIME_STEP;
-
-    // Bound the paddle within the walls
-    // This is maximum x value that the paddle's transform can have without leaving the play area
+    // This is the maximum x value that the paddle's transform can have without leaving the play area
     let paddle_bounds =
         (PLAY_AREA_BOUNDS.x - WALL_THICKNESS - PADDLE_SIZE.x) / 2.0 - PADDLE_PADDING;
-    paddle_transform.translation.x = paddle_transform
-        .translation
-        .x
-        .clamp(-paddle_bounds, paddle_bounds);
+
+    // Calculate the new horizontal paddle position based on player input
+    let new_paddle_position = paddle_transform.translation.x + direction * PADDLE_SPEED * TIME_STEP;
+
+    // Update the paddle position,
+    // making sure it doesn't cause the paddle to leave the arena
+    paddle_transform.translation.x = new_paddle_position.clamp(-paddle_bounds, paddle_bounds);
 }
 
 fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
