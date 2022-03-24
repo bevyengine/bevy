@@ -1,6 +1,6 @@
 use crate::{
     render_phase::TrackedRenderPass,
-    render_resource::{CachedPipelineId, RenderPipelineCache},
+    render_resource::{CachedRenderPipelineId, PipelineCache},
 };
 use bevy_app::App;
 use bevy_ecs::{
@@ -162,8 +162,8 @@ pub trait EntityPhaseItem: PhaseItem {
     fn entity(&self) -> Entity;
 }
 
-pub trait CachedPipelinePhaseItem: PhaseItem {
-    fn cached_pipeline(&self) -> CachedPipelineId;
+pub trait CachedRenderPipelinePhaseItem: PhaseItem {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId;
 }
 
 /// A [`PhaseItem`] that can be batched dynamically.
@@ -224,8 +224,8 @@ impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E {
 }
 
 pub struct SetItemPipeline;
-impl<P: CachedPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
-    type Param = SRes<RenderPipelineCache>;
+impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
+    type Param = SRes<PipelineCache>;
     #[inline]
     fn render<'w>(
         _view: Entity,
@@ -233,7 +233,10 @@ impl<P: CachedPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Some(pipeline) = pipeline_cache.into_inner().get(item.cached_pipeline()) {
+        if let Some(pipeline) = pipeline_cache
+            .into_inner()
+            .get_render_pipeline(item.cached_pipeline())
+        {
             pass.set_render_pipeline(pipeline);
             RenderCommandResult::Success
         } else {

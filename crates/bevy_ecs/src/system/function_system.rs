@@ -2,14 +2,15 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
     query::{Access, FilteredAccessSet},
+    schedule::SystemLabel,
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
-        SystemParamItem, SystemParamState,
+        SystemParamState,
     },
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, fmt::Debug, hash::Hash, marker::PhantomData};
 
 /// The metadata of a [`System`].
 pub struct SystemMeta {
@@ -45,11 +46,6 @@ impl SystemMeta {
     #[inline]
     pub fn set_non_send(&mut self) {
         self.is_send = false;
-    }
-
-    #[inline]
-    pub(crate) fn check_change_tick(&mut self, change_tick: u32) {
-        check_system_change_tick(&mut self.last_change_tick, change_tick, self.name.as_ref());
     }
 }
 
@@ -194,10 +190,6 @@ impl<Param: SystemParam> SystemState<Param> {
         self.world_id == world.id()
     }
 
-    pub(crate) fn new_archetype(&mut self, archetype: &Archetype) {
-        self.param_state.new_archetype(archetype, &mut self.meta);
-    }
-
     fn validate_world_and_update_archetypes(&mut self, world: &World) {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
         let archetypes = world.archetypes();
@@ -233,74 +225,6 @@ impl<Param: SystemParam> SystemState<Param> {
         );
         self.meta.last_change_tick = change_tick;
         param
-    }
-}
-
-/// A trait for defining systems with a [`SystemParam`] associated type.
-///
-/// This facilitates the creation of systems that are generic over some trait
-/// and that use that trait's associated types as `SystemParam`s.
-pub trait RunSystem: Send + Sync + 'static {
-    /// The `SystemParam` type passed to the system when it runs.
-    type Param: SystemParam;
-
-    /// Runs the system.
-    fn run(param: SystemParamItem<Self::Param>);
-
-    /// Creates a concrete instance of the system for the specified `World`.
-    fn system(world: &mut World) -> ParamSystem<Self::Param> {
-        ParamSystem {
-            run: Self::run,
-            state: SystemState::new(world),
-        }
-    }
-}
-
-pub struct ParamSystem<P: SystemParam> {
-    state: SystemState<P>,
-    run: fn(SystemParamItem<P>),
-}
-
-impl<P: SystemParam + 'static> System for ParamSystem<P> {
-    type In = ();
-
-    type Out = ();
-
-    fn name(&self) -> Cow<'static, str> {
-        self.state.meta().name.clone()
-    }
-
-    fn new_archetype(&mut self, archetype: &Archetype) {
-        self.state.new_archetype(archetype);
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.state.meta().component_access_set.combined_access()
-    }
-
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.state.meta().archetype_component_access
-    }
-
-    fn is_send(&self) -> bool {
-        self.state.meta().is_send()
-    }
-
-    unsafe fn run_unsafe(&mut self, _input: Self::In, world: &World) -> Self::Out {
-        let param = self.state.get_unchecked_manual(world);
-        (self.run)(param);
-    }
-
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.state.apply(world);
-    }
-
-    fn initialize(&mut self, _world: &mut World) {
-        // already initialized by nature of the SystemState being constructed
-    }
-
-    fn check_change_tick(&mut self, change_tick: u32) {
-        self.state.meta.check_change_tick(change_tick);
     }
 }
 
@@ -385,6 +309,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// }
 /// ```
 pub struct In<In>(pub In);
+#[doc(hidden)]
 pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
@@ -498,6 +423,47 @@ where
             self.system_meta.name.as_ref(),
         );
     }
+    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+        vec![Box::new(self.func.as_system_label())]
+    }
+}
+
+/// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
+pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
+
+impl<T> Debug for SystemTypeIdLabel<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("SystemTypeIdLabel")
+            .field(&std::any::type_name::<T>())
+            .finish()
+    }
+}
+impl<T> Hash for SystemTypeIdLabel<T> {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+        // All SystemTypeIds of a given type are the same.
+    }
+}
+impl<T> Clone for SystemTypeIdLabel<T> {
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T> Copy for SystemTypeIdLabel<T> {}
+
+impl<T> PartialEq for SystemTypeIdLabel<T> {
+    #[inline]
+    fn eq(&self, _other: &Self) -> bool {
+        // All labels of a given type are equal, as they will all have the same type id
+        true
+    }
+}
+impl<T> Eq for SystemTypeIdLabel<T> {}
+
+impl<T> SystemLabel for SystemTypeIdLabel<T> {
+    fn dyn_clone(&self) -> Box<dyn SystemLabel> {
+        Box::new(*self)
+    }
 }
 
 /// A trait implemented for all functions that can be used as [`System`]s.
@@ -566,3 +532,28 @@ macro_rules! impl_system_function {
 }
 
 all_tuples!(impl_system_function, 0, 16, F);
+
+/// Used to implicitly convert systems to their default labels. For example, it will convert
+/// "system functions" to their [`SystemTypeIdLabel`].
+pub trait AsSystemLabel<Marker> {
+    type SystemLabel: SystemLabel;
+    fn as_system_label(&self) -> Self::SystemLabel;
+}
+
+impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
+    AsSystemLabel<(In, Out, Param, Marker)> for T
+{
+    type SystemLabel = SystemTypeIdLabel<Self>;
+
+    fn as_system_label(&self) -> Self::SystemLabel {
+        SystemTypeIdLabel(PhantomData::<fn() -> Self>)
+    }
+}
+
+impl<T: SystemLabel + Clone> AsSystemLabel<()> for T {
+    type SystemLabel = T;
+
+    fn as_system_label(&self) -> Self::SystemLabel {
+        self.clone()
+    }
+}

@@ -4,6 +4,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::ComponentId,
     query::Access,
+    schedule::SystemLabel,
     world::World,
 };
 use std::borrow::Cow;
@@ -56,6 +57,10 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
     fn check_change_tick(&mut self, change_tick: u32);
+    /// The default labels for the system
+    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+        Vec::new()
+    }
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.

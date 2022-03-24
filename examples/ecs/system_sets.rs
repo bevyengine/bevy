@@ -16,14 +16,6 @@ struct PostPhysics;
 #[derive(Default)]
 struct Done(bool);
 
-/// This is used to show that within a [`SystemSet`], individual systems can also
-/// be labelled, allowing further fine tuning of run ordering.
-#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
-pub enum PhysicsSystem {
-    UpdateVelocity,
-    Movement,
-}
-
 /// This example realizes the following scheme:
 ///
 /// ```none
@@ -63,18 +55,9 @@ fn main() {
                 // This criteria ensures this whole system set only runs when this system's
                 // output says so (ShouldRun::Yes)
                 .with_run_criteria(run_for_a_second)
-                .with_system(
-                    update_velocity
-                        // Only applied to the `update_velocity` system
-                        .label(PhysicsSystem::UpdateVelocity),
-                )
-                .with_system(
-                    movement
-                        // Only applied to the `movement` system
-                        .label(PhysicsSystem::Movement)
-                        // Enforce order within this system by specifying this
-                        .after(PhysicsSystem::UpdateVelocity),
-                ),
+                .with_system(update_velocity)
+                // Make movement run after update_velocity
+                .with_system(movement.after(update_velocity)),
         )
         .add_system_set(
             SystemSet::new()

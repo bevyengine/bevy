@@ -23,7 +23,7 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
+        BindGroup, BindGroupLayout, PipelineCache, RenderPipelineDescriptor, Shader,
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
@@ -307,7 +307,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,

@@ -70,8 +70,11 @@ where
 
     /// Register a release for input `input`.
     pub fn release(&mut self, input: T) {
+        if self.pressed(input) {
+            self.just_released.insert(input);
+        }
+
         self.pressed.remove(&input);
-        self.just_released.insert(input);
     }
 
     /// Check if `input` has been just pressed.

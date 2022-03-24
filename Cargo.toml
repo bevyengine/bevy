@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.6.0"
+version = "0.7.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -64,10 +64,15 @@ wgpu_trace = ["bevy_internal/wgpu_trace"]
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_internal/hdr"]
 png = ["bevy_internal/png"]
-dds = ["bevy_internal/dds"]
 tga = ["bevy_internal/tga"]
 jpeg = ["bevy_internal/jpeg"]
 bmp = ["bevy_internal/bmp"]
+basis-universal = ["bevy_internal/basis-universal"]
+dds = ["bevy_internal/dds"]
+ktx2 = ["bevy_internal/ktx2"]
+# For ktx2 supercompression
+zlib = ["bevy_internal/zlib"]
+zstd = ["bevy_internal/zstd"]
 
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_internal/flac"]
@@ -94,11 +99,11 @@ bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.7.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.7.0-dev", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false, features = [
+bevy_internal = { path = "crates/bevy_internal", version = "0.7.0-dev", default-features = false, features = [
   "webgl",
 ] }
 
@@ -177,6 +182,10 @@ path = "examples/3d/lighting.rs"
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
+
+[[example]]
+name = "manual_gltf_animation_player"
+path = "examples/3d/manual_gltf_animation_player.rs"
 
 [[example]]
 name = "many_cubes"
@@ -502,6 +511,31 @@ path = "examples/shader/compute_shader_game_of_life.rs"
 name = "bevymark"
 path = "examples/tools/bevymark.rs"
 
+[[example]]
+name = "scene_viewer"
+path = "examples/tools/scene_viewer.rs"
+
+# Transforms
+[[example]]
+name = "global_vs_local_translation"
+path = "examples/transforms/global_vs_local_translation.rs"
+
+[[example]]
+name = "3d_rotation"
+path = "examples/transforms/3d_rotation.rs"
+
+[[example]]
+name = "scale"
+path = "examples/transforms/scale.rs"
+
+[[example]]
+name = "transform"
+path = "examples/transforms/transform.rs"
+
+[[example]]
+name = "translation"
+path = "examples/transforms/translation.rs"
+
 # UI (User Interface)
 [[example]]
 name = "button"
@@ -562,3 +596,9 @@ icon = "@mipmap/ic_launcher"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
+
+# Stress Tests
+[[example]]
+name = "transform_hierarchy"
+path = "examples/stress_tests/transform_hierarchy.rs"
+

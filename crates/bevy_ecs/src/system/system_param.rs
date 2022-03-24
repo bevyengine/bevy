@@ -181,6 +181,7 @@ pub struct QuerySet<'w, 's, T> {
     change_tick: u32,
 }
 
+#[doc(hidden)]
 pub struct QuerySetState<T>(T);
 
 impl_query_set!();
@@ -265,6 +266,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
 }
 
 /// The [`SystemParamState`] of [`Res<T>`].
+#[doc(hidden)]
 pub struct ResState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -332,6 +334,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
 
 /// The [`SystemParamState`] of [`Option<Res<T>>`].
 /// See: [`Res<T>`]
+#[doc(hidden)]
 pub struct OptionResState<T>(ResState<T>);
 
 impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
@@ -369,6 +372,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
 }
 
 /// The [`SystemParamState`] of [`ResMut<T>`].
+#[doc(hidden)]
 pub struct ResMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -441,6 +445,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
 
 /// The [`SystemParamState`] of [`Option<ResMut<T>>`].
 /// See: [`ResMut<T>`]
+#[doc(hidden)]
 pub struct OptionResMutState<T>(ResMutState<T>);
 
 impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
@@ -512,6 +517,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
 unsafe impl ReadOnlySystemParamFetch for WorldState {}
 
 /// The [`SystemParamState`] of [`&World`](crate::world::World).
+#[doc(hidden)]
 pub struct WorldState;
 
 impl<'w, 's> SystemParam for &'w World {
@@ -631,6 +637,7 @@ impl<'a, T: Resource> DerefMut for Local<'a, T> {
 }
 
 /// The [`SystemParamState`] of [`Local<T>`].
+#[doc(hidden)]
 pub struct LocalState<T: Resource>(T);
 
 impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T> {
@@ -707,6 +714,7 @@ impl<'a, T: Component> RemovedComponents<'a, T> {
 unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T> {}
 
 /// The [`SystemParamState`] of [`RemovedComponents<T>`].
+#[doc(hidden)]
 pub struct RemovedComponentsState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -810,6 +818,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
 }
 
 /// The [`SystemParamState`] of [`NonSend<T>`].
+#[doc(hidden)]
 pub struct NonSendState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -881,6 +890,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
 
 /// The [`SystemParamState`] of [`Option<NonSend<T>>`].
 /// See: [`NonSend<T>`]
+#[doc(hidden)]
 pub struct OptionNonSendState<T>(NonSendState<T>);
 
 impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
@@ -919,6 +929,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
 }
 
 /// The [`SystemParamState`] of [`NonSendMut<T>`].
+#[doc(hidden)]
 pub struct NonSendMutState<T> {
     component_id: ComponentId,
     marker: PhantomData<fn() -> T>,
@@ -994,6 +1005,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
 
 /// The [`SystemParamState`] of [`Option<NonSendMut<T>>`].
 /// See: [`NonSendMut<T>`]
+#[doc(hidden)]
 pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
 
 impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
@@ -1038,6 +1050,7 @@ impl<'a> SystemParam for &'a Archetypes {
 unsafe impl ReadOnlySystemParamFetch for ArchetypesState {}
 
 /// The [`SystemParamState`] of [`Archetypes`].
+#[doc(hidden)]
 pub struct ArchetypesState;
 
 // SAFE: no component value access
@@ -1069,6 +1082,7 @@ impl<'a> SystemParam for &'a Components {
 unsafe impl ReadOnlySystemParamFetch for ComponentsState {}
 
 /// The [`SystemParamState`] of [`Components`].
+#[doc(hidden)]
 pub struct ComponentsState;
 
 // SAFE: no component value access
@@ -1100,6 +1114,7 @@ impl<'a> SystemParam for &'a Entities {
 unsafe impl ReadOnlySystemParamFetch for EntitiesState {}
 
 /// The [`SystemParamState`] of [`Entities`].
+#[doc(hidden)]
 pub struct EntitiesState;
 
 // SAFE: no component value access
@@ -1131,6 +1146,7 @@ impl<'a> SystemParam for &'a Bundles {
 unsafe impl ReadOnlySystemParamFetch for BundlesState {}
 
 /// The [`SystemParamState`] of [`Bundles`].
+#[doc(hidden)]
 pub struct BundlesState;
 
 // SAFE: no component value access
@@ -1154,6 +1170,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
     }
 }
 
+/// The [`SystemParamState`] of [`SystemChangeTick`].
 #[derive(Debug)]
 pub struct SystemChangeTick {
     pub last_change_tick: u32,
@@ -1168,6 +1185,7 @@ impl SystemParam for SystemChangeTick {
 }
 
 /// The [`SystemParamState`] of [`SystemChangeTick`].
+#[doc(hidden)]
 pub struct SystemChangeTickState {}
 
 unsafe impl SystemParamState for SystemChangeTickState {
@@ -1252,6 +1270,132 @@ pub mod lifetimeless {
     pub type SRes<T> = super::Res<'static, T>;
     pub type SResMut<T> = super::ResMut<'static, T>;
     pub type SCommands = crate::system::Commands<'static, 'static>;
+}
+
+/// A helper for using system parameters in generic contexts
+///
+/// This type is a [`SystemParam`] adapter which always has
+/// `Self::Fetch::Item == Self` (ignoring lifetimes for brevity),
+/// no matter the argument [`SystemParam`] (`P`) (other than
+/// that `P` must be `'static`)
+///
+/// This makes it useful for having arbitrary [`SystemParam`] type arguments
+/// to function systems, or for generic types using the [`derive@SystemParam`]
+/// derive:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::{SystemParam, StaticSystemParam};
+/// #[derive(SystemParam)]
+/// struct GenericParam<'w,'s, T: SystemParam + 'static> {
+///     field: StaticSystemParam<'w, 's, T>,
+/// }
+/// fn do_thing_generically<T: SystemParam + 'static>(t: StaticSystemParam<T>) {}
+///
+/// fn check_always_is_system<T: SystemParam + 'static>(){
+///     bevy_ecs::system::assert_is_system(do_thing_generically::<T>);
+/// }
+/// ```
+/// Note that in a real case you'd generally want
+/// additional bounds on `P`, for your use of the parameter
+/// to have a reason to be generic.
+///
+/// For example, using this would allow a type to be generic over
+/// whether a resource is accessed mutably or not, with
+/// impls being bounded on [`P: Deref<Target=MyType>`](Deref), and
+/// [`P: DerefMut<Target=MyType>`](DerefMut) depending on whether the
+/// method requires mutable access or not.
+///
+/// The method which doesn't use this type will not compile:
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::{SystemParam, StaticSystemParam};
+///
+/// fn do_thing_generically<T: SystemParam + 'static>(t: T) {}
+///
+/// #[derive(SystemParam)]
+/// struct GenericParam<'w,'s, T: SystemParam> {
+///     field: T,
+///     #[system_param(ignore)]
+///     // Use the lifetimes, as the `SystemParam` derive requires them
+///     phantom: core::marker::PhantomData<&'w &'s ()>
+/// }
+/// # fn check_always_is_system<T: SystemParam + 'static>(){
+/// #    bevy_ecs::system::assert_is_system(do_thing_generically::<T>);
+/// # }
+/// ```
+///
+pub struct StaticSystemParam<'w, 's, P: SystemParam>(SystemParamItem<'w, 's, P>);
+
+impl<'w, 's, P: SystemParam> Deref for StaticSystemParam<'w, 's, P> {
+    type Target = SystemParamItem<'w, 's, P>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'w, 's, P: SystemParam> DerefMut for StaticSystemParam<'w, 's, P> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
+    /// Get the value of the parameter
+    pub fn into_inner(self) -> SystemParamItem<'w, 's, P> {
+        self.0
+    }
+}
+
+/// The [`SystemParamState`] of [`StaticSystemParam`].
+#[doc(hidden)]
+pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
+
+// Safe: This doesn't add any more reads, and the delegated fetch confirms it
+unsafe impl<'w, 's, S: ReadOnlySystemParamFetch, P> ReadOnlySystemParamFetch
+    for StaticSystemParamState<S, P>
+{
+}
+
+impl<'world, 'state, P: SystemParam + 'static> SystemParam
+    for StaticSystemParam<'world, 'state, P>
+{
+    type Fetch = StaticSystemParamState<P::Fetch, P>;
+}
+
+impl<'world, 'state, S: SystemParamFetch<'world, 'state>, P: SystemParam + 'static>
+    SystemParamFetch<'world, 'state> for StaticSystemParamState<S, P>
+where
+    P: SystemParam<Fetch = S>,
+{
+    type Item = StaticSystemParam<'world, 'state, P>;
+
+    unsafe fn get_param(
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Self::Item {
+        // Safe: We properly delegate SystemParamState
+        StaticSystemParam(S::get_param(&mut state.0, system_meta, world, change_tick))
+    }
+}
+
+unsafe impl<'w, 's, S: SystemParamState, P: SystemParam + 'static> SystemParamState
+    for StaticSystemParamState<S, P>
+{
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        Self(S::init(world, system_meta), PhantomData)
+    }
+
+    fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        self.0.new_archetype(archetype, system_meta)
+    }
+
+    fn apply(&mut self, world: &mut World) {
+        self.0.apply(world)
+    }
 }
 
 #[cfg(test)]

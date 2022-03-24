@@ -3,32 +3,29 @@ use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
 use bevy_core::Name;
-use bevy_ecs::world::World;
+use bevy_ecs::{prelude::FromWorld, world::World};
+use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat4, Quat, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     StandardMaterial,
 };
 use bevy_render::{
     camera::{
-        Camera, CameraPlugin, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        Camera, Camera2d, Camera3d, CameraProjection, OrthographicProjection, PerspectiveProjection,
     },
     color::Color,
     mesh::{Indices, Mesh, VertexAttributeValues},
     primitives::{Aabb, Frustum},
-    render_resource::{
-        AddressMode, FilterMode, PrimitiveTopology, SamplerDescriptor, TextureFormat,
-    },
-    texture::{Image, ImageType, TextureError},
+    render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
+    renderer::RenderDevice,
+    texture::{CompressedImageFormats, Image, ImageType, TextureError},
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
-use bevy_transform::{
-    hierarchy::{BuildWorldChildren, WorldChildBuilder},
-    prelude::Transform,
-    TransformBundle,
-};
+use bevy_transform::{components::Transform, TransformBundle};
+
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
@@ -38,7 +35,10 @@ use gltf::{
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 
-use crate::{Gltf, GltfNode};
+use crate::{
+    Gltf, GltfAnimatedNode, GltfAnimation, GltfAnimationInterpolation, GltfNode, GltfNodeAnimation,
+    GltfNodeAnimationKeyframes,
+};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -59,11 +59,14 @@ pub enum GltfError {
     ImageError(#[from] TextureError),
     #[error("failed to load an asset path: {0}")]
     AssetIoError(#[from] AssetIoError),
+    #[error("Missing sampler for animation {0}")]
+    MissingAnimationSampler(usize),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
-#[derive(Default)]
-pub struct GltfLoader;
+pub struct GltfLoader {
+    supported_compressed_formats: CompressedImageFormats,
+}
 
 impl AssetLoader for GltfLoader {
     fn load<'a>(
@@ -71,7 +74,9 @@ impl AssetLoader for GltfLoader {
         bytes: &'a [u8],
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<()>> {
-        Box::pin(async move { Ok(load_gltf(bytes, load_context).await?) })
+        Box::pin(async move {
+            Ok(load_gltf(bytes, load_context, self.supported_compressed_formats).await?)
+        })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -79,10 +84,21 @@ impl AssetLoader for GltfLoader {
     }
 }
 
+impl FromWorld for GltfLoader {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            supported_compressed_formats: CompressedImageFormats::from_features(
+                world.resource::<RenderDevice>().features(),
+            ),
+        }
+    }
+}
+
 /// Loads an entire glTF file.
 async fn load_gltf<'a, 'b>(
     bytes: &'a [u8],
     load_context: &'a mut LoadContext<'b>,
+    supported_compressed_formats: CompressedImageFormats,
 ) -> Result<(), GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
@@ -108,6 +124,78 @@ async fn load_gltf<'a, 'b>(
         {
             linear_textures.insert(texture.texture().index());
         }
+    }
+
+    let mut animations = vec![];
+    let mut named_animations = HashMap::default();
+    let mut animated_nodes = HashSet::default();
+    for animation in gltf.animations() {
+        let mut gltf_animation = GltfAnimation::default();
+        for channel in animation.channels() {
+            let interpolation = match channel.sampler().interpolation() {
+                gltf::animation::Interpolation::Linear => GltfAnimationInterpolation::Linear,
+                gltf::animation::Interpolation::Step => GltfAnimationInterpolation::Step,
+                gltf::animation::Interpolation::CubicSpline => {
+                    GltfAnimationInterpolation::CubicSpline
+                }
+            };
+            let node = channel.target().node();
+            let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
+            let keyframe_timestamps: Vec<f32> = if let Some(inputs) = reader.read_inputs() {
+                match inputs {
+                    gltf::accessor::Iter::Standard(times) => times.collect(),
+                    gltf::accessor::Iter::Sparse(_) => {
+                        warn!("sparse accessor not supported for animation sampler input");
+                        continue;
+                    }
+                }
+            } else {
+                warn!("animations without a sampler input are not supported");
+                return Err(GltfError::MissingAnimationSampler(animation.index()));
+            };
+
+            let keyframes = if let Some(outputs) = reader.read_outputs() {
+                match outputs {
+                    gltf::animation::util::ReadOutputs::Translations(tr) => {
+                        GltfNodeAnimationKeyframes::Translation(tr.map(Vec3::from).collect())
+                    }
+                    gltf::animation::util::ReadOutputs::Rotations(rots) => {
+                        GltfNodeAnimationKeyframes::Rotation(
+                            rots.into_f32().map(Quat::from_array).collect(),
+                        )
+                    }
+                    gltf::animation::util::ReadOutputs::Scales(scale) => {
+                        GltfNodeAnimationKeyframes::Scale(scale.map(Vec3::from).collect())
+                    }
+                    gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
+                        warn!("Morph animation property not yet supported");
+                        continue;
+                    }
+                }
+            } else {
+                warn!("animations without a sampler output are not supported");
+                return Err(GltfError::MissingAnimationSampler(animation.index()));
+            };
+
+            gltf_animation
+                .node_animations
+                .entry(node.index())
+                .or_default()
+                .push(GltfNodeAnimation {
+                    keyframe_timestamps,
+                    keyframes,
+                    interpolation,
+                });
+            animated_nodes.insert(node.index());
+        }
+        let handle = load_context.set_labeled_asset(
+            &format!("Animation{}", animation.index()),
+            LoadedAsset::new(gltf_animation),
+        );
+        if let Some(name) = animation.name() {
+            named_animations.insert(name.to_string(), handle.clone());
+        }
+        animations.push(handle);
     }
 
     let mut meshes = vec![];
@@ -253,8 +341,14 @@ async fn load_gltf<'a, 'b>(
     // to avoid https://github.com/bevyengine/bevy/pull/2725
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
         for gltf_texture in gltf.textures() {
-            let (texture, label) =
-                load_texture(gltf_texture, &buffer_data, &linear_textures, load_context).await?;
+            let (texture, label) = load_texture(
+                gltf_texture,
+                &buffer_data,
+                &linear_textures,
+                load_context,
+                supported_compressed_formats,
+            )
+            .await?;
             load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
         }
     } else {
@@ -267,7 +361,14 @@ async fn load_gltf<'a, 'b>(
                     let load_context: &LoadContext = load_context;
                     let buffer_data = &buffer_data;
                     scope.spawn(async move {
-                        load_texture(gltf_texture, buffer_data, linear_textures, load_context).await
+                        load_texture(
+                            gltf_texture,
+                            buffer_data,
+                            linear_textures,
+                            load_context,
+                            supported_compressed_formats,
+                        )
+                        .await
                     });
                 });
             })
@@ -293,7 +394,8 @@ async fn load_gltf<'a, 'b>(
             .insert_bundle(TransformBundle::identity())
             .with_children(|parent| {
                 for node in scene.nodes() {
-                    let result = load_node(&node, parent, load_context, &buffer_data);
+                    let result =
+                        load_node(&node, parent, load_context, &buffer_data, &animated_nodes);
                     if result.is_err() {
                         err = Some(result);
                         return;
@@ -325,6 +427,8 @@ async fn load_gltf<'a, 'b>(
         named_materials,
         nodes,
         named_nodes,
+        animations,
+        named_animations,
     }));
 
     Ok(())
@@ -336,13 +440,20 @@ async fn load_texture<'a>(
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
     load_context: &LoadContext<'a>,
+    supported_compressed_formats: CompressedImageFormats,
 ) -> Result<(Image, String), GltfError> {
+    let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let mut texture = match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset() as usize;
             let end = (view.offset() + view.length()) as usize;
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            Image::from_buffer(buffer, ImageType::MimeType(mime_type))?
+            Image::from_buffer(
+                buffer,
+                ImageType::MimeType(mime_type),
+                supported_compressed_formats,
+                is_srgb,
+            )?
         }
         gltf::image::Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
@@ -365,13 +476,12 @@ async fn load_texture<'a>(
             Image::from_buffer(
                 &bytes,
                 mime_type.map(ImageType::MimeType).unwrap_or(image_type),
+                supported_compressed_formats,
+                is_srgb,
             )?
         }
     };
     texture.sampler_descriptor = texture_sampler(&gltf_texture);
-    if (linear_textures).contains(&gltf_texture.index()) {
-        texture.texture_descriptor.format = TextureFormat::Rgba8Unorm;
-    }
 
     Ok((texture, texture_label(&gltf_texture)))
 }
@@ -443,6 +553,11 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             metallic_roughness_texture,
             normal_map_texture,
             double_sided: material.double_sided(),
+            cull_mode: if material.double_sided() {
+                None
+            } else {
+                Some(Face::Back)
+            },
             occlusion_texture,
             emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
             emissive_texture,
@@ -459,12 +574,19 @@ fn load_node(
     world_builder: &mut WorldChildBuilder,
     load_context: &mut LoadContext,
     buffer_data: &[Vec<u8>],
+    animated_nodes: &HashSet<usize>,
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
     let mut node = world_builder.spawn_bundle(TransformBundle::from(Transform::from_matrix(
         Mat4::from_cols_array_2d(&transform.matrix()),
     )));
+
+    if animated_nodes.contains(&gltf_node.index()) {
+        node.insert(GltfAnimatedNode {
+            index: gltf_node.index(),
+        });
+    }
 
     if let Some(name) = gltf_node.name() {
         node.insert(Name::new(name.to_string()));
@@ -494,11 +616,10 @@ fn load_node(
                 };
 
                 node.insert(Camera {
-                    name: Some(CameraPlugin::CAMERA_2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
                 });
-                node.insert(orthographic_projection);
+                node.insert(orthographic_projection).insert(Camera2d);
             }
             gltf::camera::Projection::Perspective(perspective) => {
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
@@ -513,13 +634,13 @@ fn load_node(
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
                 node.insert(Camera {
-                    name: Some(CameraPlugin::CAMERA_3D.to_owned()),
                     projection_matrix: perspective_projection.get_projection_matrix(),
                     near: perspective_projection.near,
                     far: perspective_projection.far,
                     ..Default::default()
                 });
                 node.insert(perspective_projection);
+                node.insert(Camera3d);
             }
         }
     }
@@ -602,7 +723,7 @@ fn load_node(
 
         // append other nodes
         for child in gltf_node.children() {
-            if let Err(err) = load_node(&child, parent, load_context, buffer_data) {
+            if let Err(err) = load_node(&child, parent, load_context, buffer_data, animated_nodes) {
                 gltf_error = Some(err);
                 return;
             }

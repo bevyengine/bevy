@@ -212,9 +212,8 @@ impl SystemStage {
         for container in &mut self.parallel {
             let system = container.system_mut();
             #[cfg(feature = "trace")]
-            let span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name());
-            #[cfg(feature = "trace")]
-            let _guard = span.enter();
+            let _span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name())
+                .entered();
             system.apply_buffers(world);
         }
     }
@@ -836,12 +835,11 @@ impl Stage for SystemStage {
                 for container in &mut self.exclusive_at_start {
                     if should_run(container, &self.run_criteria, default_should_run) {
                         #[cfg(feature = "trace")]
-                        let system_span = bevy_utils::tracing::info_span!(
+                        let _system_span = bevy_utils::tracing::info_span!(
                             "exclusive_system",
                             name = &*container.name()
-                        );
-                        #[cfg(feature = "trace")]
-                        let _guard = system_span.enter();
+                        )
+                        .entered();
                         container.system_mut().run(world);
                     }
                 }
@@ -858,12 +856,11 @@ impl Stage for SystemStage {
                 for container in &mut self.exclusive_before_commands {
                     if should_run(container, &self.run_criteria, default_should_run) {
                         #[cfg(feature = "trace")]
-                        let system_span = bevy_utils::tracing::info_span!(
+                        let _system_span = bevy_utils::tracing::info_span!(
                             "exclusive_system",
                             name = &*container.name()
-                        );
-                        #[cfg(feature = "trace")]
-                        let _guard = system_span.enter();
+                        )
+                        .entered();
                         container.system_mut().run(world);
                     }
                 }
@@ -873,12 +870,11 @@ impl Stage for SystemStage {
                     for container in &mut self.parallel {
                         if container.should_run {
                             #[cfg(feature = "trace")]
-                            let span = bevy_utils::tracing::info_span!(
+                            let _span = bevy_utils::tracing::info_span!(
                                 "system_commands",
                                 name = &*container.name()
-                            );
-                            #[cfg(feature = "trace")]
-                            let _guard = span.enter();
+                            )
+                            .entered();
                             container.system_mut().apply_buffers(world);
                         }
                     }
@@ -888,12 +884,11 @@ impl Stage for SystemStage {
                 for container in &mut self.exclusive_at_end {
                     if should_run(container, &self.run_criteria, default_should_run) {
                         #[cfg(feature = "trace")]
-                        let system_span = bevy_utils::tracing::info_span!(
+                        let _system_span = bevy_utils::tracing::info_span!(
                             "exclusive_system",
                             name = &*container.name()
-                        );
-                        #[cfg(feature = "trace")]
-                        let _guard = system_span.enter();
+                        )
+                        .entered();
                         container.system_mut().run(world);
                     }
                 }
@@ -1583,15 +1578,25 @@ mod tests {
     fn ambiguity_detection() {
         use super::{find_ambiguities, SystemContainer};
 
-        fn find_ambiguities_first_labels(
+        fn find_ambiguities_first_str_labels(
             systems: &[impl SystemContainer],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
             find_ambiguities(systems)
                 .drain(..)
                 .map(|(index_a, index_b, _conflicts)| {
                     (
-                        systems[index_a].labels()[0].clone(),
-                        systems[index_b].labels()[0].clone(),
+                        systems[index_a]
+                            .labels()
+                            .iter()
+                            .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
+                            .unwrap()
+                            .clone(),
+                        systems[index_b]
+                            .labels()
+                            .iter()
+                            .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
+                            .unwrap()
+                            .clone(),
                     )
                 })
                 .collect()
@@ -1621,7 +1626,7 @@ mod tests {
             .with_system(component.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1636,7 +1641,7 @@ mod tests {
             .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1661,7 +1666,7 @@ mod tests {
             .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("0")))
@@ -1680,7 +1685,7 @@ mod tests {
             .with_system(resource.label("4").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("0")))
@@ -1693,7 +1698,7 @@ mod tests {
             .with_system(component.label("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("1")))
                 || ambiguities.contains(&(Box::new("1"), Box::new("0")))
@@ -1706,7 +1711,7 @@ mod tests {
             .with_system(component.label("2").after("0"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1720,7 +1725,7 @@ mod tests {
             .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1734,7 +1739,7 @@ mod tests {
             .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
@@ -1744,7 +1749,7 @@ mod tests {
             .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1774,7 +1779,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1824,7 +1829,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
@@ -1855,7 +1860,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1889,7 +1894,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("1")))
@@ -1926,7 +1931,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("2"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("2")))
@@ -1952,7 +1957,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("3").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert_eq!(ambiguities.len(), 0);
     }
 

@@ -1,3 +1,10 @@
+#[cfg(feature = "basis-universal")]
+use super::basis::*;
+#[cfg(feature = "dds")]
+use super::dds::*;
+#[cfg(feature = "ktx2")]
+use super::ktx2::*;
+
 use super::image_texture_conversion::image_to_texture;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
@@ -19,6 +26,82 @@ pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
 pub const DEFAULT_IMAGE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Image::TYPE_UUID, 13148262314052771789);
+
+#[derive(Debug)]
+pub enum ImageFormat {
+    Avif,
+    Basis,
+    Bmp,
+    Dds,
+    Farbfeld,
+    Gif,
+    Hdr,
+    Ico,
+    Jpeg,
+    Ktx2,
+    Png,
+    Pnm,
+    Tga,
+    Tiff,
+    WebP,
+}
+
+impl ImageFormat {
+    pub fn from_mime_type(mime_type: &str) -> Option<Self> {
+        Some(match mime_type.to_ascii_lowercase().as_str() {
+            "image/bmp" => ImageFormat::Bmp,
+            "image/x-bmp" => ImageFormat::Bmp,
+            "image/vnd-ms.dds" => ImageFormat::Dds,
+            "image/jpeg" => ImageFormat::Jpeg,
+            "image/ktx2" => ImageFormat::Ktx2,
+            "image/png" => ImageFormat::Png,
+            "image/x-targa" => ImageFormat::Tga,
+            "image/x-tga" => ImageFormat::Tga,
+            _ => return None,
+        })
+    }
+
+    pub fn from_extension(extension: &str) -> Option<Self> {
+        Some(match extension.to_ascii_lowercase().as_str() {
+            "avif" => ImageFormat::Avif,
+            "basis" => ImageFormat::Basis,
+            "bmp" => ImageFormat::Bmp,
+            "dds" => ImageFormat::Dds,
+            "ff" | "farbfeld" => ImageFormat::Farbfeld,
+            "gif" => ImageFormat::Gif,
+            "hdr" => ImageFormat::Hdr,
+            "ico" => ImageFormat::Ico,
+            "jpg" | "jpeg" => ImageFormat::Jpeg,
+            "ktx2" => ImageFormat::Ktx2,
+            "pbm" | "pam" | "ppm" | "pgm" => ImageFormat::Pnm,
+            "png" => ImageFormat::Png,
+            "tga" => ImageFormat::Tga,
+            "tif" | "tiff" => ImageFormat::Tiff,
+            "webp" => ImageFormat::WebP,
+            _ => return None,
+        })
+    }
+
+    pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
+        Some(match self {
+            ImageFormat::Avif => image::ImageFormat::Avif,
+            ImageFormat::Basis => return None,
+            ImageFormat::Bmp => image::ImageFormat::Bmp,
+            ImageFormat::Dds => image::ImageFormat::Dds,
+            ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
+            ImageFormat::Gif => image::ImageFormat::Gif,
+            ImageFormat::Hdr => image::ImageFormat::Hdr,
+            ImageFormat::Ico => image::ImageFormat::Ico,
+            ImageFormat::Jpeg => image::ImageFormat::Jpeg,
+            ImageFormat::Ktx2 => return None,
+            ImageFormat::Png => image::ImageFormat::Png,
+            ImageFormat::Pnm => image::ImageFormat::Pnm,
+            ImageFormat::Tga => image::ImageFormat::Tga,
+            ImageFormat::Tiff => image::ImageFormat::Tiff,
+            ImageFormat::WebP => image::ImageFormat::WebP,
+        })
+    }
+}
 
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
@@ -181,38 +264,35 @@ impl Image {
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
         super::image_texture_conversion::texture_to_image(self)
             .and_then(|img| match new_format {
-                TextureFormat::R8Unorm => Some(image::DynamicImage::ImageLuma8(img.into_luma8())),
-                TextureFormat::Rg8Unorm => {
-                    Some(image::DynamicImage::ImageLumaA8(img.into_luma_alpha8()))
+                TextureFormat::R8Unorm => {
+                    Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
                 }
+                TextureFormat::Rg8Unorm => Some((
+                    image::DynamicImage::ImageLumaA8(img.into_luma_alpha8()),
+                    false,
+                )),
                 TextureFormat::Rgba8UnormSrgb => {
-                    Some(image::DynamicImage::ImageRgba8(img.into_rgba8()))
+                    Some((image::DynamicImage::ImageRgba8(img.into_rgba8()), true))
                 }
                 TextureFormat::Bgra8UnormSrgb => {
-                    Some(image::DynamicImage::ImageBgra8(img.into_bgra8()))
+                    Some((image::DynamicImage::ImageBgra8(img.into_bgra8()), true))
                 }
                 _ => None,
             })
-            .map(super::image_texture_conversion::image_to_texture)
+            .map(|(dyn_img, is_srgb)| {
+                super::image_texture_conversion::image_to_texture(dyn_img, is_srgb)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
-    pub fn from_buffer(buffer: &[u8], image_type: ImageType) -> Result<Image, TextureError> {
-        let format = match image_type {
-            ImageType::MimeType(mime_type) => match mime_type {
-                "image/png" => Ok(image::ImageFormat::Png),
-                "image/vnd-ms.dds" => Ok(image::ImageFormat::Dds),
-                "image/x-targa" => Ok(image::ImageFormat::Tga),
-                "image/x-tga" => Ok(image::ImageFormat::Tga),
-                "image/jpeg" => Ok(image::ImageFormat::Jpeg),
-                "image/bmp" => Ok(image::ImageFormat::Bmp),
-                "image/x-bmp" => Ok(image::ImageFormat::Bmp),
-                _ => Err(TextureError::InvalidImageMimeType(mime_type.to_string())),
-            },
-            ImageType::Extension(extension) => image::ImageFormat::from_extension(extension)
-                .ok_or_else(|| TextureError::InvalidImageMimeType(extension.to_string())),
-        }?;
+    pub fn from_buffer(
+        buffer: &[u8],
+        image_type: ImageType,
+        #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
+        is_srgb: bool,
+    ) -> Result<Image, TextureError> {
+        let format = image_type.to_image_format()?;
 
         // Load the image in the expected format.
         // Some formats like PNG allow for R or RG textures too, so the texture
@@ -220,20 +300,80 @@ impl Image {
         // needs to be added, so the image data needs to be converted in those
         // cases.
 
-        let dyn_img = image::load_from_memory_with_format(buffer, format)?;
-        Ok(image_to_texture(dyn_img))
+        match format {
+            #[cfg(feature = "basis-universal")]
+            ImageFormat::Basis => {
+                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+            }
+            #[cfg(feature = "dds")]
+            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb),
+            #[cfg(feature = "ktx2")]
+            ImageFormat::Ktx2 => {
+                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+            }
+            _ => {
+                let image_crate_format = format.as_image_crate_format().ok_or_else(|| {
+                    TextureError::UnsupportedTextureFormat(format!("{:?}", format))
+                })?;
+                let dyn_img = image::load_from_memory_with_format(buffer, image_crate_format)?;
+                Ok(image_to_texture(dyn_img, is_srgb))
+            }
+        }
     }
+
+    /// Whether the texture format is compressed or uncompressed
+    pub fn is_compressed(&self) -> bool {
+        let format_description = self.texture_descriptor.format.describe();
+        format_description
+            .required_features
+            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR)
+            || format_description
+                .required_features
+                .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
+            || format_description
+                .required_features
+                .contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum DataFormat {
+    R8,
+    Rg8,
+    Rgb8,
+    Rgba8,
+    Rgba16Float,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum TranscodeFormat {
+    Etc1s,
+    // Has to be transcoded to Rgba8 for use with `wgpu`
+    Rgb8,
+    Uastc(DataFormat),
 }
 
 /// An error that occurs when loading a texture
 #[derive(Error, Debug)]
 pub enum TextureError {
-    #[error("invalid image mime type")]
+    #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
-    #[error("invalid image extension")]
+    #[error("invalid image extension: {0}")]
     InvalidImageExtension(String),
     #[error("failed to load an image: {0}")]
     ImageError(#[from] image::ImageError),
+    #[error("unsupported texture format: {0}")]
+    UnsupportedTextureFormat(String),
+    #[error("supercompression not supported: {0}")]
+    SuperCompressionNotSupported(String),
+    #[error("failed to load an image: {0}")]
+    SuperDecompressionError(String),
+    #[error("invalid data: {0}")]
+    InvalidData(String),
+    #[error("transcode error: {0}")]
+    TranscodeError(String),
+    #[error("format requires transcoding: {0:?}")]
+    FormatRequiresTranscodingError(TranscodeFormat),
 }
 
 /// The type of a raw image buffer.
@@ -242,6 +382,17 @@ pub enum ImageType<'a> {
     MimeType(&'a str),
     /// The extension of an image file, for example `"png"`.
     Extension(&'a str),
+}
+
+impl<'a> ImageType<'a> {
+    pub fn to_image_format(&self) -> Result<ImageFormat, TextureError> {
+        match self {
+            ImageType::MimeType(mime_type) => ImageFormat::from_mime_type(mime_type)
+                .ok_or_else(|| TextureError::InvalidImageMimeType(mime_type.to_string())),
+            ImageType::Extension(extension) => ImageFormat::from_extension(extension)
+                .ok_or_else(|| TextureError::InvalidImageExtension(extension.to_string())),
+        }
+    }
 }
 
 /// Used to calculate the volume of an item.
@@ -387,6 +538,7 @@ impl TextureFormatPixelInfo for TextureFormat {
 pub struct GpuImage {
     pub texture: Texture,
     pub texture_view: TextureView,
+    pub texture_format: TextureFormat,
     pub sampler: Sampler,
     pub size: Size,
 }
@@ -406,46 +558,146 @@ impl RenderAsset for Image {
         image: Self::ExtractedAsset,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let texture = render_device.create_texture(&image.texture_descriptor);
-        let sampler = render_device.create_sampler(&image.sampler_descriptor);
-
-        let format_size = image.texture_descriptor.format.pixel_size();
-        render_queue.write_texture(
-            ImageCopyTexture {
-                texture: &texture,
-                mip_level: 0,
-                origin: Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &image.data,
-            ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(
-                    std::num::NonZeroU32::new(
-                        image.texture_descriptor.size.width * format_size as u32,
-                    )
-                    .unwrap(),
-                ),
-                rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                    std::num::NonZeroU32::new(image.texture_descriptor.size.height)
-                } else {
-                    None
+        let texture = if image.texture_descriptor.mip_level_count > 1 || image.is_compressed() {
+            render_device.create_texture_with_data(
+                render_queue,
+                &image.texture_descriptor,
+                &image.data,
+            )
+        } else {
+            let texture = render_device.create_texture(&image.texture_descriptor);
+            let format_size = image.texture_descriptor.format.pixel_size();
+            render_queue.write_texture(
+                ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
                 },
-            },
-            image.texture_descriptor.size,
-        );
+                &image.data,
+                ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(
+                            image.texture_descriptor.size.width * format_size as u32,
+                        )
+                        .unwrap(),
+                    ),
+                    rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
+                        std::num::NonZeroU32::new(image.texture_descriptor.size.height)
+                    } else {
+                        None
+                    },
+                },
+                image.texture_descriptor.size,
+            );
+            texture
+        };
 
         let texture_view = texture.create_view(&TextureViewDescriptor::default());
         let size = Size::new(
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         );
+        let sampler = render_device.create_sampler(&image.sampler_descriptor);
         Ok(GpuImage {
             texture,
             texture_view,
+            texture_format: image.texture_descriptor.format,
             sampler,
             size,
         })
+    }
+}
+
+bitflags::bitflags! {
+    #[derive(Default)]
+    #[repr(transparent)]
+    pub struct CompressedImageFormats: u32 {
+        const NONE     = 0;
+        const ASTC_LDR = (1 << 0);
+        const BC       = (1 << 1);
+        const ETC2     = (1 << 2);
+    }
+}
+
+impl CompressedImageFormats {
+    pub fn from_features(features: wgpu::Features) -> Self {
+        let mut supported_compressed_formats = Self::default();
+        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR) {
+            supported_compressed_formats |= Self::ASTC_LDR;
+        }
+        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
+            supported_compressed_formats |= Self::BC;
+        }
+        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2) {
+            supported_compressed_formats |= Self::ETC2;
+        }
+        supported_compressed_formats
+    }
+
+    pub fn supports(&self, format: TextureFormat) -> bool {
+        match format {
+            TextureFormat::Bc1RgbaUnorm => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc1RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc2RgbaUnorm => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc2RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc3RgbaUnorm => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc3RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc4RUnorm => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc4RSnorm => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc5RgUnorm => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc5RgSnorm => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc6hRgbUfloat => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc6hRgbSfloat => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc7RgbaUnorm => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Bc7RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Etc2Rgb8Unorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Etc2Rgb8UnormSrgb => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Etc2Rgb8A1Unorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Etc2Rgb8A1UnormSrgb => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Etc2Rgba8Unorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Etc2Rgba8UnormSrgb => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::EacR11Unorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::EacR11Snorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::EacRg11Unorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Astc4x4RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc4x4RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc5x4RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc5x4RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc5x5RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc5x5RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc6x5RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc6x5RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc6x6RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc6x6RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc8x5RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc8x5RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc8x6RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc8x6RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc10x5RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc10x5RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc10x6RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc10x6RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc8x8RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc8x8RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc10x8RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc10x8RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc10x10RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc10x10RgbaUnormSrgb => {
+                self.contains(CompressedImageFormats::ASTC_LDR)
+            }
+            TextureFormat::Astc12x10RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc12x10RgbaUnormSrgb => {
+                self.contains(CompressedImageFormats::ASTC_LDR)
+            }
+            TextureFormat::Astc12x12RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
+            TextureFormat::Astc12x12RgbaUnormSrgb => {
+                self.contains(CompressedImageFormats::ASTC_LDR)
+            }
+            _ => true,
+        }
     }
 }
 
