@@ -109,7 +109,7 @@ struct ScratchRenderWorld(World);
 
 /// The number of entities used in the render world in the previous frame.
 #[derive(Default)]
-struct ReserveCount(u32);
+struct NumberOfRenderingEntitiesToReserve(u32);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
