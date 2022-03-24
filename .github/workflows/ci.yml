@@ -93,7 +93,13 @@ jobs:
       - name: CI job
         run: cargo miri test -p bevy_ecs
         env:
+          # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
           RUSTFLAGS: -Zrandomize-layout
+          # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
+          # -Zmiri-ignore-leaks is needed because running bevy_ecs tests finds a memory leak but its impossible
+          # to track down because allocids are nondeterministic.
+          # -Zmiri-tag-raw-pointers is not strictly "necessary" but enables a lot of extra UB checks relating
+          # to raw pointer aliasing rules that we should be tryign to uphold.
           MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-tag-raw-pointers
 
   check-benches:
