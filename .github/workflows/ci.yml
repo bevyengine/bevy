@@ -99,7 +99,7 @@ jobs:
           # -Zmiri-ignore-leaks is needed because running bevy_ecs tests finds a memory leak but its impossible
           # to track down because allocids are nondeterministic.
           # -Zmiri-tag-raw-pointers is not strictly "necessary" but enables a lot of extra UB checks relating
-          # to raw pointer aliasing rules that we should be tryign to uphold.
+          # to raw pointer aliasing rules that we should be trying to uphold.
           MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-tag-raw-pointers
 
   check-benches:
