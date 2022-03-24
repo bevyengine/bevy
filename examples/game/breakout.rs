@@ -142,14 +142,13 @@ struct Scoreboard {
     score: usize,
 }
 
+// Add the game's entities to our world
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Add the game's entities to our world
-
-    // cameras
+    // Cameras
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
 
-    // paddle
+    // Paddle
     commands
         .spawn()
         .insert(Paddle)
@@ -167,7 +166,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(Collider);
 
-    // ball
+    // Ball
     let ball_velocity = INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED;
 
     commands
@@ -187,7 +186,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(Velocity(ball_velocity));
 
-    // scoreboard
+    // Scoreboard
     commands.spawn_bundle(TextBundle {
         text: Text {
             sections: vec![
@@ -222,13 +221,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
-    // walls
+    // Walls
     commands.spawn_bundle(WallBundle::new(WallLocation::Left));
     commands.spawn_bundle(WallBundle::new(WallLocation::Right));
     commands.spawn_bundle(WallBundle::new(WallLocation::Bottom));
     commands.spawn_bundle(WallBundle::new(WallLocation::Top));
 
-    // Add bricks
+    // Bricks
     let brick_width = BRICK_COLUMNS as f32 * (BRICK_SIZE.x + BRICK_SPACING) - BRICK_SPACING;
     // center the bricks and move them up a bit
     let brick_offset = Vec3::new((BRICK_SIZE.x - brick_width) / 2.0, BRICK_Y_OFFSET, 0.0);
