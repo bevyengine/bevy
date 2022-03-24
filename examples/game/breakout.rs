@@ -103,28 +103,30 @@ impl WallBundle {
         // This allows us to just use `Left`, rather than `WallOrientation::Left` everywhere
         use WallLocation::*;
 
-        let translation = match orientation {
+        let position = match orientation {
             Left => Vec2::new(-PLAY_AREA_BOUNDS.x / 2.0, 0.0),
             Right => Vec2::new(PLAY_AREA_BOUNDS.x / 2.0, 0.0),
             Bottom => Vec2::new(0.0, -PLAY_AREA_BOUNDS.y / 2.0),
             Top => Vec2::new(0.0, PLAY_AREA_BOUNDS.y / 2.0),
-        }
-        // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
-        .extend(0.0);
+        };
 
-        let scale = match orientation {
+        let size = match orientation {
             Left => Vec2::new(WALL_THICKNESS, PLAY_AREA_BOUNDS.y + WALL_THICKNESS),
             Right => Vec2::new(WALL_THICKNESS, PLAY_AREA_BOUNDS.y + WALL_THICKNESS),
             Bottom => Vec2::new(PLAY_AREA_BOUNDS.x + WALL_THICKNESS, WALL_THICKNESS),
             Top => Vec2::new(PLAY_AREA_BOUNDS.x + WALL_THICKNESS, WALL_THICKNESS),
-        }
-        .extend(1.0);
+        };
 
         WallBundle {
             sprite_bundle: SpriteBundle {
                 transform: Transform {
-                    translation,
-                    scale,
+                    // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
+                    // This is used to determine the order of our sprites
+                    translation: position.extend(0.0),
+                    // The z-scale of 2D objects must always be 1.0,
+                    // or their ordering will be affected in surpirising ways.
+                    // See https://github.com/bevyengine/bevy/issues/4149
+                    scale: size.extend(1.0),
                     ..default()
                 },
                 sprite: Sprite {
