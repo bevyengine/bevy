@@ -112,8 +112,8 @@ fn queue_custom(
         | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
     for (view, mut transparent_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
+        let inverse_view_matrix = view.transform.compute_matrix().inverse();
+        let inverse_view_row_2 = inverse_view_matrix.row(2);
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let pipeline = pipelines
@@ -123,7 +123,13 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
+                    // gives the z component of translation of the mesh in view space.
+                    // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                    // lowest sort key and getting closer should increase. As we have
+                    // -z in front of the camera, the largest distance is -far with values increasing toward the
+                    // camera. As such we can just use the dot product value.
+                    distance: inverse_view_row_2.dot(mesh_uniform.transform.col(3)),
                 });
             }
         }
