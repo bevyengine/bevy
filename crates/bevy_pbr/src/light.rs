@@ -323,7 +323,7 @@ impl ClusterConfig {
     fn first_slice_depth(&self) -> f32 {
         match self {
             ClusterConfig::None => 0.0,
-            ClusterConfig::Single => 1.0e9, // FIXME note can't use f32::MAX as the aabb explodes
+            ClusterConfig::Single => 0.0,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.first_slice_depth
             }
@@ -333,7 +333,7 @@ impl ClusterConfig {
     fn far_z_mode(&self) -> ClusterFarZMode {
         match self {
             ClusterConfig::None => ClusterFarZMode::Constant(0.0),
-            ClusterConfig::Single => ClusterFarZMode::Constant(1.0e9), // FIXME note can't use f32::MAX as the aabb explodes
+            ClusterConfig::Single => ClusterFarZMode::MaxLightRange,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.far_z_mode
             }
@@ -353,12 +353,12 @@ impl ClusterConfig {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Default)]
 pub struct Clusters {
     /// Tile size
     pub(crate) tile_size: UVec2,
     /// Number of clusters in x / y / z in the view frustum
-    pub(crate) axis_slices: UVec3,
+    pub(crate) dimensions: UVec3,
     /// Distance to the far plane of the first depth slice. The first depth slice is special
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
     pub(crate) near: f32,
@@ -368,46 +368,24 @@ pub struct Clusters {
 }
 
 impl Clusters {
-    fn new(tile_size: UVec2, screen_size: UVec2, z_slices: u32, near: f32, far: f32) -> Self {
-        let mut clusters = Self {
-            tile_size,
-            axis_slices: Default::default(),
-            near,
-            far,
-            aabbs: Default::default(),
-            lights: Default::default(),
-        };
-        clusters.update(tile_size, screen_size, z_slices);
-        clusters
-    }
+    fn update(&mut self, screen_size: UVec2, requested_dimensions: UVec3) {
+        debug_assert!(
+            requested_dimensions.x > 0 && requested_dimensions.y > 0 && requested_dimensions.z > 0
+        );
 
-    fn from_screen_size_and_dimensions(
-        screen_size: UVec2,
-        dimensions: UVec3,
-        near: f32,
-        far: f32,
-    ) -> Self {
-        debug_assert!(screen_size.x > 0 && screen_size.y > 0);
-        debug_assert!(dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0);
-        Clusters::new(
-            (screen_size.as_vec2() / dimensions.xy().as_vec2())
-                .ceil()
-                .as_uvec2(),
-            screen_size,
-            dimensions.z,
-            near,
-            far,
-        )
-    }
-
-    fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
-        self.tile_size = tile_size;
-        self.axis_slices = (screen_size.as_vec2() / tile_size.as_vec2())
+        let tile_size = (screen_size.as_vec2() / requested_dimensions.xy().as_vec2())
             .ceil()
             .as_uvec2()
-            .extend(z_slices);
+            .max(UVec2::ONE);
+        self.tile_size = tile_size;
+        self.dimensions = (screen_size.as_vec2() / tile_size.as_vec2())
+            .ceil()
+            .as_uvec2()
+            .extend(requested_dimensions.z)
+            .max(UVec3::ONE);
+
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
-        debug_assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
+        debug_assert!(self.dimensions.x * self.dimensions.y * self.dimensions.z <= 4096);
     }
 }
 
@@ -515,78 +493,29 @@ pub fn add_clusters(
     for (entity, config) in cameras.iter() {
         let config = config.copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
-        let clusters = Clusters::from_screen_size_and_dimensions(UVec2::ONE, UVec3::ONE, 1.0, 1.0);
-        commands.entity(entity).insert_bundle((clusters, config));
+        commands
+            .entity(entity)
+            .insert_bundle((Clusters::default(), config));
     }
-}
-
-fn update_clusters(
-    screen_size: UVec2,
-    camera: &Camera,
-    cluster_dimensions: UVec3,
-    clusters: &mut Clusters,
-    near: f32,
-    far: f32,
-) {
-    let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
-    let inverse_projection = camera.projection_matrix.inverse();
-    // Don't update clusters if screen size is 0.
-    if screen_size.x == 0 || screen_size.y == 0 {
-        return;
-    }
-    *clusters =
-        Clusters::from_screen_size_and_dimensions(screen_size, cluster_dimensions, near, far);
-    let screen_size = screen_size.as_vec2();
-    let tile_size_u32 = clusters.tile_size;
-    let tile_size = tile_size_u32.as_vec2();
-
-    // Calculate view space AABBs
-    // NOTE: It is important that these are iterated in a specific order
-    // so that we can calculate the cluster index in the fragment shader!
-    // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
-    // along z
-    let mut aabbs = Vec::with_capacity(
-        (clusters.axis_slices.y * clusters.axis_slices.x * clusters.axis_slices.z) as usize,
-    );
-    for y in 0..clusters.axis_slices.y {
-        for x in 0..clusters.axis_slices.x {
-            for z in 0..clusters.axis_slices.z {
-                aabbs.push(compute_aabb_for_cluster(
-                    near,
-                    far,
-                    tile_size,
-                    screen_size,
-                    inverse_projection,
-                    is_orthographic,
-                    clusters.axis_slices,
-                    UVec3::new(x, y, z),
-                ));
-            }
-        }
-    }
-    clusters.aabbs = aabbs;
 }
 
 #[derive(Clone, Component, Debug, Default)]
 pub struct VisiblePointLights {
-    pub entities: Vec<Entity>,
+    pub(crate) entities: Vec<Entity>,
 }
 
 impl VisiblePointLights {
-    pub fn from_light_count(count: usize) -> Self {
-        Self {
-            entities: Vec::with_capacity(count),
-        }
-    }
-
+    #[inline]
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
         self.entities.iter()
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.entities.len()
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.entities.is_empty()
     }
@@ -744,11 +673,28 @@ pub(crate) struct PointLightAssignmentData {
     shadows_enabled: bool,
 }
 
+#[derive(Default)]
+pub struct GlobalVisiblePointLights {
+    entities: HashSet<Entity>,
+}
+
+impl GlobalVisiblePointLights {
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = &Entity> {
+        self.entities.iter()
+    }
+
+    #[inline]
+    pub fn contains(&self, entity: Entity) -> bool {
+        self.entities.contains(&entity)
+    }
+}
+
 // NOTE: Run this before update_point_light_frusta!
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn assign_lights_to_clusters(
     mut commands: Commands,
-    mut global_lights: ResMut<VisiblePointLights>,
+    mut global_lights: ResMut<GlobalVisiblePointLights>,
     windows: Res<Windows>,
     images: Res<Assets<Image>>,
     mut views: Query<(
@@ -758,11 +704,14 @@ pub(crate) fn assign_lights_to_clusters(
         &Frustum,
         &ClusterConfig,
         &mut Clusters,
+        Option<&mut VisiblePointLights>,
     )>,
     lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut max_point_lights_warning_emitted: Local<bool>,
 ) {
+    global_lights.entities.clear();
+    lights.clear();
     // collect just the relevant light query data into a persisted vec to avoid reallocating each frame
     lights.extend(
         lights_query
@@ -789,7 +738,7 @@ pub(crate) fn assign_lights_to_clusters(
         // check each light against each view's frustum, keep only those that affect at least one of our views
         let frusta: Vec<_> = views
             .iter()
-            .map(|(_, _, _, frustum, _, _)| *frustum)
+            .map(|(_, _, _, frustum, _, _, _)| *frustum)
             .collect();
         let mut lights_in_view_count = 0;
         lights.retain(|light| {
@@ -822,24 +771,26 @@ pub(crate) fn assign_lights_to_clusters(
         lights.truncate(MAX_POINT_LIGHTS);
     }
 
-    let light_count = lights.len();
-    let mut global_lights_set = HashSet::with_capacity(light_count);
-    for (view_entity, view_transform, camera, frustum, config, mut clusters) in views.iter_mut() {
-        if matches!(config, ClusterConfig::None) {
+    for (view_entity, camera_transform, camera, frustum, config, clusters, mut visible_lights) in
+        views.iter_mut()
+    {
+        if matches!(config, ClusterConfig::None) && visible_lights.is_some() {
             commands.entity(view_entity).remove::<VisiblePointLights>();
             continue;
         }
 
-        let view_transform = view_transform.compute_matrix();
+        let clusters = clusters.into_inner();
+        let screen_size = camera.target.get_physical_size(&windows, &images);
+
+        clusters.aabbs.clear();
+        clusters.lights.clear();
+
+        let screen_size = screen_size.unwrap_or_default();
+        let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
+
+        let view_transform = camera_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
-
-        let screen_size_u32 = camera.target.get_physical_size(&windows, &images);
-        let screen_size_u32 = screen_size_u32.unwrap_or_default();
-        if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
-            continue;
-        }
-        let mut cluster_dimensions = config.dimensions_for_screen_size(screen_size_u32);
 
         let far_z = match config.far_z_mode() {
             ClusterFarZMode::CameraFarPlane => camera.far,
@@ -855,21 +806,18 @@ pub(crate) fn assign_lights_to_clusters(
             }
             ClusterFarZMode::Constant(far) => far,
         };
-        let first_slice_depth = match cluster_dimensions.z {
+        let first_slice_depth = match requested_cluster_dimensions.z {
             1 => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
         };
         // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering problems.
         let far_z = far_z.max(first_slice_depth);
-
         let cluster_factors = calculate_cluster_factors(
             first_slice_depth,
             far_z,
-            cluster_dimensions.z as f32,
+            requested_cluster_dimensions.z as f32,
             is_orthographic,
         );
-
-        let max_indices = ViewClusterBindings::MAX_INDICES;
 
         if config.dynamic_resizing() {
             let mut cluster_index_estimate = 0.0;
@@ -896,13 +844,13 @@ pub(crate) fn assign_lights_to_clusters(
                 // since we won't adjust z slices we can calculate exact number of slices required in z dimension
                 let z_cluster_min = view_z_to_z_slice(
                     cluster_factors,
-                    cluster_dimensions.z as f32,
+                    requested_cluster_dimensions.z as f32,
                     light_aabb_min.z,
                     is_orthographic,
                 );
                 let z_cluster_max = view_z_to_z_slice(
                     cluster_factors,
-                    cluster_dimensions.z as f32,
+                    requested_cluster_dimensions.z as f32,
                     light_aabb_max.z,
                     is_orthographic,
                 );
@@ -915,7 +863,10 @@ pub(crate) fn assign_lights_to_clusters(
                 // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each dimension
                 let xy_count = (xy_max - xy_min)
                     * 0.5
-                    * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32);
+                    * Vec2::new(
+                        requested_cluster_dimensions.x as f32,
+                        requested_cluster_dimensions.y as f32,
+                    );
 
                 // add up to 2 to each axis to account for overlap
                 let x_overlap = if xy_min.x <= -1.0 { 0.0 } else { 1.0 }
@@ -926,111 +877,144 @@ pub(crate) fn assign_lights_to_clusters(
                     (xy_count.x + x_overlap) * (xy_count.y + y_overlap) * z_count as f32;
             }
 
-            if cluster_index_estimate > max_indices as f32 {
+            if cluster_index_estimate > ViewClusterBindings::MAX_INDICES as f32 {
                 // scale x and y cluster count to be able to fit all our indices
 
                 // we take the ratio of the actual indices over the index estimate.
                 // this not not guaranteed to be small enough due to overlapped tiles, but
                 // the conservative estimate is more than sufficient to cover the
                 // difference
-                let index_ratio = max_indices as f32 / cluster_index_estimate as f32;
+                let index_ratio =
+                    ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate as f32;
                 let xy_ratio = index_ratio.sqrt();
 
-                cluster_dimensions.x =
-                    ((cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
-                cluster_dimensions.y =
-                    ((cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
+                requested_cluster_dimensions.x =
+                    ((requested_cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
+                requested_cluster_dimensions.y =
+                    ((requested_cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
             }
         }
 
-        update_clusters(
-            screen_size_u32,
-            camera,
-            cluster_dimensions,
-            &mut clusters,
-            first_slice_depth,
-            far_z,
+        clusters.update(screen_size, requested_cluster_dimensions);
+        clusters.near = first_slice_depth;
+        clusters.far = far_z;
+
+        // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
+        debug_assert!(
+            clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
         );
-        // NOTE: This is here to avoid bugs in future due to update_clusters() having updated clusters.axis_slices
-        // but cluster_dimensions has a different configuration.
-        #[allow(unused_assignments)]
-        {
-            cluster_dimensions = clusters.axis_slices;
-        }
-        let cluster_count = clusters.aabbs.len();
 
-        let mut clusters_lights =
-            vec![VisiblePointLights::from_light_count(light_count); cluster_count];
-        let mut visible_lights = Vec::with_capacity(light_count);
+        let inverse_projection = camera.projection_matrix.inverse();
 
-        for light in lights.iter() {
-            let light_sphere = Sphere {
-                center: Vec3A::from(light.translation),
-                radius: light.range,
-            };
-
-            // Check if the light is within the view frustum
-            if !frustum.intersects_sphere(&light_sphere, true) {
-                continue;
+        let screen_size = screen_size.as_vec2();
+        let tile_size_u32 = clusters.tile_size;
+        let tile_size = tile_size_u32.as_vec2();
+        // Calculate view space AABBs
+        // NOTE: It is important that these are iterated in a specific order
+        // so that we can calculate the cluster index in the fragment shader!
+        // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
+        // along z
+        for y in 0..clusters.dimensions.y {
+            for x in 0..clusters.dimensions.x {
+                for z in 0..clusters.dimensions.z {
+                    clusters.aabbs.push(compute_aabb_for_cluster(
+                        clusters.near,
+                        clusters.far,
+                        tile_size,
+                        screen_size,
+                        inverse_projection,
+                        is_orthographic,
+                        clusters.dimensions,
+                        UVec3::new(x, y, z),
+                    ));
+                }
             }
+        }
 
-            // NOTE: The light intersects the frustum so it must be visible and part of the global set
-            global_lights_set.insert(light.entity);
-            visible_lights.push(light.entity);
+        for lights in clusters.lights.iter_mut() {
+            lights.entities.clear();
+        }
+        clusters
+            .lights
+            .resize_with(clusters.aabbs.len(), VisiblePointLights::default);
 
-            // note: caching seems to be slower than calling twice for this aabb calculation
-            let (light_aabb_xy_ndc_z_view_min, light_aabb_xy_ndc_z_view_max) =
-                cluster_space_light_aabb(
-                    inverse_view_transform,
-                    camera.projection_matrix,
-                    &light_sphere,
+        if screen_size.x == 0.0 || screen_size.y == 0.0 {
+            continue;
+        }
+
+        let mut visible_lights_scratch = Vec::new();
+
+        {
+            // reuse existing visible lights Vec, if it exists
+            let visible_lights = if let Some(visible_lights) = visible_lights.as_mut() {
+                visible_lights.entities.clear();
+                &mut visible_lights.entities
+            } else {
+                &mut visible_lights_scratch
+            };
+            for light in lights.iter() {
+                let light_sphere = Sphere {
+                    center: Vec3A::from(light.translation),
+                    radius: light.range,
+                };
+
+                // Check if the light is within the view frustum
+                if !frustum.intersects_sphere(&light_sphere, true) {
+                    continue;
+                }
+
+                // NOTE: The light intersects the frustum so it must be visible and part of the global set
+                global_lights.entities.insert(light.entity);
+                visible_lights.push(light.entity);
+
+                // note: caching seems to be slower than calling twice for this aabb calculation
+                let (light_aabb_xy_ndc_z_view_min, light_aabb_xy_ndc_z_view_max) =
+                    cluster_space_light_aabb(
+                        inverse_view_transform,
+                        camera.projection_matrix,
+                        &light_sphere,
+                    );
+
+                let min_cluster = ndc_position_to_cluster(
+                    clusters.dimensions,
+                    cluster_factors,
+                    is_orthographic,
+                    light_aabb_xy_ndc_z_view_min,
+                    light_aabb_xy_ndc_z_view_min.z,
                 );
+                let max_cluster = ndc_position_to_cluster(
+                    clusters.dimensions,
+                    cluster_factors,
+                    is_orthographic,
+                    light_aabb_xy_ndc_z_view_max,
+                    light_aabb_xy_ndc_z_view_max.z,
+                );
+                let (min_cluster, max_cluster) =
+                    (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
 
-            let min_cluster = ndc_position_to_cluster(
-                clusters.axis_slices,
-                cluster_factors,
-                is_orthographic,
-                light_aabb_xy_ndc_z_view_min,
-                light_aabb_xy_ndc_z_view_min.z,
-            );
-            let max_cluster = ndc_position_to_cluster(
-                clusters.axis_slices,
-                cluster_factors,
-                is_orthographic,
-                light_aabb_xy_ndc_z_view_max,
-                light_aabb_xy_ndc_z_view_max.z,
-            );
-            let (min_cluster, max_cluster) =
-                (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
-
-            for y in min_cluster.y..=max_cluster.y {
-                let row_offset = y * clusters.axis_slices.x;
-                for x in min_cluster.x..=max_cluster.x {
-                    let col_offset = (row_offset + x) * clusters.axis_slices.z;
-                    for z in min_cluster.z..=max_cluster.z {
-                        // NOTE: cluster_index = (y * dim.x + x) * dim.z + z
-                        let cluster_index = (col_offset + z) as usize;
-                        let cluster_aabb = &clusters.aabbs[cluster_index];
-                        if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
-                            clusters_lights[cluster_index].entities.push(light.entity);
+                for y in min_cluster.y..=max_cluster.y {
+                    let row_offset = y * clusters.dimensions.x;
+                    for x in min_cluster.x..=max_cluster.x {
+                        let col_offset = (row_offset + x) * clusters.dimensions.z;
+                        for z in min_cluster.z..=max_cluster.z {
+                            // NOTE: cluster_index = (y * dim.x + x) * dim.z + z
+                            let cluster_index = (col_offset + z) as usize;
+                            let cluster_aabb = &clusters.aabbs[cluster_index];
+                            if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
+                                clusters.lights[cluster_index].entities.push(light.entity);
+                            }
                         }
                     }
                 }
             }
         }
 
-        for cluster_lights in &mut clusters_lights {
-            cluster_lights.entities.shrink_to_fit();
+        if visible_lights.is_none() {
+            commands.entity(view_entity).insert(VisiblePointLights {
+                entities: visible_lights_scratch,
+            });
         }
-
-        clusters.lights = clusters_lights;
-        visible_lights.shrink_to_fit();
-        commands.entity(view_entity).insert(VisiblePointLights {
-            entities: visible_lights,
-        });
     }
-    global_lights.entities = global_lights_set.into_iter().collect();
-    lights.clear();
 }
 
 pub fn update_directional_light_frusta(
@@ -1065,7 +1049,7 @@ pub fn update_directional_light_frusta(
 
 // NOTE: Run this after assign_lights_to_clusters!
 pub fn update_point_light_frusta(
-    global_lights: Res<VisiblePointLights>,
+    global_lights: Res<GlobalVisiblePointLights>,
     mut views: Query<
         (Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta),
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
@@ -1078,18 +1062,13 @@ pub fn update_point_light_frusta(
         .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
 
-    let global_lights_set = global_lights
-        .entities
-        .iter()
-        .copied()
-        .collect::<HashSet<_>>();
     for (entity, transform, point_light, mut cubemap_frusta) in views.iter_mut() {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
         // Also, if the light is not relevant for any cluster, it will not be in the
         // global lights set and so there is no need to update its frusta.
-        if !point_light.shadows_enabled || !global_lights_set.contains(&entity) {
+        if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
             continue;
         }
 
@@ -1270,20 +1249,21 @@ mod test {
         let dims = config.dimensions_for_screen_size(screen_size);
 
         // note: near & far do not affect tiling
-        let clusters = Clusters::from_screen_size_and_dimensions(screen_size, dims, 5.0, 1000.0);
+        let mut clusters = Clusters::default();
+        clusters.update(screen_size, dims);
 
         // check we cover the screen
-        assert!(clusters.tile_size.x * clusters.axis_slices.x >= screen_size.x);
-        assert!(clusters.tile_size.y * clusters.axis_slices.y >= screen_size.y);
+        assert!(clusters.tile_size.x * clusters.dimensions.x >= screen_size.x);
+        assert!(clusters.tile_size.y * clusters.dimensions.y >= screen_size.y);
         // check a smaller number of clusters would not cover the screen
-        assert!(clusters.tile_size.x * (clusters.axis_slices.x - 1) < screen_size.x);
-        assert!(clusters.tile_size.y * (clusters.axis_slices.y - 1) < screen_size.y);
+        assert!(clusters.tile_size.x * (clusters.dimensions.x - 1) < screen_size.x);
+        assert!(clusters.tile_size.y * (clusters.dimensions.y - 1) < screen_size.y);
         // check a smaller tilesize would not cover the screen
-        assert!((clusters.tile_size.x - 1) * clusters.axis_slices.x < screen_size.x);
-        assert!((clusters.tile_size.y - 1) * clusters.axis_slices.y < screen_size.y);
+        assert!((clusters.tile_size.x - 1) * clusters.dimensions.x < screen_size.x);
+        assert!((clusters.tile_size.y - 1) * clusters.dimensions.y < screen_size.y);
         // check we don't have more clusters than pixels
-        assert!(clusters.axis_slices.x <= screen_size.x);
-        assert!(clusters.axis_slices.y <= screen_size.y);
+        assert!(clusters.dimensions.x <= screen_size.x);
+        assert!(clusters.dimensions.y <= screen_size.y);
 
         clusters
     }
@@ -1296,8 +1276,7 @@ mod test {
                 let screen_size = UVec2::new(x, y);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
-                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
-                        <= 4096
+                    clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
             }
         }
@@ -1311,15 +1290,13 @@ mod test {
                 let screen_size = UVec2::new(x, y);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
-                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
-                        <= 4096
+                    clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
 
                 let screen_size = UVec2::new(y, x);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
-                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
-                        <= 4096
+                    clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
             }
         }

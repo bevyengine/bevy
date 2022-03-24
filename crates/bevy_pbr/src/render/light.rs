@@ -1,7 +1,7 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
-    DirectionalLightShadowMap, DrawMesh, MeshPipeline, NotShadowCaster, PointLight,
-    PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
+    DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
+    PointLight, PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -305,7 +305,7 @@ pub struct ExtractedClusterConfig {
     near: f32,
     far: f32,
     /// Number of clusters in x / y / z in the view frustum
-    axis_slices: UVec3,
+    dimensions: UVec3,
 }
 
 #[derive(Component)]
@@ -322,7 +322,7 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
             ExtractedClusterConfig {
                 near: clusters.near,
                 far: clusters.far,
-                axis_slices: clusters.axis_slices,
+                dimensions: clusters.dimensions,
             },
         ));
     }
@@ -333,7 +333,7 @@ pub fn extract_lights(
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    global_point_lights: Res<VisiblePointLights>,
+    global_point_lights: Res<GlobalVisiblePointLights>,
     // visible_point_lights: Query<&VisiblePointLights>,
     mut point_lights: Query<(&PointLight, &mut CubemapVisibleEntities, &GlobalTransform)>,
     mut directional_lights: Query<(
@@ -673,22 +673,22 @@ pub fn prepare_lights(
         let cluster_factors_zw = calculate_cluster_factors(
             clusters.near,
             clusters.far,
-            clusters.axis_slices.z as f32,
+            clusters.dimensions.z as f32,
             is_orthographic,
         );
 
-        let n_clusters = clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z;
+        let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
         let mut gpu_lights = GpuLights {
             directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
                 * ambient_light.brightness,
             cluster_factors: Vec4::new(
-                clusters.axis_slices.x as f32 / extracted_view.width as f32,
-                clusters.axis_slices.y as f32 / extracted_view.height as f32,
+                clusters.dimensions.x as f32 / extracted_view.width as f32,
+                clusters.dimensions.y as f32 / extracted_view.height as f32,
                 cluster_factors_zw.x,
                 cluster_factors_zw.y,
             ),
-            cluster_dimensions: clusters.axis_slices.extend(n_clusters),
+            cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
         };
 
@@ -989,9 +989,9 @@ pub fn prepare_clusters(
         let mut indices_full = false;
 
         let mut cluster_index = 0;
-        for _y in 0..cluster_config.axis_slices.y {
-            for _x in 0..cluster_config.axis_slices.x {
-                for _z in 0..cluster_config.axis_slices.z {
+        for _y in 0..cluster_config.dimensions.y {
+            for _x in 0..cluster_config.dimensions.x {
+                for _z in 0..cluster_config.dimensions.z {
                     let offset = view_clusters_bindings.n_indices();
                     let cluster_lights = &extracted_clusters.data[cluster_index];
                     let count = cluster_lights.len();
