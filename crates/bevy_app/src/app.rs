@@ -116,11 +116,7 @@ impl App {
         }
 
         #[cfg(feature = "tracing-tracy")]
-        bevy_utils::tracing::event!(
-            bevy_utils::tracing::Level::INFO,
-            message = "finished frame",
-            tracy.frame_mark = true
-        );
+        tracy_client::finish_continuous_frame!();
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
