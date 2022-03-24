@@ -170,13 +170,8 @@ where
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let mut entities: [Entity; 3] = [Entity::from_raw(0); 3];
-    ///
-    /// world.spawn().insert(A(42));
-    ///
-    /// for i in 0..3 {
-    ///     entities[i] = world.spawn().insert(A(i)).id();
-    /// }
+    /// let entity_vec: Vec<Entity> = (0..3).map(|i|world.spawn().insert(A(i)).id()).collect();
+    /// let entities: [Entity; 3] = entity_vec.try_into().unwrap();
     ///
     /// world.spawn().insert(A(73));
     ///
@@ -238,13 +233,9 @@ where
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let mut entities: [Entity; 3] = [Entity::from_raw(0); 3];
     ///
-    /// world.spawn().insert(A(42));
-    ///
-    /// for i in 0..3 {
-    ///     entities[i] = world.spawn().insert(A(i)).id();
-    /// }
+    /// let entities: Vec<Entity> = (0..3).map(|i|world.spawn().insert(A(i)).id()).collect();
+    /// let entities: [Entity; 3] = entities.try_into().unwrap();
     ///
     /// world.spawn().insert(A(73));
     ///
@@ -260,7 +251,7 @@ where
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = world.spawn().id();
     ///
     /// assert_eq!(query_state.get_multiple_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
     /// assert_eq!(query_state.get_multiple_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
