@@ -124,7 +124,6 @@ fn queue_wireframes(
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, visible_entities, mut opaque_phase) in views.iter_mut() {
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
-        let inverse_view_row_2 = inverse_view_matrix.row(2);
 
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
@@ -144,14 +143,13 @@ fn queue_wireframes(
                             return;
                         }
                     };
-                    opaque_phase.add(Opaque3d {
+                    opaque_phase.add(Opaque3d::from_mesh_transform(
                         entity,
-                        pipeline: pipeline_id,
-                        draw_function: draw_custom,
-                        // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
-                        // gives the z component of translation of the mesh in view space
-                        distance: inverse_view_row_2.dot(mesh_uniform.transform.col(3)),
-                    });
+                        pipeline_id,
+                        draw_custom,
+                        &inverse_view_matrix,
+                        &mesh_uniform.transform,
+                    ));
                 }
             };
 

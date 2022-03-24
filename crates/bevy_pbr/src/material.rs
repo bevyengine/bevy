@@ -340,7 +340,6 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
             .unwrap();
 
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
-        let inverse_view_row_2 = inverse_view_matrix.row(2);
         let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {
@@ -376,45 +375,33 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                             }
                         };
 
-                        // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
-                        // gives the z component of translation of the mesh in view space
-                        let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3));
                         match alpha_mode {
                             AlphaMode::Opaque => {
-                                opaque_phase.add(Opaque3d {
-                                    entity: *visible_entity,
-                                    draw_function: draw_opaque_pbr,
-                                    pipeline: pipeline_id,
-                                    // NOTE: Front-to-back ordering for opaque with ascending sort means near should have the
-                                    // lowest sort key and getting further away should increase. As we have
-                                    // -z in front of the camera, values in view space decrease away from the
-                                    // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
-                                    distance: -mesh_z,
-                                });
+                                opaque_phase.add(Opaque3d::from_mesh_transform(
+                                    *visible_entity,
+                                    pipeline_id,
+                                    draw_opaque_pbr,
+                                    &inverse_view_matrix,
+                                    &mesh_uniform.transform,
+                                ));
                             }
                             AlphaMode::Mask(_) => {
-                                alpha_mask_phase.add(AlphaMask3d {
-                                    entity: *visible_entity,
-                                    draw_function: draw_alpha_mask_pbr,
-                                    pipeline: pipeline_id,
-                                    // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should have the
-                                    // lowest sort key and getting further away should increase. As we have
-                                    // -z in front of the camera, values in view space decrease away from the
-                                    // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
-                                    distance: -mesh_z,
-                                });
+                                alpha_mask_phase.add(AlphaMask3d::from_mesh_transform(
+                                    *visible_entity,
+                                    pipeline_id,
+                                    draw_alpha_mask_pbr,
+                                    &inverse_view_matrix,
+                                    &mesh_uniform.transform,
+                                ));
                             }
                             AlphaMode::Blend => {
-                                transparent_phase.add(Transparent3d {
-                                    entity: *visible_entity,
-                                    draw_function: draw_transparent_pbr,
-                                    pipeline: pipeline_id,
-                                    // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                                    // lowest sort key and getting closer should increase. As we have
-                                    // -z in front of the camera, the largest distance is -far with values increasing toward the
-                                    // camera. As such we can just use mesh_z as the distance
-                                    distance: mesh_z,
-                                });
+                                transparent_phase.add(Transparent3d::from_mesh_transform(
+                                    *visible_entity,
+                                    pipeline_id,
+                                    draw_transparent_pbr,
+                                    &inverse_view_matrix,
+                                    &mesh_uniform.transform,
+                                ));
                             }
                         }
                     }

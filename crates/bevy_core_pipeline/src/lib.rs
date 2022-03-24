@@ -9,6 +9,7 @@ pub mod prelude {
     pub use crate::ClearColor;
 }
 
+use bevy_math::Mat4;
 use bevy_utils::HashMap;
 
 pub use clear_pass::*;
@@ -196,12 +197,32 @@ impl Plugin for CorePipelinePlugin {
 }
 
 pub struct Transparent2d {
-    pub sort_key: FloatOrd,
-    pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    sort_key: FloatOrd,
+    entity: Entity,
+    pipeline: CachedRenderPipelineId,
+    draw_function: DrawFunctionId,
     /// Range in the vertex buffer of this item
-    pub batch_range: Option<Range<u32>>,
+    batch_range: Option<Range<u32>>,
+}
+
+impl Transparent2d {
+    // NOTE: This method exists for API consistency with the other phases defined below
+    #[inline]
+    pub fn new(
+        entity: Entity,
+        pipeline: CachedRenderPipelineId,
+        draw_function: DrawFunctionId,
+        sort_key: f32,
+        batch_range: Option<Range<u32>>,
+    ) -> Self {
+        Self {
+            sort_key: FloatOrd(sort_key),
+            entity,
+            pipeline,
+            draw_function,
+            batch_range,
+        }
+    }
 }
 
 impl PhaseItem for Transparent2d {
@@ -243,10 +264,34 @@ impl BatchedPhaseItem for Transparent2d {
 }
 
 pub struct Opaque3d {
-    pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
-    pub draw_function: DrawFunctionId,
+    distance: f32,
+    pipeline: CachedRenderPipelineId,
+    entity: Entity,
+    draw_function: DrawFunctionId,
+}
+
+impl Opaque3d {
+    #[inline]
+    pub fn from_mesh_transform(
+        entity: Entity,
+        pipeline: CachedRenderPipelineId,
+        draw_function: DrawFunctionId,
+        inverse_view: &Mat4,
+        mesh_transform: &Mat4,
+    ) -> Self {
+        Self {
+            // NOTE: row 2 of the inverse view transform dotted with column 3 of the mesh transform
+            // gives the z component of translation of the mesh in view space
+            // NOTE: Front-to-back ordering for opaque with ascending sort means near should have
+            // the lowest sort key and getting further away should increase. As we have -z in front
+            // of the camera, values in view space decrease away from the camera. Flipping the sign
+            // results in the correct front-to-back ordering
+            distance: -inverse_view.row(2).dot(mesh_transform.col(3)),
+            pipeline,
+            entity,
+            draw_function,
+        }
+    }
 }
 
 impl PhaseItem for Opaque3d {
@@ -278,10 +323,34 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 }
 
 pub struct AlphaMask3d {
-    pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
-    pub draw_function: DrawFunctionId,
+    distance: f32,
+    pipeline: CachedRenderPipelineId,
+    entity: Entity,
+    draw_function: DrawFunctionId,
+}
+
+impl AlphaMask3d {
+    #[inline]
+    pub fn from_mesh_transform(
+        entity: Entity,
+        pipeline: CachedRenderPipelineId,
+        draw_function: DrawFunctionId,
+        inverse_view: &Mat4,
+        mesh_transform: &Mat4,
+    ) -> Self {
+        Self {
+            // NOTE: row 2 of the inverse view transform dotted with column 3 of the mesh transform
+            // gives the z component of translation of the mesh in view space
+            // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should
+            // have the lowest sort key and getting further away should increase. As we have -z in
+            // front of the camera, values in view space decrease away from the camera. Flipping the
+            // sign results in the correct front-to-back ordering
+            distance: -inverse_view.row(2).dot(mesh_transform.col(3)),
+            pipeline,
+            entity,
+            draw_function,
+        }
+    }
 }
 
 impl PhaseItem for AlphaMask3d {
@@ -313,10 +382,34 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
 }
 
 pub struct Transparent3d {
-    pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
-    pub draw_function: DrawFunctionId,
+    distance: f32,
+    pipeline: CachedRenderPipelineId,
+    entity: Entity,
+    draw_function: DrawFunctionId,
+}
+
+impl Transparent3d {
+    #[inline]
+    pub fn from_mesh_transform(
+        entity: Entity,
+        pipeline: CachedRenderPipelineId,
+        draw_function: DrawFunctionId,
+        inverse_view: &Mat4,
+        mesh_transform: &Mat4,
+    ) -> Self {
+        Self {
+            // NOTE: row 2 of the inverse view transform dotted with column 3 of the mesh transform
+            // gives the z component of translation of the mesh in view space
+            // NOTE: Back-to-front ordering for transparent with ascending sort means far should
+            // have the lowest sort key and getting closer should increase. As we have -z in front
+            // of the camera, the largest distance is -far with values increasing toward the camera.
+            // As such we can just use view z as it is
+            distance: inverse_view.row(2).dot(mesh_transform.col(3)),
+            pipeline,
+            entity,
+            draw_function,
+        }
+    }
 }
 
 impl PhaseItem for Transparent3d {

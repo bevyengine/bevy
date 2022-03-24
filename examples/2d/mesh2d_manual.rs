@@ -330,16 +330,16 @@ pub fn queue_colored_mesh2d(
                     pipelines.specialize(&mut pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
                 let mesh_z = mesh2d_uniform.transform.w_axis.z;
-                transparent_phase.add(Transparent2d {
-                    entity: *visible_entity,
-                    draw_function: draw_colored_mesh2d,
-                    pipeline: pipeline_id,
+                transparent_phase.add(Transparent2d::new(
+                    *visible_entity,
+                    pipeline_id,
+                    draw_colored_mesh2d,
                     // The 2d render items are sorted according to their z value before rendering,
                     // in order to get correct transparency
-                    sort_key: FloatOrd(mesh_z),
+                    mesh_z,
                     // This material is not batched
-                    batch_range: None,
-                });
+                    None,
+                ));
             }
         }
     }

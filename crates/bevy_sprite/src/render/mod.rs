@@ -497,7 +497,7 @@ pub fn queue_sprites(
                 });
 
                 // These items will be sorted by depth with other phase items
-                let sort_key = FloatOrd(extracted_sprite.transform.translation.z);
+                let sort_key = extracted_sprite.transform.translation.z;
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
@@ -512,13 +512,13 @@ pub fn queue_sprites(
                     colored_index += QUAD_INDICES.len() as u32;
                     let item_end = colored_index;
 
-                    transparent_phase.add(Transparent2d {
-                        draw_function: draw_sprite_function,
-                        pipeline: colored_pipeline,
-                        entity: current_batch_entity,
+                    transparent_phase.add(Transparent2d::new(
+                        current_batch_entity,
+                        colored_pipeline,
+                        draw_sprite_function,
                         sort_key,
-                        batch_range: Some(item_start..item_end),
-                    });
+                        Some(item_start..item_end),
+                    ));
                 } else {
                     for i in QUAD_INDICES.iter() {
                         sprite_meta.vertices.push(SpriteVertex {
@@ -530,13 +530,13 @@ pub fn queue_sprites(
                     index += QUAD_INDICES.len() as u32;
                     let item_end = index;
 
-                    transparent_phase.add(Transparent2d {
-                        draw_function: draw_sprite_function,
+                    transparent_phase.add(Transparent2d::new(
+                        current_batch_entity,
                         pipeline,
-                        entity: current_batch_entity,
+                        draw_sprite_function,
                         sort_key,
-                        batch_range: Some(item_start..item_end),
-                    });
+                        Some(item_start..item_end),
+                    ));
                 }
             }
         }
