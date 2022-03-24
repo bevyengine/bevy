@@ -106,7 +106,6 @@ Example | File | Description
 `lighting` | [`3d/lighting.rs`](./3d/lighting.rs) | Illustrates various lighting options in a simple scene
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
 `many_cubes` | [`3d/many_cubes.rs`](./3d/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
-`many_lights` | [`3d/many_lights.rs`](./3d/many_lights.rs) | Simple benchmark to test rendering many point lights
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
@@ -444,4 +443,5 @@ cargo run --release --example <example name>
 
 Example | File | Description
 --- | --- | ---
+`many_lights` | [`stress_tests/many_lights.rs`](./stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
 `transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
