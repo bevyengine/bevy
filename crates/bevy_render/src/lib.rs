@@ -181,7 +181,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server)
                 .init_resource::<RenderGraph>()
-                .init_resource::<ReserveCount>();
+                .init_resource::<NumberOfRenderingEntitiesToReserve>();
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
@@ -194,7 +194,10 @@ impl Plugin for RenderPlugin {
 
                     // reserve the number of entities used in the previous frame for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let count = render_app.world.resource::<ReserveCount>().0;
+                    let count = render_app
+                        .world
+                        .resource::<NumberOfRenderingEntitiesToReserve>()
+                        .0;
                     render_app.world.entities().reserve_entities(count);
 
                     // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
@@ -276,8 +279,10 @@ impl Plugin for RenderPlugin {
                         .unwrap();
                     cleanup.run(&mut render_app.world);
 
-                    render_app.world.resource_mut::<ReserveCount>().0 =
-                        render_app.world.entities().meta.len() as u32;
+                    render_app
+                        .world
+                        .resource_mut::<NumberOfRenderingEntitiesToReserve>()
+                        .0 = render_app.world.entities().meta.len() as u32;
 
                     render_app.world.clear_entities();
                 }
