@@ -25,13 +25,14 @@ const BALL_SIZE: Vec3 = const_vec3!([30.0, 30.0, 0.0]);
 const BALL_SPEED: f32 = 400.0;
 const INITIAL_BALL_DIRECTION: Vec2 = const_vec2!([0.5, -0.5]);
 
-const PLAY_AREA_BOUNDS: Vec2 = const_vec2!([900.0, 600.0]);
 const WALL_THICKNESS: f32 = 10.0;
+const ARENA_WIDTH: f32 = 900.;
+const ARENA_HEIGHT: f32 = 600.;
 
-const BRICK_ROWS: u8 = 4;
 const BRICK_COLUMNS: u8 = 5;
-const BRICK_SPACING_X: f32 = 20.0;
-const BRICK_SPACING_Y: f32 = 20.0;
+const BRICK_ROWS: u8 = 4;
+const BRICK_SPACING_X: f32 = 40.0;
+const BRICK_SPACING_Y: f32 = 40.0;
 const BRICK_Y_OFFSET: f32 = 100.0;
 
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
@@ -96,37 +97,40 @@ enum WallLocation {
     Top,
 }
 
+impl WallLocation {
+    fn position(&self) -> Vec2 {
+        match self {
+            WallLocation::Left => Vec2::new(-ARENA_WIDTH / 2., 0.),
+            WallLocation::Right => Vec2::new(ARENA_WIDTH / 2., 0.),
+            WallLocation::Bottom => Vec2::new(0., -ARENA_HEIGHT / 2.),
+            WallLocation::Top => Vec2::new(0., ARENA_HEIGHT / 2.),
+        }
+    }
+
+    fn size(&self) -> Vec2 {
+        match self {
+            WallLocation::Left => Vec2::new(WALL_THICKNESS, ARENA_HEIGHT + WALL_THICKNESS),
+            WallLocation::Right => Vec2::new(WALL_THICKNESS, ARENA_HEIGHT + WALL_THICKNESS),
+            WallLocation::Bottom => Vec2::new(ARENA_WIDTH + WALL_THICKNESS, WALL_THICKNESS),
+            WallLocation::Top => Vec2::new(ARENA_WIDTH + WALL_THICKNESS, WALL_THICKNESS),
+        }
+    }
+}
+
 impl WallBundle {
     // This "builder method" allows us to reuse logic across our wall entities,
     // making our code easier to read and less prone to bugs when we change the logic
-    fn new(orientation: WallLocation) -> WallBundle {
-        // This allows us to just use `Left`, rather than `WallOrientation::Left` everywhere
-        use WallLocation::*;
-
-        let position = match orientation {
-            Left => Vec2::new(-PLAY_AREA_BOUNDS.x / 2.0, 0.0),
-            Right => Vec2::new(PLAY_AREA_BOUNDS.x / 2.0, 0.0),
-            Bottom => Vec2::new(0.0, -PLAY_AREA_BOUNDS.y / 2.0),
-            Top => Vec2::new(0.0, PLAY_AREA_BOUNDS.y / 2.0),
-        };
-
-        let size = match orientation {
-            Left => Vec2::new(WALL_THICKNESS, PLAY_AREA_BOUNDS.y + WALL_THICKNESS),
-            Right => Vec2::new(WALL_THICKNESS, PLAY_AREA_BOUNDS.y + WALL_THICKNESS),
-            Bottom => Vec2::new(PLAY_AREA_BOUNDS.x + WALL_THICKNESS, WALL_THICKNESS),
-            Top => Vec2::new(PLAY_AREA_BOUNDS.x + WALL_THICKNESS, WALL_THICKNESS),
-        };
-
+    fn new(location: WallLocation) -> WallBundle {
         WallBundle {
             sprite_bundle: SpriteBundle {
                 transform: Transform {
                     // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
                     // This is used to determine the order of our sprites
-                    translation: position.extend(0.0),
+                    translation: location.position().extend(0.0),
                     // The z-scale of 2D objects must always be 1.0,
                     // or their ordering will be affected in surpirising ways.
                     // See https://github.com/bevyengine/bevy/issues/4149
-                    scale: size.extend(1.0),
+                    scale: location.size().extend(1.0),
                     ..default()
                 },
                 sprite: Sprite {
@@ -229,16 +233,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(WallBundle::new(WallLocation::Top));
 
     // Bricks
-    let total_width_of_bricks = PLAY_AREA_BOUNDS.x - 2. * BRICK_SPACING_X;
+    let total_width_of_bricks = ARENA_WIDTH - 2. * BRICK_SPACING_X;
 
     let width_available_for_bricks =
         total_width_of_bricks - (BRICK_COLUMNS - 1) as f32 * BRICK_SPACING_X;
-    let brick_width = (width_available_for_bricks / BRICK_COLUMNS as f32);
+    let brick_width = width_available_for_bricks / BRICK_COLUMNS as f32;
 
-    let total_height_of_bricks = PLAY_AREA_BOUNDS.y / 2.0 - BRICK_Y_OFFSET - 2. * BRICK_SPACING_X;
+    let total_height_of_bricks = ARENA_HEIGHT / 2.0 - BRICK_Y_OFFSET;
     let height_available_for_bricks =
-        total_height_of_bricks - (BRICK_ROWS - 1) as f32 * BRICK_SPACING_Y;
-    let brick_height = (height_available_for_bricks / BRICK_COLUMNS as f32);
+        total_height_of_bricks - (BRICK_ROWS - 2) as f32 * BRICK_SPACING_Y;
+    let brick_height = height_available_for_bricks / BRICK_ROWS as f32;
 
     // Negative scales result in flipped sprites / meshes,
     // which is definitely not what we want here
@@ -246,7 +250,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     assert!(brick_height > 0.0);
 
     // Center the bricks and move them up a bit
-    let brick_offset = Vec2::new(-(total_width_of_bricks - brick_width) / 2.0, BRICK_Y_OFFSET);
+    let brick_offset = Vec2::new(
+        -(total_width_of_bricks - brick_width) / 2.0,
+        BRICK_Y_OFFSET + BRICK_SPACING_Y,
+    );
 
     for row in 0..BRICK_ROWS {
         for column in 0..BRICK_COLUMNS {
@@ -292,8 +299,7 @@ fn move_paddle(
     }
 
     // This is the maximum x value that the paddle's transform can have without leaving the play area
-    let paddle_bounds =
-        (PLAY_AREA_BOUNDS.x - WALL_THICKNESS - PADDLE_SIZE.x) / 2.0 - PADDLE_PADDING;
+    let paddle_bounds = (ARENA_WIDTH - WALL_THICKNESS - PADDLE_SIZE.x) / 2.0 - PADDLE_PADDING;
 
     // Calculate the new horizontal paddle position based on player input
     let new_paddle_position = paddle_transform.translation.x + direction * PADDLE_SPEED * TIME_STEP;
