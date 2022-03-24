@@ -132,7 +132,8 @@ impl TaskPool {
                 #[cfg(miri)]
                 let _ = thread_name;
 
-                // miri does not support setting thread names `https://github.com/rust-lang/miri/issues/1717`
+                // miri does not support setting thread names
+                // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
                 #[cfg(not(miri))]
                 let mut thread_builder = thread::Builder::new().name(thread_name);
                 #[cfg(miri)]
