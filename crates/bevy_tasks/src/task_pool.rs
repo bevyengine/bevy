@@ -121,13 +121,22 @@ impl TaskPool {
                 let ex = Arc::clone(&executor);
                 let shutdown_rx = shutdown_rx.clone();
 
+                #[cfg(not(miri))]
                 let thread_name = if let Some(thread_name) = thread_name {
                     format!("{} ({})", thread_name, i)
                 } else {
                     format!("TaskPool ({})", i)
                 };
+                #[cfg(miri)]
+                let _ = i;
+                #[cfg(miri)]
+                let _ = thread_name;
 
+                // miri does not support setting thread names `https://github.com/rust-lang/miri/issues/1717`
+                #[cfg(not(miri))]
                 let mut thread_builder = thread::Builder::new().name(thread_name);
+                #[cfg(miri)]
+                let mut thread_builder = thread::Builder::new();
 
                 if let Some(stack_size) = stack_size {
                     thread_builder = thread_builder.stack_size(stack_size);
