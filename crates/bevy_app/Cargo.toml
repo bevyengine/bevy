@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 trace = []
+tracing-tracy = []
 bevy_ci_testing = ["serde", "ron"]
 default = ["bevy_reflect"]
 
