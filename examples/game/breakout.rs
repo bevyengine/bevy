@@ -30,6 +30,7 @@ const WALL_THICKNESS: f32 = 10.0;
 const BRICK_ROWS: u8 = 4;
 const BRICK_COLUMNS: u8 = 5;
 const BRICK_SPACING: f32 = 20.0;
+const BRICK_HEIGHT: f32 = 100.0;
 const BRICK_SIZE: Vec3 = const_vec3!([150.0, 30.0, 1.0]);
 
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
@@ -230,7 +231,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Add bricks
     let bricks_width = BRICK_COLUMNS as f32 * (BRICK_SIZE.x + BRICK_SPACING) - BRICK_SPACING;
     // center the bricks and move them up a bit
-    let bricks_offset = Vec3::new(-(bricks_width - BRICK_SIZE.x) / 2.0, 100.0, 0.0);
+    let bricks_offset = Vec3::new(-(bricks_width - BRICK_SIZE.x) / 2.0, BRICK_HEIGHT, 0.0);
     for row in 0..BRICK_ROWS {
         let y_position = row as f32 * (BRICK_SIZE.y + BRICK_SPACING);
         for column in 0..BRICK_COLUMNS {
