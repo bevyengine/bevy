@@ -338,7 +338,7 @@ where
             .matched_archetypes
             .contains(location.archetype_id.index())
         {
-            return Err(QueryEntityError::QueryDoesNotMatch);
+            return Err(QueryEntityError::QueryDoesNotMatch(entity));
         }
         let archetype = &world.archetypes[location.archetype_id];
         let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
@@ -350,7 +350,7 @@ where
         if filter.archetype_filter_fetch(location.index) {
             Ok(fetch.archetype_fetch(location.index))
         } else {
-            Err(QueryEntityError::QueryDoesNotMatch)
+            Err(QueryEntityError::QueryDoesNotMatch(entity))
         }
     }
 
@@ -919,7 +919,7 @@ where
 #[derive(Error, Debug, PartialEq, Clone, Copy)]
 pub enum QueryEntityError {
     #[error("The given entity does not have the requested component.")]
-    QueryDoesNotMatch,
+    QueryDoesNotMatch(Entity),
     #[error("The requested entity does not exist.")]
     NoSuchEntity(Entity),
     #[error("The entity was requested mutably more than once.")]
