@@ -30,9 +30,9 @@ const WALL_THICKNESS: f32 = 10.0;
 
 const BRICK_ROWS: u8 = 4;
 const BRICK_COLUMNS: u8 = 5;
-const BRICK_SPACING: f32 = 20.0;
+const BRICK_SPACING_X: f32 = 20.0;
+const BRICK_SPACING_Y: f32 = 20.0;
 const BRICK_Y_OFFSET: f32 = 100.0;
-const BRICK_SIZE: Vec3 = const_vec3!([150.0, 30.0, 1.0]);
 
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
@@ -229,17 +229,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(WallBundle::new(WallLocation::Top));
 
     // Bricks
-    let brick_width = BRICK_COLUMNS as f32 * (BRICK_SIZE.x + BRICK_SPACING) - BRICK_SPACING;
-    // center the bricks and move them up a bit
-    let brick_offset = Vec3::new((BRICK_SIZE.x - brick_width) / 2.0, BRICK_Y_OFFSET, 0.0);
+    let total_width_of_bricks = PLAY_AREA_BOUNDS.x - 2. * BRICK_SPACING_X;
+
+    let width_available_for_bricks =
+        total_width_of_bricks - (BRICK_COLUMNS - 1) as f32 * BRICK_SPACING_X;
+    // Negative scales result in flipped sprites / meshes,
+    // which is not what we want here
+    let brick_width = (width_available_for_bricks / BRICK_COLUMNS as f32).max(0.0);
+
+    let total_height_of_bricks = PLAY_AREA_BOUNDS.y / 2.0 - BRICK_Y_OFFSET - 2. * BRICK_SPACING_X;
+    let height_available_for_bricks =
+        total_height_of_bricks - (BRICK_ROWS - 1) as f32 * BRICK_SPACING_Y;
+    let brick_height = (height_available_for_bricks / BRICK_COLUMNS as f32).max(0.0);
+
+    // Center the bricks and move them up a bit
+    let brick_offset = Vec2::new(-(total_width_of_bricks - brick_width) / 2.0, BRICK_Y_OFFSET);
 
     for row in 0..BRICK_ROWS {
-        let y_position = row as f32 * (BRICK_SIZE.y + BRICK_SPACING);
         for column in 0..BRICK_COLUMNS {
-            let brick_position = Vec3::new(
-                column as f32 * (BRICK_SIZE.x + BRICK_SPACING),
-                y_position,
-                0.0,
+            let brick_position = Vec2::new(
+                column as f32 * (brick_width + BRICK_SPACING_X),
+                row as f32 * (brick_height + BRICK_SPACING_X),
             ) + brick_offset;
 
             // brick
@@ -252,8 +262,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     transform: Transform {
-                        translation: brick_position,
-                        scale: BRICK_SIZE,
+                        translation: brick_position.extend(0.0),
+                        scale: Vec3::new(brick_width, brick_height, 1.0),
                         ..default()
                     },
                     ..default()
