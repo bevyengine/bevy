@@ -13,8 +13,8 @@ const TIME_STEP: f32 = 1.0 / 60.0;
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
 // The `const_vec3!` macros are needed as functions that operate on floats cannot be constant in Rust.
-const PADDLE_HEIGHT: f32 = -215.0;
 const PADDLE_SIZE: Vec3 = const_vec3!([120.0, 30.0, 0.0]);
+const PADDLE_Y_OFFSET: f32 = -215.0;
 const PADDLE_SPEED: f32 = 500.0;
 const PADDLE_BOUNDS: f32 = 380.0;
 
@@ -30,7 +30,7 @@ const WALL_THICKNESS: f32 = 10.0;
 const BRICK_ROWS: u8 = 4;
 const BRICK_COLUMNS: u8 = 5;
 const BRICK_SPACING: f32 = 20.0;
-const BRICK_HEIGHT: f32 = 100.0;
+const BRICK_Y_OFFSET: f32 = 100.0;
 const BRICK_SIZE: Vec3 = const_vec3!([150.0, 30.0, 1.0]);
 
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
@@ -155,7 +155,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Paddle)
         .insert_bundle(SpriteBundle {
             transform: Transform {
-                translation: Vec3::new(0.0, PADDLE_HEIGHT, 0.0),
+                translation: Vec3::new(0.0, PADDLE_Y_OFFSET, 0.0),
                 scale: PADDLE_SIZE,
                 ..default()
             },
@@ -231,7 +231,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Add bricks
     let bricks_width = BRICK_COLUMNS as f32 * (BRICK_SIZE.x + BRICK_SPACING) - BRICK_SPACING;
     // center the bricks and move them up a bit
-    let bricks_offset = Vec3::new(-(bricks_width - BRICK_SIZE.x) / 2.0, BRICK_HEIGHT, 0.0);
+    let bricks_offset = Vec3::new(-(bricks_width - BRICK_SIZE.x) / 2.0, BRICK_Y_OFFSET, 0.0);
     for row in 0..BRICK_ROWS {
         let y_position = row as f32 * (BRICK_SIZE.y + BRICK_SPACING);
         for column in 0..BRICK_COLUMNS {
