@@ -323,7 +323,7 @@ impl ClusterConfig {
     fn first_slice_depth(&self) -> f32 {
         match self {
             ClusterConfig::None => 0.0,
-            ClusterConfig::Single => 1.0e9, // FIXME note can't use f32::MAX as the aabb explodes
+            ClusterConfig::Single => 0.0,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.first_slice_depth
             }
@@ -333,7 +333,7 @@ impl ClusterConfig {
     fn far_z_mode(&self) -> ClusterFarZMode {
         match self {
             ClusterConfig::None => ClusterFarZMode::Constant(0.0),
-            ClusterConfig::Single => ClusterFarZMode::Constant(1.0e9), // FIXME note can't use f32::MAX as the aabb explodes
+            ClusterConfig::Single => ClusterFarZMode::MaxLightRange,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.far_z_mode
             }
