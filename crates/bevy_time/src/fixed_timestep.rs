@@ -98,6 +98,18 @@ impl FixedTimestep {
         }
     }
 
+    /// Creates a [`FixedTimestep`] that ticks once every `step` seconds, running up to `max_loops` times to catch up to the clock.
+    pub fn step_with_max_loops(step: f64, max_loops: usize) -> Self {
+        Self {
+            state: LocalFixedTimestepState {
+                step,
+                max_time_delta: step * max_loops as f64,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
     /// Creates a [`FixedTimestep`] that ticks once every `rate` times per second.
     pub fn steps_per_second(rate: f64) -> Self {
         Self {
@@ -137,6 +149,7 @@ impl FixedTimestep {
 struct LocalFixedTimestepState {
     label: Option<String>, // TODO: consider making this a TypedLabel
     step: f64,
+    max_time_delta: f64,
     accumulator: f64,
     looping: bool,
 }
@@ -145,6 +158,7 @@ impl Default for LocalFixedTimestepState {
     fn default() -> Self {
         Self {
             step: 1.0 / 60.0,
+            max_time_delta: std::f64::INFINITY,
             accumulator: 0.0,
             label: None,
             looping: false,
@@ -155,7 +169,12 @@ impl Default for LocalFixedTimestepState {
 impl LocalFixedTimestepState {
     fn update(&mut self, time: &Time) -> ShouldRun {
         if !self.looping {
-            self.accumulator += time.delta_seconds_f64();
+            let time_delta = time.delta_seconds_f64();
+            self.accumulator += if time_delta > self.max_time_delta {
+                self.max_time_delta
+            } else {
+                time_delta
+            };
         }
 
         if self.accumulator >= self.step {
