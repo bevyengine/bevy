@@ -233,14 +233,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let width_available_for_bricks =
         total_width_of_bricks - (BRICK_COLUMNS - 1) as f32 * BRICK_SPACING_X;
-    // Negative scales result in flipped sprites / meshes,
-    // which is not what we want here
-    let brick_width = (width_available_for_bricks / BRICK_COLUMNS as f32).max(0.0);
+    let brick_width = (width_available_for_bricks / BRICK_COLUMNS as f32);
 
     let total_height_of_bricks = PLAY_AREA_BOUNDS.y / 2.0 - BRICK_Y_OFFSET - 2. * BRICK_SPACING_X;
     let height_available_for_bricks =
         total_height_of_bricks - (BRICK_ROWS - 1) as f32 * BRICK_SPACING_Y;
-    let brick_height = (height_available_for_bricks / BRICK_COLUMNS as f32).max(0.0);
+    let brick_height = (height_available_for_bricks / BRICK_COLUMNS as f32);
+
+    // Negative scales result in flipped sprites / meshes,
+    // which is definitely not what we want here
+    assert!(brick_width > 0.0);
+    assert!(brick_height > 0.0);
 
     // Center the bricks and move them up a bit
     let brick_offset = Vec2::new(-(total_width_of_bricks - brick_width) / 2.0, BRICK_Y_OFFSET);
