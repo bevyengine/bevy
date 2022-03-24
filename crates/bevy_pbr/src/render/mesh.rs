@@ -119,7 +119,7 @@ pub fn extract_meshes(
     >,
 ) {
     let mut caster_values = Vec::with_capacity(*previous_caster_len);
-    for (entity, computed_visibility, transform, mesh, not_receiver) in caster_query.iter() {
+    for (entity, computed_visibility, transform, handle, not_receiver) in caster_query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
@@ -127,7 +127,7 @@ pub fn extract_meshes(
         caster_values.push((
             entity,
             (
-                mesh.clone_weak(),
+                handle.clone_weak(),
                 MeshUniform {
                     flags: if not_receiver.is_some() {
                         MeshFlags::empty().bits
@@ -671,7 +671,7 @@ pub fn prepare_skinned_meshes(
         .buffer
         .reserve(extracted_joints.buffer.len(), &render_device);
     for joint in extracted_joints.buffer.iter() {
-        mesh_bind_group.buffer.push(joint.clone());
+        mesh_bind_group.buffer.push(*joint);
     }
     mesh_bind_group
         .buffer

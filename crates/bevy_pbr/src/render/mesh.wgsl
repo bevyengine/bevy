@@ -9,7 +9,7 @@ struct Vertex {
     [[location(3)]] tangent: vec4<f32>;
 #endif
 #ifdef SKINNED
-    [[location(4)]] joint_indexes: vec4<u32>;
+    [[location(4)]] joint_indices: vec4<u32>;
     [[location(5)]] joint_weights: vec4<f32>;
 #endif
 };
@@ -37,7 +37,7 @@ var<uniform> joint_matrices: SkinnedMesh;
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
 #ifdef SKINNED
-    var model = skin_model(vertex.joint_indexes, vertex.joint_weights);
+    var model = skin_model(vertex.joint_indices, vertex.joint_weights);
     out.world_position = model * vec4<f32>(vertex.position, 1.0);
     out.world_normal = skin_normals(model, vertex.normal);
 #ifdef VERTEX_TANGENTS

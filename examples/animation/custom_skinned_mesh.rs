@@ -1,6 +1,5 @@
 use std::f32::consts::PI;
 
-use rand::Rng;
 use bevy::{
     pbr::AmbientLight,
     prelude::*,
@@ -9,6 +8,7 @@ use bevy::{
         Indices, PrimitiveTopology,
     },
 };
+use rand::Rng;
 
 /// Skinned mesh example with mesh and joints data defined in code.
 /// Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
@@ -143,11 +143,14 @@ fn setup(
         commands
             .spawn_bundle(PbrBundle {
                 mesh: mesh.clone(),
-                material: materials.add(Color::rgb(
-                    rand::thread_rng().gen_range(0.0..1.0),
-                    rand::thread_rng().gen_range(0.0..1.0),
-                    rand::thread_rng().gen_range(0.0..1.0),
-                ).into()),
+                material: materials.add(
+                    Color::rgb(
+                        rand::thread_rng().gen_range(0.0..1.0),
+                        rand::thread_rng().gen_range(0.0..1.0),
+                        rand::thread_rng().gen_range(0.0..1.0),
+                    )
+                    .into(),
+                ),
                 ..Default::default()
             })
             .insert(SkinnedMesh {
