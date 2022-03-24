@@ -9,6 +9,7 @@ use bevy_render::{
     color::Color,
     prelude::Image,
     primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
+    render_resource::SupportedBindingTypes,
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
@@ -18,7 +19,7 @@ use bevy_window::Windows;
 
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
-    CUBE_MAP_FACES, MAX_POINT_LIGHTS, POINT_LIGHT_NEAR_Z,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, CUBE_MAP_FACES, MAX_POINT_LIGHTS, POINT_LIGHT_NEAR_Z,
 };
 
 /// A light that emits light in all directions from a central point.
@@ -729,10 +730,12 @@ pub(crate) fn assign_lights_to_clusters(
             ),
     );
 
-    // NOTE: Clustered-forward rendering requires 3 buffer bindings so only use storage buffers
-    // if at least 3 are supported
-    let use_storage_buffers = render_device.limits().max_storage_buffers_per_shader_stage >= 3;
-    if !use_storage_buffers && lights.len() > MAX_POINT_LIGHTS {
+    let supports_storage_buffers = SupportedBindingTypes::from_device(
+        render_device.into_inner(),
+        CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    )
+    .contains(SupportedBindingTypes::STORAGE);
+    if lights.len() > MAX_POINT_LIGHTS && !supports_storage_buffers {
         lights.sort_by(|light_1, light_2| {
             point_light_order(
                 (&light_1.entity, &light_1.shadows_enabled),

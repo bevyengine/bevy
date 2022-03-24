@@ -1,6 +1,7 @@
 use crate::{
     GlobalLightMeta, GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
     ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -264,7 +265,12 @@ impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let (cluster_buffer_binding_type, cluster_min_binding_size) =
-            if render_device.limits().max_storage_buffers_per_shader_stage >= 3 {
+            if SupportedBindingTypes::from_device(
+                render_device,
+                CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+            )
+            .contains(SupportedBindingTypes::STORAGE)
+            {
                 (BufferBindingType::Storage { read_only: true }, None)
             } else {
                 (BufferBindingType::Uniform, BufferSize::new(16384))

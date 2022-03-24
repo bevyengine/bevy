@@ -102,8 +102,8 @@ pub enum GpuPointLights {
 }
 
 impl GpuPointLights {
-    fn new(use_storage_buffers: bool) -> Self {
-        if use_storage_buffers {
+    fn new(supported_binding_types: SupportedBindingTypes) -> Self {
+        if supported_binding_types.contains(SupportedBindingTypes::STORAGE) {
             Self::storage()
         } else {
             Self::uniform()
@@ -613,15 +613,19 @@ pub struct ViewLightsUniformOffset {
     pub offset: u32,
 }
 
+// NOTE: Clustered-forward rendering requires 3 storage buffer bindings so check that
+// at least that many are supported using this constant and SupportedBindingType::from_device()
+pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
+
 pub struct GlobalLightMeta {
     pub gpu_point_lights: GpuPointLights,
     pub entity_to_index: HashMap<Entity, usize>,
 }
 
 impl GlobalLightMeta {
-    pub fn new(use_storage_buffers: bool) -> Self {
+    pub fn new(supported_binding_types: SupportedBindingTypes) -> Self {
         Self {
-            gpu_point_lights: GpuPointLights::new(use_storage_buffers),
+            gpu_point_lights: GpuPointLights::new(supported_binding_types),
             entity_to_index: HashMap::default(),
         }
     }
@@ -1036,8 +1040,8 @@ enum ViewClusterBuffers {
 }
 
 impl ViewClusterBuffers {
-    fn new(use_storage_buffers: bool) -> Self {
-        if use_storage_buffers {
+    fn new(supported_binding_types: SupportedBindingTypes) -> Self {
+        if supported_binding_types.contains(SupportedBindingTypes::STORAGE) {
             Self::storage()
         } else {
             Self::uniform()
@@ -1071,11 +1075,11 @@ impl ViewClusterBindings {
     const MAX_UNIFORM_ITEMS: usize = Self::MAX_OFFSETS / 4;
     pub const MAX_INDICES: usize = 16384;
 
-    pub fn new(use_storage_buffers: bool) -> Self {
+    pub fn new(supported_binding_types: SupportedBindingTypes) -> Self {
         Self {
             n_indices: 0,
             n_offsets: 0,
-            buffers: ViewClusterBuffers::new(use_storage_buffers),
+            buffers: ViewClusterBuffers::new(supported_binding_types),
         }
     }
 
@@ -1217,9 +1221,12 @@ pub fn prepare_clusters(
         With<RenderPhase<Transparent3d>>,
     >,
 ) {
-    let use_storage_buffers = render_device.limits().max_storage_buffers_per_shader_stage >= 3;
+    let render_device = render_device.into_inner();
+    let supported_binding_types =
+        SupportedBindingTypes::from_device(render_device, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+    let supports_storage_buffers = supported_binding_types.contains(SupportedBindingTypes::STORAGE);
     for (entity, cluster_config, extracted_clusters) in views.iter() {
-        let mut view_clusters_bindings = ViewClusterBindings::new(use_storage_buffers);
+        let mut view_clusters_bindings = ViewClusterBindings::new(supported_binding_types);
         view_clusters_bindings.reserve_and_clear();
 
         let mut indices_full = false;
@@ -1237,9 +1244,9 @@ pub fn prepare_clusters(
                         for entity in cluster_lights.iter() {
                             if let Some(light_index) = global_light_meta.entity_to_index.get(entity)
                             {
-                                if !use_storage_buffers
-                                    && view_clusters_bindings.n_indices()
-                                        >= ViewClusterBindings::MAX_INDICES
+                                if view_clusters_bindings.n_indices()
+                                    >= ViewClusterBindings::MAX_INDICES
+                                    && !supports_storage_buffers
                                 {
                                     warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
                                     indices_full = true;
@@ -1255,7 +1262,7 @@ pub fn prepare_clusters(
             }
         }
 
-        view_clusters_bindings.write_buffers(&render_device, &render_queue);
+        view_clusters_bindings.write_buffers(render_device, &render_queue);
 
         commands.get_or_spawn(entity).insert(view_clusters_bindings);
     }

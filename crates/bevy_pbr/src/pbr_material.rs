@@ -1,4 +1,7 @@
-use crate::{AlphaMode, MaterialPipeline, SpecializedMaterial, PBR_SHADER_HANDLE};
+use crate::{
+    AlphaMode, MaterialPipeline, SpecializedMaterial, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    PBR_SHADER_HANDLE,
+};
 use bevy_asset::{AssetServer, Handle};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::Vec4;
@@ -370,9 +373,11 @@ impl SpecializedMaterial for StandardMaterial {
         StandardMaterialKey {
             normal_map: render_asset.has_normal_map,
             cull_mode: render_asset.cull_mode,
-            // NOTE: Clustered-forward rendering requires 3 storage buffer bindings so check that
-            // at least that many are supported.
-            use_storage_buffers: render_device.limits().max_storage_buffers_per_shader_stage >= 3,
+            use_storage_buffers: SupportedBindingTypes::from_device(
+                render_device,
+                CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+            )
+            .contains(SupportedBindingTypes::STORAGE),
         }
     }
 
