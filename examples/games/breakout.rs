@@ -418,7 +418,6 @@ fn play_collision_sound(
 ) {
     // Plays a sound for each collision events
     for _ in collide_events.iter() {
-        #[cfg(feature = "bevy_audio")]
         audio.play(sound.0.clone());
     }
 }
