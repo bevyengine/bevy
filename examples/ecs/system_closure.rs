@@ -1,4 +1,4 @@
-use bevy::{prelude::*, log::LogPlugin};
+use bevy::{log::LogPlugin, prelude::*};
 
 fn main() {
     let f = |value: String| {
