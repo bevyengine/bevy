@@ -1614,11 +1614,3 @@ mod tests {
         );
     }
 }
-
-#[test]
-fn ub() {
-    #[allow(deref_nullptr)]
-    unsafe {
-        *std::ptr::null::<u8>()
-    };
-}
