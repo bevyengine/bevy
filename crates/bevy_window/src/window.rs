@@ -586,6 +586,19 @@ impl Window {
     }
 }
 /// A [`Window`]'s properties
+/// # Creating a `WindowDescriptor`
+/// As `WindowDescriptor` is simply a `struct` that implements `Default`, creating one isn't any different from any other `struct`.
+/// However, for Bevy to use it, you need to add it to your [`bevy_app::App`] with [`bevy_app::App:insert_resource()`].
+/// ```rust
+/// # use bevy_app::App;
+/// # use bevy_window::WindowDescriptor;
+/// # fn main(){
+/// App::new().insert_resource(WindowDescriptor{
+///     title: String::from("Creating a WindowDescriptor"),
+///     ..Default::default()
+/// });
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
     /// The window's width
