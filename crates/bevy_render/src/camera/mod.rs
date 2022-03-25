@@ -28,6 +28,8 @@ impl Plugin for CameraPlugin {
             .register_type::<ScalingMode>()
             .register_type::<DepthCalculation>()
             .register_type::<Aabb>()
+            .register_type::<Camera3d>()
+            .register_type::<Camera2d>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<OrthographicProjection>,

@@ -1,18 +1,21 @@
+use super::{CameraProjection, ScalingMode};
 use crate::{
     camera::{Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection},
     primitives::Frustum,
     view::VisibleEntities,
 };
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{bundle::Bundle, prelude::Component};
 use bevy_math::Vec3;
+use bevy_reflect::Reflect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use super::{CameraProjection, ScalingMode};
-
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
 pub struct Camera3d;
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
 pub struct Camera2d;
 
 /// Component bundle for camera entities with perspective projection

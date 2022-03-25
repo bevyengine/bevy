@@ -101,7 +101,7 @@ fn queue_custom(
     custom_pipeline: Res<CustomPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
     material_meshes: Query<
         (Entity, &MeshUniform, &Handle<Mesh>),
@@ -240,7 +240,7 @@ impl EntityRenderCommand for DrawMeshInstanced {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let mesh_handle = mesh_query.get(item).unwrap();
-        let instance_buffer = instance_buffer_query.get(item).unwrap();
+        let instance_buffer = instance_buffer_query.get_inner(item).unwrap();
 
         let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
             Some(gpu_mesh) => gpu_mesh,
