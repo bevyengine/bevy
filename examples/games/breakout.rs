@@ -58,14 +58,14 @@ fn main() {
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
-        .add_event::<CollideEvent>()
+        .add_event::<CollisionEvent>()
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(check_for_collisions)
                 .with_system(move_paddle.before(check_for_collisions))
                 .with_system(apply_velocity.before(check_for_collisions))
-                .with_system(collision_sound_player.after(check_for_collisions)),
+                .with_system(play_collision_sound.after(check_for_collisions)),
         )
         .add_system(update_scoreboard)
         .add_system(bevy::input::system::exit_on_esc_system)
@@ -85,11 +85,12 @@ struct Velocity(Vec2);
 struct Collider;
 
 #[derive(Default)]
-struct CollideEvent;
+struct CollisionEvent;
 
 #[derive(Component)]
 struct Brick;
 
+#[cfg(feature = "bevy_audio")]
 #[derive(Component)]
 struct CollisionSound(Handle<AudioSource>);
 
@@ -176,8 +177,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(UiCameraBundle::default());
 
     // Sound
-    let brick_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
-    commands.insert_resource(CollisionSound(brick_collision_sound));
+    #[cfg(feature = "bevy_audio")]
+    {
+        let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
+        commands.insert_resource(CollisionSound(ball_collision_sound));
+    }
 
     // Paddle
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
@@ -361,7 +365,7 @@ fn check_for_collisions(
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
-    mut collide_events: EventWriter<CollideEvent>,
+    mut collide_events: EventWriter<CollisionEvent>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.single_mut();
     let ball_size = ball_transform.scale.truncate();
@@ -411,13 +415,14 @@ fn check_for_collisions(
     }
 }
 
-fn collision_sound_player(
-    mut collide_events: EventReader<CollideEvent>,
-    audio: Res<Audio>,
-    sound: Res<CollisionSound>,
+fn play_collision_sound(
+    mut collide_events: EventReader<CollisionEvent>,
+    #[cfg(feature = "bevy_audio")] audio: Res<Audio>,
+    #[cfg(feature = "bevy_audio")] sound: Res<CollisionSound>,
 ) {
     // Plays a sound for each collision events
     for _ in collide_events.iter() {
+        #[cfg(feature = "bevy_audio")]
         audio.play(sound.0.clone());
     }
 }
