@@ -361,7 +361,7 @@ fn check_for_collisions(
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
-    mut collide_events: EventWriter<CollisionEvent>,
+    mut collision_events: EventWriter<CollisionEvent>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.single_mut();
     let ball_size = ball_transform.scale.truncate();
@@ -376,7 +376,7 @@ fn check_for_collisions(
         );
         if let Some(collision) = collision {
             // Sends a collision event so that other systems can react to the collision
-            collide_events.send_default();
+            collision_events.send_default();
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {
