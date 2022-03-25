@@ -1,7 +1,7 @@
 use bevy::{prelude::*, tasks::prelude::*};
 use rand::random;
 
-#[derive(Component)]
+#[derive(Component, Deref)]
 struct Velocity(Vec2);
 
 fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -31,7 +31,7 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
     // See the ParallelIterator documentation for more information on when
     // to use or not use ParallelIterator over a normal Iterator.
     sprites.par_for_each_mut(&pool, 32, |(mut transform, velocity)| {
-        transform.translation += velocity.0.extend(0.0);
+        transform.translation += velocity.extend(0.0);
     });
 }
 
