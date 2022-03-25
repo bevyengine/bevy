@@ -1,7 +1,6 @@
 //! A simplified implementation of the classic game "Breakout"
 
 use bevy::{
-    audio::AudioSink,
     core::FixedTimestep,
     math::{const_vec2, const_vec3},
     prelude::*,
