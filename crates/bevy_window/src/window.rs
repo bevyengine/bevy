@@ -3,6 +3,7 @@ use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+/// A unique ID for a [`Window`]
 pub struct WindowId(Uuid);
 
 /// Presentation mode for a window.
@@ -39,14 +40,15 @@ pub enum PresentMode {
 }
 
 impl WindowId {
+    /// Creates a new [`WindowId`]
     pub fn new() -> Self {
         WindowId(Uuid::new_v4())
     }
-
+    /// The [`WindowId`] for the primary window
     pub fn primary() -> Self {
         WindowId(Uuid::from_u128(0))
     }
-
+    /// Get whether or not this [`WindowId`] is for the primary window
     pub fn is_primary(&self) -> bool {
         *self == WindowId::primary()
     }
@@ -169,53 +171,45 @@ pub struct Window {
     pub canvas: Option<String>,
     command_queue: Vec<WindowCommand>,
 }
-
+/// A command to be sent to a window.
 #[derive(Debug)]
 pub enum WindowCommand {
+    /// Set the window's [`WindowMode`]
     SetWindowMode {
         mode: WindowMode,
         resolution: (u32, u32),
     },
-    SetTitle {
-        title: String,
-    },
-    SetScaleFactor {
-        scale_factor: f64,
-    },
+    /// Set the window's title
+    SetTitle { title: String },
+    /// Set the window's scale factor
+    SetScaleFactor { scale_factor: f64 },
+    /// Set the window's resolution
     SetResolution {
         logical_resolution: (f32, f32),
         scale_factor: f64,
     },
-    SetPresentMode {
-        present_mode: PresentMode,
-    },
-    SetResizable {
-        resizable: bool,
-    },
-    SetDecorations {
-        decorations: bool,
-    },
-    SetCursorLockMode {
-        locked: bool,
-    },
-    SetCursorIcon {
-        icon: CursorIcon,
-    },
-    SetCursorVisibility {
-        visible: bool,
-    },
-    SetCursorPosition {
-        position: Vec2,
-    },
-    SetMaximized {
-        maximized: bool,
-    },
-    SetMinimized {
-        minimized: bool,
-    },
-    SetPosition {
-        position: IVec2,
-    },
+    /// Set the window's [`PresentMode`]
+    SetPresentMode { present_mode: PresentMode },
+    /// Set whether or not the window is resizable
+    SetResizable { resizable: bool },
+    /// Set whether or not the window has decorations
+    /// Examples of decorations include the close, full screen, and minimize buttons
+    SetDecorations { decorations: bool },
+    /// Set whether or not the cursor's postition is locked
+    SetCursorLockMode { locked: bool },
+    /// Set the cursor's [`CursorIcon`]
+    SetCursorIcon { icon: CursorIcon },
+    /// Set whether or not the cursor is visible
+    SetCursorVisibility { visible: bool },
+    /// Set the cursor's position
+    SetCursorPosition { position: Vec2 },
+    /// Set whether or not the window is maxizimed
+    SetMaximized { maximized: bool },
+    /// Set whether or not the window is minimized
+    SetMinimized { minimized: bool },
+    /// Set the window's position on the screen
+    SetPosition { position: IVec2 },
+    /// Set the window's [`WindowResizeConstraints`]
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
@@ -236,6 +230,7 @@ pub enum WindowMode {
 }
 
 impl Window {
+    /// Creates a new [`Window`]
     pub fn new(
         id: WindowId,
         window_descriptor: &WindowDescriptor,
@@ -271,7 +266,7 @@ impl Window {
             command_queue: Vec::new(),
         }
     }
-
+    /// Get the window's [`WindowId`]
     #[inline]
     pub fn id(&self) -> WindowId {
         self.id
@@ -332,7 +327,7 @@ impl Window {
     pub fn position(&self) -> Option<IVec2> {
         self.position
     }
-
+    /// Set whether or not the window is maximized
     #[inline]
     pub fn set_maximized(&mut self, maximized: bool) {
         self.command_queue
@@ -447,12 +442,12 @@ impl Window {
     pub fn scale_factor_override(&self) -> Option<f64> {
         self.scale_factor_override
     }
-
+    /// Get the window's title
     #[inline]
     pub fn title(&self) -> &str {
         &self.title
     }
-
+    /// Set the window's title
     pub fn set_title(&mut self, title: String) {
         self.title = title.to_string();
         self.command_queue.push(WindowCommand::SetTitle { title });
@@ -460,68 +455,72 @@ impl Window {
 
     #[inline]
     #[doc(alias = "vsync")]
+    /// Get the window's [`PresentMode`]
     pub fn present_mode(&self) -> PresentMode {
         self.present_mode
     }
 
     #[inline]
     #[doc(alias = "set_vsync")]
+    /// Set the window's [`PresentMode`]
     pub fn set_present_mode(&mut self, present_mode: PresentMode) {
         self.present_mode = present_mode;
         self.command_queue
             .push(WindowCommand::SetPresentMode { present_mode });
     }
-
+    /// Get whether or not the window is resizable
     #[inline]
     pub fn resizable(&self) -> bool {
         self.resizable
     }
-
+    /// Set whether or not the window is resizable
     pub fn set_resizable(&mut self, resizable: bool) {
         self.resizable = resizable;
         self.command_queue
             .push(WindowCommand::SetResizable { resizable });
     }
-
+    /// Get whether or not decorations are enabled
+    /// (Decorations are the minimize, maximize, and close buttons on desktop apps)
     #[inline]
     pub fn decorations(&self) -> bool {
         self.decorations
     }
-
+    /// Set whether or not decorations are enabled
+    /// (Decorations are the minimize, maximize, and close buttons on desktop apps)
     pub fn set_decorations(&mut self, decorations: bool) {
         self.decorations = decorations;
         self.command_queue
             .push(WindowCommand::SetDecorations { decorations });
     }
-
+    /// Get whether or not the cursor is locked
     #[inline]
     pub fn cursor_locked(&self) -> bool {
         self.cursor_locked
     }
-
+    /// Set whether or not the cursor is locked
     pub fn set_cursor_lock_mode(&mut self, lock_mode: bool) {
         self.cursor_locked = lock_mode;
         self.command_queue
             .push(WindowCommand::SetCursorLockMode { locked: lock_mode });
     }
-
+    /// Get whether or not the cursor is visible
     #[inline]
     pub fn cursor_visible(&self) -> bool {
         self.cursor_visible
     }
-
+    /// Set whether or not the cursor is visible
     pub fn set_cursor_visibility(&mut self, visibile_mode: bool) {
         self.cursor_visible = visibile_mode;
         self.command_queue.push(WindowCommand::SetCursorVisibility {
             visible: visibile_mode,
         });
     }
-
+    /// Get the current [`CursorIcon`]
     #[inline]
     pub fn cursor_icon(&self) -> CursorIcon {
         self.cursor_icon
     }
-
+    /// Set the [`CursorIcon`]
     pub fn set_cursor_icon(&mut self, icon: CursorIcon) {
         self.command_queue
             .push(WindowCommand::SetCursorIcon { icon });
@@ -540,7 +539,7 @@ impl Window {
         self.physical_cursor_position
             .map(|p| (p / self.scale_factor()).as_vec2())
     }
-
+    /// Set the cursor's position
     pub fn set_cursor_position(&mut self, position: Vec2) {
         self.command_queue
             .push(WindowCommand::SetCursorPosition { position });
@@ -557,12 +556,12 @@ impl Window {
     pub fn update_cursor_physical_position_from_backend(&mut self, cursor_position: Option<DVec2>) {
         self.physical_cursor_position = cursor_position;
     }
-
+    /// Get the window's [`WindowMode`]
     #[inline]
     pub fn mode(&self) -> WindowMode {
         self.mode
     }
-
+    /// Set the window's [`WindowMode`]
     pub fn set_mode(&mut self, mode: WindowMode) {
         self.mode = mode;
         self.command_queue.push(WindowCommand::SetWindowMode {
@@ -570,36 +569,50 @@ impl Window {
             resolution: (self.physical_width, self.physical_height),
         });
     }
-
+    /// Removes all commands from the window's command queue and returns them
     #[inline]
     pub fn drain_commands(&mut self) -> impl Iterator<Item = WindowCommand> + '_ {
         self.command_queue.drain(..)
     }
-
+    /// Get whether or not the window has focus
+    /// A window loses focus when the user switches to another window, and regains focus when the user uses the window again
     #[inline]
     pub fn is_focused(&self) -> bool {
         self.focused
     }
-
+    /// Get the [`RawWindowHandleWrapper`] corresponding to this window
     pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
         self.raw_window_handle.clone()
     }
 }
-
+/// A [`Window`]'s properties
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
+    /// The window's width
     pub width: f32,
+    /// The window's height
     pub height: f32,
+    /// The window's position on the screen
     pub position: Option<Vec2>,
+    /// The size limits of the window
     pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
+    /// The window's title
     pub title: String,
     #[doc(alias = "vsync")]
+    /// The window's [`PresentMode`]
+    /// Used to select whether or not VSync is used
     pub present_mode: PresentMode,
+    /// Whether or not the window can be resized
     pub resizable: bool,
+    /// Whether or not the window has decorations
+    /// On desktop platforms, decorations are the minimize, maximize, and exit buttons on a window
     pub decorations: bool,
+    /// Whether or not the cursor is visible
     pub cursor_visible: bool,
+    /// Whether or not the cursor is locked to a particular position
     pub cursor_locked: bool,
+    /// The window's [`WindowMode`]
     pub mode: WindowMode,
     /// Sets whether the background of the window should be transparent.
     /// # Platform-specific
@@ -609,6 +622,7 @@ pub struct WindowDescriptor {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
+    /// The selector used to locate the <canvas> that Bevy will draw on
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
 }

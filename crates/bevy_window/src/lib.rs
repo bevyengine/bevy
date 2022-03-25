@@ -1,3 +1,4 @@
+#[warn(missing_docs)]
 mod cursor;
 mod event;
 mod raw_window_handle;
@@ -23,6 +24,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::event::Events;
 
+/// A plugin that defines an interface for windowing support in Bevy.
 pub struct WindowPlugin {
     pub add_primary_window: bool,
     pub exit_on_close: bool,

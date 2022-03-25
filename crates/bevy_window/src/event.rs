@@ -43,18 +43,18 @@ pub struct WindowCreated {
 pub struct WindowCloseRequested {
     pub id: WindowId,
 }
-
+/// An event that is sent whenenver the user's cursor moves.
 #[derive(Debug, Clone)]
 pub struct CursorMoved {
     pub id: WindowId,
     pub position: Vec2,
 }
-
+/// An event that is sent whenever the user's cursor enters a window.
 #[derive(Debug, Clone)]
 pub struct CursorEntered {
     pub id: WindowId,
 }
-
+/// An event that is sent whenever the user's cursor leaves a window.
 #[derive(Debug, Clone)]
 pub struct CursorLeft {
     pub id: WindowId,
