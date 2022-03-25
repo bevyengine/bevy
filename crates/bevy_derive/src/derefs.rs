@@ -59,9 +59,9 @@ fn get_inner_field(ast: &DeriveInput, is_mut: bool) -> syn::Result<(Member, &Typ
         }
         _ => {
             let msg = if is_mut {
-                "DerefMut can only be derived for single-item structs"
+                "DerefMut can only be derived for structs with a single field"
             } else {
-                "Deref can only be derived for single-item structs"
+                "Deref can only be derived for structs with a single field"
             };
             Err(syn::Error::new(Span::call_site().into(), msg))
         }
