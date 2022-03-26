@@ -32,7 +32,7 @@ impl RawWindowHandleWrapper {
 unsafe impl Send for RawWindowHandleWrapper {}
 unsafe impl Sync for RawWindowHandleWrapper {}
 
-/// A [`RawWindowHandleWrapper`]that cannot be sent across threads,
+/// A [`RawWindowHandleWrapper`] that cannot be sent across threads
 ///
 /// This safely exposes a [`RawWindowHandle`], but care must be taken to ensure that the construction itself is correct.
 ///
