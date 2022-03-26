@@ -18,10 +18,6 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_3d());
-}
-
 enum Phase {
     ContractingY,
     ContractingX,
@@ -31,7 +27,17 @@ enum Phase {
 
 use Phase::*;
 
-fn change_window_size(mut windows: ResMut<Windows>, mut phase: ResMut<Phase>) {
+fn change_window_size(
+    mut windows: ResMut<Windows>,
+    mut phase: ResMut<Phase>,
+    mut first_complete: Local<bool>,
+) {
+    // Put off rendering for one frame, as currently for a frame where
+    // resizing happens, nothing is presented.
+    if !*first_complete {
+        *first_complete = true;
+        return;
+    }
     let primary = windows.get_primary_mut().unwrap();
     let height = primary.height();
     let width = primary.width();
@@ -61,4 +67,40 @@ fn change_window_size(mut windows: ResMut<Windows>, mut phase: ResMut<Phase>) {
             primary.set_resolution(width + 4., height)
         }
     }
+}
+
+/// A simple 3d scene, taken from the `3d_scene` example
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // plane
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        ..default()
+    });
+    // cube
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        ..default()
+    });
+    // light
+    commands.spawn_bundle(PointLightBundle {
+        point_light: PointLight {
+            intensity: 1500.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        ..default()
+    });
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
 }
