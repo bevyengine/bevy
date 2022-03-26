@@ -652,7 +652,7 @@ impl App {
         self
     }
 
-    /// Inserts a resource to the current [App] and not overwrites any resource previously added of the same type.
+    /// Inserts a resource to the current [App] and without overwrites any resource previously added of the same type.
     ///
     /// A resource in Bevy represents globally unique data. Resources must be added to Bevy Apps
     /// before using them. This happens with [`insert_resource`](Self::insert_resource).
@@ -671,8 +671,32 @@ impl App {
     ///    .insert_resource_not_overwrite(MyCounter { counter: 0 });
     /// ```
     pub fn insert_resource_not_overwrite<R: Resource>(&mut self, resource: R) -> &mut Self {
-        if let None = self.world.get_resource::<R>() {
+        if !self.world.contains_resource::<R>() {
             self.world.insert_resource(resource);
+        }
+
+        self
+    }
+
+    /// Inserts a non-send resource to the app and without overwrites any resource previously added of the same type.
+    ///
+    /// You usually want to use `insert_resource`,
+    /// but there are some special cases when a resource cannot be sent across threads.
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// App::new()
+    ///     .insert_non_send_resource_not_overwrite(MyCounter { counter: 0 });
+    /// ```
+    pub fn insert_non_send_resource_not_overwrite<R: 'static>(&mut self, resource: R) -> &mut Self {
+        if !self.world.contains_resource::<R>() {
+            self.world.insert_non_send_resource(resource);
         }
 
         self
