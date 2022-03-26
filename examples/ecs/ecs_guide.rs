@@ -331,22 +331,18 @@ fn main() {
         .add_system_to_stage(MyStage::BeforeRound, new_player_system)
         .add_system_to_stage(
             MyStage::BeforeRound,
+            // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
+            // The following will not compile.
+            //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
             exclusive_player_system.exclusive_system(),
         )
-        // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
-        // The following will not compile.
-        //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
-        //
-        // We can ensure that game_over system runs after score_check_system using explicit ordering
-        // constraints First, we label the system we want to refer to using `.label`
-        // Then, we use either `.before` or `.after` to describe the order we want the relationship
+        .add_system_to_stage(MyStage::AfterRound, score_check_system)
         .add_system_to_stage(
+            // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
+            // To do this we use either `.before` or `.after` to describe the order we want the relationship
+            // Since we are using `after`, `game_over_system` runs after `score_check_system`
             MyStage::AfterRound,
-            score_check_system.label(MyLabels::ScoreCheck),
-        )
-        .add_system_to_stage(
-            MyStage::AfterRound,
-            game_over_system.after(MyLabels::ScoreCheck),
+            game_over_system.after(score_check_system),
         )
         // We can check our systems for execution order ambiguities by examining the output produced
         // in the console by using the `LogPlugin` and adding the following Resource to our App :)
