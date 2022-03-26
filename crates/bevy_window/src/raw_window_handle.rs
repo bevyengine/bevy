@@ -10,12 +10,13 @@ impl RawWindowHandleWrapper {
         Self(handle)
     }
 
+    /// Returns a [`HasRawWindowHandle`] impl, which exposes [`RawWindowHandle`]
+    ///
     /// # Safety
-    /// This returns a [`HasRawWindowHandle`] impl, which exposes [`RawWindowHandle`]. Some platforms
-    /// have constraints on where/how this handle can be used. For example, some platforms don't support doing window
+    /// Some platforms have constraints on where/how this handle can be used. For example, some platforms don't support doing window
     /// operations off of the main thread. The caller must ensure the [`RawWindowHandle`] is only used in valid contexts.
-    pub unsafe fn get_handle(&self) -> HasRawWindowHandleWrapper {
-        HasRawWindowHandleWrapper(self.0)
+    pub unsafe fn get_handle(&self) -> ThreadLockedRawWindowHandleWrapper {
+        ThreadLockedRawWindowHandleWrapper(self.0)
     }
 }
 
@@ -27,10 +28,18 @@ impl RawWindowHandleWrapper {
 unsafe impl Send for RawWindowHandleWrapper {}
 unsafe impl Sync for RawWindowHandleWrapper {}
 
-pub struct HasRawWindowHandleWrapper(RawWindowHandle);
+/// A [`RawWindowHandleWrapper`]that cannot be sent across threads,
+///
+/// This safely exposes a [`RawWindowHandle`], but care must be taken to ensure that the construction itself is correct.
+///
+/// This can only be constructed via the [`RawWindowHandleWrapper::get_handle()`] method;
+/// be sure to read the safety docs there about platform-specific limitations.
+/// In many cases, this should only be constructed on the main thread.
+pub struct ThreadLockedRawWindowHandleWrapper(RawWindowHandle);
 
 // SAFE: the caller has validated that this is a valid context to get RawWindowHandle
-unsafe impl HasRawWindowHandle for HasRawWindowHandleWrapper {
+// as otherwise an instance of this type could not have been constructed
+unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
     fn raw_window_handle(&self) -> RawWindowHandle {
         self.0
     }
