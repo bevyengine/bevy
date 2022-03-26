@@ -132,7 +132,7 @@ impl WindowResizeConstraints {
 
 /// An operating system window that can present content and receive user input.
 /// To create a window, use a [`bevy_ecs::event::EventWriter`]`<`[`crate::CreateWindow`]`>`
-/// 
+///
 /// ## Window Sizes
 ///
 /// There are three sizes associated with a window. The physical size which is
@@ -146,7 +146,7 @@ impl WindowResizeConstraints {
 /// requested size due to operating system limits on the window size, or the
 /// quantization of the logical size when converting the physical size to the
 /// logical size through the scaling factor.
-/// 
+///
 /// ## Accessing a `Window` from a system
 /// To access a `Window` from a system, use [`bevy_ecs::change_detection::ResMut`]`<`[`crate::Windows`]`>`
 /// ### Example
