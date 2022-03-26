@@ -1,7 +1,10 @@
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
-/// This wrapper exist to enable safely passing a [`RawWindowHandle`] across threads. Extracting the handle
-/// is still an unsafe operation, so the caller must still validate that using the raw handle is safe for a given context.
+/// A wrapper over [`RawWindowHandle`] that allows us to safely pass it across threads.
+///
+/// Depending on the platform, the underlying pointer-containing handle cannot be used on all threads,
+/// and so we cannot simply make it (or any type that has a safe opration to get a [`RawWindowHandle`])
+/// thread-safe.
 #[derive(Debug, Clone)]
 pub struct RawWindowHandleWrapper(RawWindowHandle);
 
@@ -13,6 +16,7 @@ impl RawWindowHandleWrapper {
     /// Returns a [`HasRawWindowHandle`] impl, which exposes [`RawWindowHandle`]
     ///
     /// # Safety
+    ///
     /// Some platforms have constraints on where/how this handle can be used. For example, some platforms don't support doing window
     /// operations off of the main thread. The caller must ensure the [`RawWindowHandle`] is only used in valid contexts.
     pub unsafe fn get_handle(&self) -> ThreadLockedRawWindowHandleWrapper {
@@ -39,6 +43,10 @@ pub struct ThreadLockedRawWindowHandleWrapper(RawWindowHandle);
 
 // SAFE: the caller has validated that this is a valid context to get RawWindowHandle
 // as otherwise an instance of this type could not have been constructed
+// NOTE: we cannot simply impl HasRawWindowHandle for RawWindowHandleWrapper,
+// as the `raw_window_handle` method is safe. We cannot guarantee that all calls
+// of this method are correct (as it may be off the main thread on an incompatible platform),
+// and so exposing a safe method to get a `RawWindowHandle` directly would be UB.
 unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
     fn raw_window_handle(&self) -> RawWindowHandle {
         self.0
