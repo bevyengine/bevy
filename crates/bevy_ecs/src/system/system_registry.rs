@@ -53,7 +53,7 @@ impl SystemRegistry {
     /// This method only needs to be called manually when using [`run_system_by_label`](SystemRegistry).
     ///
     /// If `labels` are provided, the system will be registered under those labels.
-    /// Otherwise, it will use the default labels for that system, typically its [`SystemTypeIdLabel`].
+    /// Otherwise, it will use the default labels for that system: typically its [`SystemTypeIdLabel`].
     #[inline]
     pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
@@ -95,10 +95,36 @@ impl SystemRegistry {
         }
     }
 
+    /// Runs the system at the supplied `index` a single time
+    #[inline]
+    fn run_system_at_index(&mut self, world: &mut World, index: usize) {
+        let ref mut stored_system = self.systems[index];
+
+        // Update the archetypes to make sure our data access is correct
+        stored_system.update_archetypes(world);
+        // Run the system
+        stored_system.system.run((), world);
+        // Apply any generated commands
+        stored_system.system.apply_buffers(world);
+    }
+
     /// Returns true if at least one system in the [`SystemRegistry`] is associated with the provided [`SystemLabel`].
+    #[inline]
     pub fn label_registered<L: SystemLabel>(&self, label: L) -> bool {
         let boxed_label: Box<dyn SystemLabel> = Box::new(label);
         self.labels.get(&boxed_label).is_some()
+    }
+
+    /// Returns the first matching index for systems with this label
+    ///
+    /// # Panics
+    ///
+    /// Panics if no system with the label is registered.
+    #[inline]
+    fn first_registered_index<L: SystemLabel>(&self, label: L) -> usize {
+        let boxed_label: Box<dyn SystemLabel> = Box::new(label);
+        let vec_of_indexes = self.labels.get(&boxed_label).unwrap();
+        *vec_of_indexes.iter().next().unwrap()
     }
 
     /// Runs the set of systems corresponding to the provided [`SystemLabel`] on the [`World`] a single time
@@ -110,20 +136,16 @@ impl SystemRegistry {
         let matching_system_indexes = self.labels.get(&boxed_label).unwrap_or_else(||{panic!{"No system with the `SystemLabel` {label:?} was found. Did you forget to register it?"}});
 
         // Loop over the system in registration order
-        for &index in matching_system_indexes {
-            let ref mut stored_system = self.systems[index];
-            // Update the archetypes to make sure our data access is correct
-            stored_system.update_archetypes(world);
-            // Run the system
-            stored_system.system.run((), world);
-            // Apply any generated commands
-            stored_system.system.apply_buffers(world);
+        for index in matching_system_indexes.clone() {
+            self.run_system_at_index(world, index);
         }
     }
 
     /// Runs the supplied system on the [`World`] a single time
     ///
-    /// If `flush_commands` is true, any [`Commands`](crate::system::Commands) generated will also be applied to the world immediately
+    /// System state will be reused between runs, ensuring that [`Local`](crate::system::Local) variables and change detection works correctly.
+    /// If, via manual system registration, you have somehow managed to insert more than one system with the same [`SystemTypeIdLabel`],
+    /// only the first will be run.
     pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
         world: &mut World,
@@ -131,12 +153,10 @@ impl SystemRegistry {
     ) {
         let automatic_system_label: SystemTypeIdLabel<S> = SystemTypeIdLabel::new();
 
-        if self.label_registered(automatic_system_label) {
-            self.run_systems_by_label(world, &automatic_system_label);
-        } else {
+        if !self.label_registered(automatic_system_label) {
             self.register_system(world, system, None);
-            self.run_systems_by_label(world, &automatic_system_label);
         }
+        self.run_system_at_index(world, self.first_registered_index(automatic_system_label));
     }
 }
 
