@@ -5,7 +5,8 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    system::{IntoSystem, RunSystemByTypeIdCommand, RunSystemCommand},
+    schedule::SystemLabel,
+    system::{IntoSystem, RunSystemCommand, RunSystemsByLabelCommand},
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -534,8 +535,10 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     /// Calls [`World::run_system_by_type_id`]
-    pub fn run_system_by_type_id(&mut self, type_id: TypeId) {
-        self.queue.push(RunSystemByTypeIdCommand { type_id });
+    pub fn run_systems_by_label(&mut self, label: impl SystemLabel) {
+        self.queue.push(RunSystemsByLabelCommand {
+            label: Box::new(label),
+        });
     }
 
     /// Pushes a generic [`Command`] to the command queue.

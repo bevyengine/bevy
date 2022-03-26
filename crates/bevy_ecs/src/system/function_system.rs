@@ -522,6 +522,58 @@ where
     F: SystemParamFunction<Marker>,
     F::Param: ReadOnlySystemParam,
 {
+    #[inline]
+    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+        vec![Box::new(self.func.as_system_label())]
+    }
+}
+
+/// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
+pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
+
+impl<T: 'static> SystemTypeIdLabel<T> {
+    /// Constructs a new copy of the [`SystemTypeIdLabel`] for the type `T`
+    ///
+    /// You can also construct this by using [`.as_system_label()](crate::system::AsSystemLabel) on a concrete instance
+    /// of your function type.
+    pub fn new() -> Self {
+        Self(PhantomData::default())
+    }
+}
+
+impl<T> Debug for SystemTypeIdLabel<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("SystemTypeIdLabel")
+            .field(&std::any::type_name::<T>())
+            .finish()
+    }
+}
+impl<T> Hash for SystemTypeIdLabel<T> {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+        // All SystemTypeIds of a given type are the same.
+    }
+}
+impl<T> Clone for SystemTypeIdLabel<T> {
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T> Copy for SystemTypeIdLabel<T> {}
+
+impl<T> PartialEq for SystemTypeIdLabel<T> {
+    #[inline]
+    fn eq(&self, _other: &Self) -> bool {
+        // All labels of a given type are equal, as they will all have the same type id
+        true
+    }
+}
+impl<T> Eq for SystemTypeIdLabel<T> {}
+
+impl<T> SystemLabel for SystemTypeIdLabel<T> {
+    fn dyn_clone(&self) -> Box<dyn SystemLabel> {
+        Box::new(*self)
+    }
 }
 
 /// A trait implemented for all functions that can be used as [`System`]s.
