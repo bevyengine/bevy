@@ -26,7 +26,7 @@ impl RawWindowHandleWrapper {
 // https://github.com/rust-windowing/raw-window-handle/issues/59
 unsafe impl Send for RawWindowHandleWrapper {}
 unsafe impl Sync for RawWindowHandleWrapper {}
-#[allow(missing_docs)] // Almost nobody uses this struct.
+#[doc(hidden)] // Add docs later; this is an obscure implementation detail
 pub struct HasRawWindowHandleWrapper(RawWindowHandle);
 
 // SAFE: the caller has validated that this is a valid context to get RawWindowHandle
