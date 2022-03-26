@@ -154,25 +154,35 @@ impl SystemRegistry {
         &mut self,
         world: &mut World,
         system: S,
-        labels: Vec<Box<dyn SystemLabel>>,
+        labels: impl IntoIterator<Item = Box<dyn SystemLabel>>,
     ) {
-        let mut unchained_system: Box<dyn System<In = (), Out = ()>> =
+        let boxed_system: Box<dyn System<In = (), Out = ()>> =
             Box::new(IntoSystem::into_system(system));
 
-        // If no labels are provided, use the default labels
-        let labels = if labels.is_empty() {
-            unchained_system.default_labels()
-        } else {
-            labels
-        };
+        let mut labels: Vec<Box<dyn SystemLabel>> = labels.into_iter().collect();
 
+        // If no labels are provided, use the default labels
+        if labels.is_empty() {
+            labels = boxed_system.default_labels()
+        }
+
+        self.register_boxed_system_by_labels(world, boxed_system, labels);
+    }
+
+    /// A more effecient but less ergonomic version of `register_system`
+    pub fn register_boxed_system_by_labels(
+        &mut self,
+        world: &mut World,
+        mut boxed_system: Box<dyn System<In = (), Out = ()>>,
+        labels: Vec<Box<dyn SystemLabel>>,
+    ) {
         // Intialize the system's state
-        unchained_system.initialize(world);
+        boxed_system.initialize(world);
         // Record the archetype generation at the time of its creation
         let archetype_generation = ArchetypeGeneration::initial();
 
         let stored_system = StoredSystem {
-            system: unchained_system,
+            system: boxed_system,
             generation: archetype_generation,
         };
 
@@ -253,7 +263,10 @@ impl SystemRegistry {
         let automatic_system_label: SystemTypeIdLabel<S> = SystemTypeIdLabel::new();
 
         if !self.label_registered(automatic_system_label) {
-            self.register_system(world, system, Vec::default());
+            let boxed_system: Box<dyn System<In = (), Out = ()>> =
+                Box::new(IntoSystem::into_system(system));
+            let labels = boxed_system.default_labels();
+            self.register_boxed_system_by_labels(world, boxed_system, labels);
         }
         self.run_system_at_index(world, self.first_registered_index(automatic_system_label));
     }
