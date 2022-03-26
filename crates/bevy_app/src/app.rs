@@ -652,6 +652,32 @@ impl App {
         self
     }
 
+    /// Inserts a resource to the current [App] and not overwrites any resource previously added of the same type.
+    ///
+    /// A resource in Bevy represents globally unique data. Resources must be added to Bevy Apps
+    /// before using them. This happens with [`insert_resource`](Self::insert_resource).
+    ///
+    /// See also `init_resource` for resources that implement `Default` or [`FromWorld`].
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// App::new()
+    ///    .insert_resource_not_overwrite(MyCounter { counter: 0 });
+    /// ```
+    pub fn insert_resource_not_overwrite<R: Resource>(&mut self, resource: R) -> &mut Self {
+        if let None = self.world.get_resource::<R>() {
+            self.world.insert_resource(resource);
+        }
+
+        self
+    }
+
     /// Inserts a non-send resource to the app
     ///
     /// You usually want to use `insert_resource`,
