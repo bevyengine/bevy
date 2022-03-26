@@ -131,7 +131,8 @@ impl WindowResizeConstraints {
 }
 
 /// An operating system window that can present content and receive user input.
-///
+/// To create a window, use a [`bevy_ecs::event::EventWriter`]`<`[`crate::CreateWindow`]`>`
+/// 
 /// ## Window Sizes
 ///
 /// There are three sizes associated with a window. The physical size which is
@@ -145,6 +146,23 @@ impl WindowResizeConstraints {
 /// requested size due to operating system limits on the window size, or the
 /// quantization of the logical size when converting the physical size to the
 /// logical size through the scaling factor.
+/// 
+/// ## Accessing a `Window` from a system
+/// To access a `Window` from a system, use [`bevy_ecs::change_detection::ResMut`]`<`[`crate::Windows`]`>`
+/// ### Example
+/// ```no_run
+/// # use bevy_app::App;
+/// # use bevy_window::Windows;
+/// # use bevy_ecs::change_detection::ResMut;
+/// # fn main(){
+/// # App::new().add_system(access_window_system).run();
+/// # }
+/// fn access_window_system(mut windows: ResMut<Windows>){
+///     for mut window in windows.iter_mut(){
+///         window.set_title(String::from("Yay, I'm a window!"));
+///     }
+/// }
+/// ```
 #[derive(Debug)]
 pub struct Window {
     id: WindowId,
@@ -172,7 +190,8 @@ pub struct Window {
     command_queue: Vec<WindowCommand>,
 }
 /// A command to be sent to a window.
-/// This is used when writing a plugin
+/// Bevy apps don't interact with this `enum` directly. Instead, they should use the methods on [`Window`].
+/// This `enum` is meant for authors of windowing plugins. See the documentation on [`crate::WindowPlugin`] for more information.
 #[derive(Debug)]
 pub enum WindowCommand {
     /// Set the window's [`WindowMode`]
