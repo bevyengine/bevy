@@ -255,11 +255,6 @@ enum MyStage {
     AfterRound,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-enum MyLabels {
-    ScoreCheck,
-}
-
 // Our Bevy app's entry point
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems,
