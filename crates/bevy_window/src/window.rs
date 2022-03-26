@@ -172,6 +172,7 @@ pub struct Window {
     command_queue: Vec<WindowCommand>,
 }
 /// A command to be sent to a window.
+/// This is used when writing a plugin
 #[derive(Debug)]
 pub enum WindowCommand {
     /// Set the window's [`WindowMode`]
@@ -588,7 +589,7 @@ impl Window {
 /// A [`Window`]'s properties
 /// # Creating a `WindowDescriptor`
 /// As `WindowDescriptor` is simply a `struct` that implements `Default`, creating one isn't any different from any other `struct`.
-/// However, for Bevy to use it, you need to add it to your [`bevy_app::App`] with [`bevy_app::App:insert_resource()`].
+/// However, for Bevy to use it, you need to add it to your [`bevy_app::App`] with [`bevy_app::App::insert_resource()`].
 /// ```rust
 /// # use bevy_app::App;
 /// # use bevy_window::WindowDescriptor;
