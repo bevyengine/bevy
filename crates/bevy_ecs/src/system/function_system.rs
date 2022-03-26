@@ -445,6 +445,8 @@ where
             self.system_meta.name.as_ref(),
         );
     }
+
+    #[inline]
     fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
         vec![Box::new(self.func.as_system_label())]
     }
@@ -452,6 +454,16 @@ where
 
 /// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
 pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
+
+impl<T: 'static> SystemTypeIdLabel<T> {
+    /// Constructs a new copy of the [`SystemTypeIdLabel`] for the type `T`
+    ///
+    /// You can also construct this by using [`.as_system_label()](crate::system::AsSystemLabel) on a concrete instance
+    /// of your function type.
+    pub fn new() -> Self {
+        Self(PhantomData::default())
+    }
+}
 
 impl<T> Debug for SystemTypeIdLabel<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
