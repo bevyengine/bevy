@@ -96,19 +96,20 @@ use crate::world::{Mut, World};
 /// }
 ///
 /// // You can register systems by their label
-/// system_registry.register_system(&mut world, hello, vec![ManualSystems::Hello]);
+/// system_registry.register_system(&mut world, hello, ManualSystems::Hello);
 ///
 /// // And run them by their label as well
-/// system_registry.run_systems_by_label(&mut world, &ManualSystems::Hello);
+/// system_registry.run_systems_by_label(&mut world, ManualSystems::Hello);
+///
+/// // You can register systems under multiple labels
+/// system_registry.register_system(&mut world, have_a_nice_day, [ManualSystems::Hello, ManualSystems::Goodbye]);
 ///
 /// // All systems registered under that label will be run, in registration order
-/// system_registry.register_system(&mut world, hello, vec![ManualSystems::Hello]);
-/// system_registry.run_systems_by_label(&mut world, &ManualSystems::Hello);
+/// system_registry.run_systems_by_label(&mut world, ManualSystems::Hello);
 ///
 /// // All methods on this type are also exposed on the `World` for convenience
-/// world.register_system(goodbye, vec![ManualSystems::Goodbye]);
-/// world.register_system(have_a_nice_day, vec![ManualSystems::Goodbye]);
-/// world.run_systems_by_label(&ManualSystems::Goodbye);
+/// world.register_system(goodbye, ManualSystems::Goodbye);
+/// world.run_systems_by_label(ManualSystems::Goodbye);
 /// ```
 #[derive(Default)]
 pub struct SystemRegistry {
@@ -239,10 +240,19 @@ impl SystemRegistry {
     /// Runs the set of systems corresponding to the provided [`SystemLabel`] on the [`World`] a single time
     ///
     /// Systems will be run sequentially in registration order if more than one registered system matches the provided label
-    pub fn run_systems_by_label<L: SystemLabel + ?Sized>(&mut self, world: &mut World, label: &L) {
+    pub fn run_systems_by_label<L: SystemLabel>(&mut self, world: &mut World, label: L) {
         let boxed_label: Box<dyn SystemLabel> = label.dyn_clone();
+        self.run_systems_by_boxed_label(world, boxed_label);
+    }
 
-        let matching_system_indexes = self.labels.get(&boxed_label).unwrap_or_else(||{panic!{"No system with the `SystemLabel` {label:?} was found. Did you forget to register it?"}});
+    /// A less ergonomic version of `run_systems_by_label` that allows you to pass in a boxed `SystemLabel`
+    #[inline]
+    pub fn run_systems_by_boxed_label(
+        &mut self,
+        world: &mut World,
+        boxed_label: Box<dyn SystemLabel>,
+    ) {
+        let matching_system_indexes = self.labels.get(&boxed_label).unwrap_or_else(||{panic!{"No system with the `SystemLabel` {boxed_label:?} was found. Did you forget to register it?"}});
 
         // Loop over the system in registration order
         for index in matching_system_indexes.clone() {
@@ -317,7 +327,7 @@ impl World {
     /// Consider creating and running a [`Schedule`](crate::schedule::Schedule) if you need to execute large groups of systems
     /// at once, and want parallel execution of these systems.
     #[inline]
-    pub fn run_systems_by_label<L: SystemLabel + ?Sized>(&mut self, label: &L) {
+    pub fn run_systems_by_label<L: SystemLabel>(&mut self, label: L) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry.run_systems_by_label(world, label);
         });
@@ -370,7 +380,9 @@ pub struct RunSystemsByLabelCommand {
 impl Command for RunSystemsByLabelCommand {
     #[inline]
     fn write(self, world: &mut World) {
-        world.run_systems_by_label(&*self.label)
+        world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
+            registry.run_systems_by_boxed_label(world, self.label.dyn_clone())
+        });
     }
 }
 
@@ -403,7 +415,7 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(0));
         world.register_system(count_up, Vec::default());
         world.register_system(count_up, Vec::default());
-        world.run_systems_by_label(&count_up.as_system_label());
+        world.run_systems_by_label(count_up.as_system_label());
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
