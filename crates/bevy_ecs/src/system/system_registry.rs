@@ -102,7 +102,7 @@ use crate::world::{Mut, World};
 /// system_registry.run_systems_by_label(&mut world, ManualSystems::Hello);
 ///
 /// // You can register systems under multiple labels
-/// system_registry.register_system(&mut world, have_a_nice_day, [ManualSystems::Hello, ManualSystems::Goodbye]);
+/// system_registry.register_system_with_labels(&mut world, have_a_nice_day, [ManualSystems::Hello, ManualSystems::Goodbye]);
 ///
 /// // All systems registered under that label will be run, in registration order
 /// system_registry.run_systems_by_label(&mut world, ManualSystems::Hello);
@@ -151,26 +151,47 @@ impl SystemRegistry {
     /// If `labels` are provided, the system will be registered under those labels.
     /// Otherwise, it will use the default labels for that system: typically its [`SystemTypeIdLabel`].
     #[inline]
-    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(
+    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static, L: SystemLabel>(
         &mut self,
         world: &mut World,
         system: S,
-        labels: impl IntoIterator<Item = Box<dyn SystemLabel>>,
+        label: L,
     ) {
         let boxed_system: Box<dyn System<In = (), Out = ()>> =
             Box::new(IntoSystem::into_system(system));
 
-        let mut labels: Vec<Box<dyn SystemLabel>> = labels.into_iter().collect();
-
-        // If no labels are provided, use the default labels
-        if labels.is_empty() {
-            labels = boxed_system.default_labels()
-        }
-
-        self.register_boxed_system_by_labels(world, boxed_system, labels);
+        self.register_boxed_system_by_labels(world, boxed_system, vec![Box::new(label)]);
     }
 
-    /// A more effecient but less ergonomic version of `register_system`
+    /// Register system a system with any number of [`SystemLabel`]
+    ///
+    /// This allows the system to be run whenever any of its labels are run using `run_systems_by_label`.
+    pub fn register_system_with_labels<
+        Params,
+        S: IntoSystem<(), (), Params> + 'static,
+        LI: IntoIterator<Item = L>,
+        L: SystemLabel,
+    >(
+        &mut self,
+        world: &mut World,
+        system: S,
+        labels: LI,
+    ) {
+        let boxed_system: Box<dyn System<In = (), Out = ()>> =
+            Box::new(IntoSystem::into_system(system));
+
+        let collected_labels = labels
+            .into_iter()
+            .map(|label| {
+                let boxed_label: Box<dyn SystemLabel> = Box::new(label);
+                boxed_label
+            })
+            .collect();
+
+        self.register_boxed_system_by_labels(world, boxed_system, collected_labels);
+    }
+
+    /// A more efficient but less ergonomic version of `register_system_with_labels`
     pub fn register_boxed_system_by_labels(
         &mut self,
         world: &mut World,
@@ -285,15 +306,32 @@ impl SystemRegistry {
 impl World {
     /// Registers the supplied system in the [`SystemRegistry`] resource
     ///
-    /// This allows the system to be run by their [`SystemLabel`] using [`World::run_systems_by_label`]
+    /// This allows the system to be run by their [`SystemLabel`] using [`World::run_systems_by_label`].
+    /// If you are using [`World::run_system`] directly, manual registration is not needed.
+    /// The system will be automatically registered under its [`SystemTypeIdLabel`] the first time it is run.
     #[inline]
-    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(
+    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static, L: SystemLabel>(
         &mut self,
         system: S,
-        labels: Vec<Box<dyn SystemLabel>>,
+        label: L,
     ) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.register_system(world, system, labels);
+            registry.register_system(world, system, label);
+        });
+    }
+
+    pub fn register_system_with_labels<
+        Params,
+        S: IntoSystem<(), (), Params> + 'static,
+        LI: IntoIterator<Item = L>,
+        L: SystemLabel,
+    >(
+        &mut self,
+        system: S,
+        labels: LI,
+    ) {
+        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
+            registry.register_system_with_labels(world, system, labels);
         });
     }
 
@@ -408,14 +446,12 @@ mod tests {
 
     #[test]
     fn run_system_by_label() {
-        use crate::system::AsSystemLabel;
-
         let mut world = World::new();
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.register_system(count_up, Vec::default());
-        world.register_system(count_up, Vec::default());
-        world.run_systems_by_label(count_up.as_system_label());
+        world.register_system(count_up, "count");
+        world.register_system(count_up, "count");
+        world.run_systems_by_label("count");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
