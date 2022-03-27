@@ -131,7 +131,7 @@ impl WindowResizeConstraints {
 }
 
 /// An operating system window that can present content and receive user input.
-/// To create a window, use a [`EventWriter<CreateWindow>`]`(`crate::CreateWindow).
+/// To create a window, use a [`EventWriter<CreateWindow>`](`crate::CreateWindow`).
 ///
 /// ## Window Sizes
 ///
