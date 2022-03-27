@@ -2,7 +2,7 @@ use std::{
     future::Future,
     mem,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, Mutex},
     thread::{self, JoinHandle},
 };
 
@@ -179,19 +179,20 @@ impl TaskPool {
             let mut scope = Scope {
                 executor,
                 local_executor,
-                spawned: Vec::new(),
+                spawned: Mutex::new(Vec::new()),
             };
 
             f(&mut scope);
 
-            if scope.spawned.is_empty() {
+            let mut spawned = scope.spawned.lock().unwrap();
+            if spawned.is_empty() {
                 Vec::default()
-            } else if scope.spawned.len() == 1 {
-                vec![future::block_on(&mut scope.spawned[0])]
+            } else if spawned.len() == 1 {
+                vec![future::block_on(&mut spawned[0])]
             } else {
                 let fut = async move {
-                    let mut results = Vec::with_capacity(scope.spawned.len());
-                    for task in scope.spawned {
+                    let mut results = Vec::with_capacity(spawned.len());
+                    for task in spawned.iter_mut() {
                         results.push(task.await);
                     }
 
@@ -265,7 +266,7 @@ impl Default for TaskPool {
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
     local_executor: &'scope async_executor::LocalExecutor<'scope>,
-    spawned: Vec<async_executor::Task<T>>,
+    spawned: Mutex<Vec<async_executor::Task<T>>>,
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
@@ -279,7 +280,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
         let task = self.executor.spawn(f);
-        self.spawned.push(task);
+        self.spawned.lock().unwrap().push(task);
     }
 
     /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
@@ -290,7 +291,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         let task = self.local_executor.spawn(f);
-        self.spawned.push(task);
+        self.spawned.lock().unwrap().push(task);
     }
 }
 
