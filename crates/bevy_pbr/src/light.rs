@@ -971,6 +971,10 @@ pub(crate) fn assign_lights_to_clusters(
                 // What follows is the Iterative Sphere Refinement algorithm from Just Cause 3
                 // Persson et al, Practical Clustered Shading
                 // http://newq.net/dl/pub/s2015_practical.pdf
+                // NOTE: A sphere under perspective projection is no longer a sphere. It gets
+                // stretched and warped, which prevents simpler algorithms from being correct
+                // as they often assume that the widest part of the sphere under projection is the
+                // center point on the axis of interest plus the radius, and that is not true!
                 let view_light_sphere = Sphere {
                     center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
                     radius: light_sphere.radius,
@@ -1000,11 +1004,15 @@ pub(crate) fn assign_lights_to_clusters(
                 for z in min_cluster.z..=max_cluster.z {
                     let mut z_light = view_light_sphere.clone();
                     if z_center.is_none() || z != z_center.unwrap() {
+                        // The z plane closer to the light has the larger radius circle where the
+                        // light sphere intersects the z plane.
                         let z_plane = if z_center.is_some() && z < z_center.unwrap() {
                             z_planes[(z + 1) as usize]
                         } else {
                             z_planes[z as usize]
                         };
+                        // Project the sphere to this z plane and use its radius as the radius of a
+                        // new, refined sphere.
                         if let Some(projected) = project_to_plane_z(z_light, z_plane) {
                             z_light = projected;
                         } else {
@@ -1014,11 +1022,15 @@ pub(crate) fn assign_lights_to_clusters(
                     for y in min_cluster.y..=max_cluster.y {
                         let mut y_light = z_light.clone();
                         if y_center.is_none() || y != y_center.unwrap() {
+                            // The y plane closer to the light has the larger radius circle where the
+                            // light sphere intersects the y plane.
                             let y_plane = if y_center.is_some() && y < y_center.unwrap() {
                                 y_planes[(y + 1) as usize]
                             } else {
                                 y_planes[y as usize]
                             };
+                            // Project the refined sphere to this y plane and use its radius as the
+                            // radius of a new, even more refined sphere.
                             if let Some(projected) =
                                 project_to_plane_y(y_light, y_plane, is_orthographic)
                             {
@@ -1027,6 +1039,7 @@ pub(crate) fn assign_lights_to_clusters(
                                 continue;
                             }
                         }
+                        // Loop from the left to find the first affected cluster
                         let mut min_x = min_cluster.x;
                         loop {
                             if min_x >= max_cluster.x
@@ -1041,6 +1054,7 @@ pub(crate) fn assign_lights_to_clusters(
                             }
                             min_x += 1;
                         }
+                        // Loop from the right to find the last affected cluster
                         let mut max_x = max_cluster.x;
                         loop {
                             if max_x <= min_x
@@ -1058,6 +1072,7 @@ pub(crate) fn assign_lights_to_clusters(
                         let mut cluster_index = ((y * clusters.dimensions.x + min_x)
                             * clusters.dimensions.z
                             + z) as usize;
+                        // Mark the clusters in the range as affected
                         for _ in min_x..=max_x {
                             clusters.lights[cluster_index].entities.push(light.entity);
                             cluster_index += clusters.dimensions.z as usize;
