@@ -366,7 +366,6 @@ pub struct Clusters {
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
     pub(crate) near: f32,
     pub(crate) far: f32,
-    // aabbs: Vec<Aabb>,
     pub(crate) lights: Vec<VisiblePointLights>,
 }
 
@@ -726,7 +725,6 @@ pub(crate) fn assign_lights_to_clusters(
         let clusters = clusters.into_inner();
         let screen_size = camera.target.get_physical_size(&windows, &images);
 
-        // clusters.aabbs.clear();
         clusters.lights.clear();
 
         let screen_size = screen_size.unwrap_or_default();
@@ -977,7 +975,6 @@ pub(crate) fn assign_lights_to_clusters(
                     center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
                     radius: light_sphere.radius,
                 };
-                // FIXME: Calculate the screen space and depth extents of the light in terms of clusters
                 let light_center_clip =
                     camera.projection_matrix * view_light_sphere.center.extend(1.0);
                 let light_center_ndc = light_center_clip.xyz() / light_center_clip.w;
