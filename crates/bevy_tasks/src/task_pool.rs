@@ -336,6 +336,43 @@ mod tests {
     }
 
     #[test]
+    fn test_nested_spawn() {
+        let pool = TaskPool::new();
+
+        let foo = Box::new(42);
+        let foo = &*foo;
+
+        let count = Arc::new(AtomicI32::new(0));
+
+        let outputs = pool.scope(|scope| {
+            for _ in 0..10 {
+                let count_clone = count.clone();
+                scope.spawn(async move {
+                    for _ in 0..10 {
+                        let count_clone_clone = count_clone.clone();
+                        let nested_outputs = scope.spawn(async move {
+                            if *foo != 42 {
+                                panic!("not 42!?!?")
+                            } else {
+                                count_clone_clone.fetch_add(1, Ordering::Relaxed);
+                                *foo
+                            }
+                        });
+                    }
+                    *foo
+                });
+            }
+        });
+
+        for output in &outputs {
+            assert_eq!(*output, 42);
+        }
+
+        assert_eq!(outputs.len(), 100);
+        assert_eq!(count.load(Ordering::Relaxed), 100);
+    }
+
+    #[test]
     fn test_mixed_spawn_local_and_spawn() {
         let pool = TaskPool::new();
 
