@@ -886,7 +886,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let x_pos = x_proportion * 2.0 - 1.0;
                 let nb = clip_to_view(inverse_projection, Vec4::new(x_pos, -1.0, 1.0, 1.0)).xyz();
                 let nt = clip_to_view(inverse_projection, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
-                let normal = nb.cross(nt).normalize();
+                let normal = nb.cross(nt);
                 let d = nb.dot(normal);
                 x_planes.push(Plane::new(normal.extend(d)));
             }
@@ -897,7 +897,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let y_pos = y_proportion * 2.0 - 1.0;
                 let nl = clip_to_view(inverse_projection, Vec4::new(-1.0, y_pos, 1.0, 1.0)).xyz();
                 let nr = clip_to_view(inverse_projection, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
-                let normal = nr.cross(nl).normalize();
+                let normal = nr.cross(nl);
                 let d = nr.dot(normal);
                 y_planes.push(Plane::new(normal.extend(d)));
             }
