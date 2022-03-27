@@ -68,7 +68,7 @@ impl TaskPool {
 
         let mut scope = Scope {
             executor,
-            results: Vec::new(),
+            results: Arc::new(Mutex::new(Vec::new())),
         };
 
         f(&mut scope);
@@ -76,11 +76,12 @@ impl TaskPool {
         // Loop until all tasks are done
         while executor.try_tick() {}
 
-        scope
-            .results
+        let result = scope
+            .results.lock().unwrap()
             .iter()
             .map(|result| result.lock().unwrap().take().unwrap())
-            .collect()
+            .collect();
+        result
     }
 
     // Spawns a static future onto the JS event loop. For now it is returning FakeTask
@@ -122,17 +123,17 @@ impl FakeTask {
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::LocalExecutor<'scope>,
     // Vector to gather results of all futures spawned during scope run
-    results: Vec<Arc<Mutex<Option<T>>>>,
+    results: Arc<Mutex<Vec<Arc<Mutex<Option<T>>>>>>,
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
-    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         self.spawn_local(f);
     }
 
-    pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
+    pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         let result = Arc::new(Mutex::new(None));
-        self.results.push(result.clone());
+        self.results.lock().unwrap().push(result.clone());
         let f = async move {
             result.lock().unwrap().replace(f.await);
         };
