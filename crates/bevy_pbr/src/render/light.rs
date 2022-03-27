@@ -142,9 +142,7 @@ impl GpuPointLights {
                 buffer.push(gpu_point_lights.try_into().unwrap());
             }
             GpuPointLights::Storage { buffer } => {
-                for light in lights.drain(..) {
-                    buffer.push(light);
-                }
+                buffer.append(&mut lights);
             }
         }
     }

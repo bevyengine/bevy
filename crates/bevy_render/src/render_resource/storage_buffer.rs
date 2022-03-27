@@ -161,4 +161,9 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
     pub fn push(&mut self, value: T) {
         self.values.push(value);
     }
+
+    #[inline]
+    pub fn append(&mut self, values: &mut Vec<T>) {
+        self.values.append(values);
+    }
 }
