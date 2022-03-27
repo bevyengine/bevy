@@ -179,7 +179,7 @@ impl TaskPool {
             let mut scope = Scope {
                 executor,
                 local_executor,
-                spawned: Mutex::new(Vec::new()),
+                spawned: Arc::new(Mutex::new(Vec::new())),
             };
 
             f(&mut scope);
@@ -266,7 +266,7 @@ impl Default for TaskPool {
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
     local_executor: &'scope async_executor::LocalExecutor<'scope>,
-    spawned: Mutex<Vec<async_executor::Task<T>>>,
+    spawned: Arc<Mutex<Vec<async_executor::Task<T>>>>,
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
