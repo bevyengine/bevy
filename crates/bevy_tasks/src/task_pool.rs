@@ -347,10 +347,10 @@ mod tests {
         let outputs = pool.scope(|scope| {
             for _ in 0..10 {
                 let count_clone = count.clone();
-                scope.spawn(async move {
+                scope.spawn_local(async move {
                     for _ in 0..10 {
                         let count_clone_clone = count_clone.clone();
-                        let nested_outputs = scope.spawn(async move {
+                        scope.spawn(async move {
                             if *foo != 42 {
                                 panic!("not 42!?!?")
                             } else {
