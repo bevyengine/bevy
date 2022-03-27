@@ -819,8 +819,9 @@ pub(crate) fn assign_lights_to_clusters(
             }
             ClusterFarZMode::Constant(far) => far,
         };
-        let first_slice_depth = match requested_cluster_dimensions.z {
-            1 => config.first_slice_depth().max(far_z),
+        let first_slice_depth = match (is_orthographic, requested_cluster_dimensions.z) {
+            (true, _) => camera.near,
+            (false, 1) => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
         };
         // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering problems.
@@ -989,23 +990,19 @@ pub(crate) fn assign_lights_to_clusters(
                 // y_planes.push(Plane::new(normal.extend(d)));
                 let view_y = clip_to_view(inverse_projection, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
 
-                let normal = -Vec3::Y;
+                let normal = Vec3::Y;
                 let d = view_y * normal.y;
                 y_planes.push(Plane::new(normal.extend(d)));
             }
 
             for z in 0..=clusters.dimensions.z {
                 // Use linear depth slicing for orthographic
-                let view_z = clip_to_view(
-                    inverse_projection,
-                    Vec4::new(
-                        0.0,
-                        0.0,
-                        1.0 - (z as f32 / clusters.dimensions.z as f32),
-                        1.0,
-                    ),
-                )
-                .z;
+                let view_z = if z == 0 {
+                    -first_slice_depth
+                } else {
+                    -first_slice_depth
+                        - (far_z - first_slice_depth) * z as f32 / clusters.dimensions.z as f32
+                };
 
                 let normal = -Vec3::Z;
                 let d = view_z * normal.z;
@@ -1153,7 +1150,9 @@ pub(crate) fn assign_lights_to_clusters(
                             } else {
                                 y_planes[y as usize]
                             };
-                            if let Some(projected) = project_to_plane_y(y_light, y_plane) {
+                            if let Some(projected) =
+                                project_to_plane_y(y_light, y_plane, is_orthographic)
+                            {
                                 y_light = projected;
                             } else {
                                 continue;
@@ -1162,8 +1161,11 @@ pub(crate) fn assign_lights_to_clusters(
                         let mut min_x = min_cluster.x;
                         loop {
                             if min_x >= max_cluster.x
-                                || -get_distance_x(x_planes[(min_x + 1) as usize], y_light.center)
-                                    + y_light.radius
+                                || -get_distance_x(
+                                    x_planes[(min_x + 1) as usize],
+                                    y_light.center,
+                                    is_orthographic,
+                                ) + y_light.radius
                                     > 0.0
                             {
                                 break;
@@ -1173,8 +1175,11 @@ pub(crate) fn assign_lights_to_clusters(
                         let mut max_x = max_cluster.x;
                         loop {
                             if max_x <= min_x
-                                || get_distance_x(x_planes[max_x as usize], y_light.center)
-                                    + y_light.radius
+                                || get_distance_x(
+                                    x_planes[max_x as usize],
+                                    y_light.center,
+                                    is_orthographic,
+                                ) + y_light.radius
                                     > 0.0
                             {
                                 break;
@@ -1202,12 +1207,16 @@ pub(crate) fn assign_lights_to_clusters(
 }
 
 // NOTE: This exploits the fact that a x-plane normal has only x and z components
-fn get_distance_x(plane: Plane, point: Vec3A) -> f32 {
-    // Distance from a point to a plane:
-    // signed distance to plane = (nx * px + ny * py + nz * pz + d) / n.length()
-    // NOTE: For a x-plane, ny and d are 0 and we have a unit normal
-    //                          = nx * px + nz * pz
-    plane.normal_d().xz().dot(point.xz())
+fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
+    if is_orthographic {
+        point.x - plane.d()
+    } else {
+        // Distance from a point to a plane:
+        // signed distance to plane = (nx * px + ny * py + nz * pz + d) / n.length()
+        // NOTE: For a x-plane, ny and d are 0 and we have a unit normal
+        //                          = nx * px + nz * pz
+        plane.normal_d().xz().dot(point.xz())
+    }
 }
 
 // NOTE: This exploits the fact that a z-plane normal has only a z component
@@ -1233,8 +1242,13 @@ fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
 }
 
 // NOTE: This exploits the fact that a y-plane normal has only y and z components
-fn project_to_plane_y(y_light: Sphere, y_plane: Plane) -> Option<Sphere> {
-    let distance_to_plane = -y_light.center.yz().dot(y_plane.normal_d().yz());
+fn project_to_plane_y(y_light: Sphere, y_plane: Plane, is_orthographic: bool) -> Option<Sphere> {
+    let distance_to_plane = if is_orthographic {
+        y_plane.d() - y_light.center.y
+    } else {
+        -y_light.center.yz().dot(y_plane.normal_d().yz())
+    };
+
     if distance_to_plane.abs() > y_light.radius {
         return None;
     }

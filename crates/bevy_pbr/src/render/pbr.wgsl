@@ -243,7 +243,10 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
 fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
     if (is_orthographic) {
         // NOTE: view_z is correct in the orthographic case
-        return u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
+        return min(
+            u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w)),
+            lights.cluster_dimensions.z - 1u
+        );
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
         return min(
