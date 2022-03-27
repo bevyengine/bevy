@@ -432,19 +432,42 @@ impl VisiblePointLights {
     }
 }
 
+// NOTE: Keep in sync with bevy_pbr/src/render/pbr.wgsl
 fn view_z_to_z_slice(
     cluster_factors: Vec2,
-    z_slices: f32,
+    z_slices: u32,
     view_z: f32,
     is_orthographic: bool,
 ) -> u32 {
-    if is_orthographic {
+    let z_slice = if is_orthographic {
         // NOTE: view_z is correct in the orthographic case
         ((view_z - cluster_factors.x) * cluster_factors.y).floor() as u32
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        ((-view_z).ln() * cluster_factors.x - cluster_factors.y + 1.0).clamp(0.0, z_slices - 1.0)
-            as u32
+        ((-view_z).ln() * cluster_factors.x - cluster_factors.y + 1.0) as u32
+    };
+    // NOTE: We use min as we may limit the far z plane used for clustering to be closeer than
+    // the furthest thing being drawn. This means that we need to limit to the maximum cluster.
+    z_slice.min(z_slices - 1)
+}
+
+// NOTE: Keep in sync as the inverse of view_z_to_z_slice above
+fn z_slice_to_view_z(
+    near: f32,
+    far: f32,
+    z_slices: u32,
+    z_slice: u32,
+    is_orthographic: bool,
+) -> f32 {
+    if is_orthographic {
+        return -near - (far - near) * z_slice as f32 / z_slices as f32;
+    }
+
+    // Perspective
+    if z_slice == 0 {
+        0.0
+    } else {
+        -near * (far / near).powf((z_slice - 1) as f32 / (z_slices - 1) as f32)
     }
 }
 
@@ -461,7 +484,7 @@ fn ndc_position_to_cluster(
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
     let z_slice = view_z_to_z_slice(
         cluster_factors,
-        cluster_dimensions.z as f32,
+        cluster_dimensions.z,
         view_z,
         is_orthographic,
     );
@@ -766,13 +789,13 @@ pub(crate) fn assign_lights_to_clusters(
                 // since we won't adjust z slices we can calculate exact number of slices required in z dimension
                 let z_cluster_min = view_z_to_z_slice(
                     cluster_factors,
-                    requested_cluster_dimensions.z as f32,
+                    requested_cluster_dimensions.z,
                     light_aabb_min.z,
                     is_orthographic,
                 );
                 let z_cluster_max = view_z_to_z_slice(
                     cluster_factors,
-                    requested_cluster_dimensions.z as f32,
+                    requested_cluster_dimensions.z,
                     light_aabb_max.z,
                     is_orthographic,
                 );
@@ -865,20 +888,6 @@ pub(crate) fn assign_lights_to_clusters(
                 let d = view_y * normal.y;
                 y_planes.push(Plane::new(normal.extend(d)));
             }
-
-            for z in 0..=clusters.dimensions.z {
-                // Use linear depth slicing for orthographic
-                let view_z = if z == 0 {
-                    -first_slice_depth
-                } else {
-                    -first_slice_depth
-                        - (far_z - first_slice_depth) * z as f32 / clusters.dimensions.z as f32
-                };
-
-                let normal = -Vec3::Z;
-                let d = view_z * normal.z;
-                z_planes.push(Plane::new(normal.extend(d)));
-            }
         } else {
             let x_slices = clusters.dimensions.x as f32;
             for x in 0..=clusters.dimensions.x {
@@ -901,22 +910,14 @@ pub(crate) fn assign_lights_to_clusters(
                 let d = nr.dot(normal);
                 y_planes.push(Plane::new(normal.extend(d)));
             }
+        }
 
-            let z_far_over_z_near = -far_z / -first_slice_depth;
-            for z in 0..=clusters.dimensions.z {
-                // Perspective
-                let view_z = if z == 0 {
-                    0.0
-                } else {
-                    -first_slice_depth
-                        * z_far_over_z_near
-                            .powf((z - 1) as f32 / (clusters.dimensions.z - 1) as f32)
-                };
-
-                let normal = -Vec3::Z;
-                let d = view_z * normal.z;
-                z_planes.push(Plane::new(normal.extend(d)));
-            }
+        let z_slices = clusters.dimensions.z;
+        for z in 0..=z_slices {
+            let view_z = z_slice_to_view_z(first_slice_depth, far_z, z_slices, z, is_orthographic);
+            let normal = -Vec3::Z;
+            let d = view_z * normal.z;
+            z_planes.push(Plane::new(normal.extend(d)));
         }
 
         let mut visible_lights_scratch = Vec::new();
