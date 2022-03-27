@@ -90,7 +90,6 @@ struct CollisionEvent;
 #[derive(Component)]
 struct Brick;
 
-#[derive(Component)]
 struct CollisionSound(Handle<AudioSource>);
 
 // This bundle is a collection of the components that define a "wall" in our game
@@ -412,12 +411,13 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
-    mut collide_events: EventReader<CollisionEvent>,
+    mut collision_events: EventReader<CollisionEvent>,
     audio: Res<Audio>,
     sound: Res<CollisionSound>,
 ) {
-    // Plays a sound for each collision events
-    for _ in collide_events.iter() {
+    // Play a sound once per frame if a collision occurred. `count` consumes the
+    // events, preventing them from triggering a sound on the next frame.
+    if collision_events.iter().count() > 0 {
         audio.play(sound.0.clone());
     }
 }
