@@ -179,7 +179,7 @@ impl ParallelExecutor {
     /// queues systems with no dependencies to run (or skip) at next opportunity.
     fn prepare_systems<'scope>(
         &mut self,
-        scope: &mut Scope<'scope, ()>,
+        scope: &Scope<'scope, ()>,
         systems: &'scope mut [ParallelSystemContainer],
         world: &'scope World,
     ) {

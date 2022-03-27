@@ -164,7 +164,7 @@ impl TaskPool {
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
     where
-        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        F: FnOnce(&Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
@@ -278,7 +278,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// instead.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         let task = self.executor.spawn(f);
         self.spawned.lock().unwrap().push(task);
     }
@@ -289,7 +289,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// [`Scope::spawn`] instead, unless the provided future is not `Send`.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
+    pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         let task = self.local_executor.spawn(f);
         self.spawned.lock().unwrap().push(task);
     }
