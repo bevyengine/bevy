@@ -1,4 +1,4 @@
-use bevy::{input::mouse::MouseMotion, prelude::*};
+use bevy::{input::mouse::MouseMotion, pbr::NotShadowCaster, prelude::*};
 
 fn main() {
     App::new()
@@ -6,12 +6,19 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(camera_controller)
+        .add_system(text_update_system)
         .run();
 }
+
+#[derive(Component)]
+struct RightHandedLookDirection;
+#[derive(Component)]
+struct LeftHandedLookDirection;
 
 /// A test for shadow cubemaps. View the cubemap faces in RenderDoc/Xcode.
 fn setup(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -19,59 +26,184 @@ fn setup(
     commands
         .spawn_bundle(PointLightBundle {
             point_light: PointLight {
-                intensity: 150.0,
+                intensity: 50.0,
                 shadows_enabled: true,
                 ..Default::default()
             },
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
-                material: materials.add(Color::FUCHSIA.into()),
-                transform: Transform::from_scale(Vec3::splat(0.05)),
-                ..Default::default()
-            });
+            builder
+                .spawn_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
+                    material: materials.add(Color::FUCHSIA.into()),
+                    transform: Transform::from_scale(Vec3::splat(0.05)),
+                    ..Default::default()
+                })
+                .insert(NotShadowCaster);
         });
 
-    let beige = materials.add(Color::BEIGE.into());
-    let white = materials.add(Color::WHITE.into());
-
-    let small = 0.25;
-    let big = 2.5;
-
-    // NOTE: These 0.25 offset positions correspond with the cubemap face axes so that when
-    // inspecting the point light shadow cubemap faces in RenderDoc/Xcode or similar, they
-    // can be validated as being correct.
-    for [x, y, z, bx, by, bz] in [
-        [1.0, 0.0, 0.25, 0.1, 1.0, 1.0],
-        [-1.0, 0.0, 0.25, 0.1, 1.0, 1.0],
-        [0.0, 1.0, 0.25, 1.0, 0.1, 1.0],
-        [0.0, -1.0, 0.25, 1.0, 0.1, 1.0],
-        [0.25, 0.0, 1.0, 1.0, 1.0, 0.1],
-        [0.25, 0.0, -1.0, 1.0, 1.0, 0.1],
-    ] {
-        commands.spawn_bundle(PbrBundle {
-            mesh: meshes.add(shape::Box::new(bx * small, by * small, bz * small).into()),
-            transform: Transform::from_xyz(x, y, z),
-            material: beige.clone(),
-            ..Default::default()
-        });
-        commands.spawn_bundle(PbrBundle {
-            mesh: meshes.add(shape::Box::new(bx * big, by * big, bz * big).into()),
-            transform: Transform::from_xyz(1.5 * x, 1.5 * y, 1.5 * z),
-            material: white.clone(),
-            ..Default::default()
-        });
-    }
+    commands.spawn_scene(asset_server.load("models/left-handed-cubemap-test.gltf#Scene0"));
 
     // camera
     commands
-        .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(-0.25, 0.0, 0.75).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default()
-        })
+        .spawn_bundle(PerspectiveCameraBundle::default())
         .insert(CameraController::default());
+
+    // UI displaying the look direction as text in the top-left of the screen
+    commands.spawn_bundle(UiCameraBundle::default());
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceBetween,
+                size: Size::new(Val::Auto, Val::Percent(100.0)),
+                ..default()
+            },
+            color: Color::NONE.into(),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(NodeBundle {
+                color: Color::NONE.into(),
+                ..default()
+            });
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::ColumnReverse,
+                        ..default()
+                    },
+                    color: Color::rgba(0.5, 0.5, 0.5, 0.5).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle(TextBundle {
+                            style: Style {
+                                align_self: AlignSelf::FlexEnd,
+                                ..default()
+                            },
+                            // Use `Text` directly
+                            text: Text {
+                                // Construct a `Vec` of `TextSection`s
+                                sections: vec![
+                                    TextSection {
+                                        value: "Right-handed look-direction:".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                            font_size: 32.0,
+                                            color: Color::BLACK,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                                            font_size: 32.0,
+                                            color: Color::RED,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                                            font_size: 32.0,
+                                            color: Color::GREEN,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                                            font_size: 32.0,
+                                            color: Color::BLUE,
+                                        },
+                                    },
+                                ],
+                                ..default()
+                            },
+                            ..default()
+                        })
+                        .insert(RightHandedLookDirection);
+                    parent
+                        .spawn_bundle(TextBundle {
+                            style: Style {
+                                align_self: AlignSelf::FlexEnd,
+                                ..default()
+                            },
+                            // Use `Text` directly
+                            text: Text {
+                                // Construct a `Vec` of `TextSection`s
+                                sections: vec![
+                                    TextSection {
+                                        value: "Left-handed look-direction:".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                            font_size: 32.0,
+                                            color: Color::BLACK,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                                            font_size: 32.0,
+                                            color: Color::RED,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                                            font_size: 32.0,
+                                            color: Color::GREEN,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                                            font_size: 32.0,
+                                            color: Color::BLUE,
+                                        },
+                                    },
+                                ],
+                                ..default()
+                            },
+                            ..default()
+                        })
+                        .insert(LeftHandedLookDirection);
+                });
+        });
+}
+
+fn text_update_system(
+    camera: Query<&Transform, With<PerspectiveProjection>>,
+    mut right_handed: Query<
+        &mut Text,
+        (
+            With<RightHandedLookDirection>,
+            Without<LeftHandedLookDirection>,
+        ),
+    >,
+    mut left_handed: Query<
+        &mut Text,
+        (
+            Without<RightHandedLookDirection>,
+            With<LeftHandedLookDirection>,
+        ),
+    >,
+) {
+    let forward = camera.single().forward();
+    let mut right_handed_text = right_handed.single_mut();
+    right_handed_text.sections[1].value = format!(" x: {:6.3}", forward.x);
+    right_handed_text.sections[2].value = format!(", y: {:6.3}", forward.y);
+    right_handed_text.sections[3].value = format!(", z: {:6.3}", forward.z);
+    let mut left_handed_text = left_handed.single_mut();
+    left_handed_text.sections[1].value = format!(" x: {:6.3}", forward.x);
+    left_handed_text.sections[2].value = format!(", y: {:6.3}", forward.y);
+    left_handed_text.sections[3].value = format!(", z: {:6.3}", -forward.z);
 }
 
 #[derive(Component)]
@@ -120,16 +252,8 @@ fn camera_controller(
     mut mouse_events: EventReader<MouseMotion>,
     key_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
-    mut next_print: Local<f64>,
 ) {
     let dt = time.delta_seconds();
-    let t = time.seconds_since_startup();
-    let should_print = if t > *next_print {
-        *next_print += 2.0;
-        true
-    } else {
-        false
-    };
 
     // Handle mouse input
     let mut mouse_delta = Vec2::ZERO;
@@ -138,10 +262,6 @@ fn camera_controller(
     }
 
     for (mut transform, mut options) in query.iter_mut() {
-        if should_print {
-            println!("Forward: {:?}", transform.forward());
-        }
-
         if !options.enabled {
             continue;
         }
