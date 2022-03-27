@@ -397,98 +397,6 @@ fn clip_to_view(inverse_projection: Mat4, clip: Vec4) -> Vec4 {
     view / view.w
 }
 
-// fn screen_to_view(screen_size: Vec2, inverse_projection: Mat4, screen: Vec2, ndc_z: f32) -> Vec4 {
-//     let tex_coord = screen / screen_size;
-//     let clip = Vec4::new(
-//         tex_coord.x * 2.0 - 1.0,
-//         (1.0 - tex_coord.y) * 2.0 - 1.0,
-//         ndc_z,
-//         1.0,
-//     );
-//     clip_to_view(inverse_projection, clip)
-// }
-
-// // Calculate the intersection of a ray from the eye through the view space position to a z plane
-// fn line_intersection_to_z_plane(origin: Vec3, p: Vec3, z: f32) -> Vec3 {
-//     let v = p - origin;
-//     let t = (z - Vec3::Z.dot(origin)) / Vec3::Z.dot(v);
-//     origin + t * v
-// }
-
-// #[allow(clippy::too_many_arguments)]
-// fn compute_aabb_for_cluster(
-//     z_near: f32,
-//     z_far: f32,
-//     tile_size: Vec2,
-//     screen_size: Vec2,
-//     inverse_projection: Mat4,
-//     is_orthographic: bool,
-//     cluster_dimensions: UVec3,
-//     ijk: UVec3,
-// ) -> Aabb {
-//     let ijk = ijk.as_vec3();
-
-//     // Calculate the minimum and maximum points in screen space
-//     let p_min = ijk.xy() * tile_size;
-//     let p_max = p_min + tile_size;
-
-//     let cluster_min;
-//     let cluster_max;
-//     if is_orthographic {
-//         // Use linear depth slicing for orthographic
-
-//         // Convert to view space at the cluster near and far planes
-//         // NOTE: 1.0 is the near plane due to using reverse z projections
-//         let p_min = screen_to_view(
-//             screen_size,
-//             inverse_projection,
-//             p_min,
-//             1.0 - (ijk.z / cluster_dimensions.z as f32),
-//         )
-//         .xyz();
-//         let p_max = screen_to_view(
-//             screen_size,
-//             inverse_projection,
-//             p_max,
-//             1.0 - ((ijk.z + 1.0) / cluster_dimensions.z as f32),
-//         )
-//         .xyz();
-
-//         cluster_min = p_min.min(p_max);
-//         cluster_max = p_min.max(p_max);
-//     } else {
-//         // Convert to view space at the near plane
-//         // NOTE: 1.0 is the near plane due to using reverse z projections
-//         let p_min = screen_to_view(screen_size, inverse_projection, p_min, 1.0);
-//         let p_max = screen_to_view(screen_size, inverse_projection, p_max, 1.0);
-
-//         let z_far_over_z_near = -z_far / -z_near;
-//         let cluster_near = if ijk.z == 0.0 {
-//             0.0
-//         } else {
-//             -z_near * z_far_over_z_near.powf((ijk.z - 1.0) / (cluster_dimensions.z - 1) as f32)
-//         };
-//         // NOTE: This could be simplified to:
-//         // cluster_far = cluster_near * z_far_over_z_near;
-//         let cluster_far = if cluster_dimensions.z == 1 {
-//             -z_far
-//         } else {
-//             -z_near * z_far_over_z_near.powf(ijk.z / (cluster_dimensions.z - 1) as f32)
-//         };
-
-//         // Calculate the four intersection points of the min and max points with the cluster near and far planes
-//         let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
-//         let p_min_far = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_far);
-//         let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
-//         let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
-
-//         cluster_min = p_min_near.min(p_min_far).min(p_max_near.min(p_max_far));
-//         cluster_max = p_min_near.max(p_min_far).max(p_max_near.max(p_max_far));
-//     }
-
-//     Aabb::from_min_max(cluster_min, cluster_max)
-// }
-
 pub fn add_clusters(
     mut commands: Commands,
     cameras: Query<(Entity, Option<&ClusterConfig>), (With<Camera>, Without<Clusters>)>,
@@ -920,31 +828,6 @@ pub(crate) fn assign_lights_to_clusters(
 
         let inverse_projection = camera.projection_matrix.inverse();
 
-        let screen_size = screen_size.as_vec2();
-        // let tile_size_u32 = clusters.tile_size;
-        // let tile_size = tile_size_u32.as_vec2();
-        // // Calculate view space AABBs
-        // // NOTE: It is important that these are iterated in a specific order
-        // // so that we can calculate the cluster index in the fragment shader!
-        // // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
-        // // along z
-        // for y in 0..clusters.dimensions.y {
-        //     for x in 0..clusters.dimensions.x {
-        //         for z in 0..clusters.dimensions.z {
-        //             clusters.aabbs.push(compute_aabb_for_cluster(
-        //                 clusters.near,
-        //                 clusters.far,
-        //                 tile_size,
-        //                 screen_size,
-        //                 inverse_projection,
-        //                 is_orthographic,
-        //                 clusters.dimensions,
-        //                 UVec3::new(x, y, z),
-        //             ));
-        //         }
-        //     }
-        // }
-
         for lights in clusters.lights.iter_mut() {
             lights.entities.clear();
         }
@@ -953,7 +836,7 @@ pub(crate) fn assign_lights_to_clusters(
             VisiblePointLights::default,
         );
 
-        if screen_size.x == 0.0 || screen_size.y == 0.0 {
+        if screen_size.x == 0 || screen_size.y == 0 {
             continue;
         }
 
@@ -967,13 +850,7 @@ pub(crate) fn assign_lights_to_clusters(
             for x in 0..=clusters.dimensions.x {
                 let x_proportion = x as f32 / x_slices;
                 let x_pos = x_proportion * 2.0 - 1.0;
-                // let nb = clip_to_view(inverse_projection, Vec4::new(x_pos, -1.0, 1.0, 1.0)).xyz();
-                // let nt = clip_to_view(inverse_projection, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
-                // let normal = nb.cross(nt).normalize();
-                // let d = nb.dot(normal);
-                // x_planes.push(Plane::new(normal.extend(d)));
                 let view_x = clip_to_view(inverse_projection, Vec4::new(x_pos, 0.0, 1.0, 1.0)).x;
-
                 let normal = Vec3::X;
                 let d = view_x * normal.x;
                 x_planes.push(Plane::new(normal.extend(d)));
@@ -983,13 +860,7 @@ pub(crate) fn assign_lights_to_clusters(
             for y in 0..=clusters.dimensions.y {
                 let y_proportion = 1.0 - y as f32 / y_slices;
                 let y_pos = y_proportion * 2.0 - 1.0;
-                // let nl = clip_to_view(inverse_projection, Vec4::new(-1.0, y_pos, 1.0, 1.0)).xyz();
-                // let nr = clip_to_view(inverse_projection, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
-                // let normal = nr.cross(nl).normalize();
-                // let d = nr.dot(normal);
-                // y_planes.push(Plane::new(normal.extend(d)));
                 let view_y = clip_to_view(inverse_projection, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
-
                 let normal = Vec3::Y;
                 let d = view_y * normal.y;
                 y_planes.push(Plane::new(normal.extend(d)));
