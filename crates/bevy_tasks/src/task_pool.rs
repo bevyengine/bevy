@@ -347,7 +347,7 @@ mod tests {
         let outputs = pool.scope(|scope| {
             for _ in 0..10 {
                 let count_clone = count.clone();
-                scope.spawn_local(async move {
+                scope.spawn(async move {
                     for _ in 0..10 {
                         let count_clone_clone = count_clone.clone();
                         scope.spawn(async move {
