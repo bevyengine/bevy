@@ -3,8 +3,6 @@
 
 /// The basic components of the transform crate
 pub mod components;
-mod systems;
-pub use crate::systems::transform_propagate_system;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -14,7 +12,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::HierarchySystem;
+use bevy_hierarchy::prelude::*;
 use prelude::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
@@ -33,7 +31,7 @@ use prelude::{GlobalTransform, Transform};
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] in the system
-/// [`transform_propagate_system`].
+/// [`inheritance_system`](bevy_hierarchy::inheritance::inheritance_system).
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
@@ -77,6 +75,7 @@ impl From<Transform> for TransformBundle {
         Self::from_transform(transform)
     }
 }
+
 /// Label enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum TransformSystem {
@@ -92,18 +91,6 @@ impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
-            // Adding these to startup ensures the first update is "correct"
-            .add_startup_system_to_stage(
-                StartupStage::PostStartup,
-                systems::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                systems::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
-            );
+            .register_heritable::<GlobalTransform>();
     }
 }
