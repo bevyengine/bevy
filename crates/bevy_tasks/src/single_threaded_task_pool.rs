@@ -77,7 +77,9 @@ impl TaskPool {
         while executor.try_tick() {}
 
         let result = scope
-            .results.lock().unwrap()
+            .results
+            .lock()
+            .unwrap()
             .iter()
             .map(|result| result.lock().unwrap().take().unwrap())
             .collect();
