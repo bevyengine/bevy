@@ -134,7 +134,7 @@ pub fn text2d_system(
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
         QueryState<Entity, (With<Text2dSize>, Changed<Text>)>,
-        QueryState<(&Text, &Text2dBounds, &mut Text2dSize), With<Text2dSize>>,
+        QueryState<(&Text, Option<&Text2dBounds>, &mut Text2dSize), With<Text2dSize>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
@@ -153,9 +153,12 @@ pub fn text2d_system(
     let mut query = text_queries.q1();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, bounds, mut calculated_size)) = query.get_mut(entity) {
-            let text_bounds = Size {
-                width: scale_value(bounds.size.width, scale_factor),
-                height: scale_value(bounds.size.height, scale_factor),
+            let text_bounds = match bounds {
+                Some(bounds) => Size {
+                    width: scale_value(bounds.size.width, scale_factor),
+                    height: scale_value(bounds.size.height, scale_factor),
+                },
+                None => Size::new(f32::MAX, f32::MAX),
             };
             match text_pipeline.queue_text(
                 entity,
