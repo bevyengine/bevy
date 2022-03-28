@@ -33,6 +33,8 @@ pub enum AmbiguityReportLevel {
 /// * [`ReportExecutionOrderAmbiguities::minimal()`] - Displays only the number of unresolved ambiguities detected by the ambiguity checker.
 /// * [`ReportExecutionOrderAmbiguities::verbose()`] - Displays a full report of ambiguities detected by the ambiguity checker.
 ///
+/// Similarly, [`ReportExectuionOrderAmbiguities::default()`] will set the level to [`AmbiguityReportLevel::Minimal`].
+///
 /// The ambiguity checker will ignore ambiguities within official Bevy crates.
 /// To ignore a custom crate, use [`ReportExecutionOrderAmbiguities::ignore`]
 /// with an list of crate names as an argument.
