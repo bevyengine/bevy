@@ -154,7 +154,7 @@ pub trait ParallelSystemDescriptorCoercion<Params> {
 
     /// Specifies that the system is exempt from execution order ambiguity detection
     /// with other systems with the given label.
-    fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
+    fn ambiguous_with<Marker>(self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor;
 }
 
 impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
@@ -186,14 +186,20 @@ impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
         self
     }
 
-    fn ambiguous_with(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+    fn ambiguous_with<Marker>(
+        mut self,
+        label: impl AsSystemLabel<Marker>,
+    ) -> ParallelSystemDescriptor {
+        let system_label = label.as_system_label();
+        let boxed_system_label: Box<dyn SystemLabel> = Box::new(system_label);
+
         match &mut self.ambiguity_detection {
             AmbiguityDetection::IgnoreWithLabel(v) => {
-                v.push(Box::new(label));
+                v.push(boxed_system_label);
             }
             _ => {
                 self.ambiguity_detection =
-                    AmbiguityDetection::IgnoreWithLabel(vec![Box::new(label)]);
+                    AmbiguityDetection::IgnoreWithLabel(vec![boxed_system_label]);
             }
         }
         self
@@ -228,7 +234,7 @@ where
         new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).ignore_all_ambiguities()
     }
 
-    fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+    fn ambiguous_with<Marker>(self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).ambiguous_with(label)
     }
 }
@@ -257,7 +263,7 @@ impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
         new_parallel_descriptor(self).ignore_all_ambiguities()
     }
 
-    fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+    fn ambiguous_with<Marker>(self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).ambiguous_with(label)
     }
 }
@@ -324,7 +330,8 @@ pub trait ExclusiveSystemDescriptorCoercion {
 
     /// Specifies that the system is exempt from execution order ambiguity detection
     /// with other systems with the given label.
-    fn ambiguous_with(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
+    fn ambiguous_with<Marker>(self, label: impl AsSystemLabel<Marker>)
+        -> ExclusiveSystemDescriptor;
 }
 
 impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
@@ -371,14 +378,20 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
         self
     }
 
-    fn ambiguous_with(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+    fn ambiguous_with<Marker>(
+        mut self,
+        label: impl AsSystemLabel<Marker>,
+    ) -> ExclusiveSystemDescriptor {
+        let system_label = label.as_system_label();
+        let boxed_system_label: Box<dyn SystemLabel> = Box::new(system_label);
+
         match &mut self.ambiguity_detection {
             AmbiguityDetection::IgnoreWithLabel(v) => {
-                v.push(Box::new(label));
+                v.push(boxed_system_label);
             }
             _ => {
                 self.ambiguity_detection =
-                    AmbiguityDetection::IgnoreWithLabel(vec![Box::new(label)]);
+                    AmbiguityDetection::IgnoreWithLabel(vec![boxed_system_label]);
             }
         }
         self
@@ -424,7 +437,10 @@ where
         new_exclusive_descriptor(Box::new(self)).silence_ambiguity_checks()
     }
 
-    fn ambiguous_with(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+    fn ambiguous_with<Marker>(
+        self,
+        label: impl AsSystemLabel<Marker>,
+    ) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).ambiguous_with(label)
     }
 }

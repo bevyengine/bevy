@@ -18,16 +18,19 @@ fn main() {
         .insert_resource(MyOtherResource(0))
         // It is possible to mark a system as ambiguous if this is intended behavior; the ambiguity checker will ignore this system.
         .add_system(system_a.ignore_all_ambiguities())
-        .add_system(system_b.label("my_label"))
-        // It is also possible to mark a system as deliberately ambiguous with a provided lable,
+        .add_system(system_b)
+        // It is also possible to mark a system as deliberately ambiguous with a provided system or label,
         // making the checker ignore any ambiguities between them.
-        .add_system(system_c.ambiguous_with("my_label"))
+        .add_system(system_c.ambiguous_with(system_b))
         // If there's an whole group of systems that are supposed to be ambiguous with each other,
-        // add a common label, and then ignore any conflicts with that label.
-        .add_system(system_d.label("my_set").ambiguous_with("my_set"))
-        .add_system(system_e.label("my_set").ambiguous_with("my_set"))
+        // add a shared label, and then ignore any conflicts with that label.
+        .add_system(system_d.label(AmbiguitySet).ambiguous_with(AmbiguitySet))
+        .add_system(system_e.label(AmbiguitySet).ambiguous_with(AmbiguitySet))
         .run();
 }
+
+#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
+struct AmbiguitySet;
 
 struct MyStartupResource(i32);
 fn startup_system_a(mut res: ResMut<MyStartupResource>) {
