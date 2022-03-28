@@ -1811,7 +1811,7 @@ mod tests {
 
         let mut stage = SystemStage::parallel()
             .with_system(component.label("0"))
-            .with_system(resource.label("1").after("0").silence_ambiguity_checks())
+            .with_system(resource.label("1").after("0").ignore_all_ambiguities())
             .with_system(empty.label("2"))
             .with_system(component.label("3").after("2").before("4"))
             .with_system(resource.label("4"));
@@ -1825,8 +1825,8 @@ mod tests {
         assert_eq!(ambiguities.len(), 1);
 
         let mut stage = SystemStage::parallel()
-            .with_system(component.label("0").silence_ambiguity_checks())
-            .with_system(resource.label("1").after("0").silence_ambiguity_checks())
+            .with_system(component.label("0").ignore_all_ambiguities())
+            .with_system(resource.label("1").after("0").ignore_all_ambiguities())
             .with_system(empty.label("2"))
             .with_system(component.label("3").after("2").before("4"))
             .with_system(resource.label("4"));

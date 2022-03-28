@@ -158,8 +158,8 @@ pub trait ParallelSystemDescriptorCoercion<Params> {
     /// with other systems in this set.
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor;
 
-    /// Specifies that this system is ambiguous and must be ignored by ambiguity detection.
-    fn silence_ambiguity_checks(self) -> ParallelSystemDescriptor;
+    /// Ignore all system-order ambiguities between this system and any other system
+    fn ignore_all_ambiguities(self) -> ParallelSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
     /// with other systems with the given label.
@@ -195,7 +195,7 @@ impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
         self
     }
 
-    fn silence_ambiguity_checks(mut self) -> ParallelSystemDescriptor {
+    fn ignore_all_ambiguities(mut self) -> ParallelSystemDescriptor {
         self.ambiguity_detection = AmbiguityDetection::Ignore;
         self
     }
@@ -242,8 +242,8 @@ where
         new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).in_ambiguity_set(set)
     }
 
-    fn silence_ambiguity_checks(self) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).silence_ambiguity_checks()
+    fn ignore_all_ambiguities(self) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).ignore_all_ambiguities()
     }
 
     fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
@@ -275,8 +275,8 @@ impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
         new_parallel_descriptor(self).in_ambiguity_set(set)
     }
 
-    fn silence_ambiguity_checks(self) -> ParallelSystemDescriptor {
-        new_parallel_descriptor(self).silence_ambiguity_checks()
+    fn ignore_all_ambiguities(self) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(self).ignore_all_ambiguities()
     }
 
     fn ambiguous_with(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
