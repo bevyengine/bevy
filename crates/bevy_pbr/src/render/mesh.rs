@@ -66,13 +66,12 @@ impl Plugin for MeshRenderPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<MeshPipeline>()
-                .init_resource::<SkinnedMeshBindGroup>()
+                .init_resource::<SkinnedMeshUniform>()
                 .add_system_to_stage(RenderStage::Extract, extract_meshes)
                 .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
                 .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups)
-                .add_system_to_stage(RenderStage::Queue, queue_skinned_mesh_bind_group);
+                .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
         }
     }
 }
@@ -374,32 +373,37 @@ impl FromWorld for MeshPipeline {
             label: Some("mesh_view_layout"),
         });
 
+        let mesh_binding = BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: true,
+                min_binding_size: BufferSize::new(MeshUniform::std140_size_static() as u64),
+            },
+            count: None,
+        };
+
         let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(MeshUniform::std140_size_static() as u64),
-                },
-                count: None,
-            }],
+            entries: &[mesh_binding],
             label: Some("mesh_layout"),
         });
 
         let skinned_mesh_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(JOINT_BUFFER_SIZE as u64),
+                entries: &[
+                    mesh_binding,
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::VERTEX,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: BufferSize::new(JOINT_BUFFER_SIZE as u64),
+                        },
+                        count: None,
                     },
-                    count: None,
-                }],
+                ],
                 label: Some("mesh_layout"),
             });
 
@@ -538,13 +542,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
             Mesh::ATTRIBUTE_UV_0.at_shader_location(2),
         ];
 
-        let mut bind_group_layout = vec![self.view_layout.clone(), self.mesh_layout.clone()];
         let mut shader_defs = Vec::new();
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
+        let mut bind_group_layout = vec![self.view_layout.clone()];
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
@@ -552,7 +556,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
             bind_group_layout.push(self.skinned_mesh_layout.clone());
-        }
+        } else {
+            bind_group_layout.push(self.mesh_layout.clone());
+        };
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
@@ -629,7 +635,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
 }
 
 pub struct MeshBindGroup {
-    pub value: BindGroup,
+    pub normal: BindGroup,
+    pub skinned: Option<BindGroup>,
 }
 
 pub fn queue_mesh_bind_group(
@@ -637,68 +644,70 @@ pub fn queue_mesh_bind_group(
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
+    skinned_mesh_uniform: Res<SkinnedMeshUniform>,
 ) {
-    if let Some(binding) = mesh_uniforms.uniforms().binding() {
-        commands.insert_resource(MeshBindGroup {
-            value: render_device.create_bind_group(&BindGroupDescriptor {
+    if let Some(mesh_binding) = mesh_uniforms.uniforms().binding() {
+        let mut mesh_bind_group = MeshBindGroup {
+            normal: render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,
-                    resource: binding,
+                    resource: mesh_binding.clone(),
                 }],
                 label: Some("mesh_bind_group"),
                 layout: &mesh_pipeline.mesh_layout,
             }),
-        });
+            skinned: None,
+        };
+
+        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.uniform_buffer() {
+            mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: mesh_binding,
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Buffer(BufferBinding {
+                            buffer: skinned_joints_buffer,
+                            offset: 0,
+                            size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
+                        }),
+                    },
+                ],
+                label: Some("skinned_mesh_bind_group"),
+                layout: &mesh_pipeline.skinned_mesh_layout,
+            }));
+        }
+        commands.insert_resource(mesh_bind_group);
     }
 }
 
 #[derive(Default)]
-pub struct SkinnedMeshBindGroup {
+pub struct SkinnedMeshUniform {
     pub buffer: UniformVec<Mat4>,
-    pub bind_group: Option<BindGroup>,
 }
 
 pub fn prepare_skinned_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     extracted_joints: Res<ExtractedJoints>,
-    mut mesh_bind_group: ResMut<SkinnedMeshBindGroup>,
+    mut skinned_mesh_uniform: ResMut<SkinnedMeshUniform>,
 ) {
     if extracted_joints.buffer.is_empty() {
         return;
     }
 
-    mesh_bind_group.buffer.clear();
-    mesh_bind_group
+    skinned_mesh_uniform.buffer.clear();
+    skinned_mesh_uniform
         .buffer
         .reserve(extracted_joints.buffer.len(), &render_device);
     for joint in extracted_joints.buffer.iter() {
-        mesh_bind_group.buffer.push(*joint);
+        skinned_mesh_uniform.buffer.push(*joint);
     }
-    mesh_bind_group
+    skinned_mesh_uniform
         .buffer
         .write_buffer(&render_device, &render_queue);
-}
-
-pub fn queue_skinned_mesh_bind_group(
-    render_device: Res<RenderDevice>,
-    mesh_pipeline: Res<MeshPipeline>,
-    mut mesh_bind_group: ResMut<SkinnedMeshBindGroup>,
-) {
-    if let Some(buffer) = mesh_bind_group.buffer.uniform_buffer() {
-        mesh_bind_group.bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: BindingResource::Buffer(BufferBinding {
-                    buffer,
-                    offset: 0,
-                    size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
-                }),
-            }],
-            label: Some("skinned_mesh_bind_group"),
-            layout: &mesh_pipeline.skinned_mesh_layout,
-        }));
-    }
 }
 
 #[derive(Component)]
@@ -814,7 +823,10 @@ pub struct SetMeshBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
     type Param = (
         SRes<MeshBindGroup>,
-        SQuery<Read<DynamicUniformIndex<MeshUniform>>>,
+        SQuery<(
+            Read<DynamicUniformIndex<MeshUniform>>,
+            Option<Read<SkinnedMeshJoints>>,
+        )>,
     );
     #[inline]
     fn render<'w>(
@@ -823,31 +835,18 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
         (mesh_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_index = mesh_query.get(item).unwrap();
-        pass.set_bind_group(
-            I,
-            &mesh_bind_group.into_inner().value,
-            &[mesh_index.index()],
-        );
-        RenderCommandResult::Success
-    }
-}
-
-pub struct SetSkinnedMeshBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetSkinnedMeshBindGroup<I> {
-    type Param = (SRes<SkinnedMeshBindGroup>, SQuery<Read<SkinnedMeshJoints>>);
-    #[inline]
-    fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        if let Ok(skinned_mesh_index) = mesh_query.get_inner(item) {
+        let (mesh_index, skinned_mesh_joints) = mesh_query.get(item).unwrap();
+        if let Some(joints) = skinned_mesh_joints {
             pass.set_bind_group(
                 I,
-                bind_group.into_inner().bind_group.as_ref().unwrap(),
-                &[skinned_mesh_index.index],
+                mesh_bind_group.into_inner().skinned.as_ref().unwrap(),
+                &[mesh_index.index(), joints.index],
+            );
+        } else {
+            pass.set_bind_group(
+                I,
+                &mesh_bind_group.into_inner().normal,
+                &[mesh_index.index()],
             );
         }
         RenderCommandResult::Success

@@ -1,8 +1,7 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
-    PointLight, PointLightShadowMap, SetMeshBindGroup, SetSkinnedMeshBindGroup, VisiblePointLights,
-    SHADOW_SHADER_HANDLE,
+    PointLight, PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
@@ -1240,7 +1239,6 @@ pub type DrawShadowMesh = (
     SetItemPipeline,
     SetShadowViewBindGroup<0>,
     SetMeshBindGroup<1>,
-    SetSkinnedMeshBindGroup<2>,
     DrawMesh,
 );
 

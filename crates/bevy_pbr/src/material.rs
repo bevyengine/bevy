@@ -1,6 +1,6 @@
 use crate::{
     AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
-    SetMeshViewBindGroup, SetSkinnedMeshBindGroup,
+    SetMeshViewBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
@@ -277,7 +277,6 @@ type DrawMaterial<M> = (
     SetMeshViewBindGroup<0>,
     SetMaterialBindGroup<M, 1>,
     SetMeshBindGroup<2>,
-    SetSkinnedMeshBindGroup<3>,
     DrawMesh,
 );
 
