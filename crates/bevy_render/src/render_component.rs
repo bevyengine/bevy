@@ -103,7 +103,7 @@ fn prepare_uniform_components<C: Component>(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
-    components: Query<(Entity, &C)>,
+    components: Query<(Entity, Raw<C>)>,
 ) where
     C: AsStd140 + Clone,
 {

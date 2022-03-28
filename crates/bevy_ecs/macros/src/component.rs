@@ -23,18 +23,25 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let lens_type = attrs
+        .lens
+        .unwrap_or(quote! {#bevy_ecs_path::lens::NoopLens<Self>});
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             type Storage = #storage;
+            type DefaultLens = #lens_type;
         }
     })
 }
 
 pub const COMPONENT: Symbol = Symbol("component");
 pub const STORAGE: Symbol = Symbol("storage");
+pub const LENS: Symbol = Symbol("lens");
 
 struct Attrs {
     storage: StorageTy,
+    lens: Option<TokenStream2>,
 }
 
 #[derive(Clone, Copy)]
@@ -52,6 +59,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 
     let mut attrs = Attrs {
         storage: StorageTy::Table,
+        lens: None,
     };
 
     for meta in meta_items {
@@ -74,6 +82,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         ))
                     }
                 };
+            }
+            Meta(NameValue(m)) if m.path == LENS => {
+                attrs.lens = Some(get_lit_str(LENS, &m.lit)?.value().as_str().parse()?);
             }
             Meta(meta_item) => {
                 return Err(Error::new_spanned(

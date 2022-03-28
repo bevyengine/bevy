@@ -6,6 +6,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod lens;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -26,7 +27,9 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
+        query::{
+            Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, Raw, RawMut, With, Without,
+        },
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,

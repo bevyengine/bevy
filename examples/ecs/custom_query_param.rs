@@ -113,7 +113,9 @@ struct NestedQuery<'w> {
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
 struct GenericQuery<'w, T: Component, P: Component> {
-    generic: (&'w T, &'w P),
+    generic: (Raw<T>, Raw<P>),
+    #[world_query(ignore)]
+    _marker: PhantomData<&'w ()>,
 }
 
 #[derive(WorldQuery)]

@@ -124,7 +124,7 @@ pub fn calculate_bounds(
 }
 
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
-    mut views: Query<(&GlobalTransform, &T, &mut Frustum)>,
+    mut views: Query<(&GlobalTransform, Raw<T>, &mut Frustum)>,
 ) {
     for (transform, projection, mut frustum) in views.iter_mut() {
         let view_projection =

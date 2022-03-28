@@ -14,7 +14,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::{DetectChanges, QueryState, With},
+    prelude::{DetectChanges, QueryState, RawMut, With},
     query::Added,
     reflect::ReflectComponent,
     system::{Commands, Query, QuerySet, Res, ResMut},
@@ -154,7 +154,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     windows: Res<Windows>,
     images: Res<Assets<Image>>,
     mut queries: QuerySet<(
-        QueryState<(Entity, &mut Camera, &mut T)>,
+        QueryState<(Entity, &mut Camera, RawMut<T>)>,
         QueryState<Entity, Added<Camera>>,
     )>,
 ) {

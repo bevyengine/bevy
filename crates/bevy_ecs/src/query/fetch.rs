@@ -3,6 +3,7 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
+    lens::{Lens, NoopLens},
     query::{Access, FilteredAccess},
     storage::{ComponentSparseSet, Table, Tables},
     world::{Mut, World},
@@ -495,10 +496,19 @@ impl<'w, 's> Fetch<'w, 's> for EntityFetch {
     }
 }
 
-impl<T: Component> WorldQuery for &T {
-    type Fetch = ReadFetch<T>;
+/// Equilavent to querying with `&T`, but ignores the default lens. Useful with generic code
+pub struct Raw<T: Component>(PhantomData<T>);
+
+impl<T: Component> WorldQuery for Raw<T> {
+    type Fetch = ReadFetch<T, NoopLens<T>>;
     type State = ReadState<T>;
-    type ReadOnlyFetch = ReadFetch<T>;
+    type ReadOnlyFetch = ReadFetch<T, NoopLens<T>>;
+}
+
+impl<T: Component> WorldQuery for &T {
+    type Fetch = ReadFetch<T, T::DefaultLens>;
+    type State = ReadState<T>;
+    type ReadOnlyFetch = ReadFetch<T, T::DefaultLens>;
 }
 
 /// The [`FetchState`] of `&T`.
@@ -550,30 +560,31 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
 }
 
 /// The [`Fetch`] of `&T`.
-#[doc(hidden)]
-pub struct ReadFetch<T> {
+pub struct ReadFetch<T, L> {
     table_components: NonNull<T>,
     entity_table_rows: *const usize,
     entities: *const Entity,
     sparse_set: *const ComponentSparseSet,
+    lens: PhantomData<L>,
 }
 
-impl<T> Clone for ReadFetch<T> {
+impl<T, L> Clone for ReadFetch<T, L> {
     fn clone(&self) -> Self {
         Self {
             table_components: self.table_components,
             entity_table_rows: self.entity_table_rows,
             entities: self.entities,
             sparse_set: self.sparse_set,
+            lens: PhantomData,
         }
     }
 }
 
 /// SAFETY: access is read only
-unsafe impl<T> ReadOnlyFetch for ReadFetch<T> {}
+unsafe impl<T, Lens> ReadOnlyFetch for ReadFetch<T, Lens> {}
 
-impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<T> {
-    type Item = &'w T;
+impl<'w, 's, T: Component, L: Lens<In = T>> Fetch<'w, 's> for ReadFetch<T, L> {
+    type Item = &'w L::Out;
     type State = ReadState<T>;
 
     const IS_DENSE: bool = {
@@ -594,6 +605,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<T> {
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
+            lens: PhantomData,
         };
         if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
             value.sparse_set = world
@@ -635,7 +647,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<T> {
 
     #[inline]
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        match T::Storage::STORAGE_TYPE {
+        L::get(match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 &*self.table_components.as_ptr().add(table_row)
@@ -644,24 +656,32 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<T> {
                 let entity = *self.entities.add(archetype_index);
                 &*(*self.sparse_set).get(entity).unwrap().cast::<T>()
             }
-        }
+        })
     }
 
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        &*self.table_components.as_ptr().add(table_row)
+        L::get(&*self.table_components.as_ptr().add(table_row))
     }
 }
 
-impl<T: Component> WorldQuery for &mut T {
-    type Fetch = WriteFetch<T>;
+/// Equilavent to querying with `&mut T`, but ignores the default lens. Useful with generic code
+pub struct RawMut<T: Component>(PhantomData<T>);
+
+impl<T: Component> WorldQuery for RawMut<T> {
+    type Fetch = WriteFetch<T, NoopLens<T>>;
     type State = WriteState<T>;
-    type ReadOnlyFetch = ReadOnlyWriteFetch<T>;
+    type ReadOnlyFetch = ReadOnlyWriteFetch<T, NoopLens<T>>;
+}
+
+impl<T: Component> WorldQuery for &mut T {
+    type Fetch = WriteFetch<T, T::DefaultLens>;
+    type State = WriteState<T>;
+    type ReadOnlyFetch = ReadOnlyWriteFetch<T, T::DefaultLens>;
 }
 
 /// The [`Fetch`] of `&mut T`.
-#[doc(hidden)]
-pub struct WriteFetch<T> {
+pub struct WriteFetch<T, L> {
     table_components: NonNull<T>,
     table_ticks: *const UnsafeCell<ComponentTicks>,
     entities: *const Entity,
@@ -669,9 +689,10 @@ pub struct WriteFetch<T> {
     sparse_set: *const ComponentSparseSet,
     last_change_tick: u32,
     change_tick: u32,
+    lens: PhantomData<L>,
 }
 
-impl<T> Clone for WriteFetch<T> {
+impl<T, L> Clone for WriteFetch<T, L> {
     fn clone(&self) -> Self {
         Self {
             table_components: self.table_components,
@@ -681,29 +702,31 @@ impl<T> Clone for WriteFetch<T> {
             sparse_set: self.sparse_set,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
+            lens: PhantomData,
         }
     }
 }
 
 /// The [`ReadOnlyFetch`] of `&mut T`.
-#[doc(hidden)]
-pub struct ReadOnlyWriteFetch<T> {
+pub struct ReadOnlyWriteFetch<T, L> {
     table_components: NonNull<T>,
     entities: *const Entity,
     entity_table_rows: *const usize,
     sparse_set: *const ComponentSparseSet,
+    lens: PhantomData<L>,
 }
 
 /// SAFETY: access is read only
-unsafe impl<T> ReadOnlyFetch for ReadOnlyWriteFetch<T> {}
+unsafe impl<T, L> ReadOnlyFetch for ReadOnlyWriteFetch<T, L> {}
 
-impl<T> Clone for ReadOnlyWriteFetch<T> {
+impl<T, L> Clone for ReadOnlyWriteFetch<T, L> {
     fn clone(&self) -> Self {
         Self {
             table_components: self.table_components,
             entities: self.entities,
             entity_table_rows: self.entity_table_rows,
             sparse_set: self.sparse_set,
+            lens: PhantomData,
         }
     }
 }
@@ -756,8 +779,8 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
     }
 }
 
-impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
-    type Item = Mut<'w, T>;
+impl<'w, 's, T: Component, L: Lens<In = T>> Fetch<'w, 's> for WriteFetch<T, L> {
+    type Item = Mut<'w, L::Out>;
     type State = WriteState<T>;
 
     const IS_DENSE: bool = {
@@ -781,6 +804,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
             table_ticks: ptr::null::<UnsafeCell<ComponentTicks>>(),
             last_change_tick,
             change_tick,
+            lens: PhantomData,
         };
         if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
             value.sparse_set = world
@@ -825,7 +849,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 Mut {
-                    value: &mut *self.table_components.as_ptr().add(table_row),
+                    value: L::get_mut(&mut *self.table_components.as_ptr().add(table_row)),
                     ticks: Ticks {
                         component_ticks: &mut *(*self.table_ticks.add(table_row)).get(),
                         change_tick: self.change_tick,
@@ -838,7 +862,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
                 let (component, component_ticks) =
                     (*self.sparse_set).get_with_ticks(entity).unwrap();
                 Mut {
-                    value: &mut *component.cast::<T>(),
+                    value: L::get_mut(&mut *component.cast::<T>()),
                     ticks: Ticks {
                         component_ticks: &mut *component_ticks,
                         change_tick: self.change_tick,
@@ -852,7 +876,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
         Mut {
-            value: &mut *self.table_components.as_ptr().add(table_row),
+            value: L::get_mut(&mut *self.table_components.as_ptr().add(table_row)),
             ticks: Ticks {
                 component_ticks: &mut *(*self.table_ticks.add(table_row)).get(),
                 change_tick: self.change_tick,
@@ -862,8 +886,8 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
     }
 }
 
-impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<T> {
-    type Item = &'w T;
+impl<'w, 's, T: Component, L: Lens<In = T>> Fetch<'w, 's> for ReadOnlyWriteFetch<T, L> {
+    type Item = &'w L::Out;
     type State = WriteState<T>;
 
     const IS_DENSE: bool = {
@@ -884,6 +908,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<T> {
             entities: ptr::null::<Entity>(),
             entity_table_rows: ptr::null::<usize>(),
             sparse_set: ptr::null::<ComponentSparseSet>(),
+            lens: PhantomData,
         };
         if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
             value.sparse_set = world
@@ -922,7 +947,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<T> {
 
     #[inline]
     unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        match T::Storage::STORAGE_TYPE {
+        L::get(match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let table_row = *self.entity_table_rows.add(archetype_index);
                 &*self.table_components.as_ptr().add(table_row)
@@ -931,12 +956,12 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<T> {
                 let entity = *self.entities.add(archetype_index);
                 &*(*self.sparse_set).get(entity).unwrap().cast::<T>()
             }
-        }
+        })
     }
 
     #[inline]
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        &*self.table_components.as_ptr().add(table_row)
+        L::get(&*self.table_components.as_ptr().add(table_row))
     }
 }
 

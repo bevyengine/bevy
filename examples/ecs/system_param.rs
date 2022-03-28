@@ -1,4 +1,10 @@
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::{
+        query::{FilterFetch, WorldQuery},
+        system::SystemParam,
+    },
+    prelude::*,
+};
 
 /// This example creates a [`SystemParam`] struct that counts the number of players
 fn main() {
@@ -24,6 +30,18 @@ struct PlayerCounter<'w, 's> {
     count: ResMut<'w, PlayerCount>,
 }
 
+#[derive(SystemParam)]
+pub struct MySystemParam<
+    'w,
+    's,
+    Q: 'static + WorldQuery + Send + Sync,
+    F: 'static + WorldQuery + Send + Sync,
+> where
+    F::Fetch: FilterFetch,
+{
+    query: Query<'w, 's, Q, F>,
+}
+
 impl<'w, 's> PlayerCounter<'w, 's> {
     fn count(&mut self) {
         self.count.0 = self.players.iter().len();
@@ -38,7 +56,7 @@ fn spawn(mut commands: Commands) {
 }
 
 /// The [`SystemParam`] can be used directly in a system argument.
-fn count_players(mut counter: PlayerCounter) {
+fn count_players(mut counter: PlayerCounter, p: MySystemParam<&'static Player, ()>) {
     counter.count();
 
     println!("{} players in the game", counter.count.0);

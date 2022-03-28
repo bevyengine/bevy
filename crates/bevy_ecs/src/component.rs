@@ -1,6 +1,7 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
+    lens::{Lens, NoopLens},
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
@@ -32,6 +33,8 @@ use std::{
 /// Components can be grouped together into a [`Bundle`](crate::bundle::Bundle).
 pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
+
+    type DefaultLens: Lens<In = Self>;
 }
 
 pub struct TableStorage;
@@ -61,6 +64,7 @@ where
     Self: Send + Sync + 'static,
 {
     type Storage = TableStorage;
+    type DefaultLens = NoopLens<Self>;
 }
 
 /// The storage used for a specific component type.
