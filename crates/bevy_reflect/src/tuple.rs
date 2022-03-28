@@ -223,6 +223,16 @@ unsafe impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -363,6 +373,14 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn any_mut(&mut self) -> &mut dyn Any {
+                self
+            }
+
+            fn as_reflect(&self) -> &dyn Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
                 self
             }
 

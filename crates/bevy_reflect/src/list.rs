@@ -121,6 +121,16 @@ unsafe impl Reflect for DynamicList {
         self
     }
 
+    #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         list_apply(self, value);
     }
