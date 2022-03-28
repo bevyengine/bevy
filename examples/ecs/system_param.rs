@@ -39,7 +39,7 @@ pub struct MySystemParam<
 > where
     F::Fetch: FilterFetch,
 {
-    query: Query<'w, 's, Q, F>,
+    _query: Query<'w, 's, Q, F>,
 }
 
 impl<'w, 's> PlayerCounter<'w, 's> {
@@ -56,7 +56,7 @@ fn spawn(mut commands: Commands) {
 }
 
 /// The [`SystemParam`] can be used directly in a system argument.
-fn count_players(mut counter: PlayerCounter, p: MySystemParam<&'static Player, ()>) {
+fn count_players(mut counter: PlayerCounter, _p: MySystemParam<&'static Player, ()>) {
     counter.count();
 
     println!("{} players in the game", counter.count.0);
