@@ -1,4 +1,4 @@
-use bevy::{ecs::schedule::ReportExecutionOrderAmbiguities, log::LogPlugin, prelude::*};
+use bevy::{log::LogPlugin, prelude::*};
 
 fn main() {
     App::new()
