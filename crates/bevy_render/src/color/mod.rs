@@ -738,10 +738,10 @@ impl From<Color> for wgpu::Color {
         } = color.as_rgba_linear()
         {
             wgpu::Color {
-                r: red as f64,
-                g: green as f64,
-                b: blue as f64,
-                a: alpha as f64,
+                r: ((red * 255.0) as u8) as f64 / 255.0,
+                g: ((green * 255.0) as u8) as f64 / 255.0,
+                b: ((blue * 255.0) as u8) as f64 / 255.0,
+                a: ((alpha * 255.0) as u8) as f64 / 255.0,
             }
         } else {
             unreachable!()
