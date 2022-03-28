@@ -2,7 +2,6 @@ use crate::component::ComponentId;
 use crate::schedule::{AmbiguityDetection, SystemContainer, SystemStage};
 use crate::world::World;
 
-use bevy_utils::HashMap;
 use fixedbitset::FixedBitSet;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -83,20 +82,9 @@ pub(super) fn find_ambiguities(
             && crates_filter.iter().any(|s| system_b.name().starts_with(s)))
     }
 
-    let mut ambiguity_set_labels = HashMap::default();
-    for set in systems.iter().flat_map(|c| c.ambiguity_sets()) {
-        let len = ambiguity_set_labels.len();
-        ambiguity_set_labels.entry(set).or_insert(len);
-    }
-    let mut all_ambiguity_sets = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
     for (index, container) in systems.iter().enumerate() {
-        let mut ambiguity_sets = FixedBitSet::with_capacity(ambiguity_set_labels.len());
-        for set in container.ambiguity_sets() {
-            ambiguity_sets.insert(ambiguity_set_labels[set]);
-        }
-        all_ambiguity_sets.push(ambiguity_sets);
         let mut dependencies = FixedBitSet::with_capacity(systems.len());
         for &dependency in container.dependencies() {
             dependencies.union_with(&all_dependencies[dependency]);
@@ -136,7 +124,6 @@ pub(super) fn find_ambiguities(
         // .take(index_a)
         {
             if !processed.contains(index_b)
-                && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])
                 && !should_ignore_ambiguity(systems, index_a, index_b, crates_filter)
             {
                 let a_access = systems[index_a].component_access();

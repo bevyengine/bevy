@@ -1,6 +1,6 @@
 use crate::schedule::{
-    AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
-    RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel,
+    BoxedSystemLabel, IntoRunCriteria, RunCriteriaDescriptorOrLabel, State, StateData,
+    SystemDescriptor, SystemLabel,
 };
 
 use super::IntoSystemDescriptor;
@@ -13,7 +13,6 @@ pub struct SystemSet {
     pub(crate) labels: Vec<BoxedSystemLabel>,
     pub(crate) before: Vec<BoxedSystemLabel>,
     pub(crate) after: Vec<BoxedSystemLabel>,
-    pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
 }
 
 impl SystemSet {
@@ -71,12 +70,6 @@ impl SystemSet {
     }
 
     #[must_use]
-    pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
-        self.ambiguity_sets.push(Box::new(set));
-        self
-    }
-
-    #[must_use]
     pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
         self.systems.push(system.into_descriptor());
         self
@@ -113,7 +106,6 @@ impl SystemSet {
             labels,
             before,
             after,
-            ambiguity_sets,
         } = self;
         for descriptor in &mut systems {
             match descriptor {
@@ -121,17 +113,11 @@ impl SystemSet {
                     descriptor.labels.extend(labels.iter().cloned());
                     descriptor.before.extend(before.iter().cloned());
                     descriptor.after.extend(after.iter().cloned());
-                    descriptor
-                        .ambiguity_sets
-                        .extend(ambiguity_sets.iter().cloned());
                 }
                 SystemDescriptor::Exclusive(descriptor) => {
                     descriptor.labels.extend(labels.iter().cloned());
                     descriptor.before.extend(before.iter().cloned());
                     descriptor.after.extend(after.iter().cloned());
-                    descriptor
-                        .ambiguity_sets
-                        .extend(ambiguity_sets.iter().cloned());
                 }
             }
         }

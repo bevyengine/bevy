@@ -2,8 +2,8 @@ use crate::{
     component::ComponentId,
     query::Access,
     schedule::{
-        BoxedAmbiguitySetLabel, BoxedRunCriteriaLabel, BoxedSystemLabel, ExclusiveSystemDescriptor,
-        GraphNode, ParallelSystemDescriptor,
+        BoxedRunCriteriaLabel, BoxedSystemLabel, ExclusiveSystemDescriptor, GraphNode,
+        ParallelSystemDescriptor,
     },
     system::{ExclusiveSystem, System},
 };
@@ -22,7 +22,6 @@ pub trait SystemContainer: GraphNode<Label = BoxedSystemLabel> {
     #[doc(hidden)]
     fn set_run_criteria(&mut self, index: usize);
     fn run_criteria_label(&self) -> Option<&BoxedRunCriteriaLabel>;
-    fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel];
     fn ambiguity_detection(&self) -> &AmbiguityDetection;
     fn component_access(&self) -> Option<&Access<ComponentId>>;
 }
@@ -35,7 +34,6 @@ pub(super) struct ExclusiveSystemContainer {
     labels: Vec<BoxedSystemLabel>,
     before: Vec<BoxedSystemLabel>,
     after: Vec<BoxedSystemLabel>,
-    ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
     ambiguity_detection: AmbiguityDetection,
 }
 
@@ -49,7 +47,6 @@ impl ExclusiveSystemContainer {
             labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
-            ambiguity_sets: descriptor.ambiguity_sets,
             ambiguity_detection: descriptor.ambiguity_detection,
         }
     }
@@ -101,10 +98,6 @@ impl SystemContainer for ExclusiveSystemContainer {
         self.run_criteria_label.as_ref()
     }
 
-    fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {
-        &self.ambiguity_sets
-    }
-
     fn component_access(&self) -> Option<&Access<ComponentId>> {
         None
     }
@@ -123,7 +116,6 @@ pub struct ParallelSystemContainer {
     labels: Vec<BoxedSystemLabel>,
     before: Vec<BoxedSystemLabel>,
     after: Vec<BoxedSystemLabel>,
-    ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
     ambiguity_detection: AmbiguityDetection,
 }
 
@@ -141,7 +133,6 @@ impl ParallelSystemContainer {
             labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
-            ambiguity_sets: descriptor.ambiguity_sets,
             ambiguity_detection: descriptor.ambiguity_detection,
         }
     }
@@ -207,10 +198,6 @@ impl SystemContainer for ParallelSystemContainer {
 
     fn run_criteria_label(&self) -> Option<&BoxedRunCriteriaLabel> {
         self.run_criteria_label.as_ref()
-    }
-
-    fn ambiguity_sets(&self) -> &[BoxedAmbiguitySetLabel] {
-        &self.ambiguity_sets
     }
 
     fn component_access(&self) -> Option<&Access<ComponentId>> {
