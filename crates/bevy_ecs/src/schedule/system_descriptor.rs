@@ -1,6 +1,9 @@
 use crate::{
     schedule::{BoxedSystemLabel, IntoRunCriteria, RunCriteriaDescriptorOrLabel, SystemLabel},
-    system::{BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn, IntoSystem},
+    system::{
+        AsSystemLabel, BoxedSystem, ExclusiveSystem, ExclusiveSystemCoerced, ExclusiveSystemFn,
+        IntoSystem,
+    },
 };
 
 /// Encapsulates a system and information on when it run in a `SystemStage`.

@@ -1420,7 +1420,7 @@ mod tests {
                 .collect()
         }
 
-        fn find_ambiguities_first_labels_with_filter(
+        fn find_ambiguities_first_str_labels_with_filter(
             systems: &[impl SystemContainer],
             filter: &[String],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
@@ -1867,7 +1867,7 @@ mod tests {
             .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("0")))
@@ -1882,7 +1882,7 @@ mod tests {
             .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
@@ -1910,7 +1910,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("2"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("2")))
@@ -1931,7 +1931,7 @@ mod tests {
             .with_system(resource.label("4").ambiguous_with("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1943,7 +1943,7 @@ mod tests {
             .with_system(inner::inner_fn.label("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels_with_filter(
+        let ambiguities = find_ambiguities_first_str_labels_with_filter(
             &stage.parallel,
             &["bevy_ecs::schedule::stage::tests::ambiguity_detection::inner::".into()],
         );
