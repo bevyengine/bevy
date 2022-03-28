@@ -404,7 +404,7 @@ impl FromWorld for MeshPipeline {
                         count: None,
                     },
                 ],
-                label: Some("mesh_layout"),
+                label: Some("skinned_mesh_layout"),
             });
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
