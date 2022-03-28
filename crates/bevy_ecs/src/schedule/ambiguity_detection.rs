@@ -5,6 +5,11 @@ use crate::world::World;
 use fixedbitset::FixedBitSet;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+
+/// Controls the level of reporting for [`ReportExecutionOrderAmbiguities`]:
+/// * [`AmbiguityReportLevel::Off`] - Disables all messages reported by the ambiguity checker.
+/// * [`AmbiguityReportLevel::Minimal`] - Displays only the number of unresolved ambiguities detected by the ambiguity checker.
+/// * [`AmbiguityReportLevel::Verbose`] - Displays a full report of ambiguities detected by the ambiguity checker.
 pub enum AmbiguityReportLevel {
     Off,
     Minimal,
