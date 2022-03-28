@@ -327,6 +327,7 @@ impl FromWorld for MeshPipeline {
             GpuImage {
                 texture,
                 texture_view,
+                texture_format: image.texture_descriptor.format,
                 sampler,
                 size: Size::new(
                     image.texture_descriptor.size.width as f32,
@@ -624,7 +625,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, view_lights, mesh_view_bind_group) = view_query.get(view).unwrap();
+        let (view_uniform, view_lights, mesh_view_bind_group) = view_query.get_inner(view).unwrap();
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,

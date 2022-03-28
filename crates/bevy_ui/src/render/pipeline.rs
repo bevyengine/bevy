@@ -62,7 +62,7 @@ impl FromWorld for UiPipeline {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {}
 
-impl SpecializedPipeline for UiPipeline {
+impl SpecializedRenderPipeline for UiPipeline {
     type Key = UiPipelineKey;
     /// FIXME: there are no specialization for now, should this be removed?
     fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {

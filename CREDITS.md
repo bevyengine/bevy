@@ -21,3 +21,5 @@
 * Ground tile from [Kenney's Tower Defense Kit](https://www.kenney.nl/assets/tower-defense-kit) (CC0 1.0 Universal)
 * Game icons from [Kenney's Game Icons](https://www.kenney.nl/assets/game-icons) (CC0 1.0 Universal)
 * Space ships from [Kenny's Simple Space Kit](https://www.kenney.nl/assets/simple-space) (CC0 1.0 Universal)
+* glTF animated triangle from [glTF Sample Models](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/AnimatedTriangle) (CC0 1.0 Universal)
+* glTF box animated from [glTF Sample Models](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/BoxAnimated) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) - by [Cesium](https://cesium.com))

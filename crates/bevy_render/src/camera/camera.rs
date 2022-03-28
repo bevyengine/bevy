@@ -1,16 +1,23 @@
+use std::marker::PhantomData;
+
 use crate::{
-    camera::CameraProjection, prelude::Image, render_asset::RenderAssets,
-    render_resource::TextureView, view::ExtractedWindows,
+    camera::CameraProjection,
+    prelude::Image,
+    render_asset::RenderAssets,
+    render_resource::TextureView,
+    view::{ExtractedView, ExtractedWindows, VisibleEntities},
+    RenderApp, RenderStage,
 };
+use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::{DetectChanges, QueryState},
+    prelude::{DetectChanges, QueryState, With},
     query::Added,
     reflect::ReflectComponent,
-    system::{QuerySet, Res},
+    system::{Commands, Query, QuerySet, Res, ResMut},
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
@@ -24,7 +31,6 @@ use wgpu::Extent3d;
 #[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
-    pub name: Option<String>,
     #[reflect(ignore)]
     pub target: RenderTarget,
     #[reflect(ignore)]
@@ -202,4 +208,112 @@ pub fn camera_system<T: CameraProjection + Component>(
             }
         }
     }
+}
+
+pub struct CameraTypePlugin<T: Component + Default>(PhantomData<T>);
+
+impl<T: Component + Default> Default for CameraTypePlugin<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<T: Component + Default> Plugin for CameraTypePlugin<T> {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ActiveCamera<T>>()
+            .add_startup_system_to_stage(StartupStage::PostStartup, set_active_camera::<T>)
+            .add_system_to_stage(CoreStage::PostUpdate, set_active_camera::<T>);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_system_to_stage(RenderStage::Extract, extract_cameras::<T>);
+        }
+    }
+}
+
+/// The canonical source of the "active camera" of the given camera type `T`.
+#[derive(Debug)]
+pub struct ActiveCamera<T: Component> {
+    camera: Option<Entity>,
+    marker: PhantomData<T>,
+}
+
+impl<T: Component> Default for ActiveCamera<T> {
+    fn default() -> Self {
+        Self {
+            camera: Default::default(),
+            marker: Default::default(),
+        }
+    }
+}
+
+impl<T: Component> Clone for ActiveCamera<T> {
+    fn clone(&self) -> Self {
+        Self {
+            camera: self.camera,
+            marker: self.marker,
+        }
+    }
+}
+
+impl<T: Component> ActiveCamera<T> {
+    /// Sets the active camera to the given `camera` entity.
+    pub fn set(&mut self, camera: Entity) {
+        self.camera = Some(camera);
+    }
+
+    /// Returns the active camera, if it exists.
+    pub fn get(&self) -> Option<Entity> {
+        self.camera
+    }
+}
+
+pub fn set_active_camera<T: Component>(
+    mut active_camera: ResMut<ActiveCamera<T>>,
+    cameras: Query<Entity, With<T>>,
+) {
+    if active_camera.get().is_some() {
+        return;
+    }
+
+    if let Some(camera) = cameras.iter().next() {
+        active_camera.camera = Some(camera);
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct ExtractedCamera {
+    pub target: RenderTarget,
+    pub physical_size: Option<UVec2>,
+}
+
+pub fn extract_cameras<M: Component + Default>(
+    mut commands: Commands,
+    windows: Res<Windows>,
+    images: Res<Assets<Image>>,
+    active_camera: Res<ActiveCamera<M>>,
+    query: Query<(&Camera, &GlobalTransform, &VisibleEntities), With<M>>,
+) {
+    if let Some(entity) = active_camera.get() {
+        if let Ok((camera, transform, visible_entities)) = query.get(entity) {
+            if let Some(size) = camera.target.get_physical_size(&windows, &images) {
+                commands.get_or_spawn(entity).insert_bundle((
+                    ExtractedCamera {
+                        target: camera.target.clone(),
+                        physical_size: camera.target.get_physical_size(&windows, &images),
+                    },
+                    ExtractedView {
+                        projection: camera.projection_matrix,
+                        transform: *transform,
+                        width: size.x.max(1),
+                        height: size.y.max(1),
+                        near: camera.near,
+                        far: camera.far,
+                    },
+                    visible_entities.clone(),
+                    M::default(),
+                ));
+            }
+        }
+    }
+
+    commands.insert_resource(active_camera.clone())
 }
