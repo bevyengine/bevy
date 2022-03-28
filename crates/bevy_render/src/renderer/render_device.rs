@@ -9,8 +9,6 @@ use futures_lite::future;
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
-use super::RenderQueue;
-
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Clone)]
 pub struct RenderDevice {
@@ -147,19 +145,6 @@ impl RenderDevice {
     /// `desc` specifies the general format of the texture.
     pub fn create_texture(&self, desc: &wgpu::TextureDescriptor) -> Texture {
         let wgpu_texture = self.device.create_texture(desc);
-        Texture::from(wgpu_texture)
-    }
-
-    /// Creates a new [`Texture`] and initializes it with the specified data.
-    ///
-    /// `desc` specifies the general format of the texture.
-    pub fn create_texture_with_data(
-        &self,
-        queue: &RenderQueue,
-        desc: &wgpu::TextureDescriptor,
-        data: &[u8],
-    ) -> Texture {
-        let wgpu_texture = self.device.create_texture_with_data(queue, desc, data);
         Texture::from(wgpu_texture)
     }
 
