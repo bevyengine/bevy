@@ -141,7 +141,7 @@ impl<M: Material> SpecializedMaterial for M {
     #[inline]
     fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
         <M as Material>::depth_bias(material)
-    }    
+    }
 }
 
 /// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)

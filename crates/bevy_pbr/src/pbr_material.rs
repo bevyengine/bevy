@@ -505,5 +505,5 @@ impl SpecializedMaterial for StandardMaterial {
     #[inline]
     fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
         material.depth_bias
-    }    
+    }
 }
