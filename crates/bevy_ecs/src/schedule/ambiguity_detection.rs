@@ -353,6 +353,64 @@ mod tests {
     }
 
     #[test]
+    fn trivial_ambiguity() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+        test_stage.add_system(system_a).add_system(system_b);
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            1
+        );
+    }
+
+    #[test]
+    fn ignore_all_ambiguities() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(system_a.ignore_all_ambiguities())
+            .add_system(system_b);
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            0
+        );
+    }
+
+    #[test]
+    fn ambiguous_with_label() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(system_a.ambiguous_with("b"))
+            .add_system(system_b.label("b"));
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            0
+        );
+    }
+
+    #[test]
+    fn ambiguous_with_system() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(system_a.ambiguous_with(system_b))
+            .add_system(system_b);
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            0
+        );
+    }
+
+    #[test]
     fn off() {
         let test_stage = make_test_stage();
         assert_eq!(
