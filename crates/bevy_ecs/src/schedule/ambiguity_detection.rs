@@ -252,8 +252,14 @@ impl SystemStage {
         unresolved_count += at_end.len();
 
         if unresolved_count > 0 {
-            println!("\n One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
+            // Grammar
+            if unresolved_count == 1 {
+                println!("\n One of your stages contains 1 pair of systems with unknown order and conflicting data access. \
 				You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
+            } else {
+                println!("\n One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
+				You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
+            }
 
             if report_level == ReportExecutionOrderAmbiguities::Minimal {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
