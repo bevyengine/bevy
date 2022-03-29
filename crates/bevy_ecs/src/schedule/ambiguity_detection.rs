@@ -301,6 +301,9 @@ fn write_display_names_of_pairs(
     ambiguities.len()
 }
 
+// Systems and TestResource are used in tests
+#[allow(dead_code)]
+#[cfg(test)]
 mod tests {
     use crate::prelude::*;
 
@@ -326,21 +329,62 @@ mod tests {
         test_stage
     }
 
+    /// Mocking internal functionality
+    mod bevy_render {
+        use super::*;
+
+        pub(super) fn system_e(_res: ResMut<TestResource>) {}
+
+        pub(super) fn system_f(_res: ResMut<TestResource>) {}
+    }
+
     #[test]
     fn off() {
         let test_stage = make_test_stage();
         let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Off);
+        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
+
+        assert_eq!(n_ambiguities, 0);
     }
 
     #[test]
-    fn minimal() {}
+    fn minimal() {
+        let test_stage = make_test_stage();
+        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Minimal);
+        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
+
+        assert_eq!(n_ambiguities, 3);
+    }
 
     #[test]
-    fn verbose() {}
+    fn verbose() {
+        let test_stage = make_test_stage();
+        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Verbose);
+        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
+
+        assert_eq!(n_ambiguities, 3);
+    }
 
     #[test]
-    fn deterministic() {}
+    fn deterministic() {
+        let test_stage = make_test_stage();
+        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Deterministic);
+        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
+
+        assert_eq!(n_ambiguities, 6);
+    }
 
     #[test]
-    fn ignore_internal() {}
+    fn report_internal() {
+        let mut test_stage = make_test_stage();
+        test_stage.add_system(bevy_render::system_e);
+        test_stage.add_system(bevy_render::system_f);
+
+        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::ReportInternal);
+        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
+
+        // Ambiguities between external systems and internal systems should be reported
+        // but not internal ambiguities
+        assert_eq!(n_ambiguities, 5);
+    }
 }
