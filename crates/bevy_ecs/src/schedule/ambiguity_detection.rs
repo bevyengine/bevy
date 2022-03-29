@@ -240,6 +240,12 @@ impl SystemStage {
         [parallel, at_start, before_commands, at_end]
     }
 
+    /// Returns the number of system order ambiguities between systems in this stage
+    pub fn n_ambiguities(&self, report_level: ReportExecutionOrderAmbiguities) -> usize {
+        let ambiguities = self.ambiguities(report_level);
+        ambiguities.map(|vec| vec.len()).iter().sum()
+    }
+
     /// Reports all execution order ambiguities between systems
     pub fn report_ambiguities(&self, world: &World, report_level: ReportExecutionOrderAmbiguities) {
         let [parallel, at_start, before_commands, at_end] = self.ambiguities(report_level);
@@ -346,37 +352,37 @@ mod tests {
     #[test]
     fn off() {
         let test_stage = make_test_stage();
-        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Off);
-        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
-
-        assert_eq!(n_ambiguities, 0);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Off),
+            0
+        );
     }
 
     #[test]
     fn minimal() {
         let test_stage = make_test_stage();
-        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Minimal);
-        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
-
-        assert_eq!(n_ambiguities, 3);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            3
+        );
     }
 
     #[test]
     fn verbose() {
         let test_stage = make_test_stage();
-        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Verbose);
-        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
-
-        assert_eq!(n_ambiguities, 3);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Verbose),
+            3
+        );
     }
 
     #[test]
     fn deterministic() {
         let test_stage = make_test_stage();
-        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Deterministic);
-        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
-
-        assert_eq!(n_ambiguities, 6);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            6
+        );
     }
 
     #[test]
@@ -396,14 +402,14 @@ mod tests {
         // and the best public way to do that is to run it once
         test_stage.run(&mut world);
 
-        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Verbose);
-        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Verbose),
+            2
+        );
 
-        assert_eq!(n_ambiguities, 2);
-
-        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::ReportInternal);
-        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
-
-        assert_eq!(n_ambiguities, 3);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::ReportInternal),
+            3
+        );
     }
 }
