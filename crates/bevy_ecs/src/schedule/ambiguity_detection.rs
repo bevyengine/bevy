@@ -191,6 +191,10 @@ impl SystemStage {
     /// - exclusive at start,
     /// - exclusive before commands
     /// - exclusive at end
+    ///
+    /// # Panics
+    ///
+    /// You must call [`SystemStage::initialize`] first or this method will panic.
     pub fn ambiguities(
         &self,
         report_level: ReportExecutionOrderAmbiguities,
@@ -334,9 +338,8 @@ mod tests {
             // Ambiguous with A
             .add_system(system_d.ambiguous_with("b"));
 
-        // This is a bit of a hack: we need to ensure that the schedule has been properly initialized
-        // and the best public way to do that is to run it once
-        test_stage.run(&mut world);
+        // We need to ensure that the schedule has been properly initialized
+        test_stage.initialize(&mut world);
         test_stage
     }
 
@@ -398,9 +401,8 @@ mod tests {
             .add_system(bevy_render::system_e)
             .add_system(bevy_render::system_f);
 
-        // This is a bit of a hack: we need to ensure that the schedule has been properly initialized
-        // and the best public way to do that is to run it once
-        test_stage.run(&mut world);
+        // We need to ensure that the schedule has been properly initialized
+        test_stage.initialize(&mut world);
 
         assert_eq!(
             test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Verbose),

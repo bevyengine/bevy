@@ -99,6 +99,28 @@ impl SystemStage {
         Self::new(Box::new(ParallelExecutor::default()))
     }
 
+    /// Initializes this [`SystemStage`] on a specific world, ensuring that its internal state is valid
+    ///
+    /// This method is automatically called by [`Stage::run`], but must be manually called
+    /// when using [`SystemStage::ambiguities`].
+    pub fn initialize(&mut self, world: &mut World) {
+        if self.systems_modified {
+            self.initialize_systems(world);
+            self.rebuild_orders_and_dependencies();
+            self.systems_modified = false;
+            self.executor.rebuild_cached_data(&self.parallel);
+            self.executor_modified = false;
+            // This cannot panic, so we insert the default value if it was not present
+            let report_level = world
+                .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::default)
+                .clone();
+            self.report_ambiguities(world, report_level);
+        } else if self.executor_modified {
+            self.executor.rebuild_cached_data(&self.parallel);
+            self.executor_modified = false;
+        }
+    }
+
     pub fn get_executor<T: ParallelSystemExecutor>(&self) -> Option<&T> {
         self.executor.downcast_ref()
     }
@@ -602,21 +624,7 @@ impl Stage for SystemStage {
             self.world_id = Some(world.id());
         }
 
-        if self.systems_modified {
-            self.initialize_systems(world);
-            self.rebuild_orders_and_dependencies();
-            self.systems_modified = false;
-            self.executor.rebuild_cached_data(&self.parallel);
-            self.executor_modified = false;
-            // This cannot panic, so we insert the default value if it was not present
-            let report_level = world
-                .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::default)
-                .clone();
-            self.report_ambiguities(world, report_level);
-        } else if self.executor_modified {
-            self.executor.rebuild_cached_data(&self.parallel);
-            self.executor_modified = false;
-        }
+        self.initialize(world);
 
         let mut run_stage_loop = true;
         while run_stage_loop {
