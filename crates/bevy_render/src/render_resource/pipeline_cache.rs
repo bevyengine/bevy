@@ -141,7 +141,7 @@ impl ShaderCache {
                 // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
                 // and on wasm the error will be handled by wgpu and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
-                    futures_helper::now_or_never(error)
+                    bevy_utils::futures::now_or_never(error)
                 {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
@@ -668,39 +668,5 @@ impl<'a> Iterator for ErrorSources<'a> {
         let current = self.current;
         self.current = self.current.and_then(std::error::Error::source);
         current
-    }
-}
-
-mod futures_helper {
-    use std::{
-        future::Future,
-        task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
-    };
-
-    pub fn now_or_never<F: Future>(future: F) -> Option<F::Output> {
-        let noop_waker = noop_waker();
-        let mut cx = Context::from_waker(&noop_waker);
-
-        futures_lite::pin!(future);
-        match future.poll(&mut cx) {
-            Poll::Ready(x) => Some(x),
-            _ => None,
-        }
-    }
-
-    unsafe fn noop_clone(_data: *const ()) -> RawWaker {
-        noop_raw_waker()
-    }
-
-    unsafe fn noop(_data: *const ()) {}
-
-    const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(noop_clone, noop, noop, noop);
-
-    fn noop_raw_waker() -> RawWaker {
-        RawWaker::new(std::ptr::null(), &NOOP_WAKER_VTABLE)
-    }
-
-    fn noop_waker() -> Waker {
-        unsafe { Waker::from_raw(noop_raw_waker()) }
     }
 }
