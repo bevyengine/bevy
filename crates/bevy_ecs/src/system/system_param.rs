@@ -13,7 +13,7 @@ use crate::{
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ecs_macros::{all_tuples, impl_query_set};
+use bevy_ecs_macros::{all_tuples, impl_param_set};
 use std::{
     fmt::Debug,
     marker::PhantomData,
@@ -74,7 +74,7 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 pub unsafe trait ReadOnlySystemParamFetch {}
 
 pub trait SystemParamFetch<'world, 'state>: SystemParamState {
-    type Item;
+    type Item: SystemParam<Fetch = Self>;
     /// # Safety
     ///
     /// This call might access any of the input parameters in an unsafe way. Make sure the data
@@ -170,21 +170,20 @@ fn assert_component_access_compatibility(
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
-    panic!("error[B0001]: Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `QuerySet`.",
+    panic!("error[B0001]: Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`.",
            query_type, filter_type, system_name, accesses);
 }
 
-pub struct QuerySet<'w, 's, T> {
-    query_states: &'s T,
+pub struct ParamSet<'w, 's, T: SystemParam> {
+    param_states: &'s mut T::Fetch,
     world: &'w World,
-    last_change_tick: u32,
+    system_meta: SystemMeta,
     change_tick: u32,
 }
+/// The [`SystemParamState`] of [`ParamSet<T::Item>`].
+pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
-#[doc(hidden)]
-pub struct QuerySetState<T>(T);
-
-impl_query_set!();
+impl_param_set!();
 
 pub trait Resource: Send + Sync + 'static {}
 
