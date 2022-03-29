@@ -52,22 +52,39 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(AnimateScale);
     // Demonstrate text wrapping
+    let box_size = Size::new(300.0, 200.0);
+    let box_position = Vec2::new(0.0, -250.0);
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
             color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(300.0, 200.0)),
+            custom_size: Some(Vec2::new(box_size.width, box_size.height)),
             ..default()
         },
-        transform: Transform::from_xyz(0.0, -250.0, 0.0),
+        transform: Transform::from_translation(box_position.extend(0.0)),
         ..default()
     });
+    let text_alignment_topleft = TextAlignment {
+        vertical: VerticalAlign::Top,
+        horizontal: HorizontalAlign::Left,
+    };
     commands.spawn_bundle(Text2dBundle {
-        text: Text::with_section("this text wraps in the box", text_style, text_alignment),
+        text: Text::with_section(
+            "this text wraps in the box",
+            text_style,
+            text_alignment_topleft,
+        ),
         text_2d_bounds: Text2dBounds {
             // Wrap text in the rectangle
-            size: Size::new(300.0, 200.0),
+            size: box_size,
         },
-        transform: Transform::from_xyz(0.0, -250.0, 1.0),
+        // We align text to the top-left, so this transform is the top-left corner of our text. The
+        // box is centered at box_position, so it is necessary to move by half of the box size to
+        // keep the text in the box.
+        transform: Transform::from_xyz(
+            box_position.x - box_size.width / 2.0,
+            box_position.y + box_size.height / 2.0,
+            1.0,
+        ),
         ..default()
     });
 }
