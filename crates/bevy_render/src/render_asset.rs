@@ -5,6 +5,7 @@ use bevy_ecs::{
     prelude::*,
     system::{StaticSystemParam, SystemParam, SystemParamItem},
 };
+use bevy_reflect::Uuid;
 use bevy_utils::{HashMap, HashSet};
 use std::marker::PhantomData;
 
@@ -52,6 +53,9 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
     }
 }
 
+#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
+pub struct PrepareAssetSystemLabel(pub Uuid);
+
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -60,7 +64,10 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>)
-                .add_system_to_stage(RenderStage::Prepare, prepare_assets::<A>);
+                .add_system_to_stage(
+                    RenderStage::Prepare,
+                    prepare_assets::<A>.label(PrepareAssetSystemLabel(A::TYPE_UUID)),
+                );
         }
     }
 }

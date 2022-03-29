@@ -1,6 +1,7 @@
 pub mod visibility;
 pub mod window;
 
+use bevy_reflect::TypeUuid;
 pub use visibility::*;
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
@@ -11,7 +12,7 @@ pub use window::*;
 use crate::{
     camera::ExtractedCamera,
     prelude::Image,
-    render_asset::RenderAssets,
+    render_asset::{PrepareAssetSystemLabel, RenderAssets},
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
@@ -35,7 +36,9 @@ impl Plugin for ViewPlugin {
                 .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
                 .add_system_to_stage(
                     RenderStage::Prepare,
-                    prepare_view_targets.after(WindowSystem::Prepare),
+                    prepare_view_targets
+                        .after(WindowSystem::Prepare)
+                        .after(PrepareAssetSystemLabel(Image::TYPE_UUID)),
                 );
         }
     }
