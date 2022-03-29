@@ -1,44 +1,61 @@
 use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
+    component::Component,
     entity::Entity,
     query::{Changed, QueryState, With},
+    reflect::ReflectComponent,
     system::{Local, Query, QuerySet, Res, ResMut},
 };
 use bevy_math::{Size, Vec3};
+use bevy_reflect::Reflect;
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::{WindowId, Windows};
 
 use crate::{
-    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, Text2dSize, TextError,
-    VerticalAlign,
+    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, VerticalAlign,
 };
+
+/// The calculated size of text drawn in 2D scene.
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Text2dSize {
+    pub size: Size,
+}
+
+/// The maximum width and height of text. The text will wrap according to the specified size.
+/// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
+/// specified `TextAlignment`.
+///
+/// Note: only characters that are completely out of the bounds will be truncated, so this is not a
+/// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
+/// component is mainly useful for text wrapping only.
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Text2dBounds {
+    pub size: Size,
+}
+
+impl Default for Text2dBounds {
+    fn default() -> Self {
+        Self {
+            size: Size::new(f32::MAX, f32::MAX),
+        }
+    }
+}
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
     pub text: Text,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub text_2d_size: Text2dSize,
+    pub text_2d_bounds: Text2dBounds,
     pub visibility: Visibility,
-}
-
-impl Default for Text2dBundle {
-    fn default() -> Self {
-        Self {
-            text: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            text_2d_size: Text2dSize {
-                size: Size::default(),
-            },
-            visibility: Default::default(),
-        }
-    }
 }
 
 pub fn extract_text2d_sprite(
@@ -123,7 +140,7 @@ pub fn text2d_system(
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
         QueryState<Entity, (With<Text2dSize>, Changed<Text>)>,
-        QueryState<(&Text, &mut Text2dSize), With<Text2dSize>>,
+        QueryState<(&Text, Option<&Text2dBounds>, &mut Text2dSize), With<Text2dSize>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
@@ -141,14 +158,21 @@ pub fn text2d_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.q1();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
+        if let Ok((text, bounds, mut calculated_size)) = query.get_mut(entity) {
+            let text_bounds = match bounds {
+                Some(bounds) => Size {
+                    width: scale_value(bounds.size.width, scale_factor),
+                    height: scale_value(bounds.size.height, scale_factor),
+                },
+                None => Size::new(f32::MAX, f32::MAX),
+            };
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
                 &text.sections,
                 scale_factor,
                 text.alignment,
-                Size::new(f32::MAX, f32::MAX),
+                text_bounds,
                 &mut *font_atlas_set_storage,
                 &mut *texture_atlases,
                 &mut *textures,
