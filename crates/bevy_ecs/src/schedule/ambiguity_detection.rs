@@ -4,7 +4,7 @@ use crate::world::World;
 
 use fixedbitset::FixedBitSet;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// Systems that access the same Component or Resource within the same stage
 /// risk an ambiguous order that could result in logic bugs, unless they have an
 /// explicit execution ordering constraint between them.
@@ -206,7 +206,7 @@ impl SystemStage {
         debug_assert!(!self.systems_modified);
 
         // TODO: remove all internal ambiguities and remove this logic
-        let ignored_crates = if report_level < ReportExecutionOrderAmbiguities::ReportInternal {
+        let ignored_crates = if report_level != ReportExecutionOrderAmbiguities::ReportInternal {
             vec![
                 // Rendering
                 "bevy_render".to_string(),
@@ -255,7 +255,7 @@ impl SystemStage {
             println!("\n One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
 				You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
 
-            if report_level <= ReportExecutionOrderAmbiguities::Minimal {
+            if report_level == ReportExecutionOrderAmbiguities::Minimal {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
             } else {
                 // TODO: clean up this logic once exclusive systems are more compatible with parallel systems
