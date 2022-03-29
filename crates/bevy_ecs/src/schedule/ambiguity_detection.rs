@@ -49,15 +49,29 @@ pub enum ReportExecutionOrderAmbiguities {
     Deterministic,
 }
 
+/// A pair of systems that can run in an ambiguous order
+///
+/// Created by applying [`find_ambiguities`] to a [`SystemContainer`].
+/// These can be reported by configuring the [`ReportExecutionOrderAmbiguities`] resource.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SystemOrderAmbiguity {
+    // The index of the first system in the [`SystemContainer`]
+    pub system_a_index: usize,
+    // The index of the second system in the [`SystemContainer`]
+    pub system_b_index: usize,
+    /// The components (and resources) that these systems have incompatible access to
+    pub conflicts: Vec<ComponentId>,
+}
+
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-pub(super) fn find_ambiguities(
+pub fn find_ambiguities(
     systems: &[impl SystemContainer],
     crates_filter: &[String],
     // Should explicit attempts to ignore ambiguities be obeyed?
     respect_ignores: bool,
-) -> Vec<(usize, usize, Vec<ComponentId>)> {
+) -> Vec<SystemOrderAmbiguity> {
     fn should_ignore_ambiguity(
         systems: &[impl SystemContainer],
         index_a: usize,
@@ -143,10 +157,18 @@ pub(super) fn find_ambiguities(
                 if let (Some(a), Some(b)) = (a_access, b_access) {
                     let conflicts = a.get_conflicts(b);
                     if !conflicts.is_empty() {
-                        ambiguities.push((index_a, index_b, conflicts));
+                        ambiguities.push(SystemOrderAmbiguity {
+                            system_a_index: index_a,
+                            system_b_index: index_b,
+                            conflicts,
+                        });
                     }
                 } else {
-                    ambiguities.push((index_a, index_b, Vec::new()));
+                    ambiguities.push(SystemOrderAmbiguity {
+                        system_a_index: index_a,
+                        system_b_index: index_b,
+                        conflicts: Vec::default(),
+                    });
                 }
             }
         }
@@ -169,7 +191,7 @@ impl SystemStage {
     /// - exclusive at start,
     /// - exclusive before commands
     /// - exclusive at end
-    pub fn ambiguities(&self, world: &mut World) -> [Vec<(usize, usize, Vec<ComponentId>)>; 4] {
+    pub fn ambiguities(&self, world: &mut World) -> [Vec<SystemOrderAmbiguity>; 4] {
         let ambiguity_report =
             world.get_resource_or_insert_with(ReportExecutionOrderAmbiguities::default);
 
@@ -257,15 +279,15 @@ impl SystemStage {
 fn write_display_names_of_pairs(
     offset: usize,
     systems: &[impl SystemContainer],
-    ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
+    ambiguities: Vec<SystemOrderAmbiguity>,
     world: &World,
 ) -> usize {
-    for (i, (system_a_index, system_b_index, conflicting_indexes)) in ambiguities.iter().enumerate()
-    {
-        let _system_a_name = systems[*system_a_index].name();
-        let _system_b_name = systems[*system_b_index].name();
+    for (i, system_order_ambiguity) in ambiguities.iter().enumerate() {
+        let _system_a_name = systems[system_order_ambiguity.system_a_index].name();
+        let _system_b_name = systems[system_order_ambiguity.system_b_index].name();
 
-        let _conflicting_components = conflicting_indexes
+        let _conflicting_components = system_order_ambiguity
+            .conflicts
             .iter()
             .map(|id| world.components().get_info(*id).unwrap().name())
             .collect::<Vec<_>>();

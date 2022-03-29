@@ -1411,10 +1411,10 @@ mod tests {
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
             find_ambiguities(systems, &[], true)
                 .drain(..)
-                .map(|(index_a, index_b, _conflicts)| {
+                .map(|ambiguity| {
                     (
-                        systems[index_a].labels()[0].clone(),
-                        systems[index_b].labels()[0].clone(),
+                        systems[ambiguity.system_a_index].labels()[0].clone(),
+                        systems[ambiguity.system_a_index].labels()[0].clone(),
                     )
                 })
                 .collect()
@@ -1428,15 +1428,15 @@ mod tests {
 
             find_ambiguities
                 .drain(..)
-                .map(|(index_a, index_b, _conflicts)| {
+                .map(|ambiguity| {
                     (
-                        systems[index_a]
+                        systems[ambiguity.system_a_index]
                             .labels()
                             .iter()
                             .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
                             .unwrap()
                             .clone(),
-                        systems[index_b]
+                        systems[ambiguity.system_a_index]
                             .labels()
                             .iter()
                             .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
