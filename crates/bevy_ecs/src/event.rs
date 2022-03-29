@@ -250,8 +250,8 @@ fn internal_event_reader<'a, T>(
     } else {
         0
     };
-    let a = events.events_a.get(a_index..).unwrap_or_else(|| &[]);
-    let b = events.events_b.get(b_index..).unwrap_or_else(|| &[]);
+    let a = events.events_a.get(a_index..).unwrap_or_default();
+    let b = events.events_b.get(b_index..).unwrap_or_default();
     let unread_count = a.len() + b.len();
     *last_event_count = events.event_count - unread_count;
     let iterator = match events.state {

@@ -1,7 +1,9 @@
 extern crate proc_macro;
 
 mod component;
+mod fetch;
 
+use crate::fetch::derive_world_query_impl;
 use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -46,7 +48,7 @@ impl Parse for AllTuples {
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
-    let len = (input.start..=input.end).count();
+    let len = input.end - input.start;
     let mut ident_tuples = Vec::with_capacity(len);
     for i in input.start..=input.end {
         let idents = input
@@ -66,7 +68,7 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
-        let ident_tuples = &ident_tuples[0..i];
+        let ident_tuples = &ident_tuples[0..i - input.start];
         quote! {
             #macro_ident!(#(#ident_tuples),*);
         }
@@ -220,8 +222,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
             unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamState for QuerySetState<(#(QueryState<#query, #filter>,)*)>
                 where #(#filter::Fetch: FilterFetch,)*
             {
-                type Config = ();
-                fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self {
+                fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
                     #(
                         let mut #query = QueryState::<#query, #filter>::new(world);
                         assert_component_access_compatibility(
@@ -253,8 +254,6 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                             .extend(&#query.archetype_component_access);
                     )*
                 }
-
-                fn default_config() {}
             }
 
             impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'w, 's> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
@@ -383,24 +382,19 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         #[doc(hidden)]
         #fetch_struct_visibility struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
             state: TSystemParamState,
-            marker: std::marker::PhantomData<(#punctuated_generic_idents)>
+            marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
         }
 
         unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
-            type Config = TSystemParamState::Config;
-            fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta, config: Self::Config) -> Self {
+            fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
                 Self {
-                    state: TSystemParamState::init(world, system_meta, config),
+                    state: TSystemParamState::init(world, system_meta),
                     marker: std::marker::PhantomData,
                 }
             }
 
             fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
                 self.state.new_archetype(archetype, system_meta)
-            }
-
-            fn default_config() -> TSystemParamState::Config {
-                TSystemParamState::default_config()
             }
 
             fn apply(&mut self, world: &mut #path::world::World) {
@@ -425,6 +419,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Implement `WorldQuery` to use a struct as a parameter in a query
+#[proc_macro_derive(WorldQuery, attributes(world_query))]
+pub fn derive_world_query(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    derive_world_query_impl(ast)
+}
+
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -433,7 +434,7 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("SystemLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, &trait_path)
 }
 
 #[proc_macro_derive(StageLabel)]
@@ -442,7 +443,7 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, &trait_path)
 }
 
 #[proc_macro_derive(AmbiguitySetLabel)]
@@ -453,7 +454,7 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("AmbiguitySetLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, &trait_path)
 }
 
 #[proc_macro_derive(RunCriteriaLabel)]
@@ -464,7 +465,7 @@ pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, &trait_path)
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {

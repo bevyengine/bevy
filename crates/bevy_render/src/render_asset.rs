@@ -3,7 +3,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::*, RunSystem, SystemParam, SystemParamItem},
+    system::{StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::{HashMap, HashSet};
 use std::marker::PhantomData;
@@ -83,8 +83,7 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let prepare_asset_system = PrepareAssetSystem::<A>::system(&mut render_app.world)
-                .label(self.prepare_asset_label.clone());
+            let prepare_asset_system = prepare_assets::<A>.label(self.prepare_asset_label.clone());
 
             let prepare_asset_system = match self.prepare_asset_label {
                 PrepareAssetLabel::PreAssetPrepare => prepare_asset_system,
@@ -159,16 +158,8 @@ fn extract_render_asset<A: RenderAsset>(
     commands.insert_resource(ExtractedAssets {
         extracted: extracted_assets,
         removed,
-    })
+    });
 }
-
-/// Specifies all ECS data required by [`PrepareAssetSystem`].
-pub type RenderAssetParams<R> = (
-    SResMut<ExtractedAssets<R>>,
-    SResMut<RenderAssets<R>>,
-    SResMut<PrepareNextFrameAssets<R>>,
-    <R as RenderAsset>::Param,
-);
 
 // TODO: consider storing inside system?
 /// All assets that should be prepared next frame.
@@ -186,38 +177,36 @@ impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
 
 /// This system prepares all assets of the corresponding [`RenderAsset`] type
 /// which where extracted this frame for the GPU.
-pub struct PrepareAssetSystem<R: RenderAsset>(PhantomData<R>);
-
-impl<R: RenderAsset> RunSystem for PrepareAssetSystem<R> {
-    type Param = RenderAssetParams<R>;
-
-    fn run(
-        (mut extracted_assets, mut render_assets, mut prepare_next_frame, mut param): SystemParamItem<Self::Param>,
-    ) {
-        let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-        for (handle, extracted_asset) in queued_assets.drain(..) {
-            match R::prepare_asset(extracted_asset, &mut param) {
-                Ok(prepared_asset) => {
-                    render_assets.insert(handle, prepared_asset);
-                }
-                Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
-                    prepare_next_frame.assets.push((handle, extracted_asset));
-                }
+fn prepare_assets<R: RenderAsset>(
+    mut extracted_assets: ResMut<ExtractedAssets<R>>,
+    mut render_assets: ResMut<RenderAssets<R>>,
+    mut prepare_next_frame: ResMut<PrepareNextFrameAssets<R>>,
+    param: StaticSystemParam<<R as RenderAsset>::Param>,
+) {
+    let mut param = param.into_inner();
+    let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    for (handle, extracted_asset) in queued_assets.drain(..) {
+        match R::prepare_asset(extracted_asset, &mut param) {
+            Ok(prepared_asset) => {
+                render_assets.insert(handle, prepared_asset);
+            }
+            Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
+                prepare_next_frame.assets.push((handle, extracted_asset));
             }
         }
+    }
 
-        for removed in std::mem::take(&mut extracted_assets.removed) {
-            render_assets.remove(&removed);
-        }
+    for removed in std::mem::take(&mut extracted_assets.removed) {
+        render_assets.remove(&removed);
+    }
 
-        for (handle, extracted_asset) in std::mem::take(&mut extracted_assets.extracted) {
-            match R::prepare_asset(extracted_asset, &mut param) {
-                Ok(prepared_asset) => {
-                    render_assets.insert(handle, prepared_asset);
-                }
-                Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
-                    prepare_next_frame.assets.push((handle, extracted_asset));
-                }
+    for (handle, extracted_asset) in std::mem::take(&mut extracted_assets.extracted) {
+        match R::prepare_asset(extracted_asset, &mut param) {
+            Ok(prepared_asset) => {
+                render_assets.insert(handle, prepared_asset);
+            }
+            Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
+                prepare_next_frame.assets.push((handle, extracted_asset));
             }
         }
     }

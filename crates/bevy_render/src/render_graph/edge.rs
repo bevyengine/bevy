@@ -48,3 +48,9 @@ impl Edge {
         }
     }
 }
+
+#[derive(PartialEq, Eq)]
+pub enum EdgeExistence {
+    Exists,
+    DoesNotExist,
+}

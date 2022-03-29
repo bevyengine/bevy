@@ -1,17 +1,19 @@
 mod render_layers;
 
+use bevy_math::Vec3A;
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::components::GlobalTransform;
+use bevy_transform::TransformSystem;
 
 use crate::{
     camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
     mesh::Mesh,
-    primitives::{Aabb, Frustum},
+    primitives::{Aabb, Frustum, Sphere},
 };
 
 /// User indication of whether an entity is visible
@@ -180,10 +182,20 @@ pub fn check_visibility(
             }
 
             // If we have an aabb and transform, do frustum culling
-            if let (Some(aabb), None, Some(transform)) =
+            if let (Some(model_aabb), None, Some(transform)) =
                 (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
             {
-                if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
+                let model = transform.compute_matrix();
+                let model_sphere = Sphere {
+                    center: model.transform_point3a(model_aabb.center),
+                    radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
+                };
+                // Do quick sphere-based frustum culling
+                if !frustum.intersects_sphere(&model_sphere, false) {
+                    continue;
+                }
+                // If we have an aabb, do aabb-based frustum culling
+                if !frustum.intersects_obb(model_aabb, &model, false) {
                     continue;
                 }
             }

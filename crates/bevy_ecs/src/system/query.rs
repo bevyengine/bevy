@@ -3,7 +3,7 @@ use crate::{
     entity::Entity,
     query::{
         Fetch, FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryIter,
-        QueryState, WorldQuery,
+        QueryState, ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -299,7 +299,7 @@ where
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn iter(&'s self) -> QueryIter<'w, 's, Q, Q::ReadOnlyFetch, F> {
+    pub fn iter(&self) -> QueryIter<'_, 's, Q, Q::ReadOnlyFetch, F> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -454,17 +454,19 @@ where
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn for_each<FN: FnMut(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item)>(&'s self, f: FN) {
+    pub fn for_each<'this>(
+        &'this self,
+        f: impl FnMut(<Q::ReadOnlyFetch as Fetch<'this, 's>>::Item),
+    ) {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state
-                .for_each_unchecked_manual::<Q::ReadOnlyFetch, FN>(
-                    self.world,
-                    f,
-                    self.last_change_tick,
-                    self.change_tick,
-                )
+            self.state.for_each_unchecked_manual::<Q::ReadOnlyFetch, _>(
+                self.world,
+                f,
+                self.last_change_tick,
+                self.change_tick,
+            );
         };
     }
 
@@ -499,37 +501,54 @@ where
                 f,
                 self.last_change_tick,
                 self.change_tick,
-            )
+            );
         };
     }
 
-    /// Runs `f` on each query result in parallel using the given task pool.
+    /// Runs `f` on each query result in parallel using the given [`TaskPool`].
     ///
     /// This can only be called for immutable data, see [`Self::par_for_each_mut`] for
     /// mutable access.
+    ///
+    /// # Tasks and batch size
+    ///
+    /// The items in the query get sorted into batches.
+    /// Internally, this function spawns a group of futures that each take on a `batch_size` sized section of the items (or less if the division is not perfect).
+    /// Then, the tasks in the [`TaskPool`] work through these futures.
+    ///
+    /// You can use this value to tune between maximum multithreading ability (many small batches) and minimum parallelization overhead (few big batches).
+    /// Rule of thumb: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
+    /// If the body is computationally cheap and you have many items, a large batch size (=fewer batches) avoids spawning additional futures that don't help to even out the load.
+    ///
+    /// # Arguments
+    ///
+    ///* `task_pool` - The [`TaskPool`] to use
+    ///* `batch_size` - The number of batches to spawn
+    ///* `f` - The function to run on each item in the query
     #[inline]
-    pub fn par_for_each<FN: Fn(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone>(
-        &'s self,
+    pub fn par_for_each<'this>(
+        &'this self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: FN,
+        f: impl Fn(<Q::ReadOnlyFetch as Fetch<'this, 's>>::Item) + Send + Sync + Clone,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
             self.state
-                .par_for_each_unchecked_manual::<Q::ReadOnlyFetch, FN>(
+                .par_for_each_unchecked_manual::<Q::ReadOnlyFetch, _>(
                     self.world,
                     task_pool,
                     batch_size,
                     f,
                     self.last_change_tick,
                     self.change_tick,
-                )
+                );
         };
     }
 
-    /// Runs `f` on each query result in parallel using the given task pool.
+    /// Runs `f` on each query result in parallel using the given [`TaskPool`].
+    /// See [`Self::par_for_each`] for more details.
     #[inline]
     pub fn par_for_each_mut<'a, FN: Fn(<Q::Fetch as Fetch<'a, 'a>>::Item) + Send + Sync + Clone>(
         &'a mut self,
@@ -547,7 +566,7 @@ where
                 f,
                 self.last_change_tick,
                 self.change_tick,
-            )
+            );
         };
     }
 
@@ -584,9 +603,9 @@ where
     /// ```
     #[inline]
     pub fn get(
-        &'s self,
+        &self,
         entity: Entity,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+    ) -> Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -817,7 +836,7 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
-    pub fn single(&'s self) -> <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item {
+    pub fn single(&self) -> <Q::ReadOnlyFetch as Fetch<'_, 's>>::Item {
         self.get_single().unwrap()
     }
 
@@ -853,8 +872,8 @@ where
     /// # bevy_ecs::system::assert_is_system(player_scoring_system);
     /// ```
     pub fn get_single(
-        &'s self,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QuerySingleError> {
+        &self,
+    ) -> Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QuerySingleError> {
         let mut query = self.iter();
         let first = query.next();
         let extra = query.next().is_some();
@@ -1020,4 +1039,91 @@ pub enum QuerySingleError {
     NoEntities(&'static str),
     #[error("Multiple entities fit the query {0}!")]
     MultipleEntities(&'static str),
+}
+
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
+where
+    F::Fetch: FilterFetch,
+    Q::Fetch: ReadOnlyFetch,
+{
+    /// Returns the query result for the given [`Entity`], with the actual "inner" world lifetime.
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// This can only return immutable data (mutable data will be cast to an immutable form).
+    /// See [`get_mut`](Self::get_mut) for queries that contain at least one mutable component.
+    ///
+    /// # Example
+    ///
+    /// Here, `get` is used to retrieve the exact query result of the entity specified by the
+    /// `SelectedCharacter` resource.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct SelectedCharacter { entity: Entity }
+    /// # #[derive(Component)]
+    /// # struct Character { name: String }
+    /// #
+    /// fn print_selected_character_name_system(
+    ///        query: Query<&Character>,
+    ///        selection: Res<SelectedCharacter>
+    /// )
+    /// {
+    ///     if let Ok(selected_character) = query.get(selection.entity) {
+    ///         println!("{}", selected_character.name);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
+    /// ```
+    #[inline]
+    pub fn get_inner(
+        &'s self,
+        entity: Entity,
+    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError> {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.get_unchecked_manual::<Q::ReadOnlyFetch>(
+                self.world,
+                entity,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
+    /// Returns an [`Iterator`] over the query results, with the actual "inner" world lifetime.
+    ///
+    /// This can only return immutable data (mutable data will be cast to an immutable form).
+    /// See [`Self::iter_mut`] for queries that contain at least one mutable component.
+    ///
+    /// # Example
+    ///
+    /// Here, the `report_names_system` iterates over the `Player` component of every entity
+    /// that contains it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Player { name: String }
+    /// #
+    /// fn report_names_system(query: Query<&Player>) {
+    ///     for player in query.iter() {
+    ///         println!("Say hello to {}!", player.name);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(report_names_system);
+    /// ```
+    #[inline]
+    pub fn iter_inner(&'s self) -> QueryIter<'w, 's, Q, Q::ReadOnlyFetch, F> {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state
+                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+        }
+    }
 }

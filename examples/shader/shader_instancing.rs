@@ -5,7 +5,7 @@ use bevy::{
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
-        mesh::GpuBufferInfo,
+        mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
         render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{
@@ -58,11 +58,11 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
-#[derive(Component)]
+#[derive(Component, Deref)]
 struct InstanceMaterialData(Vec<InstanceData>);
 impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
@@ -81,7 +81,7 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()
-            .init_resource::<SpecializedPipelines<CustomPipeline>>()
+            .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
             .add_system_to_stage(RenderStage::Queue, queue_custom)
             .add_system_to_stage(RenderStage::Prepare, prepare_instance_buffers);
     }
@@ -95,14 +95,16 @@ struct InstanceData {
     color: [f32; 4],
 }
 
+#[allow(clippy::too_many_arguments)]
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     custom_pipeline: Res<CustomPipeline>,
     msaa: Res<Msaa>,
-    mut pipelines: ResMut<SpecializedPipelines<CustomPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    meshes: Res<RenderAssets<Mesh>>,
     material_meshes: Query<
-        (Entity, &MeshUniform),
+        (Entity, &MeshUniform, &Handle<Mesh>),
         (With<Handle<Mesh>>, With<InstanceMaterialData>),
     >,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
@@ -112,20 +114,25 @@ fn queue_custom(
         .get_id::<DrawCustom>()
         .unwrap();
 
-    let key = MeshPipelineKey::from_msaa_samples(msaa.samples)
-        | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
-    let pipeline = pipelines.specialize(&mut pipeline_cache, &custom_pipeline, key);
+    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
-        for (entity, mesh_uniform) in material_meshes.iter() {
-            transparent_phase.add(Transparent3d {
-                entity,
-                pipeline,
-                draw_function: draw_custom,
-                distance: view_row_2.dot(mesh_uniform.transform.col(3)),
-            });
+        for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
+            if let Some(mesh) = meshes.get(mesh_handle) {
+                let key =
+                    msaa_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                let pipeline = pipelines
+                    .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)
+                    .unwrap();
+                transparent_phase.add(Transparent3d {
+                    entity,
+                    pipeline,
+                    draw_function: draw_custom,
+                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                });
+            }
         }
     }
 }
@@ -144,12 +151,12 @@ fn prepare_instance_buffers(
     for (entity, instance_data) in query.iter() {
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("instance data buffer"),
-            contents: bytemuck::cast_slice(instance_data.0.as_slice()),
+            contents: bytemuck::cast_slice(instance_data.as_slice()),
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
         });
         commands.entity(entity).insert(InstanceBuffer {
             buffer,
-            length: instance_data.0.len(),
+            length: instance_data.len(),
         });
     }
 }
@@ -175,11 +182,15 @@ impl FromWorld for CustomPipeline {
     }
 }
 
-impl SpecializedPipeline for CustomPipeline {
+impl SpecializedMeshPipeline for CustomPipeline {
     type Key = MeshPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key);
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.buffers.push(VertexBufferLayout {
             array_stride: std::mem::size_of::<InstanceData>() as u64,
@@ -203,7 +214,7 @@ impl SpecializedPipeline for CustomPipeline {
             self.mesh_pipeline.mesh_layout.clone(),
         ]);
 
-        descriptor
+        Ok(descriptor)
     }
 }
 
@@ -229,7 +240,7 @@ impl EntityRenderCommand for DrawMeshInstanced {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let mesh_handle = mesh_query.get(item).unwrap();
-        let instance_buffer = instance_buffer_query.get(item).unwrap();
+        let instance_buffer = instance_buffer_query.get_inner(item).unwrap();
 
         let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
             Some(gpu_mesh) => gpu_mesh,

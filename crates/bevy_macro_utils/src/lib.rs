@@ -76,7 +76,7 @@ impl BevyManifest {
 ///
 /// - `input`: The [`syn::DeriveInput`] for struct that is deriving the label trait
 /// - `trait_path`: The path [`syn::Path`] to the label trait
-pub fn derive_label(input: syn::DeriveInput, trait_path: syn::Path) -> TokenStream {
+pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
     let ident = input.ident;
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();

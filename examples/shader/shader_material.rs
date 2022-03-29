@@ -36,19 +36,19 @@ fn setup(
         material: materials.add(CustomMaterial {
             color: Color::GREEN,
         }),
-        ..Default::default()
+        ..default()
     });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
 // This is the struct that will be passed to your shader
 #[derive(Debug, Clone, TypeUuid)]
-#[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
+#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 pub struct CustomMaterial {
     color: Color,
 }

@@ -22,7 +22,9 @@ fn main() {
 // Number of cubes to spawn across the x, y, and z axis
 const NUM_CUBES: u32 = 6;
 
+#[derive(Deref)]
 struct BoxMeshHandle(Handle<Mesh>);
+#[derive(Deref)]
 struct BoxMaterialHandle(Handle<StandardMaterial>);
 
 /// Startup system which runs only once and generates our Box Mesh
@@ -84,10 +86,10 @@ fn handle_tasks(
         if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
-                mesh: box_mesh_handle.0.clone(),
-                material: box_material_handle.0.clone(),
+                mesh: box_mesh_handle.clone(),
+                material: box_material_handle.clone(),
                 transform,
-                ..Default::default()
+                ..default()
             });
 
             // Task is complete, so remove task component from entity
@@ -108,13 +110,13 @@ fn setup_env(mut commands: Commands) {
     // lights
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 12.0, 15.0),
-        ..Default::default()
+        ..default()
     });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

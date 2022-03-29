@@ -14,12 +14,12 @@ use std::ops::Mul;
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](super::Parent).
+/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] in the system
-/// [`transform_propagate_system`](crate::transform_propagate_system::transform_propagate_system).
+/// [`transform_propagate_system`](crate::transform_propagate_system).
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
@@ -94,6 +94,7 @@ impl GlobalTransform {
 
     #[doc(hidden)]
     #[inline]
+    #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
         self.look_at(target, up);
         self
@@ -197,11 +198,12 @@ impl GlobalTransform {
     /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`GlobalTransform`]
     #[inline]
-    pub fn mul_transform(&self, transform: Transform) -> GlobalTransform {
+    #[must_use]
+    pub fn mul_transform(&self, transform: Transform) -> Self {
         let translation = self.mul_vec3(transform.translation);
         let rotation = self.rotation * transform.rotation;
         let scale = self.scale * transform.scale;
-        GlobalTransform {
+        Self {
             translation,
             rotation,
             scale,
@@ -211,8 +213,8 @@ impl GlobalTransform {
     /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
     #[inline]
     pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
-        value = self.rotation * value;
         value = self.scale * value;
+        value = self.rotation * value;
         value += self.translation;
         value
     }
