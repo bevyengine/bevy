@@ -191,11 +191,11 @@ impl SystemStage {
     /// - exclusive at start,
     /// - exclusive before commands
     /// - exclusive at end
-    pub fn ambiguities(&self, world: &mut World) -> [Vec<SystemOrderAmbiguity>; 4] {
-        let ambiguity_report =
-            world.get_resource_or_insert_with(ReportExecutionOrderAmbiguities::default);
-
-        if *ambiguity_report == ReportExecutionOrderAmbiguities::Off {
+    pub fn ambiguities(
+        &self,
+        report_level: ReportExecutionOrderAmbiguities,
+    ) -> [Vec<SystemOrderAmbiguity>; 4] {
+        if report_level == ReportExecutionOrderAmbiguities::Off {
             return [
                 Vec::default(),
                 Vec::default(),
@@ -208,8 +208,7 @@ impl SystemStage {
         debug_assert!(!self.systems_modified);
 
         // TODO: remove all internal ambiguities and remove this logic
-        let ignored_crates = if *ambiguity_report < ReportExecutionOrderAmbiguities::ReportInternal
-        {
+        let ignored_crates = if report_level < ReportExecutionOrderAmbiguities::ReportInternal {
             vec![
                 // Rendering
                 "bevy_render".to_string(),
@@ -227,7 +226,7 @@ impl SystemStage {
             Vec::default()
         };
 
-        let respect_ignores = *ambiguity_report == ReportExecutionOrderAmbiguities::Deterministic;
+        let respect_ignores = report_level == ReportExecutionOrderAmbiguities::Deterministic;
 
         let parallel = find_ambiguities(&self.parallel, &ignored_crates, respect_ignores);
         let at_start = find_ambiguities(&self.exclusive_at_start, &ignored_crates, respect_ignores);
@@ -242,9 +241,8 @@ impl SystemStage {
     }
 
     /// Reports all execution order ambiguities between systems
-    pub fn report_ambiguities(&self, world: &mut World) {
-        let [parallel, at_start, before_commands, at_end] = self.ambiguities(world);
-        let &ambiguity_report = world.resource::<ReportExecutionOrderAmbiguities>();
+    pub fn report_ambiguities(&self, world: &World, report_level: ReportExecutionOrderAmbiguities) {
+        let [parallel, at_start, before_commands, at_end] = self.ambiguities(report_level);
 
         let mut unresolved_count = parallel.len();
         unresolved_count += at_start.len();
@@ -255,7 +253,7 @@ impl SystemStage {
             println!("\n One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
 				You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
 
-            if ambiguity_report <= ReportExecutionOrderAmbiguities::Minimal {
+            if report_level <= ReportExecutionOrderAmbiguities::Minimal {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
             } else {
                 // TODO: clean up this logic once exclusive systems are more compatible with parallel systems
@@ -301,4 +299,48 @@ fn write_display_names_of_pairs(
 
     // We can't merge the SystemContainer arrays, so instead we manually keep track of how high we've counted :upside_down:
     ambiguities.len()
+}
+
+mod tests {
+    use crate::prelude::*;
+
+    struct TestResource;
+
+    fn system_a(_res: ResMut<TestResource>) {}
+    fn system_b(_res: ResMut<TestResource>) {}
+    fn system_c(_res: ResMut<TestResource>) {}
+    fn system_d(_res: ResMut<TestResource>) {}
+
+    fn make_test_stage() -> SystemStage {
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage
+            // Ambiguous with B and D
+            .add_system(system_a)
+            // Ambiguous with A
+            .add_system(system_b.label("b"))
+            .add_system(system_c.ignore_all_ambiguities())
+            // Ambiguous with A
+            .add_system(system_d.ambiguous_with("b"));
+
+        test_stage
+    }
+
+    #[test]
+    fn off() {
+        let test_stage = make_test_stage();
+        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Off);
+    }
+
+    #[test]
+    fn minimal() {}
+
+    #[test]
+    fn verbose() {}
+
+    #[test]
+    fn deterministic() {}
+
+    #[test]
+    fn ignore_internal() {}
 }
