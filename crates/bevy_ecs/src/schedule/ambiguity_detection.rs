@@ -70,16 +70,16 @@ pub fn find_ambiguities(
     systems: &[impl SystemContainer],
     crates_filter: &[String],
     // Should explicit attempts to ignore ambiguities be obeyed?
-    respect_ignores: bool,
+    report_level: ReportExecutionOrderAmbiguities,
 ) -> Vec<SystemOrderAmbiguity> {
     fn should_ignore_ambiguity(
         systems: &[impl SystemContainer],
         index_a: usize,
         index_b: usize,
         crates_filter: &[String],
-        respect_ignores: bool,
+        report_level: ReportExecutionOrderAmbiguities,
     ) -> bool {
-        if !respect_ignores {
+        if report_level == ReportExecutionOrderAmbiguities::Deterministic {
             return false;
         }
 
@@ -144,13 +144,7 @@ pub fn find_ambiguities(
         // .take(index_a)
         {
             if !processed.contains(index_b)
-                && !should_ignore_ambiguity(
-                    systems,
-                    index_a,
-                    index_b,
-                    crates_filter,
-                    respect_ignores,
-                )
+                && !should_ignore_ambiguity(systems, index_a, index_b, crates_filter, report_level)
             {
                 let a_access = systems[index_a].component_access();
                 let b_access = systems[index_b].component_access();
@@ -230,16 +224,14 @@ impl SystemStage {
             Vec::default()
         };
 
-        let respect_ignores = report_level == ReportExecutionOrderAmbiguities::Deterministic;
-
-        let parallel = find_ambiguities(&self.parallel, &ignored_crates, respect_ignores);
-        let at_start = find_ambiguities(&self.exclusive_at_start, &ignored_crates, respect_ignores);
+        let parallel = find_ambiguities(&self.parallel, &ignored_crates, report_level);
+        let at_start = find_ambiguities(&self.exclusive_at_start, &ignored_crates, report_level);
         let before_commands = find_ambiguities(
             &self.exclusive_before_commands,
             &ignored_crates,
-            respect_ignores,
+            report_level,
         );
-        let at_end = find_ambiguities(&self.exclusive_at_end, &ignored_crates, respect_ignores);
+        let at_end = find_ambiguities(&self.exclusive_at_end, &ignored_crates, report_level);
 
         [parallel, at_start, before_commands, at_end]
     }
@@ -424,7 +416,7 @@ mod tests {
         let test_stage = make_test_stage();
         assert_eq!(
             test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
-            3
+            2
         );
     }
 
@@ -433,7 +425,7 @@ mod tests {
         let test_stage = make_test_stage();
         assert_eq!(
             test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Verbose),
-            3
+            2
         );
     }
 

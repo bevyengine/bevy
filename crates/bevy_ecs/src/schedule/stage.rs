@@ -1418,11 +1418,12 @@ mod tests {
         use super::SystemContainer;
         use crate::schedule::find_ambiguities;
         use crate::schedule::BoxedSystemLabel;
+        use crate::schedule::ReportExecutionOrderAmbiguities;
 
         fn find_ambiguities_first_str_labels(
             systems: &[impl SystemContainer],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
-            find_ambiguities(systems, &[], true)
+            find_ambiguities(systems, &[], ReportExecutionOrderAmbiguities::Deterministic)
                 .drain(..)
                 .map(|ambiguity| {
                     (
@@ -1437,7 +1438,11 @@ mod tests {
             systems: &[impl SystemContainer],
             filter: &[String],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
-            let mut find_ambiguities = find_ambiguities(systems, filter, true);
+            let mut find_ambiguities = find_ambiguities(
+                systems,
+                filter,
+                ReportExecutionOrderAmbiguities::Deterministic,
+            );
 
             find_ambiguities
                 .drain(..)
@@ -1478,7 +1483,15 @@ mod tests {
             .with_system(empty.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel, &[], false).len(), 0);
+        assert_eq!(
+            find_ambiguities(
+                &stage.parallel,
+                &[],
+                ReportExecutionOrderAmbiguities::Deterministic
+            )
+            .len(),
+            0
+        );
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.label("0"))
@@ -1518,7 +1531,15 @@ mod tests {
             .with_system(component.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel, &[], false).len(), 0);
+        assert_eq!(
+            find_ambiguities(
+                &stage.parallel,
+                &[],
+                ReportExecutionOrderAmbiguities::Deterministic
+            )
+            .len(),
+            0
+        );
 
         let mut stage = SystemStage::parallel()
             .with_system(component.label("0"))
@@ -1753,7 +1774,12 @@ mod tests {
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
         assert_eq!(
-            find_ambiguities(&stage.exclusive_at_start, &[], false).len(),
+            find_ambiguities(
+                &stage.exclusive_at_start,
+                &[],
+                ReportExecutionOrderAmbiguities::Deterministic
+            )
+            .len(),
             0
         );
 
