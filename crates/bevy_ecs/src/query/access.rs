@@ -240,28 +240,6 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             .collect()
     }
 
-    pub fn get_conflicts_set(&self, filtered_access_set: &FilteredAccessSet<T>) -> Vec<T> {
-        // if combined unfiltered access is incompatible, check each filtered access for
-        // compatibility with the set
-        let mut conflicts = HashSet::<usize>::default();
-        if !filtered_access_set
-            .combined_access
-            .is_compatible(&self.combined_access)
-        {
-            for current_filtered_access in filtered_access_set.filtered_accesses.iter() {
-                conflicts.extend(
-                    self.get_conflicts(current_filtered_access)
-                        .iter()
-                        .map(|ind| ind.sparse_set_index()),
-                );
-            }
-        }
-        conflicts
-            .iter()
-            .map(|ind| T::get_sparse_set_index(*ind))
-            .collect()
-    }
-
     pub fn add(&mut self, filtered_access: FilteredAccess<T>) {
         self.combined_access.extend(&filtered_access.access);
         self.filtered_accesses.push(filtered_access);
