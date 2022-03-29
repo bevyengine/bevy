@@ -3,7 +3,7 @@ use bevy_ecs::{
     bundle::Bundle,
     component::Component,
     entity::Entity,
-    query::{Changed, QueryState, With},
+    query::{Changed, With},
     reflect::ReflectComponent,
     system::{Local, ParamSet, Query, Res, ResMut},
 };
