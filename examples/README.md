@@ -39,6 +39,7 @@ git checkout v0.4.0
 - [Cross-Platform Examples](#cross-platform-examples)
   - [2D Rendering](#2d-rendering)
   - [3D Rendering](#3d-rendering)
+  - [Animation](#animation)
   - [Application](#application)
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
@@ -117,6 +118,13 @@ Example | File | Description
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
+
+## Animation
+
+Example | File | Description
+--- | --- | ---
+`custom_skinned_mesh` | [`animation/custom_skinned_mesh.rs`](./animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code.
+`gltf_skinned_mesh` | [`animation/gltf_skinned_mesh.rs`](./animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file.
 
 ## Application
 
