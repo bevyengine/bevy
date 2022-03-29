@@ -74,6 +74,14 @@ pub trait Material: Asset + RenderAsset {
         &[]
     }
 
+    #[allow(unused_variables)]
+    #[inline]
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// for meshes with equal depth, to avoid z-fighting.
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        0.0
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`].
     #[allow(unused_variables)]
     #[inline]
@@ -125,11 +133,15 @@ impl<M: Material> SpecializedMaterial for M {
         <M as Material>::fragment_shader(asset_server)
     }
 
-    #[allow(unused_variables)]
     #[inline]
     fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
         <M as Material>::dynamic_uniform_indices(material)
     }
+
+    #[inline]
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        <M as Material>::depth_bias(material)
+    }    
 }
 
 /// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)
