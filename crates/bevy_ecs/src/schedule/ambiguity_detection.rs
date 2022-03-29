@@ -162,44 +162,28 @@ impl Default for ReportExecutionOrderAmbiguities {
 }
 
 impl SystemStage {
-    /// Logs execution order ambiguities between systems. System orders must be fresh.
-    pub fn report_ambiguities(&self, world: &mut World) {
+    /// Returns all execution order ambiguities between systems
+    ///
+    /// Returns 4 vectors of ambiguities for each stage, in the following order:
+    /// - parallel
+    /// - exclusive at start,
+    /// - exclusive before commands
+    /// - exclusive at end
+    pub fn ambiguities(&self, world: &mut World) -> [Vec<(usize, usize, Vec<ComponentId>)>; 4] {
         let ambiguity_report =
             world.get_resource_or_insert_with(ReportExecutionOrderAmbiguities::default);
 
         if *ambiguity_report == ReportExecutionOrderAmbiguities::Off {
-            return;
+            return [
+                Vec::default(),
+                Vec::default(),
+                Vec::default(),
+                Vec::default(),
+            ];
         }
 
+        // System order must be fresh
         debug_assert!(!self.systems_modified);
-
-        fn write_display_names_of_pairs(
-            offset: usize,
-            systems: &[impl SystemContainer],
-            ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
-            world: &World,
-        ) -> usize {
-            for (i, (system_a_index, system_b_index, conflicting_indexes)) in
-                ambiguities.iter().enumerate()
-            {
-                let _system_a_name = systems[*system_a_index].name();
-                let _system_b_name = systems[*system_b_index].name();
-
-                let _conflicting_components = conflicting_indexes
-                    .iter()
-                    .map(|id| world.components().get_info(*id).unwrap().name())
-                    .collect::<Vec<_>>();
-
-                let _ambiguity_number = i + offset;
-
-                println!(
-						"{_ambiguity_number}. {_system_a_name} conflicts with {_system_b_name} on {_conflicting_components:?}"
-					);
-            }
-
-            // We can't merge the SystemContainer arrays, so instead we manually keep track of how high we've counted :upside_down:
-            ambiguities.len()
-        }
 
         // TODO: remove all internal ambiguities and remove this logic
         let ignored_crates = if *ambiguity_report < ReportExecutionOrderAmbiguities::ReportInternal
@@ -232,6 +216,14 @@ impl SystemStage {
         );
         let at_end = find_ambiguities(&self.exclusive_at_end, &ignored_crates, respect_ignores);
 
+        [parallel, at_start, before_commands, at_end]
+    }
+
+    /// Reports all execution order ambiguities between systems
+    pub fn report_ambiguities(&self, world: &mut World) {
+        let [parallel, at_start, before_commands, at_end] = self.ambiguities(world);
+        let &ambiguity_report = world.resource::<ReportExecutionOrderAmbiguities>();
+
         let mut unresolved_count = parallel.len();
         unresolved_count += at_start.len();
         unresolved_count += before_commands.len();
@@ -241,7 +233,7 @@ impl SystemStage {
             println!("\n One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
 				You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
 
-            if *ambiguity_report <= ReportExecutionOrderAmbiguities::Minimal {
+            if ambiguity_report <= ReportExecutionOrderAmbiguities::Minimal {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
             } else {
                 // TODO: clean up this logic once exclusive systems are more compatible with parallel systems
@@ -260,4 +252,31 @@ impl SystemStage {
             }
         }
     }
+}
+
+fn write_display_names_of_pairs(
+    offset: usize,
+    systems: &[impl SystemContainer],
+    ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
+    world: &World,
+) -> usize {
+    for (i, (system_a_index, system_b_index, conflicting_indexes)) in ambiguities.iter().enumerate()
+    {
+        let _system_a_name = systems[*system_a_index].name();
+        let _system_b_name = systems[*system_b_index].name();
+
+        let _conflicting_components = conflicting_indexes
+            .iter()
+            .map(|id| world.components().get_info(*id).unwrap().name())
+            .collect::<Vec<_>>();
+
+        let _ambiguity_number = i + offset;
+
+        println!(
+                "{_ambiguity_number}. {_system_a_name} conflicts with {_system_b_name} on {_conflicting_components:?}"
+            );
+    }
+
+    // We can't merge the SystemContainer arrays, so instead we manually keep track of how high we've counted :upside_down:
+    ambiguities.len()
 }
