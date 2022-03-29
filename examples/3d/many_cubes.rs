@@ -145,9 +145,9 @@ fn print_mesh_count(
     mut timer: Local<PrintingTimer>,
     sprites: Query<(&Handle<Mesh>, &ComputedVisibility)>,
 ) {
-    timer.0.tick(time.delta());
+    timer.tick(time.delta());
 
-    if timer.0.just_finished() {
+    if timer.just_finished() {
         info!(
             "Meshes: {} - Visible Meshes {}",
             sprites.iter().len(),
@@ -156,6 +156,7 @@ fn print_mesh_count(
     }
 }
 
+#[derive(Deref, DerefMut)]
 struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {

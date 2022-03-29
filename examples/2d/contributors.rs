@@ -27,6 +27,7 @@ struct ContributorSelection {
     idx: usize,
 }
 
+#[derive(Deref, DerefMut)]
 struct SelectTimer(Timer);
 
 #[derive(Component)]
@@ -161,7 +162,7 @@ fn select_system(
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
-    if !timer.0.tick(time.delta()).just_finished() {
+    if !timer.tick(time.delta()).just_finished() {
         return;
     }
 
