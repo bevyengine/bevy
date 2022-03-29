@@ -1,5 +1,5 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Mat4, Vec3, Vec3A, Vec4};
+use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 
 /// An Axis-Aligned Bounding Box
@@ -72,12 +72,47 @@ impl Sphere {
     }
 }
 
-/// A plane defined by a normal and distance value along the normal
-/// Any point p is in the plane if n.p = d
-/// For planes defining half-spaces such as for frusta, if n.p > d then p is on the positive side of the plane.
+/// A plane defined by a unit normal and distance from the origin along the normal
+/// Any point p is in the plane if n.p + d = 0
+/// For planes defining half-spaces such as for frusta, if n.p + d > 0 then p is on
+/// the positive side (inside) of the plane.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Plane {
-    pub normal_d: Vec4,
+    normal_d: Vec4,
+}
+
+impl Plane {
+    /// Constructs a `Plane` from a 4D vector whose first 3 components
+    /// are the normal and whose last component is the distance along the normal
+    /// from the origin.
+    /// This constructor ensures that the normal is normalized and the distance is
+    /// scaled accordingly so it represents the signed distance from the origin.
+    #[inline]
+    pub fn new(normal_d: Vec4) -> Self {
+        Self {
+            normal_d: normal_d * normal_d.xyz().length_recip(),
+        }
+    }
+
+    /// `Plane` unit normal
+    #[inline]
+    pub fn normal(&self) -> Vec3 {
+        self.normal_d.xyz()
+    }
+
+    /// Signed distance from the origin along the unit normal such that n.p + d = 0 for point p in
+    /// the `Plane`
+    #[inline]
+    pub fn d(&self) -> f32 {
+        self.normal_d.w
+    }
+
+    /// `Plane` unit normal and signed distance from the origin such that n.p + d = 0 for point p
+    /// in the `Plane`
+    #[inline]
+    pub fn normal_d(&self) -> Vec4 {
+        self.normal_d
+    }
 }
 
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
@@ -102,23 +137,20 @@ impl Frustum {
         let mut planes = [Plane::default(); 6];
         for (i, plane) in planes.iter_mut().enumerate().take(5) {
             let row = view_projection.row(i / 2);
-            plane.normal_d = if (i & 1) == 0 && i != 4 {
+            *plane = Plane::new(if (i & 1) == 0 && i != 4 {
                 row3 + row
             } else {
                 row3 - row
-            }
-            .normalize();
+            });
         }
         let far_center = *view_translation - far * *view_backward;
-        planes[5].normal_d = view_backward
-            .extend(-view_backward.dot(far_center))
-            .normalize();
+        planes[5] = Plane::new(view_backward.extend(-view_backward.dot(far_center)));
         Self { planes }
     }
 
     pub fn intersects_sphere(&self, sphere: &Sphere) -> bool {
         for plane in &self.planes {
-            if plane.normal_d.dot(sphere.center.extend(1.0)) + sphere.radius <= 0.0 {
+            if plane.normal_d().dot(sphere.center.extend(1.0)) + sphere.radius <= 0.0 {
                 return false;
             }
         }
@@ -134,9 +166,9 @@ impl Frustum {
         ];
 
         for plane in &self.planes {
-            let p_normal = Vec3A::from(plane.normal_d);
+            let p_normal = Vec3A::from(plane.normal_d());
             let relative_radius = aabb.relative_radius(&p_normal, &axes);
-            if plane.normal_d.dot(aabb_center_world) + relative_radius <= 0.0 {
+            if plane.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
                 return false;
             }
         }
@@ -157,5 +189,162 @@ impl CubemapFrusta {
     }
     pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut Frustum> {
         self.frusta.iter_mut()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A big, offset frustum
+    fn big_frustum() -> Frustum {
+        Frustum {
+            planes: [
+                Plane::new(Vec4::new(-0.9701, -0.2425, -0.0000, 7.7611)),
+                Plane::new(Vec4::new(-0.0000, 1.0000, -0.0000, 4.0000)),
+                Plane::new(Vec4::new(-0.0000, -0.2425, -0.9701, 2.9104)),
+                Plane::new(Vec4::new(-0.0000, -1.0000, -0.0000, 4.0000)),
+                Plane::new(Vec4::new(-0.0000, -0.2425, 0.9701, 2.9104)),
+                Plane::new(Vec4::new(0.9701, -0.2425, -0.0000, -1.9403)),
+            ],
+        }
+    }
+
+    #[test]
+    fn intersects_sphere_big_frustum_outside() {
+        // Sphere outside frustum
+        let frustum = big_frustum();
+        let sphere = Sphere {
+            center: Vec3::new(0.9167, 0.0000, 0.0000),
+            radius: 0.7500,
+        };
+        assert!(!frustum.intersects_sphere(&sphere));
+    }
+
+    #[test]
+    fn intersects_sphere_big_frustum_intersect() {
+        // Sphere intersects frustum boundary
+        let frustum = big_frustum();
+        let sphere = Sphere {
+            center: Vec3::new(7.9288, 0.0000, 2.9728),
+            radius: 2.0000,
+        };
+        assert!(frustum.intersects_sphere(&sphere));
+    }
+
+    // A frustum
+    fn frustum() -> Frustum {
+        Frustum {
+            planes: [
+                Plane::new(Vec4::new(-0.9701, -0.2425, -0.0000, 0.7276)),
+                Plane::new(Vec4::new(-0.0000, 1.0000, -0.0000, 1.0000)),
+                Plane::new(Vec4::new(-0.0000, -0.2425, -0.9701, 0.7276)),
+                Plane::new(Vec4::new(-0.0000, -1.0000, -0.0000, 1.0000)),
+                Plane::new(Vec4::new(-0.0000, -0.2425, 0.9701, 0.7276)),
+                Plane::new(Vec4::new(0.9701, -0.2425, -0.0000, 0.7276)),
+            ],
+        }
+    }
+
+    #[test]
+    fn intersects_sphere_frustum_surrounding() {
+        // Sphere surrounds frustum
+        let frustum = frustum();
+        let sphere = Sphere {
+            center: Vec3::new(0.0000, 0.0000, 0.0000),
+            radius: 3.0000,
+        };
+        assert!(frustum.intersects_sphere(&sphere));
+    }
+
+    #[test]
+    fn intersects_sphere_frustum_contained() {
+        // Sphere is contained in frustum
+        let frustum = frustum();
+        let sphere = Sphere {
+            center: Vec3::new(0.0000, 0.0000, 0.0000),
+            radius: 0.7000,
+        };
+        assert!(frustum.intersects_sphere(&sphere));
+    }
+
+    #[test]
+    fn intersects_sphere_frustum_intersects_plane() {
+        // Sphere intersects a plane
+        let frustum = frustum();
+        let sphere = Sphere {
+            center: Vec3::new(0.0000, 0.0000, 0.9695),
+            radius: 0.7000,
+        };
+        assert!(frustum.intersects_sphere(&sphere));
+    }
+
+    #[test]
+    fn intersects_sphere_frustum_intersects_2_planes() {
+        // Sphere intersects 2 planes
+        let frustum = frustum();
+        let sphere = Sphere {
+            center: Vec3::new(1.2037, 0.0000, 0.9695),
+            radius: 0.7000,
+        };
+        assert!(frustum.intersects_sphere(&sphere));
+    }
+
+    #[test]
+    fn intersects_sphere_frustum_intersects_3_planes() {
+        // Sphere intersects 3 planes
+        let frustum = frustum();
+        let sphere = Sphere {
+            center: Vec3::new(1.2037, -1.0988, 0.9695),
+            radius: 0.7000,
+        };
+        assert!(frustum.intersects_sphere(&sphere));
+    }
+
+    #[test]
+    fn intersects_sphere_frustum_dodges_1_plane() {
+        // Sphere avoids intersecting the frustum by 1 plane
+        let frustum = frustum();
+        let sphere = Sphere {
+            center: Vec3::new(-1.7020, 0.0000, 0.0000),
+            radius: 0.7000,
+        };
+        assert!(!frustum.intersects_sphere(&sphere));
+    }
+
+    // A long frustum.
+    fn long_frustum() -> Frustum {
+        Frustum {
+            planes: [
+                Plane::new(Vec4::new(-0.9998, -0.0222, -0.0000, -1.9543)),
+                Plane::new(Vec4::new(-0.0000, 1.0000, -0.0000, 45.1249)),
+                Plane::new(Vec4::new(-0.0000, -0.0168, -0.9999, 2.2718)),
+                Plane::new(Vec4::new(-0.0000, -1.0000, -0.0000, 45.1249)),
+                Plane::new(Vec4::new(-0.0000, -0.0168, 0.9999, 2.2718)),
+                Plane::new(Vec4::new(0.9998, -0.0222, -0.0000, 7.9528)),
+            ],
+        }
+    }
+
+    #[test]
+    fn intersects_sphere_long_frustum_outside() {
+        // Sphere outside frustum
+        let frustum = long_frustum();
+        let sphere = Sphere {
+            center: Vec3::new(-4.4889, 46.9021, 0.0000),
+            radius: 0.7500,
+        };
+        assert!(!frustum.intersects_sphere(&sphere));
+    }
+
+    #[test]
+    fn intersects_sphere_long_frustum_intersect() {
+        // Sphere intersects frustum boundary
+        let frustum = long_frustum();
+        let sphere = Sphere {
+            center: Vec3::new(-4.9957, 0.0000, -0.7396),
+            radius: 4.4094,
+        };
+        assert!(frustum.intersects_sphere(&sphere));
     }
 }

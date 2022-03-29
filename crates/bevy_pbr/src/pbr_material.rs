@@ -48,7 +48,15 @@ pub struct StandardMaterial {
     pub reflectance: f32,
     pub normal_map_texture: Option<Handle<Image>>,
     pub occlusion_texture: Option<Handle<Image>>,
+    /// Support two-sided lighting by automatically flipping the normals for "back" faces
+    /// within the PBR lighting shader.
+    /// Defaults to false.
+    /// This does not automatically configure backface culling, which can be done via
+    /// `cull_mode`.
     pub double_sided: bool,
+    /// Whether to cull the "front", "back" or neither side of a mesh
+    /// defaults to `Face::Back`
+    pub cull_mode: Option<Face>,
     pub unlit: bool,
     pub alpha_mode: AlphaMode,
     pub depth_bias: f32,
@@ -78,6 +86,7 @@ impl Default for StandardMaterial {
             occlusion_texture: None,
             normal_map_texture: None,
             double_sided: false,
+            cull_mode: Some(Face::Back),
             unlit: false,
             alpha_mode: AlphaMode::Opaque,
             depth_bias: 0.0,
@@ -157,6 +166,7 @@ pub struct GpuStandardMaterial {
     pub base_color_texture: Option<Handle<Image>>,
     pub alpha_mode: AlphaMode,
     pub depth_bias: f32,
+    pub cull_mode: Option<Face>,
 }
 
 impl RenderAsset for StandardMaterial {
@@ -325,6 +335,7 @@ impl RenderAsset for StandardMaterial {
             base_color_texture: material.base_color_texture,
             alpha_mode: material.alpha_mode,
             depth_bias: material.depth_bias,
+            cull_mode: material.cull_mode,
         })
     }
 }
@@ -332,6 +343,7 @@ impl RenderAsset for StandardMaterial {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct StandardMaterialKey {
     normal_map: bool,
+    cull_mode: Option<Face>,
 }
 
 impl SpecializedMaterial for StandardMaterial {
@@ -340,6 +352,7 @@ impl SpecializedMaterial for StandardMaterial {
     fn key(render_asset: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {
         StandardMaterialKey {
             normal_map: render_asset.has_normal_map,
+            cull_mode: render_asset.cull_mode,
         }
     }
 
@@ -356,6 +369,7 @@ impl SpecializedMaterial for StandardMaterial {
                 .shader_defs
                 .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
         }
+        descriptor.primitive.cull_mode = key.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }

@@ -1,7 +1,7 @@
 mod graph_runner;
 mod render_device;
 
-use bevy_utils::tracing::{info, info_span};
+use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
 
@@ -22,13 +22,28 @@ pub fn render_system(world: &mut World) {
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
-    RenderGraphRunner::run(
+
+    if let Err(e) = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         render_queue,
         world,
-    )
-    .unwrap();
+    ) {
+        error!("Error running render graph:");
+        {
+            let mut src: &dyn std::error::Error = &e;
+            loop {
+                error!("> {}", src);
+                match src.source() {
+                    Some(s) => src = s,
+                    None => break,
+                }
+            }
+        }
+
+        panic!("Error running render graph: {}", e);
+    }
+
     {
         let span = info_span!("present_frames");
         let _guard = span.enter();

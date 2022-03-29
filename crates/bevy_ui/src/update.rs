@@ -45,7 +45,11 @@ fn update_hierarchy(
 ) -> f32 {
     current_global_z += UI_Z_STEP;
     if let Ok(mut transform) = node_query.get_mut(entity) {
-        transform.translation.z = current_global_z - parent_global_z;
+        let new_z = current_global_z - parent_global_z;
+        // only trigger change detection when the new value is different
+        if transform.translation.z != new_z {
+            transform.translation.z = new_z;
+        }
     }
     if let Ok(children) = children_query.get(entity) {
         let current_parent_global_z = current_global_z;

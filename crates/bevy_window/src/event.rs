@@ -20,6 +20,11 @@ pub struct CreateWindow {
     pub descriptor: WindowDescriptor,
 }
 
+/// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
+/// there have been no window events.
+#[derive(Debug, Clone)]
+pub struct RequestRedraw;
+
 /// An event that indicates a window should be closed.
 #[derive(Debug, Clone)]
 pub struct CloseWindow {
