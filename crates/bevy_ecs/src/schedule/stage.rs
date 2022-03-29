@@ -1409,7 +1409,7 @@ mod tests {
         fn find_ambiguities_first_str_labels(
             systems: &[impl SystemContainer],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
-            find_ambiguities(systems, &[])
+            find_ambiguities(systems, &[], true)
                 .drain(..)
                 .map(|(index_a, index_b, _conflicts)| {
                     (
@@ -1424,7 +1424,7 @@ mod tests {
             systems: &[impl SystemContainer],
             filter: &[String],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
-            let mut find_ambiguities = find_ambiguities(systems, filter);
+            let mut find_ambiguities = find_ambiguities(systems, filter, true);
 
             find_ambiguities
                 .drain(..)
@@ -1465,7 +1465,7 @@ mod tests {
             .with_system(empty.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel, &[]).len(), 0);
+        assert_eq!(find_ambiguities(&stage.parallel, &[], false).len(), 0);
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.label("0"))
@@ -1505,7 +1505,7 @@ mod tests {
             .with_system(component.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel, &[]).len(), 0);
+        assert_eq!(find_ambiguities(&stage.parallel, &[], false).len(), 0);
 
         let mut stage = SystemStage::parallel()
             .with_system(component.label("0"))
@@ -1739,7 +1739,10 @@ mod tests {
             .with_system(empty.exclusive_system().label("7").after("6"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.exclusive_at_start, &[]).len(), 0);
+        assert_eq!(
+            find_ambiguities(&stage.exclusive_at_start, &[], false).len(),
+            0
+        );
 
         let mut stage = SystemStage::parallel()
             .with_system(empty.exclusive_system().label("0").before("1").before("3"))

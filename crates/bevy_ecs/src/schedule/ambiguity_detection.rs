@@ -23,9 +23,6 @@ use fixedbitset::FixedBitSet;
 ///
 /// By default, the value of this resource is set to `Minimal`.
 ///
-/// The ambiguity checker will ignore ambiguities within official Bevy crates.
-/// Eventually, these should all be resolved or manually ignored, and this behavior will no longer be needed.
-///
 /// ## Example
 /// ```ignore
 /// # use bevy_app::App;
@@ -34,12 +31,22 @@ use fixedbitset::FixedBitSet;
 ///    .insert_resource(ReportExecutionOrderAmbiguities::verbose().ignore(&["my_external_crate"]));
 /// ```
 pub enum ReportExecutionOrderAmbiguities {
-    // Disables all messages reported by the ambiguity checker
+    /// Disables all messages reported by the ambiguity checker
     Off,
-    // Displays only the number of unresolved ambiguities detected by the ambiguity checker
+    /// Displays only the number of unresolved ambiguities detected by the ambiguity checker
     Minimal,
-    //  Displays a full report of ambiguities detected by the ambiguity checker
+    /// Displays a full report of ambiguities detected by the ambiguity checker
     Verbose,
+    /// Verbosely reports all non-ignored ambiguities, including those between Bevy's systems
+    ///
+    /// These will not be actionable: you should only turn on this functionality when
+    /// investigating to see if there's a Bevy bug or working on the engine itself.
+    ReportInternal,
+    /// Verbosely reports ALL ambiguities, even ignored ones
+    ///
+    /// This will be very noisy, but can be useful when attempting to track down subtle determinism issues,
+    /// as you might need when attempting to implement lockstep networking.
+    Deterministic,
 }
 
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
@@ -48,13 +55,20 @@ pub enum ReportExecutionOrderAmbiguities {
 pub(super) fn find_ambiguities(
     systems: &[impl SystemContainer],
     crates_filter: &[String],
+    // Should explicit attempts to ignore ambiguities be obeyed?
+    respect_ignores: bool,
 ) -> Vec<(usize, usize, Vec<ComponentId>)> {
     fn should_ignore_ambiguity(
         systems: &[impl SystemContainer],
         index_a: usize,
         index_b: usize,
         crates_filter: &[String],
+        respect_ignores: bool,
     ) -> bool {
+        if !respect_ignores {
+            return false;
+        }
+
         let system_a = &systems[index_a];
         let system_b = &systems[index_b];
 
@@ -116,7 +130,13 @@ pub(super) fn find_ambiguities(
         // .take(index_a)
         {
             if !processed.contains(index_b)
-                && !should_ignore_ambiguity(systems, index_a, index_b, crates_filter)
+                && !should_ignore_ambiguity(
+                    systems,
+                    index_a,
+                    index_b,
+                    crates_filter,
+                    respect_ignores,
+                )
             {
                 let a_access = systems[index_a].component_access();
                 let b_access = systems[index_b].component_access();
@@ -182,24 +202,35 @@ impl SystemStage {
         }
 
         // TODO: remove all internal ambiguities and remove this logic
-        let ignored_crates = vec![
-            // Rendering
-            "bevy_render".to_string(),
-            "bevy_sprite".to_string(),
-            "bevy_render".to_string(),
-            "bevy_pbr".to_string(),
-            "bevy_text".to_string(),
-            "bevy_core_pipeline".to_string(),
-            "bevy_ui".to_string(),
-            // Misc
-            "bevy_winit".to_string(),
-            "bevy_audio".to_string(),
-        ];
+        let ignored_crates = if *ambiguity_report < ReportExecutionOrderAmbiguities::ReportInternal
+        {
+            vec![
+                // Rendering
+                "bevy_render".to_string(),
+                "bevy_sprite".to_string(),
+                "bevy_render".to_string(),
+                "bevy_pbr".to_string(),
+                "bevy_text".to_string(),
+                "bevy_core_pipeline".to_string(),
+                "bevy_ui".to_string(),
+                // Misc
+                "bevy_winit".to_string(),
+                "bevy_audio".to_string(),
+            ]
+        } else {
+            Vec::default()
+        };
 
-        let parallel = find_ambiguities(&self.parallel, &ignored_crates);
-        let at_start = find_ambiguities(&self.exclusive_at_start, &ignored_crates);
-        let before_commands = find_ambiguities(&self.exclusive_before_commands, &ignored_crates);
-        let at_end = find_ambiguities(&self.exclusive_at_end, &ignored_crates);
+        let respect_ignores = *ambiguity_report == ReportExecutionOrderAmbiguities::Deterministic;
+
+        let parallel = find_ambiguities(&self.parallel, &ignored_crates, respect_ignores);
+        let at_start = find_ambiguities(&self.exclusive_at_start, &ignored_crates, respect_ignores);
+        let before_commands = find_ambiguities(
+            &self.exclusive_before_commands,
+            &ignored_crates,
+            respect_ignores,
+        );
+        let at_end = find_ambiguities(&self.exclusive_at_end, &ignored_crates, respect_ignores);
 
         let mut unresolved_count = parallel.len();
         unresolved_count += at_start.len();
@@ -210,7 +241,7 @@ impl SystemStage {
             println!("\n One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
 				You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
 
-            if *ambiguity_report == ReportExecutionOrderAmbiguities::Minimal {
+            if *ambiguity_report <= ReportExecutionOrderAmbiguities::Minimal {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
             } else {
                 // TODO: clean up this logic once exclusive systems are more compatible with parallel systems
