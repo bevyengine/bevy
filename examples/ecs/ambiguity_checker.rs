@@ -1,4 +1,4 @@
-use bevy::{log::LogPlugin, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -7,7 +7,6 @@ fn main() {
         // By default only a warning with the number of unresolved ambiguities is shown, but
         // a more complete report will be displayed if we explicitly set this resource to verbose.
         .insert_resource(ReportExecutionOrderAmbiguities::Verbose)
-        .add_plugin(LogPlugin)
         .insert_resource(MyStartupResource(0))
         // `startup_system_a` and `startup_system_b` will both compete for the same resource. Since there is no ordering between
         // them (e.g., `.before()` or `.after()`), which one will run first is not deterministic.
