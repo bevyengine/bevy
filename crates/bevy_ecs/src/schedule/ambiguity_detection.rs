@@ -437,31 +437,4 @@ mod tests {
             6
         );
     }
-
-    #[test]
-    fn report_internal() {
-        let mut test_stage = SystemStage::parallel();
-        let mut world = World::new();
-        world.insert_resource(TestResource);
-
-        test_stage
-            // Ambiguous with E and F
-            .add_system(system_a)
-            // Internal ambiguities are ignored by default
-            .add_system(bevy_render::system_e)
-            .add_system(bevy_render::system_f);
-
-        // We need to ensure that the schedule has been properly initialized
-        test_stage.initialize(&mut world);
-
-        assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Verbose),
-            2
-        );
-
-        assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::ReportInternal),
-            3
-        );
-    }
 }
