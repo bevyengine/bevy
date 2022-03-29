@@ -46,7 +46,6 @@ use crate::{
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
-use bevy_ecs::schedule::ReportExecutionOrderAmbiguities;
 use std::ops::{Deref, DerefMut};
 
 /// Contains the default Bevy rendering backend based on wgpu.
@@ -287,11 +286,6 @@ impl Plugin for RenderPlugin {
             // NOTE: Load this after renderer initialization so that it knows about the supported
             // compressed texture formats
             .add_plugin(ImagePlugin);
-
-        app.world
-            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
-            .ignore_crates
-            .push("bevy_render".to_string());
     }
 }
 

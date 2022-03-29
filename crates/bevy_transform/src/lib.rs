@@ -14,7 +14,6 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_ecs::schedule::ReportExecutionOrderAmbiguities;
 use bevy_hierarchy::HierarchySystem;
 use prelude::{GlobalTransform, Transform};
 
@@ -106,10 +105,5 @@ impl Plugin for TransformPlugin {
                     .label(TransformSystem::TransformPropagate)
                     .after(HierarchySystem::ParentUpdate),
             );
-
-        app.world
-            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
-            .ignore_crates
-            .push("bevy_transform".to_string());
     }
 }

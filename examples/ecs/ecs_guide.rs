@@ -1,7 +1,6 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
     ecs::schedule::ReportExecutionOrderAmbiguities,
-    log::LogPlugin,
     prelude::*,
     utils::Duration,
 };
@@ -329,12 +328,11 @@ fn main() {
             MyStage::AfterRound,
             game_over_system.after(score_check_system),
         )
-        // We can check our systems for execution order ambiguities by examining the output produced
-        // in the console by using the `LogPlugin` and adding the following Resource to our App :)
-        // Be aware that not everything reported by this checker is a potential problem, you'll have
-        // to make that judgement yourself.
-        .add_plugin(LogPlugin::default())
-        .insert_resource(ReportExecutionOrderAmbiguities::verbose())
+        // We can examine execution order ambiguities by examining the output produced
+        // in the console by adding the following resource to our App
+        // Execution order ambiguities can be resolved by adding ordering constraints,
+        // or explicitly ignored (when there's a false positive).
+        .insert_resource(ReportExecutionOrderAmbiguities::Verbose)
         // This call to run() starts the app we just built!
         .run();
 }

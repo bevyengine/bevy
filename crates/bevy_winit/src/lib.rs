@@ -13,7 +13,6 @@ pub use winit_windows::*;
 use bevy_app::{App, AppExit, CoreStage, Plugin};
 use bevy_ecs::{
     event::{Events, ManualEventReader},
-    schedule::ReportExecutionOrderAmbiguities,
     system::IntoExclusiveSystem,
     world::World,
 };
@@ -48,11 +47,6 @@ impl Plugin for WinitPlugin {
         let event_loop = EventLoop::new();
         handle_initial_window_events(&mut app.world, &event_loop);
         app.insert_non_send_resource(event_loop);
-
-        app.world
-            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
-            .ignore_crates
-            .push("bevy_winit".to_string());
     }
 }
 

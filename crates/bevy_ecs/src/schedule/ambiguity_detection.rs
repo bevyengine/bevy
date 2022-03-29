@@ -5,17 +5,6 @@ use crate::world::World;
 use fixedbitset::FixedBitSet;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-
-/// Controls the level of reporting for [`ReportExecutionOrderAmbiguities`]:
-/// * [`AmbiguityReportLevel::Off`] - Disables all messages reported by the ambiguity checker.
-/// * [`AmbiguityReportLevel::Minimal`] - Displays only the number of unresolved ambiguities detected by the ambiguity checker.
-/// * [`AmbiguityReportLevel::Verbose`] - Displays a full report of ambiguities detected by the ambiguity checker.
-pub enum AmbiguityReportLevel {
-    Off,
-    Minimal,
-    Verbose,
-}
-
 /// Systems that access the same Component or Resource within the same stage
 /// risk an ambiguous order that could result in logic bugs, unless they have an
 /// explicit execution ordering constraint between them.
@@ -32,18 +21,10 @@ pub enum AmbiguityReportLevel {
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
 ///
-/// By default only a warning with the number of unresolved ambiguities detected will be reported per [`SystemStage`].
-/// This behavior can be changed by explicitly adding this resource using the following constructors:
-/// * [`ReportExecutionOrderAmbiguities::off()`] - Disables all messages reported by the ambiguity checker.
-/// * [`ReportExecutionOrderAmbiguities::minimal()`] - Displays only the number of unresolved ambiguities detected by the ambiguity checker.
-/// * [`ReportExecutionOrderAmbiguities::verbose()`] - Displays a full report of ambiguities detected by the ambiguity checker.
-///
-/// Similarly, [`ReportExectuionOrderAmbiguities::default()`] will set the level to [`AmbiguityReportLevel::Minimal`].
+/// By default, the value of this resource is set to `Minimal`.
 ///
 /// The ambiguity checker will ignore ambiguities within official Bevy crates.
-/// To ignore a custom crate, use [`ReportExecutionOrderAmbiguities::ignore`]
-/// with an list of crate names as an argument.
-/// This resource should be added before any bevy internal plugin.
+/// Eventually, these should all be resolved or manually ignored, and this behavior will no longer be needed.
 ///
 /// ## Example
 /// ```ignore
@@ -52,9 +33,13 @@ pub enum AmbiguityReportLevel {
 /// App::new()
 ///    .insert_resource(ReportExecutionOrderAmbiguities::verbose().ignore(&["my_external_crate"]));
 /// ```
-pub struct ReportExecutionOrderAmbiguities {
-    pub level: AmbiguityReportLevel,
-    pub ignore_crates: Vec<String>,
+pub enum ReportExecutionOrderAmbiguities {
+    // Disables all messages reported by the ambiguity checker
+    Off,
+    // Displays only the number of unresolved ambiguities detected by the ambiguity checker
+    Minimal,
+    //  Displays a full report of ambiguities detected by the ambiguity checker
+    Verbose,
 }
 
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
@@ -150,52 +135,9 @@ pub(super) fn find_ambiguities(
     ambiguities
 }
 
-impl ReportExecutionOrderAmbiguities {
-    /// Disables all messages reported by the ambiguity checker.
-    pub fn off() -> Self {
-        Self {
-            level: AmbiguityReportLevel::Off,
-            ..Default::default()
-        }
-    }
-
-    /// Displays only the number of unresolved ambiguities detected by the ambiguity checker. This is the default behavior.
-    pub fn minimal() -> Self {
-        Self {
-            level: AmbiguityReportLevel::Minimal,
-            ..Default::default()
-        }
-    }
-
-    /// Displays a full report of ambiguities detected by the ambiguity checker.
-    pub fn verbose() -> Self {
-        Self {
-            level: AmbiguityReportLevel::Verbose,
-            ..Default::default()
-        }
-    }
-
-    /// Adds the given crate to be ignored by ambiguity checker. Check [`ReportExecutionOrderAmbiguities`] for more details.
-    pub fn ignore(mut self, crate_prefix: &str) -> Self {
-        self.ignore_crates.push(crate_prefix.to_string());
-        self
-    }
-
-    /// Adds all the given crates to be ignored by ambiguity checker. Check [`ReportExecutionOrderAmbiguities`] for more details.
-    pub fn ignore_all(mut self, crate_prefixes: &[&str]) -> Self {
-        for s in crate_prefixes {
-            self.ignore_crates.push(s.to_string());
-        }
-        self
-    }
-}
-
 impl Default for ReportExecutionOrderAmbiguities {
     fn default() -> Self {
-        Self {
-            level: AmbiguityReportLevel::Minimal,
-            ignore_crates: vec![],
-        }
+        ReportExecutionOrderAmbiguities::Minimal
     }
 }
 
@@ -205,7 +147,7 @@ impl SystemStage {
         let ambiguity_report =
             world.get_resource_or_insert_with(ReportExecutionOrderAmbiguities::default);
 
-        if ambiguity_report.level == AmbiguityReportLevel::Off {
+        if *ambiguity_report == ReportExecutionOrderAmbiguities::Off {
             return;
         }
 
@@ -239,13 +181,25 @@ impl SystemStage {
             ambiguities.len()
         }
 
-        let parallel = find_ambiguities(&self.parallel, &ambiguity_report.ignore_crates);
-        let at_start = find_ambiguities(&self.exclusive_at_start, &ambiguity_report.ignore_crates);
-        let before_commands = find_ambiguities(
-            &self.exclusive_before_commands,
-            &ambiguity_report.ignore_crates,
-        );
-        let at_end = find_ambiguities(&self.exclusive_at_end, &ambiguity_report.ignore_crates);
+        // TODO: remove all internal ambiguities and remove this logic
+        let ignored_crates = vec![
+            // Rendering
+            "bevy_render".to_string(),
+            "bevy_sprite".to_string(),
+            "bevy_render".to_string(),
+            "bevy_pbr".to_string(),
+            "bevy_text".to_string(),
+            "bevy_core_pipeline".to_string(),
+            "bevy_ui".to_string(),
+            // Misc
+            "bevy_winit".to_string(),
+            "bevy_audio".to_string(),
+        ];
+
+        let parallel = find_ambiguities(&self.parallel, &ignored_crates);
+        let at_start = find_ambiguities(&self.exclusive_at_start, &ignored_crates);
+        let before_commands = find_ambiguities(&self.exclusive_before_commands, &ignored_crates);
+        let at_end = find_ambiguities(&self.exclusive_at_end, &ignored_crates);
 
         let mut unresolved_count = parallel.len();
         unresolved_count += at_start.len();
@@ -253,10 +207,10 @@ impl SystemStage {
         unresolved_count += at_end.len();
 
         if unresolved_count > 0 {
-            println!("One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
+            println!("\n One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
 				You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
 
-            if ambiguity_report.level != AmbiguityReportLevel::Verbose {
+            if *ambiguity_report == ReportExecutionOrderAmbiguities::Minimal {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
             } else {
                 // TODO: clean up this logic once exclusive systems are more compatible with parallel systems

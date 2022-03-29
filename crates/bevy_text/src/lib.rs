@@ -28,10 +28,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{
-    entity::Entity,
-    schedule::{ParallelSystemDescriptorCoercion, ReportExecutionOrderAmbiguities},
-};
+use bevy_ecs::{entity::Entity, schedule::ParallelSystemDescriptorCoercion};
 use bevy_render::{RenderApp, RenderStage};
 use bevy_sprite::SpriteSystem;
 
@@ -57,10 +54,5 @@ impl Plugin for TextPlugin {
                 extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
             );
         }
-
-        app.world
-            .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::minimal)
-            .ignore_crates
-            .push("bevy_text".to_string());
     }
 }
