@@ -17,7 +17,11 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut scene_spawner: ResMut<SceneSpawner>,
+) {
     // Create a camera
     commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -25,10 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
-    commands.spawn_bundle(SceneBundle {
-        scene: asset_server.load::<Scene, _>("models/SimpleSkin/SimpleSkin.gltf#Scene0"),
-        ..default()
-    });
+    scene_spawner.spawn(asset_server.load::<Scene, _>("models/SimpleSkin/SimpleSkin.gltf#Scene0"));
 }
 
 /// The scene hierarchy currently looks somewhat like this:
