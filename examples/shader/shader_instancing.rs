@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     });
 }
 
-#[derive(Component)]
+#[derive(Component, Deref)]
 struct InstanceMaterialData(Vec<InstanceData>);
 impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
@@ -151,12 +151,12 @@ fn prepare_instance_buffers(
     for (entity, instance_data) in query.iter() {
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("instance data buffer"),
-            contents: bytemuck::cast_slice(instance_data.0.as_slice()),
+            contents: bytemuck::cast_slice(instance_data.as_slice()),
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
         });
         commands.entity(entity).insert(InstanceBuffer {
             buffer,
-            length: instance_data.0.len(),
+            length: instance_data.len(),
         });
     }
 }

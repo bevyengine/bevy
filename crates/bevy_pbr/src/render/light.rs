@@ -159,6 +159,7 @@ pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
+    pub skinned_mesh_layout: BindGroupLayout,
     pub point_light_sampler: Sampler,
     pub directional_light_sampler: Sampler,
 }
@@ -187,10 +188,12 @@ impl FromWorld for ShadowPipeline {
         });
 
         let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+        let skinned_mesh_layout = mesh_pipeline.skinned_mesh_layout.clone();
 
         ShadowPipeline {
             view_layout,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
+            skinned_mesh_layout,
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
@@ -256,18 +259,31 @@ impl SpecializedMeshPipeline for ShadowPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let vertex_buffer_layout =
-            layout.get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0)])?;
+        let mut vertex_attributes = vec![Mesh::ATTRIBUTE_POSITION.at_shader_location(0)];
+
+        let mut bind_group_layout = vec![self.view_layout.clone(), self.mesh_layout.clone()];
+        let mut shader_defs = Vec::new();
+
+        if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
+            && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
+        {
+            shader_defs.push(String::from("SKINNED"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
+            bind_group_layout.push(self.skinned_mesh_layout.clone());
+        }
+
+        let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SHADOW_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
-                shader_defs: vec![],
+                shader_defs,
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: None,
-            layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
+            layout: Some(bind_group_layout),
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
                 strip_index_format: None,

@@ -5,7 +5,7 @@ pub use crate::{
     transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
-pub use bevy_derive::bevy_main;
+pub use bevy_derive::{bevy_main, Deref, DerefMut};
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_audio")]

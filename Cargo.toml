@@ -235,6 +235,15 @@ path = "examples/3d/update_gltf_scene.rs"
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
 
+# Animation
+[[example]]
+name = "custom_skinned_mesh"
+path = "examples/animation/custom_skinned_mesh.rs"
+
+[[example]]
+name = "gltf_skinned_mesh"
+path = "examples/animation/gltf_skinned_mesh.rs"
+
 # Application
 [[example]]
 name = "custom_loop"
