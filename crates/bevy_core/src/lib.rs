@@ -21,7 +21,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::Entity,
-    schedule::{ExclusiveSystemDescriptorCoercion, ReportExecutionOrderAmbiguities, SystemLabel},
+    schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
     system::IntoExclusiveSystem,
 };
 use bevy_utils::HashSet;
@@ -50,7 +50,6 @@ impl Plugin for CorePlugin {
 
         app.init_resource::<Time>()
             .init_resource::<FixedTimesteps>()
-            .init_resource::<ReportExecutionOrderAmbiguities>()
             .register_type::<HashSet<String>>()
             .register_type::<Option<String>>()
             .register_type::<Entity>()
