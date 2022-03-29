@@ -316,6 +316,8 @@ mod tests {
 
     fn make_test_stage() -> SystemStage {
         let mut test_stage = SystemStage::parallel();
+        let mut world = World::new();
+        world.insert_resource(TestResource);
 
         test_stage
             // Ambiguous with B and D
@@ -326,6 +328,9 @@ mod tests {
             // Ambiguous with A
             .add_system(system_d.ambiguous_with("b"));
 
+        // This is a bit of a hack: we need to ensure that the schedule has been properly initialized
+        // and the best public way to do that is to run it once
+        test_stage.run(&mut world);
         test_stage
     }
 
@@ -376,15 +381,29 @@ mod tests {
 
     #[test]
     fn report_internal() {
-        let mut test_stage = make_test_stage();
-        test_stage.add_system(bevy_render::system_e);
-        test_stage.add_system(bevy_render::system_f);
+        let mut test_stage = SystemStage::parallel();
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        test_stage
+            // Ambiguous with E and F
+            .add_system(system_a)
+            // Internal ambiguities are ignored by default
+            .add_system(bevy_render::system_e)
+            .add_system(bevy_render::system_f);
+
+        // This is a bit of a hack: we need to ensure that the schedule has been properly initialized
+        // and the best public way to do that is to run it once
+        test_stage.run(&mut world);
+
+        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Verbose);
+        let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
+
+        assert_eq!(n_ambiguities, 2);
 
         let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::ReportInternal);
         let n_ambiguities: usize = ambiguities.map(|vec| vec.len()).iter().sum();
 
-        // Ambiguities between external systems and internal systems should be reported
-        // but not internal ambiguities
-        assert_eq!(n_ambiguities, 5);
+        assert_eq!(n_ambiguities, 3);
     }
 }
