@@ -375,7 +375,6 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
-        self.validate_world(world);
 
         // SAFE: fetch is read-only
         // and world must be validated
