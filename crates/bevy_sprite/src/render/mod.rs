@@ -122,7 +122,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         if key.contains(SpritePipelineKey::COLORED) {
             // color
-            formats.push(VertexFormat::Uint32);
+            formats.push(VertexFormat::Float32x4);
         }
 
         let vertex_layout =
@@ -283,7 +283,7 @@ struct SpriteVertex {
 struct ColoredSpriteVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
-    pub color: u32,
+    pub color: [f32; 4],
 }
 
 pub struct SpriteMeta {
@@ -498,14 +498,11 @@ pub fn queue_sprites(
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
-                    // encode color as a single u32 to save space
-                    let color = extracted_sprite.color.as_linear_rgba_u32();
-
                     for i in QUAD_INDICES.iter() {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
                             position: positions[*i],
                             uv: uvs[*i].into(),
-                            color,
+                            color: extracted_sprite.color.as_linear_rgba_f32(),
                         });
                     }
                     let item_start = colored_index;
