@@ -1481,8 +1481,7 @@ mod tests {
             .with_system(empty.label("2"))
             .with_system(empty.label("3").after("2").before("4"))
             .with_system(empty.label("4"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         assert_eq!(
             find_ambiguities(
                 &stage.parallel,
@@ -1499,8 +1498,7 @@ mod tests {
             .with_system(empty.label("2"))
             .with_system(empty.label("3").after("2").before("4"))
             .with_system(component.label("4"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
@@ -1514,8 +1512,7 @@ mod tests {
             .with_system(empty.label("2"))
             .with_system(empty.label("3").after("2").before("4"))
             .with_system(resource.label("4"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
@@ -1529,8 +1526,7 @@ mod tests {
             .with_system(empty.label("2"))
             .with_system(empty.label("3").after("2").before("4"))
             .with_system(component.label("4"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         assert_eq!(
             find_ambiguities(
                 &stage.parallel,
@@ -1547,8 +1543,7 @@ mod tests {
             .with_system(empty.label("2"))
             .with_system(component.label("3").after("2").before("4"))
             .with_system(resource.label("4"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
@@ -1572,8 +1567,7 @@ mod tests {
             .with_system(empty.label("2"))
             .with_system(component.label("3").after("2").before("4"))
             .with_system(resource.label("4").ambiguous_with("a").label("a"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
@@ -1585,8 +1579,7 @@ mod tests {
             .with_system(component.label("0").before("2"))
             .with_system(component.label("1").before("2"))
             .with_system(component.label("2"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("1")))
@@ -1598,8 +1591,7 @@ mod tests {
             .with_system(component.label("0"))
             .with_system(component.label("1").after("0"))
             .with_system(component.label("2").after("0"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
@@ -1612,8 +1604,7 @@ mod tests {
             .with_system(component.label("1"))
             .with_system(component.label("2"))
             .with_system(component.label("3").after("1").after("2"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
@@ -1626,8 +1617,7 @@ mod tests {
             .with_system(component.label("1").ambiguous_with("a").label("a"))
             .with_system(component.label("2").ambiguous_with("a").label("a"))
             .with_system(component.label("3").after("1").after("2"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
@@ -1636,8 +1626,7 @@ mod tests {
             .with_system(component.label("1").ambiguous_with("a").label("a"))
             .with_system(component.label("2").ambiguous_with("a").label("a"))
             .with_system(component.label("3").after("1").after("2"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
@@ -1666,8 +1655,7 @@ mod tests {
                     .after("3")
                     .after("4"),
             );
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
@@ -1716,8 +1704,7 @@ mod tests {
                     .after("3")
                     .after("4"),
             );
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
@@ -1749,8 +1736,7 @@ mod tests {
                     .after("3")
                     .after("4"),
             );
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
@@ -1771,8 +1757,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("5").after("4"))
             .with_system(empty.exclusive_system().label("6").after("5"))
             .with_system(empty.exclusive_system().label("7").after("6"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         assert_eq!(
             find_ambiguities(
                 &stage.exclusive_at_start,
@@ -1791,8 +1776,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("4").after("3").before("5"))
             .with_system(empty.exclusive_system().label("5"))
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("3")))
@@ -1846,8 +1830,7 @@ mod tests {
                     .label("a"),
             )
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("2"), Box::new("3")))
@@ -1896,8 +1879,7 @@ mod tests {
                     .ambiguous_with("a")
                     .label("a"),
             );
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert_eq!(ambiguities.len(), 0);
 
@@ -1907,8 +1889,7 @@ mod tests {
             .with_system(empty.label("2"))
             .with_system(component.label("3").after("2").before("4"))
             .with_system(resource.label("4"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
@@ -1922,8 +1903,7 @@ mod tests {
             .with_system(empty.label("2"))
             .with_system(component.label("3").after("2").before("4"))
             .with_system(resource.label("4"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
@@ -1950,8 +1930,7 @@ mod tests {
                     .silence_ambiguity_checks(),
             )
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("2"), Box::new("4")))
@@ -1971,8 +1950,7 @@ mod tests {
                     .ambiguous_with("0"),
             )
             .with_system(resource.label("4").ambiguous_with("4"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
@@ -1983,8 +1961,7 @@ mod tests {
         let mut stage = SystemStage::parallel()
             .with_system(resource.label("1"))
             .with_system(inner::inner_fn.label("2"));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
+        stage.initialize(&mut world);
         let ambiguities = find_ambiguities_first_str_labels_with_filter(
             &stage.parallel,
             &["bevy_ecs::schedule::stage::tests::ambiguity_detection::inner::".into()],
