@@ -314,53 +314,175 @@ fn write_display_names_of_pairs(
 #[allow(dead_code)]
 #[cfg(test)]
 mod tests {
+    // Required to make the derive macro behave
+    use crate as bevy_ecs;
+    use crate::event::Events;
     use crate::prelude::*;
 
-    struct TestResource;
+    struct R;
 
-    fn system_a(_res: ResMut<TestResource>) {}
-    fn system_b(_res: ResMut<TestResource>) {}
-    fn system_c(_res: ResMut<TestResource>) {}
-    fn system_d(_res: ResMut<TestResource>) {}
+    #[derive(Component)]
+    struct A;
 
-    fn make_test_stage() -> SystemStage {
-        let mut test_stage = SystemStage::parallel();
-        let mut world = World::new();
-        world.insert_resource(TestResource);
+    #[derive(Component)]
+    struct B;
 
-        test_stage
-            // Ambiguous with B and D
-            .add_system(system_a)
-            // Ambiguous with A
-            .add_system(system_b.label("b"))
-            .add_system(system_c.ignore_all_ambiguities())
-            // Ambiguous with A
-            .add_system(system_d.ambiguous_with("b"));
+    // An event type
+    struct E;
 
-        // We need to ensure that the schedule has been properly initialized
-        test_stage.initialize(&mut world);
-        test_stage
-    }
+    fn empty_system() {}
+    fn res_system(_res: Res<R>) {}
+    fn resmut_system(_res: ResMut<R>) {}
+    fn nonsend_system(_ns: NonSend<R>) {}
+    fn nonsendmut_system(_ns: NonSendMut<R>) {}
+    fn read_component_system(_query: Query<&A>) {}
+    fn write_component_system(_query: Query<&mut A>) {}
+    fn with_filtered_component_system(_query: Query<&A, With<B>>) {}
+    fn without_filtered_component_system(_query: Query<&A, Without<B>>) {}
+    fn event_reader_system(_reader: EventReader<E>) {}
+    fn event_writer_system(_writer: EventWriter<E>) {}
+    fn event_resource_system(_events: ResMut<Events<E>>) {}
 
-    /// Mocking internal functionality
-    mod bevy_render {
-        use super::*;
-
-        pub(super) fn system_e(_res: ResMut<TestResource>) {}
-
-        pub(super) fn system_f(_res: ResMut<TestResource>) {}
-    }
-
+    // Tests for conflict detection
     #[test]
-    fn trivial_ambiguity() {
+    fn one_of_everything() {
         let mut world = World::new();
         let mut test_stage = SystemStage::parallel();
-        test_stage.add_system(system_a).add_system(system_b);
+
+        test_stage
+            .add_system(empty_system)
+            // nonsendmut system deliberately conflicts with resmut system
+            .add_system(resmut_system)
+            .add_system(write_component_system)
+            .add_system(event_writer_system);
 
         test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            0
+        );
+    }
+
+    #[test]
+    fn read_only() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage
+            .add_system(empty_system)
+            .add_system(empty_system)
+            .add_system(res_system)
+            .add_system(res_system)
+            .add_system(nonsend_system)
+            .add_system(nonsend_system)
+            .add_system(read_component_system)
+            .add_system(read_component_system)
+            .add_system(event_reader_system)
+            .add_system(event_reader_system);
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            0
+        );
+    }
+
+    #[test]
+    fn resources() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage.add_system(resmut_system).add_system(res_system);
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
             1
+        );
+    }
+
+    #[test]
+    fn nonsend() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage
+            .add_system(nonsendmut_system)
+            .add_system(nonsend_system);
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            1
+        );
+    }
+
+    #[test]
+    fn components() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage
+            .add_system(read_component_system)
+            .add_system(write_component_system);
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            1
+        );
+    }
+
+    #[test]
+    fn filtered_components() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage
+            .add_system(with_filtered_component_system)
+            .add_system(without_filtered_component_system);
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            0
+        );
+    }
+
+    #[test]
+    fn events() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage
+            .add_system(event_reader_system)
+            .add_system(event_writer_system)
+            .add_system(event_resource_system);
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            // All of these systems clash
+            3
+        );
+    }
+
+    // Tests for silencing and resolving ambiguities
+    #[test]
+    fn before_and_after() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage
+            .add_system(event_reader_system.before(event_writer_system))
+            .add_system(event_writer_system)
+            .add_system(event_resource_system.after(event_writer_system));
+
+        test_stage.initialize(&mut world);
+        assert_eq!(
+            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            // All of these systems clash
+            0
         );
     }
 
@@ -369,8 +491,8 @@ mod tests {
         let mut world = World::new();
         let mut test_stage = SystemStage::parallel();
         test_stage
-            .add_system(system_a.ignore_all_ambiguities())
-            .add_system(system_b);
+            .add_system(resmut_system.ignore_all_ambiguities())
+            .add_system(res_system);
 
         test_stage.initialize(&mut world);
         assert_eq!(
@@ -384,14 +506,40 @@ mod tests {
         let mut world = World::new();
         let mut test_stage = SystemStage::parallel();
         test_stage
-            .add_system(system_a.ambiguous_with("b"))
-            .add_system(system_b.label("b"));
+            .add_system(resmut_system.ambiguous_with("IGNORE_ME"))
+            .add_system(res_system.label("IGNORE_ME"));
 
         test_stage.initialize(&mut world);
         assert_eq!(
             test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
             0
         );
+    }
+
+    // Tests for reporting levels
+
+    fn system_a(_res: ResMut<R>) {}
+    fn system_b(_res: ResMut<R>) {}
+    fn system_c(_res: ResMut<R>) {}
+    fn system_d(_res: ResMut<R>) {}
+
+    fn make_test_stage() -> SystemStage {
+        let mut test_stage = SystemStage::parallel();
+        let mut world = World::new();
+        world.insert_resource(R);
+
+        test_stage
+            // Ambiguous with B and D
+            .add_system(system_a)
+            // Ambiguous with A
+            .add_system(system_b.label("b"))
+            .add_system(system_c.ignore_all_ambiguities())
+            // Ambiguous with A
+            .add_system(system_d.ambiguous_with("b"));
+
+        // We need to ensure that the schedule has been properly initialized
+        test_stage.initialize(&mut world);
+        test_stage
     }
 
     #[test]
@@ -444,4 +592,41 @@ mod tests {
             6
         );
     }
+
+    /*
+    // Tests that the correct ambiguities were reported
+    #[test]
+    fn correct_ambiguities() {
+        use crate::component::ComponentId;
+        use crate::schedule::SystemOrderAmbiguity;
+
+        let test_stage = make_test_stage();
+        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Verbose);
+        assert_eq!(
+            ambiguities,
+            [
+                // All ambiguities are in parallel systems
+                // FIXME: this test is flaky due to the fact that the topological order is built nondeterministically
+                vec![
+                    SystemOrderAmbiguity {
+                        system_a_index: 0,
+                        system_b_index: 1,
+                        conflicts: vec![ComponentId(0)]
+                    },
+                    SystemOrderAmbiguity {
+                        system_a_index: 0,
+                        system_b_index: 3,
+                        conflicts: vec![ComponentId(0)]
+                    }
+                ],
+                // Nothing in exclusive-at-start
+                Vec::default(),
+                // Nothing in exclusive-before-commands
+                Vec::default(),
+                // Nothing in exclusive-at-end
+                Vec::default()
+            ]
+        );
+    }
+    */
 }
