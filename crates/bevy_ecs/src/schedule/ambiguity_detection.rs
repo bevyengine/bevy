@@ -2,6 +2,7 @@ use crate::component::ComponentId;
 use crate::schedule::{AmbiguityDetection, SystemContainer, SystemStage};
 use crate::world::World;
 
+use bevy_utils::HashSet;
 use fixedbitset::FixedBitSet;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -53,25 +54,114 @@ pub enum ReportExecutionOrderAmbiguities {
 ///
 /// Created by applying [`find_ambiguities`] to a [`SystemContainer`].
 /// These can be reported by configuring the [`ReportExecutionOrderAmbiguities`] resource.
-#[derive(Debug, Clone, PartialEq)]
-struct SystemOrderAmbiguity {
-    // The index of the first system in the [`SystemContainer`]
-    pub system_a_index: usize,
-    // The index of the second system in the [`SystemContainer`]
-    pub system_b_index: usize,
+#[derive(Debug, Clone, Eq, Hash)]
+pub struct SystemOrderAmbiguity {
+    // The names of the conflicting systems
+    pub system_names: (String, String),
     /// The components (and resources) that these systems have incompatible access to
-    pub conflicts: Vec<ComponentId>,
+    pub conflicts: Vec<String>,
+    /// The segment of the [`SystemStage`] that the conflicting systems were stored in
+    pub segment: SystemStageSegment,
+}
+
+impl PartialEq for SystemOrderAmbiguity {
+    fn eq(&self, other: &Self) -> bool {
+        // The order of the systems doesn't matter
+        let names_aligned = (self.system_names.0 == other.system_names.0)
+            & (self.system_names.1 == other.system_names.1);
+        let names_inverted = (self.system_names.0 == other.system_names.1)
+            & (self.system_names.0 == other.system_names.1);
+        let names_match = names_aligned | names_inverted;
+
+        // The order of the reported conflicts doesn't matter
+        let conflicts_match =
+            HashSet::from_iter(self.conflicts.iter()) == HashSet::from_iter(other.conflicts.iter());
+
+        let segments_match = self.segment == other.segment;
+
+        names_match & conflicts_match & segments_match
+    }
+}
+
+/// Which part of a [`SystemStage`] was a [`SystemOrderAmbiguity`] detected in?
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub enum SystemStageSegment {
+    Parallel,
+    ExclusiveAtStart,
+    ExclusiveBeforeCommands,
+    ExclusiveAtEnd,
+}
+
+impl SystemOrderAmbiguity {
+    fn from_raw(
+        system_a_index: usize,
+        system_b_index: usize,
+        component_ids: Vec<ComponentId>,
+        segment: SystemStageSegment,
+        stage: &SystemStage,
+        world: &World,
+    ) -> Self {
+        use crate::schedule::graph_utils::GraphNode;
+        use SystemStageSegment::*;
+
+        // TODO: blocked on https://github.com/bevyengine/bevy/pull/4166
+        // We can't grab the system container generically, because .parallel_systems()
+        // and the exclusive equivalent return a different type,
+        // and SystemContainer is not object-safe
+        let (system_a_name, system_b_name) = match segment {
+            Parallel => {
+                let system_container = stage.parallel_systems();
+                (
+                    system_container[system_a_index].name(),
+                    system_container[system_b_index].name(),
+                )
+            }
+            ExclusiveAtStart => {
+                let system_container = stage.parallel_systems();
+                (
+                    system_container[system_a_index].name(),
+                    system_container[system_b_index].name(),
+                )
+            }
+            ExclusiveBeforeCommands => {
+                let system_container = stage.parallel_systems();
+                (
+                    system_container[system_a_index].name(),
+                    system_container[system_b_index].name(),
+                )
+            }
+            ExclusiveAtEnd => {
+                let system_container = stage.parallel_systems();
+                (
+                    system_container[system_a_index].name(),
+                    system_container[system_b_index].name(),
+                )
+            }
+        };
+
+        let conflicts: Vec<String> = component_ids
+            .iter()
+            .map(|id| world.components().get_info(*id).unwrap().name().into())
+            .collect();
+
+        Self {
+            // Don't bother with Cows here
+            system_names: (system_a_name.into(), system_b_name.into()),
+            conflicts,
+            segment,
+        }
+    }
 }
 
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-fn find_ambiguities(
+pub fn find_ambiguities(
     systems: &[impl SystemContainer],
     crates_filter: &[String],
     // Should explicit attempts to ignore ambiguities be obeyed?
     report_level: ReportExecutionOrderAmbiguities,
-) -> Vec<SystemOrderAmbiguity> {
+) -> Vec<(usize, usize, Vec<ComponentId>)> {
     fn should_ignore_ambiguity(
         systems: &[impl SystemContainer],
         index_a: usize,
@@ -149,20 +239,14 @@ fn find_ambiguities(
                 let a_access = systems[index_a].component_access();
                 let b_access = systems[index_b].component_access();
                 if let (Some(a), Some(b)) = (a_access, b_access) {
-                    let conflicts = a.get_conflicts(b);
-                    if !conflicts.is_empty() {
-                        ambiguities.push(SystemOrderAmbiguity {
-                            system_a_index: index_a,
-                            system_b_index: index_b,
-                            conflicts,
-                        });
+                    let component_ids = a.get_conflicts(b);
+                    if !component_ids.is_empty() {
+                        ambiguities.push((index_a, index_b, component_ids));
                     }
                 } else {
-                    ambiguities.push(SystemOrderAmbiguity {
-                        system_a_index: index_a,
-                        system_b_index: index_b,
-                        conflicts: Vec::default(),
-                    });
+                    // The ambiguity is for an exclusive system,
+                    // which conflict on all data
+                    ambiguities.push((index_a, index_b, Vec::default()));
                 }
             }
         }
@@ -185,21 +269,17 @@ impl SystemStage {
     /// - exclusive at start,
     /// - exclusive before commands
     /// - exclusive at end
-    ///
-    /// # Panics
-    ///
-    /// You must call [`SystemStage::initialize`] first or this method will panic.
-    fn ambiguities(
-        &self,
+    pub fn ambiguities(
+        &mut self,
+        // FIXME: these methods should not have tor rely on &mut World, or any specific World
+        // see https://github.com/bevyengine/bevy/issues/4364
+        world: &mut World,
         report_level: ReportExecutionOrderAmbiguities,
-    ) -> [Vec<SystemOrderAmbiguity>; 4] {
+    ) -> Vec<SystemOrderAmbiguity> {
+        self.initialize(world);
+
         if report_level == ReportExecutionOrderAmbiguities::Off {
-            return [
-                Vec::default(),
-                Vec::default(),
-                Vec::default(),
-                Vec::default(),
-            ];
+            return Vec::default();
         }
 
         // System order must be fresh
@@ -225,40 +305,95 @@ impl SystemStage {
             Vec::default()
         };
 
-        let parallel = find_ambiguities(&self.parallel, &ignored_crates, report_level);
-        let at_start = find_ambiguities(&self.exclusive_at_start, &ignored_crates, report_level);
-        let before_commands = find_ambiguities(
+        let parallel: Vec<SystemOrderAmbiguity> =
+            find_ambiguities(&self.parallel, &ignored_crates, report_level)
+                .iter()
+                .map(|(system_a_index, system_b_index, component_ids)| {
+                    SystemOrderAmbiguity::from_raw(
+                        *system_a_index,
+                        *system_b_index,
+                        component_ids.to_vec(),
+                        SystemStageSegment::Parallel,
+                        &self,
+                        &world,
+                    )
+                })
+                .collect();
+
+        let at_start: Vec<SystemOrderAmbiguity> =
+            find_ambiguities(&self.exclusive_at_start, &ignored_crates, report_level)
+                .iter()
+                .map(|(system_a_index, system_b_index, component_ids)| {
+                    SystemOrderAmbiguity::from_raw(
+                        *system_a_index,
+                        *system_b_index,
+                        component_ids.to_vec(),
+                        SystemStageSegment::ExclusiveAtStart,
+                        &self,
+                        &world,
+                    )
+                })
+                .collect();
+
+        let before_commands: Vec<SystemOrderAmbiguity> = find_ambiguities(
             &self.exclusive_before_commands,
             &ignored_crates,
             report_level,
-        );
-        let at_end = find_ambiguities(&self.exclusive_at_end, &ignored_crates, report_level);
+        )
+        .iter()
+        .map(|(system_a_index, system_b_index, component_ids)| {
+            SystemOrderAmbiguity::from_raw(
+                *system_a_index,
+                *system_b_index,
+                component_ids.to_vec(),
+                SystemStageSegment::ExclusiveBeforeCommands,
+                &self,
+                &world,
+            )
+        })
+        .collect();
 
-        [parallel, at_start, before_commands, at_end]
+        let at_end: Vec<SystemOrderAmbiguity> =
+            find_ambiguities(&self.exclusive_at_end, &ignored_crates, report_level)
+                .iter()
+                .map(|(system_a_index, system_b_index, component_ids)| {
+                    SystemOrderAmbiguity::from_raw(
+                        *system_a_index,
+                        *system_b_index,
+                        component_ids.to_vec(),
+                        SystemStageSegment::ExclusiveAtEnd,
+                        &self,
+                        &world,
+                    )
+                })
+                .collect();
+
+        let mut ambiguities = Vec::default();
+        ambiguities.extend(at_start);
+        ambiguities.extend(parallel);
+        ambiguities.extend(before_commands);
+        ambiguities.extend(at_end);
+
+        ambiguities
     }
 
     /// Returns the number of system order ambiguities between systems in this stage
-    ///
-    /// # Panics
-    ///
-    /// You must call [`SystemStage::initialize`] first or this method will panic.
-    pub fn n_ambiguities(&self, report_level: ReportExecutionOrderAmbiguities) -> usize {
-        let ambiguities = self.ambiguities(report_level);
-        ambiguities.map(|vec| vec.len()).iter().sum()
+    pub fn n_ambiguities(
+        &mut self,
+        world: &mut World,
+        report_level: ReportExecutionOrderAmbiguities,
+    ) -> usize {
+        self.ambiguities(world, report_level).len()
     }
 
     /// Reports all execution order ambiguities between systems
-    ///
-    /// # Panics
-    ///
-    /// You must call [`SystemStage::initialize`] first or this method will panic.
-    pub fn report_ambiguities(&self, world: &World, report_level: ReportExecutionOrderAmbiguities) {
-        let [parallel, at_start, before_commands, at_end] = self.ambiguities(report_level);
-
-        let mut unresolved_count = parallel.len();
-        unresolved_count += at_start.len();
-        unresolved_count += before_commands.len();
-        unresolved_count += at_end.len();
+    pub fn report_ambiguities(
+        &mut self,
+        world: &mut World,
+        report_level: ReportExecutionOrderAmbiguities,
+    ) {
+        let ambiguities = self.ambiguities(world, report_level);
+        let unresolved_count = ambiguities.len();
 
         if unresolved_count > 0 {
             // Grammar
@@ -273,49 +408,17 @@ impl SystemStage {
             if report_level == ReportExecutionOrderAmbiguities::Minimal {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
             } else {
-                // TODO: clean up this logic once exclusive systems are more compatible with parallel systems
-                // allowing us to merge these collections
-                let mut offset = 1;
-                offset = write_display_names_of_pairs(offset, &self.parallel, parallel, world);
-                offset =
-                    write_display_names_of_pairs(offset, &self.exclusive_at_start, at_start, world);
-                offset = write_display_names_of_pairs(
-                    offset,
-                    &self.exclusive_before_commands,
-                    before_commands,
-                    world,
-                );
-                write_display_names_of_pairs(offset, &self.exclusive_at_end, at_end, world);
+                for (i, ambiguity) in ambiguities.iter().enumerate() {
+                    let _ambiguity_number = i + 1;
+                    let _system_a_name = &ambiguity.system_names.0;
+                    let _system_b_name = &ambiguity.system_names.1;
+                    let _conflicts = &ambiguity.conflicts;
+
+                    println!("{_ambiguity_number}. {_system_a_name} conflicts with {_system_b_name} on {_conflicts:?}");
+                }
             }
         }
     }
-}
-
-fn write_display_names_of_pairs(
-    offset: usize,
-    systems: &[impl SystemContainer],
-    ambiguities: Vec<SystemOrderAmbiguity>,
-    world: &World,
-) -> usize {
-    for (i, system_order_ambiguity) in ambiguities.iter().enumerate() {
-        let _system_a_name = systems[system_order_ambiguity.system_a_index].name();
-        let _system_b_name = systems[system_order_ambiguity.system_b_index].name();
-
-        let _conflicting_components = system_order_ambiguity
-            .conflicts
-            .iter()
-            .map(|id| world.components().get_info(*id).unwrap().name())
-            .collect::<Vec<_>>();
-
-        let _ambiguity_number = i + offset;
-
-        println!(
-                "{_ambiguity_number}. {_system_a_name} conflicts with {_system_b_name} on {_conflicting_components:?}"
-            );
-    }
-
-    // We can't merge the SystemContainer arrays, so instead we manually keep track of how high we've counted :upside_down:
-    ambiguities.len()
 }
 
 // Systems and TestResource are used in tests
@@ -364,9 +467,8 @@ mod tests {
             .add_system(write_component_system)
             .add_system(event_writer_system);
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             0
         );
     }
@@ -388,9 +490,8 @@ mod tests {
             .add_system(event_reader_system)
             .add_system(event_reader_system);
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             0
         );
     }
@@ -402,9 +503,8 @@ mod tests {
 
         test_stage.add_system(resmut_system).add_system(res_system);
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             1
         );
     }
@@ -418,9 +518,8 @@ mod tests {
             .add_system(nonsendmut_system)
             .add_system(nonsend_system);
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             1
         );
     }
@@ -434,9 +533,8 @@ mod tests {
             .add_system(read_component_system)
             .add_system(write_component_system);
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             1
         );
     }
@@ -450,9 +548,8 @@ mod tests {
             .add_system(with_filtered_component_system)
             .add_system(without_filtered_component_system);
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             0
         );
     }
@@ -467,9 +564,8 @@ mod tests {
             .add_system(event_writer_system)
             .add_system(event_resource_system);
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             // All of these systems clash
             3
         );
@@ -486,9 +582,8 @@ mod tests {
             .add_system(event_writer_system)
             .add_system(event_resource_system.after(event_writer_system));
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             // All of these systems clash
             0
         );
@@ -502,9 +597,8 @@ mod tests {
             .add_system(resmut_system.ignore_all_ambiguities())
             .add_system(res_system);
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             0
         );
     }
@@ -517,9 +611,8 @@ mod tests {
             .add_system(resmut_system.ambiguous_with("IGNORE_ME"))
             .add_system(res_system.label("IGNORE_ME"));
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             0
         );
     }
@@ -531,9 +624,8 @@ mod tests {
     fn system_c(_res: ResMut<R>) {}
     fn system_d(_res: ResMut<R>) {}
 
-    fn make_test_stage() -> SystemStage {
+    fn make_test_stage(world: &mut World) -> SystemStage {
         let mut test_stage = SystemStage::parallel();
-        let mut world = World::new();
         world.insert_resource(R);
 
         test_stage
@@ -545,8 +637,6 @@ mod tests {
             // Ambiguous with A
             .add_system(system_d.ambiguous_with("b"));
 
-        // We need to ensure that the schedule has been properly initialized
-        test_stage.initialize(&mut world);
         test_stage
     }
 
@@ -558,83 +648,83 @@ mod tests {
             .add_system(system_a.ambiguous_with(system_b))
             .add_system(system_b);
 
-        test_stage.initialize(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             0
         );
     }
 
     #[test]
     fn off() {
-        let test_stage = make_test_stage();
+        let mut world = World::new();
+        let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Off),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             0
         );
     }
 
     #[test]
     fn minimal() {
-        let test_stage = make_test_stage();
+        let mut world = World::new();
+        let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Minimal),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             2
         );
     }
 
     #[test]
     fn verbose() {
-        let test_stage = make_test_stage();
+        let mut world = World::new();
+        let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Verbose),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             2
         );
     }
 
     #[test]
     fn deterministic() {
-        let test_stage = make_test_stage();
+        let mut world = World::new();
+        let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             6
         );
     }
 
-    /*
     // Tests that the correct ambiguities were reported
     #[test]
     fn correct_ambiguities() {
-        use crate::component::ComponentId;
         use crate::schedule::SystemOrderAmbiguity;
+        use bevy_utils::HashSet;
 
-        let test_stage = make_test_stage();
-        let ambiguities = test_stage.ambiguities(ReportExecutionOrderAmbiguities::Verbose);
+        let mut world = World::new();
+        let mut test_stage = make_test_stage(&mut world);
+        let ambiguities =
+            test_stage.ambiguities(&mut world, ReportExecutionOrderAmbiguities::Verbose);
         assert_eq!(
-            ambiguities,
-            [
-                // All ambiguities are in parallel systems
-                // FIXME: this test is flaky due to the fact that the topological order is built nondeterministically
-                vec![
-                    SystemOrderAmbiguity {
-                        system_a_index: 0,
-                        system_b_index: 1,
-                        conflicts: vec![ComponentId(0)]
-                    },
-                    SystemOrderAmbiguity {
-                        system_a_index: 0,
-                        system_b_index: 3,
-                        conflicts: vec![ComponentId(0)]
-                    }
-                ],
-                // Nothing in exclusive-at-start
-                Vec::default(),
-                // Nothing in exclusive-before-commands
-                Vec::default(),
-                // Nothing in exclusive-at-end
-                Vec::default()
-            ]
+            // We don't care if the reported order varies
+            HashSet::from_iter(ambiguities),
+            HashSet::from_iter(vec![
+                SystemOrderAmbiguity {
+                    system_names: (
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_a".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_b".to_string()
+                    ),
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: bevy_ecs::schedule::SystemStageSegment::Parallel,
+                },
+                SystemOrderAmbiguity {
+                    system_names: (
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_a".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_d".to_string()
+                    ),
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: bevy_ecs::schedule::SystemStageSegment::Parallel,
+                },
+            ],)
         );
     }
-    */
 }

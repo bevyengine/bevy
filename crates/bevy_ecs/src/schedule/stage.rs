@@ -103,7 +103,7 @@ impl SystemStage {
     ///
     /// This method is automatically called by [`Stage::run`], but must be manually called
     /// when using [`SystemStage::ambiguities`].
-    pub fn initialize(&mut self, world: &mut World) {
+    pub(crate) fn initialize(&mut self, world: &mut World) {
         if self.systems_modified {
             self.initialize_systems(world);
             self.rebuild_orders_and_dependencies();
