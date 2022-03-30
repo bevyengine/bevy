@@ -54,7 +54,7 @@ pub enum ReportExecutionOrderAmbiguities {
 /// Created by applying [`find_ambiguities`] to a [`SystemContainer`].
 /// These can be reported by configuring the [`ReportExecutionOrderAmbiguities`] resource.
 #[derive(Debug, Clone, PartialEq)]
-pub struct SystemOrderAmbiguity {
+struct SystemOrderAmbiguity {
     // The index of the first system in the [`SystemContainer`]
     pub system_a_index: usize,
     // The index of the second system in the [`SystemContainer`]
@@ -66,7 +66,7 @@ pub struct SystemOrderAmbiguity {
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-pub fn find_ambiguities(
+fn find_ambiguities(
     systems: &[impl SystemContainer],
     crates_filter: &[String],
     // Should explicit attempts to ignore ambiguities be obeyed?
@@ -189,7 +189,7 @@ impl SystemStage {
     /// # Panics
     ///
     /// You must call [`SystemStage::initialize`] first or this method will panic.
-    pub fn ambiguities(
+    fn ambiguities(
         &self,
         report_level: ReportExecutionOrderAmbiguities,
     ) -> [Vec<SystemOrderAmbiguity>; 4] {
@@ -238,12 +238,20 @@ impl SystemStage {
     }
 
     /// Returns the number of system order ambiguities between systems in this stage
+    ///
+    /// # Panics
+    ///
+    /// You must call [`SystemStage::initialize`] first or this method will panic.
     pub fn n_ambiguities(&self, report_level: ReportExecutionOrderAmbiguities) -> usize {
         let ambiguities = self.ambiguities(report_level);
         ambiguities.map(|vec| vec.len()).iter().sum()
     }
 
     /// Reports all execution order ambiguities between systems
+    ///
+    /// # Panics
+    ///
+    /// You must call [`SystemStage::initialize`] first or this method will panic.
     pub fn report_ambiguities(&self, world: &World, report_level: ReportExecutionOrderAmbiguities) {
         let [parallel, at_start, before_commands, at_end] = self.ambiguities(report_level);
 
