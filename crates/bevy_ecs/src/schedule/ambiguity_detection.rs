@@ -22,7 +22,7 @@ use fixedbitset::FixedBitSet;
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
 ///
-/// By default, the value of this resource is set to `Minimal`.
+/// By default, the value of this resource is set to `Warn`.
 ///
 /// ## Example
 /// ```ignore
@@ -32,22 +32,26 @@ use fixedbitset::FixedBitSet;
 ///    .insert_resource(ReportExecutionOrderAmbiguities::verbose().ignore(&["my_external_crate"]));
 /// ```
 pub enum ReportExecutionOrderAmbiguities {
-    /// Disables all messages reported by the ambiguity checker
-    Off,
+    /// Disables all checks for execution order ambiguities
+    Allow,
     /// Displays only the number of unresolved ambiguities detected by the ambiguity checker
-    Minimal,
+    Warn,
     /// Displays a full report of ambiguities detected by the ambiguity checker
-    Verbose,
+    WarnVerbose,
     /// Verbosely reports all non-ignored ambiguities, including those between Bevy's systems
     ///
     /// These will not be actionable: you should only turn on this functionality when
     /// investigating to see if there's a Bevy bug or working on the engine itself.
-    ReportInternal,
+    WarnInternal,
+    /// Like `WarnVerbose`, but panics if any non-ignored ambiguities exist
+    Deny,
     /// Verbosely reports ALL ambiguities, even ignored ones
+    ///
+    /// Panics if any ambiguities exist.
     ///
     /// This will be very noisy, but can be useful when attempting to track down subtle determinism issues,
     /// as you might need when attempting to implement lockstep networking.
-    Deterministic,
+    Forbid,
 }
 
 /// A pair of systems that can run in an ambiguous order
@@ -169,7 +173,7 @@ pub fn find_ambiguities(
         crates_filter: &[String],
         report_level: ReportExecutionOrderAmbiguities,
     ) -> bool {
-        if report_level == ReportExecutionOrderAmbiguities::Deterministic {
+        if report_level == ReportExecutionOrderAmbiguities::Forbid {
             return false;
         }
 
@@ -257,7 +261,7 @@ pub fn find_ambiguities(
 
 impl Default for ReportExecutionOrderAmbiguities {
     fn default() -> Self {
-        ReportExecutionOrderAmbiguities::Minimal
+        ReportExecutionOrderAmbiguities::Warn
     }
 }
 
@@ -278,7 +282,7 @@ impl SystemStage {
     ) -> Vec<SystemOrderAmbiguity> {
         self.initialize(world);
 
-        if report_level == ReportExecutionOrderAmbiguities::Off {
+        if report_level == ReportExecutionOrderAmbiguities::Allow {
             return Vec::default();
         }
 
@@ -286,7 +290,7 @@ impl SystemStage {
         debug_assert!(!self.systems_modified);
 
         // TODO: remove all internal ambiguities and remove this logic
-        let ignored_crates = if report_level != ReportExecutionOrderAmbiguities::ReportInternal {
+        let ignored_crates = if report_level != ReportExecutionOrderAmbiguities::WarnInternal {
             vec![
                 // Rendering
                 "bevy_render".to_string(),
@@ -405,7 +409,7 @@ impl SystemStage {
 				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n");
             }
 
-            if report_level == ReportExecutionOrderAmbiguities::Minimal {
+            if report_level == ReportExecutionOrderAmbiguities::Warn {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
             } else {
                 for (i, ambiguity) in ambiguities.iter().enumerate() {
@@ -428,6 +432,12 @@ impl SystemStage {
                 }
                 // Print an empty line to space out multiple stages nicely
                 println!("");
+            }
+
+            if report_level == ReportExecutionOrderAmbiguities::Deny
+                || report_level == ReportExecutionOrderAmbiguities::Forbid
+            {
+                panic!("The ReportExecutionOrderAmbiguities resource is set to a level that forbids the app from running with unresolved system execution order ambiguities.")
             }
         }
     }
@@ -584,7 +594,7 @@ mod tests {
             .add_system(event_writer_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             0
         );
     }
@@ -609,7 +619,7 @@ mod tests {
             .add_system(read_world_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             0
         );
     }
@@ -627,7 +637,7 @@ mod tests {
             .add_system(read_world_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             3
         );
     }
@@ -640,7 +650,7 @@ mod tests {
         test_stage.add_system(resmut_system).add_system(res_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             1
         );
     }
@@ -655,7 +665,7 @@ mod tests {
             .add_system(nonsend_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             1
         );
     }
@@ -670,7 +680,7 @@ mod tests {
             .add_system(write_component_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             1
         );
     }
@@ -685,7 +695,7 @@ mod tests {
             .add_system(without_filtered_component_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             0
         );
     }
@@ -702,7 +712,7 @@ mod tests {
             .add_system(event_resource_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             3
         );
     }
@@ -722,7 +732,7 @@ mod tests {
             .add_system(write_world_system.exclusive_system().before_commands());
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             3
         );
     }
@@ -739,7 +749,7 @@ mod tests {
             .add_system(event_resource_system.after(event_writer_system));
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             // All of these systems clash
             0
         );
@@ -754,7 +764,7 @@ mod tests {
             .add_system(res_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             0
         );
     }
@@ -768,7 +778,7 @@ mod tests {
             .add_system(res_system.label("IGNORE_ME"));
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             0
         );
     }
@@ -805,7 +815,7 @@ mod tests {
             .add_system(system_b);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             0
         );
     }
@@ -815,7 +825,7 @@ mod tests {
         let mut world = World::new();
         let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             0
         );
     }
@@ -825,7 +835,7 @@ mod tests {
         let mut world = World::new();
         let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             2
         );
     }
@@ -835,7 +845,7 @@ mod tests {
         let mut world = World::new();
         let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             2
         );
     }
@@ -845,7 +855,7 @@ mod tests {
         let mut world = World::new();
         let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Forbid),
             6
         );
     }
@@ -859,7 +869,7 @@ mod tests {
         let mut world = World::new();
         let mut test_stage = make_test_stage(&mut world);
         let ambiguities =
-            test_stage.ambiguities(&mut world, ReportExecutionOrderAmbiguities::Verbose);
+            test_stage.ambiguities(&mut world, ReportExecutionOrderAmbiguities::WarnVerbose);
         assert_eq!(
             // We don't care if the reported order varies
             HashSet::from_iter(ambiguities),
