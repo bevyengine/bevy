@@ -193,12 +193,15 @@ where
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
         self.update_archetypes(world);
 
-        self.get_multiple_read_only_manual(
-            world,
-            entities,
-            world.last_change_tick(),
-            world.read_change_tick(),
-        )
+        // SAFE: update_archetypes validates the `World` matches
+        unsafe {
+            self.get_multiple_read_only_manual(
+                world,
+                entities,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
@@ -360,7 +363,12 @@ where
 
     /// Gets the read-only query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
-    pub(crate) fn get_multiple_read_only_manual<'s, 'w, const N: usize>(
+    ///
+    /// # Safety
+    ///
+    /// This must be called on the same `World` that the `Query` was generated from:
+    /// use `QueryState::validate_world` to verify this.
+    pub(crate) unsafe fn get_multiple_read_only_manual<'s, 'w, const N: usize>(
         &'s self,
         world: &'w World,
         entities: [Entity; N],
@@ -370,16 +378,15 @@ where
         self.validate_world(world);
 
         // SAFE: fetch is read-only
-        let array_of_results = unsafe {
-            entities.map(|entity| {
-                self.get_unchecked_manual::<Q::ReadOnlyFetch>(
-                    world,
-                    entity,
-                    last_change_tick,
-                    change_tick,
-                )
-            })
-        };
+        // and world must be validated
+        let array_of_results = entities.map(|entity| {
+            self.get_unchecked_manual::<Q::ReadOnlyFetch>(
+                world,
+                entity,
+                last_change_tick,
+                change_tick,
+            )
+        });
 
         // TODO: Replace with TryMap once https://github.com/rust-lang/rust/issues/79711 is stabilized
         // If any of the get calls failed, bubble up the error

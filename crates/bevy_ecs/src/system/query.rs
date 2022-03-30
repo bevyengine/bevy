@@ -631,12 +631,15 @@ where
         &self,
         entities: [Entity; N],
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
-        self.state.get_multiple_read_only_manual(
-            self.world,
-            entities,
-            self.last_change_tick,
-            self.change_tick,
-        )
+        // SAFE: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
+        unsafe {
+            self.state.get_multiple_read_only_manual(
+                self.world,
+                entities,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
     }
 
     /// Returns the read-only query items for the provided array of [`Entity`]
