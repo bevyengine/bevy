@@ -19,7 +19,7 @@ impl Benchmark {
 
         let mut system = IntoSystem::into_system(query_system);
         system.initialize(&mut world);
-        system.update_archetype_component_access(&mut world);
+        system.update_archetype_component_access(&world);
         Self(world, entity, Box::new(system))
     }
 
