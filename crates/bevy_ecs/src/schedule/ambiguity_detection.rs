@@ -398,26 +398,135 @@ impl SystemStage {
         if unresolved_count > 0 {
             // Grammar
             if unresolved_count == 1 {
-                println!("\n One of your stages contains 1 pair of systems with unknown order and conflicting data access. \
-				You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
+                println!("One of your stages contains 1 pair of systems with unknown order and conflicting data access. \n\
+				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n");
             } else {
-                println!("\n One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \
-				You may want to add `.before()` or `.after()` constraints between some of these systems to prevent bugs.\n");
+                println!("One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \n\
+				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n");
             }
 
             if report_level == ReportExecutionOrderAmbiguities::Minimal {
                 println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
             } else {
                 for (i, ambiguity) in ambiguities.iter().enumerate() {
-                    let _ambiguity_number = i + 1;
-                    let _system_a_name = &ambiguity.system_names.0;
-                    let _system_b_name = &ambiguity.system_names.1;
-                    let _conflicts = &ambiguity.conflicts;
+                    let ambiguity_number = i + 1;
+                    // The path name is often just noise, and this gets us consistency with `conflicts`'s formatting
+                    let system_a_name = format_type_name(ambiguity.system_names.0.as_str());
+                    let system_b_name = format_type_name(ambiguity.system_names.1.as_str());
+                    let conflicts: Vec<String> = ambiguity
+                        .conflicts
+                        .iter()
+                        .map(|name| format_type_name(name.as_str()))
+                        .collect();
 
-                    println!("{_ambiguity_number}. {_system_a_name} conflicts with {_system_b_name} on {_conflicts:?}");
+                    println!("{ambiguity_number:?}. `{system_a_name}` conflicts with `{system_b_name}` on {conflicts:?}");
                 }
+                // Print an empty line to space out multiple stages nicely
+                println!("");
             }
         }
+    }
+}
+
+/// Collapses a name returned by std::any::type_name to remove its module path
+fn format_type_name(raw_name: &str) -> String {
+    // Generics result in nested paths within <..> blocks
+    // Consider "bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"
+    // To tackle this, we parse the string from left to right, collapsing as we go
+    let mut index: usize = 0;
+    let end_of_string = raw_name.len();
+    let mut parsed_name = String::new();
+
+    while index < end_of_string {
+        let rest_of_string = raw_name.get(index..end_of_string).unwrap_or_default();
+
+        // Collapse everything up to the next "<", "," or ">",
+        // then skip over it
+        if let Some(special_character_index) =
+            rest_of_string.find(|c: char| (c == '<') || (c == ',') || (c == '>'))
+        {
+            let segment_to_collapse = rest_of_string
+                .get(0..special_character_index)
+                .unwrap_or_default();
+            let collapsed_type_name = collapse_type_name(segment_to_collapse);
+            parsed_name += &collapsed_type_name;
+            // Insert the special character
+            let special_character =
+                &rest_of_string[special_character_index..=special_character_index];
+            parsed_name.push_str(special_character);
+            // Move the index just past the special character
+            index += special_character_index + 1;
+        } else {
+            // If there are no special characters left, we're done!
+            let collapsed_type_name = collapse_type_name(rest_of_string);
+            parsed_name += &collapsed_type_name;
+            index = end_of_string;
+        }
+    }
+
+    parsed_name
+}
+
+#[inline(always)]
+fn collapse_type_name(string: &str) -> String {
+    let type_name = string.split("::").last().unwrap();
+
+    // Account for leading white space
+    if string.get(0..1).unwrap_or_default() == " " {
+        format!(" {type_name}")
+    } else {
+        type_name.to_string()
+    }
+}
+
+#[cfg(test)]
+mod name_formatting_tests {
+    use crate::schedule::ambiguity_detection::collapse_type_name;
+
+    use super::format_type_name;
+
+    #[test]
+    fn trivial() {
+        assert_eq!(format_type_name("test_system"), "test_system")
+    }
+
+    #[test]
+    fn path_seperated() {
+        assert_eq!(
+            format_type_name("bevy_prelude::make_fun_game"),
+            "make_fun_game".to_string()
+        )
+    }
+
+    #[test]
+    fn trivial_generics() {
+        assert_eq!(format_type_name("a<B>"), "a<B>".to_string())
+    }
+
+    #[test]
+    fn multiple_type_parameters() {
+        assert_eq!(format_type_name("a<B, C>"), "a<B, C>".to_string())
+    }
+
+    #[test]
+    fn leading_whitespace() {
+        assert_eq!(collapse_type_name(" foo::A"), " A")
+    }
+
+    #[test]
+    fn generics() {
+        assert_eq!(
+            format_type_name("bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"),
+            "extract_cameras<Camera3d>".to_string()
+        )
+    }
+
+    #[test]
+    fn nested_generics() {
+        assert_eq!(
+            format_type_name("bevy::mad_science::do_mad_science<mad_science::Test<mad_science::Tube>, bavy::TypeSystemAbuse>"),
+            "do_mad_science<Test<Tube>, TypeSystemAbuse>".to_string()
+        )
     }
 }
 
