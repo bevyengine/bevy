@@ -216,6 +216,7 @@ impl SystemStage {
                 "bevy_text".to_string(),
                 "bevy_core_pipeline".to_string(),
                 "bevy_ui".to_string(),
+                "bevy_hierarchy".to_string(),
                 // Misc
                 "bevy_winit".to_string(),
                 "bevy_audio".to_string(),
