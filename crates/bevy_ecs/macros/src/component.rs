@@ -23,11 +23,15 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let lens_type = attrs
-        .lens
-        .unwrap_or(quote! {#bevy_ecs_path::lens::NoopLens<Self>});
+    let (lens_type, ext) = match attrs.lens {
+        Lens::None => (quote! {#bevy_ecs_path::lens::NoopLens<Self>}, None),
+        Lens::Declared(decl) => (decl, None),
+        Lens::Derived => (quote! {}, Some(quote! {})),
+    };
 
     TokenStream::from(quote! {
+        #ext
+
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             type Storage = #storage;
             type DefaultLens = #lens_type;
@@ -41,7 +45,13 @@ pub const LENS: Symbol = Symbol("lens");
 
 struct Attrs {
     storage: StorageTy,
-    lens: Option<TokenStream2>,
+    lens: Lens,
+}
+
+enum Lens {
+    None,
+    Declared(TokenStream2),
+    Derived,
 }
 
 #[derive(Clone, Copy)]
@@ -59,12 +69,12 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 
     let mut attrs = Attrs {
         storage: StorageTy::Table,
-        lens: None,
+        lens: Lens::None,
     };
 
     for meta in meta_items {
         use syn::{
-            Meta::NameValue,
+            Meta::{NameValue, Path},
             NestedMeta::{Lit, Meta},
         };
         match meta {
@@ -84,7 +94,14 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 };
             }
             Meta(NameValue(m)) if m.path == LENS => {
-                attrs.lens = Some(get_lit_str(LENS, &m.lit)?.value().as_str().parse()?);
+                attrs.lens = Lens::Declared(get_lit_str(LENS, &m.lit)?.value().as_str().parse()?);
+            }
+            Meta(Path(p))
+                if p.leading_colon.is_none()
+                    && p.segments.len() == 1
+                    && p.segments[0].ident == LENS =>
+            {
+                attrs.lens = Lens::Derived;
             }
             Meta(meta_item) => {
                 return Err(Error::new_spanned(
