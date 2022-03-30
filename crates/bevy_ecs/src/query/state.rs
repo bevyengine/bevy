@@ -265,8 +265,10 @@ where
         entities: [Entity; N],
     ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
         self.update_archetypes(world);
+        self.validate_world(world);
 
         // SAFE: method requires exclusive world access
+        // and world has been validated
         unsafe {
             self.get_multiple_unchecked_manual(
                 world,
@@ -323,6 +325,9 @@ where
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    ///
+    /// This must be called on the same `World` that the `Query` was generated from:
+    /// use `QueryState::validate_world` to verify this.
     pub(crate) unsafe fn get_unchecked_manual<'w, 's, QF: Fetch<'w, 's, State = Q::State>>(
         &'s self,
         world: &'w World,
@@ -397,6 +402,9 @@ where
     ///
     /// This does not check for unique access to subsets of the entity-component data.
     /// To be safe, make sure mutable queries have unique access to the components they query.
+    ///
+    /// This must be called on the same `World` that the `Query` was generated from:
+    /// use `QueryState::validate_world` to verify this.
     pub(crate) unsafe fn get_multiple_unchecked_manual<'s, 'w, const N: usize>(
         &'s self,
         world: &'w World,
@@ -404,8 +412,6 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
-        self.validate_world(world);
-
         // Verify that all entities are unique
         for i in 0..N {
             for j in 0..i {
