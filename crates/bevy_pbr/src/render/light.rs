@@ -261,7 +261,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut vertex_attributes = vec![Mesh::ATTRIBUTE_POSITION.at_shader_location(0)];
 
-        let mut bind_group_layout = vec![self.view_layout.clone(), self.mesh_layout.clone()];
+        let mut bind_group_layout = vec![self.view_layout.clone()];
         let mut shader_defs = Vec::new();
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
@@ -271,6 +271,8 @@ impl SpecializedMeshPipeline for ShadowPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
             bind_group_layout.push(self.skinned_mesh_layout.clone());
+        } else {
+            bind_group_layout.push(self.mesh_layout.clone());
         }
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
