@@ -2,8 +2,8 @@ use crate::component::ComponentId;
 use crate::schedule::{AmbiguityDetection, SystemContainer, SystemStage};
 use crate::world::World;
 
-use bevy_utils::HashSet;
 use fixedbitset::FixedBitSet;
+use std::hash::Hash;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// Systems that access the same Component or Resource within the same stage
@@ -58,10 +58,10 @@ pub enum ExecutionOrderAmbiguities {
 ///
 /// Created by applying [`find_ambiguities`] to a [`SystemContainer`].
 /// These can be reported by configuring the [`ReportExecutionOrderAmbiguities`] resource.
-#[derive(Debug, Clone, Eq, Hash)]
+#[derive(Debug, Clone, Eq)]
 pub struct SystemOrderAmbiguity {
     // The names of the conflicting systems
-    pub system_names: (String, String),
+    pub system_names: [String; 2],
     /// The components (and resources) that these systems have incompatible access to
     pub conflicts: Vec<String>,
     /// The segment of the [`SystemStage`] that the conflicting systems were stored in
@@ -70,20 +70,37 @@ pub struct SystemOrderAmbiguity {
 
 impl PartialEq for SystemOrderAmbiguity {
     fn eq(&self, other: &Self) -> bool {
+        let mut self_names = self.system_names.clone();
+        self_names.sort();
+
+        let mut other_names = self.system_names.clone();
+        other_names.sort();
+
+        let mut self_conflicts = self.conflicts.clone();
+        self_conflicts.sort();
+
+        let mut other_conflicts = self.conflicts.clone();
+        other_conflicts.sort();
+
+        (self_names == other_names)
+            && (self_conflicts == other_conflicts)
+            && (self.segment == other.segment)
+    }
+}
+
+// This impl is needed to allow us to test whether a returned set of ambiguities
+// matches the expected value
+impl Hash for SystemOrderAmbiguity {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // The order of the systems doesn't matter
-        let names_aligned = (self.system_names.0 == other.system_names.0)
-            & (self.system_names.1 == other.system_names.1);
-        let names_inverted = (self.system_names.0 == other.system_names.1)
-            & (self.system_names.0 == other.system_names.1);
-        let names_match = names_aligned | names_inverted;
-
+        let mut system_names = self.system_names.clone();
+        system_names.sort();
+        system_names.hash(state);
         // The order of the reported conflicts doesn't matter
-        let conflicts_match =
-            HashSet::from_iter(self.conflicts.iter()) == HashSet::from_iter(other.conflicts.iter());
-
-        let segments_match = self.segment == other.segment;
-
-        names_match & conflicts_match & segments_match
+        let mut conflicts = self.conflicts.clone();
+        conflicts.sort();
+        conflicts.hash(state);
+        self.segment.hash(state);
     }
 }
 
@@ -150,7 +167,7 @@ impl SystemOrderAmbiguity {
 
         Self {
             // Don't bother with Cows here
-            system_names: (system_a_name.into(), system_b_name.into()),
+            system_names: [system_a_name.into(), system_b_name.into()],
             conflicts,
             segment,
         }
@@ -318,8 +335,8 @@ impl SystemStage {
                         *system_b_index,
                         component_ids.to_vec(),
                         SystemStageSegment::Parallel,
-                        &self,
-                        &world,
+                        self,
+                        world,
                     )
                 })
                 .collect();
@@ -333,8 +350,8 @@ impl SystemStage {
                         *system_b_index,
                         component_ids.to_vec(),
                         SystemStageSegment::ExclusiveAtStart,
-                        &self,
-                        &world,
+                        self,
+                        world,
                     )
                 })
                 .collect();
@@ -351,8 +368,8 @@ impl SystemStage {
                 *system_b_index,
                 component_ids.to_vec(),
                 SystemStageSegment::ExclusiveBeforeCommands,
-                &self,
-                &world,
+                self,
+                world,
             )
         })
         .collect();
@@ -366,8 +383,8 @@ impl SystemStage {
                         *system_b_index,
                         component_ids.to_vec(),
                         SystemStageSegment::ExclusiveAtEnd,
-                        &self,
-                        &world,
+                        self,
+                        world,
                     )
                 })
                 .collect();
@@ -415,8 +432,8 @@ impl SystemStage {
                 for (i, ambiguity) in ambiguities.iter().enumerate() {
                     let ambiguity_number = i + 1;
                     // The path name is often just noise, and this gets us consistency with `conflicts`'s formatting
-                    let system_a_name = format_type_name(ambiguity.system_names.0.as_str());
-                    let system_b_name = format_type_name(ambiguity.system_names.1.as_str());
+                    let system_a_name = format_type_name(ambiguity.system_names[0].as_str());
+                    let system_b_name = format_type_name(ambiguity.system_names[1].as_str());
                     let mut conflicts: Vec<String> = ambiguity
                         .conflicts
                         .iter()
@@ -431,13 +448,13 @@ impl SystemStage {
                     println!("{ambiguity_number:?}. `{system_a_name}` conflicts with `{system_b_name}` on {conflicts:?}");
                 }
                 // Print an empty line to space out multiple stages nicely
-                println!("");
+                println!();
             }
 
             if report_level == ExecutionOrderAmbiguities::Deny
                 || report_level == ExecutionOrderAmbiguities::Forbid
             {
-                panic!("The ReportExecutionOrderAmbiguities resource is set to a level that forbids the app from running with unresolved system execution order ambiguities.")
+                panic!("The `ReportExecutionOrderAmbiguities` resource is set to a level that forbids the app from running with unresolved system execution order ambiguities.")
             }
         }
     }
@@ -875,18 +892,18 @@ mod tests {
             HashSet::from_iter(ambiguities),
             HashSet::from_iter(vec![
                 SystemOrderAmbiguity {
-                    system_names: (
+                    system_names: [
                         "bevy_ecs::schedule::ambiguity_detection::tests::system_a".to_string(),
                         "bevy_ecs::schedule::ambiguity_detection::tests::system_b".to_string()
-                    ),
+                    ],
                     conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
                     segment: bevy_ecs::schedule::SystemStageSegment::Parallel,
                 },
                 SystemOrderAmbiguity {
-                    system_names: (
+                    system_names: [
                         "bevy_ecs::schedule::ambiguity_detection::tests::system_a".to_string(),
                         "bevy_ecs::schedule::ambiguity_detection::tests::system_d".to_string()
-                    ),
+                    ],
                     conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
                     segment: bevy_ecs::schedule::SystemStageSegment::Parallel,
                 },

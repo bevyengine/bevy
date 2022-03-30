@@ -111,9 +111,8 @@ impl SystemStage {
             self.executor.rebuild_cached_data(&self.parallel);
             self.executor_modified = false;
             // This cannot panic, so we insert the default value if it was not present
-            let report_level = world
-                .get_resource_or_insert_with(ExecutionOrderAmbiguities::default)
-                .clone();
+            let report_level =
+                *world.get_resource_or_insert_with(ExecutionOrderAmbiguities::default);
             self.report_ambiguities(world, report_level);
         } else if self.executor_modified {
             self.executor.rebuild_cached_data(&self.parallel);
