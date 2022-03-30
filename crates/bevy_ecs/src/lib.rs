@@ -28,8 +28,8 @@ pub mod prelude {
         event::{EventReader, EventWriter},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
-            AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            ReportExecutionOrderAmbiguities, RunCriteria, RunCriteriaDescriptorCoercion,
+            AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ExecutionOrderAmbiguities,
+            ParallelSystemDescriptorCoercion, RunCriteria, RunCriteriaDescriptorCoercion,
             RunCriteriaLabel, RunCriteriaPiping, Schedule, Stage, StageLabel, State, SystemLabel,
             SystemSet, SystemStage,
         },

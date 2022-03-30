@@ -3,11 +3,11 @@ use crate::{
     schedule::{
         graph_utils::{self, DependencyGraphError},
         BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
-        ExclusiveSystemContainer, GraphNode, InsertionPoint, IntoSystemDescriptor,
-        ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
-        ReportExecutionOrderAmbiguities, RunCriteriaContainer, RunCriteriaDescriptor,
-        RunCriteriaDescriptorOrLabel, RunCriteriaInner, ShouldRun, SingleThreadedExecutor,
-        SystemContainer, SystemDescriptor, SystemSet,
+        ExclusiveSystemContainer, ExecutionOrderAmbiguities, GraphNode, InsertionPoint,
+        IntoSystemDescriptor, ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
+        RunCriteriaContainer, RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel,
+        RunCriteriaInner, ShouldRun, SingleThreadedExecutor, SystemContainer, SystemDescriptor,
+        SystemSet,
     },
     world::{World, WorldId},
 };
@@ -112,7 +112,7 @@ impl SystemStage {
             self.executor_modified = false;
             // This cannot panic, so we insert the default value if it was not present
             let report_level = world
-                .get_resource_or_insert_with(ReportExecutionOrderAmbiguities::default)
+                .get_resource_or_insert_with(ExecutionOrderAmbiguities::default)
                 .clone();
             self.report_ambiguities(world, report_level);
         } else if self.executor_modified {

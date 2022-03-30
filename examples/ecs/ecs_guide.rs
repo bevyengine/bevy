@@ -1,6 +1,6 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
-    ecs::schedule::ReportExecutionOrderAmbiguities,
+    ecs::schedule::ExecutionOrderAmbiguities,
     prelude::*,
     utils::Duration,
 };
@@ -332,7 +332,7 @@ fn main() {
         // in the console by adding the following resource to our App
         // Execution order ambiguities can be resolved by adding ordering constraints,
         // or explicitly ignored (when there's a false positive).
-        .insert_resource(ReportExecutionOrderAmbiguities::WarnVerbose)
+        .insert_resource(ExecutionOrderAmbiguities::WarnVerbose)
         // This call to run() starts the app we just built!
         .run();
 }
