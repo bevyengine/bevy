@@ -184,10 +184,6 @@ name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
 [[example]]
-name = "manual_gltf_animation_player"
-path = "examples/3d/manual_gltf_animation_player.rs"
-
-[[example]]
 name = "many_cubes"
 path = "examples/3d/many_cubes.rs"
 
@@ -243,6 +239,10 @@ path = "examples/animation/custom_skinned_mesh.rs"
 [[example]]
 name = "gltf_skinned_mesh"
 path = "examples/animation/gltf_skinned_mesh.rs"
+
+[[example]]
+name = "manual_gltf_animation_player"
+path = "examples/animation/manual_gltf_animation_player.rs"
 
 [[example]]
 name = "skinned_mesh_wireframe_shadow"
