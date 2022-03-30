@@ -184,6 +184,22 @@ impl Color {
     }
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// eg. `Color::rgba_hex_u32(0xFF0000FF)`
+    pub fn rgba_hex_u32(input: u32) -> Color {
+        let [r, g, b, a] = input.to_be_bytes();
+        Self::rgba_u8(r, g, b, a)
+    }
+
+    /// New `Color` from sRGB colorspace.
+    ///
+    /// Similar to `rgba_hex_u32`, but without the `alpha` channel
+    pub fn rgb_hex_u32(input: u32) -> Color {
+        let [r, g, b, _] = input.to_be_bytes();
+        Self::rgb_u8(r, g, b)
+    }
+
+    /// New `Color` from sRGB colorspace.
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
         Color::rgba_u8(r, g, b, u8::MAX)
     }
