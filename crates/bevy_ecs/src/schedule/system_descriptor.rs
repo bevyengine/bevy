@@ -326,7 +326,7 @@ pub trait ExclusiveSystemDescriptorCoercion {
     fn at_end(self) -> ExclusiveSystemDescriptor;
 
     /// Specifies that this system is ambiguous and must be ignored by ambiguity detection.
-    fn silence_ambiguity_checks(self) -> ExclusiveSystemDescriptor;
+    fn ignore_all_ambiguities(self) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
     /// with other systems with the given label.
@@ -373,7 +373,7 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
         self
     }
 
-    fn silence_ambiguity_checks(mut self) -> ExclusiveSystemDescriptor {
+    fn ignore_all_ambiguities(mut self) -> ExclusiveSystemDescriptor {
         self.ambiguity_detection = AmbiguityDetection::Ignore;
         self
     }
@@ -433,8 +433,8 @@ where
         new_exclusive_descriptor(Box::new(self)).at_end()
     }
 
-    fn silence_ambiguity_checks(self) -> ExclusiveSystemDescriptor {
-        new_exclusive_descriptor(Box::new(self)).silence_ambiguity_checks()
+    fn ignore_all_ambiguities(self) -> ExclusiveSystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).ignore_all_ambiguities()
     }
 
     fn ambiguous_with<Marker>(
