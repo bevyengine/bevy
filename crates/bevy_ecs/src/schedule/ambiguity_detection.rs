@@ -413,11 +413,16 @@ impl SystemStage {
                     // The path name is often just noise, and this gets us consistency with `conflicts`'s formatting
                     let system_a_name = format_type_name(ambiguity.system_names.0.as_str());
                     let system_b_name = format_type_name(ambiguity.system_names.1.as_str());
-                    let conflicts: Vec<String> = ambiguity
+                    let mut conflicts: Vec<String> = ambiguity
                         .conflicts
                         .iter()
                         .map(|name| format_type_name(name.as_str()))
                         .collect();
+
+                    // Exclusive system conflicts are reported as conflicting on the empty set
+                    if conflicts.is_empty() {
+                        conflicts = vec!["World".to_string()];
+                    }
 
                     println!("{ambiguity_number:?}. `{system_a_name}` conflicts with `{system_b_name}` on {conflicts:?}");
                 }
