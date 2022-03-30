@@ -618,6 +618,73 @@ where
         }
     }
 
+    /// Returns the read-only query results for the given array of [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// Note that the unlike [`Query::get_multiple_mut`], the entities passed in do not need to be unique.
+    ///
+    /// See [`Query::multiple`] for the infallible equivalent.
+    #[inline]
+    pub fn get_multiple<const N: usize>(
+        &self,
+        entities: [Entity; N],
+    ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
+        // SAFE: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
+        unsafe {
+            self.state.get_multiple_read_only_manual(
+                self.world,
+                entities,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
+    /// Returns the read-only query items for the provided array of [`Entity`]
+    ///
+    /// See [`Query::get_multiple`] for the [`Result`]-returning equivalent.
+    ///
+    /// # Examples
+    /// ```rust, no_run
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Targets([Entity; 3]);
+    ///
+    /// #[derive(Component)]
+    /// struct Position{
+    ///     x: i8,
+    ///     y: i8
+    /// };
+    ///
+    /// impl Position {
+    ///     fn distance(&self, other: &Position) -> i8 {
+    ///         // Manhattan distance is way easier to compute!
+    ///         (self.x - other.x).abs() + (self.y - other.y).abs()
+    ///     }
+    /// }
+    ///
+    /// fn check_all_targets_in_range(targeting_query: Query<(Entity, &Targets, &Position)>, targets_query: Query<&Position>){
+    ///     for (targeting_entity, targets, origin) in targeting_query.iter(){
+    ///         // We can use "destructuring" to unpack the results nicely
+    ///         let [target_1, target_2, target_3] = targets_query.multiple(targets.0);
+    ///         
+    ///         assert!(target_1.distance(origin) <= 5);
+    ///         assert!(target_2.distance(origin) <= 5);
+    ///         assert!(target_3.distance(origin) <= 5);
+    ///     }
+    /// }
+    /// ```
+    #[inline]
+    pub fn multiple<const N: usize>(
+        &self,
+        entities: [Entity; N],
+    ) -> [<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N] {
+        self.get_multiple(entities).unwrap()
+    }
+
     /// Returns the query result for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
@@ -657,6 +724,77 @@ where
                 self.change_tick,
             )
         }
+    }
+
+    /// Returns the query results for the given array of [`Entity`].
+    ///
+    /// In case of a nonexisting entity, duplicate entities or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// See [`Query::multiple_mut`] for the infallible equivalent.
+    #[inline]
+    pub fn get_multiple_mut<const N: usize>(
+        &mut self,
+        entities: [Entity; N],
+    ) -> Result<[<Q::Fetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
+        // SAFE: scheduler ensures safe Query world access
+        unsafe {
+            self.state.get_multiple_unchecked_manual(
+                self.world,
+                entities,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
+    /// Returns the query items for the provided array of [`Entity`]
+    ///
+    /// See [`Query::get_multiple_mut`] for the [`Result`]-returning equivalent.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Spring{
+    ///     connected_entities: [Entity; 2],
+    ///     strength: f32,
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///     x: f32,
+    ///     y: f32,
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Force {
+    ///     x: f32,
+    ///     y: f32,
+    /// }
+    ///
+    /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
+    ///     for spring in spring_query.iter(){
+    ///          // We can use "destructuring" to unpack our query items nicely
+    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.multiple_mut(spring.connected_entities);
+    ///             
+    ///          force_1.x += spring.strength * (position_1.x - position_2.x);
+    ///          force_1.y += spring.strength * (position_1.y - position_2.y);
+    ///          
+    ///          // Silence borrow-checker: I have split your mutable borrow!
+    ///          force_2.x += spring.strength * (position_2.x - position_1.x);
+    ///          force_2.y += spring.strength * (position_2.y - position_1.y);
+    ///     }
+    /// }
+    /// ```
+    #[inline]
+    pub fn multiple_mut<const N: usize>(
+        &mut self,
+        entities: [Entity; N],
+    ) -> [<Q::Fetch as Fetch<'_, 's>>::Item; N] {
+        self.get_multiple_mut(entities).unwrap()
     }
 
     /// Returns the query result for the given [`Entity`].
