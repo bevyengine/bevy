@@ -549,6 +549,10 @@ path = "examples/stress_tests/transform_hierarchy.rs"
 # Tools
 
 [[example]]
+name = "internal_ambiguities"
+path = "examples/tools/internal_ambiguities.rs"
+
+[[example]]
 name = "scene_viewer"
 path = "examples/tools/scene_viewer.rs"
 
