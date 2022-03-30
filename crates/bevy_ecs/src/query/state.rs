@@ -265,10 +265,9 @@ where
         entities: [Entity; N],
     ) -> Result<[<Q::Fetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
         self.update_archetypes(world);
-        self.validate_world(world);
 
         // SAFE: method requires exclusive world access
-        // and world has been validated
+        // and world has been validated via update_archetypes
         unsafe {
             self.get_multiple_unchecked_manual(
                 world,
