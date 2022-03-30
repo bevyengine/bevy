@@ -57,6 +57,7 @@ impl Plugin for SpritePlugin {
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
         app.add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
+            .register_type::<Mesh2dHandle>()
             .add_plugin(Mesh2dRenderPlugin)
             .add_plugin(ColorMaterialPlugin);
 
