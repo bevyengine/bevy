@@ -117,21 +117,21 @@ impl SystemOrderAmbiguity {
                 )
             }
             ExclusiveAtStart => {
-                let system_container = stage.parallel_systems();
+                let system_container = stage.exclusive_at_start_systems();
                 (
                     system_container[system_a_index].name(),
                     system_container[system_b_index].name(),
                 )
             }
             ExclusiveBeforeCommands => {
-                let system_container = stage.parallel_systems();
+                let system_container = stage.exclusive_before_commands_systems();
                 (
                     system_container[system_a_index].name(),
                     system_container[system_b_index].name(),
                 )
             }
             ExclusiveAtEnd => {
-                let system_container = stage.parallel_systems();
+                let system_container = stage.exclusive_at_end_systems();
                 (
                     system_container[system_a_index].name(),
                     system_container[system_b_index].name(),
@@ -453,6 +453,8 @@ mod tests {
     fn event_reader_system(_reader: EventReader<E>) {}
     fn event_writer_system(_writer: EventWriter<E>) {}
     fn event_resource_system(_events: ResMut<Events<E>>) {}
+    fn read_world_system(_world: &World) {}
+    fn write_world_system(_world: &mut World) {}
 
     // Tests for conflict detection
     #[test]
@@ -488,11 +490,31 @@ mod tests {
             .add_system(read_component_system)
             .add_system(read_component_system)
             .add_system(event_reader_system)
-            .add_system(event_reader_system);
+            .add_system(event_reader_system)
+            .add_system(read_world_system)
+            .add_system(read_world_system);
 
         assert_eq!(
             test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             0
+        );
+    }
+
+    #[test]
+    fn read_world() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage
+            .add_system(empty_system)
+            .add_system(resmut_system)
+            .add_system(write_component_system)
+            .add_system(event_writer_system)
+            .add_system(read_world_system);
+
+        assert_eq!(
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
+            3
         );
     }
 
@@ -560,13 +582,33 @@ mod tests {
         let mut test_stage = SystemStage::parallel();
 
         test_stage
+            // All of these systems clash
             .add_system(event_reader_system)
             .add_system(event_writer_system)
             .add_system(event_resource_system);
 
         assert_eq!(
             test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
-            // All of these systems clash
+            3
+        );
+    }
+
+    #[test]
+    fn exclusive() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+
+        test_stage
+            // All 3 of these conflict with each other
+            .add_system(write_world_system.exclusive_system())
+            .add_system(write_world_system.exclusive_system().at_end())
+            .add_system(res_system.exclusive_system())
+            // These do not, as they're in different segments of the stage
+            .add_system(write_world_system.exclusive_system().at_start())
+            .add_system(write_world_system.exclusive_system().before_commands());
+
+        assert_eq!(
+            test_stage.n_ambiguities(&mut world, ReportExecutionOrderAmbiguities::Deterministic),
             3
         );
     }
