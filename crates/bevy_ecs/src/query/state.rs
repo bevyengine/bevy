@@ -375,7 +375,6 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item; N], QueryEntityError> {
-
         // SAFE: fetch is read-only
         // and world must be validated
         let array_of_results = entities.map(|entity| {
