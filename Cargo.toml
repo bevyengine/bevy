@@ -244,6 +244,10 @@ path = "examples/animation/custom_skinned_mesh.rs"
 name = "gltf_skinned_mesh"
 path = "examples/animation/gltf_skinned_mesh.rs"
 
+[[example]]
+name = "skinned_mesh_wireframe_shadow"
+path = "examples/animation/skinned_mesh_wireframe_shadow.rs"
+
 # Application
 [[example]]
 name = "custom_loop"

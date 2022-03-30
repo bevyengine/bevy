@@ -125,6 +125,7 @@ Example | File | Description
 --- | --- | ---
 `custom_skinned_mesh` | [`animation/custom_skinned_mesh.rs`](./animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code.
 `gltf_skinned_mesh` | [`animation/gltf_skinned_mesh.rs`](./animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file.
+`skinned_mesh_wireframe_shadow` | [`animation/skinned_mesh_wireframe_shadow.rs`](./animation/skinned_mesh_wireframe_shadow.rs) | Shadow and wireframe on a skinned mesh.
 
 ## Application
 
