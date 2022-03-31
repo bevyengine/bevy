@@ -158,7 +158,7 @@ where
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
     ///
-    /// Note that the unlike [`QueryState::get_multiple_mut`], the entities passed in do not need to be unique.
+    /// Note that the unlike [`QueryState::get_many_mut`], the entities passed in do not need to be unique.
     ///
     /// # Examples
     ///
@@ -177,16 +177,16 @@ where
     ///
     /// let mut query_state = world.query::<&A>();
     ///
-    /// let component_values = query_state.get_multiple(&world, entities).unwrap();
+    /// let component_values = query_state.get_many(&world, entities).unwrap();
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
-    /// assert_eq!(query_state.get_multiple(&world, [wrong_entity]), Err(QueryEntityError::NoSuchEntity(wrong_entity)));
+    /// assert_eq!(query_state.get_many(&world, [wrong_entity]), Err(QueryEntityError::NoSuchEntity(wrong_entity)));
     /// ```
     #[inline]
-    pub fn get_multiple<'w, 's, const N: usize>(
+    pub fn get_many<'w, 's, const N: usize>(
         &'s mut self,
         world: &'w World,
         entities: [Entity; N],
@@ -195,7 +195,7 @@ where
 
         // SAFE: update_archetypes validates the `World` matches
         unsafe {
-            self.get_multiple_read_only_manual(
+            self.get_many_read_only_manual(
                 world,
                 entities,
                 world.last_change_tick(),
@@ -244,25 +244,25 @@ where
     ///
     /// let mut query_state = world.query::<&mut A>();
     ///
-    /// let mut mutable_component_values = query_state.get_multiple_mut(&mut world, entities).unwrap();
+    /// let mut mutable_component_values = query_state.get_many_mut(&mut world, entities).unwrap();
     ///
     /// for mut a in mutable_component_values.iter_mut(){
     ///     a.0 += 5;
     /// }
     ///
-    /// let component_values = query_state.get_multiple(&world, entities).unwrap();
+    /// let component_values = query_state.get_many(&world, entities).unwrap();
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
     /// let wrong_entity = Entity::from_raw(57);
     /// let invalid_entity = world.spawn().id();
     ///
-    /// assert_eq!(query_state.get_multiple_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
-    /// assert_eq!(query_state.get_multiple_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch(invalid_entity));
-    /// assert_eq!(query_state.get_multiple_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
+    /// assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
+    /// assert_eq!(query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch(invalid_entity));
+    /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
     #[inline]
-    pub fn get_multiple_mut<'w, 's, const N: usize>(
+    pub fn get_many_mut<'w, 's, const N: usize>(
         &'s mut self,
         world: &'w mut World,
         entities: [Entity; N],
@@ -272,7 +272,7 @@ where
         // SAFE: method requires exclusive world access
         // and world has been validated via update_archetypes
         unsafe {
-            self.get_multiple_unchecked_manual(
+            self.get_many_unchecked_manual(
                 world,
                 entities,
                 world.last_change_tick(),
@@ -368,7 +368,7 @@ where
     ///
     /// This must be called on the same `World` that the `Query` was generated from:
     /// use `QueryState::validate_world` to verify this.
-    pub(crate) unsafe fn get_multiple_read_only_manual<'s, 'w, const N: usize>(
+    pub(crate) unsafe fn get_many_read_only_manual<'s, 'w, const N: usize>(
         &'s self,
         world: &'w World,
         entities: [Entity; N],
@@ -409,7 +409,7 @@ where
     ///
     /// This must be called on the same `World` that the `Query` was generated from:
     /// use `QueryState::validate_world` to verify this.
-    pub(crate) unsafe fn get_multiple_unchecked_manual<'s, 'w, const N: usize>(
+    pub(crate) unsafe fn get_many_unchecked_manual<'s, 'w, const N: usize>(
         &'s self,
         world: &'w World,
         entities: [Entity; N],
@@ -941,7 +941,7 @@ mod tests {
     use crate::{prelude::*, query::QueryEntityError};
 
     #[test]
-    fn get_multiple_unchecked_manual_uniqueness() {
+    fn get_many_unchecked_manual_uniqueness() {
         let mut world = World::new();
 
         let entities: Vec<Entity> = (0..10).map(|_| world.spawn().id()).collect();
@@ -952,12 +952,12 @@ mod tests {
         let last_change_tick = world.last_change_tick();
         let change_tick = world.read_change_tick();
 
-        // It's best to test get_multiple_unchecked_manual directly,
+        // It's best to test get_many_unchecked_manual directly,
         // as it is shared and unsafe
         // We don't care about aliased mutabilty for the read-only equivalent
         assert!(unsafe {
             query_state
-                .get_multiple_unchecked_manual::<10>(
+                .get_many_unchecked_manual::<10>(
                     &world,
                     entities.clone().try_into().unwrap(),
                     last_change_tick,
@@ -969,7 +969,7 @@ mod tests {
         assert_eq!(
             unsafe {
                 query_state
-                    .get_multiple_unchecked_manual(
+                    .get_many_unchecked_manual(
                         &world,
                         [entities[0], entities[0]],
                         last_change_tick,
@@ -983,7 +983,7 @@ mod tests {
         assert_eq!(
             unsafe {
                 query_state
-                    .get_multiple_unchecked_manual(
+                    .get_many_unchecked_manual(
                         &world,
                         [entities[0], entities[1], entities[0]],
                         last_change_tick,
@@ -997,7 +997,7 @@ mod tests {
         assert_eq!(
             unsafe {
                 query_state
-                    .get_multiple_unchecked_manual(
+                    .get_many_unchecked_manual(
                         &world,
                         [entities[9], entities[9]],
                         last_change_tick,
@@ -1021,21 +1021,21 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn right_world_get_multiple() {
+    fn right_world_get_many() {
         let mut world_1 = World::new();
         let world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get_multiple(&world_2, []);
+        let _panics = query_state.get_many(&world_2, []);
     }
 
     #[test]
     #[should_panic]
-    fn right_world_get_multiple_mut() {
+    fn right_world_get_many_mut() {
         let mut world_1 = World::new();
         let mut world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get_multiple_mut(&mut world_2, []);
+        let _panics = query_state.get_many_mut(&mut world_2, []);
     }
 }
