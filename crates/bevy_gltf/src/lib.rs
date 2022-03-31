@@ -1,5 +1,5 @@
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Quat, Vec3};
+#[cfg(feature = "bevy_animation")]
+use bevy_animation::AnimationClip;
 use bevy_utils::HashMap;
 
 mod loader;
@@ -8,7 +8,7 @@ pub use loader::*;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::TypeUuid;
 use bevy_render::mesh::Mesh;
 use bevy_scene::Scene;
 
@@ -22,9 +22,7 @@ impl Plugin for GltfPlugin {
             .add_asset::<Gltf>()
             .add_asset::<GltfNode>()
             .add_asset::<GltfPrimitive>()
-            .add_asset::<GltfMesh>()
-            .add_asset::<GltfAnimation>()
-            .register_type::<GltfAnimatedNode>();
+            .add_asset::<GltfMesh>();
     }
 }
 
@@ -41,8 +39,10 @@ pub struct Gltf {
     pub nodes: Vec<Handle<GltfNode>>,
     pub named_nodes: HashMap<String, Handle<GltfNode>>,
     pub default_scene: Option<Handle<Scene>>,
-    pub animations: Vec<Handle<GltfAnimation>>,
-    pub named_animations: HashMap<String, Handle<GltfAnimation>>,
+    #[cfg(feature = "bevy_animation")]
+    pub animations: Vec<Handle<AnimationClip>>,
+    #[cfg(feature = "bevy_animation")]
+    pub named_animations: HashMap<String, Handle<AnimationClip>>,
 }
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`] and
@@ -68,53 +68,4 @@ pub struct GltfMesh {
 pub struct GltfPrimitive {
     pub mesh: Handle<Mesh>,
     pub material: Option<Handle<StandardMaterial>>,
-}
-
-/// Interpolation method for an animation. Part of a [`GltfNodeAnimation`].
-#[derive(Clone, Debug)]
-pub enum GltfAnimationInterpolation {
-    Linear,
-    Step,
-    CubicSpline,
-}
-
-/// How a property of a glTF node should be animated. The property and its value can be found
-/// through the [`GltfNodeAnimationKeyframes`] attribute.
-#[derive(Clone, Debug)]
-pub struct GltfNodeAnimation {
-    pub keyframe_timestamps: Vec<f32>,
-    pub keyframes: GltfNodeAnimationKeyframes,
-    pub interpolation: GltfAnimationInterpolation,
-}
-
-/// A glTF animation, listing how each node (by its index) that is part of it should be animated.
-#[derive(Default, Clone, TypeUuid, Debug)]
-#[uuid = "d81b7179-0448-4eb0-89fe-c067222725bf"]
-pub struct GltfAnimation {
-    pub node_animations: HashMap<usize, Vec<GltfNodeAnimation>>,
-}
-
-/// Key frames of an animation.
-#[derive(Clone, Debug)]
-pub enum GltfNodeAnimationKeyframes {
-    Rotation(Vec<Quat>),
-    Translation(Vec<Vec3>),
-    Scale(Vec<Vec3>),
-}
-
-impl Default for GltfNodeAnimation {
-    fn default() -> Self {
-        Self {
-            keyframe_timestamps: Default::default(),
-            keyframes: GltfNodeAnimationKeyframes::Translation(Default::default()),
-            interpolation: GltfAnimationInterpolation::Linear,
-        }
-    }
-}
-
-/// A glTF node that is part of an animation, with its index.
-#[derive(Component, Debug, Clone, Reflect, Default)]
-#[reflect(Component)]
-pub struct GltfAnimatedNode {
-    pub index: usize,
 }
