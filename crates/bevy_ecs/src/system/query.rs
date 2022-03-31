@@ -623,17 +623,17 @@ where
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
     ///
-    /// Note that the unlike [`Query::get_multiple_mut`], the entities passed in do not need to be unique.
+    /// Note that the unlike [`Query::get_many_mut`], the entities passed in do not need to be unique.
     ///
     /// See [`Query::multiple`] for the infallible equivalent.
     #[inline]
-    pub fn get_multiple<const N: usize>(
+    pub fn get_many<const N: usize>(
         &self,
         entities: [Entity; N],
     ) -> Result<[<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
         // SAFE: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
         unsafe {
-            self.state.get_multiple_read_only_manual(
+            self.state.get_many_read_only_manual(
                 self.world,
                 entities,
                 self.last_change_tick,
@@ -644,7 +644,7 @@ where
 
     /// Returns the read-only query items for the provided array of [`Entity`]
     ///
-    /// See [`Query::get_multiple`] for the [`Result`]-returning equivalent.
+    /// See [`Query::get_many`] for the [`Result`]-returning equivalent.
     ///
     /// # Examples
     /// ```rust, no_run
@@ -682,7 +682,7 @@ where
         &self,
         entities: [Entity; N],
     ) -> [<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N] {
-        self.get_multiple(entities).unwrap()
+        self.get_many(entities).unwrap()
     }
 
     /// Returns the query result for the given [`Entity`].
@@ -733,13 +733,13 @@ where
     ///
     /// See [`Query::multiple_mut`] for the infallible equivalent.
     #[inline]
-    pub fn get_multiple_mut<const N: usize>(
+    pub fn get_many_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
     ) -> Result<[<Q::Fetch as Fetch<'_, 's>>::Item; N], QueryEntityError> {
         // SAFE: scheduler ensures safe Query world access
         unsafe {
-            self.state.get_multiple_unchecked_manual(
+            self.state.get_many_unchecked_manual(
                 self.world,
                 entities,
                 self.last_change_tick,
@@ -750,7 +750,7 @@ where
 
     /// Returns the query items for the provided array of [`Entity`]
     ///
-    /// See [`Query::get_multiple_mut`] for the [`Result`]-returning equivalent.
+    /// See [`Query::get_many_mut`] for the [`Result`]-returning equivalent.
     ///
     /// # Examples
     ///
@@ -794,7 +794,7 @@ where
         &mut self,
         entities: [Entity; N],
     ) -> [<Q::Fetch as Fetch<'_, 's>>::Item; N] {
-        self.get_multiple_mut(entities).unwrap()
+        self.get_many_mut(entities).unwrap()
     }
 
     /// Returns the query result for the given [`Entity`].
