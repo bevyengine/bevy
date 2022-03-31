@@ -504,7 +504,7 @@ fn collapse_type_name(string: &str) -> String {
     let type_name = string.split("::").last().unwrap();
 
     // Account for leading white space
-    if string.get(0..1).unwrap_or_default() == " " {
+    if string.get(0..1).unwrap_or_default() == " " && type_name != string {
         format!(" {type_name}")
     } else {
         type_name.to_string()
@@ -513,8 +513,6 @@ fn collapse_type_name(string: &str) -> String {
 
 #[cfg(test)]
 mod name_formatting_tests {
-    use crate::schedule::ambiguity_detection::collapse_type_name;
-
     use super::format_type_name;
 
     #[test]
@@ -538,11 +536,6 @@ mod name_formatting_tests {
     #[test]
     fn multiple_type_parameters() {
         assert_eq!(format_type_name("a<B, C>"), "a<B, C>".to_string())
-    }
-
-    #[test]
-    fn leading_whitespace() {
-        assert_eq!(collapse_type_name(" foo::A"), " A")
     }
 
     #[test]
