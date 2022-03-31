@@ -98,7 +98,7 @@ impl IntoSystemDescriptor<()> for ExclusiveSystemCoerced {
 /// See the methods on [`ParallelSystemDescriptor`] to set this for a given system.
 ///
 /// The overall behavior is configured using the
-/// [`ReportExecutionOrderAmbiguities`](crate::schedule::ReportExecutionOrderAmbiguities) resource.
+/// [`ExecutionOrderAmbiguities`](crate::schedule::ExecutionOrderAmbiguities) resource.
 pub enum AmbiguityDetection {
     Check,
     Ignore,
