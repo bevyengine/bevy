@@ -460,7 +460,7 @@ impl SystemStage {
     }
 }
 
-/// Collapses a name returned by std::any::type_name to remove its module path
+/// Collapses a name returned by [`std::any::type_name`] to remove its module path
 fn format_type_name(raw_name: &str) -> String {
     // Generics result in nested paths within <..> blocks
     // Consider "bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"
@@ -781,7 +781,7 @@ mod tests {
             .add_system(res_system);
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Forbid),
+            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Warn),
             0
         );
     }
@@ -795,7 +795,21 @@ mod tests {
             .add_system(res_system.label("IGNORE_ME"));
 
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Forbid),
+            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Warn),
+            0
+        );
+    }
+
+    #[test]
+    fn ambiguous_with_system() {
+        let mut world = World::new();
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(system_a.ambiguous_with(system_b))
+            .add_system(system_b);
+
+        assert_eq!(
+            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Warn),
             0
         );
     }
@@ -824,51 +838,37 @@ mod tests {
     }
 
     #[test]
-    fn ambiguous_with_system() {
+    fn allow() {
         let mut world = World::new();
-        let mut test_stage = SystemStage::parallel();
-        test_stage
-            .add_system(system_a.ambiguous_with(system_b))
-            .add_system(system_b);
-
+        let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Forbid),
+            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Allow),
             0
         );
     }
 
     #[test]
-    fn off() {
+    fn warn() {
         let mut world = World::new();
         let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Forbid),
-            0
-        );
-    }
-
-    #[test]
-    fn minimal() {
-        let mut world = World::new();
-        let mut test_stage = make_test_stage(&mut world);
-        assert_eq!(
-            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Forbid),
+            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Warn),
             2
         );
     }
 
     #[test]
-    fn verbose() {
+    fn warn_verbose() {
         let mut world = World::new();
         let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
-            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::Forbid),
+            test_stage.n_ambiguities(&mut world, ExecutionOrderAmbiguities::WarnVerbose),
             2
         );
     }
 
     #[test]
-    fn deterministic() {
+    fn forbid() {
         let mut world = World::new();
         let mut test_stage = make_test_stage(&mut world);
         assert_eq!(
