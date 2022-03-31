@@ -133,7 +133,7 @@ async fn load_gltf<'a, 'b>(
         let mut paths = HashMap::<usize, Vec<Name>>::new();
         for scene in gltf.scenes() {
             for node in scene.nodes() {
-                paths_recur(node, &vec![], &mut paths);
+                paths_recur(node, &[], &mut paths);
             }
         }
         paths
@@ -509,9 +509,9 @@ async fn load_gltf<'a, 'b>(
     Ok(())
 }
 
-fn paths_recur(node: Node, current_path: &Vec<Name>, paths: &mut HashMap<usize, Vec<Name>>) {
+fn paths_recur(node: Node, current_path: &[Name], paths: &mut HashMap<usize, Vec<Name>>) {
     if let Some(name) = node.name() {
-        let mut path = current_path.clone();
+        let mut path = current_path.to_owned();
         path.push(Name::new(name.to_string()));
         for child in node.children() {
             paths_recur(child, &path, paths);
