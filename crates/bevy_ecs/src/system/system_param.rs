@@ -676,7 +676,9 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 /// and will need to be manually flushed using [`World::clear_trackers`]
 ///
 /// For users of `bevy` itself, this is automatically done in a system added by `MinimalPlugins`
-/// or `DefaultPlugins` at the end of each pass of the game loop.
+/// or `DefaultPlugins` at the end of each pass of the game loop during the `CoreStage::Last`
+/// stage. As such `RemovedComponents` systems should be scheduled after the stage where
+/// removal occurs but before `CoreStage::Last`.
 ///
 /// # Examples
 ///
