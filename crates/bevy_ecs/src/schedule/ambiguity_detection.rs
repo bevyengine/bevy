@@ -572,8 +572,8 @@ mod tests {
     fn nonsendmut_system(_ns: NonSendMut<R>) {}
     fn read_component_system(_query: Query<&A>) {}
     fn write_component_system(_query: Query<&mut A>) {}
-    fn with_filtered_component_system(_query: Query<&A, With<B>>) {}
-    fn without_filtered_component_system(_query: Query<&A, Without<B>>) {}
+    fn with_filtered_component_system(_query: Query<&mut A, With<B>>) {}
+    fn without_filtered_component_system(_query: Query<&mut A, Without<B>>) {}
     fn event_reader_system(_reader: EventReader<E>) {}
     fn event_writer_system(_writer: EventWriter<E>) {}
     fn event_resource_system(_events: ResMut<Events<E>>) {}
