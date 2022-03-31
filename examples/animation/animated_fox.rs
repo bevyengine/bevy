@@ -28,9 +28,9 @@ fn setup(
     // Insert a resource with the current scene information
     commands.insert_resource(CurrentScene {
         // Its instance id, to be able to check that it's loaded
-        instance_id: scene_spawner.spawn(asset_server.load("models/animated/fox.glb#Scene0")),
+        instance_id: scene_spawner.spawn(asset_server.load("models/animated/Fox.glb#Scene0")),
         // The handle to the run animation
-        animation: asset_server.load("models/animated/fox.glb#Animation2"),
+        animation: asset_server.load("models/animated/Fox.glb#Animation2"),
     });
 
     // Camera
