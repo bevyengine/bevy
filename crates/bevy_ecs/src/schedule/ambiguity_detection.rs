@@ -2,6 +2,7 @@ use crate::component::ComponentId;
 use crate::schedule::{AmbiguityDetection, SystemContainer, SystemStage};
 use crate::world::World;
 
+use bevy_utils::tracing::{error, warn};
 use fixedbitset::FixedBitSet;
 use std::hash::Hash;
 
@@ -408,18 +409,20 @@ impl SystemStage {
         let ambiguities = self.ambiguities(world, report_level);
         let unresolved_count = ambiguities.len();
 
+        let mut warning_string = String::new();
+
         if unresolved_count > 0 {
             // Grammar
             if unresolved_count == 1 {
-                println!("One of your stages contains 1 pair of systems with unknown order and conflicting data access. \n\
-				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n");
+                warning_string += "One of your stages contains 1 pair of systems with unknown order and conflicting data access. \n\
+				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n";
             } else {
-                println!("One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \n\
+                warning_string += &format!("One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \n\
 				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n");
             }
 
             if report_level == ExecutionOrderAmbiguities::Warn {
-                println!("Set the level of the `ExecutionOrderAmbiguities` resource to `ExecutionOrderAmbiguities::WarnVerbose` for more details.");
+                warning_string += "Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::WarnVerbose` for more details.";
             } else {
                 for (i, ambiguity) in ambiguities.iter().enumerate() {
                     let ambiguity_number = i + 1;
@@ -437,16 +440,20 @@ impl SystemStage {
                         conflicts = vec!["World".to_string()];
                     }
 
-                    println!("{ambiguity_number:?}. `{system_a_name}` conflicts with `{system_b_name}` on {conflicts:?}");
+                    warning_string += &format!("\n{ambiguity_number:?}. `{system_a_name}` conflicts with `{system_b_name}` on {conflicts:?}");
                 }
                 // Print an empty line to space out multiple stages nicely
+                warning_string.push('\n');
                 println!();
             }
 
             if report_level == ExecutionOrderAmbiguities::Deny
                 || report_level == ExecutionOrderAmbiguities::Forbid
             {
-                panic!("The `ExecutionOrderAmbiguities` resource is set to a level that forbids the app from running with unresolved system execution order ambiguities.")
+                error!("{warning_string}");
+                panic!("`ExecutionOrderAmbiguities` is set to `{report_level:?}`, which forbids the `App` from running if any unresolved system order ambiguities exist.")
+            } else {
+                warn!("{warning_string}");
             }
         }
     }
