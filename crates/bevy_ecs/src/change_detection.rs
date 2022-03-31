@@ -43,10 +43,10 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// ```
 ///
 pub trait DetectChanges {
-    /// Returns `true` if this value was added after the system last ran, `false` otherwise.
+    /// Returns `true` if this value was added after the system last ran.
     fn is_added(&self) -> bool;
 
-    /// Returns `true` if this value was added or mutably dereferenced after the system last ran, `false` otherwise.
+    /// Returns `true` if this value was added or mutably dereferenced after the system last ran.
     fn is_changed(&self) -> bool;
 
     /// Flags this value as having been changed.

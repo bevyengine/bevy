@@ -355,7 +355,7 @@ pub struct ComponentTicks {
 
 impl ComponentTicks {
     #[inline]
-    /// Returns `true` if the component was added after the system last ran, `false` otherwise.
+    /// Returns `true` if the component was added after the system last ran.
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
         // `last_change_tick` and `self.added`, and we scan periodically to clamp `ComponentTicks` values
@@ -371,7 +371,7 @@ impl ComponentTicks {
     }
 
     #[inline]
-    /// Returns `true` if the component was added or mutably dereferenced after the system last ran, `false` otherwise.
+    /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
         // `last_change_tick` and `self.changed`, and we scan periodically to clamp `ComponentTicks` values
