@@ -129,7 +129,7 @@ pub fn animation_player(
             }
             let mut elapsed = player.elapsed;
             if player.looping {
-                elapsed = elapsed % animation_clip.duration;
+                elapsed %= animation_clip.duration;
             }
             'entity: for (path, curves) in &animation_clip.curves {
                 // PERF: finding the target entity can be optimised
