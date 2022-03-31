@@ -8,6 +8,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_core::{Name, Time};
 use bevy_ecs::{
+    change_detection::DetectChanges,
     entity::Entity,
     prelude::{Bundle, Component},
     system::{Query, Res},
@@ -124,6 +125,11 @@ pub fn animation_player(
 ) {
     for (entity, animation_handle, mut player) in animated.iter_mut() {
         if let Some(animation_clip) = animations.get(animation_handle) {
+            // Continue if paused unless the `AnimationPlayer` was changed
+            // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
+            if player.paused && !player.is_changed() {
+                continue;
+            }
             if !player.paused {
                 player.elapsed += time.delta_seconds() * player.speed;
             }
