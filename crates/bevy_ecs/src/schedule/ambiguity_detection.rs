@@ -472,16 +472,15 @@ fn format_type_name(raw_name: &str) -> String {
     while index < end_of_string {
         let rest_of_string = raw_name.get(index..end_of_string).unwrap_or_default();
 
-        // Collapse everything up to the next "<", "," or ">",
+        // Collapse everything up to the next special character,
         // then skip over it
         if let Some(special_character_index) =
-            rest_of_string.find(|c: char| (c == '<') || (c == ',') || (c == '>'))
+            rest_of_string.find(|c: char| (c == '<') || (c == ',') || (c == ' ') || (c == '>'))
         {
             let segment_to_collapse = rest_of_string
                 .get(0..special_character_index)
                 .unwrap_or_default();
-            let collapsed_type_name = collapse_type_name(segment_to_collapse);
-            parsed_name += &collapsed_type_name;
+            parsed_name += collapse_type_name(segment_to_collapse);
             // Insert the special character
             let special_character =
                 &rest_of_string[special_character_index..=special_character_index];
@@ -490,8 +489,7 @@ fn format_type_name(raw_name: &str) -> String {
             index += special_character_index + 1;
         } else {
             // If there are no special characters left, we're done!
-            let collapsed_type_name = collapse_type_name(rest_of_string);
-            parsed_name += &collapsed_type_name;
+            parsed_name += collapse_type_name(rest_of_string);
             index = end_of_string;
         }
     }
@@ -500,15 +498,8 @@ fn format_type_name(raw_name: &str) -> String {
 }
 
 #[inline(always)]
-fn collapse_type_name(string: &str) -> String {
-    let type_name = string.split("::").last().unwrap();
-
-    // Account for leading white space
-    if string.get(0..1).unwrap_or_default() == " " && type_name != string {
-        format!(" {type_name}")
-    } else {
-        type_name.to_string()
-    }
+fn collapse_type_name(string: &str) -> &str {
+    string.split("::").last().unwrap()
 }
 
 #[cfg(test)]
