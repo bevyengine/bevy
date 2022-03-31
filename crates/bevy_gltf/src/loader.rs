@@ -268,7 +268,9 @@ async fn load_gltf<'a, 'b>(
                 mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
             };
 
-            if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none() {
+            if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
+                && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
+            {
                 let vertex_count_before = mesh.count_vertices();
                 mesh.duplicate_vertices();
                 mesh.compute_flat_normals();
