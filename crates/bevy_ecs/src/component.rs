@@ -401,7 +401,7 @@ impl ComponentTicks {
     /// Manually sets the change tick.
     ///
     /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
-    /// on [`Mut<T>`](crate::world::Mut), [`ResMut<T>`](crate::system::ResMut), etc.
+    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
