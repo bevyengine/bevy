@@ -114,13 +114,6 @@ impl App {
         for sub_app in self.sub_apps.values_mut() {
             (sub_app.runner)(&mut self.world, &mut sub_app.app);
         }
-
-        #[cfg(feature = "tracing-tracy")]
-        bevy_utils::tracing::event!(
-            bevy_utils::tracing::Level::INFO,
-            message = "finished frame",
-            tracy.frame_mark = true
-        );
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).

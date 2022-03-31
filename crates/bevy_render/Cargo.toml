@@ -21,6 +21,7 @@ zlib = ["flate2"]
 zstd = ["ruzstd"]
 
 trace = []
+tracing-tracy = []
 wgpu_trace = ["wgpu/trace"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
