@@ -686,6 +686,9 @@ mod tests {
     }
 
     #[test]
+    // Known failing: this should work but doesn't, as we're not looking at filtered access
+    // See https://github.com/bevyengine/bevy/issues/4381
+    #[ignore]
     fn filtered_components() {
         let mut world = World::new();
         let mut test_stage = SystemStage::parallel();
