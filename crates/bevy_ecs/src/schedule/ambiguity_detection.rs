@@ -23,14 +23,6 @@ use std::hash::Hash;
 /// to have unambiguous order with regards to a group of already-constrained systems.
 ///
 /// By default, the value of this resource is set to `Warn`.
-///
-/// ## Example
-/// ```ignore
-/// # use bevy_app::App;
-/// # use bevy_ecs::schedule::ReportExecutionOrderAmbiguities;
-/// App::new()
-///    .insert_resource(ReportExecutionOrderAmbiguities::verbose().ignore(&["my_external_crate"]));
-/// ```
 pub enum ExecutionOrderAmbiguities {
     /// Disables all checks for execution order ambiguities
     Allow,
@@ -57,7 +49,7 @@ pub enum ExecutionOrderAmbiguities {
 /// A pair of systems that can run in an ambiguous order
 ///
 /// Created by applying [`find_ambiguities`] to a [`SystemContainer`].
-/// These can be reported by configuring the [`ReportExecutionOrderAmbiguities`] resource.
+/// These can be reported by configuring the [`ExecutionOrderAmbiguities`] resource.
 #[derive(Debug, Clone, Eq)]
 pub struct SystemOrderAmbiguity {
     // The names of the conflicting systems
@@ -427,7 +419,7 @@ impl SystemStage {
             }
 
             if report_level == ExecutionOrderAmbiguities::Warn {
-                println!("Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::Verbose` for more details.");
+                println!("Set the level of the `ExecutionOrderAmbiguities` resource to `ExecutionOrderAmbiguities::WarnVerbose` for more details.");
             } else {
                 for (i, ambiguity) in ambiguities.iter().enumerate() {
                     let ambiguity_number = i + 1;
@@ -454,7 +446,7 @@ impl SystemStage {
             if report_level == ExecutionOrderAmbiguities::Deny
                 || report_level == ExecutionOrderAmbiguities::Forbid
             {
-                panic!("The `ReportExecutionOrderAmbiguities` resource is set to a level that forbids the app from running with unresolved system execution order ambiguities.")
+                panic!("The `ExecutionOrderAmbiguities` resource is set to a level that forbids the app from running with unresolved system execution order ambiguities.")
             }
         }
     }
