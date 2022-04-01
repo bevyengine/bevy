@@ -10,12 +10,13 @@ use bevy_core::{Name, Time};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
-    prelude::{Bundle, Component},
+    prelude::Component,
+    reflect::ReflectComponent,
     system::{Query, Res},
 };
 use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::prelude::Transform;
 use bevy_utils::{tracing::warn, HashMap};
 
@@ -23,8 +24,7 @@ use bevy_utils::{tracing::warn, HashMap};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AnimationBundle, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes,
-        VariableCurve,
+        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, VariableCurve,
     };
 }
 
@@ -51,7 +51,7 @@ pub struct VariableCurve {
 }
 
 /// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub struct EntityPath {
     /// Parts of the path
     pub parts: Vec<Name>,
@@ -74,43 +74,89 @@ impl AnimationClip {
 
     /// Add a [`VariableCurve`] to an [`EntityPath`].
     pub fn add_curve_to_path(&mut self, path: EntityPath, curve: VariableCurve) {
-        let curve_duration = curve.keyframe_timestamps.last().unwrap_or(&0.0);
-        self.duration = self.duration.max(*curve_duration);
+        // Update the duration of the animation by this curve duration if it's longer
+        self.duration = self
+            .duration
+            .max(*curve.keyframe_timestamps.last().unwrap_or(&0.0));
         self.curves.entry(path).or_default().push(curve);
     }
 }
 
 /// Animation controls
-#[derive(Component)]
+#[derive(Component, Reflect)]
+#[reflect(Component)]
 pub struct AnimationPlayer {
-    /// Pause the animation
-    pub paused: bool,
-    /// Enable looping for the animation
-    pub looping: bool,
-    /// Speed of the animation
-    pub speed: f32,
-    /// Elapsed time in the animation
-    pub elapsed: f32,
+    paused: bool,
+    repeat: bool,
+    speed: f32,
+    elapsed: f32,
+    animation_clip: Handle<AnimationClip>,
 }
 
 impl Default for AnimationPlayer {
     fn default() -> Self {
         Self {
             paused: false,
-            looping: false,
+            repeat: false,
             speed: 1.0,
             elapsed: 0.0,
+            animation_clip: Default::default(),
         }
     }
 }
 
-/// Bundle to add an [`AnimationClip`] to an entity, and start playing it
-#[derive(Bundle, Default)]
-pub struct AnimationBundle {
-    /// Controls for the animation
-    pub player: AnimationPlayer,
-    /// Handle to the [`AnimationClip`]
-    pub handle: Handle<AnimationClip>,
+impl AnimationPlayer {
+    /// Start playing an animation, resetting state of the player
+    pub fn play_animation(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+        *self = Self {
+            animation_clip: handle,
+            ..Default::default()
+        };
+        self
+    }
+
+    /// Set the animation to repeat
+    pub fn repeat(&mut self) -> &mut Self {
+        self.repeat = true;
+        self
+    }
+
+    /// Pause the animation
+    pub fn pause(&mut self) {
+        self.paused = true;
+    }
+
+    /// Unpause the animation
+    pub fn play(&mut self) {
+        self.paused = false;
+    }
+
+    /// Is the animation paused
+    pub fn is_paused(&self) -> bool {
+        self.paused
+    }
+
+    /// Speed of the animation playback
+    pub fn speed(&self) -> f32 {
+        self.speed
+    }
+
+    /// Set the speed of the animation playback
+    pub fn set_speed(&mut self, speed: f32) -> &mut Self {
+        self.speed = speed;
+        self
+    }
+
+    /// Time elapsed playing the animation
+    pub fn elapsed(&self) -> f32 {
+        self.elapsed
+    }
+
+    /// Seek to a specific time in the animation
+    pub fn set_elapsed(&mut self, elapsed: f32) -> &mut Self {
+        self.elapsed = elapsed;
+        self
+    }
 }
 
 /// System that will play all animations, using any entity with a [`AnimationPlayer`]
@@ -118,13 +164,13 @@ pub struct AnimationBundle {
 pub fn animation_player(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
-    mut animated: Query<(Entity, &Handle<AnimationClip>, &mut AnimationPlayer)>,
+    mut animated: Query<(Entity, &mut AnimationPlayer)>,
     named: Query<&Name>,
     mut transformed: Query<&mut Transform>,
     children: Query<&Children>,
 ) {
-    for (entity, animation_handle, mut player) in animated.iter_mut() {
-        if let Some(animation_clip) = animations.get(animation_handle) {
+    for (entity, mut player) in animated.iter_mut() {
+        if let Some(animation_clip) = animations.get(&player.animation_clip) {
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
             if player.paused && !player.is_changed() {
@@ -134,7 +180,7 @@ pub fn animation_player(
                 player.elapsed += time.delta_seconds() * player.speed;
             }
             let mut elapsed = player.elapsed;
-            if player.looping {
+            if player.repeat {
                 elapsed %= animation_clip.duration;
             }
             'entity: for (path, curves) in &animation_clip.curves {
@@ -217,6 +263,7 @@ pub struct AnimationPlugin {}
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<AnimationClip>()
+            .register_type::<AnimationPlayer>()
             .add_system(animation_player);
     }
 }

@@ -1,4 +1,4 @@
-use bevy::{prelude::*, scene::InstanceId};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -13,10 +13,7 @@ fn main() {
         .run();
 }
 
-struct CurrentScene {
-    instance_id: InstanceId,
-    animation: Handle<AnimationClip>,
-}
+struct Animations(Vec<Handle<AnimationClip>>);
 
 fn setup(
     mut commands: Commands,
@@ -26,12 +23,11 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Insert a resource with the current scene information
-    commands.insert_resource(CurrentScene {
-        // Its instance id, to be able to check that it's loaded
-        instance_id: scene_spawner.spawn(asset_server.load("models/animated/Fox.glb#Scene0")),
-        // The handle to the run animation
-        animation: asset_server.load("models/animated/Fox.glb#Animation2"),
-    });
+    commands.insert_resource(Animations(vec![
+        asset_server.load("models/animated/Fox.glb#Animation2"),
+        asset_server.load("models/animated/Fox.glb#Animation1"),
+        asset_server.load("models/animated/Fox.glb#Animation0"),
+    ]));
 
     // Camera
     commands.spawn_bundle(PerspectiveCameraBundle {
@@ -62,45 +58,29 @@ fn setup(
         ..default()
     });
 
+    // Fox
+    scene_spawner.spawn(asset_server.load("models/animated/Fox.glb#Scene0"));
+
     println!("Animation controls:");
     println!("  - spacebar: play / pause");
     println!("  - arrow up / down: speed up / slow down animation playback");
     println!("  - arrow left / right: seek backward / forward");
+    println!("  - return: change animation");
 }
 
 // Setup the scene for animation once it is loaded, by adding the animation to the root entity of
 // the scene.
 fn setup_scene_once_loaded(
-    mut commands: Commands,
-    scene_spawner: Res<SceneSpawner>,
-    current_scene: Res<CurrentScene>,
-    named: Query<&Name>,
+    animations: Res<Animations>,
+    mut player: Query<&mut AnimationPlayer>,
     mut done: Local<bool>,
 ) {
     // Once the scene is loaded, start the animation
     if !*done {
-        if let Some(mut entity_iter) =
-            scene_spawner.iter_instance_entities(current_scene.instance_id)
-        {
-            // Find the root entity for the loaded scene. The name is set from the gltf file.
-            let root = Name::new("root".to_string());
-            if let Some(root) = entity_iter.find(|entity| {
-                if let Ok(name) = named.get(*entity) {
-                    if *name == root {
-                        return true;
-                    }
-                }
-                false
-            }) {
-                // Insert the handle to the animation on the root entity.
-                commands.entity(root).insert_bundle(AnimationBundle {
-                    handle: current_scene.animation.clone_weak(),
-                    player: AnimationPlayer {
-                        looping: true,
-                        ..default()
-                    },
-                });
-            }
+        if let Ok(mut player) = player.get_single_mut() {
+            // player.animation_clip = animations.0[0].clone_weak();
+            player.play_animation(animations.0[0].clone_weak()).repeat();
+            // player.looping = true;
             *done = true;
         }
     }
@@ -109,26 +89,43 @@ fn setup_scene_once_loaded(
 fn keyboard_animation_control(
     keyboard_input: Res<Input<KeyCode>>,
     mut animation_player: Query<&mut AnimationPlayer>,
+    animations: Res<Animations>,
+    mut current_animation: Local<usize>,
 ) {
     for mut player in animation_player.iter_mut() {
         if keyboard_input.just_pressed(KeyCode::Space) {
-            player.paused = !player.paused;
+            if player.is_paused() {
+                player.play();
+            } else {
+                player.pause();
+            }
         }
 
         if keyboard_input.just_pressed(KeyCode::Up) {
-            player.speed *= 1.2;
+            let speed = player.speed();
+            player.set_speed(speed * 1.2);
         }
 
         if keyboard_input.just_pressed(KeyCode::Down) {
-            player.speed *= 0.8;
+            let speed = player.speed();
+            player.set_speed(speed * 0.8);
         }
 
         if keyboard_input.just_pressed(KeyCode::Left) {
-            player.elapsed = (player.elapsed - 0.1).max(0.0);
+            let elapsed = player.elapsed();
+            player.set_elapsed((elapsed - 0.1).max(0.0));
         }
 
         if keyboard_input.just_pressed(KeyCode::Right) {
-            player.elapsed += 0.1;
+            let elapsed = player.elapsed();
+            player.set_elapsed(elapsed + 0.1);
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Return) {
+            *current_animation = (*current_animation + 1) % animations.0.len();
+            player
+                .play_animation(animations.0[*current_animation].clone_weak())
+                .repeat();
         }
     }
 }
