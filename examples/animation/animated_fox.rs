@@ -68,19 +68,15 @@ fn setup(
     println!("  - return: change animation");
 }
 
-// Setup the scene for animation once it is loaded, by adding the animation to the root entity of
-// the scene.
+// Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
     mut player: Query<&mut AnimationPlayer>,
     mut done: Local<bool>,
 ) {
-    // Once the scene is loaded, start the animation
     if !*done {
         if let Ok(mut player) = player.get_single_mut() {
-            // player.animation_clip = animations.0[0].clone_weak();
             player.play_animation(animations.0[0].clone_weak()).repeat();
-            // player.looping = true;
             *done = true;
         }
     }
@@ -92,7 +88,7 @@ fn keyboard_animation_control(
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
 ) {
-    for mut player in animation_player.iter_mut() {
+    if let Ok(mut player) = animation_player.get_single_mut() {
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.is_paused() {
                 player.play();
