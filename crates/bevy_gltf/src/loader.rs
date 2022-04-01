@@ -1,6 +1,6 @@
 use anyhow::Result;
 #[cfg(feature = "bevy_animation")]
-use bevy_animation::{AnimationClip, EntityPath, Keyframes, VariableCurve};
+use bevy_animation::{AnimationClip, AnimationPlayer, EntityPath, Keyframes, VariableCurve};
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
@@ -462,6 +462,13 @@ async fn load_gltf<'a, 'b>(
             });
         if let Some(Err(err)) = err {
             return Err(err);
+        }
+
+        #[cfg(feature = "bevy_animation")]
+        if animations.len() > 0 {
+            world
+                .entity_mut(*node_index_to_entity_map.get(&0).unwrap())
+                .insert(AnimationPlayer::default());
         }
 
         for (&entity, &skin_index) in &entity_to_skin_index_map {
