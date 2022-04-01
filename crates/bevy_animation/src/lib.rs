@@ -165,12 +165,12 @@ impl AnimationPlayer {
 pub fn animation_player(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
-    mut animated: Query<(Entity, &mut AnimationPlayer)>,
-    named: Query<&Name>,
-    mut transformed: Query<&mut Transform>,
+    mut animation_players: Query<(Entity, &mut AnimationPlayer)>,
+    names: Query<&Name>,
+    mut transforms: Query<&mut Transform>,
     children: Query<&Children>,
 ) {
-    for (entity, mut player) in animated.iter_mut() {
+    for (entity, mut player) in animation_players.iter_mut() {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
@@ -192,7 +192,7 @@ pub fn animation_player(
                     let mut found = false;
                     if let Ok(children) = children.get(current_entity) {
                         for child in children.deref() {
-                            if let Ok(name) = named.get(*child) {
+                            if let Ok(name) = names.get(*child) {
                                 if name == part {
                                     // Found a children with the right name, continue to the next part
                                     current_entity = *child;
@@ -207,7 +207,7 @@ pub fn animation_player(
                         continue 'entity;
                     }
                 }
-                if let Ok(mut transform) = transformed.get_mut(current_entity) {
+                if let Ok(mut transform) = transforms.get_mut(current_entity) {
                     for curve in curves {
                         // Find the current keyframe
                         // PERF: finding the current keyframe can be optimised
