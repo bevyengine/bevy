@@ -17,8 +17,8 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(print_sprite_count.label("Tick"))
-        .add_system(move_camera.after("Tick"))
+        .add_system(print_sprite_count)
+        .add_system(move_camera.after(print_sprite_count))
         .run();
 }
 
