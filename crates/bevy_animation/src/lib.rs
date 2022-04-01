@@ -4,7 +4,7 @@
 
 use std::ops::Deref;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_core::{Name, Time};
 use bevy_ecs::{
@@ -12,12 +12,13 @@ use bevy_ecs::{
     entity::Entity,
     prelude::Component,
     reflect::ReflectComponent,
+    schedule::ParallelSystemDescriptorCoercion,
     system::{Query, Res},
 };
-use bevy_hierarchy::Children;
+use bevy_hierarchy::{Children, HierarchySystem};
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_transform::prelude::Transform;
+use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
 
 #[allow(missing_docs)]
@@ -264,6 +265,11 @@ impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<AnimationClip>()
             .register_type::<AnimationPlayer>()
-            .add_system(animation_player);
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                animation_player
+                    .before(TransformSystem::TransformPropagate)
+                    .after(HierarchySystem::ParentUpdate),
+            );
     }
 }
