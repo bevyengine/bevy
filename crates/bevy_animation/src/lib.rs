@@ -108,7 +108,7 @@ impl Default for AnimationPlayer {
 
 impl AnimationPlayer {
     /// Start playing an animation, resetting state of the player
-    pub fn play_animation(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         *self = Self {
             animation_clip: handle,
             ..Default::default()
@@ -122,13 +122,19 @@ impl AnimationPlayer {
         self
     }
 
+    /// Stop the animation from repeating
+    pub fn stop_repeating(&mut self) -> &mut Self {
+        self.repeat = false;
+        self
+    }
+
     /// Pause the animation
     pub fn pause(&mut self) {
         self.paused = true;
     }
 
     /// Unpause the animation
-    pub fn play(&mut self) {
+    pub fn resume(&mut self) {
         self.paused = false;
     }
 
