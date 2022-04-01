@@ -76,7 +76,7 @@ fn setup_scene_once_loaded(
 ) {
     if !*done {
         if let Ok(mut player) = player.get_single_mut() {
-            player.play_animation(animations.0[0].clone_weak()).repeat();
+            player.play(animations.0[0].clone_weak()).repeat();
             *done = true;
         }
     }
@@ -91,7 +91,7 @@ fn keyboard_animation_control(
     if let Ok(mut player) = animation_player.get_single_mut() {
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.is_paused() {
-                player.play();
+                player.resume();
             } else {
                 player.pause();
             }
@@ -120,7 +120,7 @@ fn keyboard_animation_control(
         if keyboard_input.just_pressed(KeyCode::Return) {
             *current_animation = (*current_animation + 1) % animations.0.len();
             player
-                .play_animation(animations.0[*current_animation].clone_weak())
+                .play(animations.0[*current_animation].clone_weak())
                 .repeat();
         }
     }
