@@ -164,29 +164,24 @@ pub fn animation_player(
                     for curve in curves {
                         // Find the current keyframe
                         // PERF: finding the current keyframe can be optimised
-                        let mut keyframe_timestamps = curve.keyframe_timestamps.iter().enumerate();
-                        let mut step_start = keyframe_timestamps.next().unwrap();
-                        if elapsed < *step_start.1 {
-                            continue;
-                        }
-                        for next in keyframe_timestamps {
-                            if *next.1 > elapsed {
-                                break;
-                            }
-                            step_start = next;
-                        }
-                        if step_start.0 == curve.keyframe_timestamps.len() - 1 {
-                            // This curve is finished
-                            continue;
-                        }
-                        let step_end = curve.keyframe_timestamps[step_start.0 + 1];
-                        let lerp = (elapsed - *step_start.1) / (step_end - step_start.1);
+                        let step_start = match curve
+                            .keyframe_timestamps
+                            .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
+                        {
+                            Ok(i) => i,
+                            Err(0) => continue, // this curve isn't started yet
+                            Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                            Err(i) => i - 1,
+                        };
+                        let ts_start = curve.keyframe_timestamps[step_start];
+                        let ts_end = curve.keyframe_timestamps[step_start + 1];
+                        let lerp = (elapsed - ts_start) / (ts_end - ts_start);
 
                         // Apply the keyframe
                         match &curve.keyframes {
                             Keyframes::Rotation(keyframes) => {
-                                let rot_start = keyframes[step_start.0];
-                                let mut rot_end = keyframes[step_start.0 + 1];
+                                let rot_start = keyframes[step_start];
+                                let mut rot_end = keyframes[step_start + 1];
                                 // Choose the smallest angle for the rotation
                                 if rot_end.dot(rot_start) < 0.0 {
                                     rot_end = -rot_end;
@@ -196,14 +191,14 @@ pub fn animation_player(
                                     .slerp(Quat::from_array(rot_end.normalize().into()), lerp);
                             }
                             Keyframes::Translation(keyframes) => {
-                                let translation_start = keyframes[step_start.0];
-                                let translation_end = keyframes[step_start.0 + 1];
+                                let translation_start = keyframes[step_start];
+                                let translation_end = keyframes[step_start + 1];
                                 let result = translation_start.lerp(translation_end, lerp);
                                 transform.translation = result;
                             }
                             Keyframes::Scale(keyframes) => {
-                                let scale_start = keyframes[step_start.0];
-                                let scale_end = keyframes[step_start.0 + 1];
+                                let scale_start = keyframes[step_start];
+                                let scale_end = keyframes[step_start + 1];
                                 let result = scale_start.lerp(scale_end, lerp);
                                 transform.scale = result;
                             }
