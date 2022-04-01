@@ -79,7 +79,7 @@ impl DynamicScene {
         world: &mut World,
         entity_map: &mut EntityMap,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
+        let registry = world.resource::<TypeRegistryArc>().clone();
         let type_registry = registry.read();
 
         for scene_entity in &self.entities {

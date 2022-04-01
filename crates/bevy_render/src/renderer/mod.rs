@@ -1,37 +1,51 @@
 mod graph_runner;
 mod render_device;
 
-use bevy_utils::tracing::{info, info_span};
+use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
-    options::{WgpuOptions, WgpuOptionsPriority},
     render_graph::RenderGraph,
+    settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
-use wgpu::{CommandEncoder, Instance, Queue, RequestAdapterOptions};
+use wgpu::{AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
-    let graph = world.get_resource::<RenderGraph>().unwrap();
-    let render_device = world.get_resource::<RenderDevice>().unwrap();
-    let render_queue = world.get_resource::<RenderQueue>().unwrap();
-    RenderGraphRunner::run(
+    let graph = world.resource::<RenderGraph>();
+    let render_device = world.resource::<RenderDevice>();
+    let render_queue = world.resource::<RenderQueue>();
+
+    if let Err(e) = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         render_queue,
         world,
-    )
-    .unwrap();
+    ) {
+        error!("Error running render graph:");
+        {
+            let mut src: &dyn std::error::Error = &e;
+            loop {
+                error!("> {}", src);
+                match src.source() {
+                    Some(s) => src = s,
+                    None => break,
+                }
+            }
+        }
+
+        panic!("Error running render graph: {}", e);
+    }
+
     {
-        let span = info_span!("present_frames");
-        let _guard = span.enter();
+        let _span = info_span!("present_frames").entered();
 
         // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
         // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
@@ -43,7 +57,7 @@ pub fn render_system(world: &mut World) {
             world.entity_mut(view_entity).remove::<ViewTarget>();
         }
 
-        let mut windows = world.get_resource_mut::<ExtractedWindows>().unwrap();
+        let mut windows = world.resource_mut::<ExtractedWindows>();
         for window in windows.values_mut() {
             if let Some(texture_view) = window.swap_chain_texture.take() {
                 if let Some(surface_texture) = texture_view.take_surface_texture() {
@@ -65,9 +79,9 @@ pub type RenderInstance = Instance;
 /// for the specified backend.
 pub async fn initialize_renderer(
     instance: &Instance,
-    options: &mut WgpuOptions,
+    options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue) {
+) -> (RenderDevice, RenderQueue, AdapterInfo) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -89,7 +103,7 @@ pub async fn initialize_renderer(
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
-    if matches!(options.priority, WgpuOptionsPriority::Functionality) {
+    if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
@@ -106,7 +120,7 @@ pub async fn initialize_renderer(
         features -= disabled_features;
     }
     // NOTE: |= is used here to ensure that any explicitly-enabled features are respected.
-    options.features |= features;
+    features |= options.features;
 
     // Enforce the limit constraints
     if let Some(constrained_limits) = options.constrained_limits.as_ref() {
@@ -115,7 +129,7 @@ pub async fn initialize_renderer(
         // specified max_limits. For 'min' limits, take the maximum instead. This is intended to
         // err on the side of being conservative. We can't claim 'higher' limits that are supported
         // but we can constrain to 'lower' limits.
-        options.limits = wgpu::Limits {
+        limits = wgpu::Limits {
             max_texture_dimension_1d: limits
                 .max_texture_dimension_1d
                 .min(constrained_limits.max_texture_dimension_1d),
@@ -198,16 +212,14 @@ pub async fn initialize_renderer(
                 .max_compute_workgroups_per_dimension
                 .min(constrained_limits.max_compute_workgroups_per_dimension),
         };
-    } else {
-        options.limits = limits;
     }
 
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: options.device_label.as_ref().map(|a| a.as_ref()),
-                features: options.features,
-                limits: options.limits.clone(),
+                features,
+                limits,
             },
             trace_path,
         )
@@ -215,7 +227,7 @@ pub async fn initialize_renderer(
         .unwrap();
     let device = Arc::new(device);
     let queue = Arc::new(queue);
-    (RenderDevice::from(device), queue)
+    (RenderDevice::from(device), queue, adapter_info)
 }
 
 /// The context with all information required to interact with the GPU.

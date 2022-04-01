@@ -212,9 +212,8 @@ impl SystemStage {
         for container in &mut self.parallel {
             let system = container.system_mut();
             #[cfg(feature = "trace")]
-            let span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name());
-            #[cfg(feature = "trace")]
-            let _guard = span.enter();
+            let _span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name())
+                .entered();
             system.apply_buffers(world);
         }
     }
@@ -836,12 +835,11 @@ impl Stage for SystemStage {
                 for container in &mut self.exclusive_at_start {
                     if should_run(container, &self.run_criteria, default_should_run) {
                         #[cfg(feature = "trace")]
-                        let system_span = bevy_utils::tracing::info_span!(
+                        let _system_span = bevy_utils::tracing::info_span!(
                             "exclusive_system",
                             name = &*container.name()
-                        );
-                        #[cfg(feature = "trace")]
-                        let _guard = system_span.enter();
+                        )
+                        .entered();
                         container.system_mut().run(world);
                     }
                 }
@@ -858,12 +856,11 @@ impl Stage for SystemStage {
                 for container in &mut self.exclusive_before_commands {
                     if should_run(container, &self.run_criteria, default_should_run) {
                         #[cfg(feature = "trace")]
-                        let system_span = bevy_utils::tracing::info_span!(
+                        let _system_span = bevy_utils::tracing::info_span!(
                             "exclusive_system",
                             name = &*container.name()
-                        );
-                        #[cfg(feature = "trace")]
-                        let _guard = system_span.enter();
+                        )
+                        .entered();
                         container.system_mut().run(world);
                     }
                 }
@@ -873,12 +870,11 @@ impl Stage for SystemStage {
                     for container in &mut self.parallel {
                         if container.should_run {
                             #[cfg(feature = "trace")]
-                            let span = bevy_utils::tracing::info_span!(
+                            let _span = bevy_utils::tracing::info_span!(
                                 "system_commands",
                                 name = &*container.name()
-                            );
-                            #[cfg(feature = "trace")]
-                            let _guard = span.enter();
+                            )
+                            .entered();
                             container.system_mut().apply_buffers(world);
                         }
                     }
@@ -888,12 +884,11 @@ impl Stage for SystemStage {
                 for container in &mut self.exclusive_at_end {
                     if should_run(container, &self.run_criteria, default_should_run) {
                         #[cfg(feature = "trace")]
-                        let system_span = bevy_utils::tracing::info_span!(
+                        let _system_span = bevy_utils::tracing::info_span!(
                             "exclusive_system",
                             name = &*container.name()
-                        );
-                        #[cfg(feature = "trace")]
-                        let _guard = system_span.enter();
+                        )
+                        .entered();
                         container.system_mut().run(world);
                     }
                 }
@@ -964,7 +959,7 @@ mod tests {
     struct W<T>(T);
 
     fn make_exclusive(tag: usize) -> impl FnMut(&mut World) {
-        move |world| world.get_resource_mut::<Vec<usize>>().unwrap().push(tag)
+        move |world| world.resource_mut::<Vec<usize>>().push(tag)
     }
 
     fn make_parallel(tag: usize) -> impl FnMut(ResMut<Vec<usize>>) {
@@ -990,50 +985,41 @@ mod tests {
             .with_system(make_exclusive(2).exclusive_system().before_commands())
             .with_system(make_exclusive(3).exclusive_system().at_end());
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource_mut::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 3]
-        );
+        assert_eq!(*world.resource_mut::<Vec<usize>>(), vec![0, 1, 2, 3]);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 0, 1, 2, 3]
         );
 
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(2).exclusive_system().before_commands())
             .with_system(make_exclusive(3).exclusive_system().at_end())
             .with_system(make_parallel(1))
             .with_system(make_exclusive(0).exclusive_system().at_start());
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 3]
-        );
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 3]);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 0, 1, 2, 3]
         );
 
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(2).exclusive_system().before_commands())
             .with_system(make_parallel(3).exclusive_system().at_end())
             .with_system(make_parallel(1))
             .with_system(make_parallel(0).exclusive_system().at_start());
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 3]
-        );
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 3]);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 0, 1, 2, 3]
         );
     }
@@ -1049,10 +1035,7 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 0, 1, 2]
-        );
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
     }
 
     #[test]
@@ -1066,10 +1049,7 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 0, 1, 2]
-        );
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
     }
 
     #[test]
@@ -1086,7 +1066,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1112,12 +1092,9 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 0, 1, 2]
-        );
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
 
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(2).exclusive_system().after("01").label("2"))
             .with_system(make_exclusive(1).exclusive_system().label("01").after("0"))
@@ -1128,11 +1105,11 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
 
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(2).exclusive_system().label("234").label("2"))
             .with_system(
@@ -1154,7 +1131,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1193,7 +1170,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1215,7 +1192,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1238,7 +1215,7 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 0, 2, 0, 1, 2, 0, 2]
         );
     }
@@ -1287,10 +1264,7 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 0, 1, 2]
-        );
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
     }
 
     #[test]
@@ -1304,10 +1278,7 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 0, 1, 2]
-        );
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
     }
 
     #[test]
@@ -1324,7 +1295,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1340,12 +1311,9 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 2, 0, 1, 2]
-        );
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
 
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(2).after("01").label("2"))
             .with_system(make_parallel(1).label("01").after("0"))
@@ -1356,11 +1324,11 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
 
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(2).label("234").label("2"))
             .with_system(make_parallel(1).before("234").after("0"))
@@ -1371,7 +1339,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1405,7 +1373,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1427,7 +1395,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1449,12 +1417,9 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
-            vec![0, 1, 1, 0, 1, 1]
-        );
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 1, 0, 1, 1]);
 
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(0).before("1"))
             .with_system_set(
@@ -1469,12 +1434,12 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 0, 2, 0, 1, 2, 0, 2]
         );
 
         // Reusing criteria.
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         let mut stage = SystemStage::parallel()
             .with_system_run_criteria(every_other_time.label("every other time"))
             .with_system(make_parallel(0).before("1"))
@@ -1496,13 +1461,13 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 0, 3, 0, 1, 2, 3, 0, 3]
         );
         assert_eq!(stage.run_criteria.len(), 1);
 
         // Piping criteria.
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         fn eot_piped(input: In<ShouldRun>, has_ran: Local<bool>) -> ShouldRun {
             if let ShouldRun::Yes | ShouldRun::YesAndCheckAgain = input.0 {
                 every_other_time(has_ran)
@@ -1537,13 +1502,13 @@ mod tests {
             stage.run(&mut world);
         }
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 4, 0, 0, 1, 0, 0, 1, 2, 3, 4, 0, 0, 1, 0, 0, 1, 2, 3, 4]
         );
         assert_eq!(stage.run_criteria.len(), 3);
 
         // Discarding extra criteria with matching labels.
-        world.get_resource_mut::<Vec<usize>>().unwrap().clear();
+        world.resource_mut::<Vec<usize>>().clear();
         let mut stage =
             SystemStage::parallel()
                 .with_system(make_parallel(0).before("1"))
@@ -1560,7 +1525,7 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
-            *world.get_resource::<Vec<usize>>().unwrap(),
+            *world.resource::<Vec<usize>>(),
             vec![0, 1, 2, 3, 0, 3, 0, 1, 2, 3, 0, 3]
         );
         assert_eq!(stage.run_criteria.len(), 1);
@@ -1613,15 +1578,25 @@ mod tests {
     fn ambiguity_detection() {
         use super::{find_ambiguities, SystemContainer};
 
-        fn find_ambiguities_first_labels(
+        fn find_ambiguities_first_str_labels(
             systems: &[impl SystemContainer],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
             find_ambiguities(systems)
                 .drain(..)
                 .map(|(index_a, index_b, _conflicts)| {
                     (
-                        systems[index_a].labels()[0].clone(),
-                        systems[index_b].labels()[0].clone(),
+                        systems[index_a]
+                            .labels()
+                            .iter()
+                            .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
+                            .unwrap()
+                            .clone(),
+                        systems[index_b]
+                            .labels()
+                            .iter()
+                            .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
+                            .unwrap()
+                            .clone(),
                     )
                 })
                 .collect()
@@ -1651,7 +1626,7 @@ mod tests {
             .with_system(component.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1666,7 +1641,7 @@ mod tests {
             .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1691,7 +1666,7 @@ mod tests {
             .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("0")))
@@ -1710,7 +1685,7 @@ mod tests {
             .with_system(resource.label("4").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("0")))
@@ -1723,7 +1698,7 @@ mod tests {
             .with_system(component.label("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("1")))
                 || ambiguities.contains(&(Box::new("1"), Box::new("0")))
@@ -1736,7 +1711,7 @@ mod tests {
             .with_system(component.label("2").after("0"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1750,7 +1725,7 @@ mod tests {
             .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1764,7 +1739,7 @@ mod tests {
             .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
@@ -1774,7 +1749,7 @@ mod tests {
             .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1804,7 +1779,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1854,7 +1829,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
@@ -1885,7 +1860,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1919,7 +1894,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("1")))
@@ -1956,7 +1931,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("2"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("2")))
@@ -1982,7 +1957,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("3").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert_eq!(ambiguities.len(), 0);
     }
 
@@ -2011,11 +1986,11 @@ mod tests {
 
         let entity = world.spawn().insert_bundle(()).id();
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+        assert_eq!(*world.resource::<usize>(), 1);
 
         world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+        assert_eq!(*world.resource::<usize>(), 1);
     }
 
     #[test]
@@ -2034,11 +2009,11 @@ mod tests {
 
         let entity = world.spawn().insert_bundle(()).id();
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+        assert_eq!(*world.resource::<usize>(), 1);
 
         world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+        assert_eq!(*world.resource::<usize>(), 1);
     }
 
     #[test]
@@ -2146,7 +2121,7 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<Vec<usize>>().unwrap(), vec![0, 2]);
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 2]);
     }
 
     #[test]
@@ -2186,6 +2161,6 @@ mod tests {
         stage_spawn.run(&mut world);
         stage_count.run(&mut world);
         stage_spawn.run(&mut world);
-        assert_eq!(*world.get_resource::<Vec<usize>>().unwrap(), vec![0, 2]);
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 2]);
     }
 }

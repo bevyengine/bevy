@@ -87,7 +87,7 @@ fn spawn_enemy_using_input_resource() {
     assert_eq!(world.query::<&Enemy>().iter(&world).len(), 1);
 
     // Clear the `just_pressed` status for all `KeyCode`s
-    world.get_resource_mut::<Input<KeyCode>>().unwrap().clear();
+    world.resource_mut::<Input<KeyCode>>().clear();
 
     // Run systems
     update_stage.run(&mut world);

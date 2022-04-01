@@ -35,6 +35,12 @@ pub use identifier::WorldId;
 /// component type. Entity components can be created, updated, removed, and queried using a given
 /// [World].
 ///
+/// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
+/// consider using [`SystemState`](crate::system::SystemState).
+///
+/// To mutate different parts of the world simultaneously,
+/// use [`World::resource_scope`] or [`SystemState`](crate::system::SystemState).
+///
 /// # Resources
 ///
 /// Worlds can also store *resources*, which are unique instances of a given type that don't
@@ -145,12 +151,6 @@ impl World {
     #[inline]
     pub fn components(&self) -> &Components {
         &self.components
-    }
-
-    /// Retrieves a mutable reference to this world's [Components] collection
-    #[inline]
-    pub fn components_mut(&mut self) -> &mut Components {
-        &mut self.components
     }
 
     /// Retrieves this world's [Storages] collection
@@ -700,13 +700,6 @@ impl World {
         self.get_populated_resource_column(component_id).is_some()
     }
 
-    /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None]
-    #[inline]
-    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        unsafe { self.get_resource_with_id(component_id) }
-    }
-
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         let component_id =
             if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
@@ -741,7 +734,63 @@ impl World {
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
 
-    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource`](World::get_resource) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource<R: Resource>(&self) -> &R {
+        match self.get_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        match self.get_resource_mut() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        // SAFE: unique world access
+        unsafe { self.get_resource_with_id(component_id) }
+    }
+
+    /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
@@ -749,7 +798,7 @@ impl World {
     }
 
     // PERF: optimize this to avoid redundant lookups
-    /// Gets a resource of type `T` if it exists,
+    /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
     #[inline]
     pub fn get_resource_or_insert_with<R: Resource>(
@@ -759,7 +808,7 @@ impl World {
         if !self.contains_resource::<R>() {
             self.insert_resource(func());
         }
-        self.get_resource_mut().unwrap()
+        self.resource_mut()
     }
 
     /// Gets a mutable reference to the resource of the given type, if it exists
@@ -772,6 +821,46 @@ impl World {
     pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         self.get_resource_unchecked_mut_with_id(component_id)
+    }
+
+    /// Gets an immutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn non_send_resource<R: 'static>(&self) -> &R {
+        match self.get_non_send_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        match self.get_non_send_resource_mut() {
+            Some(x) => x,
+            None => panic!(
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
     }
 
     /// Gets a reference to the non-send resource of the given type, if it exists.
@@ -927,9 +1016,12 @@ impl World {
         }
     }
 
-    /// Temporarily removes the requested resource from this [World], then re-adds it before
-    /// returning. This enables safe mutable access to a resource while still providing mutable
-    /// world access
+    /// Temporarily removes the requested resource from this [`World`], then re-adds it before returning.
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    ///
+    /// # Example
     /// ```
     /// use bevy_ecs::{component::Component, world::{World, Mut}};
     /// #[derive(Component)]

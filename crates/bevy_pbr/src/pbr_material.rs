@@ -5,6 +5,7 @@ use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
+    mesh::MeshVertexBufferLayout,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{
@@ -47,7 +48,15 @@ pub struct StandardMaterial {
     pub reflectance: f32,
     pub normal_map_texture: Option<Handle<Image>>,
     pub occlusion_texture: Option<Handle<Image>>,
+    /// Support two-sided lighting by automatically flipping the normals for "back" faces
+    /// within the PBR lighting shader.
+    /// Defaults to false.
+    /// This does not automatically configure backface culling, which can be done via
+    /// `cull_mode`.
     pub double_sided: bool,
+    /// Whether to cull the "front", "back" or neither side of a mesh
+    /// defaults to `Face::Back`
+    pub cull_mode: Option<Face>,
     pub unlit: bool,
     pub alpha_mode: AlphaMode,
 }
@@ -76,6 +85,7 @@ impl Default for StandardMaterial {
             occlusion_texture: None,
             normal_map_texture: None,
             double_sided: false,
+            cull_mode: Some(Face::Back),
             unlit: false,
             alpha_mode: AlphaMode::Opaque,
         }
@@ -113,6 +123,7 @@ bitflags::bitflags! {
         const ALPHA_MODE_OPAQUE          = (1 << 6);
         const ALPHA_MODE_MASK            = (1 << 7);
         const ALPHA_MODE_BLEND           = (1 << 8);
+        const TWO_COMPONENT_NORMAL_MAP   = (1 << 9);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -153,6 +164,7 @@ pub struct GpuStandardMaterial {
     pub flags: StandardMaterialFlags,
     pub base_color_texture: Option<Handle<Image>>,
     pub alpha_mode: AlphaMode,
+    pub cull_mode: Option<Face>,
 }
 
 impl RenderAsset for StandardMaterial {
@@ -235,6 +247,22 @@ impl RenderAsset for StandardMaterial {
             flags |= StandardMaterialFlags::UNLIT;
         }
         let has_normal_map = material.normal_map_texture.is_some();
+        if has_normal_map {
+            match gpu_images
+                .get(material.normal_map_texture.as_ref().unwrap())
+                .unwrap()
+                .texture_format
+            {
+                // All 2-component unorm formats
+                TextureFormat::Rg8Unorm
+                | TextureFormat::Rg16Unorm
+                | TextureFormat::Bc5RgUnorm
+                | TextureFormat::EacRg11Unorm => {
+                    flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP
+                }
+                _ => {}
+            }
+        }
         // NOTE: 0.5 is from the glTF default - do we want this?
         let mut alpha_cutoff = 0.5;
         match material.alpha_mode {
@@ -320,6 +348,7 @@ impl RenderAsset for StandardMaterial {
             has_normal_map,
             base_color_texture: material.base_color_texture,
             alpha_mode: material.alpha_mode,
+            cull_mode: material.cull_mode,
         })
     }
 }
@@ -327,6 +356,7 @@ impl RenderAsset for StandardMaterial {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct StandardMaterialKey {
     normal_map: bool,
+    cull_mode: Option<Face>,
 }
 
 impl SpecializedMaterial for StandardMaterial {
@@ -335,10 +365,15 @@ impl SpecializedMaterial for StandardMaterial {
     fn key(render_asset: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {
         StandardMaterialKey {
             normal_map: render_asset.has_normal_map,
+            cull_mode: render_asset.cull_mode,
         }
     }
 
-    fn specialize(key: Self::Key, descriptor: &mut RenderPipelineDescriptor) {
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        key: Self::Key,
+        _layout: &MeshVertexBufferLayout,
+    ) -> Result<(), SpecializedMeshPipelineError> {
         if key.normal_map {
             descriptor
                 .fragment
@@ -347,9 +382,11 @@ impl SpecializedMaterial for StandardMaterial {
                 .shader_defs
                 .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
         }
+        descriptor.primitive.cull_mode = key.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
+        Ok(())
     }
 
     fn fragment_shader(_asset_server: &AssetServer) -> Option<Handle<Shader>> {

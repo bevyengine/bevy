@@ -1,8 +1,7 @@
-use crate::{
-    CoreStage, Events, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage,
-};
+use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    event::Events,
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
         IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
@@ -110,9 +109,7 @@ impl App {
     /// See [`Schedule::run_once`] for more details.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
-        let bevy_frame_update_span = info_span!("frame");
-        #[cfg(feature = "trace")]
-        let _bevy_frame_update_guard = bevy_frame_update_span.enter();
+        let _bevy_frame_update_span = info_span!("frame").entered();
         self.schedule.run(&mut self.world);
         for sub_app in self.sub_apps.values_mut() {
             (sub_app.runner)(&mut self.world, &mut sub_app.app);
@@ -125,9 +122,7 @@ impl App {
     /// level documentation.
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
-        let bevy_app_run_span = info_span!("bevy_app");
-        #[cfg(feature = "trace")]
-        let _bevy_app_run_guard = bevy_app_run_span.enter();
+        let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
@@ -627,8 +622,11 @@ impl App {
     where
         T: Resource,
     {
-        self.init_resource::<Events<T>>()
-            .add_system_to_stage(CoreStage::First, Events::<T>::update_system)
+        if !self.world.contains_resource::<Events<T>>() {
+            self.init_resource::<Events<T>>()
+                .add_system_to_stage(CoreStage::First, Events::<T>::update_system);
+        }
+        self
     }
 
     /// Inserts a resource to the current [App] and overwrites any resource previously added of the same type.
@@ -839,10 +837,7 @@ impl App {
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {
-            let registry = self
-                .world
-                .get_resource_mut::<bevy_reflect::TypeRegistryArc>()
-                .unwrap();
+            let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
             registry.write().register::<T>();
         }
         self
