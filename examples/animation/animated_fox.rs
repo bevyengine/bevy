@@ -109,7 +109,7 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Left) {
             let elapsed = player.elapsed();
-            player.set_elapsed((elapsed - 0.1).max(0.0));
+            player.set_elapsed(elapsed - 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Right) {

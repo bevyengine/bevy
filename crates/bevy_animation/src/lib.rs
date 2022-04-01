@@ -184,6 +184,9 @@ pub fn animation_player(
             if player.repeat {
                 elapsed %= animation_clip.duration;
             }
+            if elapsed < 0.0 {
+                elapsed += animation_clip.duration;
+            }
             'entity: for (path, curves) in &animation_clip.curves {
                 // PERF: finding the target entity can be optimised
                 let mut current_entity = entity;
