@@ -235,6 +235,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                       item_struct_name: Ident| {
         if is_filter {
             quote! {
+                #[doc(hidden)]
                 #visibility struct #fetch_struct_name #impl_generics #where_clause {
                     #(#field_idents: <#field_types as #path::query::WorldQuery>::#fetch_associated_type,)*
                     #(#ignored_field_idents: #ignored_field_types,)*
@@ -278,12 +279,14 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             }
         } else {
             quote! {
+                #[doc(hidden)]
                 #derive_macro_call
                 #visibility struct #item_struct_name #impl_generics #where_clause {
                     #(#(#field_attrs)* #field_visibilities #field_idents: <<#field_types as #path::query::WorldQuery>::#fetch_associated_type as #path::query::Fetch<#world_lifetime, #world_lifetime>>::Item,)*
                     #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
                 }
 
+                #[doc(hidden)]
                 #visibility struct #fetch_struct_name #impl_generics #where_clause {
                     #(#field_idents: <#field_types as #path::query::WorldQuery>::#fetch_associated_type,)*
                     #(#ignored_field_idents: #ignored_field_types,)*
@@ -344,6 +347,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     );
 
     let state_impl = quote! {
+        #[doc(hidden)]
         #visibility struct #state_struct_name #impl_generics #where_clause {
             #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
             #(#ignored_field_idents: #ignored_field_types,)*
