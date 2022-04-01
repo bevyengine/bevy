@@ -465,7 +465,7 @@ async fn load_gltf<'a, 'b>(
         }
 
         #[cfg(feature = "bevy_animation")]
-        if animations.len() > 0 {
+        if !animations.is_empty() {
             world
                 .entity_mut(*node_index_to_entity_map.get(&0).unwrap())
                 .insert(AnimationPlayer::default());
