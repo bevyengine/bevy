@@ -857,7 +857,7 @@ mod tests {
 
         // set up system and verify its access is empty
         system.initialize(&mut world);
-        system.update_archetype_component_access(&mut world);
+        system.update_archetype_component_access(&world);
         assert_eq!(
             system
                 .archetype_component_access()
@@ -889,7 +889,7 @@ mod tests {
         world.spawn().insert_bundle((B, C));
 
         // update system and verify its accesses are correct
-        system.update_archetype_component_access(&mut world);
+        system.update_archetype_component_access(&world);
         assert_eq!(
             system
                 .archetype_component_access()
@@ -908,7 +908,7 @@ mod tests {
                 .unwrap(),
         );
         world.spawn().insert_bundle((A, B, D));
-        system.update_archetype_component_access(&mut world);
+        system.update_archetype_component_access(&world);
         assert_eq!(
             system
                 .archetype_component_access()
