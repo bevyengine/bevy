@@ -1,4 +1,6 @@
 use anyhow::Result;
+#[cfg(feature = "bevy_animation")]
+use bevy_animation::{AnimationClip, AnimationPlayer, EntityPath, Keyframes, VariableCurve};
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
@@ -33,15 +35,12 @@ use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
     texture::{MagFilter, MinFilter, WrappingMode},
-    Material, Primitive,
+    Material, Node, Primitive,
 };
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 
-use crate::{
-    Gltf, GltfAnimatedNode, GltfAnimation, GltfAnimationInterpolation, GltfNode, GltfNodeAnimation,
-    GltfNodeAnimationKeyframes,
-};
+use crate::{Gltf, GltfNode};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -129,77 +128,95 @@ async fn load_gltf<'a, 'b>(
         }
     }
 
-    let mut animations = vec![];
-    let mut named_animations = HashMap::default();
-    let mut animated_nodes = HashSet::default();
-    for animation in gltf.animations() {
-        let mut gltf_animation = GltfAnimation::default();
-        for channel in animation.channels() {
-            let interpolation = match channel.sampler().interpolation() {
-                gltf::animation::Interpolation::Linear => GltfAnimationInterpolation::Linear,
-                gltf::animation::Interpolation::Step => GltfAnimationInterpolation::Step,
-                gltf::animation::Interpolation::CubicSpline => {
-                    GltfAnimationInterpolation::CubicSpline
-                }
-            };
-            let node = channel.target().node();
-            let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
-            let keyframe_timestamps: Vec<f32> = if let Some(inputs) = reader.read_inputs() {
-                match inputs {
-                    gltf::accessor::Iter::Standard(times) => times.collect(),
-                    gltf::accessor::Iter::Sparse(_) => {
-                        warn!("sparse accessor not supported for animation sampler input");
-                        continue;
-                    }
-                }
-            } else {
-                warn!("animations without a sampler input are not supported");
-                return Err(GltfError::MissingAnimationSampler(animation.index()));
-            };
-
-            let keyframes = if let Some(outputs) = reader.read_outputs() {
-                match outputs {
-                    gltf::animation::util::ReadOutputs::Translations(tr) => {
-                        GltfNodeAnimationKeyframes::Translation(tr.map(Vec3::from).collect())
-                    }
-                    gltf::animation::util::ReadOutputs::Rotations(rots) => {
-                        GltfNodeAnimationKeyframes::Rotation(
-                            rots.into_f32().map(Quat::from_array).collect(),
-                        )
-                    }
-                    gltf::animation::util::ReadOutputs::Scales(scale) => {
-                        GltfNodeAnimationKeyframes::Scale(scale.map(Vec3::from).collect())
-                    }
-                    gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
-                        warn!("Morph animation property not yet supported");
-                        continue;
-                    }
-                }
-            } else {
-                warn!("animations without a sampler output are not supported");
-                return Err(GltfError::MissingAnimationSampler(animation.index()));
-            };
-
-            gltf_animation
-                .node_animations
-                .entry(node.index())
-                .or_default()
-                .push(GltfNodeAnimation {
-                    keyframe_timestamps,
-                    keyframes,
-                    interpolation,
-                });
-            animated_nodes.insert(node.index());
+    #[cfg(feature = "bevy_animation")]
+    let paths = {
+        let mut paths = HashMap::<usize, Vec<Name>>::new();
+        for scene in gltf.scenes() {
+            for node in scene.nodes() {
+                paths_recur(node, &[], &mut paths);
+            }
         }
-        let handle = load_context.set_labeled_asset(
-            &format!("Animation{}", animation.index()),
-            LoadedAsset::new(gltf_animation),
-        );
-        if let Some(name) = animation.name() {
-            named_animations.insert(name.to_string(), handle.clone());
+        paths
+    };
+
+    #[cfg(feature = "bevy_animation")]
+    let (animations, named_animations) = {
+        let mut animations = vec![];
+        let mut named_animations = HashMap::default();
+        for animation in gltf.animations() {
+            let mut animation_clip = AnimationClip::default();
+            for channel in animation.channels() {
+                match channel.sampler().interpolation() {
+                    gltf::animation::Interpolation::Linear => (),
+                    other => warn!(
+                        "Animation interpolation {:?} is not supported, will use linear",
+                        other
+                    ),
+                };
+                let node = channel.target().node();
+                let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
+                let keyframe_timestamps: Vec<f32> = if let Some(inputs) = reader.read_inputs() {
+                    match inputs {
+                        gltf::accessor::Iter::Standard(times) => times.collect(),
+                        gltf::accessor::Iter::Sparse(_) => {
+                            warn!("Sparse accessor not supported for animation sampler input");
+                            continue;
+                        }
+                    }
+                } else {
+                    warn!("Animations without a sampler input are not supported");
+                    return Err(GltfError::MissingAnimationSampler(animation.index()));
+                };
+
+                let keyframes = if let Some(outputs) = reader.read_outputs() {
+                    match outputs {
+                        gltf::animation::util::ReadOutputs::Translations(tr) => {
+                            Keyframes::Translation(tr.map(Vec3::from).collect())
+                        }
+                        gltf::animation::util::ReadOutputs::Rotations(rots) => {
+                            Keyframes::Rotation(rots.into_f32().map(Quat::from_array).collect())
+                        }
+                        gltf::animation::util::ReadOutputs::Scales(scale) => {
+                            Keyframes::Scale(scale.map(Vec3::from).collect())
+                        }
+                        gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
+                            warn!("Morph animation property not yet supported");
+                            continue;
+                        }
+                    }
+                } else {
+                    warn!("Animations without a sampler output are not supported");
+                    return Err(GltfError::MissingAnimationSampler(animation.index()));
+                };
+
+                if let Some(path) = paths.get(&node.index()) {
+                    animation_clip.add_curve_to_path(
+                        EntityPath {
+                            parts: path.clone(),
+                        },
+                        VariableCurve {
+                            keyframe_timestamps,
+                            keyframes,
+                        },
+                    );
+                } else {
+                    warn!(
+                        "Animation ignored for node {}: part of its hierarchy is missing a name",
+                        node.index()
+                    );
+                }
+            }
+            let handle = load_context.set_labeled_asset(
+                &format!("Animation{}", animation.index()),
+                LoadedAsset::new(animation_clip),
+            );
+            if let Some(name) = animation.name() {
+                named_animations.insert(name.to_string(), handle.clone());
+            }
+            animations.push(handle);
         }
-        animations.push(handle);
-    }
+        (animations, named_animations)
+    };
 
     let mut meshes = vec![];
     let mut named_meshes = HashMap::default();
@@ -436,7 +453,6 @@ async fn load_gltf<'a, 'b>(
                         parent,
                         load_context,
                         &buffer_data,
-                        &animated_nodes,
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                     );
@@ -448,6 +464,13 @@ async fn load_gltf<'a, 'b>(
             });
         if let Some(Err(err)) = err {
             return Err(err);
+        }
+
+        #[cfg(feature = "bevy_animation")]
+        if !animations.is_empty() {
+            world
+                .entity_mut(*node_index_to_entity_map.get(&0).unwrap())
+                .insert(AnimationPlayer::default());
         }
 
         for (&entity, &skin_index) in &entity_to_skin_index_map {
@@ -486,11 +509,24 @@ async fn load_gltf<'a, 'b>(
         named_materials,
         nodes,
         named_nodes,
+        #[cfg(feature = "bevy_animation")]
         animations,
+        #[cfg(feature = "bevy_animation")]
         named_animations,
     }));
 
     Ok(())
+}
+
+fn paths_recur(node: Node, current_path: &[Name], paths: &mut HashMap<usize, Vec<Name>>) {
+    if let Some(name) = node.name() {
+        let mut path = current_path.to_owned();
+        path.push(Name::new(name.to_string()));
+        for child in node.children() {
+            paths_recur(child, &path, paths);
+        }
+        paths.insert(node.index(), path);
+    }
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
@@ -633,7 +669,6 @@ fn load_node(
     world_builder: &mut WorldChildBuilder,
     load_context: &mut LoadContext,
     buffer_data: &[Vec<u8>],
-    animated_nodes: &HashSet<usize>,
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut HashMap<Entity, usize>,
 ) -> Result<(), GltfError> {
@@ -642,12 +677,6 @@ fn load_node(
     let mut node = world_builder.spawn_bundle(TransformBundle::from(Transform::from_matrix(
         Mat4::from_cols_array_2d(&transform.matrix()),
     )));
-
-    if animated_nodes.contains(&gltf_node.index()) {
-        node.insert(GltfAnimatedNode {
-            index: gltf_node.index(),
-        });
-    }
 
     if let Some(name) = gltf_node.name() {
         node.insert(Name::new(name.to_string()));
@@ -798,7 +827,6 @@ fn load_node(
                 parent,
                 load_context,
                 buffer_data,
-                animated_nodes,
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
             ) {

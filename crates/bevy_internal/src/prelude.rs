@@ -12,6 +12,10 @@ pub use bevy_derive::{bevy_main, Deref, DerefMut};
 pub use crate::audio::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_animation")]
+pub use crate::animation::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_core_pipeline")]
 pub use crate::core_pipeline::prelude::*;
 
