@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use bevy_macro_utils::BevyManifest;
 use quote::{quote, ToTokens};
-use syn::{parse::*, *};
+use syn::*;
 use uuid::Uuid;
 
 pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -15,9 +15,10 @@ pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let name = &ast.ident;
 
     let (impl_generics, type_generics, _) = &ast.generics.split_for_impl();
-    if !impl_generics.to_token_stream().is_empty() || !type_generics.to_token_stream().is_empty() {
-        panic!("#[derive(TypeUuid)] is not supported for generics.");
-    }
+    assert!(
+        impl_generics.to_token_stream().is_empty() && type_generics.to_token_stream().is_empty(),
+        "#[derive(TypeUuid)] is not supported for generics.",
+    );
 
     let mut uuid = None;
     for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
@@ -58,41 +59,6 @@ pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let gen = quote! {
         impl #bevy_reflect_path::TypeUuid for #name {
             const TYPE_UUID: #bevy_reflect_path::Uuid = #bevy_reflect_path::Uuid::from_bytes([
-                #( #bytes ),*
-            ]);
-        }
-    };
-    gen.into()
-}
-
-struct ExternalDeriveInput {
-    path: ExprPath,
-    uuid_str: LitStr,
-}
-
-impl Parse for ExternalDeriveInput {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let path = input.parse()?;
-        input.parse::<Token![,]>()?;
-        let uuid_str = input.parse()?;
-        Ok(Self { path, uuid_str })
-    }
-}
-
-pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let ExternalDeriveInput { path, uuid_str } = parse_macro_input!(tokens as ExternalDeriveInput);
-
-    let uuid = Uuid::parse_str(&uuid_str.value()).expect("Value was not a valid UUID.");
-
-    let bytes = uuid
-        .as_bytes()
-        .iter()
-        .map(|byte| format!("{:#X}", byte))
-        .map(|byte_str| syn::parse_str::<LitInt>(&byte_str).unwrap());
-
-    let gen = quote! {
-        impl crate::TypeUuid for #path {
-            const TYPE_UUID: Uuid = uuid::Uuid::from_bytes([
                 #( #bytes ),*
             ]);
         }

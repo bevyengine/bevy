@@ -1,6 +1,4 @@
-use bevy::{
-    core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::CameraPlugin,
-};
+use bevy::{core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -46,6 +44,7 @@ struct Player {
     entity: Option<Entity>,
     i: usize,
     j: usize,
+    move_cooldown: Timer,
 }
 
 #[derive(Default)]
@@ -86,7 +85,7 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
             BOARD_SIZE_J as f32 / 2.0 - 0.5,
         )
         .looking_at(game.camera_is_focus, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
     commands.spawn_bundle(UiCameraBundle::default());
 }
@@ -97,6 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.score = 0;
     game.player.i = BOARD_SIZE_I / 2;
     game.player.j = BOARD_SIZE_J / 2;
+    game.player.move_cooldown = Timer::from_seconds(0.3, false);
 
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 10.0, 4.0),
@@ -104,9 +104,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             intensity: 3000.0,
             shadows_enabled: true,
             range: 30.0,
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     });
 
     // spawn the game board
@@ -117,10 +117,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 .map(|i| {
                     let height = rand::thread_rng().gen_range(-0.1..0.1);
                     commands
-                        .spawn_bundle((
-                            Transform::from_xyz(i as f32, height - 0.2, j as f32),
-                            GlobalTransform::identity(),
-                        ))
+                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(
+                            i as f32,
+                            height - 0.2,
+                            j as f32,
+                        )))
                         .with_children(|cell| {
                             cell.spawn_scene(cell_scene.clone());
                         });
@@ -133,18 +134,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     // spawn the game character
     game.player.entity = Some(
         commands
-            .spawn_bundle((
-                Transform {
-                    translation: Vec3::new(
-                        game.player.i as f32,
-                        game.board[game.player.j][game.player.i].height,
-                        game.player.j as f32,
-                    ),
-                    rotation: Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
-                    ..Default::default()
-                },
-                GlobalTransform::identity(),
-            ))
+            .spawn_bundle(TransformBundle::from(Transform {
+                translation: Vec3::new(
+                    game.player.i as f32,
+                    game.board[game.player.j][game.player.i].height,
+                    game.player.j as f32,
+                ),
+                rotation: Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
+                ..default()
+            }))
             .with_children(|cell| {
                 cell.spawn_scene(asset_server.load("models/AlienCake/alien.glb#Scene0"));
             })
@@ -170,11 +168,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             position: Rect {
                 top: Val::Px(5.0),
                 left: Val::Px(5.0),
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     });
 }
 
@@ -191,49 +189,54 @@ fn move_player(
     keyboard_input: Res<Input<KeyCode>>,
     mut game: ResMut<Game>,
     mut transforms: Query<&mut Transform>,
+    time: Res<Time>,
 ) {
-    let mut moved = false;
-    let mut rotation = 0.0;
-    if keyboard_input.just_pressed(KeyCode::Up) {
-        if game.player.i < BOARD_SIZE_I - 1 {
-            game.player.i += 1;
-        }
-        rotation = -std::f32::consts::FRAC_PI_2;
-        moved = true;
-    }
-    if keyboard_input.just_pressed(KeyCode::Down) {
-        if game.player.i > 0 {
-            game.player.i -= 1;
-        }
-        rotation = std::f32::consts::FRAC_PI_2;
-        moved = true;
-    }
-    if keyboard_input.just_pressed(KeyCode::Right) {
-        if game.player.j < BOARD_SIZE_J - 1 {
-            game.player.j += 1;
-        }
-        rotation = std::f32::consts::PI;
-        moved = true;
-    }
-    if keyboard_input.just_pressed(KeyCode::Left) {
-        if game.player.j > 0 {
-            game.player.j -= 1;
-        }
-        rotation = 0.0;
-        moved = true;
-    }
+    if game.player.move_cooldown.tick(time.delta()).finished() {
+        let mut moved = false;
+        let mut rotation = 0.0;
 
-    // move on the board
-    if moved {
-        *transforms.get_mut(game.player.entity.unwrap()).unwrap() = Transform {
-            translation: Vec3::new(
-                game.player.i as f32,
-                game.board[game.player.j][game.player.i].height,
-                game.player.j as f32,
-            ),
-            rotation: Quat::from_rotation_y(rotation),
-            ..Default::default()
-        };
+        if keyboard_input.pressed(KeyCode::Up) {
+            if game.player.i < BOARD_SIZE_I - 1 {
+                game.player.i += 1;
+            }
+            rotation = -std::f32::consts::FRAC_PI_2;
+            moved = true;
+        }
+        if keyboard_input.pressed(KeyCode::Down) {
+            if game.player.i > 0 {
+                game.player.i -= 1;
+            }
+            rotation = std::f32::consts::FRAC_PI_2;
+            moved = true;
+        }
+        if keyboard_input.pressed(KeyCode::Right) {
+            if game.player.j < BOARD_SIZE_J - 1 {
+                game.player.j += 1;
+            }
+            rotation = std::f32::consts::PI;
+            moved = true;
+        }
+        if keyboard_input.pressed(KeyCode::Left) {
+            if game.player.j > 0 {
+                game.player.j -= 1;
+            }
+            rotation = 0.0;
+            moved = true;
+        }
+
+        // move on the board
+        if moved {
+            game.player.move_cooldown.reset();
+            *transforms.get_mut(game.player.entity.unwrap()).unwrap() = Transform {
+                translation: Vec3::new(
+                    game.player.i as f32,
+                    game.board[game.player.j][game.player.i].height,
+                    game.player.j as f32,
+                ),
+                rotation: Quat::from_rotation_y(rotation),
+                ..default()
+            };
+        }
     }
 
     // eat the cake!
@@ -251,15 +254,12 @@ fn move_player(
 fn focus_camera(
     time: Res<Time>,
     mut game: ResMut<Game>,
-    mut transforms: QuerySet<(
-        QueryState<(&mut Transform, &Camera)>,
-        QueryState<&Transform>,
-    )>,
+    mut transforms: ParamSet<(Query<&mut Transform, With<Camera3d>>, Query<&Transform>)>,
 ) {
     const SPEED: f32 = 2.0;
     // if there is both a player and a bonus, target the mid-point of them
     if let (Some(player_entity), Some(bonus_entity)) = (game.player.entity, game.bonus.entity) {
-        let transform_query = transforms.q1();
+        let transform_query = transforms.p1();
         if let (Ok(player_transform), Ok(bonus_transform)) = (
             transform_query.get(player_entity),
             transform_query.get(bonus_entity),
@@ -270,7 +270,7 @@ fn focus_camera(
         }
     // otherwise, if there is only a player, target the player
     } else if let Some(player_entity) = game.player.entity {
-        if let Ok(player_transform) = transforms.q1().get(player_entity) {
+        if let Ok(player_transform) = transforms.p1().get(player_entity) {
             game.camera_should_focus = player_transform.translation;
         }
     // otherwise, target the middle
@@ -287,10 +287,8 @@ fn focus_camera(
         game.camera_is_focus += camera_motion;
     }
     // look at that new camera's actual focus
-    for (mut transform, camera) in transforms.q0().iter_mut() {
-        if camera.name == Some(CameraPlugin::CAMERA_3D.to_string()) {
-            *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
-        }
+    for mut transform in transforms.p0().iter_mut() {
+        *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
     }
 }
 
@@ -324,27 +322,21 @@ fn spawn_bonus(
     }
     game.bonus.entity = Some(
         commands
-            .spawn_bundle((
-                Transform {
-                    translation: Vec3::new(
-                        game.bonus.i as f32,
-                        game.board[game.bonus.j][game.bonus.i].height + 0.2,
-                        game.bonus.j as f32,
-                    ),
-                    ..Default::default()
-                },
-                GlobalTransform::identity(),
-            ))
+            .spawn_bundle(TransformBundle::from(Transform::from_xyz(
+                game.bonus.i as f32,
+                game.board[game.bonus.j][game.bonus.i].height + 0.2,
+                game.bonus.j as f32,
+            )))
             .with_children(|children| {
                 children.spawn_bundle(PointLightBundle {
                     point_light: PointLight {
                         color: Color::rgb(1.0, 1.0, 0.0),
                         intensity: 1000.0,
                         range: 10.0,
-                        ..Default::default()
+                        ..default()
                     },
                     transform: Transform::from_xyz(0.0, 2.0, 0.0),
-                    ..Default::default()
+                    ..default()
                 });
                 children.spawn_scene(game.bonus.handle.clone());
             })
@@ -385,10 +377,10 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
                 margin: Rect::all(Val::Auto),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
             color: Color::NONE.into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
@@ -401,7 +393,7 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
                     },
                     Default::default(),
                 ),
-                ..Default::default()
+                ..default()
             });
         });
 }

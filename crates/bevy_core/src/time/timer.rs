@@ -1,5 +1,4 @@
 use crate::Stopwatch;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
@@ -10,8 +9,7 @@ use bevy_utils::Duration;
 /// exceeded, and can still be reset at any given point.
 ///
 /// Paused timers will not have elapsed time increased.
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[derive(Clone, Debug, Default, Reflect)]
 pub struct Timer {
     stopwatch: Stopwatch,
     duration: Duration,
@@ -182,7 +180,7 @@ impl Timer {
             self.stopwatch.reset();
             self.finished = self.just_finished();
         }
-        self.repeating = repeating
+        self.repeating = repeating;
     }
 
     /// Advance the timer by `delta` seconds.

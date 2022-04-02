@@ -2,8 +2,12 @@ use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
     RefChange,
 };
-use bevy_app::{App, EventWriter, Events};
-use bevy_ecs::{system::ResMut, world::FromWorld};
+use bevy_app::App;
+use bevy_ecs::{
+    event::{EventWriter, Events},
+    system::ResMut,
+    world::FromWorld,
+};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -182,12 +186,12 @@ impl<T: Asset> Assets<T> {
 
     /// Get a mutable iterator over all assets in the collection.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (HandleId, &mut T)> {
-        for id in self.assets.keys() {
+        self.assets.iter_mut().map(|(k, v)| {
             self.events.send(AssetEvent::Modified {
-                handle: Handle::weak(*id),
+                handle: Handle::weak(*k),
             });
-        }
-        self.assets.iter_mut().map(|(k, v)| (*k, v))
+            (*k, v)
+        })
     }
 
     /// Get an iterator over all [`HandleId`]'s in the collection.
@@ -216,14 +220,14 @@ impl<T: Asset> Assets<T> {
     ///
     /// Keeps the allocated memory for reuse.
     pub fn clear(&mut self) {
-        self.assets.clear()
+        self.assets.clear();
     }
 
     /// Reserves capacity for at least additional more elements to be inserted into the assets.
     ///
     /// The collection may reserve more space to avoid frequent reallocations.
     pub fn reserve(&mut self, additional: usize) {
-        self.assets.reserve(additional)
+        self.assets.reserve(additional);
     }
 
     /// Shrinks the capacity of the asset map as much as possible.
@@ -231,7 +235,7 @@ impl<T: Asset> Assets<T> {
     /// It will drop down as much as possible while maintaining the internal rules and possibly
     /// leaving some space in accordance with the resize policy.
     pub fn shrink_to_fit(&mut self) {
-        self.assets.shrink_to_fit()
+        self.assets.shrink_to_fit();
     }
 
     pub fn asset_event_system(
@@ -241,7 +245,7 @@ impl<T: Asset> Assets<T> {
         // Check if the events are empty before calling `drain`.
         // As `drain` triggers change detection.
         if !assets.events.is_empty() {
-            events.send_batch(assets.events.drain())
+            events.send_batch(assets.events.drain());
         }
     }
 
@@ -261,7 +265,13 @@ pub trait AddAsset {
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Asset;
+    fn add_debug_asset<T: Clone>(&mut self) -> &mut Self
+    where
+        T: Asset;
     fn init_asset_loader<T>(&mut self) -> &mut Self
+    where
+        T: AssetLoader + FromWorld;
+    fn init_debug_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
@@ -270,12 +280,18 @@ pub trait AddAsset {
 }
 
 impl AddAsset for App {
+    /// Add an [`Asset`] to the [`App`].
+    ///
+    /// Adding the same [`Asset`] again after it has been added does nothing.
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Asset,
     {
+        if self.world.contains_resource::<Assets<T>>() {
+            return self;
+        }
         let assets = {
-            let asset_server = self.world.get_resource::<AssetServer>().unwrap();
+            let asset_server = self.world.resource::<AssetServer>();
             asset_server.register_asset_type::<T>()
         };
 
@@ -286,6 +302,22 @@ impl AddAsset for App {
             .add_event::<AssetEvent<T>>()
     }
 
+    fn add_debug_asset<T: Clone>(&mut self) -> &mut Self
+    where
+        T: Asset,
+    {
+        #[cfg(feature = "debug_asset_server")]
+        {
+            self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
+            let mut app = self
+                .world
+                .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
+            app.add_asset::<T>()
+                .init_resource::<crate::debug_asset_server::HandleMap<T>>();
+        }
+        self
+    }
+
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld,
@@ -294,14 +326,78 @@ impl AddAsset for App {
         self.add_asset_loader(result)
     }
 
+    fn init_debug_asset_loader<T>(&mut self) -> &mut Self
+    where
+        T: AssetLoader + FromWorld,
+    {
+        #[cfg(feature = "debug_asset_server")]
+        {
+            let mut app = self
+                .world
+                .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
+            app.init_asset_loader::<T>();
+        }
+        self
+    }
+
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
         T: AssetLoader,
     {
-        self.world
-            .get_resource_mut::<AssetServer>()
-            .expect("AssetServer does not exist. Consider adding it as a resource.")
-            .add_loader(loader);
+        self.world.resource_mut::<AssetServer>().add_loader(loader);
         self
+    }
+}
+
+#[cfg(feature = "debug_asset_server")]
+#[macro_export]
+macro_rules! load_internal_asset {
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+        {
+            let mut debug_app = $app
+                .world
+                .non_send_resource_mut::<bevy_asset::debug_asset_server::DebugAssetApp>();
+            bevy_asset::debug_asset_server::register_handle_with_loader(
+                $loader,
+                &mut debug_app,
+                $handle,
+                file!(),
+                $path_str,
+            );
+        }
+        let mut assets = $app.world.resource_mut::<bevy_asset::Assets<_>>();
+        assets.set_untracked($handle, ($loader)(include_str!($path_str)));
+    }};
+}
+
+#[cfg(not(feature = "debug_asset_server"))]
+#[macro_export]
+macro_rules! load_internal_asset {
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+        let mut assets = $app.world.resource_mut::<bevy_asset::Assets<_>>();
+        assets.set_untracked($handle, ($loader)(include_str!($path_str)));
+    }};
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+
+    use crate::{AddAsset, Assets};
+
+    #[test]
+    fn asset_overwriting() {
+        #[derive(bevy_reflect::TypeUuid)]
+        #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
+        struct MyAsset;
+        let mut app = App::new();
+        app.add_plugin(bevy_core::CorePlugin)
+            .add_plugin(crate::AssetPlugin);
+        app.add_asset::<MyAsset>();
+        let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();
+        let handle = assets_before.add(MyAsset);
+        app.add_asset::<MyAsset>(); // Ensure this doesn't overwrite the Asset
+        let assets_after = app.world.resource_mut::<Assets<MyAsset>>();
+        assert!(assets_after.get(handle).is_some());
     }
 }

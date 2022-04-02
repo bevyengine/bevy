@@ -9,9 +9,9 @@ use bevy::{
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipelineCache,
-            RenderPipelineDescriptor, SpecializedPipeline, SpecializedPipelines, TextureFormat,
-            VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
+            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
+            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         texture::BevyDefault,
         view::VisibleEntities,
@@ -68,11 +68,11 @@ fn star(
         v_pos.push([r * a.cos(), r * a.sin(), 0.0]);
     }
     // Set the position attribute
-    star.set_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
+    star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
-    let mut v_color = vec![[0.0, 0.0, 0.0, 1.0]];
-    v_color.extend_from_slice(&[[1.0, 1.0, 0.0, 1.0]; 10]);
-    star.set_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
+    let mut v_color: Vec<u32> = vec![Color::BLACK.as_linear_rgba_u32()];
+    v_color.extend_from_slice(&[Color::YELLOW.as_linear_rgba_u32(); 10]);
+    star.insert_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
 
     // Now, we specify the indices of the vertex that are going to compose the
     // triangles in our star. Vertices in triangles have to be specified in CCW
@@ -125,30 +125,21 @@ impl FromWorld for ColoredMesh2dPipeline {
 }
 
 // We implement `SpecializedPipeline` to customize the default rendering from `Mesh2dPipeline`
-impl SpecializedPipeline for ColoredMesh2dPipeline {
+impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
     type Key = Mesh2dPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         // Customize how to store the meshes' vertex attributes in the vertex buffer
         // Our meshes only have position and color
-        let vertex_attributes = vec![
-            // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-            VertexAttribute {
-                format: VertexFormat::Float32x3,
-                // this offset is the size of the color attribute, which is stored first
-                offset: 16,
-                // position is available at location 0 in the shader
-                shader_location: 0,
-            },
+        let formats = vec![
+            // Position
+            VertexFormat::Float32x3,
             // Color
-            VertexAttribute {
-                format: VertexFormat::Float32x4,
-                offset: 0,
-                shader_location: 1,
-            },
+            VertexFormat::Uint32,
         ];
-        // This is the sum of the size of position and color attributes (12 + 16 = 28)
-        let vertex_array_stride = 28;
+
+        let vertex_layout =
+            VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -157,11 +148,7 @@ impl SpecializedPipeline for ColoredMesh2dPipeline {
                 entry_point: "vertex".into(),
                 shader_defs: Vec::new(),
                 // Use our custom vertex buffer
-                buffers: vec![VertexBufferLayout {
-                    array_stride: vertex_array_stride,
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: vertex_attributes,
-                }],
+                buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
@@ -227,13 +214,13 @@ var<uniform> mesh: Mesh2d;
 // The structure of the vertex buffer is as specified in `specialize()`
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
-    [[location(1)]] color: vec4<f32>;
+    [[location(1)]] color: u32;
 };
 
 struct VertexOutput {
     // The vertex shader must set the on-screen position of the vertex
     [[builtin(position)]] clip_position: vec4<f32>;
-    // We pass the vertex color to the framgent shader in location 0
+    // We pass the vertex color to the fragment shader in location 0
     [[location(0)]] color: vec4<f32>;
 };
 
@@ -243,7 +230,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // Project the world position of the mesh into screen position
     out.clip_position = view.view_proj * mesh.model * vec4<f32>(vertex.position, 1.0);
-    out.color = vertex.color;
+    // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
+    out.color = vec4<f32>((vec4<u32>(vertex.color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
     return out;
 }
 
@@ -270,7 +258,7 @@ pub const COLORED_MESH2D_SHADER_HANDLE: HandleUntyped =
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+        let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         shaders.set_untracked(
             COLORED_MESH2D_SHADER_HANDLE,
             Shader::from_wgsl(COLORED_MESH2D_SHADER),
@@ -281,7 +269,7 @@ impl Plugin for ColoredMesh2dPlugin {
         render_app
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<ColoredMesh2dPipeline>()
-            .init_resource::<SpecializedPipelines<ColoredMesh2dPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .add_system_to_stage(RenderStage::Extract, extract_colored_mesh2d)
             .add_system_to_stage(RenderStage::Queue, queue_colored_mesh2d);
     }
@@ -309,8 +297,8 @@ pub fn extract_colored_mesh2d(
 pub fn queue_colored_mesh2d(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
-    mut pipelines: ResMut<SpecializedPipelines<ColoredMesh2dPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<ColoredMesh2d>>,

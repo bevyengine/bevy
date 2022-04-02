@@ -31,9 +31,8 @@ impl ParallelSystemExecutor for SingleThreadedExecutor {
         for system in systems {
             if system.should_run() {
                 #[cfg(feature = "trace")]
-                let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
-                #[cfg(feature = "trace")]
-                let _system_guard = system_span.enter();
+                let _system_span =
+                    bevy_utils::tracing::info_span!("system", name = &*system.name()).entered();
                 system.system_mut().run((), world);
             }
         }

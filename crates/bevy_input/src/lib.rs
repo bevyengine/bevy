@@ -75,7 +75,7 @@ impl Plugin for InputPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                gamepad_connection_system.label(InputSystem),
+                gamepad_connection_system.after(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()
