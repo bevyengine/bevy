@@ -7,11 +7,11 @@ use crate::{
         ShaderProcessor, ShaderReflectError,
     },
     renderer::RenderDevice,
-    RenderWorld,
+    ExtractFromMainWorld,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::event::EventReader;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::ResMut;
+use bevy_ecs::{event::EventReader, system::lifetimeless::SRes};
 use bevy_utils::{default, tracing::error, Entry, HashMap, HashSet};
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
@@ -546,11 +546,13 @@ impl PipelineCache {
     }
 
     pub(crate) fn extract_shaders(
-        mut world: ResMut<RenderWorld>,
-        shaders: Res<Assets<Shader>>,
-        mut events: EventReader<AssetEvent<Shader>>,
+        mut cache: ResMut<Self>,
+        extract: ExtractFromMainWorld<(
+            SRes<Assets<Shader>>,
+            EventReader<'static, 'static, AssetEvent<Shader>>,
+        )>,
     ) {
-        let mut cache = world.resource_mut::<Self>();
+        let (shaders, events) = extract.into_inner();
         for event in events.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {

@@ -2,10 +2,10 @@ use crate::{
     render_resource::TextureView,
     renderer::{RenderDevice, RenderInstance},
     texture::BevyDefault,
-    RenderApp, RenderStage, RenderWorld,
+    ExtractFromMainWorld, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::lifetimeless::SRes};
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
@@ -68,11 +68,10 @@ impl DerefMut for ExtractedWindows {
 }
 
 fn extract_windows(
-    mut render_world: ResMut<RenderWorld>,
-    mut closed: EventReader<WindowClosed>,
-    windows: Res<Windows>,
+    mut closed: Extract<EventReader<WindowClosed>>,
+    mut extracted_windows: ResMut<ExtractedWindows>,
+    windows: ExtractFromMainWorld<SRes<Windows>>,
 ) {
-    let mut extracted_windows = render_world.get_resource_mut::<ExtractedWindows>().unwrap();
     for window in windows.iter() {
         let (new_width, new_height) = (
             window.physical_width().max(1),

@@ -3,6 +3,7 @@ extern crate core;
 pub mod camera;
 pub mod color;
 pub mod extract_component;
+mod extract_param;
 pub mod extract_resource;
 pub mod mesh;
 pub mod primitives;
@@ -14,6 +15,7 @@ pub mod renderer;
 pub mod settings;
 pub mod texture;
 pub mod view;
+pub use extract_param::ExtractFromMainWorld;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -80,9 +82,9 @@ pub enum RenderStage {
 
 /// The Render App World. This is only available as a resource during the Extract step.
 #[derive(Default)]
-pub struct RenderWorld(World);
+pub struct MainWorld(World);
 
-impl Deref for RenderWorld {
+impl Deref for MainWorld {
     type Target = World;
 
     fn deref(&self) -> &Self::Target {
@@ -90,7 +92,7 @@ impl Deref for RenderWorld {
     }
 }
 
-impl DerefMut for RenderWorld {
+impl DerefMut for MainWorld {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -109,7 +111,7 @@ pub struct RenderApp;
 /// A "scratch" world used to avoid allocating new worlds every frame when
 /// swapping out the [`RenderWorld`].
 #[derive(Default)]
-struct ScratchRenderWorld(World);
+struct ScratchMainWorld(World);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
@@ -149,7 +151,7 @@ impl Plugin for RenderPlugin {
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
-                .init_resource::<ScratchRenderWorld>()
+                .init_resource::<ScratchMainWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
 
@@ -307,17 +309,17 @@ fn extract(app_world: &mut World, render_app: &mut App) {
         .get_stage_mut::<SystemStage>(&RenderStage::Extract)
         .unwrap();
 
-    // temporarily add the render world to the app world as a resource
-    let scratch_world = app_world.remove_resource::<ScratchRenderWorld>().unwrap();
-    let render_world = std::mem::replace(&mut render_app.world, scratch_world.0);
-    app_world.insert_resource(RenderWorld(render_world));
+    // temporarily add the app world to the render world as a resource
+    let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
+    let inserted_world = std::mem::replace(app_world, scratch_world.0);
+    let running_world = &mut render_app.world;
+    running_world.insert_resource(MainWorld(inserted_world));
 
-    extract.run(app_world);
+    extract.run(&mut running_world);
+    extract.apply_buffers(&mut running_world);
 
-    // add the render world back to the render app
-    let render_world = app_world.remove_resource::<RenderWorld>().unwrap();
-    let scratch_world = std::mem::replace(&mut render_app.world, render_world.0);
-    app_world.insert_resource(ScratchRenderWorld(scratch_world));
-
-    extract.apply_buffers(&mut render_app.world);
+    // move the app world back, as if nothing happened.
+    let inserted_world = running_world.remove_resource::<MainWorld>().unwrap();
+    let scratch_world = std::mem::replace(app_world, inserted_world.0);
+    inserted_world.insert_resource(ScratchMainWorld(scratch_world));
 }
