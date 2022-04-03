@@ -144,6 +144,7 @@ impl Node for MainPass3dNode {
                     view: &depth.view,
                     // NOTE: For the transparent pass we load the depth buffer. There should be no
                     // need to write to it, but store is set to `true` as a workaround for issue #3776,
+                    // https://github.com/bevyengine/bevy/issues/3776
                     // so that wgpu does not clear the depth buffer.
                     // As the opaque and alpha mask passes run first, opaque meshes can occlude
                     // transparent ones.

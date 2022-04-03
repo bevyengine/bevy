@@ -27,7 +27,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system(cube_rotator_system)
         .add_system(rotator_system)
-        .add_system(cycle_msaa);
+        .add_system(toggle_msaa);
 
     let render_app = app.sub_app_mut(RenderApp);
     let driver = FirstPassCameraDriver::new(&mut render_app.world);
@@ -204,7 +204,7 @@ fn cube_rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Ma
     }
 }
 
-fn cycle_msaa(input: Res<Input<KeyCode>>, mut msaa: ResMut<Msaa>) {
+fn toggle_msaa(input: Res<Input<KeyCode>>, mut msaa: ResMut<Msaa>) {
     if input.just_pressed(KeyCode::M) {
         if msaa.samples == 4 {
             info!("Not using MSAA");
