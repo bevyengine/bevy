@@ -18,6 +18,8 @@ fn main() {
     println!(
         "
 Controls:
+    MOUSE  - Move camera orientation
+    LClick - Enable mouse movement
     WSAD   - forward/back/strafe left/right
     LShift - 'run'
     E      - up
@@ -390,6 +392,7 @@ impl Default for CameraController {
 fn camera_controller(
     time: Res<Time>,
     mut mouse_events: EventReader<MouseMotion>,
+    mouse_button_input: Res<Input<MouseButton>>,
     key_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
@@ -397,8 +400,10 @@ fn camera_controller(
 
     // Handle mouse input
     let mut mouse_delta = Vec2::ZERO;
-    for mouse_event in mouse_events.iter() {
-        mouse_delta += mouse_event.delta;
+    if mouse_button_input.pressed(MouseButton::Left) {
+        for mouse_event in mouse_events.iter() {
+            mouse_delta += mouse_event.delta;
+        }
     }
 
     if let Ok((mut transform, mut options)) = query.get_single_mut() {
