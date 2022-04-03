@@ -15,7 +15,8 @@ pub mod renderer;
 pub mod settings;
 pub mod texture;
 pub mod view;
-pub use extract_param::ExtractFromMainWorld;
+
+pub use extract_param::Extract;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -312,7 +313,7 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     // temporarily add the app world to the render world as a resource
     let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
     let inserted_world = std::mem::replace(app_world, scratch_world.0);
-    let running_world = &mut render_app.world;
+    let mut running_world = &mut render_app.world;
     running_world.insert_resource(MainWorld(inserted_world));
 
     extract.run(&mut running_world);
@@ -321,5 +322,5 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     // move the app world back, as if nothing happened.
     let inserted_world = running_world.remove_resource::<MainWorld>().unwrap();
     let scratch_world = std::mem::replace(app_world, inserted_world.0);
-    inserted_world.insert_resource(ScratchMainWorld(scratch_world));
+    app_world.insert_resource(ScratchMainWorld(scratch_world));
 }
