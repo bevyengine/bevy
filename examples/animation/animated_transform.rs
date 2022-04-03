@@ -25,7 +25,7 @@ fn setup(
         ..default()
     });
 
-    // Animation use name to target entities.
+    // The animation API uses the `Name` component to target entities
     let planet = Name::new("planet");
     let orbit_controller = Name::new("orbit_controller");
     let satellite = Name::new("satellite");
@@ -50,8 +50,9 @@ fn setup(
             ]),
         },
     );
-    // Or the rotation of the transform. To find the entity to modify, the hierarchy
-    // will be traversed looking for an entity with the right name at each level
+    // Or it can modify the rotation of the transform.
+    // To find the entity to modify, the hierarchy  will be traversed looking for
+    // an entity with the right name at each level
     animation.add_curve_to_path(
         EntityPath {
             parts: vec![planet.clone(), orbit_controller.clone()],
