@@ -868,12 +868,9 @@ where
             .archetype_component_access
             .has_read(archetype_component)
         {
-            // SAFE: lifetimes enforce correct usage of returned borrow
-            unsafe {
-                entity_ref
-                    .get_unchecked::<T>()
-                    .ok_or(QueryComponentError::MissingComponent)
-            }
+            entity_ref
+                .get::<T>()
+                .ok_or(QueryComponentError::MissingComponent)
         } else {
             Err(QueryComponentError::MissingReadAccess)
         }

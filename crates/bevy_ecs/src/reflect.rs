@@ -103,17 +103,15 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .entity_mut(destination_entity)
                     .insert(destination_component);
             },
-            reflect_component: |world, entity| unsafe {
+            reflect_component: |world, entity| {
                 world
                     .get_entity(entity)?
-                    // SAFE: lifetimes force correct usage of returned data
-                    .get_unchecked::<C>()
+                    .get::<C>()
                     .map(|c| c as &dyn Reflect)
             },
             reflect_component_mut: |world, entity| unsafe {
                 world
                     .get_entity(entity)?
-                    // SAFE: lifetimes force correct usage of returned data
                     .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
                     .map(|c| ReflectMut {
                         value: c.value as &mut dyn Reflect,

@@ -62,26 +62,12 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn get<T: Component>(&self) -> Option<&'_ T> {
-        // SAFE: lifetimes enforce correct usage of returned borrow
-        unsafe { self.get_unchecked::<T>() }
-    }
-
-    /// Gets an immutable reference to the component of type `T` associated with
-    /// this entity without ensuring there are no unique borrows active and without
-    /// ensuring that the returned reference will stay valid.
-    ///
-    /// # Safety
-    ///
-    /// - The returned reference must never alias a mutable borrow of this component.
-    /// - The returned reference must not be used after this component is moved which
-    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
-    ///   operation on this world (non-exhaustive list).
-    #[inline]
-    pub unsafe fn get_unchecked<T: Component>(&self) -> Option<&'w T> {
+    pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFE: entity location is valid and returned component is of type T
-        get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-            .map(|value| &*value.cast::<T>())
+        unsafe {
+            get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
+                .map(|value| &*value.cast::<T>())
+        }
     }
 
     /// Gets a mutable reference to the component of type `T` associated with

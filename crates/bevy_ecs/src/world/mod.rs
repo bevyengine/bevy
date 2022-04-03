@@ -197,8 +197,7 @@ impl World {
     ///     .insert(Position { x: 0.0, y: 0.0 })
     ///     .id();
     ///
-    /// let entity_ref = world.entity(entity);
-    /// let position = entity_ref.get::<Position>().unwrap();
+    /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[inline]
@@ -338,8 +337,7 @@ impl World {
     ///     .insert_bundle((Num(1), Label("hello"))) // add a bundle of components
     ///     .id();
     ///
-    /// let entity_ref = world.entity(entity);
-    /// let position = entity_ref.get::<Position>().unwrap();
+    /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
     pub fn spawn(&mut self) -> EntityMut {
@@ -416,8 +414,7 @@ impl World {
     /// ```
     #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
-        // SAFE: lifetimes enforce correct usage of returned borrow
-        unsafe { self.get_entity(entity)?.get_unchecked::<T>() }
+        self.get_entity(entity)?.get()
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [Component] of the given type.
