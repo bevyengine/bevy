@@ -358,6 +358,7 @@ struct CameraController {
     pub key_up: KeyCode,
     pub key_down: KeyCode,
     pub key_run: KeyCode,
+    pub key_enable_mouse: MouseButton,
     pub walk_speed: f32,
     pub run_speed: f32,
     pub friction: f32,
@@ -379,6 +380,7 @@ impl Default for CameraController {
             key_up: KeyCode::E,
             key_down: KeyCode::Q,
             key_run: KeyCode::LShift,
+            key_enable_mouse: MouseButton::Left,
             walk_speed: 5.0,
             run_speed: 15.0,
             friction: 0.5,
@@ -397,14 +399,6 @@ fn camera_controller(
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
     let dt = time.delta_seconds();
-
-    // Handle mouse input
-    let mut mouse_delta = Vec2::ZERO;
-    if mouse_button_input.pressed(MouseButton::Left) {
-        for mouse_event in mouse_events.iter() {
-            mouse_delta += mouse_event.delta;
-        }
-    }
 
     if let Ok((mut transform, mut options)) = query.get_single_mut() {
         if !options.initialized {
@@ -458,6 +452,14 @@ fn camera_controller(
         transform.translation += options.velocity.x * dt * right
             + options.velocity.y * dt * Vec3::Y
             + options.velocity.z * dt * forward;
+
+        // Handle mouse input
+        let mut mouse_delta = Vec2::ZERO;
+        if mouse_button_input.pressed(options.key_enable_mouse) {
+            for mouse_event in mouse_events.iter() {
+                mouse_delta += mouse_event.delta;
+            }
+        }
 
         if mouse_delta != Vec2::ZERO {
             // Apply look update
