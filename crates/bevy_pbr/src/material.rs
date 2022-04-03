@@ -23,7 +23,7 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupLayout, RenderPipelineCache, RenderPipelineDescriptor, Shader,
+        BindGroup, BindGroupLayout, PipelineCache, RenderPipelineDescriptor, Shader,
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
@@ -245,11 +245,11 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
         if let Some(fragment_shader) = &self.fragment_shader {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
-        descriptor.layout = Some(vec![
-            self.mesh_pipeline.view_layout.clone(),
-            self.material_layout.clone(),
-            self.mesh_pipeline.mesh_layout.clone(),
-        ]);
+
+        // MeshPipeline::specialize's current implementation guarantees that the returned
+        // specialized descriptor has a populated layout
+        let descriptor_layout = descriptor.layout.as_mut().unwrap();
+        descriptor_layout.insert(1, self.material_layout.clone());
 
         M::specialize(&mut descriptor, key.material_key, layout)?;
         Ok(descriptor)
@@ -307,7 +307,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,

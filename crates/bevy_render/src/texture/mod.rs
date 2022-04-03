@@ -24,7 +24,10 @@ pub use hdr_texture_loader::*;
 pub use image_texture_loader::*;
 pub use texture_cache::*;
 
-use crate::{render_asset::RenderAssetPlugin, RenderApp, RenderStage};
+use crate::{
+    render_asset::{PrepareAssetLabel, RenderAssetPlugin},
+    RenderApp, RenderStage,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Assets};
 
@@ -52,8 +55,10 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugin(RenderAssetPlugin::<Image>::default())
-            .add_asset::<Image>();
+        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
+            PrepareAssetLabel::PreAssetPrepare,
+        ))
+        .add_asset::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());

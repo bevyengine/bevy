@@ -39,6 +39,7 @@ git checkout v0.4.0
 - [Cross-Platform Examples](#cross-platform-examples)
   - [2D Rendering](#2d-rendering)
   - [3D Rendering](#3d-rendering)
+  - [Animation](#animation)
   - [Application](#application)
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
@@ -66,6 +67,7 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
+- [Stress Tests](#stress-tests)
 
 # The Bare Minimum
 
@@ -115,6 +117,14 @@ Example | File | Description
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
+
+## Animation
+
+Example | File | Description
+--- | --- | ---
+`animated_fox` | [`animation/animated_fox.rs`](./animation/animated_fox.rs) | Plays an animation from a skinned glTF.
+`custom_skinned_mesh` | [`animation/custom_skinned_mesh.rs`](./animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code.
+`gltf_skinned_mesh` | [`animation/gltf_skinned_mesh.rs`](./animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file.
 
 ## Application
 
@@ -420,3 +430,17 @@ ruby -run -ehttpd examples/wasm
 To load assets, they need to be available in the folder examples/wasm/assets. Cloning this
 repository will set it up as a symlink on Linux and macOS, but you will need to manually move
 the assets on Windows.
+
+# Stress Tests
+
+These examples are used to test the performance and stability of various parts of the engine in an isolated way.
+
+Due to the focus on performance it's recommended to run the stress tests in release mode:
+
+```sh
+cargo run --release --example <example name>
+```
+
+Example | File | Description
+--- | --- | ---
+`transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance

@@ -10,7 +10,7 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
+#[derive(Component, Deref, DerefMut)]
 pub struct PrintOnCompletionTimer(Timer);
 
 pub struct Countdown {
@@ -44,7 +44,7 @@ fn setup(mut commands: Commands) {
 /// using bevy's `Time` resource to get the delta between each update.
 fn print_when_completed(time: Res<Time>, mut query: Query<&mut PrintOnCompletionTimer>) {
     for mut timer in query.iter_mut() {
-        if timer.0.tick(time.delta()).just_finished() {
+        if timer.tick(time.delta()).just_finished() {
             info!("Entity timer just finished");
         }
     }

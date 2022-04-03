@@ -109,7 +109,7 @@ impl SpritePipelineKey {
     }
 }
 
-impl SpecializedPipeline for SpritePipeline {
+impl SpecializedRenderPipeline for SpritePipeline {
     type Key = SpritePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -122,7 +122,7 @@ impl SpecializedPipeline for SpritePipeline {
 
         if key.contains(SpritePipelineKey::COLORED) {
             // color
-            formats.push(VertexFormat::Uint32);
+            formats.push(VertexFormat::Float32x4);
         }
 
         let vertex_layout =
@@ -283,7 +283,7 @@ struct SpriteVertex {
 struct ColoredSpriteVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
-    pub color: u32,
+    pub color: [f32; 4],
 }
 
 pub struct SpriteMeta {
@@ -338,8 +338,8 @@ pub fn queue_sprites(
     mut sprite_meta: ResMut<SpriteMeta>,
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
-    mut pipelines: ResMut<SpecializedPipelines<SpritePipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
@@ -498,17 +498,11 @@ pub fn queue_sprites(
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
-                    let color = extracted_sprite.color.as_linear_rgba_f32();
-                    // encode color as a single u32 to save space
-                    let color = (color[0] * 255.0) as u32
-                        | ((color[1] * 255.0) as u32) << 8
-                        | ((color[2] * 255.0) as u32) << 16
-                        | ((color[3] * 255.0) as u32) << 24;
                     for i in QUAD_INDICES.iter() {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
                             position: positions[*i],
                             uv: uvs[*i].into(),
-                            color,
+                            color: extracted_sprite.color.as_linear_rgba_f32(),
                         });
                     }
                     let item_start = colored_index;

@@ -64,7 +64,7 @@ pub fn build_ui_render(app: &mut App) {
 
     render_app
         .init_resource::<UiPipeline>()
-        .init_resource::<SpecializedPipelines<UiPipeline>>()
+        .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
@@ -360,12 +360,8 @@ pub fn prepare_uinodes(
         ]
         .map(|pos| pos / atlas_extent);
 
-        let color = extracted_uinode.color.as_linear_rgba_f32();
         // encode color as a single u32 to save space
-        let color = (color[0] * 255.0) as u32
-            | ((color[1] * 255.0) as u32) << 8
-            | ((color[2] * 255.0) as u32) << 16
-            | ((color[3] * 255.0) as u32) << 24;
+        let color = extracted_uinode.color.as_linear_rgba_u32();
 
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
@@ -403,8 +399,8 @@ pub fn queue_uinodes(
     mut ui_meta: ResMut<UiMeta>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
-    mut pipelines: ResMut<SpecializedPipelines<UiPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,

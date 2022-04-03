@@ -45,9 +45,9 @@ Controls:
         .add_startup_system(setup)
         .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
         .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
-        .add_system(camera_controller_check.label(CameraControllerCheckSystem))
+        .add_system(check_camera_controller)
         .add_system(update_lights)
-        .add_system(camera_controller.after(CameraControllerCheckSystem))
+        .add_system(camera_controller.after(check_camera_controller))
         .run();
 }
 
@@ -221,7 +221,7 @@ fn camera_spawn_check(
     }
 }
 
-fn camera_controller_check(
+fn check_camera_controller(
     mut commands: Commands,
     camera: Query<Entity, (With<Camera>, Without<CameraController>)>,
     mut found_camera: Local<bool>,

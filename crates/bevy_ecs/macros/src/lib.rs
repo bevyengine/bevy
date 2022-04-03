@@ -178,88 +178,83 @@ fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
 }
 
 #[proc_macro]
-pub fn impl_query_set(_input: TokenStream) -> TokenStream {
+pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
-    let max_queries = 4;
-    let queries = get_idents(|i| format!("Q{}", i), max_queries);
-    let filters = get_idents(|i| format!("F{}", i), max_queries);
-    let mut query_fn_muts = Vec::new();
-    for i in 0..max_queries {
-        let query = &queries[i];
-        let filter = &filters[i];
-        let fn_name = Ident::new(&format!("q{}", i), Span::call_site());
+    let max_params = 8;
+    let params = get_idents(|i| format!("P{}", i), max_params);
+    let params_fetch = get_idents(|i| format!("PF{}", i), max_params);
+    let metas = get_idents(|i| format!("m{}", i), max_params);
+    let mut param_fn_muts = Vec::new();
+    for (i, param) in params.iter().enumerate() {
+        let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
         let index = Index::from(i);
-        query_fn_muts.push(quote! {
-            pub fn #fn_name(&mut self) -> Query<'_, '_, #query, #filter> {
+        param_fn_muts.push(quote! {
+            pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
                 // SAFE: systems run without conflicts with other systems.
-                // Conflicting queries in QuerySet are not accessible at the same time
-                // QuerySets are guaranteed to not conflict with other SystemParams
+                // Conflicting params in ParamSet are not accessible at the same time
+                // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    Query::new(self.world, &self.query_states.#index, self.last_change_tick, self.change_tick)
+                    <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
                 }
             }
         });
     }
 
-    for query_count in 1..=max_queries {
-        let query = &queries[0..query_count];
-        let filter = &filters[0..query_count];
-        let query_fn_mut = &query_fn_muts[0..query_count];
+    for param_count in 1..=max_params {
+        let param = &params[0..param_count];
+        let param_fetch = &params_fetch[0..param_count];
+        let meta = &metas[0..param_count];
+        let param_fn_mut = &param_fn_muts[0..param_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParam for QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+            impl<'w, 's, #(#param: SystemParam,)*> SystemParam for ParamSet<'w, 's, (#(#param,)*)>
             {
-                type Fetch = QuerySetState<(#(QueryState<#query, #filter>,)*)>;
+                type Fetch = ParamSetState<(#(#param::Fetch,)*)>;
             }
 
-            // SAFE: All Queries are constrained to ReadOnlyFetch, so World is only read
-            unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> ReadOnlySystemParamFetch for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-            where #(#query::Fetch: ReadOnlyFetch,)* #(#filter::Fetch: FilterFetch,)*
+            // SAFE: All parameters are constrained to ReadOnlyFetch, so World is only read
+
+            unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_fetch,)*)>
+            where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
 
-            // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts
+            // SAFE: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
-            unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamState for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+
+            unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamState for ParamSetState<(#(#param_fetch,)*)>
             {
                 fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
                     #(
-                        let mut #query = QueryState::<#query, #filter>::new(world);
-                        assert_component_access_compatibility(
-                            &system_meta.name,
-                            std::any::type_name::<#query>(),
-                            std::any::type_name::<#filter>(),
-                            &system_meta.component_access_set,
-                            &#query.component_access,
-                            world,
-                        );
+                        // Pretend to add each param to the system alone, see if it conflicts
+                        let mut #meta = system_meta.clone();
+                        #meta.component_access_set.clear();
+                        #meta.archetype_component_access.clear();
+                        #param_fetch::init(world, &mut #meta);
+                        let #param = #param_fetch::init(world, &mut system_meta.clone());
                     )*
                     #(
                         system_meta
                             .component_access_set
-                            .add(#query.component_access.clone());
+                            .extend(#meta.component_access_set);
                         system_meta
                             .archetype_component_access
-                            .extend(&#query.archetype_component_access);
+                            .extend(&#meta.archetype_component_access);
                     )*
-                    QuerySetState((#(#query,)*))
+                    ParamSetState((#(#param,)*))
                 }
 
                 fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
-                    let (#(#query,)*) = &mut self.0;
+                    let (#(#param,)*) = &mut self.0;
                     #(
-                        #query.new_archetype(archetype);
-                        system_meta
-                            .archetype_component_access
-                            .extend(&#query.archetype_component_access);
+                        #param.new_archetype(archetype, system_meta);
                     )*
                 }
             }
 
-            impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'w, 's> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+
+
+            impl<'w, 's, #(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamFetch<'w, 's> for ParamSetState<(#(#param_fetch,)*)>
             {
-                type Item = QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>;
+                type Item = ParamSet<'w, 's, (#(<#param_fetch as SystemParamFetch<'w, 's>>::Item,)*)>;
 
                 #[inline]
                 unsafe fn get_param(
@@ -268,19 +263,19 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     world: &'w World,
                     change_tick: u32,
                 ) -> Self::Item {
-                    QuerySet {
-                        query_states: &state.0,
+                    ParamSet {
+                        param_states: &mut state.0,
+                        system_meta: system_meta.clone(),
                         world,
-                        last_change_tick: system_meta.last_change_tick,
                         change_tick,
                     }
                 }
             }
 
-            impl<'w, 's, #(#query: WorldQuery,)* #(#filter: WorldQuery,)*> QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+            impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
             {
-                #(#query_fn_mut)*
+
+                #(#param_fn_mut)*
             }
         }));
     }

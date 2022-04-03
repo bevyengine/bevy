@@ -15,9 +15,11 @@ fn main() {
         .run();
 }
 
+#[derive(Deref)]
 struct StreamReceiver(Receiver<u32>);
 struct StreamEvent(u32);
 
+#[derive(Deref)]
 struct LoadedFont(Handle<Font>);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -43,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // This system reads from the receiver and sends events to Bevy
 fn read_stream(receiver: ResMut<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
-    for from_stream in receiver.0.try_iter() {
+    for from_stream in receiver.try_iter() {
         events.send(StreamEvent(from_stream));
     }
 }
@@ -54,7 +56,7 @@ fn spawn_text(
     loaded_font: Res<LoadedFont>,
 ) {
     let text_style = TextStyle {
-        font: loaded_font.0.clone(),
+        font: loaded_font.clone(),
         font_size: 20.0,
         color: Color::WHITE,
     };
