@@ -81,7 +81,9 @@ pub enum RenderStage {
     Cleanup,
 }
 
-/// The Render App World. This is only available as a resource during the Extract step.
+/// The simulation [World] of the application, stored as a resource.
+/// This resource is only available during [`RenderStage::Extract`].
+/// See [`Extract`] for more details.
 #[derive(Default)]
 pub struct MainWorld(World);
 
@@ -110,7 +112,7 @@ pub mod main_graph {
 pub struct RenderApp;
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
-/// swapping out the [`RenderWorld`].
+/// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
 #[derive(Default)]
 struct ScratchMainWorld(World);
 
