@@ -161,9 +161,9 @@ impl ProcessedShader {
             source: match self {
                 ProcessedShader::Wgsl(source) => {
                     #[cfg(debug_assertions)]
-                    // This isn't neccessary, but catches errors early during hot reloading of invalid wgsl shaders.
-                    // Eventually, wgpu will have features that will make this unneccessary like compilation info
-                    // or error scopes, but until then parsing the shader twice during development the easiest solution.
+                    // Parse and validate the shader early, so that (e.g. while hot reloading) we can
+                    // display nicely formatted error messages instead of relying on just displaying the error string
+                    // returned by wgpu upon creating the shader module.
                     let _ = self.reflect()?;
 
                     ShaderSource::Wgsl(source.clone())

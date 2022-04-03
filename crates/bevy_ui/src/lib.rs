@@ -5,7 +5,6 @@
 mod flex;
 mod focus;
 mod geometry;
-mod margins;
 mod render;
 mod ui_node;
 
@@ -17,14 +16,13 @@ use bevy_render::camera::CameraTypePlugin;
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
-pub use margins::*;
 pub use render::*;
 pub use ui_node::*;
 
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, Margins};
+    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction};
 }
 
 use bevy_app::prelude::*;

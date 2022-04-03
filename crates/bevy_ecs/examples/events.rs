@@ -21,8 +21,8 @@ fn main() {
 
     // Add systems sending and receiving events to a "second" Stage
     let mut second = SystemStage::parallel();
-    second.add_system(sending_system.label(EventSystem::Sending));
-    second.add_system(receiving_system.after(EventSystem::Sending));
+    second.add_system(sending_system);
+    second.add_system(receiving_system.after(sending_system));
 
     // Run the "second" Stage after the "first" Stage, so our Events always get updated before we use them
     schedule.add_stage_after("first", "second", second);
@@ -32,12 +32,6 @@ fn main() {
         println!("Simulating frame {}/10", iteration);
         schedule.run(&mut world);
     }
-}
-
-// System label to enforce a run order of our systems
-#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
-enum EventSystem {
-    Sending,
 }
 
 // This is our event that we will send and receive in systems

@@ -254,15 +254,12 @@ fn move_player(
 fn focus_camera(
     time: Res<Time>,
     mut game: ResMut<Game>,
-    mut transforms: QuerySet<(
-        QueryState<&mut Transform, With<Camera3d>>,
-        QueryState<&Transform>,
-    )>,
+    mut transforms: ParamSet<(Query<&mut Transform, With<Camera3d>>, Query<&Transform>)>,
 ) {
     const SPEED: f32 = 2.0;
     // if there is both a player and a bonus, target the mid-point of them
     if let (Some(player_entity), Some(bonus_entity)) = (game.player.entity, game.bonus.entity) {
-        let transform_query = transforms.q1();
+        let transform_query = transforms.p1();
         if let (Ok(player_transform), Ok(bonus_transform)) = (
             transform_query.get(player_entity),
             transform_query.get(bonus_entity),
@@ -273,7 +270,7 @@ fn focus_camera(
         }
     // otherwise, if there is only a player, target the player
     } else if let Some(player_entity) = game.player.entity {
-        if let Ok(player_transform) = transforms.q1().get(player_entity) {
+        if let Ok(player_transform) = transforms.p1().get(player_entity) {
             game.camera_should_focus = player_transform.translation;
         }
     // otherwise, target the middle
@@ -290,7 +287,7 @@ fn focus_camera(
         game.camera_is_focus += camera_motion;
     }
     // look at that new camera's actual focus
-    for mut transform in transforms.q0().iter_mut() {
+    for mut transform in transforms.p0().iter_mut() {
         *transform = transform.looking_at(game.camera_is_focus, Vec3::Y);
     }
 }

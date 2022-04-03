@@ -27,7 +27,7 @@ use bevy_render::{
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedPipelinePhaseItem,
+        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
         DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
     },
     render_resource::*,
@@ -198,7 +198,7 @@ impl Plugin for CorePipelinePlugin {
 pub struct Transparent2d {
     pub sort_key: FloatOrd,
     pub entity: Entity,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     /// Range in the vertex buffer of this item
     pub batch_range: Option<Range<u32>>,
@@ -225,9 +225,9 @@ impl EntityPhaseItem for Transparent2d {
     }
 }
 
-impl CachedPipelinePhaseItem for Transparent2d {
+impl CachedRenderPipelinePhaseItem for Transparent2d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
@@ -244,7 +244,7 @@ impl BatchedPhaseItem for Transparent2d {
 
 pub struct Opaque3d {
     pub distance: f32,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -270,16 +270,16 @@ impl EntityPhaseItem for Opaque3d {
     }
 }
 
-impl CachedPipelinePhaseItem for Opaque3d {
+impl CachedRenderPipelinePhaseItem for Opaque3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
 
 pub struct AlphaMask3d {
     pub distance: f32,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -305,16 +305,16 @@ impl EntityPhaseItem for AlphaMask3d {
     }
 }
 
-impl CachedPipelinePhaseItem for AlphaMask3d {
+impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
 
 pub struct Transparent3d {
     pub distance: f32,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -340,9 +340,9 @@ impl EntityPhaseItem for Transparent3d {
     }
 }
 
-impl CachedPipelinePhaseItem for Transparent3d {
+impl CachedRenderPipelinePhaseItem for Transparent3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }

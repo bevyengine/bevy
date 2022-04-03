@@ -17,6 +17,7 @@ members = ["crates/*", "examples/ios", "tools/ci", "errors"]
 
 [features]
 default = [
+  "animation",
   "bevy_audio",
   "bevy_gilrs",
   "bevy_winit",
@@ -43,6 +44,7 @@ render = [
 ]
 
 # Optional bevy crates
+bevy_animation = ["bevy_internal/bevy_animation"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -97,6 +99,9 @@ bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
 # Enable the "debug asset server" for hot reloading internal assets
 debug_asset_server = ["bevy_internal/debug_asset_server"]
+
+# Enable animation support, and glTF animation loading
+animation = ["bevy_internal/animation"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.7.0-dev", default-features = false, optional = true }
@@ -230,6 +235,19 @@ path = "examples/3d/update_gltf_scene.rs"
 [[example]]
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
+
+# Animation
+[[example]]
+name = "animated_fox"
+path = "examples/animation/animated_fox.rs"
+
+[[example]]
+name = "custom_skinned_mesh"
+path = "examples/animation/custom_skinned_mesh.rs"
+
+[[example]]
+name = "gltf_skinned_mesh"
+path = "examples/animation/gltf_skinned_mesh.rs"
 
 # Application
 [[example]]
@@ -592,3 +610,9 @@ icon = "@mipmap/ic_launcher"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
+
+# Stress Tests
+[[example]]
+name = "transform_hierarchy"
+path = "examples/stress_tests/transform_hierarchy.rs"
+

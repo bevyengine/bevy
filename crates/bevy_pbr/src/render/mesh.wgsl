@@ -8,6 +8,10 @@ struct Vertex {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] tangent: vec4<f32>;
 #endif
+#ifdef SKINNED
+    [[location(4)]] joint_indices: vec4<u32>;
+    [[location(5)]] joint_weights: vec4<f32>;
+#endif
 };
 
 struct VertexOutput {
@@ -22,15 +26,24 @@ struct VertexOutput {
 
 [[group(2), binding(0)]]
 var<uniform> mesh: Mesh;
+#ifdef SKINNED
+[[group(2), binding(1)]]
+var<uniform> joint_matrices: SkinnedMesh;
+#import bevy_pbr::skinning
+#endif
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
-
     var out: VertexOutput;
-    out.uv = vertex.uv;
-    out.world_position = world_position;
-    out.clip_position = view.view_proj * world_position;
+#ifdef SKINNED
+    var model = skin_model(vertex.joint_indices, vertex.joint_weights);
+    out.world_position = model * vec4<f32>(vertex.position, 1.0);
+    out.world_normal = skin_normals(model, vertex.normal);
+#ifdef VERTEX_TANGENTS
+    out.world_tangent = skin_tangents(model, vertex.tangent);
+#endif
+#else
+    out.world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
     out.world_normal = mat3x3<f32>(
         mesh.inverse_transpose_model[0].xyz,
         mesh.inverse_transpose_model[1].xyz,
@@ -46,6 +59,10 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         vertex.tangent.w
     );
 #endif
+#endif
+
+    out.uv = vertex.uv;
+    out.clip_position = view.view_proj * out.world_position;
     return out;
 }
 

@@ -73,7 +73,7 @@ fn scheduled_spawner(
             &windows,
             &mut counter,
             scheduled.per_wave,
-            bird_texture.0.clone_weak(),
+            bird_texture.clone_weak(),
         );
 
         let mut rng = thread_rng();
@@ -82,6 +82,7 @@ fn scheduled_spawner(
     }
 }
 
+#[derive(Deref)]
 struct BirdTexture(Handle<Image>);
 
 #[derive(Component)]
@@ -177,7 +178,7 @@ fn mouse_handler(
             &windows,
             &mut counter,
             spawn_count,
-            bird_texture.0.clone_weak(),
+            bird_texture.clone_weak(),
         );
     }
 }
