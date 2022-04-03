@@ -1,5 +1,6 @@
 use bevy::{
     asset::{AssetServerSettings, LoadState},
+    gltf::Gltf,
     input::mouse::MouseMotion,
     math::Vec3A,
     prelude::*,
@@ -26,6 +27,9 @@ Controls:
     5/6    - decrease/increase shadow projection width
     7/8    - decrease/increase shadow projection height
     9/0    - decrease/increase shadow projection near/far
+
+    Space  - Play/Pause animation
+    Enter  - Cycle through animations
 "
     );
     App::new()
@@ -48,11 +52,14 @@ Controls:
         .add_system(check_camera_controller)
         .add_system(update_lights)
         .add_system(camera_controller.after(check_camera_controller))
+        .add_system(start_animation)
+        .add_system(keyboard_animation_control)
         .run();
 }
 
 struct SceneHandle {
     handle: Handle<Scene>,
+    animations: Vec<Handle<AnimationClip>>,
     instance_id: Option<InstanceId>,
     is_loaded: bool,
     has_camera: bool,
@@ -60,21 +67,13 @@ struct SceneHandle {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let scene_path = std::env::args().nth(1).map_or_else(
-        || "assets/models/FlightHelmet/FlightHelmet.gltf#Scene0".to_string(),
-        |s| {
-            if let Some(index) = s.find("#Scene") {
-                if index + 6 < s.len() && s[index + 6..].chars().all(char::is_numeric) {
-                    return s;
-                }
-                return format!("{}#Scene0", &s[..index]);
-            }
-            format!("{}#Scene0", s)
-        },
-    );
+    let scene_path = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf".to_string());
     info!("Loading {}", scene_path);
     commands.insert_resource(SceneHandle {
         handle: asset_server.load(&scene_path),
+        animations: Vec::new(),
         instance_id: None,
         is_loaded: false,
         has_camera: false,
@@ -85,12 +84,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn scene_load_check(
     asset_server: Res<AssetServer>,
     mut scenes: ResMut<Assets<Scene>>,
+    gltf_assets: ResMut<Assets<Gltf>>,
     mut scene_handle: ResMut<SceneHandle>,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
     match scene_handle.instance_id {
-        None if asset_server.get_load_state(&scene_handle.handle) == LoadState::Loaded => {
-            if let Some(scene) = scenes.get_mut(&scene_handle.handle) {
+        None => {
+            if asset_server.get_load_state(&scene_handle.handle) == LoadState::Loaded {
+                let gltf = gltf_assets.get(&scene_handle.handle).unwrap();
+                let gltf_scene_handle = gltf.scenes.first().expect("glTF file contains no scenes!");
+                let scene = scenes.get_mut(gltf_scene_handle).unwrap();
+
                 let mut query = scene
                     .world
                     .query::<(Option<&Camera2d>, Option<&Camera3d>)>();
@@ -111,7 +115,21 @@ fn scene_load_check(
                         });
 
                 scene_handle.instance_id =
-                    Some(scene_spawner.spawn(scene_handle.handle.clone_weak()));
+                    Some(scene_spawner.spawn(gltf_scene_handle.clone_weak()));
+
+                scene_handle.animations = gltf.animations.clone();
+                if !scene_handle.animations.is_empty() {
+                    info!(
+                        "Found {} animation{}",
+                        scene_handle.animations.len(),
+                        if scene_handle.animations.len() == 1 {
+                            ""
+                        } else {
+                            "s"
+                        }
+                    );
+                }
+
                 info!("Spawning scene...");
             }
         }
@@ -121,7 +139,49 @@ fn scene_load_check(
                 scene_handle.is_loaded = true;
             }
         }
-        _ => {}
+        Some(_) => {}
+    }
+}
+
+fn start_animation(
+    mut player: Query<&mut AnimationPlayer>,
+    mut done: Local<bool>,
+    scene_handle: Res<SceneHandle>,
+) {
+    if !*done {
+        if let Ok(mut player) = player.get_single_mut() {
+            if let Some(animation) = scene_handle.animations.first() {
+                player.play(animation.clone_weak()).repeat();
+                *done = true;
+            }
+        }
+    }
+}
+fn keyboard_animation_control(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut animation_player: Query<&mut AnimationPlayer>,
+    scene_handle: Res<SceneHandle>,
+    mut current_animation: Local<usize>,
+) {
+    if scene_handle.animations.is_empty() {
+        return;
+    }
+
+    if let Ok(mut player) = animation_player.get_single_mut() {
+        if keyboard_input.just_pressed(KeyCode::Space) {
+            if player.is_paused() {
+                player.resume();
+            } else {
+                player.pause();
+            }
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Return) {
+            *current_animation = (*current_animation + 1) % scene_handle.animations.len();
+            player
+                .play(scene_handle.animations[*current_animation].clone_weak())
+                .repeat();
+        }
     }
 }
 
