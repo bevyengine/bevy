@@ -242,6 +242,10 @@ name = "animated_fox"
 path = "examples/animation/animated_fox.rs"
 
 [[example]]
+name = "animated_transform"
+path = "examples/animation/animated_transform.rs"
+
+[[example]]
 name = "custom_skinned_mesh"
 path = "examples/animation/custom_skinned_mesh.rs"
 
