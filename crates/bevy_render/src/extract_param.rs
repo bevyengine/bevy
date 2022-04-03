@@ -1,9 +1,7 @@
 use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
-    system::{
-        ReadOnlySystemParamFetch, SystemParam, SystemParamFetch, SystemParamItem, SystemState,
-    },
+    system::{ReadOnlySystemParamFetch, SystemParam, SystemParamItem, SystemState},
 };
 
 pub struct MainWorldState<P: SystemParam>(SystemState<P>);
@@ -19,11 +17,8 @@ pub struct Extract<'w, 's, P: SystemParam + 'static>
 where
     P::Fetch: ReadOnlySystemParamFetch,
 {
-    state: Local<
-        's,
-        MainWorldState<<<P as SystemParam>::Fetch as SystemParamFetch<'static, 'static>>::Item>,
-    >,
-    world: Res<'w, World>,
+    state: Local<'s, MainWorldState<P>>,
+    world: Res<'w, MainWorld>,
 }
 
 impl<'w, 's, P: SystemParam + 'static> Extract<'w, 's, P>

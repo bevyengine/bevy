@@ -313,11 +313,11 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     // temporarily add the app world to the render world as a resource
     let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
     let inserted_world = std::mem::replace(app_world, scratch_world.0);
-    let mut running_world = &mut render_app.world;
+    let running_world = &mut render_app.world;
     running_world.insert_resource(MainWorld(inserted_world));
 
-    extract.run(&mut running_world);
-    extract.apply_buffers(&mut running_world);
+    extract.run(running_world);
+    extract.apply_buffers(running_world);
 
     // move the app world back, as if nothing happened.
     let inserted_world = running_world.remove_resource::<MainWorld>().unwrap();
