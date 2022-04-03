@@ -26,9 +26,9 @@ fn setup(
     });
 
     // Animation use name to target entities.
-    let planet = Name::new("planet".to_string());
-    let orbit_controller = Name::new("orbit_controller".to_string());
-    let satellite = Name::new("satellite".to_string());
+    let planet = Name::new("planet");
+    let orbit_controller = Name::new("orbit_controller");
+    let satellite = Name::new("satellite");
 
     // Creating the animation
     let mut animation = AnimationClip::default();
