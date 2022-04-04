@@ -12,9 +12,17 @@ pub fn get_short_name(full_name: &str) -> String {
 
         // Collapse everything up to the next special character,
         // then skip over it
-        if let Some(special_character_index) = rest_of_string
-            .find(|c: char| (c == '<') || (c == ',') || (c == ' ') || (c == '>') || (c == ';'))
-        {
+        if let Some(special_character_index) = rest_of_string.find(|c: char| {
+            (c == ' ')
+                || (c == '<')
+                || (c == '>')
+                || (c == '(')
+                || (c == ')')
+                || (c == '[')
+                || (c == ']')
+                || (c == ',')
+                || (c == ';')
+        }) {
             let segment_to_collapse = rest_of_string
                 .get(0..special_character_index)
                 .unwrap_or_default();
@@ -55,6 +63,19 @@ mod name_formatting_tests {
             get_short_name("bevy_prelude::make_fun_game"),
             "make_fun_game".to_string()
         )
+    }
+
+    #[test]
+    fn tuple_type() {
+        assert_eq!(
+            get_short_name("(String, String)"),
+            "(String, String)".to_string()
+        )
+    }
+
+    #[test]
+    fn array_type() {
+        assert_eq!(get_short_name("[i32; 3]"), "[i32; 3]".to_string())
     }
 
     #[test]
