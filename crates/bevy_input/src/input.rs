@@ -181,7 +181,7 @@ mod test {
         // Test pressing
         input.press(DummyInput::Input1);
         input.press(DummyInput::Input2);
-        
+
         // Release the inputs and check state
 
         input.release(DummyInput::Input1);
