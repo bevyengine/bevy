@@ -26,6 +26,7 @@ Controls:
     Q      - down
     L      - animate light direction
     U      - toggle shadows
+    C      - cycle through cameras
     5/6    - decrease/increase shadow projection width
     7/8    - decrease/increase shadow projection height
     9/0    - decrease/increase shadow projection near/far
@@ -55,6 +56,7 @@ Controls:
         .add_system(camera_controller)
         .add_system(start_animation)
         .add_system(keyboard_animation_control)
+        .add_system(keyboard_cameras_control)
         .run();
 }
 
@@ -173,6 +175,44 @@ fn keyboard_animation_control(
             player
                 .play(scene_handle.animations[*current_animation].clone_weak())
                 .repeat();
+        }
+    }
+}
+
+fn keyboard_cameras_control(
+    mut cameras: Local<(bool, Vec<Entity>)>,
+    mut active_camera: Local<Option<usize>>, // `None` means user-controlled camera
+
+    scene_handle: Res<SceneHandle>,
+    keyboard_input: Res<Input<KeyCode>>,
+    camera_query: Query<Entity, (With<Camera3d>, Without<CameraController>)>,
+    user_camera_query: Query<Entity, (With<Camera3d>, With<CameraController>)>,
+    mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
+) {
+    if !scene_handle.is_loaded {
+        return;
+    }
+    if !cameras.0 {
+        cameras.1 = camera_query.iter().collect();
+        cameras.0 = true;
+    }
+
+    if keyboard_input.just_pressed(KeyCode::C) && !cameras.1.is_empty() {
+        *active_camera = match *active_camera {
+            Some(index) if index + 1 == cameras.1.len() => None,
+            Some(index) => Some(index + 1),
+            None => Some(0),
+        };
+
+        match *active_camera {
+            Some(i) => {
+                info!("Using camera {i}");
+                active_camera_3d.set(cameras.1[i]);
+            }
+            None => {
+                info!("Using user-controller camera");
+                active_camera_3d.set(user_camera_query.single());
+            }
         }
     }
 }
