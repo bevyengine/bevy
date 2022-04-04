@@ -518,15 +518,21 @@ async fn load_gltf<'a, 'b>(
     Ok(())
 }
 
+fn node_name(node: &Node) -> Name {
+    let name = node
+        .name()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("GltfNode{}", node.index()));
+    Name::new(name)
+}
+
 fn paths_recur(node: Node, current_path: &[Name], paths: &mut HashMap<usize, Vec<Name>>) {
-    if let Some(name) = node.name() {
-        let mut path = current_path.to_owned();
-        path.push(Name::new(name.to_string()));
-        for child in node.children() {
-            paths_recur(child, &path, paths);
-        }
-        paths.insert(node.index(), path);
+    let mut path = current_path.to_owned();
+    path.push(node_name(&node));
+    for child in node.children() {
+        paths_recur(child, &path, paths);
     }
+    paths.insert(node.index(), path);
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
@@ -678,9 +684,7 @@ fn load_node(
         Mat4::from_cols_array_2d(&transform.matrix()),
     )));
 
-    if let Some(name) = gltf_node.name() {
-        node.insert(Name::new(name.to_string()));
-    }
+    node.insert(node_name(gltf_node));
 
     // create camera node
     if let Some(camera) = gltf_node.camera() {
