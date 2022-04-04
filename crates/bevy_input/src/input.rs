@@ -120,7 +120,6 @@ where
     pub fn clear(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
-        self.pressed.clear();
     }
 
     /// List all inputs that are pressed.
