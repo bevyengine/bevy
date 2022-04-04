@@ -8,10 +8,7 @@ fn main() {
         .run();
 }
 
-bevy::ecs::declare_lens!(TimerLens, AnimationTimer, Timer, 0);
-
-#[derive(Component)]
-#[component(lens = "TimerLens")]
+#[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
 
 fn animate_sprite(

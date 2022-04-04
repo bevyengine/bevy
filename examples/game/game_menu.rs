@@ -76,6 +76,7 @@ mod splash {
     struct OnSplashScreen;
 
     // Newtype to use a `Timer` for this screen as a resource
+    #[derive(Deref, DerefMut)]
     struct SplashTimer(Timer);
 
     fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -104,7 +105,7 @@ mod splash {
         time: Res<Time>,
         mut timer: ResMut<SplashTimer>,
     ) {
-        if timer.0.tick(time.delta()).finished() {
+        if timer.tick(time.delta()).finished() {
             game_state.set(GameState::Menu).unwrap();
         }
     }
@@ -133,6 +134,7 @@ mod game {
     #[derive(Component)]
     struct OnGameScreen;
 
+    #[derive(Deref, DerefMut)]
     struct GameTimer(Timer);
 
     fn game_setup(
@@ -227,7 +229,7 @@ mod game {
         mut game_state: ResMut<State<GameState>>,
         mut timer: ResMut<GameTimer>,
     ) {
-        if timer.0.tick(time.delta()).finished() {
+        if timer.tick(time.delta()).finished() {
             game_state.set(GameState::Menu).unwrap();
         }
     }

@@ -360,12 +360,8 @@ pub fn prepare_uinodes(
         ]
         .map(|pos| pos / atlas_extent);
 
-        let color = extracted_uinode.color.as_linear_rgba_f32();
         // encode color as a single u32 to save space
-        let color = (color[0] * 255.0) as u32
-            | ((color[1] * 255.0) as u32) << 8
-            | ((color[2] * 255.0) as u32) << 16
-            | ((color[3] * 255.0) as u32) << 24;
+        let color = extracted_uinode.color.as_linear_rgba_u32();
 
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {

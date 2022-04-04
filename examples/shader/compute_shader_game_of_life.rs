@@ -75,11 +75,12 @@ impl Plugin for GameOfLifeComputePlugin {
     }
 }
 
+#[derive(Deref)]
 struct GameOfLifeImage(Handle<Image>);
 struct GameOfLifeImageBindGroup(BindGroup);
 
 fn extract_game_of_life_image(mut commands: Commands, image: Res<GameOfLifeImage>) {
-    commands.insert_resource(GameOfLifeImage(image.0.clone()));
+    commands.insert_resource(GameOfLifeImage(image.clone()));
 }
 
 fn queue_bind_group(

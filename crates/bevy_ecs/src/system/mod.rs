@@ -100,10 +100,10 @@ mod tests {
         bundle::Bundles,
         component::{Component, Components},
         entity::{Entities, Entity},
-        query::{Added, Changed, Or, QueryState, With, Without},
+        query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query, QuerySet,
+            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
             RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
@@ -211,17 +211,17 @@ mod tests {
     }
 
     #[test]
-    fn or_query_set_system() {
+    fn or_param_set_system() {
         // Regression test for issue #762
         fn query_system(
             mut ran: ResMut<bool>,
-            mut set: QuerySet<(
-                QueryState<(), Or<(Changed<A>, Changed<B>)>>,
-                QueryState<(), Or<(Added<A>, Added<B>)>>,
+            mut set: ParamSet<(
+                Query<(), Or<(Changed<A>, Changed<B>)>>,
+                Query<(), Or<(Added<A>, Added<B>)>>,
             )>,
         ) {
-            let changed = set.q0().iter().count();
-            let added = set.q1().iter().count();
+            let changed = set.p0().iter().count();
+            let added = set.p1().iter().count();
 
             assert_eq!(changed, 1);
             assert_eq!(added, 1);
@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn query_set_system() {
-        fn sys(mut _set: QuerySet<(QueryState<&mut A>, QueryState<&A>)>) {}
+        fn sys(mut _set: ParamSet<(Query<&mut A>, Query<&A>)>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
     }
@@ -328,7 +328,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn conflicting_query_with_query_set_system() {
-        fn sys(_query: Query<&mut A>, _set: QuerySet<(QueryState<&mut A>, QueryState<&B>)>) {}
+        fn sys(_query: Query<&mut A>, _set: ParamSet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -337,11 +337,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn conflicting_query_sets_system() {
-        fn sys(
-            _set_1: QuerySet<(QueryState<&mut A>,)>,
-            _set_2: QuerySet<(QueryState<&mut A>, QueryState<&B>)>,
-        ) {
-        }
+        fn sys(_set_1: ParamSet<(Query<&mut A>,)>, _set_2: ParamSet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -674,11 +670,8 @@ mod tests {
         world.insert_resource(A(42));
         world.spawn().insert(B(7));
 
-        let mut system_state: SystemState<(
-            Res<A>,
-            Query<&B>,
-            QuerySet<(QueryState<&C>, QueryState<&D>)>,
-        )> = SystemState::new(&mut world);
+        let mut system_state: SystemState<(Res<A>, Query<&B>, ParamSet<(Query<&C>, Query<&D>)>)> =
+            SystemState::new(&mut world);
         let (a, query, _) = system_state.get(&world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(

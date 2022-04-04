@@ -5,11 +5,15 @@ pub use crate::{
     transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
-pub use bevy_derive::bevy_main;
+pub use bevy_derive::{bevy_main, Deref, DerefMut};
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_audio")]
 pub use crate::audio::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_animation")]
+pub use crate::animation::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_core_pipeline")]

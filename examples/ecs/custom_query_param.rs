@@ -20,18 +20,10 @@ use std::{fmt::Debug, marker::PhantomData};
 fn main() {
     App::new()
         .add_startup_system(spawn)
-        .add_system(print_components_read_only.label("print_components_read_only"))
-        .add_system(
-            print_components_iter_mut
-                .label("print_components_iter_mut")
-                .after("print_components_read_only"),
-        )
-        .add_system(
-            print_components_iter
-                .label("print_components_iter")
-                .after("print_components_iter_mut"),
-        )
-        .add_system(print_components_tuple.after("print_components_iter"))
+        .add_system(print_components_read_only)
+        .add_system(print_components_iter_mut.after(print_components_read_only))
+        .add_system(print_components_iter.after(print_components_iter_mut))
+        .add_system(print_components_tuple.after(print_components_iter))
         .run();
 }
 

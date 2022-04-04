@@ -2,6 +2,7 @@ pub mod prelude {
     pub use crate::default;
 }
 
+pub mod futures;
 pub mod label;
 
 mod default;
