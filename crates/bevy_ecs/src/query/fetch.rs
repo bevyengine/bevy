@@ -665,7 +665,7 @@ impl<'w, 's, T: Component, L: Lens<In = T>> Fetch<'w, 's> for ReadFetch<T, L> {
     }
 }
 
-/// Equilavent to querying with `&mut T`, but ignores the default lens. Useful with generic code
+/// Equivalent to querying with `&mut T`, but ignores the default lens. Useful with generic code
 pub struct RawMut<T: Component>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for RawMut<T> {
