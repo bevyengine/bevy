@@ -15,6 +15,7 @@ fn main() {
         .add_system(move_system)
         .add_system(collision_system)
         .add_system(select_system)
+        .insert_resource(SelectTimer(Timer::from_seconds(SHOWCASE_TIMER_SECS, true)))
         .run();
 }
 
@@ -26,8 +27,8 @@ struct ContributorSelection {
     idx: usize,
 }
 
-#[derive(Component)]
-struct SelectTimer;
+#[derive(Deref, DerefMut)]
+struct SelectTimer(Timer);
 
 #[derive(Component)]
 struct ContributorDisplay;
@@ -100,11 +101,11 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                     custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
                     color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
                     flip_x: flipped,
-                    ..Default::default()
+                    ..default()
                 },
                 texture: texture_handle.clone(),
                 transform,
-                ..Default::default()
+                ..default()
             })
             .id();
 
@@ -120,15 +121,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
 
-    commands.spawn_bundle((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
-
     commands
         .spawn()
         .insert(ContributorDisplay)
         .insert_bundle(TextBundle {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
-                ..Default::default()
+                ..default()
             },
             text: Text {
                 sections: vec![
@@ -149,30 +148,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                     },
                 ],
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         });
 }
 
 /// Finds the next contributor to display and selects the entity
 fn select_system(
+    mut timer: ResMut<SelectTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
     mut text_query: Query<&mut Text, With<ContributorDisplay>>,
-    mut timer_query: Query<&mut Timer, With<SelectTimer>>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
-    let mut timer_fired = false;
-    for mut timer in timer_query.iter_mut() {
-        if !timer.tick(time.delta()).just_finished() {
-            continue;
-        }
-        timer.reset();
-        timer_fired = true;
-    }
-
-    if !timer_fired {
+    if !timer.tick(time.delta()).just_finished() {
         return;
     }
 
@@ -256,7 +246,7 @@ fn collision_system(
 ) {
     let mut rnd = rand::thread_rng();
 
-    let window = windows.get_primary().unwrap();
+    let window = windows.primary();
 
     let ceiling = window.height() / 2.;
     let ground = -(window.height() / 2.);

@@ -1,15 +1,16 @@
 mod convert;
 
 use crate::{CalculatedSize, Node, Style};
-use bevy_app::EventReader;
 use bevy_ecs::{
     entity::Entity,
+    event::EventReader,
     query::{Changed, FilterFetch, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };
+use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
-use bevy_transform::prelude::{Children, Parent, Transform};
+use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
@@ -22,6 +23,8 @@ pub struct FlexSurface {
 }
 
 // SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/stretch/issues/69
+// TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
 unsafe impl Sync for FlexSurface {}
 
@@ -216,11 +219,7 @@ pub fn flex_node_system(
     }
 
     // assume one window for time being...
-    let logical_to_physical_factor = if let Some(primary_window) = windows.get_primary() {
-        primary_window.scale_factor()
-    } else {
-        1.
-    };
+    let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
 
     if scale_factor_events.iter().next_back().is_some() {
         update_changed(
@@ -276,18 +275,26 @@ pub fn flex_node_system(
     // PERF: try doing this incrementally
     for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
         let layout = flex_surface.get_layout(entity).unwrap();
-        node.size = Vec2::new(
+        let new_size = Vec2::new(
             to_logical(layout.size.width),
             to_logical(layout.size.height),
         );
-        let position = &mut transform.translation;
-        position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+        // only trigger change detection when the new value is different
+        if node.size != new_size {
+            node.size = new_size;
+        }
+        let mut new_position = transform.translation;
+        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
+        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
             if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
-                position.x -= to_logical(parent_layout.size.width / 2.0);
-                position.y -= to_logical(parent_layout.size.height / 2.0);
+                new_position.x -= to_logical(parent_layout.size.width / 2.0);
+                new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
+        }
+        // only trigger change detection when the new value is different
+        if transform.translation != new_position {
+            transform.translation = new_position;
         }
     }
 }

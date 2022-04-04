@@ -9,22 +9,26 @@ pub mod prelude {
     pub use crate::ClearColor;
 }
 
+use bevy_utils::HashMap;
+
 pub use clear_pass::*;
 pub use clear_pass_driver::*;
 pub use main_pass_2d::*;
 pub use main_pass_3d::*;
 pub use main_pass_driver::*;
 
+use std::ops::Range;
+
 use bevy_app::{App, Plugin};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{ActiveCameras, CameraPlugin},
+    camera::{ActiveCamera, Camera2d, Camera3d, RenderTarget},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        sort_phase_system, CachedPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
-        PhaseItem, RenderPhase,
+        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
+        DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
     },
     render_resource::*,
     renderer::RenderDevice,
@@ -33,13 +37,30 @@ use bevy_render::{
     RenderApp, RenderStage, RenderWorld,
 };
 
-/// Resource that configures the clear color
+/// When used as a resource, sets the color that is used to clear the screen between frames.
+///
+/// This color appears as the "background" color for simple apps, when
+/// there are portions of the screen with nothing rendered.
 #[derive(Clone, Debug)]
 pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
     fn default() -> Self {
         Self(Color::rgb(0.4, 0.4, 0.4))
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RenderTargetClearColors {
+    colors: HashMap<RenderTarget, Color>,
+}
+
+impl RenderTargetClearColors {
+    pub fn get(&self, target: &RenderTarget) -> Option<&Color> {
+        self.colors.get(target)
+    }
+    pub fn insert(&mut self, target: RenderTarget, color: Color) {
+        self.colors.insert(target, color);
     }
 }
 
@@ -84,11 +105,21 @@ pub mod clear_graph {
 #[derive(Default)]
 pub struct CorePipelinePlugin;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum CorePipelineRenderSystems {
+    SortTransparent2d,
+}
+
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ClearColor>();
+        app.init_resource::<ClearColor>()
+            .init_resource::<RenderTargetClearColors>();
 
-        let render_app = app.sub_app_mut(RenderApp);
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<DrawFunctions<Opaque3d>>()
@@ -97,7 +128,16 @@ impl Plugin for CorePipelinePlugin {
             .add_system_to_stage(RenderStage::Extract, extract_clear_color)
             .add_system_to_stage(RenderStage::Extract, extract_core_pipeline_camera_phases)
             .add_system_to_stage(RenderStage::Prepare, prepare_core_views_system)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
+            .add_system_to_stage(
+                RenderStage::PhaseSort,
+                sort_phase_system::<Transparent2d>
+                    .label(CorePipelineRenderSystems::SortTransparent2d),
+            )
+            .add_system_to_stage(
+                RenderStage::PhaseSort,
+                batch_phase_system::<Transparent2d>
+                    .after(CorePipelineRenderSystems::SortTransparent2d),
+            )
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
@@ -105,7 +145,7 @@ impl Plugin for CorePipelinePlugin {
         let clear_pass_node = ClearPassNode::new(&mut render_app.world);
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
         let mut draw_2d_graph = RenderGraph::default();
         draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
@@ -158,8 +198,10 @@ impl Plugin for CorePipelinePlugin {
 pub struct Transparent2d {
     pub sort_key: FloatOrd,
     pub entity: Entity,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
+    /// Range in the vertex buffer of this item
+    pub batch_range: Option<Range<u32>>,
 }
 
 impl PhaseItem for Transparent2d {
@@ -176,9 +218,33 @@ impl PhaseItem for Transparent2d {
     }
 }
 
+impl EntityPhaseItem for Transparent2d {
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for Transparent2d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.pipeline
+    }
+}
+
+impl BatchedPhaseItem for Transparent2d {
+    fn batch_range(&self) -> &Option<Range<u32>> {
+        &self.batch_range
+    }
+
+    fn batch_range_mut(&mut self) -> &mut Option<Range<u32>> {
+        &mut self.batch_range
+    }
+}
+
 pub struct Opaque3d {
     pub distance: f32,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -204,16 +270,16 @@ impl EntityPhaseItem for Opaque3d {
     }
 }
 
-impl CachedPipelinePhaseItem for Opaque3d {
+impl CachedRenderPipelinePhaseItem for Opaque3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
 
 pub struct AlphaMask3d {
     pub distance: f32,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -239,16 +305,16 @@ impl EntityPhaseItem for AlphaMask3d {
     }
 }
 
-impl CachedPipelinePhaseItem for AlphaMask3d {
+impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
 
 pub struct Transparent3d {
     pub distance: f32,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -274,40 +340,47 @@ impl EntityPhaseItem for Transparent3d {
     }
 }
 
-impl CachedPipelinePhaseItem for Transparent3d {
+impl CachedRenderPipelinePhaseItem for Transparent3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
 
-pub fn extract_clear_color(clear_color: Res<ClearColor>, mut render_world: ResMut<RenderWorld>) {
+pub fn extract_clear_color(
+    clear_color: Res<ClearColor>,
+    clear_colors: Res<RenderTargetClearColors>,
+    mut render_world: ResMut<RenderWorld>,
+) {
     // If the clear color has changed
     if clear_color.is_changed() {
         // Update the clear color resource in the render world
-        render_world.insert_resource(clear_color.clone())
+        render_world.insert_resource(clear_color.clone());
+    }
+
+    // If the clear color has changed
+    if clear_colors.is_changed() {
+        // Update the clear color resource in the render world
+        render_world.insert_resource(clear_colors.clone());
     }
 }
 
 pub fn extract_core_pipeline_camera_phases(
     mut commands: Commands,
-    active_cameras: Res<ActiveCameras>,
+    active_2d: Res<ActiveCamera<Camera2d>>,
+    active_3d: Res<ActiveCamera<Camera3d>>,
 ) {
-    if let Some(camera_2d) = active_cameras.get(CameraPlugin::CAMERA_2D) {
-        if let Some(entity) = camera_2d.entity {
-            commands
-                .get_or_spawn(entity)
-                .insert(RenderPhase::<Transparent2d>::default());
-        }
+    if let Some(entity) = active_2d.get() {
+        commands
+            .get_or_spawn(entity)
+            .insert(RenderPhase::<Transparent2d>::default());
     }
-    if let Some(camera_3d) = active_cameras.get(CameraPlugin::CAMERA_3D) {
-        if let Some(entity) = camera_3d.entity {
-            commands.get_or_spawn(entity).insert_bundle((
-                RenderPhase::<Opaque3d>::default(),
-                RenderPhase::<AlphaMask3d>::default(),
-                RenderPhase::<Transparent3d>::default(),
-            ));
-        }
+    if let Some(entity) = active_3d.get() {
+        commands.get_or_spawn(entity).insert_bundle((
+            RenderPhase::<Opaque3d>::default(),
+            RenderPhase::<AlphaMask3d>::default(),
+            RenderPhase::<Transparent3d>::default(),
+        ));
     }
 }
 

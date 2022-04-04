@@ -198,16 +198,16 @@ fn new_player_system(
     }
 }
 
-// If you really need full, immediate read/write access to the world or resources, you can use a
-// "thread local system". These run on the main app thread (hence the name "thread local")
+// If you really need full, immediate read/write access to the world or resources, you can use an
+// "exclusive system".
 // WARNING: These will block all parallel execution of other systems until they finish, so they
-// should generally be avoided if you care about performance
+// should generally be avoided if you care about performance.
 #[allow(dead_code)]
-fn thread_local_system(world: &mut World) {
+fn exclusive_player_system(world: &mut World) {
     // this does the same thing as "new_player_system"
-    let total_players = world.get_resource_mut::<GameState>().unwrap().total_players;
+    let total_players = world.resource_mut::<GameState>().total_players;
     let should_add_player = {
-        let game_rules = world.get_resource::<GameRules>().unwrap();
+        let game_rules = world.resource::<GameRules>();
         let add_new_player = random::<bool>();
         add_new_player && total_players < game_rules.max_players
     };
@@ -220,7 +220,7 @@ fn thread_local_system(world: &mut World) {
             Score { value: 0 },
         ));
 
-        let mut game_state = world.get_resource_mut::<GameState>().unwrap();
+        let mut game_state = world.resource_mut::<GameState>();
         game_state.total_players += 1;
     }
 }
@@ -253,11 +253,6 @@ fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) 
 enum MyStage {
     BeforeRound,
     AfterRound,
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-enum MyLabels {
-    ScoreCheck,
 }
 
 // Our Bevy app's entry point
@@ -329,16 +324,20 @@ fn main() {
         )
         .add_system_to_stage(MyStage::BeforeRound, new_round_system)
         .add_system_to_stage(MyStage::BeforeRound, new_player_system)
-        // We can ensure that game_over system runs after score_check_system using explicit ordering
-        // constraints First, we label the system we want to refer to using `.label`
-        // Then, we use either `.before` or `.after` to describe the order we want the relationship
         .add_system_to_stage(
-            MyStage::AfterRound,
-            score_check_system.label(MyLabels::ScoreCheck),
+            MyStage::BeforeRound,
+            // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
+            // The following will not compile.
+            //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
+            exclusive_player_system.exclusive_system(),
         )
+        .add_system_to_stage(MyStage::AfterRound, score_check_system)
         .add_system_to_stage(
+            // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
+            // To do this we use either `.before` or `.after` to describe the order we want the relationship
+            // Since we are using `after`, `game_over_system` runs after `score_check_system`
             MyStage::AfterRound,
-            game_over_system.after(MyLabels::ScoreCheck),
+            game_over_system.after(score_check_system),
         )
         // We can check our systems for execution order ambiguities by examining the output produced
         // in the console by using the `LogPlugin` and adding the following Resource to our App :)

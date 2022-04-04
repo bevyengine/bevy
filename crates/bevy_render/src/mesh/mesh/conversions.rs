@@ -1,5 +1,5 @@
 //! These implementations allow you to
-//! convert std::vec::Vec<T> to VertexAttributeValues::T and back.
+//! convert `std::vec::Vec<T>` to `VertexAttributeValues::T` and back.
 //!
 //! # Examples
 //!
@@ -115,6 +115,12 @@ impl From<Vec<[i32; 4]>> for VertexAttributeValues {
 impl From<Vec<[u32; 4]>> for VertexAttributeValues {
     fn from(vec: Vec<[u32; 4]>) -> Self {
         VertexAttributeValues::Uint32x4(vec)
+    }
+}
+
+impl From<Vec<[u16; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u16; 4]>) -> Self {
+        VertexAttributeValues::Uint16x4(vec)
     }
 }
 

@@ -1,3 +1,5 @@
+#[cfg(feature = "bevy_animation")]
+use bevy_animation::AnimationClip;
 use bevy_utils::HashMap;
 
 mod loader;
@@ -37,6 +39,10 @@ pub struct Gltf {
     pub nodes: Vec<Handle<GltfNode>>,
     pub named_nodes: HashMap<String, Handle<GltfNode>>,
     pub default_scene: Option<Handle<Scene>>,
+    #[cfg(feature = "bevy_animation")]
+    pub animations: Vec<Handle<AnimationClip>>,
+    #[cfg(feature = "bevy_animation")]
+    pub named_animations: HashMap<String, Handle<AnimationClip>>,
 }
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`] and

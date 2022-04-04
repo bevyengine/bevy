@@ -31,7 +31,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_bundle(SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
-            ..Default::default()
+            ..default()
         })
         .insert(MyComponent); // Add the `Component`.
 }

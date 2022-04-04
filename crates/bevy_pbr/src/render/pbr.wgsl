@@ -58,6 +58,7 @@ let STANDARD_MATERIAL_FLAGS_UNLIT_BIT: u32                      = 32u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 64u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 128u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 256u;
+let STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP: u32       = 512u;
 
 [[group(1), binding(0)]]
 var<uniform> material: StandardMaterial;
@@ -267,13 +268,15 @@ struct ClusterOffsetAndCount {
     count: u32;
 };
 
+// this must match CLUSTER_COUNT_SIZE in light.rs
+let CLUSTER_COUNT_SIZE = 13u;
 fn unpack_offset_and_count(cluster_index: u32) -> ClusterOffsetAndCount {
     let offset_and_count = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
     var output: ClusterOffsetAndCount;
     // The offset is stored in the upper 24 bits
-    output.offset = (offset_and_count >> 8u) & ((1u << 24u) - 1u);
+    output.offset = (offset_and_count >> CLUSTER_COUNT_SIZE) & ((1u << 32u - CLUSTER_COUNT_SIZE) - 1u);
     // The count is stored in the lower 8 bits
-    output.count = offset_and_count & ((1u << 8u) - 1u);
+    output.count = offset_and_count & ((1u << CLUSTER_COUNT_SIZE) - 1u);
     return output;
 }
 
@@ -513,7 +516,16 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
         let TBN = mat3x3<f32>(T, B, N);
-        N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
+        // Nt is the tangent-space normal.
+        var Nt: vec3<f32>;
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+            // Only use the xy components and derive z for 2-component normal maps.
+            Nt = vec3<f32>(textureSample(normal_map_texture, normal_map_sampler, in.uv).rg * 2.0 - 1.0, 0.0);
+            Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
+        } else {
+            Nt = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0;
+        }
+        N = normalize(TBN * Nt);
 #endif
 #endif
 
