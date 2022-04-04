@@ -5,7 +5,7 @@ use bevy::{
     math::Vec3A,
     prelude::*,
     render::{
-        camera::{Camera2d, Camera3d, CameraProjection},
+        camera::{ActiveCamera, Camera3d, CameraProjection},
         primitives::{Aabb, Frustum, Sphere},
     },
     scene::InstanceId,
@@ -51,9 +51,8 @@ Controls:
         .add_startup_system(setup)
         .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
         .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
-        .add_system(check_camera_controller)
         .add_system(update_lights)
-        .add_system(camera_controller.after(check_camera_controller))
+        .add_system(camera_controller)
         .add_system(start_animation)
         .add_system(keyboard_animation_control)
         .run();
@@ -97,15 +96,6 @@ fn scene_load_check(
                 let gltf_scene_handle = gltf.scenes.first().expect("glTF file contains no scenes!");
                 let scene = scenes.get_mut(gltf_scene_handle).unwrap();
 
-                let mut query = scene
-                    .world
-                    .query::<(Option<&Camera2d>, Option<&Camera3d>)>();
-                scene_handle.has_camera =
-                    query
-                        .iter(&scene.world)
-                        .any(|(maybe_camera2d, maybe_camera3d)| {
-                            maybe_camera2d.is_some() || maybe_camera3d.is_some()
-                        });
                 let mut query = scene
                     .world
                     .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
@@ -191,6 +181,8 @@ fn camera_spawn_check(
     mut commands: Commands,
     mut scene_handle: ResMut<SceneHandle>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
+    cameras_3d: Query<(&GlobalTransform, &Camera), With<Camera3d>>,
+    mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
 ) {
     // If the scene did not contain a camera, find an approximate bounding box of the scene from
     // its meshes and spawn a camera that fits it in view
@@ -219,33 +211,48 @@ fn camera_spawn_check(
         let aabb = Aabb::from_min_max(Vec3::from(min), Vec3::from(max));
 
         if !scene_handle.has_camera {
-            let transform = Transform::from_translation(
-                Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
-            )
-            .looking_at(Vec3::from(aabb.center), Vec3::Y);
-            let view = transform.compute_matrix();
-            let mut perspective_projection = PerspectiveProjection::default();
-            perspective_projection.far = perspective_projection.far.max(size * 10.0);
-            let view_projection = view.inverse() * perspective_projection.get_projection_matrix();
-            let frustum = Frustum::from_view_projection(
-                &view_projection,
-                &transform.translation,
-                &transform.back(),
-                perspective_projection.far(),
-            );
-
-            info!("Spawning a 3D perspective camera");
-            commands.spawn_bundle(PerspectiveCameraBundle {
-                camera: Camera {
+            let bundle = if let Some((transform, camera)) = cameras_3d.iter().next() {
+                PerspectiveCameraBundle {
+                    camera: camera.clone(),
+                    transform: transform.clone().into(),
+                    ..PerspectiveCameraBundle::new_3d()
+                }
+            } else {
+                let transform = Transform::from_translation(
+                    Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
+                )
+                .looking_at(Vec3::from(aabb.center), Vec3::Y);
+                let view = transform.compute_matrix();
+                let mut perspective_projection = PerspectiveProjection::default();
+                perspective_projection.far = perspective_projection.far.max(size * 10.0);
+                let view_projection =
+                    view.inverse() * perspective_projection.get_projection_matrix();
+                let frustum = Frustum::from_view_projection(
+                    &view_projection,
+                    &transform.translation,
+                    &transform.back(),
+                    perspective_projection.far(),
+                );
+                let camera = Camera {
                     near: perspective_projection.near,
                     far: perspective_projection.far,
                     ..default()
-                },
-                perspective_projection,
-                frustum,
-                transform,
-                ..PerspectiveCameraBundle::new_3d()
-            });
+                };
+                PerspectiveCameraBundle {
+                    camera,
+                    perspective_projection,
+                    frustum,
+                    transform,
+                    ..PerspectiveCameraBundle::new_3d()
+                }
+            };
+
+            info!("Spawning a 3D perspective camera");
+            let entity = commands
+                .spawn_bundle(bundle)
+                .insert(CameraController::default())
+                .id();
+            active_camera_3d.set(entity);
 
             scene_handle.has_camera = true;
         }
@@ -280,20 +287,6 @@ fn camera_spawn_check(
 
             scene_handle.has_light = true;
         }
-    }
-}
-
-fn check_camera_controller(
-    mut commands: Commands,
-    camera: Query<Entity, (With<Camera>, Without<CameraController>)>,
-    mut found_camera: Local<bool>,
-) {
-    if *found_camera {
-        return;
-    }
-    if let Some(entity) = camera.iter().next() {
-        commands.entity(entity).insert(CameraController::default());
-        *found_camera = true;
     }
 }
 
