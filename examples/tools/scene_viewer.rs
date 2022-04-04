@@ -398,6 +398,7 @@ fn camera_controller(
     mut mouse_events: EventReader<MouseMotion>,
     mouse_button_input: Res<Input<MouseButton>>,
     key_input: Res<Input<KeyCode>>,
+    mut move_toggled: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
     let dt = time.delta_seconds();
@@ -433,6 +434,9 @@ fn camera_controller(
         if key_input.pressed(options.key_down) {
             axis_input.y -= 1.0;
         }
+        if key_input.just_pressed(options.keyboard_key_enable_mouse) {
+            *move_toggled = !*move_toggled;
+        }
 
         // Apply movement update
         if axis_input != Vec3::ZERO {
@@ -457,8 +461,7 @@ fn camera_controller(
 
         // Handle mouse input
         let mut mouse_delta = Vec2::ZERO;
-        if mouse_button_input.pressed(options.mouse_key_enable_mouse)
-            || key_input.pressed(options.keyboard_key_enable_mouse)
+        if mouse_button_input.pressed(options.mouse_key_enable_mouse) || *move_toggled
         {
             for mouse_event in mouse_events.iter() {
                 mouse_delta += mouse_event.delta;
