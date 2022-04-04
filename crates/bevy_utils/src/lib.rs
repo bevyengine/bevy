@@ -7,12 +7,14 @@ pub mod label;
 
 mod default;
 mod enum_variant_meta;
+mod short_name;
 
 pub use ahash::AHasher;
 pub use default::default;
 pub use enum_variant_meta::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant};
+pub use short_name::*;
 pub use tracing;
 pub use uuid::Uuid;
 

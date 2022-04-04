@@ -2,6 +2,7 @@ use crate::component::ComponentId;
 use crate::schedule::{AmbiguityDetection, SystemContainer, SystemStage};
 use crate::world::World;
 
+use bevy_utils::get_short_name;
 use bevy_utils::tracing::{error, warn};
 use fixedbitset::FixedBitSet;
 use std::hash::Hash;
@@ -427,12 +428,12 @@ impl SystemStage {
                 for (i, ambiguity) in ambiguities.iter().enumerate() {
                     let ambiguity_number = i + 1;
                     // The path name is often just noise, and this gets us consistency with `conflicts`'s formatting
-                    let system_a_name = format_type_name(ambiguity.system_names[0].as_str());
-                    let system_b_name = format_type_name(ambiguity.system_names[1].as_str());
+                    let system_a_name = get_short_name(ambiguity.system_names[0].as_str());
+                    let system_b_name = get_short_name(ambiguity.system_names[1].as_str());
                     let mut conflicts: Vec<String> = ambiguity
                         .conflicts
                         .iter()
-                        .map(|name| format_type_name(name.as_str()))
+                        .map(|name| get_short_name(name.as_str()))
                         .collect();
 
                     // Exclusive system conflicts are reported as conflicting on the empty set
@@ -455,92 +456,6 @@ impl SystemStage {
                 warn!("{warning_string}");
             }
         }
-    }
-}
-
-/// Collapses a name returned by [`std::any::type_name`] to remove its module path
-fn format_type_name(raw_name: &str) -> String {
-    // Generics result in nested paths within <..> blocks
-    // Consider "bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"
-    // To tackle this, we parse the string from left to right, collapsing as we go
-    let mut index: usize = 0;
-    let end_of_string = raw_name.len();
-    let mut parsed_name = String::new();
-
-    while index < end_of_string {
-        let rest_of_string = raw_name.get(index..end_of_string).unwrap_or_default();
-
-        // Collapse everything up to the next special character,
-        // then skip over it
-        if let Some(special_character_index) =
-            rest_of_string.find(|c: char| (c == '<') || (c == ',') || (c == ' ') || (c == '>'))
-        {
-            let segment_to_collapse = rest_of_string
-                .get(0..special_character_index)
-                .unwrap_or_default();
-            parsed_name += collapse_type_name(segment_to_collapse);
-            // Insert the special character
-            let special_character =
-                &rest_of_string[special_character_index..=special_character_index];
-            parsed_name.push_str(special_character);
-            // Move the index just past the special character
-            index += special_character_index + 1;
-        } else {
-            // If there are no special characters left, we're done!
-            parsed_name += collapse_type_name(rest_of_string);
-            index = end_of_string;
-        }
-    }
-
-    parsed_name
-}
-
-#[inline(always)]
-fn collapse_type_name(string: &str) -> &str {
-    string.split("::").last().unwrap()
-}
-
-#[cfg(test)]
-mod name_formatting_tests {
-    use super::format_type_name;
-
-    #[test]
-    fn trivial() {
-        assert_eq!(format_type_name("test_system"), "test_system")
-    }
-
-    #[test]
-    fn path_seperated() {
-        assert_eq!(
-            format_type_name("bevy_prelude::make_fun_game"),
-            "make_fun_game".to_string()
-        )
-    }
-
-    #[test]
-    fn trivial_generics() {
-        assert_eq!(format_type_name("a<B>"), "a<B>".to_string())
-    }
-
-    #[test]
-    fn multiple_type_parameters() {
-        assert_eq!(format_type_name("a<B, C>"), "a<B, C>".to_string())
-    }
-
-    #[test]
-    fn generics() {
-        assert_eq!(
-            format_type_name("bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"),
-            "extract_cameras<Camera3d>".to_string()
-        )
-    }
-
-    #[test]
-    fn nested_generics() {
-        assert_eq!(
-            format_type_name("bevy::mad_science::do_mad_science<mad_science::Test<mad_science::Tube>, bavy::TypeSystemAbuse>"),
-            "do_mad_science<Test<Tube>, TypeSystemAbuse>".to_string()
-        )
     }
 }
 
