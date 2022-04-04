@@ -54,6 +54,7 @@ Controls:
         .add_system(check_camera_controller)
         .add_system(update_lights)
         .add_system(camera_controller.after(check_camera_controller))
+        .add_system(scene_dropped)
         .add_system(start_animation)
         .add_system(keyboard_animation_control)
         .run();
@@ -81,6 +82,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         has_camera: false,
         has_light: false,
     });
+}
+
+fn scene_dropped(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut drop_events: EventReader<FileDragAndDrop>,
+) {
+    for event in drop_events.iter() {
+        println!("Event happened: {event:?}");
+        if let FileDragAndDrop::DroppedFile { path_buf, .. } = event {
+            info!("Loading {}", path_buf.to_str().unwrap());
+
+            commands.insert_resource(SceneHandle {
+                handle: asset_server.load(path_buf.as_path()),
+                animations: Vec::new(),
+                instance_id: None,
+                is_loaded: false,
+                has_camera: false,
+                has_light: false,
+            });
+        }
+    }
 }
 
 fn scene_load_check(
