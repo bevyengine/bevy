@@ -140,9 +140,10 @@ async fn load_gltf<'a, 'b>(
     };
 
     #[cfg(feature = "bevy_animation")]
-    let (animations, named_animations) = {
+    let (animations, named_animations, animation_roots) = {
         let mut animations = vec![];
         let mut named_animations = HashMap::default();
+        let mut animation_roots = HashSet::default();
         for animation in gltf.animations() {
             let mut animation_clip = AnimationClip::default();
             for channel in animation.channels() {
@@ -190,6 +191,7 @@ async fn load_gltf<'a, 'b>(
                 };
 
                 if let Some(path) = paths.get(&node.index()) {
+                    animation_roots.insert(path[0].clone());
                     animation_clip.add_curve_to_path(
                         EntityPath {
                             parts: path.clone(),
@@ -215,7 +217,7 @@ async fn load_gltf<'a, 'b>(
             }
             animations.push(handle);
         }
-        (animations, named_animations)
+        (animations, named_animations, animation_roots)
     };
 
     let mut meshes = vec![];
@@ -467,10 +469,20 @@ async fn load_gltf<'a, 'b>(
         }
 
         #[cfg(feature = "bevy_animation")]
-        if !animations.is_empty() {
-            world
-                .entity_mut(*node_index_to_entity_map.get(&0).unwrap())
-                .insert(AnimationPlayer::default());
+        {
+            // for each node root in a scene, check if it's the root of an animation
+            // if it is, add the AnimationPlayer component
+            for node in scene.nodes() {
+                if animation_roots
+                    .iter()
+                    .find(|name| name == &&node_name(&node))
+                    .is_some()
+                {
+                    world
+                        .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
+                        .insert(AnimationPlayer::default());
+                }
+            }
         }
 
         for (&entity, &skin_index) in &entity_to_skin_index_map {
