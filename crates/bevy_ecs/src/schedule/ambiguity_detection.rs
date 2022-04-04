@@ -412,12 +412,8 @@ impl SystemStage {
         let mut warning_string = String::new();
 
         if unresolved_count > 0 {
-            // Grammar
-            if unresolved_count == 1 {
-                warning_string += "One of your stages contains 1 pair of systems with unknown order and conflicting data access. \n\
-				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n";
-            } else {
-                warning_string += &format!("One of your stages contains {unresolved_count} pairs of systems with unknown order and conflicting data access. \n\
+            let plural = if unresolved_count == 1 { "" } else { "s" };
+            warning_string += &format!("One of your stages contains {unresolved_count} pair{plural} of systems with unknown order and conflicting data access. \n\
 				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n");
             }
 
