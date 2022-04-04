@@ -115,10 +115,11 @@ where
         self.just_released.remove(&input);
     }
 
-    /// Clear just pressed and just released information.
+    /// Clear pressed, just pressed and just released information.
     pub fn clear(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
+        self.pressed.clear();
     }
 
     /// List all inputs that are pressed.
