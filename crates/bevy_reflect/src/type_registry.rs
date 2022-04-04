@@ -323,42 +323,6 @@ mod test {
     use bevy_utils::HashMap;
 
     #[test]
-    fn test_get_short_name() {
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<f64>()),
-            "f64"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<String>()),
-            "String"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<(u32, f64)>()),
-            "(u32, f64)"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<(String, String)>()),
-            "(String, String)"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[f64]>()),
-            "[f64]"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[String]>()),
-            "[String]"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[f64; 16]>()),
-            "[f64; 16]"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[String; 16]>()),
-            "[String; 16]"
-        );
-    }
-
-    #[test]
     fn test_property_type_registration() {
         assert_eq!(
             TypeRegistration::of::<Option<f64>>().short_name,
