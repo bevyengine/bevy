@@ -1,6 +1,6 @@
 //! Types that detect when their internal data mutate.
 
-use crate::{component::ComponentTicks, system::Resource};
+use crate::{component::ComponentTicks, lens::Lens, system::Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
@@ -116,6 +116,32 @@ macro_rules! impl_into_inner {
     };
 }
 
+macro_rules! impl_lens {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+        impl<$($generics),* $(: $traits)?> $name<$($generics),*> {
+            #[inline]
+            pub fn lens<L: Lens<In = $target>>(self) -> Mut<'a, L::Out> {
+                Mut {
+                    value: L::get_mut(self.value),
+                    ticks: self.ticks,
+                }
+            }
+
+            #[inline]
+            pub fn lens_borrow<'b, L: Lens<In = $target>>(&'b mut self) -> Mut<'b, L::Out> {
+                Mut {
+                    value: L::get_mut(self.value),
+                    ticks: Ticks {
+                        component_ticks: self.ticks.component_ticks,
+                        last_change_tick: self.ticks.last_change_tick,
+                        change_tick: self.ticks.change_tick,
+                    },
+                }
+            }
+        }
+    };
+}
+
 macro_rules! impl_debug {
     ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
         impl<$($generics),* $(: $traits)?> std::fmt::Debug for $name<$($generics),*>
@@ -154,6 +180,7 @@ pub struct ResMut<'a, T: Resource> {
 }
 
 change_detection_impl!(ResMut<'a, T>, T, Resource);
+impl_lens!(ResMut<'a, T>, T, Resource);
 impl_into_inner!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
@@ -175,6 +202,7 @@ pub struct NonSendMut<'a, T: 'static> {
 }
 
 change_detection_impl!(NonSendMut<'a, T>, T,);
+impl_lens!(NonSendMut<'a, T>, T,);
 impl_into_inner!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
@@ -185,6 +213,7 @@ pub struct Mut<'a, T> {
 }
 
 change_detection_impl!(Mut<'a, T>, T,);
+impl_lens!(Mut<'a, T>, T,);
 impl_into_inner!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
