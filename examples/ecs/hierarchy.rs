@@ -1,18 +1,14 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(rotate.system())
+        .add_startup_system(setup)
+        .add_system(rotate)
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     let texture = asset_server.load("branding/icon.png");
 
@@ -20,11 +16,8 @@ fn setup(
     let parent = commands
         .spawn_bundle(SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(0.75)),
-            material: materials.add(ColorMaterial {
-                color: Color::WHITE,
-                texture: Some(texture.clone()),
-            }),
-            ..Default::default()
+            texture: texture.clone(),
+            ..default()
         })
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
@@ -33,13 +26,14 @@ fn setup(
                 transform: Transform {
                     translation: Vec3::new(250.0, 0.0, 0.0),
                     scale: Vec3::splat(0.75),
-                    ..Default::default()
+                    ..default()
                 },
-                material: materials.add(ColorMaterial {
+                texture: texture.clone(),
+                sprite: Sprite {
                     color: Color::BLUE,
-                    texture: Some(texture.clone()),
-                }),
-                ..Default::default()
+                    ..default()
+                },
+                ..default()
             });
         })
         // Store parent entity for next sections
@@ -54,13 +48,14 @@ fn setup(
             transform: Transform {
                 translation: Vec3::new(-250.0, 0.0, 0.0),
                 scale: Vec3::splat(0.75),
-                ..Default::default()
+                ..default()
             },
-            material: materials.add(ColorMaterial {
+            texture: texture.clone(),
+            sprite: Sprite {
                 color: Color::RED,
-                texture: Some(texture.clone()),
-            }),
-            ..Default::default()
+                ..default()
+            },
+            ..default()
         })
         // Using the entity from the previous section as the parent:
         .insert(Parent(parent));
@@ -72,13 +67,14 @@ fn setup(
             transform: Transform {
                 translation: Vec3::new(0.0, 250.0, 0.0),
                 scale: Vec3::splat(0.75),
-                ..Default::default()
+                ..default()
             },
-            material: materials.add(ColorMaterial {
+            texture,
+            sprite: Sprite {
                 color: Color::GREEN,
-                texture: Some(texture),
-            }),
-            ..Default::default()
+                ..default()
+            },
+            ..default()
         })
         .id();
 
@@ -111,7 +107,7 @@ fn rotate(
         // seconds
         if time.seconds_since_startup() >= 2.0 && children.len() == 3 {
             let child = children.last().copied().unwrap();
-            commands.entity(child).despawn();
+            commands.entity(child).despawn_recursive();
         }
 
         if time.seconds_since_startup() >= 4.0 {

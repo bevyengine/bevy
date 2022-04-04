@@ -1,15 +1,15 @@
-use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
+use bevy::{asset::LoadState, prelude::*};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing
 /// individual sprites
 fn main() {
-    App::build()
+    App::new()
         .init_resource::<RpgSpriteHandles>()
         .add_plugins(DefaultPlugins)
         .add_state(AppState::Setup)
-        .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(load_textures.system()))
-        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(check_textures.system()))
-        .add_system_set(SystemSet::on_enter(AppState::Finished).with_system(setup.system()))
+        .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(load_textures))
+        .add_system_set(SystemSet::on_update(AppState::Setup).with_system(check_textures))
+        .add_system_set(SystemSet::on_enter(AppState::Finished).with_system(setup))
         .run();
 }
 
@@ -45,13 +45,12 @@ fn setup(
     rpg_sprite_handles: Res<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut textures: ResMut<Assets<Texture>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut textures: ResMut<Assets<Image>>,
 ) {
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
-    for handle in rpg_sprite_handles.handles.iter() {
+    for handle in &rpg_sprite_handles.handles {
         let texture = textures.get(handle).unwrap();
-        texture_atlas_builder.add_texture(handle.clone_weak().typed::<Texture>(), texture);
+        texture_atlas_builder.add_texture(handle.clone_weak().typed::<Image>(), texture);
     }
 
     let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
@@ -67,16 +66,16 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(150.0, 0.0, 0.0),
             scale: Vec3::splat(4.0),
-            ..Default::default()
+            ..default()
         },
-        sprite: TextureAtlasSprite::new(vendor_index as u32),
+        sprite: TextureAtlasSprite::new(vendor_index),
         texture_atlas: atlas_handle,
-        ..Default::default()
+        ..default()
     });
     // draw the atlas itself
     commands.spawn_bundle(SpriteBundle {
-        material: materials.add(texture_atlas_texture.into()),
+        texture: texture_atlas_texture,
         transform: Transform::from_xyz(-300.0, 0.0, 0.0),
-        ..Default::default()
+        ..default()
     });
 }

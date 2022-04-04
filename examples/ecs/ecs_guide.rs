@@ -25,10 +25,10 @@ use rand::random;
 /// }
 
 /// Resource: a shared global piece of data
-///     Examples: asset_storage, events, system state
+///     Examples: asset storage, events, system state
 ///
 /// System: runs logic on entities, components, and resources
-///     Examples: move_system, damage_system
+///     Examples: move system, damage system
 ///
 /// Now that you know a little bit about ECS, lets look at some Bevy code!
 /// We will now make a simple "game" to illustrate what Bevy's ECS looks like in practice.
@@ -37,11 +37,13 @@ use rand::random;
 //
 
 // Our game will have a number of "players". Each player has a name that identifies them
+#[derive(Component)]
 struct Player {
     name: String,
 }
 
 // Each player also has a score. This component holds on to that score
+#[derive(Component)]
 struct Score {
     value: usize,
 }
@@ -196,16 +198,16 @@ fn new_player_system(
     }
 }
 
-// If you really need full, immediate read/write access to the world or resources, you can use a
-// "thread local system". These run on the main app thread (hence the name "thread local")
+// If you really need full, immediate read/write access to the world or resources, you can use an
+// "exclusive system".
 // WARNING: These will block all parallel execution of other systems until they finish, so they
-// should generally be avoided if you care about performance
+// should generally be avoided if you care about performance.
 #[allow(dead_code)]
-fn thread_local_system(world: &mut World) {
+fn exclusive_player_system(world: &mut World) {
     // this does the same thing as "new_player_system"
-    let total_players = world.get_resource_mut::<GameState>().unwrap().total_players;
+    let total_players = world.resource_mut::<GameState>().total_players;
     let should_add_player = {
-        let game_rules = world.get_resource::<GameRules>().unwrap();
+        let game_rules = world.resource::<GameRules>();
         let add_new_player = random::<bool>();
         add_new_player && total_players < game_rules.max_players
     };
@@ -218,7 +220,7 @@ fn thread_local_system(world: &mut World) {
             Score { value: 0 },
         ));
 
-        let mut game_state = world.get_resource_mut::<GameState>().unwrap();
+        let mut game_state = world.resource_mut::<GameState>();
         game_state.total_players += 1;
     }
 }
@@ -253,16 +255,11 @@ enum MyStage {
     AfterRound,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-enum MyLabels {
-    ScoreCheck,
-}
-
 // Our Bevy app's entry point
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems,
     // resources, and plugins to our app
-    App::build()
+    App::new()
         // Resources can be added to our app like this
         .insert_resource(State { counter: 0 })
         // Some systems are configured by adding their settings as a resource
@@ -272,13 +269,13 @@ fn main() {
         // that :) The plugin below runs our app's "system schedule" once every 5 seconds
         // (configured above).
         .add_plugin(ScheduleRunnerPlugin::default())
-        // Resources that implement the Default or FromResources trait can be added like this:
+        // Resources that implement the Default or FromWorld trait can be added like this:
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system.system())
+        .add_startup_system(startup_system)
         // my_system calls converts normal rust functions into ECS systems:
-        .add_system(print_message_system.system())
+        .add_system(print_message_system)
         // SYSTEM EXECUTION ORDER
         //
         // Each system belongs to a `Stage`, which controls the execution strategy and broad order
@@ -310,7 +307,7 @@ fn main() {
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to
         // add_system(score_system)
-        .add_system_to_stage(CoreStage::Update, score_system.system())
+        .add_system_to_stage(CoreStage::Update, score_system)
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
@@ -325,18 +322,22 @@ fn main() {
             MyStage::AfterRound,
             SystemStage::parallel(),
         )
-        .add_system_to_stage(MyStage::BeforeRound, new_round_system.system())
-        .add_system_to_stage(MyStage::BeforeRound, new_player_system.system())
-        // We can ensure that game_over system runs after score_check_system using explicit ordering
-        // constraints First, we label the system we want to refer to using `.label`
-        // Then, we use either `.before` or `.after` to describe the order we want the relationship
+        .add_system_to_stage(MyStage::BeforeRound, new_round_system)
+        .add_system_to_stage(MyStage::BeforeRound, new_player_system)
         .add_system_to_stage(
-            MyStage::AfterRound,
-            score_check_system.system().label(MyLabels::ScoreCheck),
+            MyStage::BeforeRound,
+            // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
+            // The following will not compile.
+            //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
+            exclusive_player_system.exclusive_system(),
         )
+        .add_system_to_stage(MyStage::AfterRound, score_check_system)
         .add_system_to_stage(
+            // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
+            // To do this we use either `.before` or `.after` to describe the order we want the relationship
+            // Since we are using `after`, `game_over_system` runs after `score_check_system`
             MyStage::AfterRound,
-            game_over_system.system().after(MyLabels::ScoreCheck),
+            game_over_system.after(score_check_system),
         )
         // We can check our systems for execution order ambiguities by examining the output produced
         // in the console by using the `LogPlugin` and adding the following Resource to our App :)

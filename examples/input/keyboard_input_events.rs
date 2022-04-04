@@ -1,9 +1,9 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(print_keyboard_event_system.system())
+        .add_system(print_keyboard_event_system)
         .run();
 }
 

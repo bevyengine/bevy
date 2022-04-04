@@ -26,7 +26,7 @@ use bevy_ecs::{schedule::ExclusiveSystemDescriptorCoercion, system::IntoExclusiv
 pub struct ScenePlugin;
 
 impl Plugin for ScenePlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_asset::<DynamicScene>()
             .add_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()

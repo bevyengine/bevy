@@ -3,10 +3,9 @@ use crate::{
     entity::Entity,
     storage::{BlobVec, SparseSet},
 };
-use bevy_utils::{AHasher, HashMap};
+use bevy_utils::HashMap;
 use std::{
     cell::UnsafeCell,
-    hash::{Hash, Hasher},
     ops::{Index, IndexMut},
     ptr::NonNull,
 };
@@ -179,6 +178,11 @@ impl Column {
         self.ticks.get_unchecked(row).get()
     }
 
+    pub fn clear(&mut self) {
+        self.data.clear();
+        self.ticks.clear();
+    }
+
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for component_ticks in &mut self.ticks {
@@ -216,7 +220,7 @@ impl Table {
         self.columns.insert(
             component_info.id(),
             Column::with_capacity(component_info, self.entities.capacity()),
-        )
+        );
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
@@ -396,11 +400,21 @@ impl Table {
     pub fn iter(&self) -> impl Iterator<Item = &Column> {
         self.columns.values()
     }
+
+    pub fn clear(&mut self) {
+        self.entities.clear();
+        for column in self.columns.values_mut() {
+            column.clear();
+        }
+    }
 }
 
+/// A collection of [`Table`] storages, indexed by [`TableId`]
+///
+/// Can be accessed via [`Storages`](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
-    table_ids: HashMap<u64, TableId>,
+    table_ids: HashMap<Vec<ComponentId>, TableId>,
 }
 
 impl Default for Tables {
@@ -457,26 +471,39 @@ impl Tables {
         component_ids: &[ComponentId],
         components: &Components,
     ) -> TableId {
-        let mut hasher = AHasher::default();
-        component_ids.hash(&mut hasher);
-        let hash = hasher.finish();
         let tables = &mut self.tables;
-        *self.table_ids.entry(hash).or_insert_with(move || {
-            let mut table = Table::with_capacity(0, component_ids.len());
-            for component_id in component_ids.iter() {
-                table.add_column(components.get_info_unchecked(*component_id));
-            }
-            tables.push(table);
-            TableId(tables.len() - 1)
-        })
+        let (_key, value) = self
+            .table_ids
+            .raw_entry_mut()
+            .from_key(component_ids)
+            .or_insert_with(|| {
+                let mut table = Table::with_capacity(0, component_ids.len());
+                for component_id in component_ids.iter() {
+                    table.add_column(components.get_info_unchecked(*component_id));
+                }
+                tables.push(table);
+                (component_ids.to_vec(), TableId(tables.len() - 1))
+            });
+
+        *value
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, Table> {
         self.tables.iter()
     }
 
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Table> {
+        self.tables.iter_mut()
+    }
+
+    pub fn clear(&mut self) {
+        for table in &mut self.tables {
+            table.clear();
+        }
+    }
+
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        for table in self.tables.iter_mut() {
+        for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }
     }
@@ -500,22 +527,23 @@ impl IndexMut<TableId> for Tables {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        component::{Components, TypeInfo},
-        entity::Entity,
-        storage::Table,
-    };
+    use crate as bevy_ecs;
+    use crate::component::Component;
+    use crate::storage::Storages;
+    use crate::{component::Components, entity::Entity, storage::Table};
+    #[derive(Component)]
+    struct W<T>(T);
 
     #[test]
     fn table() {
         let mut components = Components::default();
-        let type_info = TypeInfo::of::<usize>();
-        let component_id = components.get_or_insert_with(type_info.type_id(), || type_info);
+        let mut storages = Storages::default();
+        let component_id = components.init_component::<W<usize>>(&mut storages);
         let columns = &[component_id];
         let mut table = Table::with_capacity(0, columns.len());
         table.add_column(components.get_info(component_id).unwrap());
-        let entities = (0..200).map(Entity::new).collect::<Vec<_>>();
-        for entity in entities.iter() {
+        let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
+        for entity in &entities {
             // SAFE: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);

@@ -3,11 +3,13 @@ use std::path::PathBuf;
 use super::{WindowDescriptor, WindowId};
 use bevy_math::{IVec2, Vec2};
 
-/// A window event that is sent whenever a window has been resized.
+/// A window event that is sent whenever a windows logical size has changed
 #[derive(Debug, Clone)]
 pub struct WindowResized {
     pub id: WindowId,
+    /// The new logical width of the window
     pub width: f32,
+    /// The new logical height of the window
     pub height: f32,
 }
 
@@ -17,6 +19,11 @@ pub struct CreateWindow {
     pub id: WindowId,
     pub descriptor: WindowDescriptor,
 }
+
+/// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
+/// there have been no window events.
+#[derive(Debug, Clone)]
+pub struct RequestRedraw;
 
 /// An event that indicates a window should be closed.
 #[derive(Debug, Clone)]

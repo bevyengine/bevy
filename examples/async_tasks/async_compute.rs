@@ -6,23 +6,25 @@ use futures_lite::future;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
-/// This example shows how to use the ECS and the AsyncComputeTaskPool
+/// This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
 /// to spawn, poll, and complete tasks across systems and system ticks.
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_env.system())
-        .add_startup_system(add_assets.system())
-        .add_startup_system(spawn_tasks.system())
-        .add_system(handle_tasks.system())
+        .add_startup_system(setup_env)
+        .add_startup_system(add_assets)
+        .add_startup_system(spawn_tasks)
+        .add_system(handle_tasks)
         .run();
 }
 
 // Number of cubes to spawn across the x, y, and z axis
 const NUM_CUBES: u32 = 6;
 
+#[derive(Deref)]
 struct BoxMeshHandle(Handle<Mesh>);
+#[derive(Deref)]
 struct BoxMaterialHandle(Handle<StandardMaterial>);
 
 /// Startup system which runs only once and generates our Box Mesh
@@ -43,7 +45,7 @@ fn add_assets(
 
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
-/// system, handle_tasks, will poll the spawned tasks on subsequent
+/// system, `handle_tasks`, will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
 fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
     for x in 0..NUM_CUBES {
@@ -60,7 +62,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
                     }
 
                     // Such hard work, all done!
-                    Transform::from_translation(Vec3::new(x as f32, y as f32, z as f32))
+                    Transform::from_xyz(x as f32, y as f32, z as f32)
                 });
 
                 // Spawn new entity and add our new task as a component
@@ -72,7 +74,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
 
 /// This system queries for entities that have our Task<Transform> component. It polls the
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
-/// new PbrBundle of components to the entity using the result from the task's work, and
+/// new [`PbrBundle`] of components to the entity using the result from the task's work, and
 /// removes the task component from the entity.
 fn handle_tasks(
     mut commands: Commands,
@@ -84,10 +86,10 @@ fn handle_tasks(
         if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
-                mesh: box_mesh_handle.0.clone(),
-                material: box_material_handle.0.clone(),
+                mesh: box_mesh_handle.clone(),
+                material: box_material_handle.clone(),
                 transform,
-                ..Default::default()
+                ..default()
             });
 
             // Task is complete, so remove task component from entity
@@ -107,14 +109,14 @@ fn setup_env(mut commands: Commands) {
 
     // lights
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(4.0, 12.0, 15.0)),
-        ..Default::default()
+        transform: Transform::from_xyz(4.0, 12.0, 15.0),
+        ..default()
     });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_translation(Vec3::new(offset, offset, 15.0))
+        transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

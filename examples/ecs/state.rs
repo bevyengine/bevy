@@ -1,20 +1,19 @@
 use bevy::prelude::*;
 
-/// This example illustrates how to use States to control transitioning from a Menu state to an
-/// InGame state.
+/// This example illustrates how to use [`States`] to control transitioning from a `Menu` state to
+/// an `InGame` state.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<ButtonMaterials>()
         .add_state(AppState::Menu)
-        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu.system()))
-        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu.system()))
-        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu.system()))
-        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game.system()))
+        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
+        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu))
+        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
+        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game))
         .add_system_set(
             SystemSet::on_update(AppState::InGame)
-                .with_system(movement.system())
-                .with_system(change_color.system()),
+                .with_system(movement)
+                .with_system(change_color),
         )
         .run();
 }
@@ -29,11 +28,11 @@ struct MenuData {
     button_entity: Entity,
 }
 
-fn setup_menu(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    button_materials: Res<ButtonMaterials>,
-) {
+const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+
+fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn_bundle(UiCameraBundle::default());
     let button_entity = commands
@@ -46,10 +45,10 @@ fn setup_menu(
                 justify_content: JustifyContent::Center,
                 // vertically center child text
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
-            material: button_materials.normal.clone(),
-            ..Default::default()
+            color: NORMAL_BUTTON.into(),
+            ..default()
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
@@ -62,7 +61,7 @@ fn setup_menu(
                     },
                     Default::default(),
                 ),
-                ..Default::default()
+                ..default()
             });
         })
         .id();
@@ -71,23 +70,22 @@ fn setup_menu(
 
 fn menu(
     mut state: ResMut<State<AppState>>,
-    button_materials: Res<ButtonMaterials>,
     mut interaction_query: Query<
-        (&Interaction, &mut Handle<ColorMaterial>),
+        (&Interaction, &mut UiColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut material) in interaction_query.iter_mut() {
+    for (interaction, mut color) in interaction_query.iter_mut() {
         match *interaction {
             Interaction::Clicked => {
-                *material = button_materials.pressed.clone();
+                *color = PRESSED_BUTTON.into();
                 state.set(AppState::InGame).unwrap();
             }
             Interaction::Hovered => {
-                *material = button_materials.hovered.clone();
+                *color = HOVERED_BUTTON.into();
             }
             Interaction::None => {
-                *material = button_materials.normal.clone();
+                *color = NORMAL_BUTTON.into();
             }
         }
     }
@@ -97,16 +95,11 @@ fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
     commands.entity(menu_data.button_entity).despawn_recursive();
 }
 
-fn setup_game(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let texture_handle = asset_server.load("branding/icon.png");
+fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
-        material: materials.add(texture_handle.into()),
-        ..Default::default()
+        texture: asset_server.load("branding/icon.png"),
+        ..default()
     });
 }
 
@@ -137,32 +130,10 @@ fn movement(
     }
 }
 
-fn change_color(
-    time: Res<Time>,
-    mut assets: ResMut<Assets<ColorMaterial>>,
-    query: Query<&Handle<ColorMaterial>, With<Sprite>>,
-) {
-    for handle in query.iter() {
-        let material = assets.get_mut(handle).unwrap();
-        material
+fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
+    for mut sprite in query.iter_mut() {
+        sprite
             .color
-            .set_b((time.seconds_since_startup() * 5.0).sin() as f32 + 2.0);
-    }
-}
-
-struct ButtonMaterials {
-    normal: Handle<ColorMaterial>,
-    hovered: Handle<ColorMaterial>,
-    pressed: Handle<ColorMaterial>,
-}
-
-impl FromWorld for ButtonMaterials {
-    fn from_world(world: &mut World) -> Self {
-        let mut materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
-        ButtonMaterials {
-            normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
-            hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
-            pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
-        }
+            .set_b((time.seconds_since_startup() * 0.5).sin() as f32 + 2.0);
     }
 }

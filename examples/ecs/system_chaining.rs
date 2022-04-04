@@ -2,17 +2,18 @@ use anyhow::Result;
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Message("42".to_string()))
-        .add_system(parse_message_system.system().chain(handler_system.system()))
+        .add_system(parse_message_system.chain(handler_system))
         .run();
 }
 
+#[derive(Deref)]
 struct Message(String);
 
 // this system produces a Result<usize> output by trying to parse the Message resource
 fn parse_message_system(message: Res<Message>) -> Result<usize> {
-    Ok(message.0.parse::<usize>()?)
+    Ok(message.parse::<usize>()?)
 }
 
 // This system takes a Result<usize> input and either prints the parsed value or the error message

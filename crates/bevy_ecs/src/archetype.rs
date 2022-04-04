@@ -1,3 +1,6 @@
+//! Types for defining [`Archetype`]s, collections of entities that have the same set of
+//! components.
+
 use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
@@ -5,7 +8,6 @@ use crate::{
     storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
 use std::{
-    borrow::Cow,
     collections::HashMap,
     hash::Hash,
     ops::{Index, IndexMut},
@@ -15,19 +17,13 @@ use std::{
 pub struct ArchetypeId(usize);
 
 impl ArchetypeId {
+    pub const EMPTY: ArchetypeId = ArchetypeId(0);
+    pub const RESOURCE: ArchetypeId = ArchetypeId(1);
+    pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
+
     #[inline]
     pub const fn new(index: usize) -> Self {
         ArchetypeId(index)
-    }
-
-    #[inline]
-    pub const fn empty() -> ArchetypeId {
-        ArchetypeId(0)
-    }
-
-    #[inline]
-    pub const fn resource() -> ArchetypeId {
-        ArchetypeId(1)
     }
 
     #[inline]
@@ -60,7 +56,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn set_add_bundle(
+    pub fn insert_add_bundle(
         &mut self,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
@@ -81,7 +77,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn set_remove_bundle(&mut self, bundle_id: BundleId, archetype_id: Option<ArchetypeId>) {
+    pub fn insert_remove_bundle(&mut self, bundle_id: BundleId, archetype_id: Option<ArchetypeId>) {
         self.remove_bundle.insert(bundle_id, archetype_id);
     }
 
@@ -94,7 +90,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn set_remove_bundle_intersection(
+    pub fn insert_remove_bundle_intersection(
         &mut self,
         bundle_id: BundleId,
         archetype_id: Option<ArchetypeId>,
@@ -110,8 +106,8 @@ struct TableInfo {
 }
 
 pub(crate) struct ArchetypeSwapRemoveResult {
-    pub swapped_entity: Option<Entity>,
-    pub table_row: usize,
+    pub(crate) swapped_entity: Option<Entity>,
+    pub(crate) table_row: usize,
 }
 
 pub(crate) struct ArchetypeComponentInfo {
@@ -124,8 +120,8 @@ pub struct Archetype {
     entities: Vec<Entity>,
     edges: Edges,
     table_info: TableInfo,
-    table_components: Cow<'static, [ComponentId]>,
-    sparse_set_components: Cow<'static, [ComponentId]>,
+    table_components: Box<[ComponentId]>,
+    sparse_set_components: Box<[ComponentId]>,
     pub(crate) unique_components: SparseSet<ComponentId, Column>,
     pub(crate) components: SparseSet<ComponentId, ArchetypeComponentInfo>,
 }
@@ -134,8 +130,8 @@ impl Archetype {
     pub fn new(
         id: ArchetypeId,
         table_id: TableId,
-        table_components: Cow<'static, [ComponentId]>,
-        sparse_set_components: Cow<'static, [ComponentId]>,
+        table_components: Box<[ComponentId]>,
+        sparse_set_components: Box<[ComponentId]>,
         table_archetype_components: Vec<ArchetypeComponentId>,
         sparse_set_archetype_components: Vec<ArchetypeComponentId>,
     ) -> Self {
@@ -309,6 +305,11 @@ impl Archetype {
             .get(component_id)
             .map(|info| info.archetype_component_id)
     }
+
+    pub(crate) fn clear_entities(&mut self) {
+        self.entities.clear();
+        self.table_info.entity_rows.clear();
+    }
 }
 
 /// A generational id that changes every time the set of archetypes changes
@@ -329,8 +330,8 @@ impl ArchetypeGeneration {
 
 #[derive(Hash, PartialEq, Eq)]
 pub struct ArchetypeIdentity {
-    table_components: Cow<'static, [ComponentId]>,
-    sparse_set_components: Cow<'static, [ComponentId]>,
+    table_components: Box<[ComponentId]>,
+    sparse_set_components: Box<[ComponentId]>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -377,10 +378,10 @@ impl Default for Archetypes {
         // adds the resource archetype. it is "special" in that it is inaccessible via a "hash",
         // which prevents entities from being added to it
         archetypes.archetypes.push(Archetype::new(
-            ArchetypeId::resource(),
+            ArchetypeId::RESOURCE,
             TableId::empty(),
-            Cow::Owned(Vec::new()),
-            Cow::Owned(Vec::new()),
+            Box::new([]),
+            Box::new([]),
             Vec::new(),
             Vec::new(),
         ));
@@ -402,7 +403,7 @@ impl Archetypes {
     #[inline]
     pub fn empty(&self) -> &Archetype {
         // SAFE: empty archetype always exists
-        unsafe { self.archetypes.get_unchecked(ArchetypeId::empty().index()) }
+        unsafe { self.archetypes.get_unchecked(ArchetypeId::EMPTY.index()) }
     }
 
     #[inline]
@@ -410,17 +411,14 @@ impl Archetypes {
         // SAFE: empty archetype always exists
         unsafe {
             self.archetypes
-                .get_unchecked_mut(ArchetypeId::empty().index())
+                .get_unchecked_mut(ArchetypeId::EMPTY.index())
         }
     }
 
     #[inline]
     pub fn resource(&self) -> &Archetype {
         // SAFE: resource archetype always exists
-        unsafe {
-            self.archetypes
-                .get_unchecked(ArchetypeId::resource().index())
-        }
+        unsafe { self.archetypes.get_unchecked(ArchetypeId::RESOURCE.index()) }
     }
 
     #[inline]
@@ -428,7 +426,7 @@ impl Archetypes {
         // SAFE: resource archetype always exists
         unsafe {
             self.archetypes
-                .get_unchecked_mut(ArchetypeId::resource().index())
+                .get_unchecked_mut(ArchetypeId::RESOURCE.index())
         }
     }
 
@@ -471,15 +469,15 @@ impl Archetypes {
     /// `table_components` and `sparse_set_components` must be sorted
     ///
     /// # Safety
-    /// TableId must exist in tables
+    /// [`TableId`] must exist in tables
     pub(crate) fn get_id_or_insert(
         &mut self,
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
     ) -> ArchetypeId {
-        let table_components = Cow::from(table_components);
-        let sparse_set_components = Cow::from(sparse_set_components);
+        let table_components = table_components.into_boxed_slice();
+        let sparse_set_components = sparse_set_components.into_boxed_slice();
         let archetype_identity = ArchetypeIdentity {
             sparse_set_components: sparse_set_components.clone(),
             table_components: table_components.clone(),
@@ -518,6 +516,12 @@ impl Archetypes {
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count
+    }
+
+    pub fn clear_entities(&mut self) {
+        for archetype in &mut self.archetypes {
+            archetype.clear_entities();
+        }
     }
 }
 

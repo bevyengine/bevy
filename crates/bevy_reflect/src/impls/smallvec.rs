@@ -1,11 +1,11 @@
 use smallvec::{Array, SmallVec};
 use std::any::Any;
 
-use crate::{serde::Serializable, List, ListIter, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, FromReflect, List, ListIter, Reflect, ReflectMut, ReflectRef};
 
 impl<T: Array + Send + Sync + 'static> List for SmallVec<T>
 where
-    T::Item: Reflect + Clone,
+    T::Item: FromReflect + Clone,
 {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         if index < SmallVec::len(self) {
@@ -29,10 +29,12 @@ where
 
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
-            panic!(
-                "Attempted to push invalid value of type {}.",
-                value.type_name()
-            )
+            <T as Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to push invalid value of type {}.",
+                    value.type_name()
+                )
+            })
         });
         SmallVec::push(self, value);
     }
@@ -48,7 +50,7 @@ where
 // SAFE: any and any_mut both return self
 unsafe impl<T: Array + Send + Sync + 'static> Reflect for SmallVec<T>
 where
-    T::Item: Reflect + Clone,
+    T::Item: FromReflect + Clone,
 {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
@@ -93,5 +95,22 @@ where
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+}
+
+impl<T: Array + Send + Sync + 'static> FromReflect for SmallVec<T>
+where
+    T::Item: FromReflect + Clone,
+{
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
+            let mut new_list = Self::with_capacity(ref_list.len());
+            for field in ref_list.iter() {
+                new_list.push(<T as Array>::Item::from_reflect(field)?);
+            }
+            Some(new_list)
+        } else {
+            None
+        }
     }
 }

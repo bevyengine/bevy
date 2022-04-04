@@ -1,5 +1,4 @@
 use crate::Stopwatch;
-use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
@@ -11,7 +10,6 @@ use bevy_utils::Duration;
 ///
 /// Paused timers will not have elapsed time increased.
 #[derive(Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
 pub struct Timer {
     stopwatch: Stopwatch,
     duration: Duration,
@@ -182,7 +180,7 @@ impl Timer {
             self.stopwatch.reset();
             self.finished = self.just_finished();
         }
-        self.repeating = repeating
+        self.repeating = repeating;
     }
 
     /// Advance the timer by `delta` seconds.
@@ -217,7 +215,8 @@ impl Timer {
 
         if self.finished() {
             if self.repeating() {
-                self.times_finished = self.percent().floor() as u32;
+                self.times_finished =
+                    (self.elapsed().as_nanos() / self.duration().as_nanos()) as u32;
                 // Duration does not have a modulo
                 self.set_elapsed(self.elapsed() - self.duration() * self.times_finished);
             } else {
@@ -463,5 +462,24 @@ mod tests {
         assert_eq!(t.times_finished(), 1);
         t.tick(Duration::from_secs_f32(0.5));
         assert_eq!(t.times_finished(), 0);
+    }
+
+    #[test]
+    fn times_finished_precise() {
+        let mut t = Timer::from_seconds(0.01, true);
+        let duration = Duration::from_secs_f64(0.333);
+
+        // total duration: 0.333 => 33 times finished
+        t.tick(duration);
+        assert_eq!(t.times_finished(), 33);
+        // total duration: 0.666 => 33 times finished
+        t.tick(duration);
+        assert_eq!(t.times_finished(), 33);
+        // total duration: 0.999 => 33 times finished
+        t.tick(duration);
+        assert_eq!(t.times_finished(), 33);
+        // total duration: 1.332 => 34 times finished
+        t.tick(duration);
+        assert_eq!(t.times_finished(), 34);
     }
 }

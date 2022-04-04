@@ -1,19 +1,35 @@
 [package]
 name = "benches"
 version = "0.1.0"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
-edition = "2018"
+edition = "2021"
+description = "Benchmarks for Bevy engine"
+publish = false
+license = "MIT OR Apache-2.0"
 
 [dev-dependencies]
+glam = "0.20"
 criterion = "0.3"
-bevy = { path = "../" }
+bevy_ecs = { path = "../crates/bevy_ecs" }
+bevy_tasks = { path = "../crates/bevy_tasks" }
+
+[[bench]]
+name = "ecs_bench_suite"
+path = "benches/bevy_ecs/ecs_bench_suite/mod.rs"
+harness = false
 
 [[bench]]
 name = "system_stage"
 path = "benches/bevy_ecs/stages.rs"
+harness = false
+
+[[bench]]
+name = "commands"
+path = "benches/bevy_ecs/commands.rs"
+harness = false
+
+[[bench]]
+name = "world_get"
+path = "benches/bevy_ecs/world_get.rs"
 harness = false
 
 [[bench]]

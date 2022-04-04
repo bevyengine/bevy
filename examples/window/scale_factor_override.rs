@@ -2,24 +2,20 @@ use bevy::prelude::*;
 
 /// This example illustrates how to customize the default window settings
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(WindowDescriptor {
             width: 500.,
             height: 300.,
-            ..Default::default()
+            ..default()
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
-        .add_system(toggle_override.system())
-        .add_system(change_scale_factor.system())
+        .add_startup_system(setup)
+        .add_system(toggle_override)
+        .add_system(change_scale_factor)
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn_bundle(UiCameraBundle::default());
     // root node
@@ -28,10 +24,10 @@ fn setup(
             style: Style {
                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 justify_content: JustifyContent::SpaceBetween,
-                ..Default::default()
+                ..default()
             },
-            material: materials.add(Color::NONE.into()),
-            ..Default::default()
+            color: Color::NONE.into(),
+            ..default()
         })
         .with_children(|parent| {
             // left vertical fill (border)
@@ -40,16 +36,16 @@ fn setup(
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         border: Rect::all(Val::Px(2.0)),
-                        ..Default::default()
+                        ..default()
                     },
-                    material: materials.add(Color::rgb(0.65, 0.65, 0.65).into()),
-                    ..Default::default()
+                    color: Color::rgb(0.65, 0.65, 0.65).into(),
+                    ..default()
                 })
                 .with_children(|parent| {
                     parent.spawn_bundle(TextBundle {
                         style: Style {
                             align_self: AlignSelf::FlexEnd,
-                            ..Default::default()
+                            ..default()
                         },
                         text: Text::with_section(
                             "Example text",
@@ -60,7 +56,7 @@ fn setup(
                             },
                             Default::default(),
                         ),
-                        ..Default::default()
+                        ..default()
                     });
                 });
         });
@@ -68,7 +64,7 @@ fn setup(
 
 /// This system toggles scale factor overrides when enter is pressed
 fn toggle_override(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
-    let window = windows.get_primary_mut().unwrap();
+    let window = windows.primary_mut();
     if input.just_pressed(KeyCode::Return) {
         window.set_scale_factor_override(window.scale_factor_override().xor(Some(1.)));
     }
@@ -76,7 +72,7 @@ fn toggle_override(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
 
 /// This system changes the scale factor override when up or down is pressed
 fn change_scale_factor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
-    let window = windows.get_primary_mut().unwrap();
+    let window = windows.primary_mut();
     if input.just_pressed(KeyCode::Up) {
         window.set_scale_factor_override(window.scale_factor_override().map(|n| n + 1.));
     } else if input.just_pressed(KeyCode::Down) {

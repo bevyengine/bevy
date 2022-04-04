@@ -1,25 +1,27 @@
-use bevy::{prelude::*, render::pass::ClearColor, winit::WinitConfig};
+use bevy::{prelude::*, winit::WinitSettings};
 
 fn main() {
     println!("Running first App.");
-    App::build()
-        .insert_resource(WinitConfig {
+    App::new()
+        .insert_resource(WinitSettings {
             return_from_run: true,
+            ..default()
         })
         .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.8)))
         .add_plugins(DefaultPlugins)
-        .add_system(system1.system())
+        .add_system(system1)
         .run();
     println!("Running another App.");
-    App::build()
-        .insert_resource(WinitConfig {
+    App::new()
+        .insert_resource(WinitSettings {
             return_from_run: true,
+            ..default()
         })
         .insert_resource(ClearColor(Color::rgb(0.2, 0.8, 0.2)))
         .add_plugins_with(DefaultPlugins, |group| {
             group.disable::<bevy::log::LogPlugin>()
         })
-        .add_system(system2.system())
+        .add_system(system2)
         .run();
     println!("Done.");
 }

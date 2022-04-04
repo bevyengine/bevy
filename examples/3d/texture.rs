@@ -2,9 +2,9 @@ use bevy::prelude::*;
 
 /// This example shows various ways to configure texture materials in 3D
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 
@@ -29,24 +29,27 @@ fn setup(
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..Default::default()
+        ..default()
     });
 
     // this material modulates the texture to make it red (and slightly transparent)
     let red_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgba(1.0, 0.0, 0.0, 0.5),
         base_color_texture: Some(texture_handle.clone()),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..Default::default()
+        ..default()
     });
 
     // and lets make this one blue! (and also slightly transparent)
     let blue_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
         base_color_texture: Some(texture_handle),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..Default::default()
+        ..default()
     });
 
     // textured quad - normal
@@ -56,13 +59,9 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(0.0, 0.0, 1.5),
             rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ..Default::default()
+            ..default()
         },
-        visible: Visible {
-            is_transparent: true,
-            ..Default::default()
-        },
-        ..Default::default()
+        ..default()
     });
     // textured quad - modulated
     commands.spawn_bundle(PbrBundle {
@@ -71,13 +70,9 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(0.0, 0.0, 0.0),
             rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ..Default::default()
+            ..default()
         },
-        visible: Visible {
-            is_transparent: true,
-            ..Default::default()
-        },
-        ..Default::default()
+        ..default()
     });
     // textured quad - modulated
     commands.spawn_bundle(PbrBundle {
@@ -86,17 +81,13 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(0.0, 0.0, -1.5),
             rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ..Default::default()
+            ..default()
         },
-        visible: Visible {
-            is_transparent: true,
-            ..Default::default()
-        },
-        ..Default::default()
+        ..default()
     });
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

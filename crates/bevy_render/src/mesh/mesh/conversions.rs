@@ -1,11 +1,10 @@
 //! These implementations allow you to
-//! convert std::vec::Vec<T> to VertexAttributeValues::T and back.
+//! convert `std::vec::Vec<T>` to `VertexAttributeValues::T` and back.
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```
 //! use bevy_render::mesh::VertexAttributeValues;
-//! use std::convert::{ TryInto, TryFrom };
 //!
 //! // creating std::vec::Vec
 //! let buffer = vec![[0_u32; 4]; 10];
@@ -27,7 +26,6 @@
 
 use crate::mesh::VertexAttributeValues;
 use bevy_utils::EnumVariantMeta;
-use std::convert::TryFrom;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]
@@ -117,6 +115,12 @@ impl From<Vec<[i32; 4]>> for VertexAttributeValues {
 impl From<Vec<[u32; 4]>> for VertexAttributeValues {
     fn from(vec: Vec<[u32; 4]>) -> Self {
         VertexAttributeValues::Uint32x4(vec)
+    }
+}
+
+impl From<Vec<[u16; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u16; 4]>) -> Self {
+        VertexAttributeValues::Uint16x4(vec)
     }
 }
 
@@ -357,7 +361,6 @@ impl TryFrom<VertexAttributeValues> for Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::VertexAttributeValues;
-    use std::convert::{TryFrom, TryInto};
     #[test]
     fn f32() {
         let buffer = vec![0.0; 10];

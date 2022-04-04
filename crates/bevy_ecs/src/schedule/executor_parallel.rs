@@ -6,6 +6,8 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
@@ -119,7 +121,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             .clone();
         compute_pool.scope(|scope| {
             self.prepare_systems(scope, systems, world);
-            scope.spawn(async {
+            let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.
                 while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
                     self.process_queued_systems().await;
@@ -130,7 +132,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
                             .finish_receiver
                             .recv()
                             .await
-                            .unwrap_or_else(|error| unreachable!(error));
+                            .unwrap_or_else(|error| unreachable!("{}", error));
                         self.process_finished_system(index);
                         // Gather other systems than may have finished.
                         while let Ok(index) = self.finish_receiver.try_recv() {
@@ -141,15 +143,22 @@ impl ParallelSystemExecutor for ParallelExecutor {
                     }
                     self.update_counters_and_queue_systems();
                 }
-            });
+            };
+            #[cfg(feature = "trace")]
+            let span = bevy_utils::tracing::info_span!("parallel executor");
+            #[cfg(feature = "trace")]
+            let parallel_executor = parallel_executor.instrument(span);
+            scope.spawn(parallel_executor);
         });
     }
 }
 
 impl ParallelExecutor {
-    /// Calls system.new_archetype() for each archetype added since the last call to
-    /// [update_archetypes] and updates cached archetype_component_access.
+    /// Calls `system.new_archetype()` for each archetype added since the last call to
+    /// `update_archetypes` and updates cached `archetype_component_access`.
     fn update_archetypes(&mut self, systems: &mut [ParallelSystemContainer], world: &World) {
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("update_archetypes").entered();
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -171,25 +180,31 @@ impl ParallelExecutor {
     fn prepare_systems<'scope>(
         &mut self,
         scope: &mut Scope<'scope, ()>,
-        systems: &'scope [ParallelSystemContainer],
+        systems: &'scope mut [ParallelSystemContainer],
         world: &'scope World,
     ) {
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("prepare_systems").entered();
         self.should_run.clear();
-        for (index, system_data) in self.system_metadata.iter_mut().enumerate() {
+        for (index, (system_data, system)) in
+            self.system_metadata.iter_mut().zip(systems).enumerate()
+        {
             // Spawn the system task.
-            if systems[index].should_run() {
+            if system.should_run() {
                 self.should_run.set(index, true);
                 let start_receiver = system_data.start_receiver.clone();
                 let finish_sender = self.finish_sender.clone();
-                let system = unsafe { systems[index].system_mut_unsafe() };
+                let system = system.system_mut();
+                #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
+                let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
+                #[cfg(feature = "trace")]
+                let overhead_span =
+                    bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
                 let task = async move {
                     start_receiver
                         .recv()
                         .await
-                        .unwrap_or_else(|error| unreachable!(error));
-                    #[cfg(feature = "trace")]
-                    let system_span =
-                        bevy_utils::tracing::info_span!("system", name = &*system.name());
+                        .unwrap_or_else(|error| unreachable!("{}", error));
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
                     unsafe { system.run_unsafe((), world) };
@@ -198,8 +213,11 @@ impl ParallelExecutor {
                     finish_sender
                         .send(index)
                         .await
-                        .unwrap_or_else(|error| unreachable!(error));
+                        .unwrap_or_else(|error| unreachable!("{}", error));
                 };
+
+                #[cfg(feature = "trace")]
+                let task = task.instrument(overhead_span);
                 if system_data.is_send {
                     scope.spawn(task);
                 } else {
@@ -246,7 +264,7 @@ impl ParallelExecutor {
                     .start_sender
                     .send(())
                     .await
-                    .unwrap_or_else(|error| unreachable!(error));
+                    .unwrap_or_else(|error| unreachable!("{}", error));
                 self.running.set(index, true);
                 if !system_metadata.is_send {
                     self.non_send_running = true;
@@ -301,11 +319,7 @@ impl ParallelExecutor {
 
     #[cfg(test)]
     fn emit_event(&self, event: SchedulingEvent) {
-        self.events_sender
-            .as_ref()
-            .unwrap()
-            .try_send(event)
-            .unwrap();
+        let _ = self.events_sender.as_ref().unwrap().try_send(event);
     }
 }
 
@@ -320,18 +334,19 @@ mod tests {
     use super::SchedulingEvent::{self, *};
     use crate::{
         schedule::{SingleThreadedExecutor, Stage, SystemStage},
-        system::{IntoSystem, NonSend, Query, Res, ResMut},
+        system::{NonSend, Query, Res, ResMut},
         world::World,
     };
     use async_channel::Receiver;
 
+    use crate as bevy_ecs;
+    use crate::component::Component;
+    #[derive(Component)]
+    struct W<T>(T);
+
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
-        while let Ok(event) = world
-            .get_resource::<Receiver<SchedulingEvent>>()
-            .unwrap()
-            .try_recv()
-        {
+        while let Ok(event) = world.resource::<Receiver<SchedulingEvent>>().try_recv() {
             events.push(event);
         }
         events
@@ -342,15 +357,15 @@ mod tests {
         let mut world = World::new();
         fn wants_for_nothing() {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_for_nothing.system())
-            .with_system(wants_for_nothing.system())
-            .with_system(wants_for_nothing.system());
+            .with_system(wants_for_nothing)
+            .with_system(wants_for_nothing)
+            .with_system(wants_for_nothing);
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(3), StartedSystems(3),]
-        )
+        );
     }
 
     #[test]
@@ -360,24 +375,24 @@ mod tests {
         fn wants_mut(_: ResMut<usize>) {}
         fn wants_ref(_: Res<usize>) {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_mut.system());
+            .with_system(wants_mut)
+            .with_system(wants_mut);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_mut)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_ref.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_ref)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
     }
@@ -385,37 +400,66 @@ mod tests {
     #[test]
     fn queries() {
         let mut world = World::new();
-        world.spawn().insert(0usize);
-        fn wants_mut(_: Query<&mut usize>) {}
-        fn wants_ref(_: Query<&usize>) {}
+        world.spawn().insert(W(0usize));
+        fn wants_mut(_: Query<&mut W<usize>>) {}
+        fn wants_ref(_: Query<&W<usize>>) {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_mut.system());
+            .with_system(wants_mut)
+            .with_system(wants_mut);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_mut)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(1), StartedSystems(1),]
         );
         let mut stage = SystemStage::parallel()
-            .with_system(wants_ref.system())
-            .with_system(wants_ref.system());
+            .with_system(wants_ref)
+            .with_system(wants_ref);
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
         let mut world = World::new();
-        world.spawn().insert_bundle((0usize, 0u32, 0f32));
-        fn wants_mut_usize(_: Query<(&mut usize, &f32)>) {}
-        fn wants_mut_u32(_: Query<(&mut u32, &f32)>) {}
+        world.spawn().insert_bundle((W(0usize), W(0u32), W(0f32)));
+        fn wants_mut_usize(_: Query<(&mut W<usize>, &W<f32>)>) {}
+        fn wants_mut_u32(_: Query<(&mut W<u32>, &W<f32>)>) {}
         let mut stage = SystemStage::parallel()
-            .with_system(wants_mut_usize.system())
-            .with_system(wants_mut_u32.system());
+            .with_system(wants_mut_usize)
+            .with_system(wants_mut_u32);
+        stage.run(&mut world);
+        assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
+    }
+
+    #[test]
+    fn world() {
+        let mut world = World::new();
+        world.spawn().insert(W(0usize));
+        fn wants_world(_: &World) {}
+        fn wants_mut(_: Query<&mut W<usize>>) {}
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut)
+            .with_system(wants_mut);
+        stage.run(&mut world);
+        assert_eq!(
+            receive_events(&world),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut)
+            .with_system(wants_world);
+        stage.run(&mut world);
+        assert_eq!(
+            receive_events(&world),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_world)
+            .with_system(wants_world);
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
     }
@@ -424,18 +468,18 @@ mod tests {
     fn non_send_resource() {
         use std::thread;
         let mut world = World::new();
-        world.insert_non_send(thread::current().id());
+        world.insert_non_send_resource(thread::current().id());
         fn non_send(thread_id: NonSend<thread::ThreadId>) {
             assert_eq!(thread::current().id(), *thread_id);
         }
         fn empty() {}
         let mut stage = SystemStage::parallel()
-            .with_system(non_send.system())
-            .with_system(non_send.system())
-            .with_system(empty.system())
-            .with_system(empty.system())
-            .with_system(non_send.system())
-            .with_system(non_send.system());
+            .with_system(non_send)
+            .with_system(non_send)
+            .with_system(empty)
+            .with_system(empty)
+            .with_system(non_send)
+            .with_system(non_send);
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
