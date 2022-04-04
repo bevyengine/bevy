@@ -100,7 +100,7 @@ pub fn extract_text2d_sprite(
                     .unwrap();
                 let handle = atlas.texture.clone_weak();
                 let index = text_glyph.atlas_info.glyph_index as usize;
-                let rect = Some(atlas.textures[index]);
+                let rect = Some(atlas.sprites[index]);
 
                 let glyph_transform = Transform::from_translation(
                     alignment_offset * scale_factor + text_glyph.position.extend(0.),

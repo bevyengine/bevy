@@ -17,7 +17,7 @@ pub struct TextureAtlas {
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: Vec2,
     /// The specific areas of the atlas where each texture can be found
-    pub textures: Vec<Rect>,
+    pub sprites: Vec<Rect>,
     pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
@@ -61,7 +61,7 @@ impl TextureAtlas {
             texture,
             size: dimensions,
             texture_handles: None,
-            textures: Vec::new(),
+            sprites: Vec::new(),
         }
     }
 
@@ -116,7 +116,7 @@ impl TextureAtlas {
                 ((tile_size.x + x_padding) * columns as f32) - x_padding,
                 ((tile_size.y + y_padding) * rows as f32) - y_padding,
             ),
-            textures: sprites,
+            sprites: sprites,
             texture,
             texture_handles: None,
         }
@@ -130,17 +130,17 @@ impl TextureAtlas {
     /// * `rect` - The section of the atlas that contains the texture to be added,
     /// from the top-left corner of the texture to the bottom-right corner
     pub fn add_texture(&mut self, rect: Rect) -> usize {
-        self.textures.push(rect);
-        self.textures.len() - 1
+        self.sprites.push(rect);
+        self.sprites.len() - 1
     }
 
     /// How many textures are in the `TextureAtlas`
     pub fn len(&self) -> usize {
-        self.textures.len()
+        self.sprites.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.textures.is_empty()
+        self.sprites.is_empty()
     }
 
     pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {

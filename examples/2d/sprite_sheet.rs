@@ -24,7 +24,7 @@ fn animate_sprite(
         timer.tick(time.delta());
         if timer.just_finished() {
             let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
-            sprite.index = (sprite.index + 1) % texture_atlas.textures.len();
+            sprite.index = (sprite.index + 1) % texture_atlas.sprites.len();
         }
     }
 }

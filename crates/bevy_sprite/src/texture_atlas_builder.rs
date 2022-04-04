@@ -233,7 +233,7 @@ impl TextureAtlasBuilder {
                 atlas_texture.texture_descriptor.size.height as f32,
             ),
             texture: textures.add(atlas_texture),
-            textures: texture_rects,
+            sprites: texture_rects,
             texture_handles: Some(texture_handles),
         })
     }
