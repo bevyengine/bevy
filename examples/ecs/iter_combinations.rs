@@ -32,10 +32,15 @@ const GRAVITY_CONSTANT: f32 = 0.001;
 const NUM_BODIES: usize = 100;
 
 #[derive(Component, Default)]
+#[component(lens)]
 struct Mass(f32);
+
 #[derive(Component, Default)]
+#[component(lens)]
 struct Acceleration(Vec3);
+
 #[derive(Component, Default)]
+#[component(lens)]
 struct LastPos(Vec3);
 #[derive(Component)]
 struct Star;
@@ -148,16 +153,14 @@ fn generate_bodies(
 
 fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)>) {
     let mut iter = query.iter_combinations_mut();
-    while let Some([(Mass(m1), transform1, mut acc1), (Mass(m2), transform2, mut acc2)]) =
-        iter.fetch_next()
-    {
+    while let Some([(m1, transform1, mut acc1), (m2, transform2, mut acc2)]) = iter.fetch_next() {
         let delta = transform2.translation - transform1.translation;
         let distance_sq: f32 = delta.length_squared();
 
         let f = GRAVITY_CONSTANT / distance_sq;
         let force_unit_mass = delta * f;
-        acc1.0 += force_unit_mass * *m2;
-        acc2.0 -= force_unit_mass * *m1;
+        acc1 += force_unit_mass * *m2;
+        acc2 -= force_unit_mass * *m1;
     }
 }
 
@@ -168,9 +171,9 @@ fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)
 
         let new_pos =
-            transform.translation + transform.translation - last_pos.0 + acceleration.0 * dt_sq;
-        acceleration.0 = Vec3::ZERO;
-        last_pos.0 = transform.translation;
+            transform.translation + transform.translation - *last_pos + *acceleration * dt_sq;
+        *acceleration = Vec3::ZERO;
+        *last_pos = transform.translation;
         transform.translation = new_pos;
     }
 }

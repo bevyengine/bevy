@@ -8,7 +8,8 @@ fn main() {
         .run();
 }
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component)]
+#[component(lens)]
 struct AnimationTimer(Timer);
 
 fn animate_sprite(

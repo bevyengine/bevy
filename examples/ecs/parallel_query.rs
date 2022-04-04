@@ -1,7 +1,8 @@
 use bevy::{prelude::*, tasks::prelude::*};
 use rand::random;
 
-#[derive(Component, Deref)]
+#[derive(Component)]
+#[component(lens)]
 struct Velocity(Vec2);
 
 fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -58,7 +59,7 @@ fn bounce_system(
                 && transform.translation.y < top)
             {
                 // For simplicity, just reverse the velocity; don't use realistic bounces
-                v.0 = -v.0;
+                v *= -1.0;
             }
         });
 }

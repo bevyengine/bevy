@@ -2,7 +2,9 @@ use bevy_macro_utils::{get_lit_str, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, Path, Result};
+use syn::{
+    parse_macro_input, parse_quote, DataStruct, DeriveInput, Error, Fields, Ident, Path, Result,
+};
 
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -26,7 +28,33 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let (lens_type, ext) = match attrs.lens {
         Lens::None => (quote! {#bevy_ecs_path::lens::NoopLens<Self>}, None),
         Lens::Declared(decl) => (decl, None),
-        Lens::Derived => (quote! {}, Some(quote! {})),
+        Lens::Derived => {
+            let inner_type = match &ast.data {
+                syn::Data::Struct(DataStruct {
+                    fields: Fields::Unnamed(f),
+                    ..
+                }) if f.unnamed.len() == 1 => &f.unnamed[0].ty,
+                _ => return quote! {
+                    compile_error!("Automatic lensing is only available for unit structs with one element")
+                }.into(),
+            };
+            (
+                quote! {Self},
+                Some(quote! {
+                    impl #impl_generics #bevy_ecs_path::lens::Lens for #struct_name #type_generics #where_clause {
+                        type In = Self;
+                        type Out = #inner_type;
+
+                        fn get(input: &Self::In) -> &Self::Out {
+                            &input.0
+                        }
+                        fn get_mut(input: &mut Self::In) -> &mut Self::Out {
+                            &mut input.0
+                        }
+                    }
+                }),
+            )
+        }
     };
 
     TokenStream::from(quote! {

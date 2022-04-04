@@ -44,9 +44,8 @@ struct Player {
 
 // Each player also has a score. This component holds on to that score
 #[derive(Component)]
-struct Score {
-    value: usize,
-}
+#[component(lens)]
+struct Score(usize);
 
 // RESOURCES: "Global" state accessible by systems. These are also just normal Rust data types!
 //
@@ -91,15 +90,12 @@ fn score_system(mut query: Query<(&Player, &mut Score)>) {
     for (player, mut score) in query.iter_mut() {
         let scored_a_point = random::<bool>();
         if scored_a_point {
-            score.value += 1;
-            println!(
-                "{} scored a point! Their score is: {}",
-                player.name, score.value
-            );
+            score += 1;
+            println!("{} scored a point! Their score is: {}", player.name, *score);
         } else {
             println!(
                 "{} did not score a point! Their score is: {}",
-                player.name, score.value
+                player.name, *score
             );
         }
     }
@@ -115,7 +111,7 @@ fn score_check_system(
     query: Query<(&Player, &Score)>,
 ) {
     for (player, score) in query.iter() {
-        if score.value == game_rules.winning_score {
+        if *score == game_rules.winning_score {
             game_state.winning_player = Some(player.name.clone());
         }
     }
@@ -159,13 +155,13 @@ fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
             Player {
                 name: "Alice".to_string(),
             },
-            Score { value: 0 },
+            Score(0),
         ),
         (
             Player {
                 name: "Bob".to_string(),
             },
-            Score { value: 0 },
+            Score(0),
         ),
     ]);
 
@@ -191,7 +187,7 @@ fn new_player_system(
             Player {
                 name: format!("Player {}", game_state.total_players),
             },
-            Score { value: 0 },
+            Score(0),
         ));
 
         println!("Player {} joined the game!", game_state.total_players);
@@ -217,7 +213,7 @@ fn exclusive_player_system(world: &mut World) {
             Player {
                 name: format!("Player {}", total_players),
             },
-            Score { value: 0 },
+            Score(0),
         ));
 
         let mut game_state = world.resource_mut::<GameState>();
@@ -243,7 +239,7 @@ struct State {
 #[allow(dead_code)]
 fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) {
     for (player, score) in query.iter() {
-        println!("processed: {} {}", player.name, score.value);
+        println!("processed: {} {}", player.name, score);
     }
     println!("this system ran {} times", state.counter);
     state.counter += 1;

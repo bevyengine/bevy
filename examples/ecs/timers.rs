@@ -10,7 +10,8 @@ fn main() {
         .run();
 }
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component)]
+#[component(lens)]
 pub struct PrintOnCompletionTimer(Timer);
 
 pub struct Countdown {

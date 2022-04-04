@@ -76,7 +76,8 @@ struct Paddle;
 #[derive(Component)]
 struct Ball;
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component)]
+#[component(lens)]
 struct Velocity(Vec2);
 
 #[derive(Component)]

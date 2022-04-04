@@ -18,9 +18,12 @@ enum AppState {
 }
 
 #[derive(Component)]
+#[component(lens)]
 struct TextToPrint(String);
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component)]
+#[component(lens)]
+
 struct PrinterTick(bevy::prelude::Timer);
 
 #[derive(Component)]
@@ -68,7 +71,7 @@ fn setup_system(mut commands: Commands) {
 fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextToPrint)>) {
     for (mut timer, text) in query.iter_mut() {
         if timer.tick(time.delta()).just_finished() {
-            info!("{}", text.0);
+            info!("{}", text);
         }
     }
 }

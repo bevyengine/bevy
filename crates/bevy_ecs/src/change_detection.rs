@@ -199,3 +199,70 @@ pub struct ReflectMut<'a> {
 change_detection_impl!(ReflectMut<'a>, dyn Reflect,);
 #[cfg(feature = "bevy_reflect")]
 impl_into_inner!(ReflectMut<'a>, dyn Reflect,);
+
+mod ops_passthrough {
+    use std::ops::*;
+
+    use super::Mut;
+
+    macro_rules! binary_ops {
+        ($trait:ident, $method:ident) => {
+            impl<Rhs, T: $trait<Rhs> + Copy> $trait<Rhs> for Mut<'_, T> {
+                type Output = T::Output;
+
+                fn $method(self, rhs: Rhs) -> Self::Output {
+                    T::$method(*self, rhs)
+                }
+            }
+        };
+    }
+    macro_rules! unary_ops {
+        ($trait:ident, $method:ident) => {
+            impl<T: $trait + Copy> $trait for Mut<'_, T> {
+                type Output = T::Output;
+
+                fn $method(self) -> Self::Output {
+                    T::$method(*self)
+                }
+            }
+        };
+    }
+    macro_rules! assign_ops {
+        ($trait:ident, $method:ident) => {
+            impl<Rhs, T: $trait<Rhs>> $trait<Rhs> for Mut<'_, T> {
+                fn $method(&mut self, rhs: Rhs) {
+                    T::$method(&mut *self, rhs)
+                }
+            }
+        };
+    }
+
+    binary_ops!(Add, add);
+    binary_ops!(Sub, sub);
+    binary_ops!(Mul, mul);
+    binary_ops!(Div, div);
+
+    binary_ops!(Rem, rem);
+
+    binary_ops!(BitAnd, bitand);
+    binary_ops!(BitOr, bitor);
+    binary_ops!(BitXor, bitxor);
+    binary_ops!(Shr, shr);
+    binary_ops!(Shl, shl);
+
+    unary_ops!(Neg, neg);
+    unary_ops!(Not, not);
+
+    assign_ops!(AddAssign, add_assign);
+    assign_ops!(SubAssign, sub_assign);
+    assign_ops!(MulAssign, mul_assign);
+    assign_ops!(DivAssign, div_assign);
+
+    assign_ops!(RemAssign, rem_assign);
+
+    assign_ops!(BitAndAssign, bitand_assign);
+    assign_ops!(BitOrAssign, bitor_assign);
+    assign_ops!(BitXorAssign, bitxor_assign);
+    assign_ops!(ShrAssign, shr_assign);
+    assign_ops!(ShlAssign, shl_assign);
+}

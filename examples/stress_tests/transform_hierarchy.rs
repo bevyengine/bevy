@@ -240,13 +240,14 @@ struct UpdateFilter {
 
 /// update component with some per-component value
 #[derive(Component)]
+#[component(lens)]
 struct Update(f32);
 
 /// update positions system
 fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut Update)>) {
     for (mut t, mut u) in query.iter_mut() {
-        u.0 += time.delta_seconds() * 0.1;
-        set_translation(&mut t.translation, u.0);
+        u += time.delta_seconds() * 0.1;
+        set_translation(&mut t.translation, *u);
     }
 }
 

@@ -1,4 +1,4 @@
-use bevy::{ecs::declare_lens, prelude::*};
+use bevy::prelude::*;
 use rand::Rng;
 
 // This example illustrates how to react to component change
@@ -12,10 +12,8 @@ fn main() {
         .run();
 }
 
-declare_lens!(MyComponentLens, MyComponent, f64, 0);
-
 #[derive(Component, Debug)]
-#[component(lens = "MyComponentLens")]
+#[component(lens)]
 struct MyComponent(f64);
 
 fn setup(mut commands: Commands) {
