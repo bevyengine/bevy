@@ -116,7 +116,7 @@ impl TextureAtlas {
                 ((tile_size.x + x_padding) * columns as f32) - x_padding,
                 ((tile_size.y + y_padding) * rows as f32) - y_padding,
             ),
-            sprites: sprites,
+            sprites,
             texture,
             texture_handles: None,
         }
