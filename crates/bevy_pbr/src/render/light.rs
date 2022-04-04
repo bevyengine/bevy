@@ -1,3 +1,15 @@
+//! Lights and shadows
+//!
+//! This module supports directional and point lights, and depth-buffer based shadow maps.
+//!
+//! Point light shadow maps use cubemaps with a left-handed, x-right, y-up, z-forward coordinate
+//! system, which is contrary to bevy's convention of right-handed, x-right, y-up, z-back for world
+//! coordinates. The reason for this exception is because cubemaps are implemented in graphics
+//! drivers and hardware using a left-handed coordinate system. Trying to force a right-handed
+//! convention only causes hacks, bugs, and confusion. Developers of this module (Rob Swain) have
+//! lost many hours trying to debug shadow cubemap bugs only to learn that cubemaps use left-handed
+//! coordinates. Let those hours not be in vain. :)
+
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
