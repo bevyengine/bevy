@@ -116,11 +116,10 @@ where
         self.just_released.remove(&input);
     }
 
-    /// Clear pressed, just pressed and just released information.
+    /// Clear just pressed and just released information.
     pub fn clear(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
-        self.pressed.clear();
     }
 
     /// List all inputs that are pressed.
@@ -167,23 +166,20 @@ mod test {
         assert!(input.pressed(DummyInput::Input1));
         assert!(input.pressed(DummyInput::Input2));
 
-        // Clear the `input`, removing pressed, just pressed and just released
+        // Clear the `input`, removing just pressed and just released
         input.clear();
+
+        // After calling clear, inputs should still be pressed but not be just_pressed
 
         // Check if they're marked "just pressed"
         assert!(!input.just_pressed(DummyInput::Input1));
         assert!(!input.just_pressed(DummyInput::Input2));
 
         // Check if they're marked as pressed
-        assert!(!input.pressed(DummyInput::Input1));
-        assert!(!input.pressed(DummyInput::Input2));
-
-        // Test pressing
-        input.press(DummyInput::Input1);
-        input.press(DummyInput::Input2);
+        assert!(input.pressed(DummyInput::Input1));
+        assert!(input.pressed(DummyInput::Input2));
 
         // Release the inputs and check state
-
         input.release(DummyInput::Input1);
         input.release(DummyInput::Input2);
 
