@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_math::{Size, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
-use bevy_sprite::{ExtractedSprite, ExtractedSprites, TextureAtlas};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::{WindowId, Windows};
 
@@ -116,6 +116,7 @@ pub fn extract_text2d_sprite(
                     image_handle_id: handle.id,
                     flip_x: false,
                     flip_y: false,
+                    anchor: Anchor::Center.as_vec(),
                 });
             }
         }
