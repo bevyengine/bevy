@@ -496,7 +496,7 @@ impl<'w, 's> Fetch<'w, 's> for EntityFetch {
     }
 }
 
-/// Equilavent to querying with `&T`, but ignores the default lens. Useful with generic code
+/// Equivalent to querying with `&T`, but ignores the default lens. Useful with generic code
 pub struct Raw<T: Component>(PhantomData<T>);
 
 impl<T: Component> WorldQuery for Raw<T> {
