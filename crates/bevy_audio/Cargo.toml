@@ -19,9 +19,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.6.0" }
 # other
 anyhow = "1.0.4"
 rodio = { version = "0.15", default-features = false }
-# we do not directly depend on cpal, but we require at least this version to be used by rodio
-# so that the winit feature of drag and drop can be enabled https://github.com/RustAudio/cpal/issues/572
-cpal = ">=0.13.4"
 parking_lot = "0.11.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
