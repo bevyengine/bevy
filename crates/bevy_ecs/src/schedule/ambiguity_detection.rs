@@ -16,12 +16,17 @@ use std::hash::Hash;
 ///
 /// Some ambiguities reported by the ambiguity checker may be warranted (to allow two systems to run
 /// without blocking each other) or spurious, as the exact combination of archetypes used may
-/// prevent them from ever conflicting during actual gameplay. You can resolve the warnings produced
-/// by the ambiguity checker by adding `.before` or `.after` to one of the conflicting systems
-/// referencing the other system to force a specific ordering.
+/// prevent them from ever conflicting during actual gameplay.
+/// You can resolve the warnings produced by the ambiguity checker by adding `.before` or `.after`
+/// to one of the conflicting systems referencing the other system to force a specific ordering.
+/// Alternatively, if you're confident the error is a false positive (and you don't need true determinism),
+/// you can explicitly ignore it using the `.ambiguous_with` method.
 ///
-/// The checker may report a system more times than the amount of constraints it would actually need
-/// to have unambiguous order with regards to a group of already-constrained systems.
+/// Note that the checker reports each pairwise ambiguity:
+/// typically, these can be resolved with fewer constraints than the number of ambiguities listed
+/// as transitive orderings will resolve ambiguities (e.g. A before B before C will resolve an ambiguity between A and C).
+/// It's generally more productive to pause and reflect on the underlying structure of your logic,
+/// rather than blindly resolving one warning at a time.
 ///
 /// By default, the value of this resource is set to `Warn`.
 pub enum ExecutionOrderAmbiguities {
