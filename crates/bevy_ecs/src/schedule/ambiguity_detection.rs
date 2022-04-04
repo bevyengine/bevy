@@ -415,7 +415,6 @@ impl SystemStage {
             let plural = if unresolved_count == 1 { "" } else { "s" };
             warning_string += &format!("One of your stages contains {unresolved_count} pair{plural} of systems with unknown order and conflicting data access. \n\
 				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n");
-            }
 
             if report_level == ExecutionOrderAmbiguities::Warn {
                 warning_string += "Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::WarnVerbose` for more details.";
@@ -736,7 +735,7 @@ mod tests {
     }
 
     // Tests for silencing and resolving ambiguities
-    
+
     #[test]
     fn before_and_after() {
         let mut world = World::new();
