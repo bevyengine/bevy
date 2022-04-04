@@ -707,7 +707,8 @@ pub fn prepare_lights(
         Mat4::perspective_infinite_reverse_lh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| Mat4::look_at_lh(Vec3::ZERO, *target, *up))
+        // NOTE: Inverse here as the Mat4::look_at_* seem to produce inverse matrices
+        .map(|CubeMapFace { target, up }| Mat4::look_at_lh(Vec3::ZERO, *target, *up).inverse())
         .collect::<Vec<_>>();
 
     global_light_meta.gpu_point_lights.clear();
@@ -879,8 +880,7 @@ pub fn prepare_lights(
                             width: point_light_shadow_map.size as u32,
                             height: point_light_shadow_map.size as u32,
                             position: light_position_world_lh,
-                            // Inverse here as the Mat4::look_at_* seem to produce inverse matrices
-                            view: view.inverse(),
+                            view,
                             projection: cube_face_projection,
                             near: POINT_LIGHT_NEAR_Z,
                             far: light.range,
@@ -919,7 +919,9 @@ pub fn prepare_lights(
 
             // NOTE: A directional light seems to have to have an eye position on the line along the direction of the light
             // through the world origin. I (Rob Swain) do not yet understand why it cannot be translated away from this.
-            let view = Mat4::look_at_rh(Vec3::ZERO, light.direction, Vec3::Y);
+            // NOTE: Inverse here as the Mat4::look_at_* seem to produce inverse matrices
+            let inverse_view = Mat4::look_at_rh(Vec3::ZERO, light.direction, Vec3::Y);
+            let view = inverse_view.inverse();
             // NOTE: This orthographic projection defines the volume within which shadows from a directional light can be cast
             let projection = light.projection;
 
@@ -933,8 +935,7 @@ pub fn prepare_lights(
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
                 color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
                 dir_to_light,
-                // NOTE: * view is correct, it should not be view.inverse() here
-                view_projection: projection * view,
+                view_projection: projection * inverse_view,
                 flags: flags.bits,
                 shadow_depth_bias: light.shadow_depth_bias,
                 shadow_normal_bias: light.shadow_normal_bias,
@@ -966,7 +967,7 @@ pub fn prepare_lights(
                             width: directional_light_shadow_map.size as u32,
                             height: directional_light_shadow_map.size as u32,
                             position: Vec3::ZERO,
-                            view: view.inverse(),
+                            view,
                             projection,
                             near: light.near,
                             far: light.far,
