@@ -7,7 +7,6 @@ use bevy_utils::tracing::{error, warn};
 use fixedbitset::FixedBitSet;
 use std::hash::Hash;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// Systems that access the same Component or Resource within the same stage
 /// risk an ambiguous order that could result in logic bugs, unless they have an
 /// explicit execution ordering constraint between them.
@@ -30,6 +29,7 @@ use std::hash::Hash;
 /// rather than blindly resolving one warning at a time.
 ///
 /// By default, the value of this resource is set to `Warn`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ExecutionOrderAmbiguities {
     /// Disables all checks for execution order ambiguities
     Allow,
