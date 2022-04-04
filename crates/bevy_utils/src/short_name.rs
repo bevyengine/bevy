@@ -1,19 +1,19 @@
 /// Collapses a name returned by [`std::any::type_name`] to remove its module path
-pub fn get_short_name(raw_name: &str) -> String {
+pub fn get_short_name(full_name: &str) -> String {
     // Generics result in nested paths within <..> blocks
     // Consider "bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"
     // To tackle this, we parse the string from left to right, collapsing as we go
     let mut index: usize = 0;
-    let end_of_string = raw_name.len();
+    let end_of_string = full_name.len();
     let mut parsed_name = String::new();
 
     while index < end_of_string {
-        let rest_of_string = raw_name.get(index..end_of_string).unwrap_or_default();
+        let rest_of_string = full_name.get(index..end_of_string).unwrap_or_default();
 
         // Collapse everything up to the next special character,
         // then skip over it
-        if let Some(special_character_index) =
-            rest_of_string.find(|c: char| (c == '<') || (c == ',') || (c == ' ') || (c == '>'))
+        if let Some(special_character_index) = rest_of_string
+            .find(|c: char| (c == '<') || (c == ',') || (c == ' ') || (c == '>') || (c == ';'))
         {
             let segment_to_collapse = rest_of_string
                 .get(0..special_character_index)
