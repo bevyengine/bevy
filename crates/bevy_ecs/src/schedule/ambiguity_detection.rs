@@ -444,7 +444,6 @@ impl SystemStage {
                 }
                 // Print an empty line to space out multiple stages nicely
                 warning_string.push('\n');
-                println!();
             }
 
             if report_level == ExecutionOrderAmbiguities::Deny
