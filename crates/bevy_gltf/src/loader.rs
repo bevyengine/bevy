@@ -522,7 +522,7 @@ fn node_name(node: &Node) -> Name {
     let name = node
         .name()
         .map(|s| s.to_string())
-        .unwrap_or_else(|| format!("bevy-gltf-node-{}", node.index()));
+        .unwrap_or_else(|| format!("GltfNode{}", node.index()));
     Name::new(name)
 }
 
