@@ -22,32 +22,44 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // a point light with shadows at the origin
+    // spawn the test scene, and particularly the light, offset from the origin to catch errors
+    // with the shadow mapping due to translations
     commands
-        .spawn_bundle(PointLightBundle {
-            point_light: PointLight {
-                intensity: 50.0,
-                shadows_enabled: true,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .with_children(|builder| {
-            builder
-                .spawn_bundle(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
-                    material: materials.add(Color::FUCHSIA.into()),
-                    transform: Transform::from_scale(Vec3::splat(0.05)),
+        .spawn_bundle((
+            Transform::from_translation(Vec3::ONE),
+            GlobalTransform::default(),
+        ))
+        .with_children(|parent| {
+            // a point light with shadows at the local origin
+            parent
+                .spawn_bundle(PointLightBundle {
+                    point_light: PointLight {
+                        intensity: 50.0,
+                        shadows_enabled: true,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 })
-                .insert(NotShadowCaster);
-        });
+                .with_children(|builder| {
+                    builder
+                        .spawn_bundle(PbrBundle {
+                            mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
+                            material: materials.add(Color::FUCHSIA.into()),
+                            transform: Transform::from_scale(Vec3::splat(0.05)),
+                            ..Default::default()
+                        })
+                        .insert(NotShadowCaster);
+                });
 
-    commands.spawn_scene(asset_server.load("models/left-handed-cubemap-test.gltf#Scene0"));
+            parent.spawn_scene(asset_server.load("models/left-handed-cubemap-test.gltf#Scene0"));
+        });
 
     // camera
     commands
-        .spawn_bundle(PerspectiveCameraBundle::default())
+        .spawn_bundle(PerspectiveCameraBundle {
+            transform: Transform::from_translation(0.9 * Vec3::ONE),
+            ..default()
+        })
         .insert(CameraController::default());
 
     // UI displaying the look direction as text in the top-left of the screen
