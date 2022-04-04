@@ -85,17 +85,5 @@ macro_rules! define_label {
                 self.dyn_clone()
             }
         }
-
-        impl $label_trait_name for ::std::borrow::Cow<'static, str> {
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                Box::new(self.clone())
-            }
-        }
-
-        impl $label_trait_name for &'static str {
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                Box::new(<&str>::clone(self))
-            }
-        }
     };
 }
