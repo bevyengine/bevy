@@ -473,11 +473,7 @@ async fn load_gltf<'a, 'b>(
             // for each node root in a scene, check if it's the root of an animation
             // if it is, add the AnimationPlayer component
             for node in scene.nodes() {
-                if animation_roots
-                    .iter()
-                    .find(|name| name == &&node_name(&node))
-                    .is_some()
-                {
+                if animation_roots.iter().any(|name| name == &node_name(&node)) {
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
                         .insert(AnimationPlayer::default());
