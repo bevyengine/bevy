@@ -129,7 +129,7 @@ impl TextureAtlas {
     ///
     /// * `rect` - The section of the atlas that contains the texture to be added,
     /// from the top-left corner of the texture to the bottom-right corner
-    pub fn add_texture(&mut self, rect: Rect) -> usize {
+    pub fn add_sprite(&mut self, rect: Rect) -> usize {
         self.sprites.push(rect);
         self.sprites.len() - 1
     }
