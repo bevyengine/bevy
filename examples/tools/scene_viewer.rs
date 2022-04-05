@@ -252,7 +252,7 @@ fn camera_spawn_check(
 
         if !scene_handle.has_camera {
             let bundle = if let Some((transform, camera)) = cameras_3d.iter().next() {
-                let mut transform: Transform = transform.clone().into();
+                let mut transform: Transform = (*transform).into();
                 let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
                 transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
                 PerspectiveCameraBundle {
