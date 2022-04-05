@@ -40,7 +40,10 @@ Controls:
             brightness: 1.0 / 5.0f32,
         })
         .insert_resource(AssetServerSettings {
+            #[cfg(not(target_family = "wasm"))]
             asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap(),
+            #[cfg(target_family = "wasm")]
+            asset_folder: ".".into(),
             watch_for_changes: true,
         })
         .insert_resource(WindowDescriptor {
