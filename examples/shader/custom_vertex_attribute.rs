@@ -137,6 +137,7 @@ impl Material for CustomMaterial {
     }
 
     fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
     ) -> Result<(), SpecializedMeshPipelineError> {

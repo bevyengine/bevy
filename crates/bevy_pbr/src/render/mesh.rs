@@ -560,6 +560,18 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
+        // TODO: consider exposing this in shaders in a more generally useful way, such as:
+        // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
+        // /* use storage buffers here */
+        // # elif
+        // /* use uniforms here */
+        if !matches!(
+            self.clustered_forward_buffer_binding_type,
+            BufferBindingType::Storage { .. }
+        ) {
+            shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
+        }
+
         let mut bind_group_layout = vec![self.view_layout.clone()];
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)

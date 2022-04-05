@@ -1,7 +1,4 @@
-use crate::{
-    AlphaMode, MaterialPipeline, SpecializedMaterial, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    PBR_SHADER_HANDLE,
-};
+use crate::{AlphaMode, MaterialPipeline, SpecializedMaterial, PBR_SHADER_HANDLE};
 use bevy_asset::{AssetServer, Handle};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::Vec4;
@@ -360,28 +357,20 @@ impl RenderAsset for StandardMaterial {
 pub struct StandardMaterialKey {
     normal_map: bool,
     cull_mode: Option<Face>,
-    use_storage_buffers: bool,
 }
 
 impl SpecializedMaterial for StandardMaterial {
     type Key = StandardMaterialKey;
 
-    fn key(
-        render_device: &RenderDevice,
-        render_asset: &<Self as RenderAsset>::PreparedAsset,
-    ) -> Self::Key {
+    fn key(render_asset: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {
         StandardMaterialKey {
             normal_map: render_asset.has_normal_map,
             cull_mode: render_asset.cull_mode,
-            use_storage_buffers: matches!(
-                render_device
-                    .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
-                BufferBindingType::Storage { .. }
-            ),
         }
     }
 
     fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         key: Self::Key,
         _layout: &MeshVertexBufferLayout,
@@ -395,14 +384,6 @@ impl SpecializedMaterial for StandardMaterial {
                 .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
         }
         descriptor.primitive.cull_mode = key.cull_mode;
-        if !key.use_storage_buffers {
-            descriptor
-                .fragment
-                .as_mut()
-                .unwrap()
-                .shader_defs
-                .push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
-        }
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
