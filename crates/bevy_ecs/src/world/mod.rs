@@ -34,6 +34,12 @@ pub use identifier::WorldId;
 /// component type. Entity components can be created, updated, removed, and queried using a given
 /// [World].
 ///
+/// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
+/// consider using [`SystemState`](crate::system::SystemState).
+///
+/// To mutate different parts of the world simultaneously,
+/// use [`World::resource_scope`] or [`SystemState`](crate::system::SystemState).
+///
 /// # Resources
 ///
 /// Worlds can also store *resources*, which are unique instances of a given type that don't
@@ -129,8 +135,12 @@ impl World {
     }
 
     /// Retrieves this world's [Entities] collection mutably
+    ///
+    /// # Safety
+    /// Mutable reference must not be used to put the [`Entities`] data
+    /// in an invalid state for this [`World`]
     #[inline]
-    pub fn entities_mut(&mut self) -> &mut Entities {
+    pub unsafe fn entities_mut(&mut self) -> &mut Entities {
         &mut self.entities
     }
 
@@ -144,12 +154,6 @@ impl World {
     #[inline]
     pub fn components(&self) -> &Components {
         &self.components
-    }
-
-    /// Retrieves a mutable reference to this world's [Components] collection
-    #[inline]
-    pub fn components_mut(&mut self) -> &mut Components {
-        &mut self.components
     }
 
     /// Retrieves this world's [Storages] collection
@@ -220,8 +224,8 @@ impl World {
     /// let entity = world.spawn()
     ///     .insert(Position { x: 0.0, y: 0.0 })
     ///     .id();
-    ///
-    /// let mut position = world.entity_mut(entity).get_mut::<Position>().unwrap();
+    /// let mut entity_mut = world.entity_mut(entity);
+    /// let mut position = entity_mut.get_mut::<Position>().unwrap();
     /// position.x = 1.0;
     /// ```
     #[inline]
@@ -433,7 +437,8 @@ impl World {
     /// ```
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        self.get_entity_mut(entity)?.get_mut()
+        // SAFE: lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_entity_mut(entity)?.get_unchecked_mut::<T>() }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
@@ -601,9 +606,6 @@ impl World {
     /// and those default values will be here instead.
     #[inline]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        // PERF: We could avoid double hashing here, since the `from_world` call is guaranteed
-        // not to modify the map. However, we would need to be borrowing resources both
-        // mutably and immutably, so we would need to be extremely certain this is correct
         if !self.contains_resource::<R>() {
             let resource = R::from_world(self);
             self.insert_resource(resource);
@@ -631,9 +633,6 @@ impl World {
     /// and those default values will be here instead.
     #[inline]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
-        // PERF: We could avoid double hashing here, since the `from_world` call is guaranteed
-        // not to modify the map. However, we would need to be borrowing resources both
-        // mutably and immutably, so we would need to be extremely certain this is correct
         if !self.contains_resource::<R>() {
             let resource = R::from_world(self);
             self.insert_non_send_resource(resource);
@@ -699,13 +698,6 @@ impl World {
         self.get_populated_resource_column(component_id).is_some()
     }
 
-    /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None]
-    #[inline]
-    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        unsafe { self.get_resource_with_id(component_id) }
-    }
-
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         let component_id =
             if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
@@ -740,7 +732,69 @@ impl World {
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
 
-    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource`](World::get_resource) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource<R: Resource>(&self) -> &R {
+        match self.get_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        match self.get_resource_mut() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        // SAFE: unique world access
+        unsafe { self.get_resource_with_id(component_id) }
+    }
+
+    pub fn get_many_res<'w, MR: ManyRes<'w>>(&'w self) -> MR::Item {
+        MR::get_resources(self)
+    }
+    pub fn get_many_res_mut<'w, MR: ManyResMut<'w>>(&'w mut self) -> MR::Item {
+        MR::get_resources_mut(self)
+    }
+    /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
@@ -748,7 +802,7 @@ impl World {
     }
 
     // PERF: optimize this to avoid redundant lookups
-    /// Gets a resource of type `T` if it exists,
+    /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
     #[inline]
     pub fn get_resource_or_insert_with<R: Resource>(
@@ -758,7 +812,7 @@ impl World {
         if !self.contains_resource::<R>() {
             self.insert_resource(func());
         }
-        self.get_resource_mut().unwrap()
+        self.resource_mut()
     }
 
     /// Gets a mutable reference to the resource of the given type, if it exists
@@ -771,6 +825,46 @@ impl World {
     pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         self.get_resource_unchecked_mut_with_id(component_id)
+    }
+
+    /// Gets an immutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn non_send_resource<R: 'static>(&self) -> &R {
+        match self.get_non_send_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        match self.get_non_send_resource_mut() {
+            Some(x) => x,
+            None => panic!(
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
     }
 
     /// Gets a reference to the non-send resource of the given type, if it exists.
@@ -897,24 +991,21 @@ impl World {
                     };
                 }
                 AllocAtWithoutReplacement::DidNotExist => {
-                    match spawn_or_insert {
-                        SpawnOrInsert::Spawn(ref mut spawner) => {
-                            // SAFE: `entity` is allocated (but non existent), bundle matches inserter
-                            unsafe { spawner.spawn_non_existent(entity, bundle) };
-                        }
-                        _ => {
-                            let mut spawner = bundle_info.get_bundle_spawner(
-                                &mut self.entities,
-                                &mut self.archetypes,
-                                &mut self.components,
-                                &mut self.storages,
-                                change_tick,
-                            );
-                            // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { spawner.spawn_non_existent(entity, bundle) };
-                            spawn_or_insert = SpawnOrInsert::Spawn(spawner);
-                        }
-                    };
+                    if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
+                        // SAFE: `entity` is allocated (but non existent), bundle matches inserter
+                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                    } else {
+                        let mut spawner = bundle_info.get_bundle_spawner(
+                            &mut self.entities,
+                            &mut self.archetypes,
+                            &mut self.components,
+                            &mut self.storages,
+                            change_tick,
+                        );
+                        // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                        spawn_or_insert = SpawnOrInsert::Spawn(spawner);
+                    }
                 }
                 AllocAtWithoutReplacement::ExistsWithWrongGeneration => {
                     invalid_entities.push(entity);
@@ -929,9 +1020,12 @@ impl World {
         }
     }
 
-    /// Temporarily removes the requested resource from this [World], then re-adds it before
-    /// returning. This enables safe mutable access to a resource while still providing mutable
-    /// world access
+    /// Temporarily removes the requested resource from this [`World`], then re-adds it before returning.
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    ///
+    /// # Example
     /// ```
     /// use bevy_ecs::{component::Component, world::{World, Mut}};
     /// #[derive(Component)]
@@ -959,9 +1053,11 @@ impl World {
             let column = unique_components.get_mut(component_id).unwrap_or_else(|| {
                 panic!("resource does not exist: {}", std::any::type_name::<R>())
             });
-            if column.is_empty() {
-                panic!("resource does not exist: {}", std::any::type_name::<R>());
-            }
+            assert!(
+                !column.is_empty(),
+                "resource does not exist: {}",
+                std::any::type_name::<R>()
+            );
             // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of
             // the ptr value / drop is called when R is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
@@ -1126,12 +1222,11 @@ impl World {
     }
 
     pub(crate) fn validate_non_send_access<T: 'static>(&self) {
-        if !self.main_thread_validator.is_main_thread() {
-            panic!(
-                "attempted to access NonSend resource {} off of the main thread",
-                std::any::type_name::<T>()
-            );
-        }
+        assert!(
+            self.main_thread_validator.is_main_thread(),
+            "attempted to access NonSend resource {} off of the main thread",
+            std::any::type_name::<T>(),
+        );
     }
 
     /// Empties queued entities and adds them to the empty [Archetype](crate::archetype::Archetype).
@@ -1244,6 +1339,35 @@ impl Default for MainThreadValidator {
     }
 }
 
+pub trait ManyRes<'w> {
+    type Item;
+
+    fn get_resources(world: &'w World) -> Self::Item;
+}
+
+pub trait ManyResMut<'w> {
+    type Item;
+    fn get_resources_mut(world: &'w mut World) -> Self::Item;
+}
+
+macro_rules! impl_tuple_res {
+    ($($name: ident),*) => {
+        impl<'w, $($name: Resource,)*> ManyRes<'w> for ($($name,)*){
+            type Item = ($(Option<&'w $name>,)*);
+            fn get_resources(world: &'w World) -> Self::Item {
+                ($(world.get_resource::<$name>(),)*)
+            }
+        }
+        impl<'w, $($name: Resource,)*> ManyResMut<'w> for ($($name,)*){
+            type Item = ($(Option<Mut<'w, $name>>,)*);
+            fn get_resources_mut(world: &'w mut World) -> Self::Item {
+                unsafe{ ($(world.get_resource_unchecked_mut::<$name>(),)*) }
+            }
+        }
+    }
+}
+
+crate::all_tuples!(impl_tuple_res, 0, 15, R);
 #[cfg(test)]
 mod tests {
     use super::World;
@@ -1374,5 +1498,44 @@ mod tests {
                 DropLogItem::Drop(1)
             ]
         );
+    }
+
+    #[test]
+    fn get_many_res() {
+        #[derive(Debug, PartialEq)]
+        struct Res1(i32);
+        #[derive(Debug, PartialEq)]
+        struct Res2(bool);
+        let mut world = World::default();
+        world.insert_resource(Res1(42));
+        world.insert_resource(Res2(false));
+
+        let (r1, r2) = world.get_many_res::<(Res1, Res2)>();
+
+        let r1 = r1.unwrap();
+        let r2 = r2.unwrap();
+        assert_eq!(r1, &Res1(42));
+        assert_eq!(r2, &Res2(false));
+    }
+
+    #[test]
+    fn get_many_res_mut() {
+        #[derive(Debug, PartialEq)]
+        struct Res1(i32);
+        #[derive(Debug, PartialEq)]
+        struct Res2(bool);
+        let mut world = World::default();
+        world.insert_resource(Res1(42));
+        world.insert_resource(Res2(false));
+
+        assert_eq!(world.resource::<Res1>(), &Res1(42));
+        assert_eq!(world.resource::<Res2>(), &Res2(false));
+
+        let (r1, r2) = world.get_many_res_mut::<(Res1, Res2)>();
+        r1.unwrap().0 = 1;
+        r2.unwrap().0 = true;
+
+        assert_eq!(world.resource::<Res1>(), &Res1(1));
+        assert_eq!(world.resource::<Res2>(), &Res2(true));
     }
 }
