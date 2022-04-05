@@ -31,7 +31,10 @@ fn main() {
         })
         // or use variables outside a closure
         .add_system(move || {
-            info!("Hello from an inlined closure that captured the 'outside_variable'! {:?}", outside_variable);
+            info!(
+                "Hello from an inlined closure that captured the 'outside_variable'! {:?}",
+                outside_variable
+            );
             // you can use outside_variable, or any other variables inside this closure.
             // there states will be saved.
         })
