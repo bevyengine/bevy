@@ -3,7 +3,6 @@ mod spawn_batch;
 mod world_cell;
 
 pub use crate::change_detection::Mut;
-use bevy_ecs_macros::all_tuples;
 pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
