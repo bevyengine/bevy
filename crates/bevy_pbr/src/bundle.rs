@@ -71,6 +71,8 @@ pub struct PointLightBundle {
     pub cubemap_frusta: CubemapFrusta,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    /// Enables or disables the light
+    pub visibility: Visibility,
 }
 
 /// A component bundle for [`DirectionalLight`] entities.
@@ -81,4 +83,6 @@ pub struct DirectionalLightBundle {
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    /// Enables or disables the light
+    pub visibility: Visibility,
 }

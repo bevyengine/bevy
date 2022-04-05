@@ -39,6 +39,7 @@ git checkout v0.4.0
 - [Cross-Platform Examples](#cross-platform-examples)
   - [2D Rendering](#2d-rendering)
   - [3D Rendering](#3d-rendering)
+  - [Animation](#animation)
   - [Application](#application)
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
@@ -52,6 +53,7 @@ git checkout v0.4.0
   - [Shaders](#shaders)
   - [Tests](#tests)
   - [Tools](#tools)
+  - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
 - [Platform-Specific Examples](#platform-specific-examples)
@@ -65,6 +67,7 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
+- [Stress Tests](#stress-tests)
 
 # The Bare Minimum
 
@@ -107,12 +110,21 @@ Example | File | Description
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 `pbr` | [`3d/pbr.rs`](./3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+`render_to_texture` | [`3d/render_to_texture.rs`](./3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 `shadow_caster_receiver` | [`3d/shadow_caster_receiver.rs`](./3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 `shadow_biases` | [`3d/shadow_biases.rs`](./3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 `spherical_area_lights` | [`3d/spherical_area_lights.rs`](./3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior.
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
+
+## Animation
+
+Example | File | Description
+--- | --- | ---
+`animated_fox` | [`animation/animated_fox.rs`](./animation/animated_fox.rs) | Plays an animation from a skinned glTF.
+`custom_skinned_mesh` | [`animation/custom_skinned_mesh.rs`](./animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code.
+`gltf_skinned_mesh` | [`animation/gltf_skinned_mesh.rs`](./animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file.
 
 ## Application
 
@@ -152,6 +164,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `audio` | [`audio/audio.rs`](./audio/audio.rs) | Shows how to load and play an audio file
+`audio_control` | [`audio/audio_control.rs`](./audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 
 ## Diagnostics
 
@@ -166,6 +179,7 @@ Example | File | Description
 --- | --- | ---
 `ecs_guide` | [`ecs/ecs_guide.rs`](./ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 `component_change_detection` | [`ecs/component_change_detection.rs`](./ecs/component_change_detection.rs) | Change detection on components
+`custom_query_param` | [`ecs/custom_query_param.rs`](./ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 `event` | [`ecs/event.rs`](./ecs/event.rs) | Illustrates event creation, activation, and reception
 `fixed_timestep` | [`ecs/fixed_timestep.rs`](./ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 `generic_system` | [`ecs/generic_system.rs`](./ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
@@ -200,6 +214,7 @@ Example | File | Description
 `keyboard_modifiers` | [`input/keyboard_modifiers.rs`](./input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift)
 `mouse_input` | [`input/mouse_input.rs`](./input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 `mouse_input_events` | [`input/mouse_input_events.rs`](./input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
+`mouse_grab` | [`input/mouse_grab.rs`](./input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen
 `touch_input` | [`input/touch_input.rs`](./input/touch_input.rs) | Displays touch presses, releases, and cancels
 `touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_events.rs) | Prints out all touch inputs
 
@@ -222,7 +237,9 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
+`custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | Illustrates creating a custom shader material that reads a mesh's custom vertex attribute.
 `shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
+`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A custom shader sampling a texture with view-independent UV coordinates
 `shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A custom shader using the GLSL shading language.
 `shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A custom shader showing off rendering a mesh multiple times in one draw call.
 `animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to pass changing data like the time since startup into a shader.
@@ -240,6 +257,17 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+`scene_viewer` | [`tools/scene_viewer.rs`](./tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer -- /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory.
+
+## Transforms
+
+Example | File | Description
+--- | --- | ---
+`global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
+`3d_rotation` | [`transforms/3d_rotation.rs`](./transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
+`scale` | [`transforms/scale.rs`](./transforms/scale.rs) | Illustrates how to scale an object in each direction
+`transform` | [`transforms/transfrom.rs`](./transforms/transform.rs) | Shows multiple transformations of objects
+`translation` | [`transforms/translation.rs`](./transforms/translation.rs) | Illustrates how to move an object along an axis
 
 ## UI (User Interface)
 
@@ -256,6 +284,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
+`low_power` | [`window/low_power.rs`](./window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 `multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 `transparent_window` | [`window/transparent_window.rs`](./window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
@@ -401,3 +430,17 @@ ruby -run -ehttpd examples/wasm
 To load assets, they need to be available in the folder examples/wasm/assets. Cloning this
 repository will set it up as a symlink on Linux and macOS, but you will need to manually move
 the assets on Windows.
+
+# Stress Tests
+
+These examples are used to test the performance and stability of various parts of the engine in an isolated way.
+
+Due to the focus on performance it's recommended to run the stress tests in release mode:
+
+```sh
+cargo run --release --example <example name>
+```
+
+Example | File | Description
+--- | --- | ---
+`transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance

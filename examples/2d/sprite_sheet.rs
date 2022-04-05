@@ -8,7 +8,7 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
+#[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
 
 fn animate_sprite(
@@ -21,8 +21,8 @@ fn animate_sprite(
     )>,
 ) {
     for (mut timer, mut sprite, texture_atlas_handle) in query.iter_mut() {
-        timer.0.tick(time.delta());
-        if timer.0.just_finished() {
+        timer.tick(time.delta());
+        if timer.just_finished() {
             let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
             sprite.index = (sprite.index + 1) % texture_atlas.textures.len();
         }
@@ -42,7 +42,7 @@ fn setup(
         .spawn_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
             transform: Transform::from_scale(Vec3::splat(6.0)),
-            ..Default::default()
+            ..default()
         })
         .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
 }

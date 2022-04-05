@@ -6,7 +6,7 @@ Bevy has built-in [tracing](https://github.com/tokio-rs/tracing) spans to make i
 
 ### Backend: trace_chrome
 
-`cargo run --release --features trace_chrome`
+`cargo run --release --features bevy/trace_chrome`
 
 After running your app a `json` file in the "chrome tracing format" will be produced. You can open this file in your browser using <https://ui.perfetto.dev>. It will look something like this (make sure you expand `Process 1`):
 
@@ -17,11 +17,20 @@ After running your app a `json` file in the "chrome tracing format" will be prod
 Add spans to your app like this (these are in `bevy::prelude::*` and `bevy::log::*`, just like the normal logging macros).
 
 ```rust
+{
+  // creates a span and starts the timer 
+  let my_span = info_span!("span_name", name = "span_name").entered();
+  do_something_here();
+} // my_span is dropped here ... this stops the timer
 
+
+// You can also "manually" enter the span if you need more control over when the timer starts
+// Prefer the previous, simpler syntax unless you need the extra control.
 let my_span = info_span!("span_name", name = "span_name");
 {
   // starts the span's timer 
   let guard = my_span.enter();
+  do_something_here();
 } // guard is dropped here ... this stops the timer
 ```
 

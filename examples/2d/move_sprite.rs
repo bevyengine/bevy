@@ -20,7 +20,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn_bundle(SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
             transform: Transform::from_xyz(100., 0., 0.),
-            ..Default::default()
+            ..default()
         })
         .insert(Direction::Up);
 }
