@@ -1354,12 +1354,14 @@ macro_rules! impl_tuple_res {
     ($($name: ident),*) => {
         impl<'w, $($name: Resource,)*> ManyRes<'w> for ($($name,)*){
             type Item = ($(Option<&'w $name>,)*);
+            #[allow(unused_variables, unused_unsafe, clippy::unused_unit)]
             fn get_resources(world: &'w World) -> Self::Item {
                 ($(world.get_resource::<$name>(),)*)
             }
         }
         impl<'w, $($name: Resource,)*> ManyResMut<'w> for ($($name,)*){
             type Item = ($(Option<Mut<'w, $name>>,)*);
+            #[allow(unused_variables, unused_unsafe, clippy::unused_unit)]
             fn get_resources_mut(world: &'w mut World) -> Self::Item {
                 unsafe{ ($(world.get_resource_unchecked_mut::<$name>(),)*) }
             }
