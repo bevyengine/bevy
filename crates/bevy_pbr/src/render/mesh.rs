@@ -259,22 +259,18 @@ pub struct MeshPipeline {
     pub skinned_mesh_layout: BindGroupLayout,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
+    pub clustered_forward_buffer_binding_type: BufferBindingType,
 }
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let (cluster_buffer_binding_type, cluster_min_binding_size) =
-            if SupportedBindingTypes::from_device(
-                render_device,
-                CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-            )
-            .contains(SupportedBindingTypes::STORAGE)
-            {
-                (BufferBindingType::Storage { read_only: true }, None)
-            } else {
-                (BufferBindingType::Uniform, BufferSize::new(16384))
-            };
+        let clustered_forward_buffer_binding_type = render_device
+            .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+        let cluster_min_binding_size = match clustered_forward_buffer_binding_type {
+            BufferBindingType::Storage { .. } => None,
+            BufferBindingType::Uniform => BufferSize::new(16384),
+        };
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -346,7 +342,7 @@ impl FromWorld for MeshPipeline {
                     binding: 6,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
-                        ty: cluster_buffer_binding_type,
+                        ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
                         // NOTE (when no storage buffers): Static size for uniform buffers.
                         // GpuPointLight has a padded size of 64 bytes, so 16384 / 64 = 256
@@ -360,7 +356,7 @@ impl FromWorld for MeshPipeline {
                     binding: 7,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
-                        ty: cluster_buffer_binding_type,
+                        ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
                         // NOTE (when no storage buffers): With 256 point lights max, indices
                         // need 8 bits so use u8
@@ -373,7 +369,7 @@ impl FromWorld for MeshPipeline {
                     binding: 8,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
-                        ty: cluster_buffer_binding_type,
+                        ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
                         // NOTE (when no storage buffers): The offset needs to address 16384
                         // indices, which needs 14 bits. The count can be at most all 256 lights
@@ -472,6 +468,7 @@ impl FromWorld for MeshPipeline {
             view_layout,
             mesh_layout,
             skinned_mesh_layout,
+            clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
         }
     }

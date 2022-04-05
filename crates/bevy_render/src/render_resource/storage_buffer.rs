@@ -1,37 +1,9 @@
-use std::num::NonZeroU64;
-
+use super::Buffer;
+use crate::renderer::{RenderDevice, RenderQueue};
 use bevy_crevice::std430::{self, AsStd430, Std430};
 use bevy_utils::tracing::warn;
+use std::num::NonZeroU64;
 use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsages};
-
-use crate::renderer::{RenderDevice, RenderQueue};
-
-use super::Buffer;
-
-bitflags::bitflags! {
-    #[repr(transparent)]
-    pub struct SupportedBindingTypes: u32 {
-        const UNIFORM         = (1 << 0);
-        const STORAGE         = (1 << 1);
-        const NONE            = 0;
-        const UNINITIALIZED   = 0xFFFF;
-    }
-}
-
-impl SupportedBindingTypes {
-    pub fn from_device(
-        render_device: &RenderDevice,
-        required_binding_count_per_stage: u32,
-    ) -> SupportedBindingTypes {
-        let mut supported_binding_types = SupportedBindingTypes::UNIFORM;
-        if render_device.limits().max_storage_buffers_per_shader_stage
-            >= required_binding_count_per_stage
-        {
-            supported_binding_types |= SupportedBindingTypes::STORAGE;
-        }
-        supported_binding_types
-    }
-}
 
 /// A helper for a storage buffer binding with a body, or a variable-sized array, or both.
 pub struct StorageBuffer<T: AsStd430, U: AsStd430 = ()> {

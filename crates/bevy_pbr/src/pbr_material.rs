@@ -373,11 +373,11 @@ impl SpecializedMaterial for StandardMaterial {
         StandardMaterialKey {
             normal_map: render_asset.has_normal_map,
             cull_mode: render_asset.cull_mode,
-            use_storage_buffers: SupportedBindingTypes::from_device(
-                render_device,
-                CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-            )
-            .contains(SupportedBindingTypes::STORAGE),
+            use_storage_buffers: matches!(
+                render_device
+                    .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
+                BufferBindingType::Storage { .. }
+            ),
         }
     }
 

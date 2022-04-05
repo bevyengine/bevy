@@ -102,11 +102,10 @@ pub enum GpuPointLights {
 }
 
 impl GpuPointLights {
-    fn new(supported_binding_types: SupportedBindingTypes) -> Self {
-        if supported_binding_types.contains(SupportedBindingTypes::STORAGE) {
-            Self::storage()
-        } else {
-            Self::uniform()
+    fn new(buffer_binding_type: BufferBindingType) -> Self {
+        match buffer_binding_type {
+            BufferBindingType::Storage { .. } => Self::storage(),
+            BufferBindingType::Uniform => Self::uniform(),
         }
     }
 
@@ -620,10 +619,20 @@ pub struct GlobalLightMeta {
     pub entity_to_index: HashMap<Entity, usize>,
 }
 
+impl FromWorld for GlobalLightMeta {
+    fn from_world(world: &mut World) -> Self {
+        Self::new(
+            world
+                .resource::<RenderDevice>()
+                .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
+        )
+    }
+}
+
 impl GlobalLightMeta {
-    pub fn new(supported_binding_types: SupportedBindingTypes) -> Self {
+    pub fn new(buffer_binding_type: BufferBindingType) -> Self {
         Self {
-            gpu_point_lights: GpuPointLights::new(supported_binding_types),
+            gpu_point_lights: GpuPointLights::new(buffer_binding_type),
             entity_to_index: HashMap::default(),
         }
     }
@@ -1038,11 +1047,10 @@ enum ViewClusterBuffers {
 }
 
 impl ViewClusterBuffers {
-    fn new(supported_binding_types: SupportedBindingTypes) -> Self {
-        if supported_binding_types.contains(SupportedBindingTypes::STORAGE) {
-            Self::storage()
-        } else {
-            Self::uniform()
+    fn new(buffer_binding_type: BufferBindingType) -> Self {
+        match buffer_binding_type {
+            BufferBindingType::Storage { .. } => Self::storage(),
+            BufferBindingType::Uniform => Self::uniform(),
         }
     }
 
@@ -1073,11 +1081,11 @@ impl ViewClusterBindings {
     const MAX_UNIFORM_ITEMS: usize = Self::MAX_OFFSETS / 4;
     pub const MAX_INDICES: usize = 16384;
 
-    pub fn new(supported_binding_types: SupportedBindingTypes) -> Self {
+    pub fn new(buffer_binding_type: BufferBindingType) -> Self {
         Self {
             n_indices: 0,
             n_offsets: 0,
-            buffers: ViewClusterBuffers::new(supported_binding_types),
+            buffers: ViewClusterBuffers::new(buffer_binding_type),
         }
     }
 
@@ -1209,6 +1217,7 @@ pub fn prepare_clusters(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    mesh_pipeline: Res<MeshPipeline>,
     global_light_meta: Res<GlobalLightMeta>,
     views: Query<
         (
@@ -1220,11 +1229,13 @@ pub fn prepare_clusters(
     >,
 ) {
     let render_device = render_device.into_inner();
-    let supported_binding_types =
-        SupportedBindingTypes::from_device(render_device, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-    let supports_storage_buffers = supported_binding_types.contains(SupportedBindingTypes::STORAGE);
+    let supports_storage_buffers = matches!(
+        mesh_pipeline.clustered_forward_buffer_binding_type,
+        BufferBindingType::Storage { .. }
+    );
     for (entity, cluster_config, extracted_clusters) in views.iter() {
-        let mut view_clusters_bindings = ViewClusterBindings::new(supported_binding_types);
+        let mut view_clusters_bindings =
+            ViewClusterBindings::new(mesh_pipeline.clustered_forward_buffer_binding_type);
         view_clusters_bindings.reserve_and_clear();
 
         let mut indices_full = false;

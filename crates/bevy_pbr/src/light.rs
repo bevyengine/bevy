@@ -9,7 +9,7 @@ use bevy_render::{
     color::Color,
     prelude::Image,
     primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
-    render_resource::SupportedBindingTypes,
+    render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
@@ -730,11 +730,12 @@ pub(crate) fn assign_lights_to_clusters(
             ),
     );
 
-    let supports_storage_buffers = SupportedBindingTypes::from_device(
-        render_device.into_inner(),
-        CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    )
-    .contains(SupportedBindingTypes::STORAGE);
+    let clustered_forward_buffer_binding_type =
+        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+    let supports_storage_buffers = matches!(
+        clustered_forward_buffer_binding_type,
+        BufferBindingType::Storage { .. }
+    );
     if lights.len() > MAX_POINT_LIGHTS && !supports_storage_buffers {
         lights.sort_by(|light_1, light_2| {
             point_light_order(

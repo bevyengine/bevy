@@ -40,8 +40,7 @@ use bevy_render::{
     prelude::Color,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
-    render_resource::{Shader, SpecializedMeshPipelines, SupportedBindingTypes},
-    renderer::RenderDevice,
+    render_resource::{Shader, SpecializedMeshPipelines},
     view::VisibilitySystems,
     RenderApp, RenderStage,
 };
@@ -127,11 +126,6 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        let supported_binding_types = SupportedBindingTypes::from_device(
-            app.world.resource::<RenderDevice>(),
-            CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-        );
-
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
@@ -170,7 +164,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<ShadowPipeline>()
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()
-            .insert_resource(GlobalLightMeta::new(supported_binding_types))
+            .init_resource::<GlobalLightMeta>()
             .init_resource::<SpecializedMeshPipelines<ShadowPipeline>>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
