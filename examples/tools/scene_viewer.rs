@@ -54,7 +54,7 @@ Controls:
         .add_system(check_camera_controller)
         .add_system(update_lights)
         .add_system(camera_controller.after(check_camera_controller))
-        .add_system(scene_dropped)
+        .add_system(scene_drop)
         .add_system(start_animation)
         .add_system(keyboard_animation_control)
         .run();
@@ -84,13 +84,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-fn scene_dropped(
+fn scene_drop(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut drop_events: EventReader<FileDragAndDrop>,
 ) {
     for event in drop_events.iter() {
-        println!("Event happened: {event:?}");
         if let FileDragAndDrop::DroppedFile { path_buf, .. } = event {
             info!("Loading {}", path_buf.to_str().unwrap());
 
