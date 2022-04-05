@@ -40,7 +40,7 @@ Controls:
             brightness: 1.0 / 5.0f32,
         })
         .insert_resource(AssetServerSettings {
-            asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap(),
+            asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
             watch_for_changes: true,
         })
         .insert_resource(WindowDescriptor {
