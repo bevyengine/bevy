@@ -635,9 +635,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         let cluster_overlay_alpha = 0.1;
         let max_light_complexity_per_cluster = 64.0;
         output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
-            + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count));
+            + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count[1]));
         output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
-            + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count)));
+            + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count[1])));
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
         // NOTE: Visualizes the cluster to which the fragment belongs
