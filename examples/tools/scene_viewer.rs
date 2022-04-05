@@ -252,9 +252,12 @@ fn camera_spawn_check(
 
         if !scene_handle.has_camera {
             let bundle = if let Some((transform, camera)) = cameras_3d.iter().next() {
+                let mut transform: Transform = transform.clone().into();
+                let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
+                transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
                 PerspectiveCameraBundle {
                     camera: camera.clone(),
-                    transform: transform.clone().into(),
+                    transform,
                     ..PerspectiveCameraBundle::new_3d()
                 }
             } else {
@@ -435,7 +438,7 @@ fn camera_controller(
 
     if let Ok((mut transform, mut options)) = query.get_single_mut() {
         if !options.initialized {
-            let (_roll, yaw, pitch) = transform.rotation.to_euler(EulerRot::ZYX);
+            let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
             options.yaw = yaw;
             options.pitch = pitch;
             options.initialized = true;
