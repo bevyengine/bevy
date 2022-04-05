@@ -192,7 +192,7 @@ impl SkinnedMeshJoints {
         let skin_joints = skin.joints.iter();
         let mut temp = Vec::<Mat4>::with_capacity(bindposes.len().min(MAX_JOINTS));
         for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(MAX_JOINTS) {
-            temp.push(joints.get(*joint).ok()?.compute_matrix() * *inverse_bindpose);
+            temp.push(joints.get(*joint).ok()?.compute_affine() * *inverse_bindpose);
         }
 
         let start = buffer.len();
