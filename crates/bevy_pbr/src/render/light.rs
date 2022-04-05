@@ -94,7 +94,7 @@ pub struct GpuPointLight {
 
 pub enum GpuPointLights {
     Uniform {
-        buffer: UniformVec<[GpuPointLight; MAX_POINT_LIGHTS]>,
+        buffer: UniformVec<[GpuPointLight; MAX_UNIFORM_BUFFER_POINT_LIGHTS]>,
     },
     Storage {
         buffer: StorageBuffer<GpuPointLight>,
@@ -136,7 +136,7 @@ impl GpuPointLights {
                 let gpu_point_lights = lights
                     .drain(..)
                     .chain(std::iter::repeat_with(GpuPointLight::default))
-                    .take(MAX_POINT_LIGHTS)
+                    .take(MAX_UNIFORM_BUFFER_POINT_LIGHTS)
                     .collect::<Vec<_>>();
                 buffer.push(gpu_point_lights.try_into().unwrap());
             }
@@ -219,7 +219,7 @@ pub struct GpuLights {
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
-pub const MAX_POINT_LIGHTS: usize = 256;
+pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 // FIXME: How should we handle shadows for clustered forward? Limiting to maximum 10
 // point light shadow maps for now
 #[cfg(feature = "webgl")]
@@ -1008,7 +1008,7 @@ pub fn prepare_lights(
 }
 
 // this must match CLUSTER_COUNT_SIZE in pbr.wgsl
-// and must be large enough to contain MAX_POINT_LIGHTS
+// and must be large enough to contain MAX_UNIFORM_BUFFER_POINT_LIGHTS
 const CLUSTER_COUNT_SIZE: u32 = 13;
 
 const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - CLUSTER_COUNT_SIZE)) - 1;
