@@ -1317,25 +1317,6 @@ impl<T: Default> FromWorld for T {
     }
 }
 
-/// Wrapper type to enable getting multiple [`FromWorld`] types in one type.
-///
-/// This wrapper is necessary because a [`FromWorld`] implementation for a tuple of
-/// [`FromWorld`] implementing types would conflict with the [`FromWorld`] impl over all
-/// [`Default`] type.
-pub struct FromWorldWrap<T>(pub T);
-
-macro_rules! impl_from_world {
-    ($($t:ident),*) => {
-        impl<$($t: FromWorld,)*> FromWorld for FromWorldWrap<($($t,)*)> {
-            fn from_world(_world: &mut World) -> Self {
-                FromWorldWrap(($($t::from_world(_world),)*))
-            }
-        }
-    };
-}
-
-all_tuples!(impl_from_world, 0, 12, T);
-
 struct MainThreadValidator {
     main_thread: std::thread::ThreadId,
 }
