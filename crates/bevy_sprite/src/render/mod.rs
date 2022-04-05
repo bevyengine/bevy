@@ -184,6 +184,7 @@ pub struct ExtractedSprite {
     pub image_handle_id: HandleId,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub anchor: Vec2,
 }
 
 #[derive(Default)]
@@ -248,6 +249,7 @@ pub fn extract_sprites(
             flip_x: sprite.flip_x,
             flip_y: sprite.flip_y,
             image_handle_id: handle.id,
+            anchor: sprite.anchor.as_vec(),
         });
     }
     for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
@@ -266,6 +268,7 @@ pub fn extract_sprites(
                 flip_x: atlas_sprite.flip_x,
                 flip_y: atlas_sprite.flip_y,
                 image_handle_id: texture_atlas.texture.id,
+                anchor: atlas_sprite.anchor.as_vec(),
             });
         }
     }
@@ -489,7 +492,7 @@ pub fn queue_sprites(
                 let positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
                     extracted_sprite
                         .transform
-                        .mul_vec3((quad_pos * quad_size).extend(0.))
+                        .mul_vec3(((quad_pos - extracted_sprite.anchor) * quad_size).extend(0.))
                         .into()
                 });
 
