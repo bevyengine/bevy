@@ -130,10 +130,11 @@ async fn load_gltf<'a, 'b>(
 
     #[cfg(feature = "bevy_animation")]
     let paths = {
-        let mut paths = HashMap::<usize, Vec<Name>>::new();
+        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::new();
         for scene in gltf.scenes() {
             for node in scene.nodes() {
-                paths_recur(node, &[], &mut paths);
+                let root_index = node.index();
+                paths_recur(node, &[], &mut paths, root_index);
             }
         }
         paths
@@ -190,8 +191,8 @@ async fn load_gltf<'a, 'b>(
                     return Err(GltfError::MissingAnimationSampler(animation.index()));
                 };
 
-                if let Some(path) = paths.get(&node.index()) {
-                    animation_roots.insert(path[0].clone());
+                if let Some((root_index, path)) = paths.get(&node.index()) {
+                    animation_roots.insert(root_index);
                     animation_clip.add_curve_to_path(
                         EntityPath {
                             parts: path.clone(),
@@ -473,7 +474,7 @@ async fn load_gltf<'a, 'b>(
             // for each node root in a scene, check if it's the root of an animation
             // if it is, add the AnimationPlayer component
             for node in scene.nodes() {
-                if animation_roots.iter().any(|name| name == &node_name(&node)) {
+                if animation_roots.contains(&node.index()) {
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
                         .insert(AnimationPlayer::default());
@@ -534,13 +535,18 @@ fn node_name(node: &Node) -> Name {
     Name::new(name)
 }
 
-fn paths_recur(node: Node, current_path: &[Name], paths: &mut HashMap<usize, Vec<Name>>) {
+fn paths_recur(
+    node: Node,
+    current_path: &[Name],
+    paths: &mut HashMap<usize, (usize, Vec<Name>)>,
+    root_index: usize,
+) {
     let mut path = current_path.to_owned();
     path.push(node_name(&node));
     for child in node.children() {
-        paths_recur(child, &path, paths);
+        paths_recur(child, &path, paths, root_index);
     }
-    paths.insert(node.index(), path);
+    paths.insert(node.index(), (root_index, path));
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
