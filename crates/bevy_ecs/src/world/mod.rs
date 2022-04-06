@@ -791,7 +791,7 @@ impl World {
     pub fn get_many_res<'w, MR: ManyRes<'w>>(&'w self) -> MR::Item {
         MR::get_resources(self)
     }
-    pub fn get_many_res_mut<'w, MR: ManyResMut<'w>>(&'w mut self) -> MR::Item {
+    pub fn get_many_resources_mut<'w, MR: ManyResMut<'w>>(&'w mut self) -> MR::Item {
         MR::get_resources_mut(self)
     }
     /// Gets a mutable reference to the resource of the given type if it exists
