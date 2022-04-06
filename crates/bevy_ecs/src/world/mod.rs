@@ -1513,7 +1513,7 @@ mod tests {
         world.insert_resource(Res1(42));
         world.insert_resource(Res2(false));
 
-        let (r1, r2) = world.get_many_res::<(Res1, Res2)>();
+        let (r1, r2) = world.get_many_resources::<(Res1, Res2)>();
 
         let r1 = r1.unwrap();
         let r2 = r2.unwrap();
@@ -1534,7 +1534,7 @@ mod tests {
         assert_eq!(world.resource::<Res1>(), &Res1(42));
         assert_eq!(world.resource::<Res2>(), &Res2(false));
 
-        let (r1, r2) = world.get_many_res_mut::<(Res1, Res2)>();
+        let (r1, r2) = world.get_many_resources_mut::<(Res1, Res2)>();
         r1.unwrap().0 = 1;
         r2.unwrap().0 = true;
 
