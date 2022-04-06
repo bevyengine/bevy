@@ -1344,6 +1344,8 @@ impl Default for MainThreadValidator {
 }
 
 /// Type used to facilitate fetching of arbitrary tuples of resources.
+///
+/// See [`World::get_many_resources`]
 pub trait ManyRes<'w> {
     type Item;
 
@@ -1351,6 +1353,8 @@ pub trait ManyRes<'w> {
 }
 
 /// Type used to facilitate fetching of arbitrary tuples of mutable resources.
+///
+/// See [`World::get_many_resources_mut`]
 pub trait ManyResMut<'w> {
     type Item;
     fn get_resources_mut(world: &'w mut World) -> Self::Item;
