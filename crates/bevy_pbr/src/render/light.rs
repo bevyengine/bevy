@@ -707,7 +707,8 @@ pub fn prepare_lights(
         .iter()
         .filter(|light| light.1.shadows_enabled)
         .count()
-        .min(MAX_POINT_LIGHT_SHADOW_MAPS);
+        .min(MAX_POINT_LIGHT_SHADOW_MAPS)
+        .min(render_device.limits().max_texture_array_layers / 6);
 
     // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
     // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
