@@ -467,6 +467,9 @@ struct FragmentInput {
 
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
+#ifdef UVS
+    return vec4<f32>(in.uv, 0.0, 1.0);
+#else
 #ifdef DEPTH
     let p_clip = view.view_proj * in.world_position;
     let p_ndc = p_clip.xyz / p_clip.w;
@@ -522,12 +525,71 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
         let TBN = mat3x3<f32>(T, B, N);
-        N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
+        // Nt is the tangent-space normal.
+        var Nt: vec3<f32>;
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+            // Only use the xy components and derive z for 2-component normal maps.
+            Nt = vec3<f32>(textureSample(normal_map_texture, normal_map_sampler, in.uv).rg * 2.0 - 1.0, 0.0);
+            Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
+        } else {
+            Nt = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0;
+        }
+        N = normalize(TBN * Nt);
 #endif
 #endif
 
     return vec4<f32>(N, 1.0);
 
+#else
+#ifdef VIEW_SPACE_NORMAL_MAPPED_NORMAL
+
+        var N: vec3<f32> = normalize(in.world_normal);
+
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+        var T: vec3<f32> = normalize(in.world_tangent.xyz - N * dot(in.world_tangent.xyz, N));
+        var B: vec3<f32> = cross(N, T) * in.world_tangent.w;
+#endif
+#endif
+
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
+            if (!in.is_front) {
+                N = -N;
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+                T = -T;
+                B = -B;
+#endif
+#endif
+            }
+        }
+
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+        let TBN = mat3x3<f32>(T, B, N);
+        // Nt is the tangent-space normal.
+        var Nt: vec3<f32>;
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+            // Only use the xy components and derive z for 2-component normal maps.
+            Nt = vec3<f32>(textureSample(normal_map_texture, normal_map_sampler, in.uv).rg * 2.0 - 1.0, 0.0);
+            Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
+        } else {
+            Nt = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0;
+        }
+        N = normalize(TBN * Nt);
+#endif
+#endif
+
+    // Normals should be transformed by the inverse transpose of the usual transform applied to a
+    // vertex. The 'forward' transform is the inverse view transform. So in this case we want the
+    // inverse transpose of the inverse view transform, which is the transpose of the view
+    // transform.
+    N = transpose(mat3x3<f32>(
+        view.view.x.xyz,
+        view.view.y.xyz,
+        view.view.z.xyz
+    )) * N;
+    return vec4<f32>(N, 1.0);
 #else
 #ifdef BASE_COLOR
     return material.base_color;
@@ -831,6 +893,8 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     }
 
     return output_color;
+#endif
+#endif
 #endif
 #endif
 #endif

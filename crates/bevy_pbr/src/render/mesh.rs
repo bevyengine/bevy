@@ -221,11 +221,13 @@ impl SkinnedMeshJoints {
 #[derive(Clone, Debug)]
 pub enum PbrDebug {
     None,
+    Uvs,
     Depth,
     InterpolatedVertexNormals,
     InterpolatedVertexTangents,
     TangentSpaceNormalMap,
     NormalMappedNormal,
+    ViewSpaceNormalMappedNormal,
     BaseColor,
     BaseColorTexture,
     Emissive,
@@ -606,6 +608,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         match self.pbr_debug {
             PbrDebug::None => {}
+            PbrDebug::Uvs => shader_defs.push(String::from("UVS")),
             PbrDebug::Depth => shader_defs.push(String::from("DEPTH")),
             PbrDebug::InterpolatedVertexNormals => {
                 shader_defs.push(String::from("INTERPOLATED_VERTEX_NORMALS"))
@@ -617,6 +620,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs.push(String::from("TANGENT_SPACE_NORMAL_MAP"))
             }
             PbrDebug::NormalMappedNormal => shader_defs.push(String::from("NORMAL_MAPPED_NORMAL")),
+            PbrDebug::ViewSpaceNormalMappedNormal => shader_defs.push(String::from("VIEW_SPACE_NORMAL_MAPPED_NORMAL")),
             PbrDebug::BaseColor => shader_defs.push(String::from("BASE_COLOR")),
             PbrDebug::BaseColorTexture => shader_defs.push(String::from("BASE_COLOR_TEXTURE")),
             PbrDebug::Emissive => shader_defs.push(String::from("EMISSIVE")),
