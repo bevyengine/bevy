@@ -1363,6 +1363,7 @@ macro_rules! impl_tuple_res {
             type Item = ($(Option<Mut<'w, $name>>,)*);
             #[allow(unused_variables, unused_unsafe, clippy::unused_unit)]
             fn get_resources_mut(world: &'w mut World) -> Self::Item {
+               // SAFE: resource types are checked for uniqueness, and we have exclusive access to the world
                 unsafe{ ($(world.get_resource_unchecked_mut::<$name>(),)*) }
             }
         }
