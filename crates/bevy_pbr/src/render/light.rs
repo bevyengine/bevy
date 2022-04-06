@@ -227,7 +227,6 @@ pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 1;
 #[cfg(not(feature = "webgl"))]
 pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 256;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
-pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHT_SHADOW_MAPS) as u32;
 pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -704,6 +703,12 @@ pub fn prepare_lights(
 
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
 
+    let nb_shadow_lights = point_lights
+        .iter()
+        .filter(|light| light.1.shadows_enabled)
+        .count()
+        .min(MAX_POINT_LIGHT_SHADOW_MAPS);
+
     // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
     // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
@@ -759,7 +764,7 @@ pub fn prepare_lights(
                 size: Extent3d {
                     width: point_light_shadow_map.size as u32,
                     height: point_light_shadow_map.size as u32,
-                    depth_or_array_layers: POINT_SHADOW_LAYERS,
+                    depth_or_array_layers: nb_shadow_lights.max(1) as u32 * 6,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
