@@ -708,7 +708,7 @@ pub fn prepare_lights(
         .filter(|light| light.1.shadows_enabled)
         .count()
         .min(MAX_POINT_LIGHT_SHADOW_MAPS)
-        .min(render_device.limits().max_texture_array_layers / 6);
+        .min((render_device.limits().max_texture_array_layers / 6) as usize);
 
     // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
     // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
@@ -729,7 +729,7 @@ pub fn prepare_lights(
     for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
         // Lights are sorted, shadow enabled lights are first
-        if light.shadows_enabled && index < MAX_POINT_LIGHT_SHADOW_MAPS {
+        if light.shadows_enabled && index < nb_shadow_lights {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
         gpu_point_lights.push(GpuPointLight {
@@ -822,7 +822,7 @@ pub fn prepare_lights(
         for &(light_entity, light) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
-            .take(MAX_POINT_LIGHT_SHADOW_MAPS)
+            .take(nb_shadow_lights)
             .filter(|(_, light)| light.shadows_enabled)
         {
             let light_index = *global_light_meta
