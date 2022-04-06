@@ -1354,7 +1354,7 @@ macro_rules! impl_tuple_res {
     ($($name: ident),*) => {
         impl<'w, $($name: Resource,)*> ManyRes<'w> for ($($name,)*){
             type Item = ($(Option<&'w $name>,)*);
-            #[allow(unused_variables, unused_unsafe, clippy::unused_unit)]
+            #[allow(unused_variables, clippy::unused_unit)]
             fn get_resources(world: &'w World) -> Self::Item {
                 ($(world.get_resource::<$name>(),)*)
             }
