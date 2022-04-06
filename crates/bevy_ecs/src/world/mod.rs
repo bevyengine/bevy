@@ -788,17 +788,21 @@ impl World {
         unsafe { self.get_resource_with_id(component_id) }
     }
 
-    pub fn get_many_resources<'w, MR: ManyRes<'w>>(&'w self) -> MR::Item {
-        MR::get_resources(self)
-    }
-    pub fn get_many_resources_mut<'w, MR: ManyResMut<'w>>(&'w mut self) -> MR::Item {
-        MR::get_resources_mut(self)
-    }
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
         unsafe { self.get_resource_unchecked_mut() }
+    }
+
+    ///
+    pub fn get_many_resources<'w, MR: ManyRes<'w>>(&'w self) -> MR::Item {
+        MR::get_resources(self)
+    }
+
+    ///
+    pub fn get_many_resources_mut<'w, MR: ManyResMut<'w>>(&'w mut self) -> MR::Item {
+        MR::get_resources_mut(self)
     }
 
     // PERF: optimize this to avoid redundant lookups
@@ -1339,12 +1343,14 @@ impl Default for MainThreadValidator {
     }
 }
 
+/// Type used to facilitate fetching of arbitrary tuples of resources.
 pub trait ManyRes<'w> {
     type Item;
 
     fn get_resources(world: &'w World) -> Self::Item;
 }
 
+/// Type used to facilitate fetching of arbitrary tuples of mutable resources.
 pub trait ManyResMut<'w> {
     type Item;
     fn get_resources_mut(world: &'w mut World) -> Self::Item;
@@ -1353,18 +1359,30 @@ pub trait ManyResMut<'w> {
 macro_rules! impl_tuple_res {
     ($($name: ident),*) => {
         impl<'w, $($name: Resource,)*> ManyRes<'w> for ($($name,)*){
-            type Item = ($(Option<&'w $name>,)*);
+            type Item = ($(&'w $name,)*);
             #[allow(unused_variables, clippy::unused_unit)]
             fn get_resources(world: &'w World) -> Self::Item {
-                ($(world.get_resource::<$name>(),)*)
+                ($(world.get_resource::<$name>().expect(&format!(
+                    "Requested resource {} does not exist in the `World`. 
+                    Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                    Resources are also implicitly added via `app.add_event`,
+                    and can be added by plugins.",
+                    std::any::type_name::<$name>()
+                )),)*)
             }
         }
         impl<'w, $($name: Resource,)*> ManyResMut<'w> for ($($name,)*){
-            type Item = ($(Option<Mut<'w, $name>>,)*);
+            type Item = ($(Mut<'w, $name>,)*);
             #[allow(unused_variables, unused_unsafe, clippy::unused_unit)]
             fn get_resources_mut(world: &'w mut World) -> Self::Item {
                // SAFE: resource types are checked for uniqueness, and we have exclusive access to the world
-                unsafe{ ($(world.get_resource_unchecked_mut::<$name>(),)*) }
+                unsafe{ ($(world.get_resource_unchecked_mut::<$name>().expect(&format!(
+                    "Requested resource {} does not exist in the `World`. 
+                    Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                    Resources are also implicitly added via `app.add_event`,
+                    and can be added by plugins.",
+                    std::any::type_name::<$name>()
+                )),)*) }
             }
         }
     }
@@ -1504,7 +1522,7 @@ mod tests {
     }
 
     #[test]
-    fn get_many_res() {
+    fn get_many_resources() {
         #[derive(Debug, PartialEq)]
         struct Res1(i32);
         #[derive(Debug, PartialEq)]
@@ -1515,14 +1533,14 @@ mod tests {
 
         let (r1, r2) = world.get_many_resources::<(Res1, Res2)>();
 
-        let r1 = r1.unwrap();
-        let r2 = r2.unwrap();
+        let r1 = r1;
+        let r2 = r2;
         assert_eq!(r1, &Res1(42));
         assert_eq!(r2, &Res2(false));
     }
 
     #[test]
-    fn get_many_res_mut() {
+    fn get_many_resources_mut() {
         #[derive(Debug, PartialEq)]
         struct Res1(i32);
         #[derive(Debug, PartialEq)]
@@ -1534,9 +1552,9 @@ mod tests {
         assert_eq!(world.resource::<Res1>(), &Res1(42));
         assert_eq!(world.resource::<Res2>(), &Res2(false));
 
-        let (r1, r2) = world.get_many_resources_mut::<(Res1, Res2)>();
-        r1.unwrap().0 = 1;
-        r2.unwrap().0 = true;
+        let (mut r1, mut r2) = world.get_many_resources_mut::<(Res1, Res2)>();
+        r1.0 = 1;
+        r2.0 = true;
 
         assert_eq!(world.resource::<Res1>(), &Res1(1));
         assert_eq!(world.resource::<Res2>(), &Res2(true));
