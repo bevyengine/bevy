@@ -801,7 +801,6 @@ impl Stage for SystemStage {
             for index in 0..self.run_criteria.len() {
                 let (run_criteria, tail) = self.run_criteria.split_at_mut(index);
                 let mut criteria = &mut tail[0];
-                criteria.update_archetypes(world);
                 match &mut criteria.inner {
                     RunCriteriaInner::Single(system) => criteria.should_run = system.run((), world),
                     RunCriteriaInner::Piped {
@@ -901,7 +900,6 @@ impl Stage for SystemStage {
                 for index in 0..run_criteria.len() {
                     let (run_criteria, tail) = run_criteria.split_at_mut(index);
                     let criteria = &mut tail[0];
-                    criteria.update_archetypes(world);
                     match criteria.should_run {
                         ShouldRun::No => (),
                         ShouldRun::Yes => criteria.should_run = ShouldRun::No,

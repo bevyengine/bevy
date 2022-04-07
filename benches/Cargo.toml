@@ -8,9 +8,14 @@ license = "MIT OR Apache-2.0"
 
 [dev-dependencies]
 glam = "0.20"
-criterion = "0.3"
+criterion = { version = "0.3", features = ["html_reports"] }
 bevy_ecs = { path = "../crates/bevy_ecs" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
+
+[[bench]]
+name = "archetype_updates"
+path = "benches/bevy_ecs/archetype_updates.rs"
+harness = false
 
 [[bench]]
 name = "ecs_bench_suite"
