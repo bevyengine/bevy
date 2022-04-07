@@ -844,7 +844,7 @@ mod tests {
     fn update_archetype_component_access_works() {
         use std::collections::HashSet;
 
-        fn a_not_b_system(query: Query<&A, Without<B>>) {}
+        fn a_not_b_system(_query: Query<&A, Without<B>>) {}
 
         let mut world = World::default();
         let mut system = IntoSystem::into_system(a_not_b_system);
