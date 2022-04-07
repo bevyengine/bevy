@@ -250,6 +250,7 @@ jobs:
 
   # run-examples:
   #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
   #   steps:
   #     - name: Install Bevy dependencies
   #       run: |
@@ -296,6 +297,7 @@ jobs:
 
   run-examples-on-windows:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
