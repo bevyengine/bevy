@@ -5,6 +5,7 @@ use bevy::{
     prelude::*,
     render::{camera::CameraProjection, primitives::Frustum, RenderApp, RenderStage},
 };
+use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
@@ -55,6 +56,7 @@ fn setup(
     // the same number of visible meshes regardless of the viewing angle.
     // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
     let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
+    let mut rng = thread_rng();
     for i in 0..N_LIGHTS {
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
@@ -62,6 +64,7 @@ fn setup(
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
+                color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
