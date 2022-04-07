@@ -707,7 +707,7 @@ pub fn prepare_lights(
     let max_point_light_shadow_maps = 1;
 
     // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
-    // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
+    // to render at most `max_point_light_shadow_maps` point light shadows.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         point_light_order(
             (entity_1, &light_1.shadows_enabled),
