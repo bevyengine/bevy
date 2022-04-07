@@ -123,6 +123,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `animated_fox` | [`animation/animated_fox.rs`](./animation/animated_fox.rs) | Plays an animation from a skinned glTF.
+`animated_transform` | [`animation/animated_transform.rs`](./animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component.
 `custom_skinned_mesh` | [`animation/custom_skinned_mesh.rs`](./animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code.
 `gltf_skinned_mesh` | [`animation/gltf_skinned_mesh.rs`](./animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file.
 
