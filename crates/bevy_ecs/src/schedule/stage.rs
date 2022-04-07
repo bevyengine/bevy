@@ -946,10 +946,10 @@ mod tests {
         query::{ChangeTrackers, Changed},
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun,
-            SingleThreadedExecutor, Stage, SystemSet, SystemStage,
+            RunCriteria, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage,
+            SystemSet, SystemStage,
         },
-        system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
+        system::{In, IntoExclusiveSystem, Local, Query, ResMut},
         world::World,
     };
 
@@ -1475,25 +1475,25 @@ mod tests {
                 ShouldRun::No
             }
         }
-        let mut stage = SystemStage::parallel()
-            .with_system(make_parallel(0).label("0"))
-            .with_system(
-                make_parallel(1)
-                    .label("1")
-                    .after("0")
-                    .with_run_criteria(every_other_time.label("every other time")),
-            )
-            .with_system(make_parallel(2).label("2").after("1").with_run_criteria(
-                RunCriteria::pipe("every other time", IntoSystem::into_system(eot_piped)),
-            ))
-            .with_system(
-                make_parallel(3).label("3").after("2").with_run_criteria(
-                    "every other time"
-                        .pipe(IntoSystem::into_system(eot_piped))
-                        .label("piped"),
-                ),
-            )
-            .with_system(make_parallel(4).after("3").with_run_criteria("piped"));
+        let mut stage =
+            SystemStage::parallel()
+                .with_system(make_parallel(0).label("0"))
+                .with_system(
+                    make_parallel(1)
+                        .label("1")
+                        .after("0")
+                        .with_run_criteria(every_other_time.label("every other time")),
+                )
+                .with_system(
+                    make_parallel(2)
+                        .label("2")
+                        .after("1")
+                        .with_run_criteria(RunCriteria::pipe("every other time", eot_piped)),
+                )
+                .with_system(make_parallel(3).label("3").after("2").with_run_criteria(
+                    RunCriteria::pipe("every other time", eot_piped).label("piped"),
+                ))
+                .with_system(make_parallel(4).after("3").with_run_criteria("piped"));
         for _ in 0..4 {
             stage.run(&mut world);
         }
