@@ -703,6 +703,12 @@ fn load_node(
 
     node.insert(node_name(gltf_node));
 
+    if let Some(extras) = gltf_node.extras() {
+        node.insert(super::GltfExtras {
+            value: extras.get().to_string(),
+        });
+    }
+
     // create camera node
     if let Some(camera) = gltf_node.camera() {
         node.insert_bundle((
@@ -780,21 +786,24 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                let node = parent
-                    .spawn_bundle(PbrBundle {
-                        mesh: load_context.get_handle(mesh_asset_path),
-                        material: load_context.get_handle(material_asset_path),
-                        ..Default::default()
-                    })
-                    .insert(Aabb::from_min_max(
-                        Vec3::from_slice(&bounds.min),
-                        Vec3::from_slice(&bounds.max),
-                    ))
-                    .id();
+                let mut mesh_entity = parent.spawn_bundle(PbrBundle {
+                    mesh: load_context.get_handle(mesh_asset_path),
+                    material: load_context.get_handle(material_asset_path),
+                    ..Default::default()
+                });
+                mesh_entity.insert(Aabb::from_min_max(
+                    Vec3::from_slice(&bounds.min),
+                    Vec3::from_slice(&bounds.max),
+                ));
 
+                if let Some(extras) = primitive.extras() {
+                    mesh_entity.insert(super::GltfExtras {
+                        value: extras.get().to_string(),
+                    });
+                }
                 // Mark for adding skinned mesh
                 if let Some(skin) = gltf_node.skin() {
-                    entity_to_skin_index_map.insert(node, skin.index());
+                    entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
                 }
             }
         }
@@ -815,6 +824,11 @@ fn load_node(
                     if let Some(name) = light.name() {
                         entity.insert(Name::new(name.to_string()));
                     }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
                     let mut entity = parent.spawn_bundle(PointLightBundle {
@@ -832,6 +846,11 @@ fn load_node(
                     });
                     if let Some(name) = light.name() {
                         entity.insert(Name::new(name.to_string()));
+                    }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {
