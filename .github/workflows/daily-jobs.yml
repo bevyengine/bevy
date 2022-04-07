@@ -22,7 +22,7 @@ jobs:
         with:
           path: |
             target
-          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Add iOS targets
         run: rustup target add aarch64-apple-ios x86_64-apple-ios
@@ -40,6 +40,16 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-windows-run-examples-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Build bevy
         run: |
