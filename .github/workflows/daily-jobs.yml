@@ -1,0 +1,53 @@
+name: daily jobs
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Add iOS targets
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios
+
+      - name: Build and install iOS app in iOS Simulator.
+        run: cd examples/ios && make install
+
+
+  run-examples-on-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build bevy
+        run: |
+          cargo build --features "bevy_ci_testing"
+      - name: Run examples
+        shell: bash
+        run: |
+          for example in .github/example-run/*.ron; do
+            example_name=`basename $example .ron`
+            echo "running $example_name - "`date`
+            time CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
+            sleep 10
+          done
