@@ -9,6 +9,8 @@ use bevy_render::{
     color::Color,
     prelude::Image,
     primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
+    render_resource::BufferBindingType,
+    renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
@@ -17,7 +19,8 @@ use bevy_window::Windows;
 
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
-    CUBE_MAP_FACES, MAX_POINT_LIGHTS, POINT_LIGHT_NEAR_Z,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS,
+    POINT_LIGHT_NEAR_Z,
 };
 
 /// A light that emits light in all directions from a central point.
@@ -709,6 +712,7 @@ pub(crate) fn assign_lights_to_clusters(
     lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut max_point_lights_warning_emitted: Local<bool>,
+    render_device: Res<RenderDevice>,
 ) {
     global_lights.entities.clear();
     lights.clear();
@@ -727,7 +731,13 @@ pub(crate) fn assign_lights_to_clusters(
             ),
     );
 
-    if lights.len() > MAX_POINT_LIGHTS {
+    let clustered_forward_buffer_binding_type =
+        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+    let supports_storage_buffers = matches!(
+        clustered_forward_buffer_binding_type,
+        BufferBindingType::Storage { .. }
+    );
+    if lights.len() > MAX_UNIFORM_BUFFER_POINT_LIGHTS && !supports_storage_buffers {
         lights.sort_by(|light_1, light_2| {
             point_light_order(
                 (&light_1.entity, &light_1.shadows_enabled),
@@ -743,7 +753,7 @@ pub(crate) fn assign_lights_to_clusters(
         let mut lights_in_view_count = 0;
         lights.retain(|light| {
             // take one extra light to check if we should emit the warning
-            if lights_in_view_count == MAX_POINT_LIGHTS + 1 {
+            if lights_in_view_count == MAX_UNIFORM_BUFFER_POINT_LIGHTS + 1 {
                 false
             } else {
                 let light_sphere = Sphere {
@@ -763,12 +773,15 @@ pub(crate) fn assign_lights_to_clusters(
             }
         });
 
-        if lights.len() > MAX_POINT_LIGHTS && !*max_point_lights_warning_emitted {
-            warn!("MAX_POINT_LIGHTS ({}) exceeded", MAX_POINT_LIGHTS);
+        if lights.len() > MAX_UNIFORM_BUFFER_POINT_LIGHTS && !*max_point_lights_warning_emitted {
+            warn!(
+                "MAX_UNIFORM_BUFFER_POINT_LIGHTS ({}) exceeded",
+                MAX_UNIFORM_BUFFER_POINT_LIGHTS
+            );
             *max_point_lights_warning_emitted = true;
         }
 
-        lights.truncate(MAX_POINT_LIGHTS);
+        lights.truncate(MAX_UNIFORM_BUFFER_POINT_LIGHTS);
     }
 
     for (view_entity, camera_transform, camera, frustum, config, clusters, mut visible_lights) in

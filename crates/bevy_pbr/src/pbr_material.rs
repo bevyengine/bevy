@@ -378,6 +378,7 @@ impl SpecializedMaterial for StandardMaterial {
     }
 
     fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         key: Self::Key,
         _layout: &MeshVertexBufferLayout,

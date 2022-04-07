@@ -264,29 +264,32 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: b
     );
 }
 
-struct ClusterOffsetAndCount {
-    offset: u32;
-    count: u32;
-};
-
 // this must match CLUSTER_COUNT_SIZE in light.rs
 let CLUSTER_COUNT_SIZE = 13u;
-fn unpack_offset_and_count(cluster_index: u32) -> ClusterOffsetAndCount {
+fn unpack_offset_and_count(cluster_index: u32) -> vec2<u32> {
+#ifdef NO_STORAGE_BUFFERS_SUPPORT
     let offset_and_count = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
-    var output: ClusterOffsetAndCount;
-    // The offset is stored in the upper 24 bits
-    output.offset = (offset_and_count >> CLUSTER_COUNT_SIZE) & ((1u << 32u - CLUSTER_COUNT_SIZE) - 1u);
-    // The count is stored in the lower 8 bits
-    output.count = offset_and_count & ((1u << CLUSTER_COUNT_SIZE) - 1u);
-    return output;
+    return vec2<u32>(
+        // The offset is stored in the upper 32 - CLUSTER_COUNT_SIZE = 19 bits
+        (offset_and_count >> CLUSTER_COUNT_SIZE) & ((1u << 32u - CLUSTER_COUNT_SIZE) - 1u),
+        // The count is stored in the lower CLUSTER_COUNT_SIZE = 13 bits
+        offset_and_count & ((1u << CLUSTER_COUNT_SIZE) - 1u)
+    );
+#else
+    return cluster_offsets_and_counts.data[cluster_index];
+#endif
 }
 
 fn get_light_id(index: u32) -> u32 {
+#ifdef NO_STORAGE_BUFFERS_SUPPORT
     // The index is correct but in cluster_light_index_lists we pack 4 u8s into a u32
     // This means the index into cluster_light_index_lists is index / 4
     let indices = cluster_light_index_lists.data[index >> 4u][(index >> 2u) & ((1u << 2u) - 1u)];
     // And index % 4 gives the sub-index of the u8 within the u32 so we shift by 8 * sub-index
     return (indices >> (8u * (index & ((1u << 2u) - 1u)))) & ((1u << 8u) - 1u);
+#else
+    return cluster_light_index_lists.data[index];
+#endif
 }
 
 fn point_light(
@@ -583,7 +586,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         ), in.world_position);
         let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, is_orthographic);
         let offset_and_count = unpack_offset_and_count(cluster_index);
-        for (var i: u32 = offset_and_count.offset; i < offset_and_count.offset + offset_and_count.count; i = i + 1u) {
+        for (var i: u32 = offset_and_count[0]; i < offset_and_count[0] + offset_and_count[1]; i = i + 1u) {
             let light_id = get_light_id(i);
             let light = point_lights.data[light_id];
             var shadow: f32 = 1.0;
@@ -637,9 +640,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         let cluster_overlay_alpha = 0.1;
         let max_light_complexity_per_cluster = 64.0;
         output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
-            + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count));
+            + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count[1]));
         output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
-            + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count)));
+            + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count[1])));
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
         // NOTE: Visualizes the cluster to which the fragment belongs

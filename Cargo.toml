@@ -613,6 +613,9 @@ target_sdk_version = 29
 
 # Stress Tests
 [[example]]
+name = "many_lights"
+path = "examples/stress_tests/many_lights.rs"
+
+[[example]]
 name = "transform_hierarchy"
 path = "examples/stress_tests/transform_hierarchy.rs"
-
