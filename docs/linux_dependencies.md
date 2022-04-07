@@ -32,6 +32,12 @@ Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
 ```
 
+if using Wayland, you will also need to install
+
+```bash
+sudo dnf install wayland-devel libxkbcommon-devel
+```
+
 If there are errors with linking during the build process such as:
 
 ```bash
@@ -96,4 +102,10 @@ Note that this template doesn't add Rust to the environment because there are ma
 
 ```bash
    sudo zypper install libudev-devel gcc-c++
+```
+
+## Gentoo
+
+```bash
+   sudo emerge --ask libX11 pkgconf alsa-lib
 ```

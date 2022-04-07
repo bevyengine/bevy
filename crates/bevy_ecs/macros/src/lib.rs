@@ -1,8 +1,10 @@
 extern crate proc_macro;
 
 mod component;
+mod fetch;
 
-use bevy_macro_utils::{derive_label, BevyManifest};
+use crate::fetch::derive_world_query_impl;
+use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -11,8 +13,7 @@ use syn::{
     parse_macro_input,
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, DeriveInput, Field, Fields, GenericParam, Ident, Index, LitInt, Result,
-    Token,
+    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Result, Token, TypeParam,
 };
 
 struct AllTuples {
@@ -47,7 +48,7 @@ impl Parse for AllTuples {
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
-    let len = (input.start..=input.end).count();
+    let len = input.end - input.start;
     let mut ident_tuples = Vec::with_capacity(len);
     for i in input.start..=input.end {
         let idents = input
@@ -67,7 +68,7 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
-        let ident_tuples = &ident_tuples[0..i];
+        let ident_tuples = &ident_tuples[0..i - input.start];
         quote! {
             #macro_ident!(#(#ident_tuples),*);
         }
@@ -86,12 +87,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match &ast.data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("Expected a struct with named fields."),
+    let named_fields = match get_named_struct_fields(&ast.data) {
+        Ok(fields) => &fields.named,
+        Err(e) => return e.into_compile_error().into(),
     };
 
     let is_bundle = named_fields
@@ -180,91 +178,83 @@ fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
 }
 
 #[proc_macro]
-pub fn impl_query_set(_input: TokenStream) -> TokenStream {
+pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
-    let max_queries = 4;
-    let queries = get_idents(|i| format!("Q{}", i), max_queries);
-    let filters = get_idents(|i| format!("F{}", i), max_queries);
-    let mut query_fn_muts = Vec::new();
-    for i in 0..max_queries {
-        let query = &queries[i];
-        let filter = &filters[i];
-        let fn_name = Ident::new(&format!("q{}", i), Span::call_site());
+    let max_params = 8;
+    let params = get_idents(|i| format!("P{}", i), max_params);
+    let params_fetch = get_idents(|i| format!("PF{}", i), max_params);
+    let metas = get_idents(|i| format!("m{}", i), max_params);
+    let mut param_fn_muts = Vec::new();
+    for (i, param) in params.iter().enumerate() {
+        let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
         let index = Index::from(i);
-        query_fn_muts.push(quote! {
-            pub fn #fn_name(&mut self) -> Query<'_, '_, #query, #filter> {
+        param_fn_muts.push(quote! {
+            pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
                 // SAFE: systems run without conflicts with other systems.
-                // Conflicting queries in QuerySet are not accessible at the same time
-                // QuerySets are guaranteed to not conflict with other SystemParams
+                // Conflicting params in ParamSet are not accessible at the same time
+                // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    Query::new(self.world, &self.query_states.#index, self.last_change_tick, self.change_tick)
+                    <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
                 }
             }
         });
     }
 
-    for query_count in 1..=max_queries {
-        let query = &queries[0..query_count];
-        let filter = &filters[0..query_count];
-        let query_fn_mut = &query_fn_muts[0..query_count];
+    for param_count in 1..=max_params {
+        let param = &params[0..param_count];
+        let param_fetch = &params_fetch[0..param_count];
+        let meta = &metas[0..param_count];
+        let param_fn_mut = &param_fn_muts[0..param_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParam for QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+            impl<'w, 's, #(#param: SystemParam,)*> SystemParam for ParamSet<'w, 's, (#(#param,)*)>
             {
-                type Fetch = QuerySetState<(#(QueryState<#query, #filter>,)*)>;
+                type Fetch = ParamSetState<(#(#param::Fetch,)*)>;
             }
 
-            // SAFE: All Queries are constrained to ReadOnlyFetch, so World is only read
-            unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> ReadOnlySystemParamFetch for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-            where #(#query::Fetch: ReadOnlyFetch,)* #(#filter::Fetch: FilterFetch,)*
+            // SAFE: All parameters are constrained to ReadOnlyFetch, so World is only read
+
+            unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_fetch,)*)>
+            where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
 
-            // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts
+            // SAFE: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
-            unsafe impl<#(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamState for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+
+            unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamState for ParamSetState<(#(#param_fetch,)*)>
             {
-                type Config = ();
-                fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self {
+                fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
                     #(
-                        let mut #query = QueryState::<#query, #filter>::new(world);
-                        assert_component_access_compatibility(
-                            &system_meta.name,
-                            std::any::type_name::<#query>(),
-                            std::any::type_name::<#filter>(),
-                            &system_meta.component_access_set,
-                            &#query.component_access,
-                            world,
-                        );
+                        // Pretend to add each param to the system alone, see if it conflicts
+                        let mut #meta = system_meta.clone();
+                        #meta.component_access_set.clear();
+                        #meta.archetype_component_access.clear();
+                        #param_fetch::init(world, &mut #meta);
+                        let #param = #param_fetch::init(world, &mut system_meta.clone());
                     )*
                     #(
                         system_meta
                             .component_access_set
-                            .add(#query.component_access.clone());
+                            .extend(#meta.component_access_set);
                         system_meta
                             .archetype_component_access
-                            .extend(&#query.archetype_component_access);
+                            .extend(&#meta.archetype_component_access);
                     )*
-                    QuerySetState((#(#query,)*))
+                    ParamSetState((#(#param,)*))
                 }
 
                 fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
-                    let (#(#query,)*) = &mut self.0;
+                    let (#(#param,)*) = &mut self.0;
                     #(
-                        #query.new_archetype(archetype);
-                        system_meta
-                            .archetype_component_access
-                            .extend(&#query.archetype_component_access);
+                        #param.new_archetype(archetype, system_meta);
                     )*
                 }
-
-                fn default_config() {}
             }
 
-            impl<'w, 's, #(#query: WorldQuery + 'static,)* #(#filter: WorldQuery + 'static,)*> SystemParamFetch<'w, 's> for QuerySetState<(#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+
+
+            impl<'w, 's, #(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamFetch<'w, 's> for ParamSetState<(#(#param_fetch,)*)>
             {
-                type Item = QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>;
+                type Item = ParamSet<'w, 's, (#(<#param_fetch as SystemParamFetch<'w, 's>>::Item,)*)>;
 
                 #[inline]
                 unsafe fn get_param(
@@ -273,19 +263,19 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     world: &'w World,
                     change_tick: u32,
                 ) -> Self::Item {
-                    QuerySet {
-                        query_states: &state.0,
+                    ParamSet {
+                        param_states: &mut state.0,
+                        system_meta: system_meta.clone(),
                         world,
-                        last_change_tick: system_meta.last_change_tick,
                         change_tick,
                     }
                 }
             }
 
-            impl<'w, 's, #(#query: WorldQuery,)* #(#filter: WorldQuery,)*> QuerySet<'w, 's, (#(QueryState<#query, #filter>,)*)>
-                where #(#filter::Fetch: FilterFetch,)*
+            impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
             {
-                #(#query_fn_mut)*
+
+                #(#param_fn_mut)*
             }
         }));
     }
@@ -304,12 +294,9 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let fields = match &ast.data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("Expected a struct with named fields."),
+    let fields = match get_named_struct_fields(&ast.data) {
+        Ok(fields) => &fields.named,
+        Err(e) => return e.into_compile_error().into(),
     };
     let path = bevy_ecs_path();
 
@@ -364,12 +351,18 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .collect();
 
     let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
-    punctuated_generics.extend(lifetimeless_generics.iter());
+    punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
+        GenericParam::Type(g) => GenericParam::Type(TypeParam {
+            default: None,
+            ..g.clone()
+        }),
+        _ => unreachable!(),
+    }));
 
     let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
-        _ => panic!(),
+        _ => unreachable!(),
     }));
 
     let struct_name = &ast.ident;
@@ -384,14 +377,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         #[doc(hidden)]
         #fetch_struct_visibility struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
             state: TSystemParamState,
-            marker: std::marker::PhantomData<(#punctuated_generic_idents)>
+            marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
         }
 
-        unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
-            type Config = TSystemParamState::Config;
-            fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta, config: Self::Config) -> Self {
+        unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> #where_clause {
+            fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
                 Self {
-                    state: TSystemParamState::init(world, system_meta, config),
+                    state: TSystemParamState::init(world, system_meta),
                     marker: std::marker::PhantomData,
                 }
             }
@@ -400,16 +392,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 self.state.new_archetype(archetype, system_meta)
             }
 
-            fn default_config() -> TSystemParamState::Config {
-                TSystemParamState::default_config()
-            }
-
             fn apply(&mut self, world: &mut #path::world::World) {
                 self.state.apply(world)
             }
         }
 
-        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> {
+        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
             type Item = #struct_name #ty_generics;
             unsafe fn get_param(
                 state: &'s mut Self,
@@ -426,6 +414,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Implement `WorldQuery` to use a struct as a parameter in a query
+#[proc_macro_derive(WorldQuery, attributes(world_query))]
+pub fn derive_world_query(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    derive_world_query_impl(ast)
+}
+
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -434,7 +429,7 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("SystemLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, &trait_path)
 }
 
 #[proc_macro_derive(StageLabel)]
@@ -443,7 +438,7 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, &trait_path)
 }
 
 #[proc_macro_derive(AmbiguitySetLabel)]
@@ -454,7 +449,7 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("AmbiguitySetLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, &trait_path)
 }
 
 #[proc_macro_derive(RunCriteriaLabel)]
@@ -465,7 +460,7 @@ pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, trait_path)
+    derive_label(input, &trait_path)
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {

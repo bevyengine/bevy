@@ -28,14 +28,14 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
-#[derive(Debug)]
-pub struct Input<T> {
+#[derive(Debug, Clone)]
+pub struct Input<T: Eq + Hash> {
     pressed: HashSet<T>,
     just_pressed: HashSet<T>,
     just_released: HashSet<T>,
 }
 
-impl<T> Default for Input<T> {
+impl<T: Eq + Hash> Default for Input<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
@@ -51,11 +51,10 @@ where
 {
     /// Register a press for input `input`.
     pub fn press(&mut self, input: T) {
-        if !self.pressed(input) {
+        // Returns `true` if the `input` wasn't pressed.
+        if self.pressed.insert(input) {
             self.just_pressed.insert(input);
         }
-
-        self.pressed.insert(input);
     }
 
     /// Check if `input` has been pressed.
@@ -70,8 +69,10 @@ where
 
     /// Register a release for input `input`.
     pub fn release(&mut self, input: T) {
-        self.pressed.remove(&input);
-        self.just_released.insert(input);
+        // Returns `true` if the `input` was pressed.
+        if self.pressed.remove(&input) {
+            self.just_released.insert(input);
+        }
     }
 
     /// Check if `input` has been just pressed.
@@ -168,6 +169,8 @@ mod test {
         // Clear the `input`, removing just pressed and just released
         input.clear();
 
+        // After calling clear, inputs should still be pressed but not be just_pressed
+
         // Check if they're marked "just pressed"
         assert!(!input.just_pressed(DummyInput::Input1));
         assert!(!input.just_pressed(DummyInput::Input2));
@@ -177,7 +180,6 @@ mod test {
         assert!(input.pressed(DummyInput::Input2));
 
         // Release the inputs and check state
-
         input.release(DummyInput::Input1);
         input.release(DummyInput::Input2);
 
