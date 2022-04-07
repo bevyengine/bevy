@@ -269,14 +269,22 @@ impl<T: Component> ActiveCamera<T> {
 
 pub fn set_active_camera<T: Component>(
     mut active_camera: ResMut<ActiveCamera<T>>,
-    cameras: Query<Entity, With<T>>,
+    cameras: Query<Entity, (With<Camera>, With<T>)>,
 ) {
-    if active_camera.get().is_some() {
-        return;
+    // Check if there is already an active camera set and
+    // that it has not been deleted on the previous frame
+    if let Some(camera) = active_camera.get() {
+        if cameras.contains(camera) {
+            return;
+        }
     }
 
+    // If the previous active camera ceased to exist
+    // fallback to another camera of the same type T
     if let Some(camera) = cameras.iter().next() {
         active_camera.camera = Some(camera);
+    } else {
+        active_camera.camera = None;
     }
 }
 
