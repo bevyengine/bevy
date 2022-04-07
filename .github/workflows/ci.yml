@@ -248,73 +248,51 @@ jobs:
             exit 1
         fi
 
-  # run-examples:
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 30
-  #   steps:
-  #     - name: Install Bevy dependencies
-  #       run: |
-  #         sudo apt-get update;
-  #         DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
-  #           libasound2-dev libudev-dev;
-  #     - name: install xvfb, llvmpipe and lavapipe
-  #       run: |
-  #         sudo apt-get update -y -qq
-  #         sudo add-apt-repository ppa:oibaf/graphics-drivers -y
-  #         sudo apt-get update
-  #         sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
-  #     - uses: actions/checkout@v3
-  #     - uses: actions/cache@v3
-  #       with:
-  #         path: |
-  #           ~/.cargo/bin/
-  #           ~/.cargo/registry/index/
-  #           ~/.cargo/registry/cache/
-  #           ~/.cargo/git/db/
-  #           target/
-  #         key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
-  #     - uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #     - name: Build bevy
-  #       run: |
-  #         cargo build --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_winit,render,png,hdr,x11,bevy_ci_testing,trace,trace_chrome"
-  #     - name: Run examples
-  #       run: |
-  #         for example in .github/example-run/*.ron; do
-  #           example_name=`basename $example .ron`
-  #           echo "running $example_name - "`date`
-  #           time CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_winit,render,png,hdr,x11,bevy_ci_testing,trace,trace_chrome"
-  #           sleep 10
-  #         done
-  #         zip traces.zip trace*.json
-  #     - name: save traces
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: example-traces.zip
-  #         path: traces.zip
-
-
-  run-examples-on-windows:
-    runs-on: windows-latest
+  run-examples:
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Install Bevy dependencies
+        run: |
+          sudo apt-get update;
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
+            libasound2-dev libudev-dev;
+      - name: install xvfb, llvmpipe and lavapipe
+        run: |
+          sudo apt-get update -y -qq
+          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+          sudo apt-get update
+          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
       - name: Build bevy
         run: |
-          cargo build --features "bevy_ci_testing"
+          cargo build --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
-        shell: bash
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing"
+            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
           done
+          zip traces.zip trace*.json
+      - name: save traces
+        uses: actions/upload-artifact@v3
+        with:
+          name: example-traces.zip
+          path: traces.zip
 
   check-doc:
     runs-on: ubuntu-latest
