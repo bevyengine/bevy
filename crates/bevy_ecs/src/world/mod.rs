@@ -780,6 +780,16 @@ impl World {
         }
     }
 
+    ///
+    pub fn many_resources<'w, MR: ManyRes<'w>>(&'w self) -> MR::Item {
+        MR::get_resources(self)
+    }
+
+    ///
+    pub fn many_resources_mut<'w, MR: ManyResMut<'w>>(&'w mut self) -> MR::Item {
+        MR::get_resources_mut(self)
+    }
+
     /// Gets a reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
@@ -793,16 +803,6 @@ impl World {
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
         unsafe { self.get_resource_unchecked_mut() }
-    }
-
-    ///
-    pub fn get_many_resources<'w, MR: ManyRes<'w>>(&'w self) -> MR::Item {
-        MR::get_resources(self)
-    }
-
-    ///
-    pub fn get_many_resources_mut<'w, MR: ManyResMut<'w>>(&'w mut self) -> MR::Item {
-        MR::get_resources_mut(self)
     }
 
     // PERF: optimize this to avoid redundant lookups
@@ -1535,7 +1535,7 @@ mod tests {
         world.insert_resource(Res1(42));
         world.insert_resource(Res2(false));
 
-        let (r1, r2) = world.get_many_resources::<(Res1, Res2)>();
+        let (r1, r2) = world.many_resources::<(Res1, Res2)>();
 
         let r1 = r1;
         let r2 = r2;
@@ -1556,7 +1556,7 @@ mod tests {
         assert_eq!(world.resource::<Res1>(), &Res1(42));
         assert_eq!(world.resource::<Res2>(), &Res2(false));
 
-        let (mut r1, mut r2) = world.get_many_resources_mut::<(Res1, Res2)>();
+        let (mut r1, mut r2) = world.many_resources_mut::<(Res1, Res2)>();
         r1.0 = 1;
         r2.0 = true;
 
