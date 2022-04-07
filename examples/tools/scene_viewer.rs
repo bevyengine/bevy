@@ -164,6 +164,7 @@ fn keyboard_animation_control(
     mut animation_player: Query<&mut AnimationPlayer>,
     scene_handle: Res<SceneHandle>,
     mut current_animation: Local<usize>,
+    mut changing: Local<bool>,
 ) {
     if scene_handle.animations.is_empty() {
         return;
@@ -178,11 +179,20 @@ fn keyboard_animation_control(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
+        if *changing {
+            // change the animation the frame after return was pressed
             *current_animation = (*current_animation + 1) % scene_handle.animations.len();
             player
                 .play(scene_handle.animations[*current_animation].clone_weak())
                 .repeat();
+            *changing = false;
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Return) {
+            // delay the animation change for one frame
+            *changing = true;
+            // set the current animation to its start and pause it to reset to its starting state
+            player.set_elapsed(0.0).pause();
         }
     }
 }
