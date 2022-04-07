@@ -375,6 +375,10 @@ impl Components {
 
         ComponentId(*index)
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
+        self.components.iter()
+    }
 }
 
 #[derive(Clone, Debug)]
