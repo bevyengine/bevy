@@ -220,14 +220,7 @@ pub struct GpuLights {
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
-// FIXME: How should we handle shadows for clustered forward? Limiting to maximum 10
-// point light shadow maps for now
-#[cfg(feature = "webgl")]
-pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 1;
-#[cfg(not(feature = "webgl"))]
-pub const MAX_POINT_LIGHT_SHADOW_MAPS: usize = 10;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
-pub const POINT_SHADOW_LAYERS: u32 = (6 * MAX_POINT_LIGHT_SHADOW_MAPS) as u32;
 pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -704,8 +697,17 @@ pub fn prepare_lights(
 
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
 
+    #[cfg(not(feature = "webgl"))]
+    let max_point_light_shadow_maps = point_lights
+        .iter()
+        .filter(|light| light.1.shadows_enabled)
+        .count()
+        .min((render_device.limits().max_texture_array_layers / 6) as usize);
+    #[cfg(feature = "webgl")]
+    let max_point_light_shadow_maps = 1;
+
     // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
-    // to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows.
+    // to render at most `max_point_light_shadow_maps` point light shadows.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         point_light_order(
             (entity_1, &light_1.shadows_enabled),
@@ -723,7 +725,7 @@ pub fn prepare_lights(
     for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
         // Lights are sorted, shadow enabled lights are first
-        if light.shadows_enabled && index < MAX_POINT_LIGHT_SHADOW_MAPS {
+        if light.shadows_enabled && index < max_point_light_shadow_maps {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
         gpu_point_lights.push(GpuPointLight {
@@ -759,7 +761,7 @@ pub fn prepare_lights(
                 size: Extent3d {
                     width: point_light_shadow_map.size as u32,
                     height: point_light_shadow_map.size as u32,
-                    depth_or_array_layers: POINT_SHADOW_LAYERS,
+                    depth_or_array_layers: max_point_light_shadow_maps.max(1) as u32 * 6,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -816,7 +818,7 @@ pub fn prepare_lights(
         for &(light_entity, light) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
-            .take(MAX_POINT_LIGHT_SHADOW_MAPS)
+            .take(max_point_light_shadow_maps)
             .filter(|(_, light)| light.shadows_enabled)
         {
             let light_index = *global_light_meta
