@@ -12,9 +12,9 @@ pub use state::*;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use super::AnyOf;
     use crate::{self as bevy_ecs, component::Component, world::World};
+    use std::collections::HashSet;
 
     #[derive(Component, Debug, Hash, Eq, PartialEq)]
     struct A(usize);
