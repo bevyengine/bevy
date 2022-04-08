@@ -15,7 +15,7 @@ fn main() {
         .add_system(move_system)
         .add_system(collision_system)
         .add_system(select_system)
-        .insert_resource(SelectTimer(Timer::from_seconds(SHOWCASE_TIMER_SECS, true)))
+        .insert_resource(SelectionState::default())
         .run();
 }
 
@@ -27,8 +27,19 @@ struct ContributorSelection {
     idx: usize,
 }
 
-#[derive(Deref, DerefMut)]
-struct SelectTimer(Timer);
+struct SelectionState {
+    timer: Timer,
+    has_triggered: bool,
+}
+
+impl Default for SelectionState {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
+            has_triggered: false,
+        }
+    }
+}
 
 #[derive(Component)]
 struct ContributorDisplay;
@@ -70,7 +81,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
     let texture_handle = asset_server.load("branding/icon.png");
 
     let mut contributor_selection = ContributorSelection {
-        order: vec![],
+        order: Vec::with_capacity(contribs.len()),
         idx: 0,
     };
 
@@ -156,17 +167,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Finds the next contributor to display and selects the entity
 fn select_system(
-    mut timer: ResMut<SelectTimer>,
+    mut timer: ResMut<SelectionState>,
     mut contributor_selection: ResMut<ContributorSelection>,
     mut text_query: Query<&mut Text, With<ContributorDisplay>>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
-    if !timer.tick(time.delta()).just_finished() {
+    if !timer.timer.tick(time.delta()).just_finished() {
         return;
     }
+    if !timer.has_triggered {
+        let mut text = text_query.single_mut();
+        text.sections[0].value = "Contributor: ".to_string();
 
-    let prev = contributor_selection.idx;
+        timer.has_triggered = true;
+    }
+
+    {
+        let (_, entity) = &contributor_selection.order[contributor_selection.idx];
+        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
+            deselect(&mut sprite, contributor, &mut *transform);
+        }
+    }
 
     if (contributor_selection.idx + 1) < contributor_selection.order.len() {
         contributor_selection.idx += 1;
@@ -174,19 +196,11 @@ fn select_system(
         contributor_selection.idx = 0;
     }
 
-    {
-        let (_, entity) = &contributor_selection.order[prev];
-        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
-            deselect(&mut sprite, contributor, &mut *transform);
-        }
-    }
-
     let (name, entity) = &contributor_selection.order[contributor_selection.idx];
 
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
-        if let Some(mut text) = text_query.iter_mut().next() {
-            select(&mut sprite, contributor, &mut *transform, &mut *text, name);
-        }
+        let mut text = text_query.single_mut();
+        select(&mut sprite, contributor, &mut *transform, &mut *text, name);
     }
 }
 
@@ -197,7 +211,7 @@ fn select(
     contributor: &Contributor,
     transform: &mut Transform,
     text: &mut Text,
-    name: &str,
+    name: &String,
 ) {
     sprite.color = Color::hsla(
         contributor.hue,
@@ -208,8 +222,7 @@ fn select(
 
     transform.translation.z = 100.0;
 
-    text.sections[0].value = "Contributor: ".to_string();
-    text.sections[1].value = name.to_string();
+    text.sections[1].value.clone_from(name);
     text.sections[1].style.color = sprite.color;
 }
 
