@@ -85,16 +85,16 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         idx: 0,
     };
 
-    let mut rnd = rand::thread_rng();
+    let mut rng = rand::thread_rng();
 
     for name in contribs {
-        let pos = (rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0));
-        let dir = rnd.gen_range(-1.0..1.0);
+        let pos = (rng.gen_range(-400.0..400.0), rng.gen_range(0.0..400.0));
+        let dir = rng.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
-        let hue = rnd.gen_range(0.0..=360.0);
+        let hue = rng.gen_range(0.0..=360.0);
 
         // some sprites should be flipped
-        let flipped = rnd.gen_bool(0.5);
+        let flipped = rng.gen_bool(0.5);
 
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
@@ -123,7 +123,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         contributor_selection.order.push((name, entity));
     }
 
-    contributor_selection.order.shuffle(&mut rnd);
+    contributor_selection.order.shuffle(&mut rng);
 
     commands.insert_resource(contributor_selection);
 }
@@ -257,7 +257,7 @@ fn collision_system(
     windows: Res<Windows>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let mut rnd = rand::thread_rng();
+    let mut rng = rand::thread_rng();
 
     let window = windows.primary();
 
@@ -277,7 +277,7 @@ fn collision_system(
         if bottom < ground {
             transform.translation.y = ground + SPRITE_SIZE / 2.0;
             // apply an impulse upwards
-            velocity.translation.y = rnd.gen_range(700.0..1000.0);
+            velocity.translation.y = rng.gen_range(700.0..1000.0);
         }
         if top > ceiling {
             transform.translation.y = ceiling - SPRITE_SIZE / 2.0;
