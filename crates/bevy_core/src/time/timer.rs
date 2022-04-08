@@ -202,6 +202,10 @@ impl Timer {
     /// ```
     pub fn tick(&mut self, delta: Duration) -> &Self {
         if self.paused() {
+            self.times_finished = 0;
+            if self.repeating() {
+                self.finished = false;
+            }
             return self;
         }
 
@@ -481,5 +485,33 @@ mod tests {
         // total duration: 1.332 => 34 times finished
         t.tick(duration);
         assert_eq!(t.times_finished(), 34);
+    }
+
+    #[test]
+    fn paused() {
+        let mut t = Timer::from_seconds(10.0, false);
+
+        t.tick(Duration::from_secs_f32(10.0));
+        assert_eq!(t.just_finished(), true);
+        assert_eq!(t.finished(), true);
+        // A paused timer should change just_finished to false after a tick
+        t.pause();
+        t.tick(Duration::from_secs_f32(5.0));
+        assert_eq!(t.just_finished(), false);
+        assert_eq!(t.finished(), true);
+    }
+
+    #[test]
+    fn paused_repeating() {
+        let mut t = Timer::from_seconds(10.0, true);
+
+        t.tick(Duration::from_secs_f32(10.0));
+        assert_eq!(t.just_finished(), true);
+        assert_eq!(t.finished(), true);
+        // A paused repeating timer should change finished and just_finished to false after a tick
+        t.pause();
+        t.tick(Duration::from_secs_f32(5.0));
+        assert_eq!(t.just_finished(), false);
+        assert_eq!(t.finished(), false);
     }
 }
