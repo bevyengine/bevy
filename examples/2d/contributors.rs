@@ -16,7 +16,7 @@ fn main() {
         .add_system(collision_system)
         .add_system(select_system)
         .insert_resource(SelectTimer {
-            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
+            inner: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
             has_triggered: false,
         })
         .run();
@@ -30,9 +30,8 @@ struct ContributorSelection {
     idx: usize,
 }
 
-#[derive(Deref, DerefMut)]
 struct SelectTimer {
-    timer: Timer,
+    inner: Timer,
     has_triggered: bool,
 }
 
@@ -168,7 +167,7 @@ fn select_system(
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
-    if !timer.timer.tick(time.delta()).just_finished() {
+    if !timer.inner.tick(time.delta()).just_finished() {
         return;
     }
     if !timer.has_triggered {
