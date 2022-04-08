@@ -605,7 +605,6 @@ fn load_node(
         match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
                 let xmag = orthographic.xmag();
-                let _ymag = orthographic.ymag();
                 let orthographic_projection: OrthographicProjection = OrthographicProjection {
                     far: orthographic.zfar(),
                     near: orthographic.znear(),
