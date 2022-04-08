@@ -203,8 +203,8 @@ fn select_system(
     }
 }
 
-/// Change the modulate color to the "selected" colour,
-/// bring the object to the front and display the name.
+/// Change the tint color to the "selected" color, bring the object to the front
+/// and display the name.
 fn select(
     sprite: &mut Sprite,
     contributor: &Contributor,
