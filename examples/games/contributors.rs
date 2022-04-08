@@ -185,8 +185,8 @@ fn select_system(
     }
 
     {
-        let entity = &contributor_selection.order[contributor_selection.idx];
-        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
+        let entity = contributor_selection.order[contributor_selection.idx];
+        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
             deselect(&mut sprite, contributor, &mut *transform);
         }
     }
@@ -197,9 +197,9 @@ fn select_system(
         contributor_selection.idx = 0;
     }
 
-    let entity = &contributor_selection.order[contributor_selection.idx];
+    let entity = contributor_selection.order[contributor_selection.idx];
 
-    if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
+    if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
         let mut text = text_query.single_mut();
         select(&mut sprite, contributor, &mut *transform, &mut *text);
     }
