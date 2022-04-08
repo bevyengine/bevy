@@ -15,10 +15,7 @@ fn main() {
         .add_system(move_system)
         .add_system(collision_system)
         .add_system(select_system)
-        .insert_resource(SelectTimer {
-            inner: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
-            has_triggered: false,
-        })
+        .insert_resource(SelectionState::default())
         .run();
 }
 
@@ -30,9 +27,18 @@ struct ContributorSelection {
     idx: usize,
 }
 
-struct SelectTimer {
-    inner: Timer,
+struct SelectionState {
+    timer: Timer,
     has_triggered: bool,
+}
+
+impl Default for SelectionState {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
+            has_triggered: false,
+        }
+    }
 }
 
 #[derive(Component)]
@@ -161,13 +167,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Finds the next contributor to display and selects the entity
 fn select_system(
-    mut timer: ResMut<SelectTimer>,
+    mut timer: ResMut<SelectionState>,
     mut contributor_selection: ResMut<ContributorSelection>,
     mut text_query: Query<&mut Text, With<ContributorDisplay>>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
-    if !timer.inner.tick(time.delta()).just_finished() {
+    if !timer.timer.tick(time.delta()).just_finished() {
         return;
     }
     if !timer.has_triggered {
