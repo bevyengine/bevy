@@ -68,7 +68,10 @@ where
         while i < len {
             let config = queue.pop_front().unwrap();
             if let Some(audio_source) = audio_sources.get(&config.source_handle) {
-                if let Some(sink) = self.play_source(audio_source, config.repeat) {
+                if let Some(sink) = self.play_source(audio_source, config.settings.repeat) {
+                    sink.set_speed(config.settings.speed);
+                    sink.set_volume(config.settings.volume);
+
                     // don't keep the strong handle. there is no way to return it to the user here as it is async
                     let _ = sinks.set(config.sink_handle, AudioSink { sink: Some(sink) });
                 }
@@ -185,5 +188,12 @@ impl AudioSink {
     /// Sinks can be paused and resumed using [`pause`](Self::pause) and [`play`](Self::play).
     pub fn is_paused(&self) -> bool {
         self.sink.as_ref().unwrap().is_paused()
+    }
+
+    /// Stops the sink.
+    ///
+    /// It won't be possible to restart it afterwards.
+    pub fn stop(&self) {
+        self.sink.as_ref().unwrap().stop();
     }
 }
