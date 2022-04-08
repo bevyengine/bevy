@@ -184,11 +184,9 @@ fn select_system(
         timer.has_triggered = true;
     }
 
-    {
-        let entity = contributor_selection.order[contributor_selection.idx];
-        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
-            deselect(&mut sprite, contributor, &mut *transform);
-        }
+    let entity = contributor_selection.order[contributor_selection.idx];
+    if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
+        deselect(&mut sprite, contributor, &mut *transform);
     }
 
     if (contributor_selection.idx + 1) < contributor_selection.order.len() {
