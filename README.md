@@ -1,5 +1,7 @@
 # mikktspace
 
+This is a fork of https://github.com/gltf-rs/mikktspace, which in turn is a port of the Mikkelsen Tangent Space Algorithm reference implementation to Rust. It has been forked for use in the bevy game engine to be able to update maths crate dependencies in lock-step with bevy releases. It will be vendored in the bevy repository itself as crates/bevy_mikktspace.
+
 [![crates.io](https://img.shields.io/crates/v/mikktspace.svg)](https://crates.io/crates/mikktspace)
 [![Build Status](https://travis-ci.org/gltf-rs/mikktspace.svg?branch=master)](https://travis-ci.org/gltf-rs/mikktspace)
 
