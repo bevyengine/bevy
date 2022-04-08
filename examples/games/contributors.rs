@@ -23,7 +23,7 @@ fn main() {
 type Contributors = HashSet<String>;
 
 struct ContributorSelection {
-    order: Vec<(String, Entity)>,
+    order: Vec<Entity>,
     idx: usize,
 }
 
@@ -46,6 +46,7 @@ struct ContributorDisplay;
 
 #[derive(Component)]
 struct Contributor {
+    name: String,
     hue: f32,
 }
 
@@ -101,7 +102,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         let entity = commands
             .spawn()
             .insert_bundle((
-                Contributor { hue },
+                Contributor { name, hue },
                 Velocity {
                     translation: velocity,
                     rotation: -dir * 5.0,
@@ -120,7 +121,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
             })
             .id();
 
-        contributor_selection.order.push((name, entity));
+        contributor_selection.order.push(entity);
     }
 
     contributor_selection.order.shuffle(&mut rng);
@@ -184,7 +185,7 @@ fn select_system(
     }
 
     {
-        let (_, entity) = &contributor_selection.order[contributor_selection.idx];
+        let entity = &contributor_selection.order[contributor_selection.idx];
         if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
             deselect(&mut sprite, contributor, &mut *transform);
         }
@@ -196,11 +197,11 @@ fn select_system(
         contributor_selection.idx = 0;
     }
 
-    let (name, entity) = &contributor_selection.order[contributor_selection.idx];
+    let entity = &contributor_selection.order[contributor_selection.idx];
 
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
         let mut text = text_query.single_mut();
-        select(&mut sprite, contributor, &mut *transform, &mut *text, name);
+        select(&mut sprite, contributor, &mut *transform, &mut *text);
     }
 }
 
@@ -211,7 +212,6 @@ fn select(
     contributor: &Contributor,
     transform: &mut Transform,
     text: &mut Text,
-    name: &String,
 ) {
     sprite.color = Color::hsla(
         contributor.hue,
@@ -222,7 +222,7 @@ fn select(
 
     transform.translation.z = 100.0;
 
-    text.sections[1].value.clone_from(name);
+    text.sections[1].value.clone_from(&contributor.name);
     text.sections[1].style.color = sprite.color;
 }
 
