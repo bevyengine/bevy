@@ -3,13 +3,6 @@
 //!
 //! It sets up many sprites in different sizes and rotations, and at different scales in the world,
 //! and moves the camera over them to see how well frustum culling works.
-//!
-//! Since its a kind of benchmark, it also uses the [`LogDiagnosticsPlugin`] and the
-//! [`FrameTimeDiagnosticsPlugin`] to display performance statistics in the console.
-//!
-//! It also displays on how to use a [`Local`] system parameter in `print_sprite_count`, where that
-//! system is the only one able to access this value, in this case, the [`Timer`] used to determine
-//! when to print the sprite count.
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -24,6 +17,7 @@ const CAMERA_SPEED: f32 = 1000.0;
 
 fn main() {
     App::new()
+        // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins)
