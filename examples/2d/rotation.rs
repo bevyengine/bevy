@@ -66,7 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_bundle(SpriteBundle {
             texture: ship_handle,
-            ..Default::default()
+            ..default()
         })
         .insert(Player {
             movement_speed: 500.0,                  // metres per second
@@ -78,14 +78,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn_bundle(SpriteBundle {
             texture: enemy_a_handle.clone(),
             transform: Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
-            ..Default::default()
+            ..default()
         })
         .insert(SnapToPlayer);
     commands
         .spawn_bundle(SpriteBundle {
             texture: enemy_a_handle,
             transform: Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
-            ..Default::default()
+            ..default()
         })
         .insert(SnapToPlayer);
 
@@ -94,7 +94,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn_bundle(SpriteBundle {
             texture: enemy_b_handle.clone(),
             transform: Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
-            ..Default::default()
+            ..default()
         })
         .insert(RotateToPlayer {
             rotation_speed: f32::to_radians(45.0), // degrees per second
@@ -103,7 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn_bundle(SpriteBundle {
             texture: enemy_b_handle,
             transform: Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
-            ..Default::default()
+            ..default()
         })
         .insert(RotateToPlayer {
             rotation_speed: f32::to_radians(90.0), // degrees per second

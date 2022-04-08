@@ -17,8 +17,8 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(print_sprite_count.label("Tick"))
-        .add_system(move_camera.after("Tick"))
+        .add_system(print_sprite_count)
+        .add_system(move_camera.after(print_sprite_count))
         .run();
 }
 
@@ -57,9 +57,9 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 },
                 sprite: Sprite {
                     custom_size: Some(tile_size),
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             });
         }
     }
@@ -74,6 +74,7 @@ fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Cam
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
 }
 
+#[derive(Deref, DerefMut)]
 struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
@@ -84,9 +85,9 @@ impl Default for PrintingTimer {
 
 // System for printing the number of sprites on every tick of the timer
 fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites: Query<&Sprite>) {
-    timer.0.tick(time.delta());
+    timer.tick(time.delta());
 
-    if timer.0.just_finished() {
+    if timer.just_finished() {
         info!("Sprites: {}", sprites.iter().count(),);
     }
 }

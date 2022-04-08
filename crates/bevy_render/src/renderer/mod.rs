@@ -1,7 +1,7 @@
 mod graph_runner;
 mod render_device;
 
-use bevy_utils::tracing::{info, info_span};
+use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
 
@@ -19,19 +19,33 @@ pub fn render_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
-    let graph = world.get_resource::<RenderGraph>().unwrap();
-    let render_device = world.get_resource::<RenderDevice>().unwrap();
-    let render_queue = world.get_resource::<RenderQueue>().unwrap();
-    RenderGraphRunner::run(
+    let graph = world.resource::<RenderGraph>();
+    let render_device = world.resource::<RenderDevice>();
+    let render_queue = world.resource::<RenderQueue>();
+
+    if let Err(e) = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         render_queue,
         world,
-    )
-    .unwrap();
+    ) {
+        error!("Error running render graph:");
+        {
+            let mut src: &dyn std::error::Error = &e;
+            loop {
+                error!("> {}", src);
+                match src.source() {
+                    Some(s) => src = s,
+                    None => break,
+                }
+            }
+        }
+
+        panic!("Error running render graph: {}", e);
+    }
+
     {
-        let span = info_span!("present_frames");
-        let _guard = span.enter();
+        let _span = info_span!("present_frames").entered();
 
         // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
         // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
@@ -43,7 +57,7 @@ pub fn render_system(world: &mut World) {
             world.entity_mut(view_entity).remove::<ViewTarget>();
         }
 
-        let mut windows = world.get_resource_mut::<ExtractedWindows>().unwrap();
+        let mut windows = world.resource_mut::<ExtractedWindows>();
         for window in windows.values_mut() {
             if let Some(texture_view) = window.swap_chain_texture.take() {
                 if let Some(surface_texture) = texture_view.take_surface_texture() {

@@ -4,30 +4,31 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
-    camera::ExtractedCameraNames,
+    camera::ActiveCamera,
     render_graph::*,
     render_phase::*,
     render_resource::{
-        CachedPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
+        CachedRenderPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
     },
     renderer::*,
     view::*,
 };
 
-use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta, CAMERA_UI};
+use crate::prelude::CameraUi;
+
+use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta};
 
 pub struct UiPassDriverNode;
 
-impl bevy_render::render_graph::Node for UiPassDriverNode {
+impl Node for UiPassDriverNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
-        if let Some(camera_ui) = extracted_cameras.entities.get(CAMERA_UI) {
-            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(*camera_ui)])?;
+        if let Some(camera_ui) = world.resource::<ActiveCamera<CameraUi>>().get() {
+            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(camera_ui)])?;
         }
 
         Ok(())
@@ -49,7 +50,7 @@ impl UiPassNode {
     }
 }
 
-impl bevy_render::render_graph::Node for UiPassNode {
+impl Node for UiPassNode {
     fn input(&self) -> Vec<SlotInfo> {
         vec![SlotInfo::new(UiPassNode::IN_VIEW, SlotType::Entity)]
     }
@@ -82,9 +83,7 @@ impl bevy_render::render_graph::Node for UiPassNode {
             depth_stencil_attachment: None,
         };
 
-        let draw_functions = world
-            .get_resource::<DrawFunctions<TransparentUi>>()
-            .unwrap();
+        let draw_functions = world.resource::<DrawFunctions<TransparentUi>>();
 
         let render_pass = render_context
             .command_encoder
@@ -103,7 +102,7 @@ impl bevy_render::render_graph::Node for UiPassNode {
 pub struct TransparentUi {
     pub sort_key: FloatOrd,
     pub entity: Entity,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -128,9 +127,9 @@ impl EntityPhaseItem for TransparentUi {
     }
 }
 
-impl CachedPipelinePhaseItem for TransparentUi {
+impl CachedRenderPipelinePhaseItem for TransparentUi {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }

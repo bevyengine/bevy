@@ -135,8 +135,12 @@ impl World {
     }
 
     /// Retrieves this world's [Entities] collection mutably
+    ///
+    /// # Safety
+    /// Mutable reference must not be used to put the [`Entities`] data
+    /// in an invalid state for this [`World`]
     #[inline]
-    pub fn entities_mut(&mut self) -> &mut Entities {
+    pub unsafe fn entities_mut(&mut self) -> &mut Entities {
         &mut self.entities
     }
 
@@ -150,12 +154,6 @@ impl World {
     #[inline]
     pub fn components(&self) -> &Components {
         &self.components
-    }
-
-    /// Retrieves a mutable reference to this world's [Components] collection
-    #[inline]
-    pub fn components_mut(&mut self) -> &mut Components {
-        &mut self.components
     }
 
     /// Retrieves this world's [Storages] collection
@@ -226,8 +224,8 @@ impl World {
     /// let entity = world.spawn()
     ///     .insert(Position { x: 0.0, y: 0.0 })
     ///     .id();
-    ///
-    /// let mut position = world.entity_mut(entity).get_mut::<Position>().unwrap();
+    /// let mut entity_mut = world.entity_mut(entity);
+    /// let mut position = entity_mut.get_mut::<Position>().unwrap();
     /// position.x = 1.0;
     /// ```
     #[inline]
@@ -439,7 +437,8 @@ impl World {
     /// ```
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        self.get_entity_mut(entity)?.get_mut()
+        // SAFE: lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_entity_mut(entity)?.get_unchecked_mut::<T>() }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
@@ -607,9 +606,6 @@ impl World {
     /// and those default values will be here instead.
     #[inline]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        // PERF: We could avoid double hashing here, since the `from_world` call is guaranteed
-        // not to modify the map. However, we would need to be borrowing resources both
-        // mutably and immutably, so we would need to be extremely certain this is correct
         if !self.contains_resource::<R>() {
             let resource = R::from_world(self);
             self.insert_resource(resource);
@@ -637,9 +633,6 @@ impl World {
     /// and those default values will be here instead.
     #[inline]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
-        // PERF: We could avoid double hashing here, since the `from_world` call is guaranteed
-        // not to modify the map. However, we would need to be borrowing resources both
-        // mutably and immutably, so we would need to be extremely certain this is correct
         if !self.contains_resource::<R>() {
             let resource = R::from_world(self);
             self.insert_non_send_resource(resource);
@@ -705,13 +698,6 @@ impl World {
         self.get_populated_resource_column(component_id).is_some()
     }
 
-    /// Gets a reference to the resource of the given type, if it exists. Otherwise returns [None]
-    #[inline]
-    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        unsafe { self.get_resource_with_id(component_id) }
-    }
-
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         let component_id =
             if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
@@ -746,7 +732,63 @@ impl World {
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
 
-    /// Gets a mutable reference to the resource of the given type, if it exists. Otherwise returns
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource`](World::get_resource) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource<R: Resource>(&self) -> &R {
+        match self.get_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        match self.get_resource_mut() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        // SAFE: unique world access
+        unsafe { self.get_resource_with_id(component_id) }
+    }
+
+    /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFE: unique world access
@@ -754,7 +796,7 @@ impl World {
     }
 
     // PERF: optimize this to avoid redundant lookups
-    /// Gets a resource of type `T` if it exists,
+    /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
     #[inline]
     pub fn get_resource_or_insert_with<R: Resource>(
@@ -764,7 +806,7 @@ impl World {
         if !self.contains_resource::<R>() {
             self.insert_resource(func());
         }
-        self.get_resource_mut().unwrap()
+        self.resource_mut()
     }
 
     /// Gets a mutable reference to the resource of the given type, if it exists
@@ -777,6 +819,46 @@ impl World {
     pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         self.get_resource_unchecked_mut_with_id(component_id)
+    }
+
+    /// Gets an immutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn non_send_resource<R: 'static>(&self) -> &R {
+        match self.get_non_send_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        match self.get_non_send_resource_mut() {
+            Some(x) => x,
+            None => panic!(
+                "Requested non-send resource {} does not exist in the `World`. 
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Non-send resources can also be be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
     }
 
     /// Gets a reference to the non-send resource of the given type, if it exists.

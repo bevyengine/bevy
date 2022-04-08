@@ -6,8 +6,7 @@ pub use camera::*;
 pub use pipeline::*;
 pub use render_pass::*;
 
-use std::ops::Range;
-
+use crate::{CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
@@ -15,7 +14,6 @@ use bevy_ecs::prelude::*;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::ActiveCameras,
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, SlotInfo, SlotType},
@@ -30,11 +28,9 @@ use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use bevy_window::Windows;
-
+use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
-
-use crate::{CalculatedClip, Node, UiColor, UiImage};
+use std::ops::Range;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -61,9 +57,6 @@ pub enum RenderUiSystem {
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    let mut active_cameras = app.world.get_resource_mut::<ActiveCameras>().unwrap();
-    active_cameras.add(CAMERA_UI);
-
     let render_app = match app.get_sub_app_mut(RenderApp) {
         Ok(render_app) => render_app,
         Err(_) => return,
@@ -71,7 +64,7 @@ pub fn build_ui_render(app: &mut App) {
 
     render_app
         .init_resource::<UiPipeline>()
-        .init_resource::<SpecializedPipelines<UiPipeline>>()
+        .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
@@ -92,7 +85,7 @@ pub fn build_ui_render(app: &mut App) {
 
     // Render graph
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
     let mut draw_ui_graph = RenderGraph::default();
     draw_ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
@@ -145,7 +138,7 @@ pub fn extract_uinodes(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
@@ -184,13 +177,9 @@ pub fn extract_text_uinodes(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let mut extracted_uinodes = render_world.get_resource_mut::<ExtractedUiNodes>().unwrap();
+    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
-    } else {
-        1.
-    };
+    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
@@ -371,12 +360,8 @@ pub fn prepare_uinodes(
         ]
         .map(|pos| pos / atlas_extent);
 
-        let color = extracted_uinode.color.as_linear_rgba_f32();
         // encode color as a single u32 to save space
-        let color = (color[0] * 255.0) as u32
-            | ((color[1] * 255.0) as u32) << 8
-            | ((color[2] * 255.0) as u32) << 16
-            | ((color[3] * 255.0) as u32) << 24;
+        let color = extracted_uinode.color.as_linear_rgba_u32();
 
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
@@ -414,8 +399,8 @@ pub fn queue_uinodes(
     mut ui_meta: ResMut<UiMeta>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
-    mut pipelines: ResMut<SpecializedPipelines<UiPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
