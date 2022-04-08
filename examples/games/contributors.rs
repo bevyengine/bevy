@@ -15,7 +15,7 @@ fn main() {
         .add_system(move_system)
         .add_system(collision_system)
         .add_system(select_system)
-        .insert_resource(SelectionState::default())
+        .init_resource::<SelectionState>()
         .run();
 }
 
