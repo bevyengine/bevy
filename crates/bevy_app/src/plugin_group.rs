@@ -29,7 +29,7 @@ impl PluginGroupBuilder {
 			.iter()
 			.enumerate()
 			.find(|(_i, ty)| **ty == TypeId::of::<Target>())
-            .map(|(i, _)| i);
+			.map(|(i, _)| i);
 
 		match index {
 			Some(i) => return i,
