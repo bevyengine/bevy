@@ -23,19 +23,23 @@ pub struct PluginGroupBuilder {
 }
 
 impl PluginGroupBuilder {
-	/// Finds the index of a target [`Plugin`]. Panics if the target's ['TypeId'] is not found.
-	fn index_of<Target: Plugin>(&mut self) -> usize {
-		let index = self.order
-			.iter()
-			.enumerate()
-			.find(|(_i, ty)| **ty == TypeId::of::<Target>())
-			.map(|(i, _)| i);
+    /// Finds the index of a target [`Plugin`]. Panics if the target's ['TypeId'] is not found.
+    fn index_of<Target: Plugin>(&mut self) -> usize {
+        let index = self
+            .order
+            .iter()
+            .enumerate()
+            .find(|(_i, ty)| **ty == TypeId::of::<Target>())
+            .map(|(i, _)| i);
 
-		match index {
-			Some(i) => return i,
-			None => panic!("Plugin does not exist: {}.",std::any::type_name::<Target>())
-		};
-	}
+        match index {
+            Some(i) => return i,
+            None => panic!(
+                "Plugin does not exist: {}.",
+                std::any::type_name::<Target>()
+            ),
+        };
+    }
 
     /// Appends a [`Plugin`] to the [`PluginGroupBuilder`].
     pub fn add<T: Plugin>(&mut self, plugin: T) -> &mut Self {
