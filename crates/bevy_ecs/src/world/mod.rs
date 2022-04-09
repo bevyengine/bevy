@@ -1096,11 +1096,21 @@ impl World {
     }
 
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
+        let info = self.components.get_info(component_id)?;
+        if !info.is_send_and_sync() {
+            self.validate_non_send_access_untyped(info.name());
+        }
+
         let column = self.get_populated_resource_column(component_id)?;
         Some(unsafe { column.get_data_ptr().as_ptr().cast() })
     }
 
-    pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutDynamic> {
+    pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped> {
+        let info = self.components.get_info(component_id)?;
+        if !info.is_send_and_sync() {
+            self.validate_non_send_access_untyped(info.name());
+        }
+
         let column = self.get_populated_resource_column(component_id)?;
         let value = unsafe { column.get_data_ptr().as_ptr().cast() };
         let ticks = Ticks {
@@ -1237,6 +1247,14 @@ impl World {
             self.main_thread_validator.is_main_thread(),
             "attempted to access NonSend resource {} off of the main thread",
             std::any::type_name::<T>(),
+        );
+    }
+
+    pub(crate) fn validate_non_send_access_untyped(&self, name: &str) {
+        assert!(
+            self.main_thread_validator.is_main_thread(),
+            "attempted to access NonSend resource {} off of the main thread",
+            name
         );
     }
 
