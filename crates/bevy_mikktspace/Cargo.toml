@@ -1,25 +1,21 @@
 [package]
-name = "mikktspace"
-version = "0.3.0"
-edition = "2018"
+name = "bevy_mikktspace"
+version = "0.7.0-dev"
+edition = "2021"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>", "Layl Bongers <LaylConway@users.noreply.github.com>"]
 description = "Mikkelsen tangent space algorithm"
 documentation = "https://docs.rs/mikktspace"
-repository = "https://github.com/gltf-rs/mikktspace"
-homepage = "https://github.com/gltf-rs/mikktspace"
-readme = "README.md"
-keywords = ["3D", "graphics", "algorithm", "tangent"]
-license = "MIT/Apache-2.0"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
 
 [features]
-default = ["nalgebra"]
-
-[badges]
-travis-ci = { repository = "gltf-rs/mikktspace" }
+default = ["glam"]
 
 [dependencies]
 nalgebra = { version = "0.30", optional = true }
-glam = { version = "0.20", optional = true }
+glam = { version = "0.20.0", optional = true }
 
 [[example]]
 name = "generate"

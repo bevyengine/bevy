@@ -203,10 +203,7 @@ impl STmpVert {
     }
 }
 
-pub unsafe fn genTangSpace<I: Geometry>(
-    geometry: &mut I,
-    fAngularThreshold: f32,
-) -> bool {
+pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32) -> bool {
     let mut iNrTrianglesIn = 0;
     let mut f = 0;
     let mut t = 0;
@@ -570,12 +567,7 @@ unsafe fn GenerateTSpaces<I: Geometry>(
             }
             if iMembers > 1 {
                 let mut uSeed: u32 = 39871946i32 as u32;
-                QuickSort(
-                    pTmpMembers.as_mut_ptr(),
-                    0i32,
-                    (iMembers - 1) as i32,
-                    uSeed,
-                );
+                QuickSort(pTmpMembers.as_mut_ptr(), 0i32, (iMembers - 1) as i32, uSeed);
             }
             tmp_group.iNrFaces = iMembers as i32;
             tmp_group.pTriMembers = pTmpMembers.clone();
@@ -818,12 +810,7 @@ unsafe fn CompareSubGroups(mut pg1: *const SSubGroup, mut pg2: *const SSubGroup)
     }
     return bStillSame;
 }
-unsafe fn QuickSort(
-    mut pSortBuffer: *mut i32,
-    mut iLeft: i32,
-    mut iRight: i32,
-    mut uSeed: u32,
-) {
+unsafe fn QuickSort(mut pSortBuffer: *mut i32, mut iLeft: i32, mut iRight: i32, mut uSeed: u32) {
     let mut iL: i32 = 0;
     let mut iR: i32 = 0;
     let mut n: i32 = 0;
@@ -1374,10 +1361,7 @@ unsafe fn QuickSortEdges(
 }
 
 // returns the texture area times 2
-unsafe fn CalcTexArea<I: Geometry>(
-    geometry: &mut I,
-    mut indices: *const i32,
-) -> f32 {
+unsafe fn CalcTexArea<I: Geometry>(geometry: &mut I, mut indices: *const i32) -> f32 {
     let t1 = get_tex_coord(geometry, *indices.offset(0isize) as usize);
     let t2 = get_tex_coord(geometry, *indices.offset(1isize) as usize);
     let t3 = get_tex_coord(geometry, *indices.offset(2isize) as usize);

@@ -69,11 +69,26 @@ fn make_cube() -> Mesh {
         faces.push([base + 1, base + 2, base + 4]);
         faces.push([base + 2, base + 3, base + 4]);
         faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [1.0, -1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [1.0, -1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [1.0, 1.0], dir: [1.0, 1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [1.0, 0.0], dir: [1.0, 1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.5, 0.5], dir: [1.0, 0.0, 0.0] });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.0],
+            dir: [1.0, -1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 1.0],
+            dir: [1.0, -1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [1.0, 1.0],
+            dir: [1.0, 1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [1.0, 0.0],
+            dir: [1.0, 1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.5, 0.5],
+            dir: [1.0, 0.0, 0.0],
+        });
     }
 
     // -x plane
@@ -83,11 +98,26 @@ fn make_cube() -> Mesh {
         faces.push([base + 1, base + 2, base + 4]);
         faces.push([base + 2, base + 3, base + 4]);
         faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint { uv: [1.0, 0.0], dir: [-1.0, 1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [1.0, 1.0], dir: [-1.0, 1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, -1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, -1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.5, 0.5], dir: [-1.0, 0.0, 0.0] });
+        ctl_pts.push(ControlPoint {
+            uv: [1.0, 0.0],
+            dir: [-1.0, 1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [1.0, 1.0],
+            dir: [-1.0, 1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 1.0],
+            dir: [-1.0, -1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.0],
+            dir: [-1.0, -1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.5, 0.5],
+            dir: [-1.0, 0.0, 0.0],
+        });
     }
 
     // +y plane
@@ -97,11 +127,26 @@ fn make_cube() -> Mesh {
         faces.push([base + 1, base + 2, base + 4]);
         faces.push([base + 2, base + 3, base + 4]);
         faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [1.0, 1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [1.0, 1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, 1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, 1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.5], dir: [0.0, 1.0, 0.0] });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.0],
+            dir: [1.0, 1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 1.0],
+            dir: [1.0, 1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 1.0],
+            dir: [-1.0, 1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.0],
+            dir: [-1.0, 1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.5],
+            dir: [0.0, 1.0, 0.0],
+        });
     }
 
     // -y plane
@@ -111,11 +156,26 @@ fn make_cube() -> Mesh {
         faces.push([base + 1, base + 2, base + 4]);
         faces.push([base + 2, base + 3, base + 4]);
         faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, -1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, -1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [1.0, -1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [1.0, -1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.5], dir: [0.0, -1.0, 0.0] });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.0],
+            dir: [-1.0, -1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 1.0],
+            dir: [-1.0, -1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 1.0],
+            dir: [1.0, -1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.0],
+            dir: [1.0, -1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.5],
+            dir: [0.0, -1.0, 0.0],
+        });
     }
 
     // +z plane
@@ -125,11 +185,26 @@ fn make_cube() -> Mesh {
         faces.push([base + 1, base + 2, base + 4]);
         faces.push([base + 2, base + 3, base + 4]);
         faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, 1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, -1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [1.0, 1.0], dir: [1.0, -1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [1.0, 0.0], dir: [1.0, 1.0, 1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.5, 0.5], dir: [0.0, 0.0, 1.0] });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.0],
+            dir: [-1.0, 1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 1.0],
+            dir: [-1.0, -1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [1.0, 1.0],
+            dir: [1.0, -1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [1.0, 0.0],
+            dir: [1.0, 1.0, 1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.5, 0.5],
+            dir: [0.0, 0.0, 1.0],
+        });
     }
 
     // -z plane
@@ -139,11 +214,26 @@ fn make_cube() -> Mesh {
         faces.push([base + 1, base + 2, base + 4]);
         faces.push([base + 2, base + 3, base + 4]);
         faces.push([base + 3, base, base + 4]);
-        ctl_pts.push(ControlPoint { uv: [1.0, 0.0], dir: [1.0, 1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [1.0, 1.0], dir: [1.0, -1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, -1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, 1.0, -1.0] });
-        ctl_pts.push(ControlPoint { uv: [0.5, 0.5], dir: [0.0, 0.0, -1.0] });
+        ctl_pts.push(ControlPoint {
+            uv: [1.0, 0.0],
+            dir: [1.0, 1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [1.0, 1.0],
+            dir: [1.0, -1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 1.0],
+            dir: [-1.0, -1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.0, 0.0],
+            dir: [-1.0, 1.0, -1.0],
+        });
+        ctl_pts.push(ControlPoint {
+            uv: [0.5, 0.5],
+            dir: [0.0, 0.0, -1.0],
+        });
     }
 
     for pt in ctl_pts {
@@ -157,10 +247,7 @@ fn make_cube() -> Mesh {
         });
     }
 
-    Mesh {
-        faces,
-        vertices,
-    }
+    Mesh { faces, vertices }
 }
 
 fn main() {
