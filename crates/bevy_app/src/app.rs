@@ -4,8 +4,8 @@ use bevy_ecs::{
     event::Events,
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
-        run_once_criteria, IntoSystemDescriptor, Schedule, Stage, StageLabel, State, StateData,
-        SystemSet, SystemStage,
+        IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
+        SystemStage,
     },
     system::Resource,
     world::World,
@@ -591,7 +591,7 @@ impl App {
             .add_stage(
                 StartupSchedule,
                 Schedule::default()
-                    .with_run_criteria(run_once_criteria())
+                    .with_run_criteria(ShouldRun::once)
                     .with_stage(StartupStage::PreStartup, SystemStage::parallel())
                     .with_stage(StartupStage::Startup, SystemStage::parallel())
                     .with_stage(StartupStage::PostStartup, SystemStage::parallel()),

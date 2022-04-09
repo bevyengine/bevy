@@ -1,6 +1,6 @@
 use crate::{
     schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
-    system::{BoxedSystem, IntoSystem},
+    system::{BoxedSystem, IntoSystem, Local},
     world::World,
 };
 use std::borrow::Cow;
@@ -39,6 +39,17 @@ pub enum ShouldRun {
     /// criteria should be checked again. This will cause the stage to loop over the remaining
     /// systems and criteria this tick until they no longer need to be checked.
     NoAndCheckAgain,
+}
+
+impl ShouldRun {
+    pub fn once(mut ran: Local<bool>) -> ShouldRun {
+        if *ran {
+            ShouldRun::No
+        } else {
+            *ran = true;
+            ShouldRun::Yes
+        }
+    }
 }
 
 #[derive(Default)]
@@ -318,18 +329,6 @@ impl RunCriteria {
             duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
             after: vec![Box::new(label)],
-        }
-    }
-}
-
-pub fn run_once_criteria() -> impl FnMut() -> ShouldRun {
-    let mut ran = false;
-    move || {
-        if ran {
-            ShouldRun::No
-        } else {
-            ran = true;
-            ShouldRun::Yes
         }
     }
 }
