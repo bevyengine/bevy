@@ -28,9 +28,7 @@ impl PluginGroupBuilder {
         let index = self
             .order
             .iter()
-            .enumerate()
-            .find(|(_i, ty)| **ty == TypeId::of::<Target>())
-            .map(|(i, _)| i);
+            .position(|&ty| ty == TypeId::of::<Target>());
 
         match index {
             Some(i) => i,
