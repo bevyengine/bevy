@@ -1183,6 +1183,27 @@ impl World {
     }
 
     /// # Safety
+    /// The value referenced by `value` must be valid for the given ComponentId
+    pub unsafe fn insert_resource_by_id(&mut self, component_id: ComponentId, value: *const ()) {
+        let change_tick = self.change_tick();
+        let column = self.initialize_resource_internal(component_id);
+        if column.is_empty() {
+            let value = ManuallyDrop::new(value);
+            // SAFE: column has been allocated above and `value` is valid as per the function's safety requirements
+            column.push(
+                value.cast::<u8>() as *mut _,
+                ComponentTicks::new(change_tick),
+            );
+        } else {
+            // SAFE: column has been allocated above and `value` is valid as per the function's safety requirements
+            let ptr = column.get_data_unchecked(0).cast::<u8>();
+            std::ptr::copy_nonoverlapping(value.cast::<u8>(), ptr, column.data.layout().size());
+
+            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
+        }
+    }
+
+    /// # Safety
     /// `component_id` must be valid and correspond to a resource component of type `R`
     #[inline]
     unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
