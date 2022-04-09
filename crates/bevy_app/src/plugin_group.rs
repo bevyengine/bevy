@@ -23,7 +23,7 @@ pub struct PluginGroupBuilder {
 }
 
 impl PluginGroupBuilder {
-    /// Finds the index of a target [`Plugin`]. Panics if the target's ['TypeId'] is not found.
+    /// Finds the index of a target [`Plugin`]. Panics if the target's [`TypeId`] is not found.
     fn index_of<Target: Plugin>(&mut self) -> usize {
         let index = self
             .order
