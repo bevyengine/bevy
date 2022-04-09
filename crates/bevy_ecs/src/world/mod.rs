@@ -10,7 +10,7 @@ pub use world_cell::*;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
-    change_detection::Ticks,
+    change_detection::{MutDynamic, Ticks},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{FilterFetch, QueryState, WorldQuery},
@@ -1093,6 +1093,23 @@ impl World {
     ) -> Option<&R> {
         let column = self.get_populated_resource_column(component_id)?;
         Some(&*column.get_data_ptr().as_ptr().cast::<R>())
+    }
+
+    pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
+        let column = self.get_populated_resource_column(component_id)?;
+        Some(unsafe { column.get_data_ptr().as_ptr().cast() })
+    }
+
+    pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutDynamic> {
+        let column = self.get_populated_resource_column(component_id)?;
+        let value = unsafe { column.get_data_ptr().as_ptr().cast() };
+        let ticks = Ticks {
+            component_ticks: unsafe { &mut *column.get_ticks_mut_ptr_unchecked(0) },
+            last_change_tick: self.last_change_tick(),
+            change_tick: self.read_change_tick(),
+        };
+
+        Some(MutUntyped { value, ticks })
     }
 
     /// # Safety
