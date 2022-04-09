@@ -1,4 +1,4 @@
-use crate as bevy_reflect;
+use crate::{self as bevy_reflect, ReflectFromPtr};
 use crate::{
     map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType, GetTypeRegistration,
     List, ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
@@ -148,6 +148,7 @@ impl<T: FromReflect + for<'de> Deserialize<'de>> GetTypeRegistration for Vec<T> 
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Vec<T>>();
         registration.insert::<ReflectDeserialize>(FromType::<Vec<T>>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<Vec<T>>::from_type());
         registration
     }
 }
@@ -270,6 +271,7 @@ where
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -355,6 +357,7 @@ impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, str>>::from_type());
         registration
     }
 }
