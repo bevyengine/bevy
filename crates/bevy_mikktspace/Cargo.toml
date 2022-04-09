@@ -1,0 +1,28 @@
+[package]
+name = "mikktspace"
+version = "0.3.0"
+edition = "2018"
+authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>", "Layl Bongers <LaylConway@users.noreply.github.com>"]
+description = "Mikkelsen tangent space algorithm"
+documentation = "https://docs.rs/mikktspace"
+repository = "https://github.com/gltf-rs/mikktspace"
+homepage = "https://github.com/gltf-rs/mikktspace"
+readme = "README.md"
+keywords = ["3D", "graphics", "algorithm", "tangent"]
+license = "MIT/Apache-2.0"
+
+[features]
+default = ["nalgebra"]
+
+[badges]
+travis-ci = { repository = "gltf-rs/mikktspace" }
+
+[dependencies]
+nalgebra = { version = "0.30", optional = true }
+glam = { version = "0.20", optional = true }
+
+[[example]]
+name = "generate"
+
+[dev-dependencies]
+nalgebra = "0.30"
