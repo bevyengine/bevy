@@ -33,12 +33,12 @@ impl PluginGroupBuilder {
             .map(|(i, _)| i);
 
         match index {
-            Some(i) => return i,
+            Some(i) => i,
             None => panic!(
                 "Plugin does not exist: {}.",
                 std::any::type_name::<Target>()
             ),
-        };
+        }
     }
 
     /// Appends a [`Plugin`] to the [`PluginGroupBuilder`].
