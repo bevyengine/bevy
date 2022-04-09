@@ -1,13 +1,15 @@
-use mikktspace::{generate_tangents, Geometry};
-use nalgebra::{Point2, Point3, Vector3};
+#![allow(clippy::bool_assert_comparison, clippy::useless_conversion)]
+
+use bevy_mikktspace::{generate_tangents, Geometry};
+use glam::{Vec2, Vec3};
 
 pub type Face = [u32; 3];
 
 #[derive(Debug)]
 struct Vertex {
-    position: Point3<f32>,
-    normal: Vector3<f32>,
-    tex_coord: Point2<f32>,
+    position: Vec3,
+    normal: Vec3,
+    tex_coord: Vec2,
 }
 
 #[derive(Debug, PartialEq)]
@@ -68,7 +70,7 @@ impl Geometry for Context {
     }
 
     fn position(&self, face: usize, vert: usize) -> [f32; 3] {
-        vertex(&self.mesh, face, vert).position.coords.into()
+        vertex(&self.mesh, face, vert).position.into()
     }
 
     fn normal(&self, face: usize, vert: usize) -> [f32; 3] {
@@ -76,7 +78,7 @@ impl Geometry for Context {
     }
 
     fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
-        vertex(&self.mesh, face, vert).tex_coord.coords.into()
+        vertex(&self.mesh, face, vert).tex_coord.into()
     }
 
     fn set_tangent(
@@ -202,9 +204,9 @@ fn make_cube() -> Mesh {
     }
 
     for pt in ctl_pts {
-        let p: Point3<f32> = pt.dir.into();
-        let n: Vector3<f32> = p.coords.normalize();
-        let t: Point2<f32> = pt.uv.into();
+        let p: Vec3 = pt.dir.into();
+        let n: Vec3 = p.normalize();
+        let t: Vec2 = pt.uv.into();
         vertices.push(Vertex {
             position: (p / 2.0).into(),
             normal: n.into(),

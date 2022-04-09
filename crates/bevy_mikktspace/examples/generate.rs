@@ -1,12 +1,14 @@
-use nalgebra::{Point2, Point3, Vector3};
+#![allow(clippy::bool_assert_comparison, clippy::useless_conversion)]
+
+use glam::{Vec2, Vec3};
 
 pub type Face = [u32; 3];
 
 #[derive(Debug)]
 struct Vertex {
-    position: Point3<f32>,
-    normal: Vector3<f32>,
-    tex_coord: Point2<f32>,
+    position: Vec3,
+    normal: Vec3,
+    tex_coord: Vec2,
 }
 
 struct Mesh {
@@ -19,7 +21,7 @@ fn vertex(mesh: &Mesh, face: usize, vert: usize) -> &Vertex {
     &mesh.vertices[vs[vert] as usize]
 }
 
-impl mikktspace::Geometry for Mesh {
+impl bevy_mikktspace::Geometry for Mesh {
     fn num_faces(&self) -> usize {
         self.faces.len()
     }
@@ -29,7 +31,7 @@ impl mikktspace::Geometry for Mesh {
     }
 
     fn position(&self, face: usize, vert: usize) -> [f32; 3] {
-        vertex(self, face, vert).position.coords.into()
+        vertex(self, face, vert).position.into()
     }
 
     fn normal(&self, face: usize, vert: usize) -> [f32; 3] {
@@ -37,7 +39,7 @@ impl mikktspace::Geometry for Mesh {
     }
 
     fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
-        vertex(self, face, vert).tex_coord.coords.into()
+        vertex(self, face, vert).tex_coord.into()
     }
 
     fn set_tangent_encoded(&mut self, tangent: [f32; 4], face: usize, vert: usize) {
@@ -45,9 +47,9 @@ impl mikktspace::Geometry for Mesh {
             "{face}-{vert}: v: {v:?}, vn: {vn:?}, vt: {vt:?}, vx: {vx:?}",
             face = face,
             vert = vert,
-            v = vertex(self, face, vert).position.coords.data,
-            vn = vertex(self, face, vert).normal.data,
-            vt = vertex(self, face, vert).tex_coord.coords.data,
+            v = vertex(self, face, vert).position,
+            vn = vertex(self, face, vert).normal,
+            vt = vertex(self, face, vert).tex_coord,
             vx = tangent,
         );
     }
@@ -237,9 +239,9 @@ fn make_cube() -> Mesh {
     }
 
     for pt in ctl_pts {
-        let p: Point3<f32> = pt.dir.into();
-        let n: Vector3<f32> = p.coords.normalize();
-        let t: Point2<f32> = pt.uv.into();
+        let p: Vec3 = pt.dir.into();
+        let n: Vec3 = p.normalize();
+        let t: Vec2 = pt.uv.into();
         vertices.push(Vertex {
             position: (p / 2.0).into(),
             normal: n.into(),
@@ -252,6 +254,6 @@ fn make_cube() -> Mesh {
 
 fn main() {
     let mut cube = make_cube();
-    let ret = mikktspace::generate_tangents(&mut cube);
+    let ret = bevy_mikktspace::generate_tangents(&mut cube);
     assert_eq!(true, ret);
 }
