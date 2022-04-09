@@ -332,7 +332,7 @@ impl Mesh {
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
     pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
         let tangents = generate_tangents_for_mesh(self)?;
-        self.set_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
+        self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
         Ok(())
     }
 
@@ -847,7 +847,7 @@ impl MikktspaceGeometryHelper<'_> {
     }
 }
 
-impl mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
+impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
     fn num_faces(&self) -> usize {
         self.indices.len() / 3
     }
@@ -896,34 +896,34 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
     };
 
     let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION).ok_or(
-        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_POSITION),
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_POSITION.name),
     )? {
         VertexAttributeValues::Float32x3(vertices) => vertices,
         _ => {
             return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
-                Mesh::ATTRIBUTE_POSITION,
+                Mesh::ATTRIBUTE_POSITION.name,
                 VertexFormat::Float32x3,
             ))
         }
     };
     let normals = match mesh.attribute(Mesh::ATTRIBUTE_NORMAL).ok_or(
-        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_NORMAL),
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_NORMAL.name),
     )? {
         VertexAttributeValues::Float32x3(vertices) => vertices,
         _ => {
             return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
-                Mesh::ATTRIBUTE_NORMAL,
+                Mesh::ATTRIBUTE_NORMAL.name,
                 VertexFormat::Float32x3,
             ))
         }
     };
     let uvs = match mesh.attribute(Mesh::ATTRIBUTE_UV_0).ok_or(
-        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_UV_0),
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_UV_0.name),
     )? {
         VertexAttributeValues::Float32x2(vertices) => vertices,
         _ => {
             return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
-                Mesh::ATTRIBUTE_UV_0,
+                Mesh::ATTRIBUTE_UV_0.name,
                 VertexFormat::Float32x2,
             ))
         }
@@ -941,7 +941,7 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
         uvs,
         tangents,
     };
-    let success = mikktspace::generate_tangents(&mut mikktspace_mesh);
+    let success = bevy_mikktspace::generate_tangents(&mut mikktspace_mesh);
     if !success {
         return Err(GenerateTangentsError::MikktspaceError);
     }

@@ -308,7 +308,7 @@ async fn load_gltf<'a, 'b>(
                 .read_tangents()
                 .map(|v| VertexAttributeValues::Float32x4(v.collect()))
             {
-                mesh.set_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+                mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
             } else if primitive.material().normal_texture().is_some() {
                 bevy_log::debug!(
                     "Missing vertex tangents, computing them using the mikktspace algorithm"
