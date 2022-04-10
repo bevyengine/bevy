@@ -6,13 +6,14 @@ use bevy_ecs::prelude::ResMut;
 use bevy_utils::{Entry, HashMap};
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
 
-/// The internal representation of a [`CachedTexture`] used to track whether it was recently used
-/// and is currently taken.
+/// The internal representation of a [`CachedTexture`] used to track whether it was recently used,
+/// is currently taken and is it shared.
 struct CachedTextureMeta {
     texture: Texture,
     default_view: TextureView,
     taken: bool,
     frames_since_last_use: usize,
+    shared: bool,
 }
 
 /// A cached GPU [`Texture`] with corresponding [`TextureView`].
@@ -31,17 +32,18 @@ pub struct TextureCache {
 }
 
 impl TextureCache {
-    /// Retrieves a texture that matches the `descriptor`. If no matching one is found a new
-    /// [`CachedTexture`] is created.
+    /// Retrieves a free or shared texture that matches the `descriptor`. If no matching one is found
+    /// a new [`CachedTexture`] is created.
     pub fn get(
         &mut self,
         render_device: &RenderDevice,
         descriptor: TextureDescriptor<'static>,
+        shared: bool,
     ) -> CachedTexture {
         match self.textures.entry(descriptor) {
             Entry::Occupied(mut entry) => {
                 for texture in entry.get_mut().iter_mut() {
-                    if !texture.taken {
+                    if (shared && texture.shared) || !texture.taken {
                         texture.frames_since_last_use = 0;
                         texture.taken = true;
                         return CachedTexture {
@@ -58,6 +60,7 @@ impl TextureCache {
                     default_view: default_view.clone(),
                     frames_since_last_use: 0,
                     taken: true,
+                    shared,
                 });
                 CachedTexture {
                     texture,
@@ -72,6 +75,7 @@ impl TextureCache {
                     default_view: default_view.clone(),
                     taken: true,
                     frames_since_last_use: 0,
+                    shared,
                 }]);
                 CachedTexture {
                     texture,

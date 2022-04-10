@@ -770,6 +770,7 @@ pub fn prepare_lights(
                 label: Some("point_light_shadow_map_texture"),
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             },
+            false,
         );
         let directional_light_depth_texture = texture_cache.get(
             &render_device,
@@ -788,6 +789,7 @@ pub fn prepare_lights(
                 label: Some("directional_light_shadow_map_texture"),
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             },
+            false,
         );
         let mut view_lights = Vec::new();
 

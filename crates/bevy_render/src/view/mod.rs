@@ -200,6 +200,7 @@ fn prepare_view_targets(
                             format: TextureFormat::bevy_default(),
                             usage: TextureUsages::RENDER_ATTACHMENT,
                         },
+                        true,
                     );
                     Some(sampled_texture.default_view.clone())
                 } else {

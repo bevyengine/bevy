@@ -415,6 +415,7 @@ pub fn prepare_core_views_system(
                                                       * bit depth for better performance */
                 usage: TextureUsages::RENDER_ATTACHMENT,
             },
+            false,
         );
         commands.entity(entity).insert(ViewDepthTexture {
             texture: cached_texture.texture,
