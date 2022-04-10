@@ -128,14 +128,6 @@ path = "examples/hello_world.rs"
 
 # 2D Rendering
 [[example]]
-name = "contributors"
-path = "examples/2d/contributors.rs"
-
-[[example]]
-name = "many_sprites"
-path = "examples/2d/many_sprites.rs"
-
-[[example]]
 name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
 
@@ -187,10 +179,6 @@ path = "examples/3d/lighting.rs"
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
-
-[[example]]
-name = "many_cubes"
-path = "examples/3d/many_cubes.rs"
 
 [[example]]
 name = "msaa"
@@ -414,15 +402,19 @@ path = "examples/ecs/timers.rs"
 # Games
 [[example]]
 name = "alien_cake_addict"
-path = "examples/game/alien_cake_addict.rs"
+path = "examples/games/alien_cake_addict.rs"
 
 [[example]]
 name = "breakout"
-path = "examples/game/breakout.rs"
+path = "examples/games/breakout.rs"
+
+[[example]]
+name = "contributors"
+path = "examples/games/contributors.rs"
 
 [[example]]
 name = "game_menu"
-path = "examples/game/game_menu.rs"
+path = "examples/games/game_menu.rs"
 
 # Input
 [[example]]
@@ -524,10 +516,29 @@ path = "examples/shader/animate_shader.rs"
 name = "compute_shader_game_of_life"
 path = "examples/shader/compute_shader_game_of_life.rs"
 
-# Tools
+# Stress tests
+
 [[example]]
 name = "bevymark"
-path = "examples/tools/bevymark.rs"
+path = "examples/stress_tests/bevymark.rs"
+
+[[example]]
+name = "many_cubes"
+path = "examples/stress_tests/many_cubes.rs"
+
+[[example]]
+name = "many_lights"
+path = "examples/stress_tests/many_lights.rs"
+
+[[example]]
+name = "many_sprites"
+path = "examples/stress_tests/many_sprites.rs"
+
+[[example]]
+name = "transform_hierarchy"
+path = "examples/stress_tests/transform_hierarchy.rs"
+
+# Tools
 
 [[example]]
 name = "scene_viewer"
@@ -614,12 +625,3 @@ icon = "@mipmap/ic_launcher"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
-
-# Stress Tests
-[[example]]
-name = "many_lights"
-path = "examples/stress_tests/many_lights.rs"
-
-[[example]]
-name = "transform_hierarchy"
-path = "examples/stress_tests/transform_hierarchy.rs"
