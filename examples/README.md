@@ -259,8 +259,9 @@ cargo run --release --example <example name>
 Example | File | Description
 --- | --- | ---
 `bevymark` | [`stress_tests/bevymark.rs`](./stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
-`many_sprites` | [`stress_tests/many_sprites.rs`](./stress_tests/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
 `many_cubes` | [`stress_tests/many_cubes.rs`](./stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
+`many_lights` | [`stress_tests/many_lights.rs`](./stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
+`many_sprites` | [`stress_tests/many_sprites.rs`](./stress_tests/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
 `transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
 
 ## Tests
@@ -446,21 +447,3 @@ ruby -run -ehttpd examples/wasm
 To load assets, they need to be available in the folder examples/wasm/assets. Cloning this
 repository will set it up as a symlink on Linux and macOS, but you will need to manually move
 the assets on Windows.
-
-# Stress Tests
-
-These examples are used to test the performance and stability of various parts of the engine in an isolated way.
-
-Due to the focus on performance it's recommended to run the stress tests in release mode:
-
-```sh
-cargo run --release --example <example name>
-```
-
-Example | File | Description
---- | --- | ---
-`bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
-`many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
-`many_cubes` | [`3d/many_cubes.rs`](./3d/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
-`many_lights` | [`stress_tests/many_lights.rs`](./stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
-`transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
