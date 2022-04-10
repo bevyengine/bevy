@@ -1417,6 +1417,7 @@ impl Default for MainThreadValidator {
 #[cfg(test)]
 mod tests {
     use super::World;
+    use crate::change_detection::DetectChanges;
     use bevy_ecs_macros::Component;
     use std::{
         panic,
@@ -1544,5 +1545,45 @@ mod tests {
                 DropLogItem::Drop(1)
             ]
         );
+    }
+
+    #[derive(Component)]
+    struct TestResource(u32);
+
+    #[test]
+    fn get_resource_by_id() {
+        let mut world = World::new();
+        world.insert_resource(TestResource(42));
+        let component_id = world
+            .components()
+            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .unwrap();
+
+        let resource = world.get_resource_by_id(component_id).unwrap();
+        let resource = unsafe { &*resource.cast::<TestResource>() };
+
+        assert_eq!(resource.0, 42);
+    }
+
+    #[test]
+    fn get_resource_mut_by_id() {
+        let mut world = World::new();
+        world.insert_resource(TestResource(42));
+        let component_id = world
+            .components()
+            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .unwrap();
+
+        {
+            let mut resource = world.get_resource_mut_by_id(component_id).unwrap();
+            resource.set_changed();
+            let resource = unsafe { &mut *resource.ptr().cast::<TestResource>() };
+            resource.0 = 43;
+        }
+
+        let resource = world.get_resource_by_id(component_id).unwrap();
+        let resource = unsafe { &*resource.cast::<TestResource>() };
+
+        assert_eq!(resource.0, 43);
     }
 }

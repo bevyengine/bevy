@@ -793,6 +793,9 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 
 #[cfg(test)]
 mod tests {
+    use crate as bevy_ecs;
+    use crate::prelude::*; // for the `#[derive(Component)]`
+
     #[test]
     fn sorted_remove() {
         let mut a = vec![1, 2, 3, 4, 5, 6, 7];
@@ -812,5 +815,47 @@ mod tests {
         super::sorted_remove(&mut a, &b);
 
         assert_eq!(a, vec![1]);
+    }
+
+    #[derive(Component)]
+    struct TestComponent(u32);
+
+    #[test]
+    fn entity_ref_get_by_id() {
+        let mut world = World::new();
+        let entity = world.spawn().insert(TestComponent(42)).id();
+        let component_id = world
+            .components()
+            .get_id(std::any::TypeId::of::<TestComponent>())
+            .unwrap();
+
+        let test_component = world.entity(entity).get_by_id(component_id).unwrap();
+        let test_component = unsafe { &*test_component.cast::<TestComponent>() };
+
+        assert_eq!(test_component.0, 42);
+    }
+
+    #[test]
+    fn entity_mut_get_by_id() {
+        let mut world = World::new();
+        let entity = world.spawn().insert(TestComponent(42)).id();
+        let component_id = world
+            .components()
+            .get_id(std::any::TypeId::of::<TestComponent>())
+            .unwrap();
+
+        let mut entity_mut = world.entity_mut(entity);
+        let mut test_component = entity_mut.get_mut_by_id(component_id).unwrap();
+        {
+            test_component.set_changed();
+            // Safety: `test_component` has unique access of the `EntityMut` and is not used afterwards
+            let test_component = unsafe { &mut *test_component.ptr().cast::<TestComponent>() };
+            test_component.0 = 43;
+        }
+
+        let test_component = world.entity(entity).get_by_id(component_id).unwrap();
+        let test_component = unsafe { &*test_component.cast::<TestComponent>() };
+
+        assert_eq!(test_component.0, 43);
     }
 }
