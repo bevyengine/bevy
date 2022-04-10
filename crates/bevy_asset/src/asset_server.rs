@@ -555,10 +555,6 @@ impl AssetServer {
             }
         }
     }
-
-    pub fn asset_io(&self) -> &dyn AssetIo {
-        &*self.server.asset_io
-    }
 }
 
 fn free_unused_assets_system_impl(asset_server: &AssetServer) {
