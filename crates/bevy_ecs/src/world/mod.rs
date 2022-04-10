@@ -1119,6 +1119,8 @@ impl World {
         }
 
         let column = self.get_populated_resource_column(component_id)?;
+        // Safety: get_data_ptr requires that the mutability rules are not violated, and the caller promises
+        // to not modify the resource or dereference it after the immutable borrow of the world ends
         Some(unsafe { column.get_data_ptr().as_ptr().cast() })
     }
 
@@ -1136,6 +1138,8 @@ impl World {
         }
 
         let column = self.get_populated_resource_column(component_id)?;
+        // Safety: get_data_ptr requires that the mutability rules are not violated, and the caller promises
+        // to only modify the resource while the mutable borrow of the world is valid
         let value = unsafe { column.get_data_ptr().as_ptr().cast() };
         let ticks = Ticks {
             // - index is in-bounds because the column is initialized and non-empty
