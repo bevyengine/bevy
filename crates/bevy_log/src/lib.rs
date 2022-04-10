@@ -98,6 +98,15 @@ pub struct LogSettings {
     /// Filters out logs that are "less than" the given level.
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
+
+    /// An identifier, in reverse DNS notation, used to identify the subsystem that is being logged.
+    /// Used for iOS.
+    #[cfg(target_os = "ios")]
+    pub subsystem: String,
+
+    /// The category within the subsystem. Used for iOS.
+    #[cfg(target_os = "ios")]
+    pub category: String,
 }
 
 impl Default for LogSettings {
@@ -105,6 +114,10 @@ impl Default for LogSettings {
         Self {
             filter: "wgpu=error".to_string(),
             level: Level::INFO,
+            #[cfg(target_os = "ios")]
+            subsystem: "com.example.test".to_string(),
+            #[cfg(target_os = "ios")]
+            category: "default".to_string(),
         }
     }
 }
@@ -133,7 +146,11 @@ impl Plugin for LogPlugin {
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            not(target_os = "ios")
+        ))]
         {
             #[cfg(feature = "tracing-chrome")]
             let chrome_layer = {
@@ -188,6 +205,19 @@ impl Plugin for LogPlugin {
         #[cfg(target_os = "android")]
         {
             let subscriber = subscriber.with(android_tracing::AndroidLayer::default());
+            bevy_utils::tracing::subscriber::set_global_default(subscriber)
+                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+        }
+
+        #[cfg(any(target_os = "ios"))]
+        {
+            let subscriber = {
+                let settings = app.world.get_resource_or_insert_with(LogSettings::default);
+                subscriber.with(tracing_oslog::OsLogger::new(
+                    &settings.subsystem,
+                    &settings.category,
+                ))
+            };
             bevy_utils::tracing::subscriber::set_global_default(subscriber)
                 .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
         }
