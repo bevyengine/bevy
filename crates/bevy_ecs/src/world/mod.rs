@@ -1111,6 +1111,7 @@ impl World {
     ///
     /// You should always prefer to use the [`World::get_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.
+    #[inline]
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
         let info = self.components.get_info(component_id)?;
         if !info.is_send_and_sync() {
@@ -1127,6 +1128,7 @@ impl World {
     ///
     /// You should always prefer to use the [`World::get_resource_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.
+    #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         let info = self.components.get_info(component_id)?;
         if !info.is_send_and_sync() {

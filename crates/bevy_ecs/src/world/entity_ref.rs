@@ -78,6 +78,7 @@ impl<'w> EntityRef<'w> {
     /// You should prefer to use the typed API where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.
+    #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
         unsafe {
             get_component(self.world, component_id, self.entity, self.location)
@@ -180,6 +181,7 @@ impl<'w> EntityMut<'w> {
     /// You should prefer to use the typed API where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.
+    #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
         unsafe {
             get_component(self.world, component_id, self.entity, self.location)
@@ -201,6 +203,7 @@ impl<'w> EntityMut<'w> {
     /// You should prefer to use the typed API where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.
+    #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFE: world access is unique and entity location is valid
         unsafe {
