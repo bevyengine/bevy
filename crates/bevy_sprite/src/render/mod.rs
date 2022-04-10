@@ -571,7 +571,7 @@ impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
         (sprite_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform = view_query.get(view).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", view.id()));
+        let view_uniform = view_query.get(view).unwrap_or_else(|_| panic!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", view.id()));
         pass.set_bind_group(
             I,
             sprite_meta
@@ -594,7 +594,7 @@ impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
         (image_bind_groups, query_batch): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.id()));
+        let sprite_batch = query_batch.get(item).unwrap_or_else(|_| panic!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.id()));
         let image_bind_groups = image_bind_groups.into_inner();
 
         pass.set_bind_group(
@@ -619,7 +619,7 @@ impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
         (sprite_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item.entity()).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.entity().id()));
+        let sprite_batch = query_batch.get(item.entity()).unwrap_or_else(|_| panic!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.entity().id()));
         let sprite_meta = sprite_meta.into_inner();
         if sprite_batch.colored {
             pass.set_vertex_buffer(

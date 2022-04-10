@@ -209,10 +209,12 @@ impl TextureAtlasBuilder {
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_handles = HashMap::default();
         for (texture_handle, (_, packed_location)) in rect_placements.packed_locations().iter() {
-            let texture = textures.get(texture_handle).expect(&format!(
-                "Unable to get the referenced Image from TextureHandle with ID {:?}",
-                texture_handle.id
-            ));
+            let texture = textures.get(texture_handle).unwrap_or_else(|| {
+                panic!(
+                    "Unable to get the referenced Image from TextureHandle with ID {:?}",
+                    texture_handle.id
+                )
+            });
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
             let max = min
                 + Vec2::new(

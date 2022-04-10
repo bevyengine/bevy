@@ -425,7 +425,7 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dBindGroup<I> {
         (mesh2d_bind_group, mesh2d_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh2d_index = mesh2d_query.get(item).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.id()));
+        let mesh2d_index = mesh2d_query.get(item).unwrap_or_else(|_| panic!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.id()));
         pass.set_bind_group(
             I,
             &mesh2d_bind_group.into_inner().value,
@@ -445,7 +445,7 @@ impl EntityRenderCommand for DrawMesh2d {
         (meshes, mesh2d_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = &mesh2d_query.get(item).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.id())).0;
+        let mesh_handle = &mesh2d_query.get(item).unwrap_or_else(|_| panic!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", item.id())).0;
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {

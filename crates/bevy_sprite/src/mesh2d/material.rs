@@ -286,17 +286,19 @@ impl<M: SpecializedMaterial2d, const I: usize> EntityRenderCommand
         (materials, query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d_handle = query.get(item).expect(&format!(
+        let material2d_handle = query.get(item).unwrap_or_else(|_| panic!(
             "No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found",
             item.id()
         ));
         let material2d = materials
             .into_inner()
             .get(material2d_handle)
-            .expect(&format!(
-                "Unable to find RenderAsset from Material2dHandle with ID {:?}",
-                material2d_handle.id
-            ));
+            .unwrap_or_else(|| {
+                panic!(
+                    "Unable to find RenderAsset from Material2dHandle with ID {:?}",
+                    material2d_handle.id
+                )
+            });
         pass.set_bind_group(
             I,
             M::bind_group(material2d),
