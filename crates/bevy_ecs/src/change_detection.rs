@@ -200,6 +200,14 @@ change_detection_impl!(ReflectMut<'a>, dyn Reflect,);
 #[cfg(feature = "bevy_reflect")]
 impl_into_inner!(ReflectMut<'a>, dyn Reflect,);
 
+/// Unique mutable borrow of resources or an entity's component.
+///
+/// Similar to [`Mut`], but not generic over the component type, instead
+/// exposing the raw pointer as a `*mut ()`.
+///
+/// Usually you don't need to use this and can instead use the APIs returning a
+/// [`Mut`], but in situations where the types are not known at compile time
+/// or are defined outside of rust this can be used.
 pub struct MutUntyped<'a> {
     pub(crate) value: *mut (),
     pub(crate) ticks: Ticks<'a>,
@@ -236,6 +244,6 @@ impl DetectChanges for MutUntyped<'_> {
 
 impl std::fmt::Debug for MutUntyped<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("MutDynamic").field(&self.value).finish()
+        f.debug_tuple("MutUntyped").field(&self.value).finish()
     }
 }

@@ -182,6 +182,7 @@ impl ComponentDescriptor {
         x.cast::<T>().drop_in_place();
     }
 
+    /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
             name: std::any::type_name::<T>().to_string(),
@@ -193,6 +194,11 @@ impl ComponentDescriptor {
         }
     }
 
+    /// Create a new `ComponentDescriptor`.
+    ///
+    /// # Safety
+    /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
+    /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
     pub unsafe fn new_with_layout(
         name: String,
         storage_type: StorageType,

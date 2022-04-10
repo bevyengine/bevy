@@ -70,6 +70,14 @@ impl<'w> EntityRef<'w> {
         }
     }
 
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
+    /// which is only valid while the `'w` borrow of the lifetime is active.
+    ///
+    /// You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
         unsafe {
             get_component(self.world, component_id, self.entity, self.location)
@@ -164,6 +172,14 @@ impl<'w> EntityMut<'w> {
         unsafe { self.get_unchecked::<T>() }
     }
 
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
+    ///
+    /// You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
         unsafe {
             get_component(self.world, component_id, self.entity, self.location)
@@ -177,7 +193,15 @@ impl<'w> EntityMut<'w> {
         unsafe { self.get_unchecked_mut::<T>() }
     }
 
-    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped> {
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
+    ///
+    /// You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.
+    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFE: world access is unique and entity location is valid
         unsafe {
             get_component_and_ticks(self.world, component_id, self.entity, self.location).map(

@@ -1105,6 +1105,12 @@ impl World {
         Some(&*column.get_data_ptr().as_ptr().cast::<R>())
     }
 
+    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// The returned pointer must not be used to modify the resource, and must not be
+    /// dereferenced after the immutable borrow of the [`World`] ends.
+    ///
+    /// You should always prefer to use the [`World::get_resource`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
         let info = self.components.get_info(component_id)?;
         if !info.is_send_and_sync() {
@@ -1115,7 +1121,13 @@ impl World {
         Some(unsafe { column.get_data_ptr().as_ptr().cast() })
     }
 
-    pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped> {
+    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// The returned pointer may be used to modify the resource, as long as the mutable borrow
+    /// of the [`World`] is still valid.
+    ///
+    /// You should always prefer to use the [`World::get_resource_mut`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.
+    pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         let info = self.components.get_info(component_id)?;
         if !info.is_send_and_sync() {
             self.validate_non_send_access_untyped(info.name());
@@ -1124,6 +1136,9 @@ impl World {
         let column = self.get_populated_resource_column(component_id)?;
         let value = unsafe { column.get_data_ptr().as_ptr().cast() };
         let ticks = Ticks {
+            // - index is in-bounds because the column is initialized and non-empty
+            // - no other reference to the ticks of the same row can exist at the same time
+            // - users of MutUntyped promise to not dereference the pointer after the MutUntyped is dead
             component_ticks: unsafe { &mut *column.get_ticks_mut_ptr_unchecked(0) },
             last_change_tick: self.last_change_tick(),
             change_tick: self.read_change_tick(),
@@ -1193,7 +1208,7 @@ impl World {
     }
 
     /// # Safety
-    /// The value referenced by `value` must be valid for the given ComponentId
+    /// The value referenced by `value` must be valid for the given [`ComponentId`]
     pub unsafe fn insert_resource_by_id(&mut self, component_id: ComponentId, value: *const ()) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
