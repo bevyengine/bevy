@@ -50,8 +50,8 @@ impl Node for ClearPassNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let mut cleared_targets = HashSet::new();
-        let clear_color = world.get_resource::<ClearColor>().unwrap();
-        let render_target_clear_colors = world.get_resource::<RenderTargetClearColors>().unwrap();
+        let clear_color = world.resource::<ClearColor>();
+        let render_target_clear_colors = world.resource::<RenderTargetClearColors>();
 
         // This gets all ViewTargets and ViewDepthTextures and clears its attachments
         // TODO: This has the potential to clear the same target multiple times, if there
@@ -89,8 +89,8 @@ impl Node for ClearPassNode {
         // TODO: This is a hack to ensure we don't call present() on frames without any work,
         // which will cause panics. The real fix here is to clear "render targets" directly
         // instead of "views". This should be removed once full RenderTargets are implemented.
-        let windows = world.get_resource::<ExtractedWindows>().unwrap();
-        let images = world.get_resource::<RenderAssets<Image>>().unwrap();
+        let windows = world.resource::<ExtractedWindows>();
+        let images = world.resource::<RenderAssets<Image>>();
         for target in render_target_clear_colors.colors.keys().cloned().chain(
             windows
                 .values()

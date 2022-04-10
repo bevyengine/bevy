@@ -96,14 +96,14 @@ mod tests {
 
     use crate::{
         self as bevy_ecs,
-        archetype::Archetypes,
+        archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         component::{Component, Components},
         entity::{Entities, Entity},
-        query::{Added, Changed, Or, QueryState, With, Without},
+        query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query, QuerySet,
+            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
             RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
@@ -138,9 +138,6 @@ mod tests {
         world.spawn().insert(A);
 
         system.initialize(&mut world);
-        for archetype in world.archetypes.iter() {
-            system.new_archetype(archetype);
-        }
         system.run((), &mut world);
     }
 
@@ -207,21 +204,21 @@ mod tests {
 
         run_system(&mut world, query_system);
 
-        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
+        assert!(*world.resource::<bool>(), "system ran");
     }
 
     #[test]
-    fn or_query_set_system() {
+    fn or_param_set_system() {
         // Regression test for issue #762
         fn query_system(
             mut ran: ResMut<bool>,
-            mut set: QuerySet<(
-                QueryState<(), Or<(Changed<A>, Changed<B>)>>,
-                QueryState<(), Or<(Added<A>, Added<B>)>>,
+            mut set: ParamSet<(
+                Query<(), Or<(Changed<A>, Changed<B>)>>,
+                Query<(), Or<(Added<A>, Added<B>)>>,
             )>,
         ) {
-            let changed = set.q0().iter().count();
-            let added = set.q1().iter().count();
+            let changed = set.p0().iter().count();
+            let added = set.p1().iter().count();
 
             assert_eq!(changed, 1);
             assert_eq!(added, 1);
@@ -235,7 +232,7 @@ mod tests {
 
         run_system(&mut world, query_system);
 
-        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
+        assert!(*world.resource::<bool>(), "system ran");
     }
 
     #[test]
@@ -271,17 +268,17 @@ mod tests {
         );
 
         schedule.run(&mut world);
-        assert_eq!(world.get_resource::<Added>().unwrap().0, 1);
-        assert_eq!(world.get_resource::<Changed>().unwrap().0, 1);
+        assert_eq!(world.resource::<Added>().0, 1);
+        assert_eq!(world.resource::<Changed>().0, 1);
 
         schedule.run(&mut world);
-        assert_eq!(world.get_resource::<Added>().unwrap().0, 1);
-        assert_eq!(world.get_resource::<Changed>().unwrap().0, 1);
+        assert_eq!(world.resource::<Added>().0, 1);
+        assert_eq!(world.resource::<Changed>().0, 1);
 
-        *world.get_resource_mut::<bool>().unwrap() = true;
+        *world.resource_mut::<bool>() = true;
         schedule.run(&mut world);
-        assert_eq!(world.get_resource::<Added>().unwrap().0, 1);
-        assert_eq!(world.get_resource::<Changed>().unwrap().0, 2);
+        assert_eq!(world.resource::<Added>().0, 1);
+        assert_eq!(world.resource::<Changed>().0, 2);
     }
 
     #[test]
@@ -320,7 +317,7 @@ mod tests {
 
     #[test]
     fn query_set_system() {
-        fn sys(mut _set: QuerySet<(QueryState<&mut A>, QueryState<&A>)>) {}
+        fn sys(mut _set: ParamSet<(Query<&mut A>, Query<&A>)>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
     }
@@ -328,7 +325,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn conflicting_query_with_query_set_system() {
-        fn sys(_query: Query<&mut A>, _set: QuerySet<(QueryState<&mut A>, QueryState<&B>)>) {}
+        fn sys(_query: Query<&mut A>, _set: ParamSet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -337,11 +334,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn conflicting_query_sets_system() {
-        fn sys(
-            _set_1: QuerySet<(QueryState<&mut A>,)>,
-            _set_2: QuerySet<(QueryState<&mut A>, QueryState<&B>)>,
-        ) {
-        }
+        fn sys(_set_1: ParamSet<(Query<&mut A>,)>, _set_2: ParamSet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -399,7 +392,7 @@ mod tests {
         impl FromWorld for Foo {
             fn from_world(world: &mut World) -> Self {
                 Foo {
-                    value: *world.get_resource::<u32>().unwrap() + 1,
+                    value: *world.resource::<u32>() + 1,
                 }
             }
         }
@@ -412,7 +405,7 @@ mod tests {
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -435,7 +428,7 @@ mod tests {
 
         run_system(&mut world, sys);
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -454,7 +447,7 @@ mod tests {
         }
 
         run_system(&mut world, sys);
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -522,7 +515,7 @@ mod tests {
         run_system(&mut world, validate_remove);
 
         // Verify that both systems actually ran
-        assert_eq!(world.get_resource::<NSystems>().unwrap().0, 2);
+        assert_eq!(world.resource::<NSystems>().0, 2);
     }
 
     #[test]
@@ -566,7 +559,7 @@ mod tests {
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert!(*world.get_resource::<bool>().unwrap());
+        assert!(*world.resource::<bool>());
     }
 
     #[test]
@@ -674,11 +667,8 @@ mod tests {
         world.insert_resource(A(42));
         world.spawn().insert(B(7));
 
-        let mut system_state: SystemState<(
-            Res<A>,
-            Query<&B>,
-            QuerySet<(QueryState<&C>, QueryState<&D>)>,
-        )> = SystemState::new(&mut world);
+        let mut system_state: SystemState<(Res<A>, Query<&B>, ParamSet<(Query<&C>, Query<&D>)>)> =
+            SystemState::new(&mut world);
         let (a, query, _) = system_state.get(&world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
@@ -804,13 +794,13 @@ mod tests {
             }
             fn hold_component<'w>(&mut self, world: &'w World, entity: Entity) -> Holder<'w> {
                 let q = self.state_q.get(world);
-                let a = q.get(entity).unwrap();
+                let a = q.get_inner(entity).unwrap();
                 Holder { value: a }
             }
             fn hold_components<'w>(&mut self, world: &'w World) -> Vec<Holder<'w>> {
                 let mut components = Vec::new();
                 let q = self.state_q.get(world);
-                for a in q.iter() {
+                for a in q.iter_inner() {
                     components.push(Holder { value: a });
                 }
                 components
@@ -841,5 +831,79 @@ mod tests {
                 "both components returned by iter of &mut"
             );
         }
+    }
+
+    #[test]
+    fn update_archetype_component_access_works() {
+        use std::collections::HashSet;
+
+        fn a_not_b_system(_query: Query<&A, Without<B>>) {}
+
+        let mut world = World::default();
+        let mut system = IntoSystem::into_system(a_not_b_system);
+        let mut expected_ids = HashSet::<ArchetypeComponentId>::new();
+        let a_id = world.init_component::<A>();
+
+        // set up system and verify its access is empty
+        system.initialize(&mut world);
+        system.update_archetype_component_access(&world);
+        assert_eq!(
+            system
+                .archetype_component_access()
+                .reads()
+                .collect::<HashSet<_>>(),
+            expected_ids
+        );
+
+        // add some entities with archetypes that should match and save their ids
+        expected_ids.insert(
+            world
+                .spawn()
+                .insert_bundle((A,))
+                .archetype()
+                .get_archetype_component_id(a_id)
+                .unwrap(),
+        );
+        expected_ids.insert(
+            world
+                .spawn()
+                .insert_bundle((A, C))
+                .archetype()
+                .get_archetype_component_id(a_id)
+                .unwrap(),
+        );
+
+        // add some entities with archetypes that should not match
+        world.spawn().insert_bundle((A, B));
+        world.spawn().insert_bundle((B, C));
+
+        // update system and verify its accesses are correct
+        system.update_archetype_component_access(&world);
+        assert_eq!(
+            system
+                .archetype_component_access()
+                .reads()
+                .collect::<HashSet<_>>(),
+            expected_ids
+        );
+
+        // one more round
+        expected_ids.insert(
+            world
+                .spawn()
+                .insert_bundle((A, D))
+                .archetype()
+                .get_archetype_component_id(a_id)
+                .unwrap(),
+        );
+        world.spawn().insert_bundle((A, B, D));
+        system.update_archetype_component_access(&world);
+        assert_eq!(
+            system
+                .archetype_component_access()
+                .reads()
+                .collect::<HashSet<_>>(),
+            expected_ids
+        );
     }
 }

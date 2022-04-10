@@ -72,9 +72,9 @@ impl HslRepresentation {
         let lightness = (x_max + x_min) / 2.0;
         let hue = if chroma == 0.0 {
             0.0
-        } else if red > green && red > blue {
+        } else if red == x_max {
             60.0 * (green - blue) / chroma
-        } else if green > red && green > blue {
+        } else if green == x_max {
             60.0 * (2.0 + (blue - red) / chroma)
         } else {
             60.0 * (4.0 + (red - green) / chroma)

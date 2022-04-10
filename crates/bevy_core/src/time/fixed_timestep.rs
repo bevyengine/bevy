@@ -1,6 +1,6 @@
 use crate::Time;
 use bevy_ecs::{
-    archetype::{Archetype, ArchetypeComponentId},
+    archetype::ArchetypeComponentId,
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
@@ -177,10 +177,6 @@ impl System for FixedTimestep {
         Cow::Borrowed(std::any::type_name::<FixedTimestep>())
     }
 
-    fn new_archetype(&mut self, archetype: &Archetype) {
-        self.internal_system.new_archetype(archetype);
-    }
-
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         self.internal_system.archetype_component_access()
     }
@@ -209,7 +205,7 @@ impl System for FixedTimestep {
         )));
         self.internal_system.initialize(world);
         if let Some(ref label) = self.state.label {
-            let mut fixed_timesteps = world.get_resource_mut::<FixedTimesteps>().unwrap();
+            let mut fixed_timesteps = world.resource_mut::<FixedTimesteps>();
             fixed_timesteps.fixed_timesteps.insert(
                 label.clone(),
                 FixedTimestepState {
@@ -218,6 +214,11 @@ impl System for FixedTimestep {
                 },
             );
         }
+    }
+
+    fn update_archetype_component_access(&mut self, world: &World) {
+        self.internal_system
+            .update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: u32) {
@@ -257,25 +258,25 @@ mod test {
         // if time does not progress, the step does not run
         schedule.run(&mut world);
         schedule.run(&mut world);
-        assert_eq!(0, *world.get_resource::<Count>().unwrap());
+        assert_eq!(0, *world.resource::<Count>());
         assert_eq!(0., get_accumulator_deciseconds(&world));
 
         // let's progress less than one step
         advance_time(&mut world, instance, 0.4);
         schedule.run(&mut world);
-        assert_eq!(0, *world.get_resource::<Count>().unwrap());
+        assert_eq!(0, *world.resource::<Count>());
         assert_eq!(4., get_accumulator_deciseconds(&world));
 
         // finish the first step with 0.1s above the step length
         advance_time(&mut world, instance, 0.6);
         schedule.run(&mut world);
-        assert_eq!(1, *world.get_resource::<Count>().unwrap());
+        assert_eq!(1, *world.resource::<Count>());
         assert_eq!(1., get_accumulator_deciseconds(&world));
 
         // runs multiple times if the delta is multiple step lengths
         advance_time(&mut world, instance, 1.7);
         schedule.run(&mut world);
-        assert_eq!(3, *world.get_resource::<Count>().unwrap());
+        assert_eq!(3, *world.resource::<Count>());
         assert_eq!(2., get_accumulator_deciseconds(&world));
     }
 
@@ -285,15 +286,13 @@ mod test {
 
     fn advance_time(world: &mut World, instance: Instant, seconds: f32) {
         world
-            .get_resource_mut::<Time>()
-            .unwrap()
+            .resource_mut::<Time>()
             .update_with_instant(instance.add(Duration::from_secs_f32(seconds)));
     }
 
     fn get_accumulator_deciseconds(world: &World) -> f64 {
         world
-            .get_resource::<FixedTimesteps>()
-            .unwrap()
+            .resource::<FixedTimesteps>()
             .get(LABEL)
             .unwrap()
             .accumulator

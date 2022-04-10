@@ -39,6 +39,7 @@ git checkout v0.4.0
 - [Cross-Platform Examples](#cross-platform-examples)
   - [2D Rendering](#2d-rendering)
   - [3D Rendering](#3d-rendering)
+  - [Animation](#animation)
   - [Application](#application)
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
@@ -50,8 +51,10 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
+  - [Stress Tests](#stress-tests)
   - [Tests](#tests)
   - [Tools](#tools)
+  - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
 - [Platform-Specific Examples](#platform-specific-examples)
@@ -65,6 +68,7 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
+    - [Loading Assets](#loading-assets)
 
 # The Bare Minimum
 
@@ -82,8 +86,6 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`contributors` | [`2d/contributors.rs`](./2d/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
-`many_sprites` | [`2d/many_sprites.rs`](./2d/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
 `move_sprite` | [`2d/move_sprite.rs`](./2d/move_sprite.rs) | Changes the transform of a sprite.
 `mesh2d` | [`2d/mesh2d.rs`](./2d/mesh2d.rs) | Renders a 2d mesh
 `mesh2d_manual` | [`2d/mesh2d_manual.rs`](./2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis.
@@ -102,7 +104,6 @@ Example | File | Description
 `3d_scene` | [`3d/3d_scene.rs`](./3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 `lighting` | [`3d/lighting.rs`](./3d/lighting.rs) | Illustrates various lighting options in a simple scene
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
-`many_cubes` | [`3d/many_cubes.rs`](./3d/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `orthographic` | [`3d/orthographic.rs`](./3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look games or CAD applications)
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
@@ -114,6 +115,15 @@ Example | File | Description
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
+
+## Animation
+
+Example | File | Description
+--- | --- | ---
+`animated_fox` | [`animation/animated_fox.rs`](./animation/animated_fox.rs) | Plays an animation from a skinned glTF.
+`animated_transform` | [`animation/animated_transform.rs`](./animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component.
+`custom_skinned_mesh` | [`animation/custom_skinned_mesh.rs`](./animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code.
+`gltf_skinned_mesh` | [`animation/gltf_skinned_mesh.rs`](./animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file.
 
 ## Application
 
@@ -153,6 +163,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `audio` | [`audio/audio.rs`](./audio/audio.rs) | Shows how to load and play an audio file
+`audio_control` | [`audio/audio_control.rs`](./audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 
 ## Diagnostics
 
@@ -186,9 +197,10 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`alien_cake_addict` | [`game/alien_cake_addict.rs`](./game/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
-`breakout` | [`game/breakout.rs`](./game/breakout.rs) | An implementation of the classic game "Breakout"
-`game_menu` | [`game/game_menu.rs`](./game/game_menu.rs) | A simple game menu
+`alien_cake_addict` | [`games/alien_cake_addict.rs`](./games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
+`breakout` | [`games/breakout.rs`](./games/breakout.rs) | An implementation of the classic game "Breakout"
+`contributors` | [`games/contributors.rs`](./games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+`game_menu` | [`games/game_menu.rs`](./games/game_menu.rs) | A simple game menu
 
 ## Input
 
@@ -202,6 +214,7 @@ Example | File | Description
 `keyboard_modifiers` | [`input/keyboard_modifiers.rs`](./input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift)
 `mouse_input` | [`input/mouse_input.rs`](./input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 `mouse_input_events` | [`input/mouse_input_events.rs`](./input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
+`mouse_grab` | [`input/mouse_grab.rs`](./input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen
 `touch_input` | [`input/touch_input.rs`](./input/touch_input.rs) | Displays touch presses, releases, and cancels
 `touch_input_events` | [`input/touch_input_events.rs`](./input/touch_input_events.rs) | Prints out all touch inputs
 
@@ -226,11 +239,30 @@ Example | File | Description
 --- | --- | ---
 `custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | Illustrates creating a custom shader material that reads a mesh's custom vertex attribute.
 `shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
+`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A custom shader sampling a texture with view-independent UV coordinates
 `shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A custom shader using the GLSL shading language.
 `shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A custom shader showing off rendering a mesh multiple times in one draw call.
 `animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to pass changing data like the time since startup into a shader.
 `compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader simulating Conway's Game of Life
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
+
+## Stress Tests
+
+These examples are used to test the performance and stability of various parts of the engine in an isolated way.
+
+Due to the focus on performance it's recommended to run the stress tests in release mode:
+
+```sh
+cargo run --release --example <example name>
+```
+
+Example | File | Description
+--- | --- | ---
+`bevymark` | [`stress_tests/bevymark.rs`](./stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+`many_cubes` | [`stress_tests/many_cubes.rs`](./stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
+`many_lights` | [`stress_tests/many_lights.rs`](./stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
+`many_sprites` | [`stress_tests/many_sprites.rs`](./stress_tests/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
+`transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
 
 ## Tests
 
@@ -242,7 +274,17 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`bevymark` | [`tools/bevymark.rs`](./tools/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+`scene_viewer` | [`tools/scene_viewer.rs`](./tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer -- /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory.
+
+## Transforms
+
+Example | File | Description
+--- | --- | ---
+`global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
+`3d_rotation` | [`transforms/3d_rotation.rs`](./transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
+`scale` | [`transforms/scale.rs`](./transforms/scale.rs) | Illustrates how to scale an object in each direction
+`transform` | [`transforms/transfrom.rs`](./transforms/transform.rs) | Shows multiple transformations of objects
+`translation` | [`transforms/translation.rs`](./transforms/translation.rs) | Illustrates how to move an object along an axis
 
 ## UI (User Interface)
 
@@ -259,6 +301,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
+`low_power` | [`window/low_power.rs`](./window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 `multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 `scale_factor_override` | [`window/scale_factor_override.rs`](./window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 `transparent_window` | [`window/transparent_window.rs`](./window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration

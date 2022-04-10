@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::{Mat4, Size};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
@@ -22,7 +22,8 @@ use bevy_transform::components::GlobalTransform;
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component)]
+#[derive(Default, Clone, Component, Debug, Reflect)]
+#[reflect(Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
 impl From<Handle<Mesh>> for Mesh2dHandle {
@@ -123,9 +124,7 @@ pub struct Mesh2dPipeline {
 
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world
-            .get_resource::<RenderDevice>()
-            .expect("RenderDevice resource does not exist");
+        let render_device = world.resource::<RenderDevice>();
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -168,9 +167,7 @@ impl FromWorld for Mesh2dPipeline {
             let sampler = render_device.create_sampler(&image.sampler_descriptor);
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world
-                .get_resource_mut::<RenderQueue>()
-                .expect("Unable to get mutable reference to RenderQueue resource");
+            let render_queue = world.resource_mut::<RenderQueue>();
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -196,6 +193,7 @@ impl FromWorld for Mesh2dPipeline {
             GpuImage {
                 texture,
                 texture_view,
+                texture_format: image.texture_descriptor.format,
                 sampler,
                 size: Size::new(
                     image.texture_descriptor.size.width as f32,
@@ -405,7 +403,9 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, mesh2d_view_bind_group) = view_query.get(view).expect(&format!("No results were returned while querying Entity with ID {}, either the entity is nonexisting or a mismatched component was found", view.id()));
+        let (view_uniform, mesh2d_view_bind_group) = view_query
+            .get_inner(view)
+            .expect("Non-existing Entity or mismatched Component");
         pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
         RenderCommandResult::Success
