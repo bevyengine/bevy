@@ -196,16 +196,14 @@ impl ComponentDescriptor {
     pub unsafe fn new_with_layout(
         name: String,
         storage_type: StorageType,
-        is_send_and_sync: bool,
-        type_id: Option<TypeId>,
         layout: Layout,
         drop: unsafe fn(*mut u8),
     ) -> Self {
         Self {
             name,
             storage_type,
-            is_send_and_sync,
-            type_id,
+            is_send_and_sync: true,
+            type_id: None,
             layout,
             drop,
         }
