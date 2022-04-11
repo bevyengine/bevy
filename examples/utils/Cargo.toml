@@ -1,7 +1,0 @@
-[package]
-name = "example_utils"
-version = "0.7.0-dev"
-edition = "2021"
-
-[dependencies]
-bevy = { path = "../../", version = "0.7.0-dev" }

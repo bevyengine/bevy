@@ -1,0 +1,12 @@
+[package]
+name = "example_utils"
+version = "0.7.0-dev"
+edition = "2021"
+description = "Utilities used in exampes for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+bevy = { path = "../", version = "0.7.0-dev" }
