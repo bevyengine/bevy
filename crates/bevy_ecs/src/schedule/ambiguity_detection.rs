@@ -7,12 +7,11 @@ use bevy_utils::tracing::{error, warn};
 use fixedbitset::FixedBitSet;
 use std::hash::Hash;
 
-/// Systems that access the same Component or Resource within the same stage
-/// risk an ambiguous order that could result in logic bugs, unless they have an
-/// explicit execution ordering constraint between them.
+/// Within a stage, writes to a component or resource (and reads relative to writes) should typically have a well-defined order.
 ///
-/// This occurs because, in the absence of explicit constraints, systems are executed in
-/// an unstable, arbitrary order within each stage that may vary between runs and frames.
+/// Ambiguous order between systems that have conflicting access can result in subtle logic bugs since,
+/// in the absence of constraints, systems are executed in an arbitrary order and that can change between runs
+/// and even frames.
 ///
 /// Some ambiguities reported by the ambiguity checker may be warranted (to allow two systems to run
 /// without blocking each other) or spurious, as the exact combination of archetypes used may
@@ -53,7 +52,7 @@ pub enum ExecutionOrderAmbiguities {
     Forbid,
 }
 
-/// A pair of systems that can run in an ambiguous order
+/// A pair of systems that have conflicting access and an ambiguous execution order.
 ///
 /// Created by applying [`find_ambiguities`] to a [`SystemContainer`].
 /// These can be reported by configuring the [`ExecutionOrderAmbiguities`] resource.
@@ -449,7 +448,7 @@ impl SystemStage {
                 || report_level == ExecutionOrderAmbiguities::Forbid
             {
                 error!("{warning_string}");
-                panic!("`ExecutionOrderAmbiguities` is set to `{report_level:?}`, which forbids the `App` from running if any unresolved system order ambiguities exist.")
+                panic!("`ExecutionOrderAmbiguities` is set to `{report_level:?}`, which forbids the `App` from running if any two systems with incompatible data access have ambiguous execution order (unless permitted).")
             } else {
                 warn!("{warning_string}");
             }
