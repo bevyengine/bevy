@@ -36,8 +36,6 @@ pub struct Camera {
     pub target: RenderTarget,
     #[reflect(ignore)]
     pub depth_calculation: DepthCalculation,
-    pub near: f32,
-    pub far: f32,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
@@ -314,8 +312,6 @@ pub fn extract_cameras<M: Component + Default>(
                         transform: *transform,
                         width: size.x.max(1),
                         height: size.y.max(1),
-                        near: camera.near,
-                        far: camera.far,
                     },
                     visible_entities.clone(),
                     M::default(),
