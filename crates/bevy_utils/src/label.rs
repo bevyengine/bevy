@@ -53,17 +53,17 @@ where
 ///
 /// ```
 /// # use bevy_utils::define_label;
-/// define_label!(MyNewLabelTrait);
+/// define_label!(MyNewLabelTrait, MyNewBoxedLabelTrait);
 /// ```
 #[macro_export]
 macro_rules! define_label {
-    ($label_trait_name:ident) => {
+    ($label_trait_name:ident, $boxed_type_name:ident) => {
         /// Defines a set of strongly-typed labels for a class of objects
         pub trait $label_trait_name:
             ::bevy_utils::label::DynHash + ::std::fmt::Debug + Send + Sync + 'static
         {
             #[doc(hidden)]
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
+            fn dyn_clone(&self) -> $boxed_type_name;
         }
 
         impl PartialEq for dyn $label_trait_name {
@@ -80,27 +80,53 @@ macro_rules! define_label {
             }
         }
 
-        impl Clone for Box<dyn $label_trait_name> {
+        impl Clone for $boxed_type_name {
             fn clone(&self) -> Self {
                 self.dyn_clone()
             }
         }
 
         impl $label_trait_name for ::std::borrow::Cow<'static, str> {
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                Box::new(self.clone())
+            fn dyn_clone(&self) -> $boxed_type_name {
+                $boxed_type_name(Box::new(self.clone()))
             }
         }
 
         impl $label_trait_name for &'static str {
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                Box::new(<&str>::clone(self))
+            fn dyn_clone(&self) -> $boxed_type_name {
+                $boxed_type_name(Box::new(<&str>::clone(self)))
             }
         }
 
-        impl $label_trait_name for Box<dyn $label_trait_name> {
+        impl ::std::ops::Deref for $boxed_type_name {
+            type Target = <Box<dyn $label_trait_name> as ::std::ops::Deref>::Target;
+
+            fn deref(&self) -> &Self::Target {
+                self.0.deref()
+            }
+        }
+
+        /// A wrapper for a boxed label
+        #[derive(Debug)]
+        pub struct $boxed_type_name(pub Box<dyn $label_trait_name>);
+
+        impl ::std::hash::Hash for $boxed_type_name {
+            fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+                self.0.as_ref().dyn_hash(state);
+            }
+        }
+
+        impl PartialEq for $boxed_type_name {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.as_ref().dyn_eq(other.as_dyn_eq())
+            }
+        }
+
+        impl Eq for $boxed_type_name {}
+
+        impl $label_trait_name for $boxed_type_name {
             fn dyn_clone(&self) -> Self {
-                self.as_ref().dyn_clone()
+                self.0.as_ref().dyn_clone()
             }
         }
     };

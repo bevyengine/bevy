@@ -85,6 +85,10 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
 pub fn derive_app_label(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
     let mut trait_path = BevyManifest::default().get_path("bevy_app");
+    let mut boxed_type_path = trait_path.clone();
     trait_path.segments.push(format_ident!("AppLabel").into());
-    derive_label(input, &trait_path)
+    boxed_type_path
+        .segments
+        .push(format_ident!("BoxedAppLabel").into());
+    derive_label(input, &trait_path, &boxed_type_path)
 }

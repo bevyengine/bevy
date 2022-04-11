@@ -1,3 +1,4 @@
+use crate::schedule::BoxedSystemLabel;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
@@ -445,7 +446,7 @@ where
             self.system_meta.name.as_ref(),
         );
     }
-    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+    fn default_labels(&self) -> Vec<BoxedSystemLabel> {
         vec![self.func.as_system_label().dyn_clone()]
     }
 }
@@ -483,8 +484,8 @@ impl<T> PartialEq for SystemTypeIdLabel<T> {
 impl<T> Eq for SystemTypeIdLabel<T> {}
 
 impl<T> SystemLabel for SystemTypeIdLabel<T> {
-    fn dyn_clone(&self) -> Box<dyn SystemLabel> {
-        Box::new(*self)
+    fn dyn_clone(&self) -> BoxedSystemLabel {
+        BoxedSystemLabel(Box::new(*self))
     }
 }
 

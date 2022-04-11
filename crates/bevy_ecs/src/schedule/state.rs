@@ -1,3 +1,4 @@
+use crate::schedule::BoxedRunCriteriaLabel;
 use crate::{
     schedule::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
@@ -75,16 +76,16 @@ impl<T> RunCriteriaLabel for StateRunCriteriaLabel<T>
 where
     T: StateData,
 {
-    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
-        Box::new(self.clone())
+    fn dyn_clone(&self) -> BoxedRunCriteriaLabel {
+        BoxedRunCriteriaLabel(Box::new(self.clone()))
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct DriverLabel(TypeId);
 impl RunCriteriaLabel for DriverLabel {
-    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
-        Box::new(self.clone())
+    fn dyn_clone(&self) -> BoxedRunCriteriaLabel {
+        BoxedRunCriteriaLabel(Box::new(self.clone()))
     }
 }
 

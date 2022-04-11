@@ -15,7 +15,7 @@ use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-bevy_utils::define_label!(AppLabel);
+bevy_utils::define_label!(AppLabel, BoxedAppLabel);
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -56,7 +56,7 @@ pub struct App {
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
-    sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
+    sub_apps: HashMap<BoxedAppLabel, SubApp>,
 }
 
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
@@ -889,7 +889,7 @@ impl App {
     /// an [`Err`] containing the given label.
     pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
         self.sub_apps
-            .get_mut((&label) as &dyn AppLabel)
+            .get_mut(&label.dyn_clone())
             .map(|sub_app| &mut sub_app.app)
             .ok_or(label)
     }
@@ -910,7 +910,7 @@ impl App {
     /// an [`Err`] containing the given label.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get((&label) as &dyn AppLabel)
+            .get(&label.dyn_clone())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }

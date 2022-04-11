@@ -424,43 +424,62 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("SystemLabel").into());
-    derive_label(input, &trait_path)
+    let LabelPaths {
+        trait_path,
+        boxed_type_path,
+    } = label_paths("SystemLabel");
+    derive_label(input, &trait_path, &boxed_type_path)
 }
 
 #[proc_macro_derive(StageLabel)]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, &trait_path)
+    let LabelPaths {
+        trait_path,
+        boxed_type_path,
+    } = label_paths("StageLabel");
+    derive_label(input, &trait_path, &boxed_type_path)
 }
 
 #[proc_macro_derive(AmbiguitySetLabel)]
 pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("AmbiguitySetLabel").into());
-    derive_label(input, &trait_path)
+    let LabelPaths {
+        trait_path,
+        boxed_type_path,
+    } = label_paths("AmbiguitySetLabel");
+    derive_label(input, &trait_path, &boxed_type_path)
 }
 
 #[proc_macro_derive(RunCriteriaLabel)]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+    let LabelPaths {
+        trait_path,
+        boxed_type_path,
+    } = label_paths("RunCriteriaLabel");
+    derive_label(input, &trait_path, &boxed_type_path)
+}
+
+struct LabelPaths {
+    trait_path: syn::Path,
+    boxed_type_path: syn::Path,
+}
+
+fn label_paths(label_trait_name: &'static str) -> LabelPaths {
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
+    let mut boxed_type_path = trait_path.clone();
     trait_path
         .segments
-        .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, &trait_path)
+        .push(format_ident!("{}", label_trait_name).into());
+    boxed_type_path
+        .segments
+        .push(format_ident!("Boxed{}", label_trait_name).into());
+    LabelPaths {
+        trait_path,
+        boxed_type_path,
+    }
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {

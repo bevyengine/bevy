@@ -72,7 +72,7 @@ impl SystemSet {
 
     #[must_use]
     pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
-        self.ambiguity_sets.push(Box::new(set));
+        self.ambiguity_sets.push(set.dyn_clone());
         self
     }
 

@@ -945,7 +945,7 @@ mod tests {
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage,
-            SystemSet, SystemStage,
+            SystemLabel, SystemSet, SystemStage,
         },
         system::{In, IntoExclusiveSystem, Local, Query, ResMut},
         world::World,
@@ -953,6 +953,7 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::component::Component;
+
     #[derive(Component)]
     struct W<T>(T);
 
@@ -1626,8 +1627,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "1".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1641,8 +1642,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "1".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1666,12 +1667,12 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("0"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("0")))
+            ambiguities.contains(&("0".dyn_clone(), "3".dyn_clone()))
+                || ambiguities.contains(&("3".dyn_clone(), "0".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "1".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 2);
 
@@ -1685,8 +1686,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("0"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("0")))
+            ambiguities.contains(&("0".dyn_clone(), "3".dyn_clone()))
+                || ambiguities.contains(&("3".dyn_clone(), "0".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1698,8 +1699,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("0"), Box::new("1")))
-                || ambiguities.contains(&(Box::new("1"), Box::new("0")))
+            ambiguities.contains(&("0".dyn_clone(), "1".dyn_clone()))
+                || ambiguities.contains(&("1".dyn_clone(), "0".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1711,8 +1712,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("2")))
-                || ambiguities.contains(&(Box::new("2"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "2".dyn_clone()))
+                || ambiguities.contains(&("2".dyn_clone(), "1".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1725,8 +1726,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("2")))
-                || ambiguities.contains(&(Box::new("2"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "2".dyn_clone()))
+                || ambiguities.contains(&("2".dyn_clone(), "1".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1749,8 +1750,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("2")))
-                || ambiguities.contains(&(Box::new("2"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "2".dyn_clone()))
+                || ambiguities.contains(&("2".dyn_clone(), "1".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1779,28 +1780,28 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("2")))
-                || ambiguities.contains(&(Box::new("2"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "2".dyn_clone()))
+                || ambiguities.contains(&("2".dyn_clone(), "1".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "3".dyn_clone()))
+                || ambiguities.contains(&("3".dyn_clone(), "1".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "1".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("2")))
+            ambiguities.contains(&("2".dyn_clone(), "3".dyn_clone()))
+                || ambiguities.contains(&("3".dyn_clone(), "2".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("2")))
+            ambiguities.contains(&("2".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "2".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("3"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("3")))
+            ambiguities.contains(&("3".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "3".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 6);
 
@@ -1860,12 +1861,12 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "1".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("2")))
+            ambiguities.contains(&("2".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "2".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 2);
 
@@ -1894,28 +1895,28 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "3".dyn_clone()))
+                || ambiguities.contains(&("3".dyn_clone(), "1".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("2")))
+            ambiguities.contains(&("2".dyn_clone(), "3".dyn_clone()))
+                || ambiguities.contains(&("3".dyn_clone(), "2".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "1".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("2")))
+            ambiguities.contains(&("2".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "2".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("5")))
-                || ambiguities.contains(&(Box::new("5"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "5".dyn_clone()))
+                || ambiguities.contains(&("5".dyn_clone(), "1".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("5")))
-                || ambiguities.contains(&(Box::new("5"), Box::new("2")))
+            ambiguities.contains(&("2".dyn_clone(), "5".dyn_clone()))
+                || ambiguities.contains(&("5".dyn_clone(), "2".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 6);
 
@@ -1931,20 +1932,20 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("2")))
+            ambiguities.contains(&("2".dyn_clone(), "3".dyn_clone()))
+                || ambiguities.contains(&("3".dyn_clone(), "2".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "1".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("2")))
+            ambiguities.contains(&("2".dyn_clone(), "4".dyn_clone()))
+                || ambiguities.contains(&("4".dyn_clone(), "2".dyn_clone()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("5")))
-                || ambiguities.contains(&(Box::new("5"), Box::new("2")))
+            ambiguities.contains(&("2".dyn_clone(), "5".dyn_clone()))
+                || ambiguities.contains(&("5".dyn_clone(), "2".dyn_clone()))
         );
         assert_eq!(ambiguities.len(), 4);
 
