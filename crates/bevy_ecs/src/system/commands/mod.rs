@@ -413,7 +413,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # struct Size;
     /// # #[derive(Component, Default)]
     /// # struct Shape;
-    /// 
+    ///
     /// // Make sure this is in scope!
     /// use crate::bevy_ecs::system::BoxableCommand;
     ///
@@ -421,7 +421,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     
     ///     // Create a channel to send commands from par for each, back to main
     ///     let (commands_tx, commands_rx) = unbounded();
-    /// 
+    ///
     ///     // We can send different typed commands in the same channel
     ///     // once we box them!
     ///     bullets.par_for_each(&task_pool, 5, |(entity, bullet)| {
