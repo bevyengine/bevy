@@ -861,8 +861,6 @@ pub fn prepare_lights(
                             height: point_light_shadow_map.size as u32,
                             transform: view_translation * *view_rotation,
                             projection: cube_face_projection,
-                            near: POINT_LIGHT_NEAR_Z,
-                            far: light.range,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
@@ -946,8 +944,6 @@ pub fn prepare_lights(
                             height: directional_light_shadow_map.size as u32,
                             transform: GlobalTransform::from_matrix(view.inverse()),
                             projection,
-                            near: light.near,
-                            far: light.far,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional { light_entity },
