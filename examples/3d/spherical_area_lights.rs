@@ -1,9 +1,11 @@
 use bevy::prelude::*;
+use example_utils::camera_controller::CameraControllerPlugin;
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
+        .add_plugin(CameraControllerPlugin)
         .add_startup_system(setup)
         .run();
 }

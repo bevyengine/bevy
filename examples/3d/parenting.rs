@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use example_utils::camera_controller::CameraControllerPlugin;
 
 /// This example illustrates how to create parent->child relationships between entities how parent
 /// transforms are propagated to their descendants
@@ -6,6 +7,7 @@ fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
+        .add_plugin(CameraControllerPlugin)
         .add_startup_system(setup)
         .add_system(rotator_system)
         .run();

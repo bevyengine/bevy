@@ -2,6 +2,7 @@ use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
+use example_utils::camera_controller::CameraControllerPlugin;
 
 fn main() {
     println!(
@@ -12,6 +13,7 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(CameraControllerPlugin)
         .add_startup_system(setup)
         .add_system(toggle_light)
         .add_system(toggle_shadows)

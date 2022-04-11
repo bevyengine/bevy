@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use example_utils::camera_controller::CameraControllerPlugin;
 
 /// This example shows how to configure Multi-Sample Anti-Aliasing. Setting the sample count higher
 /// will result in smoother edges, but it will also increase the cost to render those edges. The
@@ -11,6 +12,7 @@ fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
+        .add_plugin(CameraControllerPlugin)
         .add_startup_system(setup)
         .add_system(cycle_msaa)
         .run();

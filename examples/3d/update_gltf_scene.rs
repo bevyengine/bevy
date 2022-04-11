@@ -1,9 +1,11 @@
 use bevy::{prelude::*, scene::InstanceId};
+use example_utils::camera_controller::CameraControllerPlugin;
 
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
+        .add_plugin(CameraControllerPlugin)
         .init_resource::<SceneInstance>()
         .add_startup_system(setup)
         .add_system(scene_update)
