@@ -246,11 +246,7 @@ fn camera_spawn_check(
 
             info!("Spawning a 3D perspective camera");
             commands.spawn_bundle(PerspectiveCameraBundle {
-                camera: Camera {
-                    near: perspective_projection.near,
-                    far: perspective_projection.far,
-                    ..default()
-                },
+                camera: Camera::default(),
                 perspective_projection,
                 frustum,
                 transform,
