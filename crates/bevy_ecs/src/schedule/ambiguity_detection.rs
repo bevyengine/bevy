@@ -249,9 +249,7 @@ pub fn find_ambiguities(
     let full_bitset: FixedBitSet = (0..systems.len()).collect();
     let mut processed = FixedBitSet::with_capacity(systems.len());
     for (index_a, relations) in all_relations.drain(..).enumerate() {
-        // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
         for index_b in full_bitset.difference(&relations)
-        // .take(index_a)
         {
             if !processed.contains(index_b)
                 && !should_ignore_ambiguity(systems, index_a, index_b, crates_filter, report_level)
