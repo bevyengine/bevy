@@ -213,8 +213,6 @@ pub enum SimulationLightSystems {
 /// rendering
 #[derive(Debug, Copy, Clone)]
 pub enum ClusterFarZMode {
-    /// Use the camera far-plane to determine the z-depth of the furthest cluster layer
-    CameraFarPlane,
     /// Calculate the required maximum z-depth based on currently visible lights.
     /// Makes better use of available clusters, speeding up GPU lighting operations
     /// at the expense of some CPU time and using more indices in the cluster light
@@ -806,7 +804,6 @@ pub(crate) fn assign_lights_to_clusters(
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
 
         let far_z = match config.far_z_mode() {
-            ClusterFarZMode::CameraFarPlane => camera.far,
             ClusterFarZMode::MaxLightRange => {
                 let inverse_view_row_2 = inverse_view_transform.row(2);
                 lights
