@@ -149,22 +149,22 @@ impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
     }
 
     fn label(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        self.labels.push(Box::new(label));
+        self.labels.push(label.dyn_clone());
         self
     }
 
     fn before<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
-        self.before.push(Box::new(label.as_system_label()));
+        self.before.push(label.as_system_label().dyn_clone());
         self
     }
 
     fn after<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
-        self.after.push(Box::new(label.as_system_label()));
+        self.after.push(label.as_system_label().dyn_clone());
         self
     }
 
     fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor {
-        self.ambiguity_sets.push(Box::new(set));
+        self.ambiguity_sets.push(set.dyn_clone());
         self
     }
 }
@@ -295,22 +295,22 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
     }
 
     fn label(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        self.labels.push(Box::new(label));
+        self.labels.push(label.dyn_clone());
         self
     }
 
     fn before(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        self.before.push(Box::new(label));
+        self.before.push(label.dyn_clone());
         self
     }
 
     fn after(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        self.after.push(Box::new(label));
+        self.after.push(label.dyn_clone());
         self
     }
 
     fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> ExclusiveSystemDescriptor {
-        self.ambiguity_sets.push(Box::new(set));
+        self.ambiguity_sets.push(set.dyn_clone());
         self
     }
 

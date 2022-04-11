@@ -90,19 +90,19 @@ impl SystemSet {
 
     #[must_use]
     pub fn label(mut self, label: impl SystemLabel) -> Self {
-        self.labels.push(Box::new(label));
+        self.labels.push(label.dyn_clone());
         self
     }
 
     #[must_use]
     pub fn before(mut self, label: impl SystemLabel) -> Self {
-        self.before.push(Box::new(label));
+        self.before.push(label.dyn_clone());
         self
     }
 
     #[must_use]
     pub fn after(mut self, label: impl SystemLabel) -> Self {
-        self.after.push(Box::new(label));
+        self.after.push(label.dyn_clone());
         self
     }
 

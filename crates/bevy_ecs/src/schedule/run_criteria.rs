@@ -205,7 +205,7 @@ where
     L: RunCriteriaLabel,
 {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
-        RunCriteriaDescriptorOrLabel::Label(Box::new(self))
+        RunCriteriaDescriptorOrLabel::Label(self.dyn_clone())
     }
 }
 
@@ -232,24 +232,24 @@ pub trait RunCriteriaDescriptorCoercion<Param> {
 
 impl RunCriteriaDescriptorCoercion<()> for RunCriteriaDescriptor {
     fn label(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.label = Some(Box::new(label));
+        self.label = Some(label.dyn_clone());
         self.duplicate_label_strategy = DuplicateLabelStrategy::Panic;
         self
     }
 
     fn label_discard_if_duplicate(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.label = Some(Box::new(label));
+        self.label = Some(label.dyn_clone());
         self.duplicate_label_strategy = DuplicateLabelStrategy::Discard;
         self
     }
 
     fn before(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.before.push(Box::new(label));
+        self.before.push(label.dyn_clone());
         self
     }
 
     fn after(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.after.push(Box::new(label));
+        self.after.push(label.dyn_clone());
         self
     }
 }
@@ -320,7 +320,7 @@ impl RunCriteria {
             label: None,
             duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
-            after: vec![Box::new(label)],
+            after: vec![label.dyn_clone()],
         }
     }
 }

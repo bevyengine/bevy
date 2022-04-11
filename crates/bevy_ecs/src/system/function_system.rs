@@ -446,7 +446,7 @@ where
         );
     }
     fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
-        vec![Box::new(self.func.as_system_label())]
+        vec![self.func.as_system_label().dyn_clone()]
     }
 }
 

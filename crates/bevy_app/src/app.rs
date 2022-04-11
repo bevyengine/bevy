@@ -864,7 +864,7 @@ impl App {
         sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
-            Box::new(label),
+            label.dyn_clone(),
             SubApp {
                 app,
                 runner: Box::new(sub_app_runner),

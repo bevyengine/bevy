@@ -111,7 +111,7 @@ impl Schedule {
     /// schedule.add_stage("my_stage", SystemStage::parallel());
     /// ```
     pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
-        let label: Box<dyn StageLabel> = Box::new(label);
+        let label: Box<dyn StageLabel> = label.dyn_clone();
         self.stage_order.push(label.clone());
         let prev = self.stages.insert(label.clone(), Box::new(stage));
         assert!(prev.is_none(), "Stage already exists: {:?}.", label);
@@ -135,7 +135,7 @@ impl Schedule {
         label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
-        let label: Box<dyn StageLabel> = Box::new(label);
+        let label: Box<dyn StageLabel> = label.dyn_clone();
         let target = &target as &dyn StageLabel;
         let target_index = self
             .stage_order
@@ -169,7 +169,7 @@ impl Schedule {
         label: impl StageLabel,
         stage: S,
     ) -> &mut Self {
-        let label: Box<dyn StageLabel> = Box::new(label);
+        let label: Box<dyn StageLabel> = label.dyn_clone();
         let target = &target as &dyn StageLabel;
         let target_index = self
             .stage_order
