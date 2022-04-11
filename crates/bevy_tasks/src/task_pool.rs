@@ -406,4 +406,43 @@ mod tests {
         assert!(!thread_check_failed.load(Ordering::Acquire));
         assert_eq!(count.load(Ordering::Acquire), 200);
     }
+
+    #[test]
+    fn test_nested_spawn() {
+        let pool = TaskPool::new();
+
+        let foo = Box::new(42);
+        let foo = &*foo;
+
+        let count = Arc::new(AtomicI32::new(0));
+
+        let outputs: Vec<i32> = pool.scope(|scope| {
+            for _ in 0..10 {
+                let count_clone = count.clone();
+                let scope = scope.clone();
+                scope.clone().spawn(async move {
+                    for _ in 0..10 {
+                        let count_clone_clone = count_clone.clone();
+                        scope.spawn(async move {
+                            if *foo != 42 {
+                                panic!("not 42!?!?")
+                            } else {
+                                count_clone_clone.fetch_add(1, Ordering::Relaxed);
+                                *foo
+                            }
+                        });
+                    }
+                    *foo
+                });
+            }
+        }).collect();
+
+        for output in &outputs {
+            assert_eq!(*output, 42);
+        }
+
+        // the inner loop runs 100 times and the outer one runs 10. 100 + 10
+        assert_eq!(outputs.len(), 110);
+        assert_eq!(count.load(Ordering::Relaxed), 100);
+    }
 }
