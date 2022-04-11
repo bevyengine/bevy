@@ -6,6 +6,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, pin};
 
 use crate::Task;
@@ -142,7 +143,7 @@ impl TaskPool {
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
     where
-        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        F: FnOnce(Arc<Scope<'scope, T>>) + 'scope + Send,
         T: Send + 'static,
     {
         // SAFETY: This function blocks until all futures complete, so this future must return
@@ -154,22 +155,27 @@ impl TaskPool {
         let task_scope_executor = &async_executor::Executor::default();
         let task_scope_executor: &'scope async_executor::Executor =
             unsafe { mem::transmute(task_scope_executor) };
-        let mut scope = Scope {
+
+        let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
+        // TODO: figure out if this is safe
+        let spawned_ref: &'scope ConcurrentQueue<async_executor::Task<T>> =
+            unsafe { mem::transmute(&spawned) };
+        let scope = Scope {
             executor,
             task_scope_executor,
-            spawned: Vec::new(),
+            spawned: spawned_ref,
         };
 
-        f(&mut scope);
+        f(Arc::new(scope));
 
-        if scope.spawned.is_empty() {
+        if spawned.is_empty() {
             Vec::default()
-        } else if scope.spawned.len() == 1 {
-            vec![future::block_on(&mut scope.spawned[0])]
+        } else if spawned.len() == 1 {
+            vec![future::block_on(&mut spawned.pop().unwrap())]
         } else {
             let fut = async move {
-                let mut results = Vec::with_capacity(scope.spawned.len());
-                for task in scope.spawned {
+                let mut results = Vec::with_capacity(spawned.len());
+                while let Ok(task) = spawned.pop() {
                     results.push(task.await);
                 }
 
@@ -256,7 +262,7 @@ impl Drop for TaskPool {
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
     task_scope_executor: &'scope async_executor::Executor<'scope>,
-    spawned: Vec<async_executor::Task<T>>,
+    spawned: &'scope ConcurrentQueue<async_executor::Task<T>>,
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
@@ -268,9 +274,11 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// instead.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         let task = self.executor.spawn(f);
-        self.spawned.push(task);
+        // ConcurrentQueue only errors when closed or full, but we never
+        // close and use an unbouded queue, so it is safe to unwrap
+        self.spawned.push(task).unwrap();
     }
 
     /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
@@ -279,9 +287,11 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// [`Scope::spawn`] instead, unless the provided future is not `Send`.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         let task = self.task_scope_executor.spawn(f);
-        self.spawned.push(task);
+        // ConcurrentQueue only errors when closed or full, but we never
+        // close and use an unbouded queue, so it is safe to unwrap
+        self.spawned.push(task).unwrap();
     }
 }
 
@@ -435,7 +445,7 @@ mod tests {
                     *foo
                 });
             }
-        }).collect();
+        });
 
         for output in &outputs {
             assert_eq!(*output, 42);
