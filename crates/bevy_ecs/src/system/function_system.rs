@@ -485,7 +485,7 @@ impl<T> Eq for SystemTypeIdLabel<T> {}
 
 impl<T> SystemLabel for SystemTypeIdLabel<T> {
     fn dyn_clone(&self) -> BoxedSystemLabel {
-        BoxedSystemLabel(Box::new(*self))
+        BoxedSystemLabel::new(Box::new(*self))
     }
 }
 

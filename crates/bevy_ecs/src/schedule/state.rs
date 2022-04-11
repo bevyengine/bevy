@@ -77,7 +77,7 @@ where
     T: StateData,
 {
     fn dyn_clone(&self) -> BoxedRunCriteriaLabel {
-        BoxedRunCriteriaLabel(Box::new(self.clone()))
+        BoxedRunCriteriaLabel::new(Box::new(self.clone()))
     }
 }
 
@@ -85,7 +85,7 @@ where
 struct DriverLabel(TypeId);
 impl RunCriteriaLabel for DriverLabel {
     fn dyn_clone(&self) -> BoxedRunCriteriaLabel {
-        BoxedRunCriteriaLabel(Box::new(self.clone()))
+        BoxedRunCriteriaLabel::new(Box::new(self.clone()))
     }
 }
 

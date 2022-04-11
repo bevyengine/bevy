@@ -108,7 +108,14 @@ macro_rules! define_label {
 
         /// A wrapper for a boxed label
         #[derive(Debug)]
-        pub struct $boxed_type_name(pub Box<dyn $label_trait_name>);
+        pub struct $boxed_type_name(Box<dyn $label_trait_name>);
+
+        impl $boxed_type_name {
+            #[doc(hidden)]
+            pub fn new(label: Box<dyn $label_trait_name>) -> Self {
+                Self(label)
+            }
+        }
 
         impl ::std::hash::Hash for $boxed_type_name {
             fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
