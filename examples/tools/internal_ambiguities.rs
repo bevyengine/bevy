@@ -1,4 +1,4 @@
-//! Reports any Bevy-internal system-order ambiguities
+//! Reports execution-order ambiguities involving internal Bevy systems.
 //! This is primarily useful for engine development
 
 use bevy::prelude::*;

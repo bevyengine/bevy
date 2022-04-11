@@ -93,7 +93,7 @@ impl IntoSystemDescriptor<()> for ExclusiveSystemCoerced {
     }
 }
 
-/// Whether or not system order ambiguities should be reported for this specific system
+/// Determines whether or not execution order ambiguities involving a given system are reported or ignored.
 ///
 /// See the methods on [`ParallelSystemDescriptor`] to set this for a given system.
 ///

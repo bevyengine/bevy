@@ -3,9 +3,9 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // This resource allows to control how Ambiguity Checker will report unresolved ambiguities.
-        // By default only a warning with the number of unresolved ambiguities is shown, but
-        // a more complete report will be displayed if we explicitly set this resource to verbose.
+        // This resource controls how an app handles pairs of systems that have incompatible access but ambiguous execution order.
+        // The default behavior logs a warning with just the number of ambiguous pairs. Setting the resource to "verbose" 
+        // will report these pairs in more detail.
         .insert_resource(ExecutionOrderAmbiguities::WarnVerbose)
         .insert_resource(MyStartupResource(0))
         // `startup_system_a` and `startup_system_b` will both compete for the same resource. Since there is no ordering between
@@ -15,16 +15,14 @@ fn main() {
         .add_startup_system(startup_system_b)
         .insert_resource(MyResource(0))
         .insert_resource(MyOtherResource(0))
-        // It is possible to mark a system as ambiguous if this is intended behavior; the ambiguity checker will ignore this system.
-        .add_system(system_a.ignore_all_ambiguities())
-        .add_system(system_b)
-        // It is also possible to mark a system as deliberately ambiguous with a provided system or label,
-        // making the checker ignore any ambiguities between them.
-        .add_system(system_c.ambiguous_with(system_b))
-        // If there's an whole group of systems that are supposed to be ambiguous with each other,
-        // add a shared label, and then ignore any conflicts with that label.
+        .add_system(system_a)
+        // It's possible to tell the ambiguity checker to ignore conflicts between a specific pair of systems.
+        .add_system(system_b.ambiguous_with(system_a))
+        // Likewise, between a system and other systems that have a certain label.
+        .add_system(system_c.label(AmbiguitySet).ambiguous_with(AmbiguitySet))
         .add_system(system_d.label(AmbiguitySet).ambiguous_with(AmbiguitySet))
-        .add_system(system_e.label(AmbiguitySet).ambiguous_with(AmbiguitySet))
+        // Lastly, if desired, the checker can be told to ignore any conflicts that involve a particular system.
+        .add_system(system_e.ignore_all_ambiguities())
         .run();
 }
 
