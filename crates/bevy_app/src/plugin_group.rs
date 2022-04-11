@@ -33,7 +33,7 @@ impl PluginGroupBuilder {
         match index {
             Some(i) => i,
             None => panic!(
-                "Plugin does not exist: {}.",
+                "Plugin does not exist in group: {}.",
                 std::any::type_name::<Target>()
             ),
         }
