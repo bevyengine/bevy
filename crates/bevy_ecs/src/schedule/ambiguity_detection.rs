@@ -48,7 +48,7 @@ pub enum ExecutionOrderAmbiguities {
     /// Panics if any ambiguities exist.
     ///
     /// This will be very noisy, but can be useful when attempting to track down subtle determinism issues,
-    /// as you might need when attempting to implement lockstep networking.
+    /// as you might need when attempting to implement deterministic networking.
     Forbid,
 }
 
