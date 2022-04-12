@@ -146,23 +146,20 @@ impl TaskPool {
         F: FnOnce(&'scope Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
-        // SAFETY: This function blocks until all futures complete, so this future must return
-        // before this function returns. However, rust has no way of knowing
-        // this so we must convert to 'static here to appease the compiler as it is unable to
-        // validate safety.
+        // SAFETY: This safety comment applies to all references transmuted to 'scope.
+        // Any futures spawned with these references need to return before this function completes.
+        // This is guaranteed because we drive all the futures spawned onto the Scope
+        // to completion in this function. However, rust has no way of knowing this so we
+        // transmute the lifetimes to 'scope here to appease the compiler as it is unable to validate safety.
         let executor: &async_executor::Executor = &*self.executor;
         let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
         let task_scope_executor = &async_executor::Executor::default();
         let task_scope_executor: &'scope async_executor::Executor =
             unsafe { mem::transmute(task_scope_executor) };
-
         let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'scope ConcurrentQueue<async_executor::Task<T>> =
             unsafe { mem::transmute(&spawned) };
-        // TODO: try to figure out if there's a way not to use an Arc here.
-        // It's needed because rust complains about "borrowed data escapes the closure", which
-        // makes sense since the futures run after the closure is run. It'd be nice if we could
-        // teach rust that it's ok since the future's return before 'scope is done.
+
         let scope = Scope {
             executor,
             task_scope_executor,
