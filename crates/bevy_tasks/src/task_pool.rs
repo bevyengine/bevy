@@ -168,43 +168,39 @@ impl TaskPool {
 
         f(Arc::new(scope));
 
-        if spawned.is_empty() {
-            Vec::default()
-        } else {
-            let fut = async move {
-                let mut results = Vec::with_capacity(spawned.len());
-                while let Ok(task) = spawned.pop() {
-                    results.push(task.await);
-                }
+        let fut = async move {
+            let mut results = Vec::with_capacity(spawned.len());
+            while let Ok(task) = spawned.pop() {
+                results.push(task.await);
+            }
 
-                results
+            results
+        };
+
+        // Pin the futures on the stack.
+        pin!(fut);
+
+        // SAFETY: This function blocks until all futures complete, so we do not read/write
+        // the data from futures outside of the 'scope lifetime. However,
+        // rust has no way of knowing this so we must convert to 'static
+        // here to appease the compiler as it is unable to validate safety.
+        let fut: Pin<&mut (dyn Future<Output = Vec<T>> + 'static + Send)> = fut;
+        let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + 'static + Send)> =
+            unsafe { mem::transmute(fut) };
+
+        // The thread that calls scope() will participate in driving tasks in the pool
+        // forward until the tasks that are spawned by this scope() call
+        // complete. (If the caller of scope() happens to be a thread in
+        // this thread pool, and we only have one thread in the pool, then
+        // simply calling future::block_on(spawned) would deadlock.)
+        let mut spawned = task_scope_executor.spawn(fut);
+        loop {
+            if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
+                break result;
             };
 
-            // Pin the futures on the stack.
-            pin!(fut);
-
-            // SAFETY: This function blocks until all futures complete, so we do not read/write
-            // the data from futures outside of the 'scope lifetime. However,
-            // rust has no way of knowing this so we must convert to 'static
-            // here to appease the compiler as it is unable to validate safety.
-            let fut: Pin<&mut (dyn Future<Output = Vec<T>> + 'static + Send)> = fut;
-            let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + 'static + Send)> =
-                unsafe { mem::transmute(fut) };
-
-            // The thread that calls scope() will participate in driving tasks in the pool
-            // forward until the tasks that are spawned by this scope() call
-            // complete. (If the caller of scope() happens to be a thread in
-            // this thread pool, and we only have one thread in the pool, then
-            // simply calling future::block_on(spawned) would deadlock.)
-            let mut spawned = task_scope_executor.spawn(fut);
-            loop {
-                if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
-                    break result;
-                };
-
-                self.executor.try_tick();
-                task_scope_executor.try_tick();
-            }
+            self.executor.try_tick();
+            task_scope_executor.try_tick();
         }
     }
 
