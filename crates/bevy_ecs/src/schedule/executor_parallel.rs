@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
@@ -131,7 +129,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         }
 
         ComputeTaskPool::init(TaskPool::default).scope(|scope| {
-            self.prepare_systems(scope.clone(), systems, world);
+            self.prepare_systems(scope, systems, world);
             let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.
                 while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
@@ -169,7 +167,7 @@ impl ParallelExecutor {
     /// queues systems with no dependencies to run (or skip) at next opportunity.
     fn prepare_systems<'scope>(
         &mut self,
-        scope: Arc<Scope<'scope, ()>>,
+        scope: &Scope<'scope, ()>,
         systems: &'scope mut [FunctionSystemContainer],
         world: &'scope World,
     ) {
