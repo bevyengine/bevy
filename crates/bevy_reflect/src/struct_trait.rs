@@ -1,6 +1,6 @@
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
-use bevy_utils::HashMap;
-use std::{any::Any, borrow::Cow, collections::hash_map::Entry};
+use bevy_utils::{Entry, HashMap};
+use std::{any::Any, borrow::Cow};
 
 /// A reflected Rust regular struct type.
 ///
@@ -154,12 +154,12 @@ pub struct DynamicStruct {
 }
 
 impl DynamicStruct {
-    /// Returns the name of the struct.
+    /// Returns the type name of the struct.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Sets the name of the struct.
+    /// Sets the type name of the struct.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
@@ -289,7 +289,7 @@ unsafe impl Reflect for DynamicStruct {
             for (i, value) in struct_value.iter_fields().enumerate() {
                 let name = struct_value.name_at(i).unwrap();
                 if let Some(v) = self.field_mut(name) {
-                    v.apply(value)
+                    v.apply(value);
                 }
             }
         } else {
@@ -315,6 +315,13 @@ unsafe impl Reflect for DynamicStruct {
     }
 }
 
+/// Compares a [`Struct`] with a [`Reflect`] value.
+///
+/// Returns true if and only if all of the following are true:
+/// - `b` is a struct;
+/// - For each field in `a`, `b` contains a field with the same name and
+///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
+///   values.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {

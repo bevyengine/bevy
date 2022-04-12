@@ -1,7 +1,7 @@
 use bevy::{prelude::*, tasks::prelude::*};
 use rand::random;
 
-#[derive(Component)]
+#[derive(Component, Deref)]
 struct Velocity(Vec2);
 
 fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -12,7 +12,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             .spawn_bundle(SpriteBundle {
                 texture: texture.clone(),
                 transform: Transform::from_scale(Vec3::splat(0.1)),
-                ..Default::default()
+                ..default()
             })
             .insert(Velocity(
                 20.0 * Vec2::new(random::<f32>() - 0.5, random::<f32>() - 0.5),
@@ -31,7 +31,7 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
     // See the ParallelIterator documentation for more information on when
     // to use or not use ParallelIterator over a normal Iterator.
     sprites.par_for_each_mut(&pool, 32, |(mut transform, velocity)| {
-        transform.translation += velocity.0.extend(0.0);
+        transform.translation += velocity.extend(0.0);
     });
 }
 
@@ -41,7 +41,7 @@ fn bounce_system(
     windows: Res<Windows>,
     mut sprites: Query<(&Transform, &mut Velocity)>,
 ) {
-    let window = windows.get_primary().expect("No primary window.");
+    let window = windows.primary();
     let width = window.width();
     let height = window.height();
     let left = width / -2.0;

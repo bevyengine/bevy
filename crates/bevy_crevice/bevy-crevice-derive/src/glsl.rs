@@ -1,17 +1,14 @@
+use bevy_macro_utils::get_named_struct_fields;
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
-use syn::{parse_quote, Data, DeriveInput, Fields, Path};
+use syn::{parse_quote, DeriveInput, Path};
 
 pub fn emit(input: DeriveInput) -> TokenStream {
     let bevy_crevice_path = crate::bevy_crevice_path();
 
-    let fields = match &input.data {
-        Data::Struct(data) => match &data.fields {
-            Fields::Named(fields) => fields,
-            Fields::Unnamed(_) => panic!("Tuple structs are not supported"),
-            Fields::Unit => panic!("Unit structs are not supported"),
-        },
-        Data::Enum(_) | Data::Union(_) => panic!("Only structs are supported"),
+    let fields = match get_named_struct_fields(&input.data) {
+        Ok(fields) => fields,
+        Err(e) => return e.into_compile_error(),
     };
 
     let base_trait_path: Path = parse_quote!(#bevy_crevice_path::glsl::Glsl);

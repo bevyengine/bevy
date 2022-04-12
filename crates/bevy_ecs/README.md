@@ -199,7 +199,7 @@ fn system_changed(query: Query<&Position, Changed<Velocity>>) {
     }
 }
 
-// Gets the i32 component of all Entities that had a f32 component added since the last run of the System
+// Gets the Position component of all Entities that had a Velocity component added since the last run of the System
 fn system_added(query: Query<&Position, Added<Velocity>>) {
     for position in query.iter() {
     }

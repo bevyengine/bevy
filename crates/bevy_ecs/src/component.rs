@@ -10,7 +10,6 @@ use std::{
     alloc::Layout,
     any::{Any, TypeId},
 };
-use thiserror::Error;
 
 /// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
 /// multiple different types of components, but only one of them per type.
@@ -254,16 +253,6 @@ pub struct Components {
     components: Vec<ComponentInfo>,
     indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
     resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
-}
-
-#[derive(Debug, Error)]
-pub enum ComponentsError {
-    #[error("A component of type {name:?} ({type_id:?}) already exists")]
-    ComponentAlreadyExists {
-        type_id: TypeId,
-        name: String,
-        existing_id: ComponentId,
-    },
 }
 
 impl Components {

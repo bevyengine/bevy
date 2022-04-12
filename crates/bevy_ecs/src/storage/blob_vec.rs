@@ -195,7 +195,7 @@ impl BlobVec {
         debug_assert!(index < self.len());
         let drop = self.drop;
         let value = self.swap_remove_and_forget_unchecked(index);
-        (drop)(value)
+        (drop)(value);
     }
 
     /// # Safety

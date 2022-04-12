@@ -118,6 +118,12 @@ impl From<Vec<[u32; 4]>> for VertexAttributeValues {
     }
 }
 
+impl From<Vec<[u16; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u16; 4]>) -> Self {
+        VertexAttributeValues::Uint16x4(vec)
+    }
+}
+
 impl From<Vec<[u8; 4]>> for VertexAttributeValues {
     fn from(vec: Vec<[u8; 4]>) -> Self {
         VertexAttributeValues::Unorm8x4(vec)

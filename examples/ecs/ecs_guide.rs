@@ -136,8 +136,6 @@ fn game_over_system(
         println!("Ran out of rounds. Nobody wins!");
         app_exit_events.send(AppExit);
     }
-
-    println!();
 }
 
 // This is a "startup" system that runs exactly once when the app starts up. Startup systems are
@@ -205,9 +203,9 @@ fn new_player_system(
 #[allow(dead_code)]
 fn exclusive_player_system(world: &mut World) {
     // this does the same thing as "new_player_system"
-    let total_players = world.get_resource_mut::<GameState>().unwrap().total_players;
+    let total_players = world.resource_mut::<GameState>().total_players;
     let should_add_player = {
-        let game_rules = world.get_resource::<GameRules>().unwrap();
+        let game_rules = world.resource::<GameRules>();
         let add_new_player = random::<bool>();
         add_new_player && total_players < game_rules.max_players
     };
@@ -220,33 +218,23 @@ fn exclusive_player_system(world: &mut World) {
             Score { value: 0 },
         ));
 
-        let mut game_state = world.get_resource_mut::<GameState>().unwrap();
+        let mut game_state = world.resource_mut::<GameState>();
         game_state.total_players += 1;
     }
 }
 
-// Sometimes systems need their own unique "local" state. Bevy's ECS provides Local<T> resources for
-// this case. Local<T> resources are unique to their system and are automatically initialized on
-// your behalf (if they don't already exist). If you have a system's id, you can also access local
-// resources directly in the Resources collection using `Resources::get_local()`. In general you
-// should only need this feature in the following cases:  1. You have multiple instances of the same
-// system and they each need their own unique state  2. You already have a global version of a
-// resource that you don't want to overwrite for your current system  3. You are too lazy to
-// register the system's resource as a global resource
-
-#[derive(Default)]
-struct State {
-    counter: usize,
-}
-
-// NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
-#[allow(dead_code)]
-fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) {
-    for (player, score) in query.iter() {
-        println!("processed: {} {}", player.name, score.value);
-    }
-    println!("this system ran {} times", state.counter);
-    state.counter += 1;
+// Sometimes systems need to be stateful. Bevy's ECS provides the `Local` system parameter
+// for this case. A `Local<T>` refers to a value owned by the system of type `T`, which is automatically
+// initialized using `T`'s `FromWorld`* implementation. In this system's `Local` (`counter`), `T` is `u32`.
+// Therefore, on the first turn, `counter` has a value of 0.
+//
+// *: `FromWorld` is a trait which creates a value using the contents of the `World`.
+// For any type which is `Default`, like `u32` in this example, `FromWorld` creates the default value.
+fn print_at_end_round(mut counter: Local<u32>) {
+    *counter += 1;
+    println!("In stage 'Last' for the {}th time", *counter);
+    // Print an empty line between rounds
+    println!();
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -255,31 +243,23 @@ enum MyStage {
     AfterRound,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-enum MyLabels {
-    ScoreCheck,
-}
-
 // Our Bevy app's entry point
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems,
     // resources, and plugins to our app
     App::new()
-        // Resources can be added to our app like this
-        .insert_resource(State { counter: 0 })
-        // Some systems are configured by adding their settings as a resource
+        // Resources that implement the Default or FromWorld trait can be added like this:
+        .init_resource::<GameState>()
+        // Some systems are configured by adding their settings as a resource.
         .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
         // We could easily turn our game into a plugin, but you can check out the plugin example for
         // that :) The plugin below runs our app's "system schedule" once every 5 seconds
         // (configured above).
         .add_plugin(ScheduleRunnerPlugin::default())
-        // Resources that implement the Default or FromWorld trait can be added like this:
-        .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
         .add_startup_system(startup_system)
-        // my_system calls converts normal rust functions into ECS systems:
         .add_system(print_message_system)
         // SYSTEM EXECUTION ORDER
         //
@@ -313,6 +293,8 @@ fn main() {
         // However we can manually specify the stage if we want to. The following is equivalent to
         // add_system(score_system)
         .add_system_to_stage(CoreStage::Update, score_system)
+        // There are other `CoreStages`, such as `Last` which runs at the very end of each run.
+        .add_system_to_stage(CoreStage::Last, print_at_end_round)
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
@@ -328,25 +310,24 @@ fn main() {
             SystemStage::parallel(),
         )
         .add_system_to_stage(MyStage::BeforeRound, new_round_system)
-        .add_system_to_stage(MyStage::BeforeRound, new_player_system)
         .add_system_to_stage(
             MyStage::BeforeRound,
+            new_player_system.after(new_round_system),
+        )
+        .add_system_to_stage(
+            MyStage::BeforeRound,
+            // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
+            // The following will not compile.
+            //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
             exclusive_player_system.exclusive_system(),
         )
-        // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
-        // The following will not compile.
-        //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
-        //
-        // We can ensure that game_over system runs after score_check_system using explicit ordering
-        // constraints First, we label the system we want to refer to using `.label`
-        // Then, we use either `.before` or `.after` to describe the order we want the relationship
+        .add_system_to_stage(MyStage::AfterRound, score_check_system)
         .add_system_to_stage(
+            // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
+            // To do this we use either `.before` or `.after` to describe the order we want the relationship
+            // Since we are using `after`, `game_over_system` runs after `score_check_system`
             MyStage::AfterRound,
-            score_check_system.label(MyLabels::ScoreCheck),
-        )
-        .add_system_to_stage(
-            MyStage::AfterRound,
-            game_over_system.after(MyLabels::ScoreCheck),
+            game_over_system.after(score_check_system),
         )
         // We can check our systems for execution order ambiguities by examining the output produced
         // in the console by using the `LogPlugin` and adding the following Resource to our App :)

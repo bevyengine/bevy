@@ -1,17 +1,19 @@
 mod render_layers;
 
+use bevy_math::Vec3A;
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::components::GlobalTransform;
+use bevy_transform::TransformSystem;
 
 use crate::{
     camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
     mesh::Mesh,
-    primitives::{Aabb, Frustum},
+    primitives::{Aabb, Frustum, Sphere},
 };
 
 /// User indication of whether an entity is visible
@@ -39,6 +41,10 @@ impl Default for ComputedVisibility {
         Self { is_visible: true }
     }
 }
+
+/// Use this component to opt-out of built-in frustum culling for Mesh entities
+#[derive(Component)]
+pub struct NoFrustumCulling;
 
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
@@ -106,7 +112,7 @@ impl Plugin for VisibilityPlugin {
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Handle<Mesh>), Without<Aabb>>,
+    without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in without_aabb.iter() {
         if let Some(mesh) = meshes.get(mesh_handle) {
@@ -134,20 +140,21 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 
 pub fn check_visibility(
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
-    mut visible_entity_query: QuerySet<(
-        QueryState<&mut ComputedVisibility>,
-        QueryState<(
+    mut visible_entity_query: ParamSet<(
+        Query<&mut ComputedVisibility>,
+        Query<(
             Entity,
             &Visibility,
             &mut ComputedVisibility,
             Option<&RenderLayers>,
             Option<&Aabb>,
+            Option<&NoFrustumCulling>,
             Option<&GlobalTransform>,
         )>,
     )>,
 ) {
     // Reset the computed visibility to false
-    for mut computed_visibility in visible_entity_query.q0().iter_mut() {
+    for mut computed_visibility in visible_entity_query.p0().iter_mut() {
         computed_visibility.is_visible = false;
     }
 
@@ -161,8 +168,9 @@ pub fn check_visibility(
             mut computed_visibility,
             maybe_entity_mask,
             maybe_aabb,
+            maybe_no_frustum_culling,
             maybe_transform,
-        ) in visible_entity_query.q1().iter_mut()
+        ) in visible_entity_query.p1().iter_mut()
         {
             if !visibility.is_visible {
                 continue;
@@ -174,8 +182,20 @@ pub fn check_visibility(
             }
 
             // If we have an aabb and transform, do frustum culling
-            if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                if !frustum.intersects_obb(aabb, &transform.compute_matrix()) {
+            if let (Some(model_aabb), None, Some(transform)) =
+                (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
+            {
+                let model = transform.compute_matrix();
+                let model_sphere = Sphere {
+                    center: model.transform_point3a(model_aabb.center),
+                    radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
+                };
+                // Do quick sphere-based frustum culling
+                if !frustum.intersects_sphere(&model_sphere, false) {
+                    continue;
+                }
+                // If we have an aabb, do aabb-based frustum culling
+                if !frustum.intersects_obb(model_aabb, &model, false) {
                     continue;
                 }
             }

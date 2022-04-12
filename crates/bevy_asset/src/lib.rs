@@ -1,5 +1,7 @@
 mod asset_server;
 mod assets;
+#[cfg(feature = "debug_asset_server")]
+pub mod debug_asset_server;
 pub mod diagnostic;
 #[cfg(all(
     feature = "filesystem_watcher",
@@ -44,12 +46,16 @@ pub struct AssetPlugin;
 
 pub struct AssetServerSettings {
     pub asset_folder: String,
+    /// Whether to watch for changes in asset files. Requires the `filesystem_watcher` feature,
+    /// and cannot be supported on the wasm32 arch nor android os.
+    pub watch_for_changes: bool,
 }
 
 impl Default for AssetServerSettings {
     fn default() -> Self {
         Self {
             asset_folder: "assets".to_string(),
+            watch_for_changes: false,
         }
     }
 }
@@ -64,7 +70,7 @@ pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
         .get_resource_or_insert_with(AssetServerSettings::default);
 
     #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-    let source = FileAssetIo::new(&settings.asset_folder);
+    let source = FileAssetIo::new(&settings.asset_folder, settings.watch_for_changes);
     #[cfg(target_arch = "wasm32")]
     let source = WasmAssetIo::new(&settings.asset_folder);
     #[cfg(target_os = "android")]
@@ -75,13 +81,8 @@ pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        if app.world.get_resource::<AssetServer>().is_none() {
-            let task_pool = app
-                .world
-                .get_resource::<IoTaskPool>()
-                .expect("`IoTaskPool` resource not found.")
-                .0
-                .clone();
+        if !app.world.contains_resource::<AssetServer>() {
+            let task_pool = app.world.resource::<IoTaskPool>().0.clone();
 
             let source = create_platform_default_asset_io(app);
 

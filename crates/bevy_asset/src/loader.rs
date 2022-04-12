@@ -47,11 +47,13 @@ impl<T: Asset> LoadedAsset<T> {
         self.dependencies.push(asset_path.to_owned());
     }
 
+    #[must_use]
     pub fn with_dependency(mut self, asset_path: AssetPath) -> Self {
         self.add_dependency(asset_path);
         self
     }
 
+    #[must_use]
     pub fn with_dependencies(mut self, mut asset_paths: Vec<AssetPath<'static>>) -> Self {
         for asset_path in asset_paths.drain(..) {
             self.add_dependency(asset_path);
@@ -132,7 +134,7 @@ impl<'a> LoadContext<'a> {
 
     pub fn get_asset_metas(&self) -> Vec<AssetMeta> {
         let mut asset_metas = Vec::new();
-        for (label, asset) in self.labeled_assets.iter() {
+        for (label, asset) in &self.labeled_assets {
             asset_metas.push(AssetMeta {
                 dependencies: asset.dependencies.clone(),
                 label: label.clone(),
@@ -182,7 +184,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                     id,
                     version,
                 }))
-                .unwrap()
+                .unwrap();
         } else {
             panic!(
                 "Failed to downcast asset to {}.",

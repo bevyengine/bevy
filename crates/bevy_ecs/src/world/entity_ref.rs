@@ -27,6 +27,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
@@ -62,14 +63,21 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn get<T: Component>(&self) -> Option<&T> {
+    pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFE: entity location is valid and returned component is of type T
         unsafe { get(self.world, self.entity, self.location) }
     }
 
+    /// Gets a mutable reference to the component of type `T` associated with
+    /// this entity without ensuring there are no other borrows active and without
+    /// ensuring that the returned reference will stay valid.
+    ///
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple
-    /// mutable references to the same component
+    ///
+    /// - The returned reference must never alias a mutable borrow of this component.
+    /// - The returned reference must not be used after this component is moved which
+    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
+    ///   operation on this world (non-exhaustive list).
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(
         &self,
@@ -111,6 +119,7 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
@@ -141,21 +150,30 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
-    pub fn get<T: Component>(&self) -> Option<&T> {
-        // SAFE: entity location is valid and returned component is of type T
-        unsafe { get(self.world, self.entity, self.location) }
+    pub fn get<T: Component>(&self) -> Option<&'_ T> {
+        // SAFE: lifetimes enforce correct usage of returned borrow
+        unsafe {
+            get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
+                .map(|value| value.deref::<T>())
+        }
     }
 
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFE: world access is unique, entity location is valid, and returned component is of type
-        // T
-        unsafe { get_mut(self.world, self.entity, self.location) }
+        // SAFE: world access is unique, and lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_unchecked_mut::<T>() }
     }
 
+    /// Gets a mutable reference to the component of type `T` associated with
+    /// this entity without ensuring there are no other borrows active and without
+    /// ensuring that the returned reference will stay valid.
+    ///
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple
-    /// mutable references to the same component
+    ///
+    /// - The returned reference must never alias a mutable borrow of this component.
+    /// - The returned reference must not be used after this component is moved which
+    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
+    ///   operation on this world (non-exhaustive list).
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'_, T>> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
@@ -369,7 +387,7 @@ impl<'w> EntityMut<'w> {
                 archetypes,
                 storages,
                 new_archetype_id,
-            )
+            );
         }
     }
 
@@ -700,7 +718,7 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
         } else {
             true
         }
-    })
+    });
 }
 
 // SAFETY: EntityLocation must be valid
