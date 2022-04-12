@@ -170,8 +170,6 @@ impl TaskPool {
 
         if spawned.is_empty() {
             Vec::default()
-        } else if spawned.len() == 1 {
-            vec![future::block_on(&mut spawned.pop().unwrap())]
         } else {
             let fut = async move {
                 let mut results = Vec::with_capacity(spawned.len());
