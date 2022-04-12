@@ -70,22 +70,6 @@ impl<'w> EntityRef<'w> {
         }
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
-    ///
-    /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
-    /// which is only valid while the `'w` borrow of the lifetime is active.
-    ///
-    /// You should prefer to use the typed API where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.
-    #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
-        unsafe {
-            get_component(self.world, component_id, self.entity, self.location)
-                .map(|ptr| ptr as *const ())
-        }
-    }
-
     /// Gets a mutable reference to the component of type `T` associated with
     /// this entity without ensuring there are no other borrows active and without
     /// ensuring that the returned reference will stay valid.
@@ -111,6 +95,24 @@ impl<'w> EntityRef<'w> {
                     change_tick,
                 },
             })
+    }
+}
+
+impl<'w> EntityRef<'w> {
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
+    /// which is only valid while the `'w` borrow of the lifetime is active.
+    #[inline]
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
+        unsafe {
+            get_component(self.world, component_id, self.entity, self.location)
+                .map(|ptr| ptr as *const ())
+        }
     }
 }
 
@@ -173,51 +175,10 @@ impl<'w> EntityMut<'w> {
         unsafe { self.get_unchecked::<T>() }
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
-    ///
-    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
-    ///
-    /// You should prefer to use the typed API where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.
-    #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
-        unsafe {
-            get_component(self.world, component_id, self.entity, self.location)
-                .map(|ptr| ptr as *const ())
-        }
-    }
-
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFE: world access is unique, and lifetimes enforce correct usage of returned borrow
         unsafe { self.get_unchecked_mut::<T>() }
-    }
-
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
-    ///
-    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
-    ///
-    /// You should prefer to use the typed API where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.
-    #[inline]
-    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFE: world access is unique and entity location is valid
-        unsafe {
-            get_component_and_ticks(self.world, component_id, self.entity, self.location).map(
-                |(value, ticks)| MutUntyped {
-                    value: value.cast(),
-                    ticks: Ticks {
-                        component_ticks: &mut *ticks,
-                        last_change_tick: self.world.last_change_tick(),
-                        change_tick: self.world.read_change_tick(),
-                    },
-                },
-            )
-        }
     }
 
     /// Gets an immutable reference to the component of type `T` associated with
@@ -531,6 +492,49 @@ impl<'w> EntityMut<'w> {
     /// location to change.
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
+    }
+}
+
+impl<'w> EntityMut<'w> {
+    /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
+    #[inline]
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
+        unsafe {
+            get_component(self.world, component_id, self.entity, self.location)
+                .map(|ptr| ptr as *const ())
+        }
+    }
+
+    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
+    #[inline]
+    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        // SAFE: world access is unique and entity location is valid
+        unsafe {
+            get_component_and_ticks(self.world, component_id, self.entity, self.location).map(
+                |(value, ticks)| MutUntyped {
+                    value: value.cast(),
+                    ticks: Ticks {
+                        component_ticks: &mut *ticks,
+                        last_change_tick: self.world.last_change_tick(),
+                        change_tick: self.world.read_change_tick(),
+                    },
+                },
+            )
+        }
     }
 }
 
