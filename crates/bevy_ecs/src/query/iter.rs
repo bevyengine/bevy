@@ -4,7 +4,7 @@ use crate::{
     storage::{TableId, Tables},
     world::World,
 };
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::marker::PhantomData;
 
 use super::{QueryFetch, ReadOnlyFetch};
 
@@ -187,29 +187,15 @@ where
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
-        // TODO: use MaybeUninit::uninit_array if it stabilizes
-        let mut cursors: [MaybeUninit<QueryIterationCursor<'w, 's, Q, QF, F>>; K] =
-            MaybeUninit::uninit().assume_init();
-        for (i, cursor) in cursors.iter_mut().enumerate() {
-            match i {
-                0 => cursor.as_mut_ptr().write(QueryIterationCursor::init(
-                    world,
-                    query_state,
-                    last_change_tick,
-                    change_tick,
-                )),
-                _ => cursor.as_mut_ptr().write(QueryIterationCursor::init_empty(
-                    world,
-                    query_state,
-                    last_change_tick,
-                    change_tick,
-                )),
+        let mut first = true;
+        let cursors = [(); K].map(|_| {
+            if first {
+                first = false;
+                QueryIterationCursor::init(world, query_state, last_change_tick, change_tick)
+            } else {
+                QueryIterationCursor::init_empty(world, query_state, last_change_tick, change_tick)
             }
-        }
-
-        // TODO: use MaybeUninit::array_assume_init if it stabilizes
-        let cursors: [QueryIterationCursor<'w, 's, Q, QF, F>; K] =
-            (&cursors as *const _ as *const [QueryIterationCursor<'w, 's, Q, QF, F>; K]).read();
+        });
 
         QueryCombinationIter {
             world,
@@ -255,15 +241,8 @@ where
             }
         }
 
-        // TODO: use MaybeUninit::uninit_array if it stabilizes
-        let mut values: [MaybeUninit<QF::Item>; K] = MaybeUninit::uninit().assume_init();
-
-        for (value, cursor) in values.iter_mut().zip(&mut self.cursors) {
-            value.as_mut_ptr().write(cursor.peek_last().unwrap());
-        }
-
-        // TODO: use MaybeUninit::array_assume_init if it stabilizes
-        let values: [QF::Item; K] = (&values as *const _ as *const [QF::Item; K]).read();
+        let mut cursors = self.cursors.iter_mut();
+        let values = [(); K].map(|_| cursors.next().unwrap().peek_last().unwrap());
 
         Some(values)
     }
