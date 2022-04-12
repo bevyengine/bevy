@@ -143,7 +143,7 @@ impl TaskPool {
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
     where
-        F: FnOnce(Arc<Scope<'scope, T>>) + 'scope + Send,
+        F: FnOnce(&'scope Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
         // SAFETY: This function blocks until all futures complete, so this future must return
@@ -163,13 +163,15 @@ impl TaskPool {
         // It's needed because rust complains about "borrowed data escapes the closure", which
         // makes sense since the futures run after the closure is run. It'd be nice if we could
         // teach rust that it's ok since the future's return before 'scope is done.
-        let scope = Arc::new(Scope {
+        let scope = Scope {
             executor,
             task_scope_executor,
             spawned: spawned_ref,
-        });
+        };
 
-        f(scope);
+        let scope_ref: &'scope Scope<'scope, T> = unsafe { mem::transmute(&scope) };
+
+        f(scope_ref);
 
         let fut = async move {
             let mut results = Vec::with_capacity(spawned.len());
@@ -426,8 +428,7 @@ mod tests {
         let outputs: Vec<i32> = pool.scope(|scope| {
             for _ in 0..10 {
                 let count_clone = count.clone();
-                let scope = scope.clone();
-                scope.clone().spawn(async move {
+                scope.spawn(async move {
                     for _ in 0..10 {
                         let count_clone_clone = count_clone.clone();
                         scope.spawn(async move {
@@ -469,7 +470,7 @@ mod tests {
                 inner_pool.scope(|scope| {
                     let spawner = std::thread::current().id();
                     let inner_count_clone = count_clone.clone();
-                    scope.clone().spawn(async move {
+                    scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
 
                         // spawning on the scope from another thread runs the futures on the scope's thread
