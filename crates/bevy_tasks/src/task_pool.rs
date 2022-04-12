@@ -157,16 +157,19 @@ impl TaskPool {
             unsafe { mem::transmute(task_scope_executor) };
 
         let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
-        // TODO: figure out if this is safe
         let spawned_ref: &'scope ConcurrentQueue<async_executor::Task<T>> =
             unsafe { mem::transmute(&spawned) };
-        let scope = Scope {
+        // TODO: try to figure out if there's a way not to use an Arc here.
+        // It's needed because rust complains about "borrowed data escapes the closure", which
+        // makes sense since the futures run after the closure is run. It'd be nice if we could
+        // teach rust that it's ok since the future's return before 'scope is done.
+        let scope = Arc::new(Scope {
             executor,
             task_scope_executor,
             spawned: spawned_ref,
-        };
+        });
 
-        f(Arc::new(scope));
+        f(scope);
 
         let fut = async move {
             let mut results = Vec::with_capacity(spawned.len());
@@ -275,10 +278,10 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
         self.spawned.push(task).unwrap();
     }
 
-    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+    /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
-    /// [`Scope::spawn`] instead, unless the provided future is not `Send`.
+    /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
