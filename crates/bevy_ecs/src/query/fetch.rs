@@ -1644,6 +1644,7 @@ macro_rules! impl_anytuple_fetch {
         }
 
         #[allow(non_snake_case)]
+        #[allow(unused_unit)]
         impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
             // type Fetch = AnyOf<($(($name::Fetch, bool),)*)>;
             // type ReadOnlyFetch = AnyOf<($(($name::ReadOnlyFetch, bool),)*)>;
