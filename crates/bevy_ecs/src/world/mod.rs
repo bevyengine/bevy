@@ -1426,10 +1426,7 @@ mod tests {
         }
 
         pub fn finish(self, panic_res: std::thread::Result<()>) -> Vec<DropLogItem> {
-            let drop_log = Arc::try_unwrap(self.drop_log)
-                .unwrap()
-                .into_inner()
-                .unwrap();
+            let drop_log = self.drop_log.lock().unwrap();
             let expected_panic_flag = self.expected_panic_flag.load(Ordering::SeqCst);
 
             if !expected_panic_flag {
@@ -1439,7 +1436,7 @@ mod tests {
                 }
             }
 
-            drop_log
+            drop_log.to_owned()
         }
     }
 
@@ -1465,7 +1462,6 @@ mod tests {
                 DropLogItem::Create(0),
                 DropLogItem::Create(1),
                 DropLogItem::Drop(0),
-                DropLogItem::Drop(1)
             ]
         );
     }
