@@ -374,6 +374,7 @@ impl<T> Copy for WithoutFetch<T> {}
 pub struct Or<T>(pub T);
 
 /// The [`Fetch`] of [`Or`].
+#[derive(Clone)]
 pub struct OrFetch<'w, 's, T: FilterFetch<'w, 's>> {
     fetch: T,
     matches: bool,
@@ -505,6 +506,9 @@ macro_rules! impl_query_filter_tuple {
                 false $(|| $filter.matches_table(table))*
             }
         }
+
+        // SAFE: filters are read only
+        unsafe impl<'w, 's, $($filter: FilterFetch<'w, 's>),*> ReadOnlyFetch<'w, 's> for Or<($(OrFetch<'w, 's, $filter>,)*)> {}
     };
 }
 
@@ -533,6 +537,20 @@ macro_rules! impl_tick_filter {
             sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
             change_tick: u32,
+        }
+
+        impl<T> Clone for $fetch_name<'_, T> {
+            fn clone(&self) -> Self {
+                Self {
+                    table_ticks: self.table_ticks.clone(),
+                    entity_table_rows: self.entity_table_rows.clone(),
+                    marker: self.marker.clone(),
+                    entities: self.entities.clone(),
+                    sparse_set: self.sparse_set.clone(),
+                    last_change_tick: self.last_change_tick.clone(),
+                    change_tick: self.change_tick.clone(),
+                }
+            }
         }
 
         #[doc(hidden)]
