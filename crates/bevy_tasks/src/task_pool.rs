@@ -449,4 +449,42 @@ mod tests {
         assert_eq!(outputs.len(), 110);
         assert_eq!(count.load(Ordering::Relaxed), 100);
     }
+
+    #[test]
+    fn test_nested_locality() {
+        let pool = Arc::new(TaskPool::new());
+        let count = Arc::new(AtomicI32::new(0));
+        let barrier = Arc::new(Barrier::new(101));
+        let thread_check_failed = Arc::new(AtomicBool::new(false));
+
+        for _ in 0..100 {
+            let inner_barrier = barrier.clone();
+            let count_clone = count.clone();
+            let inner_pool = pool.clone();
+            let inner_thread_check_failed = thread_check_failed.clone();
+            std::thread::spawn(move || {
+                inner_pool.scope(|scope| {
+                    let spawner = std::thread::current().id();
+                    let inner_count_clone = count_clone.clone();
+                    scope.clone().spawn(async move {
+                        inner_count_clone.fetch_add(1, Ordering::Release);
+
+                        // spawning on the scope from another thread runs the futures on the scope's thread
+                        scope.spawn_on_scope(async move {
+                            inner_count_clone.fetch_add(1, Ordering::Release);
+                            if std::thread::current().id() != spawner {
+                                // NOTE: This check is using an atomic rather than simply panicing the
+                                // thread to avoid deadlocking the barrier on failure
+                                inner_thread_check_failed.store(true, Ordering::Release);
+                            }
+                        });
+                    });
+                });
+                inner_barrier.wait();
+            });
+        }
+        barrier.wait();
+        assert!(!thread_check_failed.load(Ordering::Acquire));
+        assert_eq!(count.load(Ordering::Acquire), 200);
+    }
 }
