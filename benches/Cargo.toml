@@ -36,8 +36,3 @@ harness = false
 name = "world_get"
 path = "benches/bevy_ecs/world_get.rs"
 harness = false
-
-[[bench]]
-name = "iter"
-path = "benches/bevy_tasks/iter.rs"
-harness = false
