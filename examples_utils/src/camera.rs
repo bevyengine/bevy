@@ -5,22 +5,7 @@ pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(check_camera_controller)
-            .add_system(camera_controller.after(check_camera_controller));
-    }
-}
-
-pub fn check_camera_controller(
-    mut commands: Commands,
-    camera: Query<Entity, (With<Camera>, Without<CameraController>)>,
-    mut found_camera: Local<bool>,
-) {
-    if *found_camera {
-        return;
-    }
-    if let Some(entity) = camera.iter().next() {
-        commands.entity(entity).insert(CameraController::default());
-        *found_camera = true;
+        app.add_system(camera_controller);
     }
 }
 
