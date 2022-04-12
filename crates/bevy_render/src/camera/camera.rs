@@ -28,7 +28,7 @@ use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 use wgpu::Extent3d;
 
-#[derive(Component, Default, Debug, Reflect)]
+#[derive(Component, Default, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
