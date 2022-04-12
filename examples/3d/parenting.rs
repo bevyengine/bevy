@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use example_utils::camera_controller::CameraControllerPlugin;
+use example_utils::camera::{CameraController, CameraControllerPlugin};
 
 /// This example illustrates how to create parent->child relationships between entities how parent
 /// transforms are propagated to their descendants
@@ -60,8 +60,10 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands
+        .spawn_bundle(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        })
+        .insert(CameraController::default());
 }

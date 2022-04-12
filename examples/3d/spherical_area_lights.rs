@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use example_utils::camera_controller::CameraControllerPlugin;
+use example_utils::camera::{CameraController, CameraControllerPlugin};
 
 fn main() {
     App::new()
@@ -16,10 +16,12 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(1.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands
+        .spawn_bundle(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(1.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        })
+        .insert(CameraController::default());
 
     // plane
     commands.spawn_bundle(PbrBundle {

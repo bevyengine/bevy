@@ -9,7 +9,7 @@ use bevy::{
     },
     scene::InstanceId,
 };
-use example_utils::camera_controller::{CameraController, CameraControllerPlugin};
+use example_utils::camera::{CameraController, CameraControllerPlugin};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 struct CameraControllerCheckSystem;

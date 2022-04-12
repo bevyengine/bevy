@@ -1,5 +1,5 @@
 use bevy::{prelude::*, scene::InstanceId};
-use example_utils::camera_controller::CameraControllerPlugin;
+use example_utils::camera::{CameraController, CameraControllerPlugin};
 
 fn main() {
     App::new()
@@ -31,11 +31,13 @@ fn setup(
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..default()
     });
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(1.05, 0.9, 1.5)
-            .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ..default()
-    });
+    commands
+        .spawn_bundle(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(1.05, 0.9, 1.5)
+                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+            ..default()
+        })
+        .insert(CameraController::default());
 
     // Spawn the scene as a child of another entity. This first scene will be translated backward
     // with its parent

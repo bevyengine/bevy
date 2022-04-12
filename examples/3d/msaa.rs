@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use example_utils::camera_controller::CameraControllerPlugin;
+use example_utils::camera::{CameraController, CameraControllerPlugin};
 
 /// This example shows how to configure Multi-Sample Anti-Aliasing. Setting the sample count higher
 /// will result in smoother edges, but it will also increase the cost to render those edges. The
@@ -39,10 +39,12 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands
+        .spawn_bundle(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        })
+        .insert(CameraController::default());
 }
 
 fn cycle_msaa(input: Res<Input<KeyCode>>, mut msaa: ResMut<Msaa>) {
