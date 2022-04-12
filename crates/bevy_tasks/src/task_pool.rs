@@ -141,6 +141,7 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
+    // TODO: add compile fail test here for passing scope to a thread not spawned in the scope
     pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
     where
         F: FnOnce(&'scope Scope<'scope, T>) + 'scope + Send,
@@ -487,5 +488,19 @@ mod tests {
         barrier.wait();
         assert!(!thread_check_failed.load(Ordering::Acquire));
         assert_eq!(count.load(Ordering::Acquire), 200);
+    }
+
+    #[test]
+    fn compile_fail() {
+        let pool = TaskPool::new();
+        let foo = Box::new(42);
+        pool.scope(|scope| {
+            std::thread::spawn(move || {
+                // UB. This could spawn on the scope after `.scope` returns and the internal Scope is dropped.
+                scope.spawn(async move {
+                    assert_eq!(*foo, 42);
+                });
+            });
+        });
     }
 }
