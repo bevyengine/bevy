@@ -1,5 +1,6 @@
 use std::{
     future::Future,
+    marker::PhantomData,
     mem,
     pin::Pin,
     sync::Arc,
@@ -142,9 +143,9 @@ impl TaskPool {
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     // TODO: add compile fail test here for passing scope to a thread not spawned in the scope
-    pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
+    pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
-        F: FnOnce(&'scope Scope<'scope, T>) + 'scope + Send,
+        F: for<'scope> FnOnce(&'env Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         // SAFETY: This safety comment applies to all references transmuted to 'scope.
@@ -153,21 +154,23 @@ impl TaskPool {
         // to completion in this function. However, rust has no way of knowing this so we
         // transmute the lifetimes to 'scope here to appease the compiler as it is unable to validate safety.
         let executor: &async_executor::Executor = &*self.executor;
-        let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
+        let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
         let task_scope_executor = &async_executor::Executor::default();
-        let task_scope_executor: &'scope async_executor::Executor =
+        let task_scope_executor: &'env async_executor::Executor =
             unsafe { mem::transmute(task_scope_executor) };
         let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
-        let spawned_ref: &'scope ConcurrentQueue<async_executor::Task<T>> =
+        let spawned_ref: &'env ConcurrentQueue<async_executor::Task<T>> =
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
             task_scope_executor,
             spawned: spawned_ref,
+            scope: PhantomData,
+            env: PhantomData,
         };
 
-        let scope_ref: &'scope Scope<'scope, T> = unsafe { mem::transmute(&scope) };
+        let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
         f(scope_ref);
 
@@ -256,13 +259,15 @@ impl Drop for TaskPool {
 ///
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
-pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::Executor<'scope>,
-    task_scope_executor: &'scope async_executor::Executor<'scope>,
-    spawned: &'scope ConcurrentQueue<async_executor::Task<T>>,
+pub struct Scope<'scope, 'env: 'scope, T> {
+    executor: &'env async_executor::Executor<'env>,
+    task_scope_executor: &'env async_executor::Executor<'env>,
+    spawned: &'env ConcurrentQueue<async_executor::Task<T>>,
+    scope: PhantomData<&'scope mut &'scope ()>,
+    env: PhantomData<&'env mut &'env ()>,
 }
 
-impl<'scope, T: Send + 'scope> Scope<'scope, T> {
+impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// Spawns a scoped future onto the thread pool. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
@@ -271,7 +276,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// instead.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + 'env + Send>(&self, f: Fut) {
         let task = self.executor.spawn(f);
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
@@ -284,7 +289,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'env + Send>(&self, f: Fut) {
         let task = self.task_scope_executor.spawn(f);
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
@@ -490,17 +495,17 @@ mod tests {
         assert_eq!(count.load(Ordering::Acquire), 200);
     }
 
-    #[test]
-    fn compile_fail() {
-        let pool = TaskPool::new();
-        let foo = Box::new(42);
-        pool.scope(|scope| {
-            std::thread::spawn(move || {
-                // UB. This could spawn on the scope after `.scope` returns and the internal Scope is dropped.
-                scope.spawn(async move {
-                    assert_eq!(*foo, 42);
-                });
-            });
-        });
-    }
+    // #[test]
+    // fn compile_fail() {
+    //     let pool = TaskPool::new();
+    //     let foo = Box::new(42);
+    //     pool.scope(|scope| {
+    //         std::thread::spawn(move || {
+    //             // UB. This could spawn on the scope after `.scope` returns and the internal Scope is dropped.
+    //             scope.spawn(async move {
+    //                 assert_eq!(*foo, 42);
+    //             });
+    //         });
+    //     });
+    // }
 }
