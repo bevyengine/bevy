@@ -625,7 +625,7 @@ where
     ///
     /// Note that the unlike [`Query::get_many_mut`], the entities passed in do not need to be unique.
     ///
-    /// See [`Query::multiple`] for the infallible equivalent.
+    /// See [`Query::many`] for the infallible equivalent.
     #[inline]
     pub fn get_many<const N: usize>(
         &self,
@@ -669,7 +669,7 @@ where
     /// fn check_all_targets_in_range(targeting_query: Query<(Entity, &Targets, &Position)>, targets_query: Query<&Position>){
     ///     for (targeting_entity, targets, origin) in targeting_query.iter(){
     ///         // We can use "destructuring" to unpack the results nicely
-    ///         let [target_1, target_2, target_3] = targets_query.multiple(targets.0);
+    ///         let [target_1, target_2, target_3] = targets_query.many(targets.0);
     ///         
     ///         assert!(target_1.distance(origin) <= 5);
     ///         assert!(target_2.distance(origin) <= 5);
@@ -678,7 +678,7 @@ where
     /// }
     /// ```
     #[inline]
-    pub fn multiple<const N: usize>(
+    pub fn many<const N: usize>(
         &self,
         entities: [Entity; N],
     ) -> [<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item; N] {
@@ -731,7 +731,7 @@ where
     /// In case of a nonexisting entity, duplicate entities or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
     ///
-    /// See [`Query::multiple_mut`] for the infallible equivalent.
+    /// See [`Query::many_mut`] for the infallible equivalent.
     #[inline]
     pub fn get_many_mut<const N: usize>(
         &mut self,
@@ -778,7 +778,7 @@ where
     /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
     ///     for spring in spring_query.iter(){
     ///          // We can use "destructuring" to unpack our query items nicely
-    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.multiple_mut(spring.connected_entities);
+    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
     ///             
     ///          force_1.x += spring.strength * (position_1.x - position_2.x);
     ///          force_1.y += spring.strength * (position_1.y - position_2.y);
@@ -790,7 +790,7 @@ where
     /// }
     /// ```
     #[inline]
-    pub fn multiple_mut<const N: usize>(
+    pub fn many_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
     ) -> [<Q::Fetch as Fetch<'_, 's>>::Item; N] {
