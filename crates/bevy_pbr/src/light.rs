@@ -389,6 +389,13 @@ impl Clusters {
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
         debug_assert!(self.dimensions.x * self.dimensions.y * self.dimensions.z <= 4096);
     }
+    fn clear(&mut self) {
+        self.tile_size = UVec2::ONE;
+        self.dimensions = UVec3::ONE;
+        self.near = 0.0;
+        self.far = 0.0;
+        self.lights.clear();
+    }
 }
 
 fn clip_to_view(inverse_projection: Mat4, clip: Vec4) -> Vec4 {
@@ -717,20 +724,21 @@ pub(crate) fn assign_lights_to_clusters(
     for (view_entity, camera_transform, camera, frustum, config, clusters, mut visible_lights) in
         views.iter_mut()
     {
+        let clusters = clusters.into_inner();
+
         if matches!(config, ClusterConfig::None) && visible_lights.is_some() {
             commands.entity(view_entity).remove::<VisiblePointLights>();
+            clusters.clear();
             continue;
         }
 
-        let clusters = clusters.into_inner();
         let screen_size =
             if let Some(screen_size) = camera.target.get_physical_size(&windows, &images) {
                 screen_size
             } else {
+                clusters.clear();
                 continue;
             };
-
-        clusters.lights.clear();
 
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
