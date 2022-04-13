@@ -1,10 +1,11 @@
 use bevy::{
     core_pipeline::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
-    math::prelude::*,
+    math::{prelude::*, Vec4Swizzles},
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
+        camera::Camera3d,
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
         render_component::{ExtractComponent, ExtractComponentPlugin},
@@ -13,8 +14,8 @@ use bevy::{
             SetItemPipeline, TrackedRenderPass,
         },
         render_resource::*,
-        renderer::RenderDevice,
-        view::{ComputedVisibility, ExtractedView, Msaa, NoFrustumCulling, Visibility},
+        renderer::{RenderDevice, RenderQueue},
+        view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
         RenderApp, RenderStage,
     },
 };
@@ -29,31 +30,27 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
-    commands.spawn().insert_bundle((
-        meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-        GlobalTransform::default(),
-        InstanceMaterialData(
-            (1..=10)
-                .flat_map(|x| (1..=10).map(move |y| (x as f32 / 10.0, y as f32 / 10.0)))
-                .map(|(x, y)| InstanceData {
-                    position: Vec3::new(x * 10.0 - 5.0, y * 10.0 - 5.0, 0.0),
-                    scale: 1.0,
-                    color: Color::hsla(x * 360., y, 0.5, 1.0).as_rgba_f32(),
-                })
-                .collect(),
-        ),
-        Visibility::default(),
-        ComputedVisibility::default(),
-        // NOTE: Frustum culling is done based on the Aabb of the Mesh and the GlobalTransform.
-        // As the cube is at the origin, if its Aabb moves outside the view frustum, all the
-        // instanced cubes will be culled.
-        // The InstanceMaterialData contains the 'GlobalTransform' information for this custom
-        // instancing, and that is not taken into account with the built-in frustum culling.
-        // We must disable the built-in frustum culling by adding the `NoFrustumCulling` marker
-        // component to avoid incorrect culling.
-        NoFrustumCulling,
-    ));
+    let mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 0.5 }));
+    for x in 1..=10 {
+        for y in 1..=10 {
+            let (x, y) = (x as f32 / 10.0, y as f32 / 10.0);
+            commands.spawn_bundle((
+                mesh_handle.clone(),
+                // NOTE: The x-component of the scale is being used for the scale of the instance.
+                // This would break if rotations are applied to the transform, but in that case you
+                // would probably extend the instance data to account for it.
+                Transform::from_xyz(x * 10.0 - 5.0, y * 10.0 - 5.0, 0.0).with_scale(Vec3::new(
+                    (x * y).sqrt(),
+                    0.0,
+                    0.0,
+                )),
+                GlobalTransform::default(),
+                ColorMaterialInstanced(Color::hsla(x * 360., y, 0.5, 1.0)),
+                Visibility::default(),
+                ComputedVisibility::default(),
+            ));
+        }
+    }
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
@@ -62,14 +59,15 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     });
 }
 
-#[derive(Component, Deref)]
-struct InstanceMaterialData(Vec<InstanceData>);
-impl ExtractComponent for InstanceMaterialData {
-    type Query = &'static InstanceMaterialData;
+#[derive(Clone, Component, Debug, Deref)]
+struct ColorMaterialInstanced(Color);
+
+impl ExtractComponent for ColorMaterialInstanced {
+    type Query = &'static ColorMaterialInstanced;
     type Filter = ();
 
     fn extract_component(item: bevy::ecs::query::QueryItem<Self::Query>) -> Self {
-        InstanceMaterialData(item.0.clone())
+        item.clone()
     }
 }
 
@@ -77,22 +75,60 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<InstanceMaterialData>::default());
+        app.add_plugin(ExtractComponentPlugin::<ColorMaterialInstanced>::default());
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_system_to_stage(RenderStage::Queue, queue_custom)
-            .add_system_to_stage(RenderStage::Prepare, prepare_instance_buffers);
+            .add_system_to_stage(RenderStage::Prepare, prepare_instance_buffers)
+            .add_system_to_stage(RenderStage::Queue, queue_custom);
     }
 }
 
 #[derive(Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
-struct InstanceData {
+pub struct InstanceData {
     position: Vec3,
     scale: f32,
     color: [f32; 4],
+}
+
+#[derive(Component, Deref, DerefMut)]
+pub struct InstanceBuffer(BufferVec<InstanceData>);
+
+impl Default for InstanceBuffer {
+    fn default() -> Self {
+        Self(BufferVec::<InstanceData>::new(
+            BufferUsages::VERTEX | BufferUsages::COPY_DST,
+        ))
+    }
+}
+
+#[derive(Component, Debug, Deref)]
+pub struct InstanceIndex(u32);
+
+fn prepare_instance_buffers(
+    mut commands: Commands,
+    views: Query<Entity, With<Camera3d>>,
+    query: Query<(Entity, &MeshUniform, &ColorMaterialInstanced)>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    for view in views.iter() {
+        let mut instance_buffer = InstanceBuffer::default();
+        instance_buffer.reserve(query.iter().len(), &*render_device);
+        for (entity, mesh_uniform, color_material_instanced) in query.iter() {
+            let index = instance_buffer.push(InstanceData {
+                position: mesh_uniform.transform.w_axis.xyz(),
+                // NOTE: Using the x component of the scale as the instance scale
+                scale: mesh_uniform.transform.x_axis.x,
+                color: color_material_instanced.as_rgba_f32(),
+            });
+            commands.entity(entity).insert(InstanceIndex(index as u32));
+        }
+        instance_buffer.write_buffer(&*render_device, &*render_queue);
+        commands.entity(view).insert(instance_buffer);
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -103,10 +139,7 @@ fn queue_custom(
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
-    material_meshes: Query<
-        (Entity, &MeshUniform, &Handle<Mesh>),
-        (With<Handle<Mesh>>, With<InstanceMaterialData>),
-    >,
+    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<ColorMaterialInstanced>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions
@@ -117,8 +150,8 @@ fn queue_custom(
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
     for (view, mut transparent_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
+        let inverse_view_matrix = view.transform.compute_matrix().inverse();
+        let inverse_view_row_2 = inverse_view_matrix.row(2);
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
             if let Some(mesh) = meshes.get(mesh_handle) {
                 let key =
@@ -130,34 +163,10 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    distance: inverse_view_row_2.dot(mesh_uniform.transform.col(3)),
                 });
             }
         }
-    }
-}
-
-#[derive(Component)]
-pub struct InstanceBuffer {
-    buffer: Buffer,
-    length: usize,
-}
-
-fn prepare_instance_buffers(
-    mut commands: Commands,
-    query: Query<(Entity, &InstanceMaterialData)>,
-    render_device: Res<RenderDevice>,
-) {
-    for (entity, instance_data) in query.iter() {
-        let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("instance data buffer"),
-            contents: bytemuck::cast_slice(instance_data.as_slice()),
-            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-        });
-        commands.entity(entity).insert(InstanceBuffer {
-            buffer,
-            length: instance_data.len(),
-        });
     }
 }
 
@@ -229,18 +238,18 @@ pub struct DrawMeshInstanced;
 impl EntityRenderCommand for DrawMeshInstanced {
     type Param = (
         SRes<RenderAssets<Mesh>>,
-        SQuery<Read<Handle<Mesh>>>,
+        SQuery<(Read<Handle<Mesh>>, Read<InstanceIndex>)>,
         SQuery<Read<InstanceBuffer>>,
     );
     #[inline]
     fn render<'w>(
-        _view: Entity,
+        view: Entity,
         item: Entity,
         (meshes, mesh_query, instance_buffer_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = mesh_query.get(item).unwrap();
-        let instance_buffer = instance_buffer_query.get_inner(item).unwrap();
+        let (mesh_handle, instance_index) = mesh_query.get(item).unwrap();
+        let instance_buffer = instance_buffer_query.get_inner(view).unwrap();
 
         let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
             Some(gpu_mesh) => gpu_mesh,
@@ -248,7 +257,7 @@ impl EntityRenderCommand for DrawMeshInstanced {
         };
 
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-        pass.set_vertex_buffer(1, instance_buffer.buffer.slice(..));
+        pass.set_vertex_buffer(1, instance_buffer.buffer().unwrap().slice(..));
 
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
@@ -257,10 +266,10 @@ impl EntityRenderCommand for DrawMeshInstanced {
                 count,
             } => {
                 pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                pass.draw_indexed(0..*count, 0, 0..instance_buffer.length as u32);
+                pass.draw_indexed(0..*count, 0, instance_index.0..(instance_index.0 + 1));
             }
             GpuBufferInfo::NonIndexed { vertex_count } => {
-                pass.draw(0..*vertex_count, 0..instance_buffer.length as u32);
+                pass.draw(0..*vertex_count, instance_index.0..(instance_index.0 + 1));
             }
         }
         RenderCommandResult::Success
