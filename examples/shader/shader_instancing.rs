@@ -5,7 +5,6 @@ use bevy::{
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
-        camera::Camera3d,
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
         render_component::{ExtractComponent, ExtractComponentPlugin},
@@ -80,6 +79,7 @@ impl Plugin for CustomMaterialPlugin {
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
+            .init_resource::<InstanceBuffer>()
             .add_system_to_stage(RenderStage::Prepare, prepare_instance_buffers)
             .add_system_to_stage(RenderStage::Queue, queue_custom);
     }
@@ -109,26 +109,23 @@ pub struct InstanceIndex(u32);
 
 fn prepare_instance_buffers(
     mut commands: Commands,
-    views: Query<Entity, With<Camera3d>>,
     query: Query<(Entity, &MeshUniform, &ColorMaterialInstanced)>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    mut instance_buffer: ResMut<InstanceBuffer>,
 ) {
-    for view in views.iter() {
-        let mut instance_buffer = InstanceBuffer::default();
-        instance_buffer.reserve(query.iter().len(), &*render_device);
-        for (entity, mesh_uniform, color_material_instanced) in query.iter() {
-            let index = instance_buffer.push(InstanceData {
-                position: mesh_uniform.transform.w_axis.xyz(),
-                // NOTE: Using the x component of the scale as the instance scale
-                scale: mesh_uniform.transform.x_axis.x,
-                color: color_material_instanced.as_rgba_f32(),
-            });
-            commands.entity(entity).insert(InstanceIndex(index as u32));
-        }
-        instance_buffer.write_buffer(&*render_device, &*render_queue);
-        commands.entity(view).insert(instance_buffer);
+    instance_buffer.clear();
+    instance_buffer.reserve(query.iter().len(), &*render_device);
+    for (entity, mesh_uniform, color_material_instanced) in query.iter() {
+        let index = instance_buffer.push(InstanceData {
+            position: mesh_uniform.transform.w_axis.xyz(),
+            // NOTE: Using the x component of the scale as the instance scale
+            scale: mesh_uniform.transform.x_axis.x,
+            color: color_material_instanced.as_rgba_f32(),
+        });
+        commands.entity(entity).insert(InstanceIndex(index as u32));
     }
+    instance_buffer.write_buffer(&*render_device, &*render_queue);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -239,17 +236,17 @@ impl EntityRenderCommand for DrawMeshInstanced {
     type Param = (
         SRes<RenderAssets<Mesh>>,
         SQuery<(Read<Handle<Mesh>>, Read<InstanceIndex>)>,
-        SQuery<Read<InstanceBuffer>>,
+        SRes<InstanceBuffer>,
     );
     #[inline]
     fn render<'w>(
-        view: Entity,
+        _view: Entity,
         item: Entity,
-        (meshes, mesh_query, instance_buffer_query): SystemParamItem<'w, '_, Self::Param>,
+        (meshes, mesh_query, instance_buffer): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let (mesh_handle, instance_index) = mesh_query.get(item).unwrap();
-        let instance_buffer = instance_buffer_query.get_inner(view).unwrap();
+        let instance_buffer = instance_buffer.into_inner();
 
         let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
             Some(gpu_mesh) => gpu_mesh,
