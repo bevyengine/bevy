@@ -131,7 +131,11 @@ impl Default for Image {
                 sample_count: 1,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
-            sampler_descriptor: wgpu::SamplerDescriptor::default(),
+            sampler_descriptor: wgpu::SamplerDescriptor {
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                ..Default::default()
+            }
         }
     }
 }
