@@ -926,16 +926,7 @@ pub(crate) fn assign_lights_to_clusters(
             z_planes.push(Plane::new(normal.extend(d)));
         }
 
-        let mut visible_lights_scratch = Vec::new();
-
-        {
-            // reuse existing visible lights Vec, if it exists
-            let visible_lights = if let Some(visible_lights) = visible_lights.as_mut() {
-                visible_lights.entities.clear();
-                &mut visible_lights.entities
-            } else {
-                &mut visible_lights_scratch
-            };
+        let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
             for light in lights.iter() {
                 let light_sphere = Sphere {
                     center: Vec3A::from(light.translation),
@@ -1088,12 +1079,18 @@ pub(crate) fn assign_lights_to_clusters(
                     }
                 }
             }
-        }
+        };
 
-        if visible_lights.is_none() {
-            commands.entity(view_entity).insert(VisiblePointLights {
-                entities: visible_lights_scratch,
-            });
+        // reuse existing visible lights Vec, if it exists
+        if let Some(visible_lights) = visible_lights.as_mut() {
+            visible_lights.entities.clear();
+            update_from_light_intersections(&mut visible_lights.entities);
+        } else {
+            let mut entities = Vec::new();
+            update_from_light_intersections(&mut entities);
+            commands
+                .entity(view_entity)
+                .insert(VisiblePointLights { entities });
         }
     }
 }
