@@ -163,11 +163,11 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'env Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        // SAFETY: This safety comment applies to all references transmuted to 'scope.
+        // SAFETY: This safety comment applies to all references transmuted to 'env.
         // Any futures spawned with these references need to return before this function completes.
         // This is guaranteed because we drive all the futures spawned onto the Scope
         // to completion in this function. However, rust has no way of knowing this so we
-        // transmute the lifetimes to 'scope here to appease the compiler as it is unable to validate safety.
+        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         let executor: &async_executor::Executor = &*self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
         let task_scope_executor = &async_executor::Executor::default();
@@ -278,6 +278,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'env async_executor::Executor<'env>,
     task_scope_executor: &'env async_executor::Executor<'env>,
     spawned: &'env ConcurrentQueue<async_executor::Task<T>>,
+    // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
 }
