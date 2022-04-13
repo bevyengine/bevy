@@ -132,6 +132,10 @@ impl Default for Image {
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
             sampler_descriptor: wgpu::SamplerDescriptor {
+                // At the time of writing, wgpu defaults to `Nearest` filtering. This causes
+                // artifacts when the image is scaled. Using `Linear` results in a more uniform,
+                // though potentially blurry image.
+                // See issue for details: https://github.com/bevyengine/bevy/issues/4464
                 mag_filter: wgpu::FilterMode::Linear,
                 min_filter: wgpu::FilterMode::Linear,
                 ..Default::default()
