@@ -669,7 +669,7 @@ where
     /// fn check_all_targets_in_range(targeting_query: Query<(Entity, &Targets, &Position)>, targets_query: Query<&Position>){
     ///     for (targeting_entity, targets, origin) in targeting_query.iter(){
     ///         // We can use "destructuring" to unpack the results nicely
-    ///         let [target_1, target_2, target_3] = targets_query.multiple(targets.0);
+    ///         let [target_1, target_2, target_3] = targets_query.many(targets.0);
     ///         
     ///         assert!(target_1.distance(origin) <= 5);
     ///         assert!(target_2.distance(origin) <= 5);
