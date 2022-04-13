@@ -10,7 +10,14 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
-trace = [ "bevy_app/trace", "bevy_ecs/trace", "bevy_log/trace", "bevy_render/trace", "bevy_core_pipeline/trace" ]
+trace = [
+    "bevy_app/trace",
+    "bevy_core_pipeline/trace",
+    "bevy_ecs/trace",
+    "bevy_log/trace",
+    "bevy_render/trace",
+    "bevy_transform/trace"
+]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render/tracing-tracy", "bevy_log/tracing-tracy" ]
 wgpu_trace = ["bevy_render/wgpu_trace"]
