@@ -135,7 +135,7 @@ impl Default for Image {
                 mag_filter: wgpu::FilterMode::Linear,
                 min_filter: wgpu::FilterMode::Linear,
                 ..Default::default()
-            }
+            },
         }
     }
 }
