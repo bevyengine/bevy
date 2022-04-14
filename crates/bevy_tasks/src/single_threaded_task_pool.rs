@@ -71,9 +71,12 @@ impl TaskPool {
         let executor: &'env async_executor::LocalExecutor<'env> =
             unsafe { mem::transmute(executor) };
 
+        let results: Mutex<Vec<Arc<Mutex<Option<T>>>>> = Mutex::new(Vec::new());
+        let results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>> = unsafe { mem::transmute(&results) };
+
         let mut scope = Scope {
             executor,
-            results: Arc::new(Mutex::new(Vec::new())),
+            results,
             scope: PhantomData,
         };
 
@@ -134,7 +137,7 @@ impl FakeTask {
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'env async_executor::LocalExecutor<'env>,
     // Vector to gather results of all futures spawned during scope run
-    results: Arc<Mutex<Vec<Arc<Mutex<Option<T>>>>>>,
+    results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>>,
     scope: PhantomData<&'scope ()>,
 }
 
