@@ -6,7 +6,7 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-use super::{QueryFetch, ReadOnlyFetch};
+use super::{QueryFetch, QueryItem, ReadOnlyFetch};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -155,23 +155,20 @@ where
     }
 }
 
-pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, QF, F: WorldQuery, const K: usize>
+pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize>
 where
     for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
-    QF: Fetch<'w, 's, State = Q::State>,
 {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     world: &'w World,
-    cursors: [QueryIterationCursor<'w, 's, Q, QF, F>; K],
+    cursors: [QueryIterationCursor<'w, 's, Q, QueryFetch<'w, 's, Q>, F>; K],
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery, const K: usize>
-    QueryCombinationIter<'w, 's, Q, QF, F, K>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K>
 where
     for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
-    QF: Fetch<'w, 's, State = Q::State>,
 {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -212,9 +209,9 @@ where
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[QF::Item; K]>
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[QueryItem<'w, 's, Q>; K]>
     where
-        QF: Clone,
+        QueryFetch<'w, 's, Q>: Clone,
         for<'x, 'y> QueryFetch<'x, 'y, F>: Clone,
     {
         if K == 0 {
@@ -249,9 +246,9 @@ where
 
     /// Get next combination of queried components
     #[inline]
-    pub fn fetch_next(&mut self) -> Option<[QF::Item; K]>
+    pub fn fetch_next(&mut self) -> Option<[QueryItem<'_, '_, Q>; K]>
     where
-        QF: Clone,
+        QueryFetch<'w, 's, Q>: Clone,
         for<'x, 'y> QueryFetch<'x, 'y, F>: Clone,
     {
         // safety: we are limiting the returned reference to self,
@@ -259,7 +256,7 @@ where
         // of any previously returned unique references first, thus preventing aliasing.
         unsafe {
             self.fetch_next_aliased_unchecked()
-            // .map(|array| array.map(Q::shrink))
+                .map(|array| array.map(Q::shrink))
         }
     }
 }
@@ -267,13 +264,13 @@ where
 // Iterator type is intentionally implemented only for read-only access.
 // Doing so for mutable references would be unsound, because  calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery, const K: usize> Iterator
-    for QueryCombinationIter<'w, 's, Q, QF, F, K>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
+    for QueryCombinationIter<'w, 's, Q, F, K>
 where
-    QF: Fetch<'w, 's, State = Q::State> + Clone + ReadOnlyFetch<'w, 's>,
+    QueryFetch<'w, 's, Q>: Clone + ReadOnlyFetch<'w, 's>,
     for<'x, 'y> QueryFetch<'x, 'y, F>: Clone + FilterFetch<'x, 'y> + ReadOnlyFetch<'x, 'y>,
 {
-    type Item = [<QF as Fetch<'w, 's>>::Item; K];
+    type Item = [QueryItem<'w, 's, Q>; K];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {

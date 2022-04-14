@@ -380,7 +380,7 @@ where
     ///
     /// This must be called on the same `World` that the `Query` was generated from:
     /// use `QueryState::validate_world` to verify this.
-    pub(crate) unsafe fn get_many_read_only_manual<'s, 'w, const N: usize>(
+    pub(crate) unsafe fn get_many_read_only_manual<'w, 's, const N: usize>(
         &'s self,
         world: &'w World,
         entities: [Entity; N],
@@ -421,7 +421,7 @@ where
     ///
     /// This must be called on the same `World` that the `Query` was generated from:
     /// use `QueryState::validate_world` to verify this.
-    pub(crate) unsafe fn get_many_unchecked_manual<'s, 'w, const N: usize>(
+    pub(crate) unsafe fn get_many_unchecked_manual<'w, 's, const N: usize>(
         &'s self,
         world: &'w World,
         entities: [Entity; N],
@@ -516,7 +516,7 @@ where
     pub fn iter_combinations<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
-    ) -> QueryCombinationIter<'w, 's, Q, ROQueryFetch<'w, 's, Q>, F, K> {
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
         // SAFE: query is read only
         unsafe {
             self.update_archetypes(world);
@@ -539,7 +539,7 @@ where
     pub fn iter_combinations_mut<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w mut World,
-    ) -> QueryCombinationIter<'w, 's, Q, QueryFetch<'w, 's, Q>, F, K> {
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
         // SAFE: query has unique world access
         unsafe {
             self.update_archetypes(world);
@@ -578,7 +578,7 @@ where
     pub unsafe fn iter_combinations_unchecked<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
-    ) -> QueryCombinationIter<'w, 's, Q, QueryFetch<'w, 's, Q>, F, K> {
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
         self.update_archetypes(world);
         self.iter_combinations_unchecked_manual(
             world,
@@ -627,7 +627,7 @@ where
         world: &'w World,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> QueryCombinationIter<'w, 's, Q, QF, F, K> {
+    ) -> QueryCombinationIter<'w, 's, Q, F, K> {
         QueryCombinationIter::new(world, self, last_change_tick, change_tick)
     }
 
