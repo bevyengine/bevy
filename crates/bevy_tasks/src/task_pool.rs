@@ -288,7 +288,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
     ///
-    /// If the provided future is non-`Send`, [`Scope::spawn_local`] should be used
+    /// For futures that should run on the thread `scope` is called on [`Scope::spawn_on_scope`] should be used
     /// instead.
     ///
     /// For more information, see [`TaskPool::scope`].
