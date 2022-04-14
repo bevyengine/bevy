@@ -9,6 +9,8 @@ use bevy_ecs::prelude::World;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
+use super::EdgeExistence;
+
 /// The render graph configures the modular, parallel and re-usable render logic.
 /// It is a retained and stateless (nodes itself my have their internal state) structure,
 /// which can not be modified while it is executed by the graph runner.
@@ -99,6 +101,69 @@ impl RenderGraph {
         id
     }
 
+    /// Removes the `node` with the `name` from the graph.
+    /// If the name is does not exist, nothing happens.
+    pub fn remove_node(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Result<(), RenderGraphError> {
+        let name = name.into();
+        if let Some(id) = self.node_names.remove(&name) {
+            if let Some(node_state) = self.nodes.remove(&id) {
+                // Remove all edges from other nodes to this one. Note that as we're removing this
+                // node, we don't need to remove its input edges
+                for input_edge in node_state.edges.input_edges().iter() {
+                    match input_edge {
+                        Edge::SlotEdge {
+                            output_node,
+                            output_index: _,
+                            input_node: _,
+                            input_index: _,
+                        } => {
+                            if let Ok(output_node) = self.get_node_state_mut(*output_node) {
+                                output_node.edges.remove_output_edge(input_edge.clone())?;
+                            }
+                        }
+                        Edge::NodeEdge {
+                            input_node: _,
+                            output_node,
+                        } => {
+                            if let Ok(output_node) = self.get_node_state_mut(*output_node) {
+                                output_node.edges.remove_output_edge(input_edge.clone())?;
+                            }
+                        }
+                    }
+                }
+                // Remove all edges from this node to other nodes. Note that as we're removing this
+                // node, we don't need to remove its output edges
+                for output_edge in node_state.edges.output_edges().iter() {
+                    match output_edge {
+                        Edge::SlotEdge {
+                            output_node: _,
+                            output_index: _,
+                            input_node,
+                            input_index: _,
+                        } => {
+                            if let Ok(input_node) = self.get_node_state_mut(*input_node) {
+                                input_node.edges.remove_input_edge(output_edge.clone())?;
+                            }
+                        }
+                        Edge::NodeEdge {
+                            output_node: _,
+                            input_node,
+                        } => {
+                            if let Ok(input_node) = self.get_node_state_mut(*input_node) {
+                                input_node.edges.remove_input_edge(output_edge.clone())?;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Retrieves the [`NodeState`] referenced by the `label`.
     pub fn get_node_state(
         &self,
@@ -187,7 +252,7 @@ impl RenderGraph {
             input_index,
         };
 
-        self.validate_edge(&edge)?;
+        self.validate_edge(&edge, EdgeExistence::DoesNotExist)?;
 
         {
             let output_node = self.get_node_state_mut(output_node_id)?;
@@ -195,6 +260,50 @@ impl RenderGraph {
         }
         let input_node = self.get_node_state_mut(input_node_id)?;
         input_node.edges.add_input_edge(edge)?;
+
+        Ok(())
+    }
+
+    /// Removes the [`Edge::SlotEdge`] from the graph. If any nodes or slots do not exist then
+    /// nothing happens.
+    pub fn remove_slot_edge(
+        &mut self,
+        output_node: impl Into<NodeLabel>,
+        output_slot: impl Into<SlotLabel>,
+        input_node: impl Into<NodeLabel>,
+        input_slot: impl Into<SlotLabel>,
+    ) -> Result<(), RenderGraphError> {
+        let output_slot = output_slot.into();
+        let input_slot = input_slot.into();
+        let output_node_id = self.get_node_id(output_node)?;
+        let input_node_id = self.get_node_id(input_node)?;
+
+        let output_index = self
+            .get_node_state(output_node_id)?
+            .output_slots
+            .get_slot_index(output_slot.clone())
+            .ok_or(RenderGraphError::InvalidOutputNodeSlot(output_slot))?;
+        let input_index = self
+            .get_node_state(input_node_id)?
+            .input_slots
+            .get_slot_index(input_slot.clone())
+            .ok_or(RenderGraphError::InvalidInputNodeSlot(input_slot))?;
+
+        let edge = Edge::SlotEdge {
+            output_node: output_node_id,
+            output_index,
+            input_node: input_node_id,
+            input_index,
+        };
+
+        self.validate_edge(&edge, EdgeExistence::Exists)?;
+
+        {
+            let output_node = self.get_node_state_mut(output_node_id)?;
+            output_node.edges.remove_output_edge(edge.clone())?;
+        }
+        let input_node = self.get_node_state_mut(input_node_id)?;
+        input_node.edges.remove_input_edge(edge)?;
 
         Ok(())
     }
@@ -214,7 +323,7 @@ impl RenderGraph {
             input_node: input_node_id,
         };
 
-        self.validate_edge(&edge)?;
+        self.validate_edge(&edge, EdgeExistence::DoesNotExist)?;
 
         {
             let output_node = self.get_node_state_mut(output_node_id)?;
@@ -226,10 +335,43 @@ impl RenderGraph {
         Ok(())
     }
 
-    /// Verifies that the edge is not already existing and
+    /// Removes the [`Edge::NodeEdge`] from the graph. If either node does not exist then nothing
+    /// happens.
+    pub fn remove_node_edge(
+        &mut self,
+        output_node: impl Into<NodeLabel>,
+        input_node: impl Into<NodeLabel>,
+    ) -> Result<(), RenderGraphError> {
+        let output_node_id = self.get_node_id(output_node)?;
+        let input_node_id = self.get_node_id(input_node)?;
+
+        let edge = Edge::NodeEdge {
+            output_node: output_node_id,
+            input_node: input_node_id,
+        };
+
+        self.validate_edge(&edge, EdgeExistence::Exists)?;
+
+        {
+            let output_node = self.get_node_state_mut(output_node_id)?;
+            output_node.edges.remove_output_edge(edge.clone())?;
+        }
+        let input_node = self.get_node_state_mut(input_node_id)?;
+        input_node.edges.remove_input_edge(edge)?;
+
+        Ok(())
+    }
+
+    /// Verifies that the edge existence is as expected and
     /// checks that slot edges are connected correctly.
-    pub fn validate_edge(&mut self, edge: &Edge) -> Result<(), RenderGraphError> {
-        if self.has_edge(edge) {
+    pub fn validate_edge(
+        &mut self,
+        edge: &Edge,
+        should_exist: EdgeExistence,
+    ) -> Result<(), RenderGraphError> {
+        if should_exist == EdgeExistence::Exists && !self.has_edge(edge) {
+            return Err(RenderGraphError::EdgeDoesNotExist(edge.clone()));
+        } else if should_exist == EdgeExistence::DoesNotExist && self.has_edge(edge) {
             return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
         }
 
@@ -256,7 +398,7 @@ impl RenderGraph {
                 if let Some(Edge::SlotEdge {
                     output_node: current_output_node,
                     ..
-                }) = input_node_state.edges.input_edges.iter().find(|e| {
+                }) = input_node_state.edges.input_edges().iter().find(|e| {
                     if let Edge::SlotEdge {
                         input_index: current_input_index,
                         ..
@@ -267,11 +409,13 @@ impl RenderGraph {
                         false
                     }
                 }) {
-                    return Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
-                        node: input_node,
-                        input_slot: input_index,
-                        occupied_by_node: *current_output_node,
-                    });
+                    if should_exist == EdgeExistence::DoesNotExist {
+                        return Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
+                            node: input_node,
+                            input_slot: input_index,
+                            occupied_by_node: *current_output_node,
+                        });
+                    }
                 }
 
                 if output_slot.slot_type != input_slot.slot_type {
@@ -294,9 +438,9 @@ impl RenderGraph {
         let output_node_state = self.get_node_state(edge.get_output_node());
         let input_node_state = self.get_node_state(edge.get_input_node());
         if let Ok(output_node_state) = output_node_state {
-            if output_node_state.edges.output_edges.contains(edge) {
+            if output_node_state.edges.output_edges().contains(edge) {
                 if let Ok(input_node_state) = input_node_state {
-                    if input_node_state.edges.input_edges.contains(edge) {
+                    if input_node_state.edges.input_edges().contains(edge) {
                         return true;
                     }
                 }
@@ -339,7 +483,7 @@ impl RenderGraph {
         let node = self.get_node_state(label)?;
         Ok(node
             .edges
-            .input_edges
+            .input_edges()
             .iter()
             .map(|edge| (edge, edge.get_output_node()))
             .map(move |(edge, output_node_id)| {
@@ -356,7 +500,7 @@ impl RenderGraph {
         let node = self.get_node_state(label)?;
         Ok(node
             .edges
-            .output_edges
+            .output_edges()
             .iter()
             .map(|edge| (edge, edge.get_input_node()))
             .map(move |(edge, input_node_id)| (edge, self.get_node_state(input_node_id).unwrap())))
@@ -366,6 +510,12 @@ impl RenderGraph {
     /// If the name is already present replaces it instead.
     pub fn add_sub_graph(&mut self, name: impl Into<Cow<'static, str>>, sub_graph: RenderGraph) {
         self.sub_graphs.insert(name.into(), sub_graph);
+    }
+
+    /// Removes the `sub_graph` with the `name` from the graph.
+    /// If the name does not exist then nothing happens.
+    pub fn remove_sub_graph(&mut self, name: impl Into<Cow<'static, str>>) {
+        self.sub_graphs.remove(&name.into());
     }
 
     /// Retrieves the sub graph corresponding to the `name`.

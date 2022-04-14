@@ -29,12 +29,13 @@ pub mod prelude {
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
-            Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
+            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage,
+            StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
             Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
-            NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
+            NonSendMut, ParamSet, Query, RemovedComponents, Res, ResMut, System,
+            SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };
@@ -636,8 +637,18 @@ mod tests {
     #[test]
     fn table_add_remove_many() {
         let mut world = World::default();
-        let mut entities = Vec::with_capacity(10_000);
-        for _ in 0..1000 {
+        #[cfg(miri)]
+        let (mut entities, to) = {
+            let to = 10;
+            (Vec::with_capacity(to), to)
+        };
+        #[cfg(not(miri))]
+        let (mut entities, to) = {
+            let to = 10_000;
+            (Vec::with_capacity(to), to)
+        };
+
+        for _ in 0..to {
             entities.push(world.spawn().insert(B(0)).id());
         }
 

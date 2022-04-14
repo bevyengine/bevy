@@ -6,6 +6,7 @@ mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
 mod shader;
+mod storage_buffer;
 mod texture;
 mod uniform_vec;
 
@@ -17,6 +18,7 @@ pub use pipeline::*;
 pub use pipeline_cache::*;
 pub use pipeline_specializer::*;
 pub use shader::*;
+pub use storage_buffer::*;
 pub use texture::*;
 pub use uniform_vec::*;
 
@@ -26,13 +28,13 @@ pub use wgpu::{
     BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
     BlendComponent, BlendFactor, BlendOperation, BlendState, BufferAddress, BufferBinding,
     BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, ColorTargetState, ColorWrites,
-    CommandEncoder, CommandEncoderDescriptor, CompareFunction, ComputePassDescriptor,
-    ComputePipelineDescriptor, DepthBiasState, DepthStencilState, Extent3d, Face,
-    Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState, FrontFace,
-    ImageCopyBuffer, ImageCopyBufferBase, ImageCopyTexture, ImageCopyTextureBase, ImageDataLayout,
-    ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode, MultisampleState,
-    Operations, Origin3d, PipelineLayout, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
-    PrimitiveTopology, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+    CommandEncoder, CommandEncoderDescriptor, CompareFunction, ComputePass, ComputePassDescriptor,
+    ComputePipelineDescriptor as RawComputePipelineDescriptor, DepthBiasState, DepthStencilState,
+    Extent3d, Face, Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState,
+    FrontFace, ImageCopyBuffer, ImageCopyBufferBase, ImageCopyTexture, ImageCopyTextureBase,
+    ImageDataLayout, ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode,
+    MultisampleState, Operations, Origin3d, PipelineLayout, PipelineLayoutDescriptor, PolygonMode,
+    PrimitiveState, PrimitiveTopology, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, RenderPipelineDescriptor as RawRenderPipelineDescriptor,
     SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
     ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess,

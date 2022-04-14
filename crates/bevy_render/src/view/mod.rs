@@ -9,7 +9,7 @@ use wgpu::{
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, ExtractedCameraNames},
+    camera::ExtractedCamera,
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
@@ -21,6 +21,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::HashMap;
 
 pub struct ViewPlugin;
 
@@ -174,39 +175,38 @@ fn prepare_view_uniforms(
 #[allow(clippy::too_many_arguments)]
 fn prepare_view_targets(
     mut commands: Commands,
-    camera_names: Res<ExtractedCameraNames>,
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    cameras: Query<&ExtractedCamera>,
+    cameras: Query<(Entity, &ExtractedCamera)>,
 ) {
-    for entity in camera_names.entities.values().copied() {
-        let camera = if let Ok(camera) = cameras.get(entity) {
-            camera
-        } else {
-            continue;
-        };
+    let mut sampled_textures = HashMap::default();
+    for (entity, camera) in cameras.iter() {
         if let Some(size) = camera.physical_size {
             if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
                 let sampled_target = if msaa.samples > 1 {
-                    let sampled_texture = texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("sampled_color_attachment_texture"),
-                            size: Extent3d {
-                                width: size.x,
-                                height: size.y,
-                                depth_or_array_layers: 1,
-                            },
-                            mip_level_count: 1,
-                            sample_count: msaa.samples,
-                            dimension: TextureDimension::D2,
-                            format: TextureFormat::bevy_default(),
-                            usage: TextureUsages::RENDER_ATTACHMENT,
-                        },
-                    );
+                    let sampled_texture = sampled_textures
+                        .entry(camera.target.clone())
+                        .or_insert_with(|| {
+                            texture_cache.get(
+                                &render_device,
+                                TextureDescriptor {
+                                    label: Some("sampled_color_attachment_texture"),
+                                    size: Extent3d {
+                                        width: size.x,
+                                        height: size.y,
+                                        depth_or_array_layers: 1,
+                                    },
+                                    mip_level_count: 1,
+                                    sample_count: msaa.samples,
+                                    dimension: TextureDimension::D2,
+                                    format: TextureFormat::bevy_default(),
+                                    usage: TextureUsages::RENDER_ATTACHMENT,
+                                },
+                            )
+                        });
                     Some(sampled_texture.default_view.clone())
                 } else {
                     None

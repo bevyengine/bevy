@@ -413,6 +413,7 @@ impl WorldQuery for Entity {
 }
 
 /// The [`Fetch`] of [`Entity`].
+#[doc(hidden)]
 #[derive(Clone)]
 pub struct EntityFetch {
     entities: *const Entity,
@@ -422,6 +423,7 @@ pub struct EntityFetch {
 unsafe impl ReadOnlyFetch for EntityFetch {}
 
 /// The [`FetchState`] of [`Entity`].
+#[doc(hidden)]
 pub struct EntityState;
 
 // SAFETY: no component or archetype access
@@ -500,6 +502,7 @@ impl<T: Component> WorldQuery for &T {
 }
 
 /// The [`FetchState`] of `&T`.
+#[doc(hidden)]
 pub struct ReadState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -547,6 +550,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
 }
 
 /// The [`Fetch`] of `&T`.
+#[doc(hidden)]
 pub struct ReadFetch<T> {
     table_components: NonNull<T>,
     entity_table_rows: *const usize,
@@ -656,6 +660,7 @@ impl<T: Component> WorldQuery for &mut T {
 }
 
 /// The [`Fetch`] of `&mut T`.
+#[doc(hidden)]
 pub struct WriteFetch<T> {
     table_components: NonNull<T>,
     table_ticks: *const UnsafeCell<ComponentTicks>,
@@ -681,6 +686,7 @@ impl<T> Clone for WriteFetch<T> {
 }
 
 /// The [`ReadOnlyFetch`] of `&mut T`.
+#[doc(hidden)]
 pub struct ReadOnlyWriteFetch<T> {
     table_components: NonNull<T>,
     entities: *const Entity,
@@ -703,6 +709,7 @@ impl<T> Clone for ReadOnlyWriteFetch<T> {
 }
 
 /// The [`FetchState`] of `&mut T`.
+#[doc(hidden)]
 pub struct WriteState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -940,6 +947,7 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
 }
 
 /// The [`Fetch`] of `Option<T>`.
+#[doc(hidden)]
 #[derive(Clone)]
 pub struct OptionFetch<T> {
     fetch: T,
@@ -950,6 +958,7 @@ pub struct OptionFetch<T> {
 unsafe impl<T: ReadOnlyFetch> ReadOnlyFetch for OptionFetch<T> {}
 
 /// The [`FetchState`] of `Option<T>`.
+#[doc(hidden)]
 pub struct OptionState<T: FetchState> {
     state: T,
 }
@@ -1116,6 +1125,7 @@ impl<T: Component> WorldQuery for ChangeTrackers<T> {
 }
 
 /// The [`FetchState`] of [`ChangeTrackers`].
+#[doc(hidden)]
 pub struct ChangeTrackersState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -1163,6 +1173,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 }
 
 /// The [`Fetch`] of [`ChangeTrackers`].
+#[doc(hidden)]
 pub struct ChangeTrackersFetch<T> {
     table_ticks: *const ComponentTicks,
     entity_table_rows: *const usize,

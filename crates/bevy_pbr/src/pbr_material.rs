@@ -47,6 +47,9 @@ pub struct StandardMaterial {
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
     pub normal_map_texture: Option<Handle<Image>>,
+    /// Normal map textures authored for DirectX have their y-component flipped. Set this to flip
+    /// it to right-handed conventions.
+    pub flip_normal_map_y: bool,
     pub occlusion_texture: Option<Handle<Image>>,
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
     /// within the PBR lighting shader.
@@ -84,6 +87,7 @@ impl Default for StandardMaterial {
             reflectance: 0.5,
             occlusion_texture: None,
             normal_map_texture: None,
+            flip_normal_map_y: false,
             double_sided: false,
             cull_mode: Some(Face::Back),
             unlit: false,
@@ -123,6 +127,8 @@ bitflags::bitflags! {
         const ALPHA_MODE_OPAQUE          = (1 << 6);
         const ALPHA_MODE_MASK            = (1 << 7);
         const ALPHA_MODE_BLEND           = (1 << 8);
+        const TWO_COMPONENT_NORMAL_MAP   = (1 << 9);
+        const FLIP_NORMAL_MAP_Y          = (1 << 10);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -246,6 +252,25 @@ impl RenderAsset for StandardMaterial {
             flags |= StandardMaterialFlags::UNLIT;
         }
         let has_normal_map = material.normal_map_texture.is_some();
+        if has_normal_map {
+            match gpu_images
+                .get(material.normal_map_texture.as_ref().unwrap())
+                .unwrap()
+                .texture_format
+            {
+                // All 2-component unorm formats
+                TextureFormat::Rg8Unorm
+                | TextureFormat::Rg16Unorm
+                | TextureFormat::Bc5RgUnorm
+                | TextureFormat::EacRg11Unorm => {
+                    flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP
+                }
+                _ => {}
+            }
+            if material.flip_normal_map_y {
+                flags |= StandardMaterialFlags::FLIP_NORMAL_MAP_Y;
+            }
+        }
         // NOTE: 0.5 is from the glTF default - do we want this?
         let mut alpha_cutoff = 0.5;
         match material.alpha_mode {
@@ -353,6 +378,7 @@ impl SpecializedMaterial for StandardMaterial {
     }
 
     fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         key: Self::Key,
         _layout: &MeshVertexBufferLayout,

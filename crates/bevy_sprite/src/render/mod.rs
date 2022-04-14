@@ -109,7 +109,7 @@ impl SpritePipelineKey {
     }
 }
 
-impl SpecializedPipeline for SpritePipeline {
+impl SpecializedRenderPipeline for SpritePipeline {
     type Key = SpritePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -122,7 +122,7 @@ impl SpecializedPipeline for SpritePipeline {
 
         if key.contains(SpritePipelineKey::COLORED) {
             // color
-            formats.push(VertexFormat::Uint32);
+            formats.push(VertexFormat::Float32x4);
         }
 
         let vertex_layout =
@@ -184,6 +184,7 @@ pub struct ExtractedSprite {
     pub image_handle_id: HandleId,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub anchor: Vec2,
 }
 
 #[derive(Default)]
@@ -248,6 +249,7 @@ pub fn extract_sprites(
             flip_x: sprite.flip_x,
             flip_y: sprite.flip_y,
             image_handle_id: handle.id,
+            anchor: sprite.anchor.as_vec(),
         });
     }
     for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
@@ -266,6 +268,7 @@ pub fn extract_sprites(
                 flip_x: atlas_sprite.flip_x,
                 flip_y: atlas_sprite.flip_y,
                 image_handle_id: texture_atlas.texture.id,
+                anchor: atlas_sprite.anchor.as_vec(),
             });
         }
     }
@@ -283,7 +286,7 @@ struct SpriteVertex {
 struct ColoredSpriteVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
-    pub color: u32,
+    pub color: [f32; 4],
 }
 
 pub struct SpriteMeta {
@@ -338,8 +341,8 @@ pub fn queue_sprites(
     mut sprite_meta: ResMut<SpriteMeta>,
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
-    mut pipelines: ResMut<SpecializedPipelines<SpritePipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
@@ -489,7 +492,7 @@ pub fn queue_sprites(
                 let positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
                     extracted_sprite
                         .transform
-                        .mul_vec3((quad_pos * quad_size).extend(0.))
+                        .mul_vec3(((quad_pos - extracted_sprite.anchor) * quad_size).extend(0.))
                         .into()
                 });
 
@@ -498,17 +501,11 @@ pub fn queue_sprites(
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
-                    let color = extracted_sprite.color.as_linear_rgba_f32();
-                    // encode color as a single u32 to save space
-                    let color = (color[0] * 255.0) as u32
-                        | ((color[1] * 255.0) as u32) << 8
-                        | ((color[2] * 255.0) as u32) << 16
-                        | ((color[3] * 255.0) as u32) << 24;
                     for i in QUAD_INDICES.iter() {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
                             position: positions[*i],
                             uv: uvs[*i].into(),
-                            color,
+                            color: extracted_sprite.color.as_linear_rgba_f32(),
                         });
                     }
                     let item_start = colored_index;

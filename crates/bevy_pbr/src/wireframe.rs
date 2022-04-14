@@ -5,16 +5,14 @@ use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::mesh::MeshVertexBufferLayout;
-use bevy_render::render_resource::{
-    PolygonMode, RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-    SpecializedMeshPipelines,
-};
 use bevy_render::{
-    mesh::Mesh,
+    mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
-    render_resource::{RenderPipelineCache, Shader},
+    render_resource::{
+        PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+    },
     view::{ExtractedView, Msaa},
     RenderApp, RenderStage,
 };
@@ -109,12 +107,12 @@ fn queue_wireframes(
     render_meshes: Res<RenderAssets<Mesh>>,
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
-    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
-    mut material_meshes: QuerySet<(
-        QueryState<(Entity, &Handle<Mesh>, &MeshUniform)>,
-        QueryState<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
+    mut material_meshes: ParamSet<(
+        Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
+        Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
     )>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
 ) {
@@ -132,7 +130,7 @@ fn queue_wireframes(
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
                     let key = msaa_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                    let pipeline_id = specialized_pipelines.specialize(
+                    let pipeline_id = pipelines.specialize(
                         &mut pipeline_cache,
                         &wireframe_pipeline,
                         key,
@@ -155,9 +153,9 @@ fn queue_wireframes(
             };
 
         if wireframe_config.global {
-            material_meshes.q0().iter().for_each(add_render_phase);
+            material_meshes.p0().iter().for_each(add_render_phase);
         } else {
-            material_meshes.q1().iter().for_each(add_render_phase);
+            material_meshes.p1().iter().for_each(add_render_phase);
         }
     }
 }
