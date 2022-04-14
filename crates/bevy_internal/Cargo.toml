@@ -16,7 +16,7 @@ trace = [
     "bevy_ecs/trace",
     "bevy_log/trace",
     "bevy_render/trace",
-    "bevy_transform/trace"
+    "bevy_hierarchy/trace"
 ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render/tracing-tracy", "bevy_log/tracing-tracy" ]
