@@ -3,17 +3,20 @@ use bevy::{log::LogPlugin, prelude::*};
 fn main() {
     // create a simple closure.
     let simple_closure = || {
+        // this is a closure that does nothing.
         info!("Hello from a simple closure!");
     };
 
-    // create a closure, with a Local value to be initialized.
-    let complex_closure = |value: String| {
-        move |mut arg: Local<String>| {
-            *arg = value.clone();
-            info!("Hello from a complex closure! {:?}", arg);
+    // create a closure, with an 'input' value.
+    let complex_closure = |mut value: String| {
+        move || {
+            info!("Hello from a complex closure! {:?}", value);
 
-            // 'arg' will be saved between calls.
-            // you could also use an outside variable like presented in then inlined closures
+            // we can modify the value inside the closure. this will be saved between calls.
+            value = format!("{} - updated", value);
+
+            // you could also use an outside variable like presented in the inlined closures
+            // info!("outside_variable! {:?}", outside_variable);
         }
     };
 
@@ -36,7 +39,7 @@ fn main() {
                 outside_variable
             );
             // you can use outside_variable, or any other variables inside this closure.
-            // there states will be saved.
+            // their states will be saved.
         })
         .run();
 }
