@@ -1,5 +1,7 @@
 use bevy::{input::system::exit_on_esc_system, prelude::*};
 
+// The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
+// TODO: Add a test for platforms other than X11 for 0x0, despite those currently unsupported on CI.
 const MAX_WIDTH: u16 = 401;
 const MAX_HEIGHT: u16 = 401;
 
@@ -14,6 +16,7 @@ fn main() {
             width: MAX_WIDTH.try_into().unwrap(),
             height: MAX_HEIGHT.try_into().unwrap(),
             scale_factor_override: Some(1.),
+            title: "Resizing".into(),
             ..Default::default()
         })
         .insert_resource(Dimensions {
@@ -45,6 +48,7 @@ fn change_window_size(
 ) {
     // Put off rendering for one frame, as currently for a frame where
     // resizing happens, nothing is presented.
+    // TODO: Debug and fix this if feasible
     if !*first_complete {
         *first_complete = true;
         return;

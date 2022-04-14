@@ -1,0 +1,5 @@
+(
+    // We have no promised about frame rate.
+    // TODO: Make this as small as is feasible
+    exit_after: Some(410)
+)
