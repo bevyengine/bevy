@@ -1,19 +1,30 @@
-use bevy::prelude::*;
+use bevy::{input::system::exit_on_esc_system, prelude::*};
 
-const MAX_WIDTH: f32 = 400.;
-const MAX_HEIGHT: f32 = 400.;
+const MAX_WIDTH: u16 = 401;
+const MAX_HEIGHT: u16 = 401;
+
+struct Dimensions {
+    width: u16,
+    height: u16,
+}
 
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            width: MAX_WIDTH,
-            height: MAX_HEIGHT,
+            width: MAX_WIDTH.try_into().unwrap(),
+            height: MAX_HEIGHT.try_into().unwrap(),
             scale_factor_override: Some(1.),
             ..Default::default()
+        })
+        .insert_resource(Dimensions {
+            width: MAX_WIDTH,
+            height: MAX_HEIGHT,
         })
         .add_plugins(DefaultPlugins)
         .insert_resource(Phase::ContractingY)
         .add_system(change_window_size)
+        .add_system(sync_dimensions)
+        .add_system(exit_on_esc_system)
         .add_startup_system(setup)
         .run();
 }
@@ -28,7 +39,7 @@ enum Phase {
 use Phase::*;
 
 fn change_window_size(
-    mut windows: ResMut<Windows>,
+    mut windows: ResMut<Dimensions>,
     mut phase: ResMut<Phase>,
     mut first_complete: Local<bool>,
 ) {
@@ -38,34 +49,46 @@ fn change_window_size(
         *first_complete = true;
         return;
     }
-    let primary = windows.get_primary_mut().unwrap();
-    let height = primary.height();
-    let width = primary.width();
+    let height = windows.height;
+    let width = windows.width;
     match *phase {
         Phase::ContractingY => {
-            if height <= 0.5 {
+            if windows.height <= 1 {
                 *phase = ContractingX;
+            } else {
+                windows.height -= 4;
             }
-            primary.set_resolution(width, (height - 4.).max(0.0))
         }
         Phase::ContractingX => {
-            if width <= 0.5 {
+            if width <= 1 {
                 *phase = ExpandingY;
+            } else {
+                windows.width -= 4;
             }
-            primary.set_resolution((width - 4.).max(0.0), height)
         }
         Phase::ExpandingY => {
             if height >= MAX_HEIGHT {
                 *phase = ExpandingX;
+            } else {
+                windows.height += 4;
             }
-            primary.set_resolution(width, height + 4.)
         }
         Phase::ExpandingX => {
             if width >= MAX_WIDTH {
                 *phase = ContractingY;
+            } else {
+                windows.width += 4;
             }
-            primary.set_resolution(width + 4., height)
         }
+    }
+}
+
+fn sync_dimensions(dim: Res<Dimensions>, mut windows: ResMut<Windows>) {
+    if dim.is_changed() {
+        windows.get_primary_mut().unwrap().set_resolution(
+            dim.width.try_into().unwrap(),
+            dim.height.try_into().unwrap(),
+        );
     }
 }
 
