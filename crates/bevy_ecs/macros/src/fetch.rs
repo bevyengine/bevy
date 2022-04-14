@@ -3,6 +3,7 @@ use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
+    parse_quote,
     punctuated::Punctuated,
     Attribute, Data, DataStruct, DeriveInput, Field, Fields, GenericArgument, GenericParam,
     Lifetime, LifetimeDef, Path, PathArguments, ReturnType, Token, Type, TypePath,
@@ -119,6 +120,12 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     fetch_trait_punctuated_lifetimes.push(state_lifetime_param.clone());
 
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+    let mut s_injected_generics = ast.generics.clone();
+    s_injected_generics.params.push(parse_quote!('s));
+    let mut ws_injected_generics = s_injected_generics.clone();
+    ws_injected_generics.params.push(parse_quote!('w));
+    let (impl_generics_with_s, _, _) = s_injected_generics.split_for_impl();
+    let (impl_generics_with_ws, _, _) = ws_injected_generics.split_for_impl();
 
     let struct_name = ast.ident.clone();
     let item_struct_name = Ident::new(&format!("{}Item", struct_name), Span::call_site());
@@ -134,8 +141,10 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     } else {
         fetch_struct_name.clone()
     };
-    let fetch_associated_type = Ident::new("Fetch", Span::call_site());
-    let read_only_fetch_associated_type = Ident::new("ReadOnlyFetch", Span::call_site());
+    let fetch_type_alias = Ident::new("QueryFetch", Span::call_site());
+    let read_only_fetch_type_alias = Ident::new("ROQueryFetch", Span::call_site());
+    let item_type_alias = Ident::new("QueryFetch", Span::call_site());
+    let read_only_item_type_alias = Ident::new("ROQueryFetch", Span::call_site());
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {
@@ -228,13 +237,24 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let path = bevy_ecs_path();
 
     let impl_fetch = |is_filter: bool,
-                      fetch_associated_type: Ident,
+                      is_readonly: bool,
                       fetch_struct_name: Ident,
                       item_struct_name: Ident| {
+        let fetch_type_alias = if is_readonly {
+            &read_only_fetch_type_alias
+        } else {
+            &fetch_type_alias
+        };
+        let item_type_alias = if is_readonly {
+            &read_only_item_type_alias
+        } else {
+            &item_type_alias
+        };
+
         if is_filter {
             quote! {
-                struct #fetch_struct_name #impl_generics #where_clause {
-                    #(#field_idents: <#field_types as #path::query::WorldQuery>::#fetch_associated_type,)*
+                struct #fetch_struct_name #impl_generics_with_ws #where_clause {
+                    #(#field_idents: #path::query::#fetch_type_alias::<'w, 's, #field_types>,)*
                     #(#ignored_field_idents: #ignored_field_types,)*
                 }
 
@@ -244,7 +264,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
                     unsafe fn init(_world: &#path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
                         #fetch_struct_name {
-                            #(#field_idents: <#field_types as #path::query::WorldQuery>::ReadOnlyFetch::init(_world, &state.#field_idents, _last_change_tick, _change_tick),)*
+                            #(#field_idents: #path::query::ROQueryFetch::<'w, 'w, #field_types>::init(_world, &state.#field_idents, _last_change_tick, _change_tick),)*
                             #(#ignored_field_idents: Default::default(),)*
                         }
                     }
@@ -277,13 +297,13 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         } else {
             quote! {
                 #derive_macro_call
-                struct #item_struct_name #impl_generics #where_clause {
-                    #(#(#field_attrs)* #field_visibilities #field_idents: <<#field_types as #path::query::WorldQuery>::#fetch_associated_type as #path::query::Fetch<#world_lifetime, #world_lifetime>>::Item,)*
+                struct #item_struct_name #impl_generics_with_s #where_clause {
+                    #(#(#field_attrs)* #field_visibilities #field_idents: #path::query::#item_type_alias<'w, 's, #field_types>,)*
                     #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
                 }
 
-                struct #fetch_struct_name #impl_generics #where_clause {
-                    #(#field_idents: <#field_types as #path::query::WorldQuery>::#fetch_associated_type,)*
+                struct #fetch_struct_name #impl_generics_with_s #where_clause {
+                    #(#field_idents: #path::query::#fetch_type_alias::<'w, 's, #field_types>,)*
                     #(#ignored_field_idents: #ignored_field_types,)*
                 }
 
@@ -293,12 +313,12 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
                     unsafe fn init(_world: &#path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
                         Self {
-                            #(#field_idents: <#fetch_init_types as #path::query::WorldQuery>::#fetch_associated_type::init(_world, &state.#field_idents, _last_change_tick, _change_tick),)*
+                            #(#field_idents: #path::query::#fetch_type_alias::<'w, 'w, #fetch_init_types>::init(_world, &state.#field_idents, _last_change_tick, _change_tick),)*
                             #(#ignored_field_idents: Default::default(),)*
                         }
                     }
 
-                    const IS_DENSE: bool = true #(&& <#field_types as #path::query::WorldQuery>::#fetch_associated_type::IS_DENSE)*;
+                    const IS_DENSE: bool = true #(&& #path::query::#fetch_type_alias::<'w, 'w, #field_types>::IS_DENSE)*;
 
                     /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
                     #[inline]
@@ -336,7 +356,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
     let fetch_impl = impl_fetch(
         fetch_struct_attributes.is_filter,
-        fetch_associated_type,
+        false,
         fetch_struct_name.clone(),
         item_struct_name,
     );
@@ -377,22 +397,12 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let read_only_impl = if fetch_struct_attributes.is_filter {
         quote! {}
     } else if fetch_struct_attributes.is_mutable {
-        let fetch_impl = impl_fetch(
+        impl_fetch(
             false,
-            read_only_fetch_associated_type,
+            true,
             read_only_fetch_struct_name.clone(),
             read_only_item_struct_name.clone(),
-        );
-
-        quote! {
-            #fetch_impl
-
-            impl #impl_generics #path::query::WorldQuery for #read_only_item_struct_name #ty_generics #where_clause {
-                type Fetch = #read_only_fetch_struct_name #ty_generics;
-                type State = #state_struct_name #ty_generics;
-                type ReadOnlyFetch = #read_only_fetch_struct_name #ty_generics;
-            }
-        }
+        )
     } else {
         quote! {
             // Statically checks that the safety guarantee actually holds true. We need this to make
@@ -400,11 +410,15 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             // members that don't implement it.
             #[allow(dead_code)]
             const _: () = {
-                fn assert_readonly<T: #path::query::ReadOnlyFetch>() {}
+                fn assert_readonly<'w, 's, T>()
+                where
+                    T: #path::query::ReadOnlyFetch<'w, 's>,
+                {
+                }
 
                 // We generate a readonly assertion for every struct member.
-                fn assert_all #impl_generics () #where_clause {
-                    #(assert_readonly::<<#field_types as #path::query::WorldQuery>::Fetch>();)*
+                fn assert_all #impl_generics_with_s () #where_clause {
+                    #(assert_readonly::<'w, 's, #path::query::QueryFetch<'w, 's, #field_types>>();)*
                 }
             };
         }
@@ -418,13 +432,18 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         #read_only_impl
 
         impl #impl_generics #path::query::WorldQuery for #struct_name #ty_generics #where_clause {
-            type Fetch = #fetch_struct_name #ty_generics;
             type State = #state_struct_name #ty_generics;
+        }
+
+        impl #impl_generics_with_s #path::query::FetchInit<'w, 's> for #state_struct_name #ty_generics {
+            type Fetch = #fetch_struct_name #ty_generics;
+            type Item = <#fetch_struct_name #ty_generics as #path::query::Fetch<'w, 's>>::Item;
             type ReadOnlyFetch = #read_only_fetch_struct_name #ty_generics;
+            type ReadOnlyItem = <#read_only_fetch_struct_name #ty_generics as #path::query::Fetch<'w, 's>>::Item;
         }
 
         /// SAFETY: each item in the struct is read only
-        unsafe impl #impl_generics #path::query::ReadOnlyFetch for #read_only_fetch_struct_name #ty_generics #where_clause {}
+        unsafe impl #impl_generics_with_s #path::query::ReadOnlyFetch<'w, 's> for #read_only_fetch_struct_name #ty_generics #where_clause {}
 
         // The original struct will most likely be left unused. As we don't want our users having
         // to specify `#[allow(dead_code)]` for their custom queries, we are using this cursed
