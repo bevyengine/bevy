@@ -240,7 +240,7 @@ pub fn flex_node_system(
         scaling_factor: f64,
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
     ) where
-        for<'w, 's> QueryFetch<'w, 's, F>: FilterFetch<'w, 's>,
+        for<'w> QueryFetch<'w, F>: FilterFetch<'w>,
     {
         // update changed nodes
         for (entity, style, calculated_size) in query.iter() {

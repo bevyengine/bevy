@@ -903,7 +903,7 @@ mod tests {
 
         fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
         where
-            for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
+            for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
         {
             world
                 .query_filtered::<Entity, F>()

@@ -570,7 +570,7 @@ impl World {
     #[inline]
     pub fn query_filtered<Q: WorldQuery, F: WorldQuery>(&mut self) -> QueryState<Q, F>
     where
-        for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
+        for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
     {
         QueryState::new(self)
     }

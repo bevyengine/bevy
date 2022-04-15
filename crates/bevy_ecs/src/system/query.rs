@@ -242,7 +242,7 @@ use thiserror::Error;
 /// (or `iter_mut.next()`) to only get the first query result.
 pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()>
 where
-    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
+    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
     pub(crate) world: &'world World,
     pub(crate) state: &'state QueryState<Q, F>,
@@ -252,7 +252,7 @@ where
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
-    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
+    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
     /// Creates a new query.
     ///
@@ -299,7 +299,7 @@ where
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn iter(&self) -> QueryIter<'_, 's, Q, ROQueryFetch<'_, 's, Q>, F> {
+    pub fn iter(&self) -> QueryIter<'_, 's, Q, ROQueryFetch<'_, Q>, F> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -329,7 +329,7 @@ where
     /// # bevy_ecs::system::assert_is_system(gravity_system);
     /// ```
     #[inline]
-    pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, QueryFetch<'_, '_, Q>, F> {
+    pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, QueryFetch<'_, Q>, F> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -346,9 +346,7 @@ where
     /// - if K < N: all possible K-sized combinations of query results, without repetition
     /// - if K > N: empty set (no K-sized combinations exist)
     #[inline]
-    pub fn iter_combinations<const K: usize>(
-        &self,
-    ) -> QueryCombinationIter<'_, '_, Q, ROQueryFetch<'_, '_, Q>, F, K> {
+    pub fn iter_combinations<const K: usize>(&self) -> QueryCombinationIter<'_, '_, Q, F, K> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -385,7 +383,7 @@ where
     #[inline]
     pub fn iter_combinations_mut<const K: usize>(
         &mut self,
-    ) -> QueryCombinationIter<'_, '_, Q, QueryFetch<'_, '_, Q>, F, K> {
+    ) -> QueryCombinationIter<'_, '_, Q, F, K> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -404,7 +402,7 @@ where
     /// This function makes it possible to violate Rust's aliasing guarantees. You must make sure
     /// this call does not result in multiple mutable references to the same component
     #[inline]
-    pub unsafe fn iter_unsafe(&'s self) -> QueryIter<'w, 's, Q, QueryFetch<'w, 's, Q>, F> {
+    pub unsafe fn iter_unsafe(&'s self) -> QueryIter<'w, 's, Q, QueryFetch<'w, Q>, F> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state
@@ -420,7 +418,7 @@ where
     #[inline]
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, '_, Q, QueryFetch<'_, '_, Q>, F, K> {
+    ) -> QueryCombinationIter<'_, '_, Q, F, K> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state.iter_combinations_unchecked_manual(
@@ -454,7 +452,7 @@ where
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn for_each<'this, FN: FnMut(ROQueryItem<'this, 's, Q>)>(&'this self, f: FN) {
+    pub fn for_each<'this, FN: FnMut(ROQueryItem<'this, Q>)>(&'this self, f: FN) {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -489,7 +487,7 @@ where
     /// # bevy_ecs::system::assert_is_system(gravity_system);
     /// ```
     #[inline]
-    pub fn for_each_mut<'a, FN: FnMut(QueryItem<'a, 'a, Q>)>(&'a mut self, f: FN) {
+    pub fn for_each_mut<'a, FN: FnMut(QueryItem<'a, Q>)>(&'a mut self, f: FN) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -523,7 +521,7 @@ where
     ///* `batch_size` - The number of batches to spawn
     ///* `f` - The function to run on each item in the query
     #[inline]
-    pub fn par_for_each<'this, FN: Fn(ROQueryItem<'this, 's, Q>) + Send + Sync + Clone>(
+    pub fn par_for_each<'this, FN: Fn(ROQueryItem<'this, Q>) + Send + Sync + Clone>(
         &'this self,
         task_pool: &TaskPool,
         batch_size: usize,
@@ -547,7 +545,7 @@ where
     /// Runs `f` on each query result in parallel using the given [`TaskPool`].
     /// See [`Self::par_for_each`] for more details.
     #[inline]
-    pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, 'a, Q>) + Send + Sync + Clone>(
+    pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, Q>) + Send + Sync + Clone>(
         &'a mut self,
         task_pool: &TaskPool,
         batch_size: usize,
@@ -600,7 +598,7 @@ where
     /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
     #[inline]
-    pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, 's, Q>, QueryEntityError> {
+    pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, Q>, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -625,7 +623,7 @@ where
     pub fn get_many<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> Result<[ROQueryItem<'_, 's, Q>; N], QueryEntityError> {
+    ) -> Result<[ROQueryItem<'_, Q>; N], QueryEntityError> {
         // SAFE: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
         unsafe {
             self.state.get_many_read_only_manual(
@@ -673,7 +671,7 @@ where
     /// }
     /// ```
     #[inline]
-    pub fn multiple<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, 's, Q>; N] {
+    pub fn multiple<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, Q>; N] {
         self.get_many(entities).unwrap()
     }
 
@@ -702,7 +700,7 @@ where
     /// # bevy_ecs::system::assert_is_system(poison_system);
     /// ```
     #[inline]
-    pub fn get_mut(&mut self, entity: Entity) -> Result<QueryItem<'_, '_, Q>, QueryEntityError> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<QueryItem<'_, Q>, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -725,7 +723,7 @@ where
     pub fn get_many_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[QueryItem<'_, 's, Q>; N], QueryEntityError> {
+    ) -> Result<[QueryItem<'_, Q>; N], QueryEntityError> {
         // SAFE: scheduler ensures safe Query world access
         unsafe {
             self.state.get_many_unchecked_manual(
@@ -779,10 +777,7 @@ where
     /// }
     /// ```
     #[inline]
-    pub fn multiple_mut<const N: usize>(
-        &mut self,
-        entities: [Entity; N],
-    ) -> [QueryItem<'_, 's, Q>; N] {
+    pub fn multiple_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [QueryItem<'_, Q>; N] {
         self.get_many_mut(entities).unwrap()
     }
 
@@ -799,7 +794,7 @@ where
     pub unsafe fn get_unchecked(
         &'s self,
         entity: Entity,
-    ) -> Result<QueryItem<'w, 's, Q>, QueryEntityError> {
+    ) -> Result<QueryItem<'w, Q>, QueryEntityError> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state.get_unchecked_manual::<QueryFetch<Q>>(
@@ -963,7 +958,7 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
-    pub fn single(&self) -> ROQueryItem<'_, 's, Q> {
+    pub fn single(&self) -> ROQueryItem<'_, Q> {
         self.get_single().unwrap()
     }
 
@@ -998,7 +993,7 @@ where
     /// }
     /// # bevy_ecs::system::assert_is_system(player_scoring_system);
     /// ```
-    pub fn get_single(&self) -> Result<ROQueryItem<'_, 's, Q>, QuerySingleError> {
+    pub fn get_single(&self) -> Result<ROQueryItem<'_, Q>, QuerySingleError> {
         let mut query = self.iter();
         let first = query.next();
         let extra = query.next().is_some();
@@ -1037,7 +1032,7 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
     #[track_caller]
-    pub fn single_mut(&mut self) -> QueryItem<'_, '_, Q> {
+    pub fn single_mut(&mut self) -> QueryItem<'_, Q> {
         self.get_single_mut().unwrap()
     }
 
@@ -1063,7 +1058,7 @@ where
     /// }
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
     /// ```
-    pub fn get_single_mut(&mut self) -> Result<QueryItem<'_, '_, Q>, QuerySingleError> {
+    pub fn get_single_mut(&mut self) -> Result<QueryItem<'_, Q>, QuerySingleError> {
         let mut query = self.iter_mut();
         let first = query.next();
         let extra = query.next().is_some();
@@ -1166,8 +1161,8 @@ pub enum QuerySingleError {
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
-    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
-    for<'x, 'y> QueryFetch<'x, 'y, Q>: ReadOnlyFetch<'x, 'y>,
+    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
+    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch<'x>,
 {
     /// Returns the query result for the given [`Entity`], with the actual "inner" world lifetime.
     ///
@@ -1201,11 +1196,11 @@ where
     /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
     #[inline]
-    pub fn get_inner(&'s self, entity: Entity) -> Result<ROQueryItem<'w, 's, Q>, QueryEntityError> {
+    pub fn get_inner(&'s self, entity: Entity) -> Result<ROQueryItem<'w, Q>, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.get_unchecked_manual::<ROQueryFetch<'w, 's, Q>>(
+            self.state.get_unchecked_manual::<ROQueryFetch<'w, Q>>(
                 self.world,
                 entity,
                 self.last_change_tick,
@@ -1238,7 +1233,7 @@ where
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn iter_inner(&'s self) -> QueryIter<'w, 's, Q, ROQueryFetch<'w, 's, Q>, F> {
+    pub fn iter_inner(&'s self) -> QueryIter<'w, 's, Q, ROQueryFetch<'w, Q>, F> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {

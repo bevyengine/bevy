@@ -89,7 +89,7 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
 
 impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F>
 where
-    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
+    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
     type Fetch = QueryState<Q, F>;
 }
@@ -97,8 +97,8 @@ where
 // SAFE: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<Q: WorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F>
 where
-    for<'x, 'y> QueryFetch<'x, 'y, Q>: ReadOnlyFetch<'x, 'y>,
-    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
+    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch<'x>,
+    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
 }
 
@@ -106,7 +106,7 @@ where
 // this QueryState conflicts with any prior access, a panic will occur.
 unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState for QueryState<Q, F>
 where
-    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
+    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let state = QueryState::new(world);
@@ -138,7 +138,7 @@ where
 impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's>
     for QueryState<Q, F>
 where
-    for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
+    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
     type Item = Query<'w, 's, Q, F>;
 
@@ -1417,7 +1417,7 @@ mod tests {
         F: WorldQuery + Send + Sync + 'static = (),
     >
     where
-        for<'x, 'y> QueryFetch<'x, 'y, F>: FilterFetch<'x, 'y>,
+        for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
     {
         _query: Query<'w, 's, Q, F>,
     }

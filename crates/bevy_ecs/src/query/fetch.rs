@@ -299,23 +299,21 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 pub trait WorldQuery {
-    type State: FetchState + for<'w, 's> FetchInit<'w, 's>;
+    type State: FetchState + for<'w> FetchInit<'w>;
 
-    fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
-        item: QueryItem<'wlong, 'slong, Self>,
-    ) -> QueryItem<'wshort, 'sshort, Self>;
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self>;
 }
 
-pub type QueryFetch<'w, 's, Q> = <<Q as WorldQuery>::State as FetchInit<'w, 's>>::Fetch;
-pub type QueryItem<'w, 's, Q> = <<Q as WorldQuery>::State as FetchInit<'w, 's>>::Item;
-pub type ROQueryFetch<'w, 's, Q> = <<Q as WorldQuery>::State as FetchInit<'w, 's>>::ReadOnlyFetch;
-pub type ROQueryItem<'w, 's, Q> = <<Q as WorldQuery>::State as FetchInit<'w, 's>>::ReadOnlyItem;
+pub type QueryFetch<'w, Q> = <<Q as WorldQuery>::State as FetchInit<'w>>::Fetch;
+pub type QueryItem<'w, Q> = <<Q as WorldQuery>::State as FetchInit<'w>>::Item;
+pub type ROQueryFetch<'w, Q> = <<Q as WorldQuery>::State as FetchInit<'w>>::ReadOnlyFetch;
+pub type ROQueryItem<'w, Q> = <<Q as WorldQuery>::State as FetchInit<'w>>::ReadOnlyItem;
 
-pub trait FetchInit<'world, 'state>: FetchState {
-    type Fetch: Fetch<'world, 'state, State = Self, Item = Self::Item>;
+pub trait FetchInit<'world>: FetchState {
+    type Fetch: Fetch<'world, State = Self, Item = Self::Item>;
     type Item;
 
-    type ReadOnlyFetch: Fetch<'world, 'state, State = Self, Item = Self::ReadOnlyItem>;
+    type ReadOnlyFetch: Fetch<'world, State = Self, Item = Self::ReadOnlyItem>;
     type ReadOnlyItem;
 }
 
@@ -324,7 +322,7 @@ pub trait FetchInit<'world, 'state>: FetchState {
 ///
 /// Every type that implements [`WorldQuery`] have their associated [`WorldQuery::Fetch`] and
 /// [`WorldQuery::State`] types that are essential for fetching component data.
-pub trait Fetch<'world, 'state>: Sized {
+pub trait Fetch<'world>: Sized {
     type Item;
     type State: FetchState;
 
@@ -343,7 +341,7 @@ pub trait Fetch<'world, 'state>: Sized {
     /// to this function.
     unsafe fn init(
         world: &'world World,
-        state: &'state Self::State,
+        state: &Self::State,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self;
@@ -357,7 +355,7 @@ pub trait Fetch<'world, 'state>: Sized {
     /// be the [`Self::State`] this was initialized with.
     unsafe fn set_archetype(
         &mut self,
-        state: &'state Self::State,
+        state: &Self::State,
         archetype: &'world Archetype,
         tables: &'world Tables,
     );
@@ -369,7 +367,7 @@ pub trait Fetch<'world, 'state>: Sized {
     ///
     /// `table` must be from the [`World`] [`Fetch::init`] was called on. `state` must be the
     /// [`Self::State`] this was initialized with.
-    unsafe fn set_table(&mut self, state: &'state Self::State, table: &'world Table);
+    unsafe fn set_table(&mut self, state: &Self::State, table: &'world Table);
 
     /// Fetch [`Self::Item`] for the given `archetype_index` in the current [`Archetype`]. This must
     /// always be called after [`Fetch::set_archetype`] with an `archetype_index` in the range of
@@ -417,14 +415,12 @@ pub unsafe trait FetchState: Send + Sync + Sized {
 /// # Safety
 ///
 /// This must only be implemented for read-only fetches.
-pub unsafe trait ReadOnlyFetch<'w, 's>: Fetch<'w, 's> {}
+pub unsafe trait ReadOnlyFetch<'w>: Fetch<'w> {}
 
 impl WorldQuery for Entity {
     type State = EntityState;
 
-    fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
-        item: QueryItem<'wlong, 'slong, Self>,
-    ) -> QueryItem<'wshort, 'sshort, Self> {
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
     }
 }
@@ -437,7 +433,7 @@ pub struct EntityFetch<'w> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<'w> ReadOnlyFetch<'w, '_> for EntityFetch<'w> {}
+unsafe impl<'w> ReadOnlyFetch<'w> for EntityFetch<'w> {}
 
 /// The [`FetchState`] of [`Entity`].
 #[doc(hidden)]
@@ -469,14 +465,14 @@ unsafe impl FetchState for EntityState {
     }
 }
 
-impl<'w> FetchInit<'w, '_> for EntityState {
+impl<'w> FetchInit<'w> for EntityState {
     type Fetch = EntityFetch<'w>;
     type Item = Entity;
     type ReadOnlyFetch = EntityFetch<'w>;
     type ReadOnlyItem = Entity;
 }
 
-impl<'w, 's> Fetch<'w, 's> for EntityFetch<'w> {
+impl<'w> Fetch<'w> for EntityFetch<'w> {
     type Item = Entity;
     type State = EntityState;
 
@@ -484,7 +480,7 @@ impl<'w, 's> Fetch<'w, 's> for EntityFetch<'w> {
 
     unsafe fn init(
         _world: &'w World,
-        _state: &'s EntityState,
+        _state: &EntityState,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> EntityFetch<'w> {
@@ -524,9 +520,7 @@ impl<'w, 's> Fetch<'w, 's> for EntityFetch<'w> {
 impl<T: Component> WorldQuery for &T {
     type State = ReadState<T>;
 
-    fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
-        item: QueryItem<'wlong, 'slong, Self>,
-    ) -> QueryItem<'wshort, 'sshort, Self> {
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
     }
 }
@@ -601,16 +595,16 @@ impl<T> Clone for ReadFetch<'_, T> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<'w, T: Component> ReadOnlyFetch<'w, '_> for ReadFetch<'w, T> {}
+unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for ReadFetch<'w, T> {}
 
-impl<'w, T: Component> FetchInit<'w, '_> for ReadState<T> {
+impl<'w, T: Component> FetchInit<'w> for ReadState<T> {
     type Fetch = ReadFetch<'w, T>;
     type Item = &'w T;
     type ReadOnlyFetch = ReadFetch<'w, T>;
     type ReadOnlyItem = &'w T;
 }
 
-impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<'w, T> {
+impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
     type Item = &'w T;
     type State = ReadState<T>;
 
@@ -623,7 +617,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<'w, T> {
 
     unsafe fn init(
         world: &'w World,
-        state: &'s ReadState<T>,
+        state: &ReadState<T>,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> ReadFetch<'w, T> {
@@ -708,9 +702,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<'w, T> {
 impl<T: Component> WorldQuery for &mut T {
     type State = WriteState<T>;
 
-    fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
-        item: QueryItem<'wlong, 'slong, Self>,
-    ) -> QueryItem<'wshort, 'sshort, Self> {
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
     }
 }
@@ -749,7 +741,7 @@ pub struct ReadOnlyWriteFetch<'w, T> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<'w, T: Component> ReadOnlyFetch<'w, '_> for ReadOnlyWriteFetch<'w, T> {}
+unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for ReadOnlyWriteFetch<'w, T> {}
 
 impl<T> Clone for ReadOnlyWriteFetch<'_, T> {
     fn clone(&self) -> Self {
@@ -810,7 +802,7 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
     }
 }
 
-impl<'w, T: Component> FetchInit<'w, '_> for WriteState<T> {
+impl<'w, T: Component> FetchInit<'w> for WriteState<T> {
     type Fetch = WriteFetch<'w, T>;
     type Item = Mut<'w, T>;
 
@@ -818,7 +810,7 @@ impl<'w, T: Component> FetchInit<'w, '_> for WriteState<T> {
     type ReadOnlyItem = &'w T;
 }
 
-impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<'w, T> {
+impl<'w, 's, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     type Item = Mut<'w, T>;
     type State = WriteState<T>;
 
@@ -831,7 +823,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<'w, T> {
 
     unsafe fn init(
         world: &'w World,
-        state: &'s WriteState<T>,
+        state: &WriteState<T>,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
@@ -937,7 +929,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<'w, T> {
     }
 }
 
-impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<'w, T> {
+impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
     type Item = &'w T;
     type State = WriteState<T>;
 
@@ -950,7 +942,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<'w, T> {
 
     unsafe fn init(
         world: &'w World,
-        state: &'s WriteState<T>,
+        state: &WriteState<T>,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {
@@ -1035,9 +1027,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<'w, T> {
 impl<T: WorldQuery> WorldQuery for Option<T> {
     type State = OptionState<T::State>;
 
-    fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
-        item: QueryItem<'wlong, 'slong, Self>,
-    ) -> QueryItem<'wshort, 'sshort, Self> {
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item.map(T::shrink)
     }
 }
@@ -1051,7 +1041,7 @@ pub struct OptionFetch<T> {
 }
 
 /// SAFETY: [`OptionFetch`] is read only because T is read only
-unsafe impl<'w, 's, T: ReadOnlyFetch<'w, 's>> ReadOnlyFetch<'w, 's> for OptionFetch<T> {}
+unsafe impl<'w, T: ReadOnlyFetch<'w>> ReadOnlyFetch<'w> for OptionFetch<T> {}
 
 /// The [`FetchState`] of `Option<T>`.
 #[doc(hidden)]
@@ -1092,14 +1082,14 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
     }
 }
 
-impl<'w, 's, T: FetchState + FetchInit<'w, 's>> FetchInit<'w, 's> for OptionState<T> {
+impl<'w, T: FetchState + FetchInit<'w>> FetchInit<'w> for OptionState<T> {
     type Fetch = OptionFetch<T::Fetch>;
     type Item = Option<T::Item>;
     type ReadOnlyFetch = OptionFetch<T::ReadOnlyFetch>;
     type ReadOnlyItem = Option<T::ReadOnlyItem>;
 }
 
-impl<'w, 's, T: Fetch<'w, 's>> Fetch<'w, 's> for OptionFetch<T> {
+impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     type Item = Option<T::Item>;
     type State = OptionState<T::State>;
 
@@ -1107,7 +1097,7 @@ impl<'w, 's, T: Fetch<'w, 's>> Fetch<'w, 's> for OptionFetch<T> {
 
     unsafe fn init(
         world: &'w World,
-        state: &'s OptionState<T::State>,
+        state: &OptionState<T::State>,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
@@ -1120,7 +1110,7 @@ impl<'w, 's, T: Fetch<'w, 's>> Fetch<'w, 's> for OptionFetch<T> {
     #[inline]
     unsafe fn set_archetype(
         &mut self,
-        state: &'s Self::State,
+        state: &Self::State,
         archetype: &'w Archetype,
         tables: &'w Tables,
     ) {
@@ -1131,7 +1121,7 @@ impl<'w, 's, T: Fetch<'w, 's>> Fetch<'w, 's> for OptionFetch<T> {
     }
 
     #[inline]
-    unsafe fn set_table(&mut self, state: &'s Self::State, table: &'w Table) {
+    unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
         self.matches = state.state.matches_table(table);
         if self.matches {
             self.fetch.set_table(&state.state, table);
@@ -1224,9 +1214,7 @@ impl<T: Component> ChangeTrackers<T> {
 impl<T: Component> WorldQuery for ChangeTrackers<T> {
     type State = ChangeTrackersState<T>;
 
-    fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
-        item: QueryItem<'wlong, 'slong, Self>,
-    ) -> QueryItem<'wshort, 'sshort, Self> {
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
     }
 }
@@ -1305,16 +1293,16 @@ impl<T> Clone for ChangeTrackersFetch<'_, T> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<'w, T: Component> ReadOnlyFetch<'w, '_> for ChangeTrackersFetch<'w, T> {}
+unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for ChangeTrackersFetch<'w, T> {}
 
-impl<'w, T: Component> FetchInit<'w, '_> for ChangeTrackersState<T> {
+impl<'w, T: Component> FetchInit<'w> for ChangeTrackersState<T> {
     type Fetch = ChangeTrackersFetch<'w, T>;
     type Item = ChangeTrackers<T>;
     type ReadOnlyFetch = ChangeTrackersFetch<'w, T>;
     type ReadOnlyItem = ChangeTrackers<T>;
 }
 
-impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<'w, T> {
+impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
     type Item = ChangeTrackers<T>;
     type State = ChangeTrackersState<T>;
 
@@ -1327,7 +1315,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<'w, T> {
 
     unsafe fn init(
         world: &'w World,
-        state: &'s ChangeTrackersState<T>,
+        state: &ChangeTrackersState<T>,
         last_change_tick: u32,
         change_tick: u32,
     ) -> ChangeTrackersFetch<'w, T> {
@@ -1434,7 +1422,7 @@ macro_rules! impl_tuple_fetch {
     ($(($name: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, 's, $($name: FetchInit<'w, 's>),*> FetchInit<'w, 's> for ($($name,)*) {
+        impl<'w, $($name: FetchInit<'w>),*> FetchInit<'w> for ($($name,)*) {
             type Fetch = ($($name::Fetch,)*);
             type Item = ($($name::Item,)*);
 
@@ -1443,27 +1431,27 @@ macro_rules! impl_tuple_fetch {
         }
 
         #[allow(non_snake_case)]
-        impl<'w, 's, $($name: Fetch<'w, 's>),*> Fetch<'w, 's> for ($($name,)*) {
+        impl<'w, $($name: Fetch<'w>),*> Fetch<'w> for ($($name,)*) {
             type Item = ($($name::Item,)*);
             type State = ($($name::State,)*);
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             #[allow(clippy::unused_unit)]
-            unsafe fn init(_world: &'w World, state: &'s Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
+            unsafe fn init(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
                 let ($($name,)*) = state;
                 ($($name::init(_world, $name, _last_change_tick, _change_tick),)*)
             }
 
             #[inline]
-            unsafe fn set_archetype(&mut self, _state: &'s Self::State, _archetype: &'w Archetype, _tables: &'w Tables) {
+            unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &'w Archetype, _tables: &'w Tables) {
                 let ($($name,)*) = self;
                 let ($($state,)*) = _state;
                 $($name.set_archetype($state, _archetype, _tables);)*
             }
 
             #[inline]
-            unsafe fn set_table(&mut self, _state: &'s Self::State, _table: &'w Table) {
+            unsafe fn set_table(&mut self, _state: &Self::State, _table: &'w Table) {
                 let ($($name,)*) = self;
                 let ($($state,)*) = _state;
                 $($name.set_table($state, _table);)*
@@ -1518,9 +1506,7 @@ macro_rules! impl_tuple_fetch {
         impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             type State = ($($name::State,)*);
 
-            fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
-                item: QueryItem<'wlong, 'slong, Self>,
-            ) -> QueryItem<'wshort, 'sshort, Self> {
+            fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
                 let ($($name,)*) = item;
                 ($(
                     $name::shrink($name),
@@ -1529,7 +1515,7 @@ macro_rules! impl_tuple_fetch {
         }
 
         /// SAFETY: each item in the tuple is read only
-        unsafe impl<'w, 's, $($name: ReadOnlyFetch<'w, 's>),*> ReadOnlyFetch<'w, 's> for ($($name,)*) {}
+        unsafe impl<'w, $($name: ReadOnlyFetch<'w>),*> ReadOnlyFetch<'w> for ($($name,)*) {}
 
     };
 }
@@ -1545,7 +1531,7 @@ macro_rules! impl_anytuple_fetch {
     ($(($name: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, 's, $($name: FetchInit<'w, 's>),*> FetchInit<'w, 's> for AnyOf<($($name,)*)> {
+        impl<'w, $($name: FetchInit<'w>),*> FetchInit<'w> for AnyOf<($($name,)*)> {
             type Fetch = AnyOf<($(($name::Fetch, bool),)*)>;
             type Item = ($(Option<$name::Item>,)*);
 
@@ -1554,12 +1540,12 @@ macro_rules! impl_anytuple_fetch {
         }
 
         #[allow(non_snake_case)]
-        impl<'w, 's, $($name: Fetch<'w, 's>),*> Fetch<'w, 's> for AnyOf<($(($name, bool),)*)> {
+        impl<'w, $($name: Fetch<'w>),*> Fetch<'w> for AnyOf<($(($name, bool),)*)> {
             type Item = ($(Option<$name::Item>,)*);
             type State = AnyOf<($($name::State,)*)>;
 
             #[allow(clippy::unused_unit)]
-            unsafe fn init(_world: &'w World, state: &'s Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
+            unsafe fn init(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
                 let ($($name,)*) = &state.0;
                 AnyOf(($(($name::init(_world, $name, _last_change_tick, _change_tick), false),)*))
             }
@@ -1568,7 +1554,7 @@ macro_rules! impl_anytuple_fetch {
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             #[inline]
-            unsafe fn set_archetype(&mut self, _state: &'s Self::State, _archetype: &'w Archetype, _tables: &'w Tables) {
+            unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &'w Archetype, _tables: &'w Tables) {
                 let ($($name,)*) = &mut self.0;
                 let ($($state,)*) = &_state.0;
                 $(
@@ -1580,7 +1566,7 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline]
-            unsafe fn set_table(&mut self, _state: &'s Self::State, _table: &'w Table) {
+            unsafe fn set_table(&mut self, _state: &Self::State, _table: &'w Table) {
                 let ($($name,)*) = &mut self.0;
                 let ($($state,)*) = &_state.0;
                 $(
@@ -1651,9 +1637,7 @@ macro_rules! impl_anytuple_fetch {
 
             type State = AnyOf<($($name::State,)*)>;
 
-            fn shrink<'wlong: 'wshort, 'slong: 'sshort, 'wshort, 'sshort>(
-                item: QueryItem<'wlong, 'slong, Self>,
-            ) -> QueryItem<'wshort, 'sshort, Self> {
+            fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
                 let ($($name,)*) = item;
                 ($(
                     $name.map($name::shrink),
@@ -1662,7 +1646,7 @@ macro_rules! impl_anytuple_fetch {
         }
 
         /// SAFETY: each item in the tuple is read only
-        unsafe impl<'w, 's, $($name: ReadOnlyFetch<'w, 's>),*> ReadOnlyFetch<'w, 's> for AnyOf<($(($name, bool),)*)> {}
+        unsafe impl<'w, $($name: ReadOnlyFetch<'w>),*> ReadOnlyFetch<'w> for AnyOf<($(($name, bool),)*)> {}
 
     };
 }
@@ -1677,7 +1661,7 @@ pub struct NopFetch<State> {
     state: PhantomData<State>,
 }
 
-impl<'w, 's, State: FetchState> Fetch<'w, 's> for NopFetch<State> {
+impl<'w, State: FetchState> Fetch<'w> for NopFetch<State> {
     type Item = ();
     type State = State;
 

@@ -141,7 +141,7 @@ impl<C, F> Default for ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C>
 where
-    for<'w, 's> QueryFetch<'w, 's, C::Filter>: FilterFetch<'w, 's>,
+    for<'w> QueryFetch<'w, C::Filter>: FilterFetch<'w>,
 {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -166,7 +166,7 @@ fn extract_components<C: ExtractComponent>(
     mut previous_len: Local<usize>,
     mut query: StaticSystemParam<Query<(Entity, C::Query), C::Filter>>,
 ) where
-    for<'w, 's> QueryFetch<'w, 's, C::Filter>: FilterFetch<'w, 's>,
+    for<'w> QueryFetch<'w, C::Filter>: FilterFetch<'w>,
 {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in query.iter_mut() {
