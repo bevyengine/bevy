@@ -17,13 +17,13 @@ use crate::{
     storage::{Column, SparseSet, Storages},
     system::Resource,
 };
+use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
     fmt,
     mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
 };
-
 mod identifier;
 
 pub use identifier::WorldId;
@@ -463,6 +463,7 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
+        debug!("Despawning entity {:?}", entity);
         self.get_entity_mut(entity)
             .map(|e| {
                 e.despawn();

@@ -39,7 +39,7 @@ use std::marker::PhantomData;
 /// way to render [`Mesh`] entities with custom shader logic. For materials that can specialize their [`RenderPipelineDescriptor`]
 /// based on specific material values, see [`SpecializedMaterial`]. [`Material`] automatically implements [`SpecializedMaterial`]
 /// and can be used anywhere that type is used (such as [`MaterialPlugin`]).
-pub trait Material: Asset + RenderAsset {
+pub trait Material: Asset + RenderAsset + Sized {
     /// Returns this material's [`BindGroup`]. This should match the layout returned by [`Material::bind_group_layout`].
     fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
 
@@ -78,6 +78,7 @@ pub trait Material: Asset + RenderAsset {
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
+        pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
     ) -> Result<(), SpecializedMeshPipelineError> {
@@ -93,11 +94,12 @@ impl<M: Material> SpecializedMaterial for M {
 
     #[inline]
     fn specialize(
+        pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        <M as Material>::specialize(descriptor, layout)
+        <M as Material>::specialize(pipeline, descriptor, layout)
     }
 
     #[inline]
@@ -137,7 +139,7 @@ impl<M: Material> SpecializedMaterial for M {
 /// way to render [`Mesh`] entities with custom shader logic. [`SpecializedMaterials`](SpecializedMaterial) use their [`SpecializedMaterial::Key`]
 /// to customize their [`RenderPipelineDescriptor`] based on specific material values. The slightly simpler [`Material`] trait
 /// should be used for materials that do not need specialization. [`Material`] types automatically implement [`SpecializedMaterial`].
-pub trait SpecializedMaterial: Asset + RenderAsset {
+pub trait SpecializedMaterial: Asset + RenderAsset + Sized {
     /// The key used to specialize this material's [`RenderPipelineDescriptor`].
     type Key: PartialEq + Eq + Hash + Clone + Send + Sync;
 
@@ -148,6 +150,7 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
 
     /// Specializes the given `descriptor` according to the given `key`.
     fn specialize(
+        pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
@@ -251,7 +254,7 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
         let descriptor_layout = descriptor.layout.as_mut().unwrap();
         descriptor_layout.insert(1, self.material_layout.clone());
 
-        M::specialize(&mut descriptor, key.material_key, layout)?;
+        M::specialize(self, &mut descriptor, key.material_key, layout)?;
         Ok(descriptor)
     }
 }
