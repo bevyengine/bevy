@@ -2,6 +2,9 @@
 
 #![warn(missing_docs)]
 
+mod animatable;
+mod util;
+
 use std::ops::Deref;
 
 use bevy_app::{App, CoreStage, Plugin};
@@ -25,7 +28,8 @@ use bevy_utils::{tracing::warn, HashMap};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, VariableCurve,
+        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes,
+        VariableCurve,
     };
 }
 
