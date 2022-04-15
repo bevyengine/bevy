@@ -3,8 +3,9 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{RenderApp, RenderStage},
+    render::{camera::CameraProjection, primitives::Frustum, RenderApp, RenderStage},
 };
+use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
@@ -55,6 +56,7 @@ fn setup(
     // the same number of visible meshes regardless of the viewing angle.
     // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
     let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
+    let mut rng = thread_rng();
     for i in 0..N_LIGHTS {
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
@@ -62,6 +64,7 @@ fn setup(
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
+                color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
@@ -70,7 +73,23 @@ fn setup(
     }
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle::default());
+    match std::env::args().nth(1).as_deref() {
+        Some("orthographic") => {
+            let mut orthographic_camera_bundle = OrthographicCameraBundle::new_3d();
+            orthographic_camera_bundle.orthographic_projection.scale = 20.0;
+            let view_projection = orthographic_camera_bundle
+                .orthographic_projection
+                .get_projection_matrix();
+            orthographic_camera_bundle.frustum = Frustum::from_view_projection(
+                &view_projection,
+                &Vec3::ZERO,
+                &Vec3::Z,
+                orthographic_camera_bundle.orthographic_projection.far(),
+            );
+            commands.spawn_bundle(orthographic_camera_bundle)
+        }
+        _ => commands.spawn_bundle(PerspectiveCameraBundle::default()),
+    };
 
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
