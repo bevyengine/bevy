@@ -389,6 +389,13 @@ impl Clusters {
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
         debug_assert!(self.dimensions.x * self.dimensions.y * self.dimensions.z <= 4096);
     }
+    fn clear(&mut self) {
+        self.tile_size = UVec2::ONE;
+        self.dimensions = UVec3::ONE;
+        self.near = 0.0;
+        self.far = 0.0;
+        self.lights.clear();
+    }
 }
 
 fn clip_to_view(inverse_projection: Mat4, clip: Vec4) -> Vec4 {
@@ -722,17 +729,22 @@ pub(crate) fn assign_lights_to_clusters(
     for (view_entity, camera_transform, camera, frustum, config, clusters, mut visible_lights) in
         views.iter_mut()
     {
+        let clusters = clusters.into_inner();
+
         if matches!(config, ClusterConfig::None) && visible_lights.is_some() {
             commands.entity(view_entity).remove::<VisiblePointLights>();
+            clusters.clear();
             continue;
         }
 
-        let clusters = clusters.into_inner();
-        let screen_size = camera.target.get_physical_size(&windows, &images);
+        let screen_size =
+            if let Some(screen_size) = camera.target.get_physical_size(&windows, &images) {
+                screen_size
+            } else {
+                clusters.clear();
+                continue;
+            };
 
-        clusters.lights.clear();
-
-        let screen_size = screen_size.unwrap_or_default();
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
         let view_transform = camera_transform.compute_matrix();
@@ -862,10 +874,6 @@ pub(crate) fn assign_lights_to_clusters(
             VisiblePointLights::default,
         );
 
-        if screen_size.x == 0 || screen_size.y == 0 {
-            continue;
-        }
-
         // Calculate the x/y/z cluster frustum planes in view space
         let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
         let mut y_planes = Vec::with_capacity(clusters.dimensions.y as usize + 1);
@@ -923,16 +931,7 @@ pub(crate) fn assign_lights_to_clusters(
             z_planes.push(Plane::new(normal.extend(d)));
         }
 
-        let mut visible_lights_scratch = Vec::new();
-
-        {
-            // reuse existing visible lights Vec, if it exists
-            let visible_lights = if let Some(visible_lights) = visible_lights.as_mut() {
-                visible_lights.entities.clear();
-                &mut visible_lights.entities
-            } else {
-                &mut visible_lights_scratch
-            };
+        let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
             for light in lights.iter() {
                 let light_sphere = Sphere {
                     center: Vec3A::from(light.translation),
@@ -1085,12 +1084,18 @@ pub(crate) fn assign_lights_to_clusters(
                     }
                 }
             }
-        }
+        };
 
-        if visible_lights.is_none() {
-            commands.entity(view_entity).insert(VisiblePointLights {
-                entities: visible_lights_scratch,
-            });
+        // reuse existing visible lights Vec, if it exists
+        if let Some(visible_lights) = visible_lights.as_mut() {
+            visible_lights.entities.clear();
+            update_from_light_intersections(&mut visible_lights.entities);
+        } else {
+            let mut entities = Vec::new();
+            update_from_light_intersections(&mut entities);
+            commands
+                .entity(view_entity)
+                .insert(VisiblePointLights { entities });
         }
     }
 }
