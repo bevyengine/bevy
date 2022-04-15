@@ -32,9 +32,9 @@ pub trait Command: Send + Sync + 'static {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-///
+/// #
 /// fn my_system(mut commands: Commands) {
-///     // ...
+///    // ...
 /// }
 /// ```
 ///
