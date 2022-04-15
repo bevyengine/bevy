@@ -391,7 +391,7 @@ impl Clusters {
     }
     fn clear(&mut self) {
         self.tile_size = UVec2::ONE;
-        self.dimensions = UVec3::ONE;
+        self.dimensions = UVec3::ZERO;
         self.near = 0.0;
         self.far = 0.0;
         self.lights.clear();
