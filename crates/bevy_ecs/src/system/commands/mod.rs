@@ -17,23 +17,28 @@ pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
-/// A list of commands that modify a [`World`], running at the end of the stage where they
-/// have been invoked.
+/// A list of commands that runs at the end of the stage of the system.
+///
+/// Each command can be used to modify the [`World`] for things like:
+/// * spawning entities
+/// * inserting components on new or existing entities
+/// * inserting resources
+/// * etc.
 ///
 /// # Usage
 ///
-/// `Commands` is a [`SystemParam`](crate::system::SystemParam), therefore it is declared
-/// as a function parameter:
+/// To use it, you can delcare it as a function parameter of any system since it implements [`SystemParam`](crate::system::SystemParam).
+/// It's also important to declare `commands` as `mut`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// #
+///
 /// fn my_system(mut commands: Commands) {
-///    // ...
+///     // ...
 /// }
 /// ```
 ///
-/// Then, commands can be invoked by calling the methods of `commands`.
+/// Each commands are implemented as specific methods. They all have their own documentation explaining how to use them.
 pub struct Commands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,
