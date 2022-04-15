@@ -27,7 +27,7 @@ pub trait Command: Send + Sync + 'static {
 ///
 /// # Usage
 ///
-/// To use it, you can delcare it as a function parameter of any system since it implements [`SystemParam`](crate::system::SystemParam).
+/// To use it, you can declare it as a function parameter of any system since it implements [`SystemParam`](crate::system::SystemParam).
 /// It's also important to declare `commands` as `mut`.
 ///
 /// ```
