@@ -54,7 +54,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Implement init_resource for `Commands` and `World`][3079]
 - [Added method to restart the current state][3328]
 - [Simplify sending empty events][2935]
-- [impl Command for <impl FnOnce(&mut World)>][2996]
+- [impl Command for `impl FnOnce(&mut World)`][2996]
 - [Useful error message when two assets have the save UUID][3739]
 - [bevy_asset: Add AssetServerSettings watch_for_changes member][3643]
 - [Add conversio from Color to u32][4088]
@@ -82,13 +82,13 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Add generic systems example][2636]
 - [add examples on how to have a data source running in another thread / in a task pool thread][2915]
 - [Simple 2d rotation example][3065]
-- [Add move sprite example. ][2414]
+- [Add move sprite example.][2414]
 - [add an example using UI & states to create a game menu][2960]
 - [CI runs `cargo miri test -p bevy_ecs`][4310]
 - [Tracy spans around main 3D passes][4182]
 - [Add automatic docs deployment to GitHub Pages][3535]
 
-### Changed 
+### Changed
 
 - [Proper prehashing][3963]
 - [Move import_path definitions into shader source][3976]
