@@ -38,7 +38,7 @@ pub trait Command: Send + Sync + 'static {
 /// }
 /// ```
 ///
-/// Each commands are implemented as specific methods. They all have their own documentation explaining how to use them.
+/// Each commands are implemented as separate methods. They all have their own documentation explaining how to use them.
 pub struct Commands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,
