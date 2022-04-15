@@ -1,7 +1,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    pbr::{ClusterConfig, ClusterZConfig, ExtractedPointLight, GlobalLightMeta},
+    pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::CameraProjection, primitives::Frustum, RenderApp, RenderStage},
 };
@@ -73,7 +73,7 @@ fn setup(
     }
 
     // camera
-    let mut camera = match std::env::args().nth(1).as_deref() {
+    match std::env::args().nth(1).as_deref() {
         Some("orthographic") => {
             let mut orthographic_camera_bundle = OrthographicCameraBundle::new_3d();
             orthographic_camera_bundle.orthographic_projection.scale = 20.0;
@@ -90,21 +90,6 @@ fn setup(
         }
         _ => commands.spawn_bundle(PerspectiveCameraBundle::default()),
     };
-
-    // NOTE: The lights in this example are distributed primarily in x and y across the
-    // screen. Using only 1 z-slice and letting the x,y slicing be calculated
-    // automatically produces much better light distribution across the clusters (i.e.
-    // fewer maximum lights in any one cluster). The consequences of this versus the
-    // default on an M1 Max means going from ~65fps to ~130fps!!!
-    camera.insert(ClusterConfig::FixedZ {
-        total: 4096,
-        z_slices: 1,
-        z_config: ClusterZConfig {
-            first_slice_depth: 5.0,
-            far_z_mode: bevy::pbr::ClusterFarZMode::MaxLightRange,
-        },
-        dynamic_resizing: true,
-    });
 
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
