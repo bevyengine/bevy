@@ -17,7 +17,7 @@ pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
-/// A list of commands that runs at the end of the stage of the system.
+/// A list of commands that runs at the end of the stage of the system that called them.
 ///
 /// Each command can be used to modify the [`World`] for things like:
 /// * spawning entities
