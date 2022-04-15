@@ -1,6 +1,9 @@
 mod render_layers;
 
+use std::sync::Arc;
+
 use bevy_math::Vec3A;
+use parking_lot::RwLock;
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
@@ -148,72 +151,70 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 }
 
 pub fn check_visibility(
+    pool: Res<bevy_tasks::prelude::ComputeTaskPool>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
-    mut visible_entity_query: ParamSet<(
-        Query<&mut ComputedVisibility>,
-        Query<(
-            Entity,
-            &Visibility,
-            &mut ComputedVisibility,
-            Option<&RenderLayers>,
-            Option<&Aabb>,
-            Option<&NoFrustumCulling>,
-            Option<&GlobalTransform>,
-        )>,
+    mut visible_entity_query: Query<(
+        Entity,
+        &Visibility,
+        &mut ComputedVisibility,
+        Option<&RenderLayers>,
+        Option<&Aabb>,
+        Option<&NoFrustumCulling>,
+        Option<&GlobalTransform>,
     )>,
 ) {
-    // Reset the computed visibility to false
-    for mut computed_visibility in visible_entity_query.p0().iter_mut() {
-        computed_visibility.is_visible = false;
-    }
-
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (
-            entity,
-            visibility,
-            mut computed_visibility,
-            maybe_entity_mask,
-            maybe_aabb,
-            maybe_no_frustum_culling,
-            maybe_transform,
-        ) in visible_entity_query.p1().iter_mut()
-        {
-            if !visibility.is_visible {
-                continue;
-            }
+        let viz = Arc::new(RwLock::new(Vec::new()));
 
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
-                continue;
-            }
+        visible_entity_query.par_for_each_mut(
+            &pool,
+            32,
+            move |(
+                entity,
+                visibility,
+                mut computed_visibility,
+                maybe_entity_mask,
+                maybe_aabb,
+                maybe_no_frustum_culling,
+                maybe_transform,
+            )| {
+                computed_visibility.is_visible = false;
+                if visibility.is_visible {
+                    let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                    if view_mask.intersects(&entity_mask) {
+                        let mut skip = false;
+                        // If we have an aabb and transform, do frustum culling
+                        if let (Some(model_aabb), None, Some(transform)) =
+                            (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
+                        {
+                            let model = transform.compute_matrix();
+                            let model_sphere = Sphere {
+                                center: model.transform_point3a(model_aabb.center),
+                                radius: (Vec3A::from(transform.scale) * model_aabb.half_extents)
+                                    .length(),
+                            };
+                            // Do quick sphere-based frustum culling
+                            if !frustum.intersects_sphere(&model_sphere, false) {
+                                skip = true;
+                            }
+                            // If we have an aabb, do aabb-based frustum culling
+                            if !frustum.intersects_obb(model_aabb, &model, false) {
+                                skip = true;
+                            }
+                        }
 
-            // If we have an aabb and transform, do frustum culling
-            if let (Some(model_aabb), None, Some(transform)) =
-                (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
-            {
-                let model = transform.compute_matrix();
-                let model_sphere = Sphere {
-                    center: model.transform_point3a(model_aabb.center),
-                    radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
-                };
-                // Do quick sphere-based frustum culling
-                if !frustum.intersects_sphere(&model_sphere, false) {
-                    continue;
+                        if !skip {
+                            computed_visibility.is_visible = true;
+                            viz.write().push(entity);
+                        }
+                    }
+                    // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
+                    // to prevent holding unneeded memory
                 }
-                // If we have an aabb, do aabb-based frustum culling
-                if !frustum.intersects_obb(model_aabb, &model, false) {
-                    continue;
-                }
-            }
-
-            computed_visibility.is_visible = true;
-            visible_entities.entities.push(entity);
-        }
-
-        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
-        // to prevent holding unneeded memory
+            },
+        );
     }
 }
