@@ -9,10 +9,10 @@ pub(crate) fn approx_rsqrt(x: f32) -> f32 {
     let mut y: f32 = x;
 
     let mut i: i32 = y.to_bits() as i32;
-    i = 0x5f3759df - (i >> 1);
+    i = 0x5f1ffff9 - (i >> 1);
     y = f32::from_bits(i as u32);
 
-    y = y * (1.5 - (x2 * y * y));
+    y = 0.703952253 * y * (2.38924456 - (x2 * y * y));
     y
 }
 
