@@ -642,8 +642,13 @@ pub(crate) fn assign_lights_to_clusters(
     lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut max_point_lights_warning_emitted: Local<bool>,
-    render_device: Res<RenderDevice>,
+    render_device: Option<Res<RenderDevice>>,
 ) {
+    let render_device = match render_device {
+        Some(render_device) => render_device,
+        None => return,
+    };
+
     global_lights.entities.clear();
     lights.clear();
     // collect just the relevant light query data into a persisted vec to avoid reallocating each frame
