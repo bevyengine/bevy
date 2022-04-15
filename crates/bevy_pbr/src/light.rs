@@ -731,8 +731,10 @@ pub(crate) fn assign_lights_to_clusters(
     {
         let clusters = clusters.into_inner();
 
-        if matches!(config, ClusterConfig::None) && visible_lights.is_some() {
-            commands.entity(view_entity).remove::<VisiblePointLights>();
+        if matches!(config, ClusterConfig::None) {
+            if visible_lights.is_some() {
+                commands.entity(view_entity).remove::<VisiblePointLights>();
+            }
             clusters.clear();
             continue;
         }
