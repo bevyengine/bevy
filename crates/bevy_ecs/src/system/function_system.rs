@@ -257,26 +257,6 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 pub trait IntoSystem<In, Out, Params>: Sized {
     type System: System<In = In, Out = Out>;
     /// Turns this value into its corresponding [`System`].
-    ///
-    /// Use of this method was formerly required whenever adding a `system` to an `App`.
-    /// or other cases where a system is required.
-    /// However, since [#2398](https://github.com/bevyengine/bevy/pull/2398),
-    /// this is no longer required.
-    ///
-    /// In future, this method will be removed.
-    ///
-    /// One use of this method is to assert that a given function is a valid system.
-    /// For this case, use [`bevy_ecs::system::assert_is_system`] instead.
-    ///
-    /// [`bevy_ecs::system::assert_is_system`]: [`crate::system::assert_is_system`]:
-    #[deprecated(
-        since = "0.7.0",
-        note = "`.system()` is no longer needed, as methods which accept systems will convert functions into a system automatically"
-    )]
-    fn system(self) -> Self::System {
-        IntoSystem::into_system(self)
-    }
-    /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 }
 

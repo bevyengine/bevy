@@ -1125,6 +1125,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::
     /// #
     /// # #[derive(Component)]
     /// # struct InRange;
@@ -1138,7 +1139,7 @@ where
     ///         println!("Bam!")
     ///     }
     /// }
-    /// # targeting_system.system();
+    /// # bevy_ecs::system::assert_is_system(targeting_system);
     /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
