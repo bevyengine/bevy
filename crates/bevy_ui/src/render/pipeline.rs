@@ -74,7 +74,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 // uv
                 VertexFormat::Float32x2,
                 // color
-                VertexFormat::Uint32,
+                VertexFormat::Float32x4,
             ],
         );
         let shader_defs = Vec::new();
