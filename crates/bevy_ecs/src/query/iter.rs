@@ -4,7 +4,7 @@ use crate::{
     storage::{TableId, Tables},
     world::World,
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use super::{QueryFetch, QueryItem, ReadOnlyFetch};
 
@@ -184,22 +184,32 @@ where
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
-        let mut first = true;
-        let cursors = [(); K].map(|_| {
-            if first {
-                first = false;
-                QueryIterationCursor::init(world, query_state, last_change_tick, change_tick)
-            } else {
-                QueryIterationCursor::init_empty(world, query_state, last_change_tick, change_tick)
-            }
-        });
+        let mut array: MaybeUninit<[QueryIterationCursor<'w, 's, Q, QueryFetch<'w, Q>, F>; K]> =
+            MaybeUninit::uninit();
+        let ptr = array
+            .as_mut_ptr()
+            .cast::<QueryIterationCursor<'w, 's, Q, QueryFetch<'w, Q>, F>>();
+        ptr.write(QueryIterationCursor::init(
+            world,
+            query_state,
+            last_change_tick,
+            change_tick,
+        ));
+        for slot in (1..K).map(|offset| ptr.add(offset)) {
+            slot.write(QueryIterationCursor::init_empty(
+                world,
+                query_state,
+                last_change_tick,
+                change_tick,
+            ));
+        }
 
         QueryCombinationIter {
             world,
             query_state,
             tables: &world.storages().tables,
             archetypes: &world.archetypes,
-            cursors,
+            cursors: array.assume_init(),
         }
     }
 
@@ -238,10 +248,14 @@ where
             }
         }
 
-        let mut cursors = self.cursors.iter_mut();
-        let values = [(); K].map(|_| cursors.next().unwrap().peek_last().unwrap());
+        let mut values = MaybeUninit::<[QueryItem<'w, Q>; K]>::uninit();
 
-        Some(values)
+        let ptr = values.as_mut_ptr().cast::<QueryItem<'w, Q>>();
+        for (offset, cursor) in self.cursors.iter_mut().enumerate() {
+            ptr.add(offset).write(cursor.peek_last().unwrap())
+        }
+
+        Some(values.assume_init())
     }
 
     /// Get next combination of queried components
