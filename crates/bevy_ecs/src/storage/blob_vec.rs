@@ -139,11 +139,9 @@ impl BlobVec {
         // done.
         let old_len = self.len;
         self.len = 0;
-        let drop = self.drop;
-        let old_val = self.get_unchecked_mut(index).promote();
-        let ptr = old_val.inner();
+        let ptr = self.get_unchecked_mut(index).promote().inner();
         // Drop the old value, then write back, justifying the promotion
-        (drop)(old_val);
+        (self.drop)(OwningPtr::new(ptr));
         std::ptr::copy_nonoverlapping(
             value.inner().as_ptr(),
             ptr.as_ptr(),
