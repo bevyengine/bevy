@@ -674,7 +674,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
                 debug_assert!(archetype_index < entity_table_rows.len());
                 let table_row = *entity_table_rows.get_unchecked(archetype_index);
                 debug_assert!(table_row < table_components.len());
-                table_components.get_unchecked(table_row).deref_mut()
+                table_components.get_unchecked(table_row).deref()
             }
             StorageType::SparseSet => {
                 let (entities, sparse_set) = self
@@ -694,7 +694,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
             .table_components
             .unwrap_or_else(|| debug_checked_unreachable());
         debug_assert!(table_row < components.len());
-        components.get_unchecked(table_row).deref_mut()
+        components.get_unchecked(table_row).deref()
     }
 }
 
@@ -999,7 +999,7 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
                 debug_assert!(archetype_index < entity_table_rows.len());
                 let table_row = *entity_table_rows.get_unchecked(archetype_index);
                 debug_assert!(table_row < table_components.len());
-                table_components.get_unchecked(table_row).deref_mut()
+                table_components.get_unchecked(table_row).deref()
             }
             StorageType::SparseSet => {
                 let (entities, sparse_set) = self
@@ -1019,7 +1019,7 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
             .table_components
             .unwrap_or_else(|| debug_checked_unreachable());
         debug_assert!(table_row < components.len());
-        components.get_unchecked(table_row).deref_mut()
+        components.get_unchecked(table_row).deref()
     }
 }
 
