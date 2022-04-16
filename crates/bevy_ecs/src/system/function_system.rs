@@ -249,7 +249,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// fn my_system_function(an_usize_resource: Res<usize>) {}
 ///
-/// let system = IntoSystem::system(my_system_function);
+/// let system = IntoSystem::into_system(my_system_function);
 /// ```
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
@@ -302,7 +302,7 @@ pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
-/// You get this by calling [`IntoSystem::system`]  on a function that only accepts
+/// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
