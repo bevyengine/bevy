@@ -9,6 +9,7 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_ecs_macros::all_tuples;
+pub use bevy_ecs_macros::WorldQuery;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be queried from a [`World`].
@@ -70,10 +71,10 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// struct Bar;
 ///
 /// #[derive(WorldQuery)]
-/// struct MyQuery<'w> {
+/// struct MyQuery {
 ///     entity: Entity,
-///     foo: &'w Foo,
-///     bar: Option<&'w Bar>,
+///     foo: &'static Foo,
+///     bar: Option<&'static Bar>,
 /// }
 ///
 /// fn my_system(query: Query<MyQuery>) {
@@ -103,9 +104,9 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// #[derive(WorldQuery)]
 /// #[world_query(mutable)]
-/// struct HealthQuery<'w> {
-///     health: &'w mut Health,
-///     buff: Option<&'w mut Buff>,
+/// struct HealthQuery {
+///     health: &'static mut Health,
+///     buff: Option<&'static mut Buff>,
 /// }
 ///
 /// // This implementation is only available when iterating with `iter_mut`.
@@ -156,15 +157,15 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// struct Bar;
 ///
 /// #[derive(WorldQuery)]
-/// struct FooQuery<'w> {
-///     foo: &'w Foo,
-///     bar_query: BarQuery<'w>,
+/// struct FooQuery {
+///     foo: &'static Foo,
+///     bar_query: BarQuery,
 /// }
 ///
 /// #[derive(WorldQuery)]
 /// #[world_query(mutable)]
-/// struct BarQuery<'w> {
-///     bar: &'w mut Bar,
+/// struct BarQuery {
+///     bar: &'static mut Bar,
 /// }
 /// ```
 ///
@@ -185,8 +186,8 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// #[derive(WorldQuery)]
 /// #[world_query(mutable, derive(Debug))]
-/// struct FooQuery<'w> {
-///     foo: &'w Foo,
+/// struct FooQuery {
+///     foo: &'static Foo,
 /// }
 ///
 /// fn assert_debug<T: std::fmt::Debug>() {}
@@ -215,15 +216,15 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// struct OptionalBar;
 ///
 /// #[derive(WorldQuery)]
-/// struct MyQuery<'w> {
-///     foo: FooQuery<'w>,
-///     bar: (&'w Bar, Option<&'w OptionalBar>)
+/// struct MyQuery {
+///     foo: FooQuery,
+///     bar: (&'static Bar, Option<&'static OptionalBar>)
 /// }
 ///
 /// #[derive(WorldQuery)]
-/// struct FooQuery<'w> {
-///     foo: &'w Foo,
-///     optional_foo: Option<&'w OptionalFoo>,
+/// struct FooQuery {
+///     foo: &'static Foo,
+///     optional_foo: Option<&'static OptionalFoo>,
 /// }
 ///
 /// // You can also compose derived queries with regular ones in tuples.
@@ -248,9 +249,8 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// use bevy_ecs::query::WorldQuery;
 ///
 /// #[derive(WorldQuery, Debug)]
-/// struct EmptyQuery<'w> {
-///     #[world_query(ignore)]
-///     _w: std::marker::PhantomData<&'w ()>,
+/// struct EmptyQuery {
+///     empty: (),
 /// }
 ///
 /// fn my_system(query: Query<EmptyQuery>) {
@@ -288,8 +288,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///     _bar: With<Bar>,
 ///     _or: Or<(With<Baz>, Changed<Foo>, Added<Bar>)>,
 ///     _generic_tuple: (With<T>, Without<P>),
-///     #[world_query(ignore)]
-///     _tp: std::marker::PhantomData<(T, P)>,
 /// }
 ///
 /// fn my_system(query: Query<Entity, MyFilter<Foo, Qux>>) {
@@ -313,7 +311,8 @@ pub trait FetchInit<'world>: FetchState {
     type Fetch: Fetch<'world, State = Self, Item = Self::Item>;
     type Item;
 
-    type ReadOnlyFetch: Fetch<'world, State = Self, Item = Self::ReadOnlyItem>;
+    type ReadOnlyFetch: Fetch<'world, State = Self, Item = Self::ReadOnlyItem>
+        + ReadOnlyFetch<'world>;
     type ReadOnlyItem;
 }
 
