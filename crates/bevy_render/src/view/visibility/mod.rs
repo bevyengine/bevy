@@ -167,12 +167,12 @@ pub fn check_visibility(
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        let viz = Arc::new(RwLock::new(Vec::new()));
+        let visible_entity_pointer = Arc::new(RwLock::new(Vec::new()));
 
         visible_entity_query.par_for_each_mut(
             &pool,
             32,
-            move |(
+            |(
                 entity,
                 visibility,
                 mut computed_visibility,
@@ -181,40 +181,45 @@ pub fn check_visibility(
                 maybe_no_frustum_culling,
                 maybe_transform,
             )| {
+                // Reset visibility
                 computed_visibility.is_visible = false;
-                if visibility.is_visible {
-                    let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                    if view_mask.intersects(&entity_mask) {
-                        let mut skip = false;
-                        // If we have an aabb and transform, do frustum culling
-                        if let (Some(model_aabb), None, Some(transform)) =
-                            (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
-                        {
-                            let model = transform.compute_matrix();
-                            let model_sphere = Sphere {
-                                center: model.transform_point3a(model_aabb.center),
-                                radius: (Vec3A::from(transform.scale) * model_aabb.half_extents)
-                                    .length(),
-                            };
-                            // Do quick sphere-based frustum culling
-                            if !frustum.intersects_sphere(&model_sphere, false) {
-                                skip = true;
-                            }
-                            // If we have an aabb, do aabb-based frustum culling
-                            if !frustum.intersects_obb(model_aabb, &model, false) {
-                                skip = true;
-                            }
-                        }
 
-                        if !skip {
-                            computed_visibility.is_visible = true;
-                            viz.write().push(entity);
-                        }
-                    }
-                    // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
-                    // to prevent holding unneeded memory
+                if !visibility.is_visible {
+                    return;
                 }
+
+                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                if !view_mask.intersects(&entity_mask) {
+                    return;
+                }
+
+                // If we have an aabb and transform, do frustum culling
+                if let (Some(model_aabb), None, Some(transform)) =
+                    (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
+                {
+                    let model = transform.compute_matrix();
+                    let model_sphere = Sphere {
+                        center: model.transform_point3a(model_aabb.center),
+                        radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
+                    };
+                    // Do quick sphere-based frustum culling
+                    if !frustum.intersects_sphere(&model_sphere, false) {
+                        return;
+                    }
+                    // If we have an aabb, do aabb-based frustum culling
+                    if !frustum.intersects_obb(model_aabb, &model, false) {
+                        return;
+                    }
+                }
+
+                computed_visibility.is_visible = true;
+                visible_entity_pointer.write().push(entity);
             },
         );
+
+        visible_entities.entities = Arc::try_unwrap(visible_entity_pointer)
+            .expect("wtf")
+            .into_inner()
+            .to_vec();
     }
 }
