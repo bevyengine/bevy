@@ -89,9 +89,9 @@ mod tests {
             a_query.iter_combinations::<5>(&world).size_hint(),
             (0, Some(0))
         );
-        assert_eq!(a_query.iter_combinations::<1024>(&world).count(), 0);
+        assert_eq!(a_query.iter_combinations::<128>(&world).count(), 0);
         assert_eq!(
-            a_query.iter_combinations::<1024>(&world).size_hint(),
+            a_query.iter_combinations::<128>(&world).size_hint(),
             (0, Some(0))
         );
 
