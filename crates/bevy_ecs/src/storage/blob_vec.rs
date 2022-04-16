@@ -115,7 +115,11 @@ impl BlobVec {
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked_mut(index);
-        std::ptr::copy_nonoverlapping(value.inner(), ptr.inner().as_ptr(), self.item_layout.size());
+        std::ptr::copy_nonoverlapping(
+            value.inner().as_ptr(),
+            ptr.inner().as_ptr(),
+            self.item_layout.size(),
+        );
     }
 
     /// # Safety
@@ -129,14 +133,22 @@ impl BlobVec {
     /// calling this function, and as such should not be used or dropped by the caller.
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
-        let ptr = self.get_unchecked_mut(index).inner();
         // If `drop` panics, then when the collection is dropped during stack unwinding, the
         // collection's `Drop` impl will call `drop` again for the old value (which is still stored
         // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
         // done.
-        let old_len = std::mem::replace(&mut self.len, 0);
-        (self.drop)(OwningPtr::new(ptr));
-        std::ptr::copy_nonoverlapping(value.inner(), ptr.as_ptr(), self.item_layout.size());
+        let old_len = self.len;
+        self.len = 0;
+        let drop = self.drop;
+        let old_val = self.get_unchecked_mut(index).promote();
+        let ptr = old_val.inner();
+        // Drop the old value, then write back, justifying the promotion
+        (drop)(old_val);
+        std::ptr::copy_nonoverlapping(
+            value.inner().as_ptr(),
+            ptr.as_ptr(),
+            self.item_layout.size(),
+        );
         self.len = old_len;
     }
 
@@ -241,12 +253,12 @@ impl BlobVec {
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
         // accidentally drop elements twice in the event of a drop impl panicking.
         self.len = 0;
+        let drop = self.drop;
+        let layout_size = self.item_layout.size();
         for i in 0..len {
             unsafe {
                 // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
                 // will panic here due to self.len being set to 0
-                let drop = self.drop;
-                let layout_size = self.item_layout.size();
                 let ptr = self.get_ptr_mut().add(i * layout_size).promote();
                 (drop)(ptr);
             }
@@ -331,7 +343,7 @@ mod tests {
 
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.inner().cast::<T>().drop_in_place()
+        x.inner().cast::<T>().as_ptr().drop_in_place()
     }
 
     /// # Safety

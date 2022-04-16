@@ -36,6 +36,10 @@ macro_rules! impl_ptr {
             pub unsafe fn new(inner: NonNull<u8>) -> Self {
                 Self(inner, PhantomData)
             }
+
+            pub fn inner(&self) -> NonNull<u8> {
+                self.0
+            }
         }
     };
 }
@@ -56,12 +60,8 @@ impl<'a> Ptr<'a> {
 }
 impl_ptr!(PtrMut);
 impl<'a> PtrMut<'a> {
-    pub fn inner(self) -> NonNull<u8> {
-        self.0
-    }
-
     /// # Safety
-    /// must have right to drop or move out of [`PtrMut`], and current [`PtrMut`] should not be accessed again unless it's written to again.
+    /// Must have right to drop or move out of [`PtrMut`], and current [`PtrMut`] should not be accessed again unless it's written to again.
     pub unsafe fn promote(self) -> OwningPtr<'a> {
         OwningPtr(self.0, PhantomData)
     }
@@ -74,10 +74,6 @@ impl<'a> PtrMut<'a> {
 }
 impl_ptr!(OwningPtr);
 impl<'a> OwningPtr<'a> {
-    pub fn inner(self) -> *mut u8 {
-        self.0.as_ptr()
-    }
-
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
         let mut temp = MaybeUninit::new(val);
         let ptr = unsafe { NonNull::new_unchecked(temp.as_mut_ptr().cast::<u8>()) };
@@ -87,7 +83,7 @@ impl<'a> OwningPtr<'a> {
     /// # Safety
     /// must point to a valid `T`.
     pub unsafe fn read<T>(self) -> T {
-        self.inner().cast::<T>().read()
+        self.inner().as_ptr().cast::<T>().read()
     }
 }
 

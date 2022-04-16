@@ -115,7 +115,7 @@ macro_rules! tuple_impl {
                 let ($(mut $name,)*) = (
                     $(func(ctx).inner().cast::<$name>(),)*
                 );
-                ($($name.read(),)*)
+                ($($name.as_ptr().read(),)*)
             }
 
             #[allow(unused_variables, unused_mut)]
