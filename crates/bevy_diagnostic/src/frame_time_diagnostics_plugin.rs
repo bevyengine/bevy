@@ -37,7 +37,7 @@ impl FrameTimeDiagnosticsPlugin {
         time: Res<Time>,
         mut state: ResMut<FrameTimeDiagnosticsState>,
     ) {
-        state.frame_count.wrapping_add(1);
+        state.frame_count = state.frame_count.wrapping_add(1);
         diagnostics.add_measurement(Self::FRAME_COUNT, state.frame_count as f64);
 
         if time.delta_seconds_f64() == 0.0 {
