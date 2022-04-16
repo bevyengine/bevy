@@ -693,7 +693,7 @@ where
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
     #[inline]
-    pub fn par_for_each<'w, 's, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
+    pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w World,
         task_pool: &TaskPool,
@@ -716,7 +716,7 @@ where
 
     /// Runs `func` on each query result in parallel using the given `task_pool`.
     #[inline]
-    pub fn par_for_each_mut<'w, 's, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
+    pub fn par_for_each_mut<'w, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w mut World,
         task_pool: &TaskPool,
