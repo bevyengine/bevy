@@ -239,9 +239,6 @@ mod tests {
         );
 
         let values: HashSet<[&A; 2]> = a_query_without_b.iter_combinations(&world).collect();
-        for val in &values {
-            let &[a, b] = val;
-        }
         assert_eq!(
             values,
             [[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]]
