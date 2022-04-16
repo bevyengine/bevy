@@ -360,8 +360,6 @@ pub fn prepare_uinodes(
         ]
         .map(|pos| pos / atlas_extent);
 
-        // encode color as a single u32 to save space
-
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
