@@ -1,9 +1,8 @@
 mod render_layers;
 
-use std::sync::Arc;
-
 use bevy_math::Vec3A;
-use parking_lot::RwLock;
+use crossbeam_channel::unbounded;
+
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
@@ -167,7 +166,7 @@ pub fn check_visibility(
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        let visible_entity_pointer = Arc::new(RwLock::new(Vec::new()));
+        let (visible_entity_sender, visible_entity_receiver) = unbounded();
 
         visible_entity_query.par_for_each_mut(
             &pool,
@@ -213,13 +212,10 @@ pub fn check_visibility(
                 }
 
                 computed_visibility.is_visible = true;
-                visible_entity_pointer.write().push(entity);
+                visible_entity_sender.send(entity).ok();
             },
         );
 
-        visible_entities.entities = Arc::try_unwrap(visible_entity_pointer)
-            .expect("Unable to unwrap visible entity Arc pointer.")
-            .into_inner()
-            .to_vec();
+        visible_entities.entities = visible_entity_receiver.try_iter().collect();
     }
 }
