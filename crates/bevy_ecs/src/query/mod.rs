@@ -190,9 +190,9 @@ mod tests {
             a_query_with_b.iter_combinations::<5>(&world).size_hint(),
             (0, Some(0))
         );
-        assert_eq!(a_query_with_b.iter_combinations::<1024>(&world).count(), 0);
+        assert_eq!(a_query_with_b.iter_combinations::<128>(&world).count(), 0);
         assert_eq!(
-            a_query_with_b.iter_combinations::<1024>(&world).size_hint(),
+            a_query_with_b.iter_combinations::<128>(&world).size_hint(),
             (0, Some(0))
         );
 
@@ -228,12 +228,12 @@ mod tests {
             (0, Some(0))
         );
         assert_eq!(
-            a_query_without_b.iter_combinations::<1024>(&world).count(),
+            a_query_without_b.iter_combinations::<128>(&world).count(),
             0
         );
         assert_eq!(
             a_query_without_b
-                .iter_combinations::<1024>(&world)
+                .iter_combinations::<128>(&world)
                 .size_hint(),
             (0, Some(0))
         );
