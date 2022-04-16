@@ -1,4 +1,8 @@
 mod render_layers;
+
+use bevy_math::Vec3A;
+use crossbeam_channel::unbounded;
+
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
@@ -162,7 +166,7 @@ pub fn check_visibility(
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        let (visible_entity_sender, visible_entity_receiver) = crossbeam_channel::unbounded();
+        let (visible_entity_sender, visible_entity_receiver) = unbounded();
 
         visible_entity_query.par_for_each_mut(
             &thread_pool,
