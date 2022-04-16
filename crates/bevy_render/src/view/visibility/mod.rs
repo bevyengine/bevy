@@ -218,7 +218,7 @@ pub fn check_visibility(
         );
 
         visible_entities.entities = Arc::try_unwrap(visible_entity_pointer)
-            .expect("wtf")
+            .expect("Unable to unwrap visible entity Arc pointer.")
             .into_inner()
             .to_vec();
     }
