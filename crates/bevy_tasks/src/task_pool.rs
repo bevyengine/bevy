@@ -145,7 +145,7 @@ impl TaskPool {
     ///
     /// ```compile_fail
     /// use bevy_tasks::TaskPool;
-    /// fn compile_fail() {
+    /// fn scope_escapes_closure() {
     ///     let pool = TaskPool::new();
     ///     let foo = Box::new(42);
     ///     pool.scope(|scope| {
@@ -158,6 +158,20 @@ impl TaskPool {
     ///     });
     /// }
     /// ```
+    ///
+    /// ```compile_fail
+    /// use bevy_tasks::TaskPool;
+    /// fn cannot_borrow_from_closure() {
+    ///     let pool = TaskPool::new();
+    ///     pool.scope(|scope| {
+    ///         let x = 1;
+    ///         let y = &x;
+    ///         scope.spawn(async move {
+    ///             assert_eq!(*y, 1);
+    ///         });
+    ///     });
+    /// }
+    ///
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
         F: for<'scope> FnOnce(&'env Scope<'scope, 'env, T>),
