@@ -138,8 +138,8 @@ impl BlobVec {
         // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
         // done.
         let old_len = self.len;
-        self.len = 0;
         let ptr = self.get_unchecked_mut(index).promote().inner();
+        self.len = 0;
         // Drop the old value, then write back, justifying the promotion
         (self.drop)(OwningPtr::new(ptr));
         std::ptr::copy_nonoverlapping(
