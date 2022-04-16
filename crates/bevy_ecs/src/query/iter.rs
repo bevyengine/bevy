@@ -189,12 +189,14 @@ where
         let ptr = array
             .as_mut_ptr()
             .cast::<QueryIterationCursor<'w, 's, Q, QueryFetch<'w, Q>, F>>();
-        ptr.write(QueryIterationCursor::init(
-            world,
-            query_state,
-            last_change_tick,
-            change_tick,
-        ));
+        if K != 0 {
+            ptr.write(QueryIterationCursor::init(
+                world,
+                query_state,
+                last_change_tick,
+                change_tick,
+            ));
+        }
         for slot in (1..K).map(|offset| ptr.add(offset)) {
             slot.write(QueryIterationCursor::init_empty(
                 world,
