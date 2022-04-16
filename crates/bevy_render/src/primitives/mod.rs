@@ -58,7 +58,7 @@ impl From<Sphere> for Aabb {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Sphere {
     pub center: Vec3A,
     pub radius: f32,

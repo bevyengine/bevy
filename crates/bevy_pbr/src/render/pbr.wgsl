@@ -240,17 +240,19 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
     return change_luminance(color, l_new);
 }
 
+// NOTE: Keep in sync with bevy_pbr/src/light.rs
 fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
+    var z_slice: u32 = 0u;
     if (is_orthographic) {
         // NOTE: view_z is correct in the orthographic case
-        return u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
+        z_slice = u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        return min(
-            u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0),
-            lights.cluster_dimensions.z - 1u
-        );
+        z_slice = u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0);
     }
+    // NOTE: We use min as we may limit the far z plane used for clustering to be closeer than
+    // the furthest thing being drawn. This means that we need to limit to the maximum cluster.
+    return min(z_slice, lights.cluster_dimensions.z - 1u);
 }
 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {

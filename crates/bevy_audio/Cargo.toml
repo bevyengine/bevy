@@ -1,6 +1,6 @@
 [package]
 name = "bevy_audio"
-version = "0.7.0-dev"
+version = "0.7.0"
 edition = "2021"
 description = "Provides audio functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -10,11 +10,11 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.7.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.7.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.7.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.7.0-dev", features = ["bevy"] }
-bevy_utils = { path = "../bevy_utils", version = "0.7.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.7.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.7.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.7.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.7.0", features = ["bevy"] }
+bevy_utils = { path = "../bevy_utils", version = "0.7.0" }
 
 # other
 anyhow = "1.0.4"
@@ -26,7 +26,7 @@ rodio = { version = "0.15", default-features = false, features = ["wasm-bindgen"
 
 [dev-dependencies]
 # bevy
-bevy_internal = { path = "../bevy_internal", version = "0.7.0-dev" }
+bevy_internal = { path = "../bevy_internal", version = "0.7.0" }
 
 [features]
 mp3 = ["rodio/mp3"]
