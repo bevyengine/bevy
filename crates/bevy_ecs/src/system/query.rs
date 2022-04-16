@@ -1125,7 +1125,6 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::
     /// #
     /// # #[derive(Component)]
     /// # struct InRange;
