@@ -28,8 +28,8 @@ pub trait Command: Send + Sync + 'static {
 ///
 /// # Usage
 ///
-/// To use it, you can declare it as a function parameter of any system since it implements [`SystemParam`](crate::system::SystemParam).
-/// It's also important to declare `commands` as `mut`.
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied at the end of the current stage.
+/// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
