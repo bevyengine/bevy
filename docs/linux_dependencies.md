@@ -54,6 +54,7 @@ Add your arch to the end of the package to remove the linker error. For example:
 ```bash
 sudo dnf install alsa-lib-devel.x86_64
 ```
+
 ## Fedora / Silverblue
 
 ```bash
