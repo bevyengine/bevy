@@ -22,13 +22,13 @@ impl<'a> Serializable<'a> {
     }
 }
 
-fn get_serializable<E: serde::ser::Error>(reflect_value: &dyn Reflect) -> Result<Serializable, E> {
-    reflect_value.serializable().ok_or_else(|| {
-        serde::ser::Error::custom(format_args!(
-            "Type '{}' does not support ReflectValue serialization",
-            reflect_value.type_name()
-        ))
-    })
+pub fn is_serializable(type_registry: &TypeRegistry, reflect_value: &dyn Reflect) -> bool {
+    let registration = type_registry.get(reflect_value.type_id());
+    if let Some(registration) = registration {
+        registration.has_trait_cast::<dyn erased_serde::Serialize>()
+    } else {
+        false
+    }
 }
 
 pub struct ReflectSerializer<'a> {
@@ -97,12 +97,24 @@ impl<'a> Serialize for ReflectValueSerializer<'a> {
     where
         S: serde::Serializer,
     {
+        let registration = self.registry.get(self.value.type_id()).ok_or_else(|| {
+            <S::Error as serde::ser::Error>::custom(format_args!(
+                "No registration found for {}",
+                self.value.type_name()
+            ))
+        })?;
+        let serializable = registration
+            .trait_cast::<dyn erased_serde::Serialize>(self.value)
+            .ok_or_else(|| {
+                <S::Error as serde::ser::Error>::custom(format_args!(
+                    "The TypeRegistration for {} doesn't have Serialize trait cast",
+                    self.value.type_name()
+                ))
+            })?;
+
         let mut state = serializer.serialize_map(Some(2))?;
         state.serialize_entry(type_fields::TYPE, self.value.type_name())?;
-        state.serialize_entry(
-            type_fields::VALUE,
-            get_serializable::<S::Error>(self.value)?.borrow(),
-        )?;
+        state.serialize_entry(type_fields::VALUE, serializable)?;
         state.end()
     }
 }

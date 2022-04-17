@@ -3,7 +3,7 @@ use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
-use std::{any::TypeId, fmt::Debug, sync::Arc};
+use std::{any::TypeId, fmt::Debug, mem::MaybeUninit, ptr::NonNull, sync::Arc};
 
 /// A registry of reflected types.
 pub struct TypeRegistry {
@@ -221,6 +221,91 @@ impl TypeRegistryArc {
     }
 }
 
+#[doc(hidden)]
+pub struct ErasedNonNull {
+    storage: MaybeUninit<[NonNull<()>; 2]>,
+    ty: TypeId,
+}
+
+impl ErasedNonNull {
+    pub fn new<T: ?Sized>(val: &T, type_id: TypeId) -> Self {
+        let size = core::mem::size_of::<*const T>();
+        assert!(size <= core::mem::size_of::<[NonNull<()>; 2]>());
+        let val = val as *const T;
+        let mut storage = MaybeUninit::uninit();
+        unsafe {
+            core::ptr::copy(
+                &val as *const *const T as *const u8,
+                storage.as_mut_ptr() as *mut u8,
+                size,
+            )
+        };
+        Self {
+            storage,
+            ty: type_id,
+        }
+    }
+    pub unsafe fn as_ref<'a, T: ?Sized + 'static>(self) -> &'a T {
+        assert!(self.ty == TypeId::of::<T>());
+        let size = core::mem::size_of::<*const T>();
+        let mut r: MaybeUninit<*const T> = MaybeUninit::uninit();
+        core::ptr::copy(
+            self.storage.as_ptr() as *mut u8,
+            r.as_mut_ptr() as *mut u8,
+            size,
+        );
+        &*r.assume_init()
+    }
+}
+
+#[macro_export]
+macro_rules! maybe_trait_cast {
+    ($this_type:ty, $trait_type:path) => {{
+        {
+            trait NotTrait {
+                const CAST_FN: Option<for<'a> fn(&'a $this_type) -> &'a dyn $trait_type> = None;
+            }
+            impl<T> NotTrait for T {}
+            struct IsImplemented<T>(core::marker::PhantomData<T>);
+
+            impl<T: $trait_type + 'static> IsImplemented<T> {
+                #[allow(dead_code)]
+                const CAST_FN: Option<for<'a> fn(&'a T) -> &'a dyn $trait_type> = Some(|a| a);
+            }
+            if IsImplemented::<$this_type>::CAST_FN.is_some() {
+                let f: fn(&dyn $crate::Reflect) -> $crate::ErasedNonNull =
+                    |val: &dyn $crate::Reflect| {
+                        let cast_fn = IsImplemented::<$this_type>::CAST_FN.unwrap();
+                        let static_val: &$this_type = val.downcast_ref::<$this_type>().unwrap();
+                        let trait_val: &dyn $trait_type = (cast_fn)(static_val);
+                        $crate::ErasedNonNull::new(
+                            trait_val,
+                            core::any::TypeId::of::<dyn $trait_type>(),
+                        )
+                    };
+                Some(f)
+            } else {
+                None
+            }
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! register_type{
+    ($type_registry:ident, $this_type:ty, $($trait_type:path),* $(,)?) => {
+        {{
+        let mut type_registration = <$this_type as $crate::GetTypeRegistration>::get_type_registration();
+        $(
+            if let Some(cast_fn) = $crate::maybe_trait_cast!($this_type, $trait_type) {{
+                type_registration.register_trait_cast::<dyn $trait_type>(cast_fn);
+            }}
+        )*
+        $type_registry.add_registration(type_registration);
+    }}
+    };
+}
+
 /// A record of data about a type.
 ///
 /// This contains the [`TypeInfo`] of the type, as well as its [short name].
@@ -238,6 +323,7 @@ pub struct TypeRegistration {
     short_name: String,
     data: HashMap<TypeId, Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
+    trait_casts: HashMap<TypeId, fn(&dyn Reflect) -> ErasedNonNull>,
 }
 
 impl TypeRegistration {
@@ -247,6 +333,27 @@ impl TypeRegistration {
     #[inline]
     pub fn type_id(&self) -> TypeId {
         self.type_info.type_id()
+    }
+
+    #[doc(hidden)]
+    pub fn register_trait_cast<T: ?Sized + 'static>(
+        &mut self,
+        f: fn(&dyn Reflect) -> ErasedNonNull,
+    ) {
+        self.trait_casts.insert(TypeId::of::<T>(), f);
+    }
+
+    pub fn has_trait_cast<T: ?Sized + 'static>(&self) -> bool {
+        self.trait_casts.contains_key(&TypeId::of::<T>())
+    }
+
+    pub fn trait_cast<'a, T: ?Sized + 'static>(&self, val: &'a dyn Reflect) -> Option<&'a T> {
+        if let Some(cast) = self.trait_casts.get(&TypeId::of::<T>()) {
+            let raw = cast(val);
+            Some(unsafe { raw.as_ref() })
+        } else {
+            None
+        }
     }
 
     /// Returns a reference to the value of type `T` in this registration's type
@@ -286,6 +393,7 @@ impl TypeRegistration {
         let type_name = std::any::type_name::<T>();
         Self {
             data: HashMap::default(),
+            trait_casts: HashMap::default(),
             short_name: Self::get_short_name(type_name),
             type_info: T::type_info(),
         }
@@ -358,6 +466,7 @@ impl Clone for TypeRegistration {
 
         TypeRegistration {
             data,
+            trait_casts: self.trait_casts.clone(),
             short_name: self.short_name.clone(),
             type_info: self.type_info,
         }
@@ -426,8 +535,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 
 #[cfg(test)]
 mod test {
-    use crate::TypeRegistration;
-    use bevy_utils::HashMap;
+    use super::*;
 
     #[test]
     fn test_get_short_name() {
@@ -496,5 +604,41 @@ mod test {
                 .short_name,
             "Option<HashMap<Option<String>, (String, Option<String>)>>"
         );
+    }
+
+    trait Test {}
+    impl Test for HashMap<u32, u32> {}
+    trait TestNot {}
+
+    // the user should specify all traits in a top-level crate.
+    // all registration should be done through macros in a top-level crate.
+    macro_rules! register_type_custom {
+        ($type_registry:ident, $this_type:ty,$($trait_type:path),*) => {
+            register_type!(
+                $type_registry,
+                $this_type,
+                erased_serde::Serialize,
+                $($trait_type,)*
+            )
+        };
+    }
+    #[test]
+    fn test_trait_cast() {
+        let mut type_registry = TypeRegistry::default();
+        register_type_custom!(type_registry, HashMap<u32, u32>, Test, TestNot);
+        register_type_custom!(type_registry, u32,);
+        let val = HashMap::<u32, u32>::default();
+        let ty = type_registry
+            .get(TypeId::of::<HashMap<u32, u32>>())
+            .unwrap();
+        assert!(ty.trait_cast::<dyn erased_serde::Serialize>(&val).is_some());
+        assert!(ty.trait_cast::<dyn Test>(&val).is_some());
+        assert!(ty.trait_cast::<dyn TestNot>(&val).is_none());
+
+        let ty = type_registry.get(TypeId::of::<u32>()).unwrap();
+        assert!(ty
+            .trait_cast::<dyn erased_serde::Serialize>(&3u32)
+            .is_some());
+        assert!(ty.trait_cast::<dyn Test>(&3u32).is_none());
     }
 }

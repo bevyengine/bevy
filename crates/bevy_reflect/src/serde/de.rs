@@ -217,7 +217,7 @@ impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
                     let deserialize_reflect =
                         registration.data::<ReflectDeserialize>().ok_or_else(|| {
                             de::Error::custom(format_args!(
-                                "The TypeRegistration for {} doesn't have DeserializeReflect",
+                                "The TypeRegistration for {} doesn't have ReflectDeserialize",
                                 type_name
                             ))
                         })?;
