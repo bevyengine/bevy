@@ -170,7 +170,7 @@ pub fn check_visibility(
 
         visible_entity_query.par_for_each_mut(
             &thread_pool,
-            10000,
+            1024,
             |(
                 entity,
                 visibility,
