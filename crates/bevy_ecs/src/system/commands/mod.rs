@@ -21,7 +21,7 @@ pub trait Command: Send + Sync + 'static {
 ///
 /// Commands are executed one at a time in an exclusive fashion.
 //// Each command can be used to modify the [`World`] in arbitrary ways:
-/// * spawning entities
+/// * spawning or despawning entities
 /// * inserting components on new or existing entities
 /// * inserting resources
 /// * etc.
