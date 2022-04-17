@@ -109,6 +109,7 @@ impl Column {
     }
 
     #[inline]
+    #[must_use = "The returned pointer should be used to dropped the removed component"]
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: usize,
@@ -144,7 +145,7 @@ impl Column {
     }
 
     #[inline]
-    pub fn get_ticks(&self) -> &[UnsafeCell<ComponentTicks>] {
+    pub fn get_ticks_slice(&self) -> &[UnsafeCell<ComponentTicks>] {
         &self.ticks
     }
 
@@ -169,25 +170,7 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub unsafe fn get_ticks_unchecked(&self, row: usize) -> &ComponentTicks {
-        debug_assert!(row < self.ticks.len());
-        &*self.ticks.get_unchecked(row).get()
-    }
-
-    /// # Safety
-    /// - index must be in-bounds
-    /// - no other reference to the ticks of the same row can exist at the same time
-    #[allow(clippy::mut_from_ref)]
-    #[inline]
-    pub unsafe fn get_ticks_mut_unchecked(&self, row: usize) -> &mut ComponentTicks {
-        debug_assert!(row < self.ticks.len());
-        &mut *self.ticks.get_unchecked(row).get()
-    }
-
-    /// # Safety
-    /// - index must be in-bounds
-    #[inline]
-    pub unsafe fn get_ticks_mut_ptr_unchecked(&self, row: usize) -> &UnsafeCell<ComponentTicks> {
+    pub unsafe fn get_ticks_unchecked(&self, row: usize) -> &UnsafeCell<ComponentTicks> {
         debug_assert!(row < self.ticks.len());
         self.ticks.get_unchecked(row)
     }
@@ -563,7 +546,7 @@ mod tests {
             // SAFE: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);
-                let value = row;
+                let value: W<usize> = W(row);
                 OwningPtr::make(value, |value_ptr| {
                     table
                         .get_column_mut(component_id)

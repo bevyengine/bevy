@@ -128,14 +128,11 @@ impl ComponentSparseSet {
     }
 
     /// Inserts the `entity` key and component `value` pair into this sparse
-    /// set. This collection takes ownership of the contents of `value`, and
-    /// will drop the value when needed. Also, it may overwrite the contents of
-    /// the `value` pointer if convenient. The caller is responsible for
-    /// ensuring it does not drop `*value` after calling `insert`.
+    /// set.
     ///
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the `Layout`
-    ///  inside the `ComponentInfo` given when constructing this sparse set.
+    /// inside the `ComponentInfo` given when constructing this sparse set.
     pub unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity) {
             self.dense.replace_unchecked(dense_index, value);
@@ -166,33 +163,30 @@ impl ComponentSparseSet {
         })
     }
 
-    /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is < self.len()
     #[inline]
-    pub unsafe fn get_with_ticks(
-        &self,
-        entity: Entity,
-    ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+    pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
         let dense_index = *self.sparse.get(entity)?;
         // SAFE: if the sparse index points to something in the dense vec, it exists
-        Some((
-            self.dense.get_unchecked(dense_index),
-            self.ticks.get_unchecked(dense_index),
-        ))
+        unsafe {
+            Some((
+                self.dense.get_unchecked(dense_index),
+                self.ticks.get_unchecked(dense_index),
+            ))
+        }
     }
 
     #[inline]
-    pub fn get_ticks(&self, entity: Entity) -> Option<&ComponentTicks> {
+    pub fn get_ticks(&self, entity: Entity) -> Option<&UnsafeCell<ComponentTicks>> {
         let dense_index = *self.sparse.get(entity)?;
         // SAFE: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(&*self.ticks.get_unchecked(dense_index).get()) }
+        unsafe { Some(self.ticks.get_unchecked(dense_index)) }
     }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
-    /// it exists). It is the caller's responsibility to drop the returned ptr (if Some is
-    /// returned).
+    /// it exists).
+    #[must_use = "The returned pointer should be used to dropped the removed component"]
     pub fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
-        self.sparse.remove(entity).map(move |dense_index| {
+        self.sparse.remove(entity).map(|dense_index| {
             self.ticks.swap_remove(dense_index);
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;

@@ -296,24 +296,21 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
-pub trait WorldQuery {
-    type State: FetchState + for<'w> FetchInit<'w>;
+pub trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
+    type State: FetchState;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self>;
 }
 
-pub type QueryFetch<'w, Q> = <<Q as WorldQuery>::State as FetchInit<'w>>::Fetch;
-pub type QueryItem<'w, Q> = <<Q as WorldQuery>::State as FetchInit<'w>>::Item;
-pub type ROQueryFetch<'w, Q> = <<Q as WorldQuery>::State as FetchInit<'w>>::ReadOnlyFetch;
-pub type ROQueryItem<'w, Q> = <<Q as WorldQuery>::State as FetchInit<'w>>::ReadOnlyItem;
+pub type QueryFetch<'w, Q> = <Q as WorldQueryGats<'w>>::Fetch;
+pub type QueryItem<'w, Q> = <<Q as WorldQueryGats<'w>>::Fetch as Fetch<'w>>::Item;
+pub type ROQueryFetch<'w, Q> = <Q as WorldQueryGats<'w>>::ReadOnlyFetch;
+pub type ROQueryItem<'w, Q> = <<Q as WorldQueryGats<'w>>::ReadOnlyFetch as Fetch<'w>>::Item;
 
-pub trait FetchInit<'world>: FetchState {
-    type Fetch: Fetch<'world, State = Self, Item = Self::Item>;
-    type Item;
-
-    type ReadOnlyFetch: Fetch<'world, State = Self, Item = Self::ReadOnlyItem>
-        + ReadOnlyFetch<'world>;
-    type ReadOnlyItem;
+pub trait WorldQueryGats<'world> {
+    type Fetch: Fetch<'world, State = Self::_State>;
+    type ReadOnlyFetch: Fetch<'world, State = Self::_State> + ReadOnlyFetch<'world>;
+    type _State: FetchState;
 }
 
 /// Types that implement this trait are responsible for fetching query items from tables or
@@ -464,11 +461,10 @@ unsafe impl FetchState for EntityState {
     }
 }
 
-impl<'w> FetchInit<'w> for EntityState {
+impl<'w> WorldQueryGats<'w> for Entity {
     type Fetch = EntityFetch<'w>;
-    type Item = Entity;
     type ReadOnlyFetch = EntityFetch<'w>;
-    type ReadOnlyItem = Entity;
+    type _State = EntityState;
 }
 
 impl<'w> Fetch<'w> for EntityFetch<'w> {
@@ -596,11 +592,10 @@ impl<T> Clone for ReadFetch<'_, T> {
 /// SAFETY: access is read only
 unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for ReadFetch<'w, T> {}
 
-impl<'w, T: Component> FetchInit<'w> for ReadState<T> {
+impl<'w, T: Component> WorldQueryGats<'w> for &T {
     type Fetch = ReadFetch<'w, T>;
-    type Item = &'w T;
     type ReadOnlyFetch = ReadFetch<'w, T>;
-    type ReadOnlyItem = &'w T;
+    type _State = ReadState<T>;
 }
 
 impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
@@ -801,12 +796,10 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
     }
 }
 
-impl<'w, T: Component> FetchInit<'w> for WriteState<T> {
+impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
     type Fetch = WriteFetch<'w, T>;
-    type Item = Mut<'w, T>;
-
     type ReadOnlyFetch = ReadOnlyWriteFetch<'w, T>;
-    type ReadOnlyItem = &'w T;
+    type _State = WriteState<T>;
 }
 
 impl<'w, 's, T: Component> Fetch<'w> for WriteFetch<'w, T> {
@@ -857,7 +850,7 @@ impl<'w, 's, T: Component> Fetch<'w> for WriteFetch<'w, T> {
                     .get_column(state.component_id)
                     .unwrap();
                 self.table_components = Some(column.get_data_slice());
-                self.table_ticks = Some(column.get_ticks());
+                self.table_ticks = Some(column.get_ticks_slice());
             }
             StorageType::SparseSet => self.entities = Some(archetype.entities()),
         }
@@ -867,7 +860,7 @@ impl<'w, 's, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
         let column = table.get_column(state.component_id).unwrap();
         self.table_components = Some(column.get_data_slice());
-        self.table_ticks = Some(column.get_ticks());
+        self.table_ticks = Some(column.get_ticks_slice());
     }
 
     #[inline]
@@ -1081,11 +1074,10 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
     }
 }
 
-impl<'w, T: FetchState + FetchInit<'w>> FetchInit<'w> for OptionState<T> {
+impl<'w, T: WorldQueryGats<'w>> WorldQueryGats<'w> for Option<T> {
     type Fetch = OptionFetch<T::Fetch>;
-    type Item = Option<T::Item>;
     type ReadOnlyFetch = OptionFetch<T::ReadOnlyFetch>;
-    type ReadOnlyItem = Option<T::ReadOnlyItem>;
+    type _State = OptionState<T::_State>;
 }
 
 impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
@@ -1294,11 +1286,10 @@ impl<T> Clone for ChangeTrackersFetch<'_, T> {
 /// SAFETY: access is read only
 unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for ChangeTrackersFetch<'w, T> {}
 
-impl<'w, T: Component> FetchInit<'w> for ChangeTrackersState<T> {
+impl<'w, T: Component> WorldQueryGats<'w> for ChangeTrackers<T> {
     type Fetch = ChangeTrackersFetch<'w, T>;
-    type Item = ChangeTrackers<T>;
     type ReadOnlyFetch = ChangeTrackersFetch<'w, T>;
-    type ReadOnlyItem = ChangeTrackers<T>;
+    type _State = ChangeTrackersState<T>;
 }
 
 impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
@@ -1348,7 +1339,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_ticks = Some(column.get_ticks());
+                self.table_ticks = Some(column.get_ticks_slice());
             }
             StorageType::SparseSet => self.entities = Some(archetype.entities()),
         }
@@ -1356,7 +1347,12 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
 
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks());
+        self.table_ticks = Some(
+            table
+                .get_column(state.component_id)
+                .unwrap()
+                .get_ticks_slice(),
+        );
     }
 
     #[inline]
@@ -1390,6 +1386,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                         .sparse_set
                         .unwrap_or_else(|| debug_checked_unreachable())
                         .get_ticks(entity)
+                        .map(|ticks| &*ticks.get())
                         .cloned()
                         .unwrap(),
                     marker: PhantomData,
@@ -1421,12 +1418,10 @@ macro_rules! impl_tuple_fetch {
     ($(($name: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, $($name: FetchInit<'w>),*> FetchInit<'w> for ($($name,)*) {
+        impl<'w, $($name: WorldQueryGats<'w>),*> WorldQueryGats<'w> for ($($name,)*) {
             type Fetch = ($($name::Fetch,)*);
-            type Item = ($($name::Item,)*);
-
             type ReadOnlyFetch = ($($name::ReadOnlyFetch,)*);
-            type ReadOnlyItem = ($($name::ReadOnlyItem,)*);
+            type _State = ($($name::_State,)*);
         }
 
         #[allow(non_snake_case)]
@@ -1530,12 +1525,10 @@ macro_rules! impl_anytuple_fetch {
     ($(($name: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, $($name: FetchInit<'w>),*> FetchInit<'w> for AnyOf<($($name,)*)> {
+        impl<'w, $($name: WorldQueryGats<'w>),*> WorldQueryGats<'w> for AnyOf<($($name,)*)> {
             type Fetch = AnyOf<($(($name::Fetch, bool),)*)>;
-            type Item = ($(Option<$name::Item>,)*);
-
             type ReadOnlyFetch = AnyOf<($(($name::ReadOnlyFetch, bool),)*)>;
-            type ReadOnlyItem = ($(Option<$name::ReadOnlyItem>,)*);
+            type _State = AnyOf<($($name::_State,)*)>;
         }
 
         #[allow(non_snake_case)]

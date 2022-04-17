@@ -3,7 +3,8 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
     query::{
-        debug_checked_unreachable, Access, Fetch, FetchInit, FetchState, FilteredAccess, WorldQuery,
+        debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, WorldQuery,
+        WorldQueryGats,
     },
     storage::{ComponentSparseSet, Table, Tables},
     world::World,
@@ -128,11 +129,10 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     }
 }
 
-impl<T: Component> FetchInit<'_> for WithState<T> {
+impl<T: Component> WorldQueryGats<'_> for With<T> {
     type Fetch = WithFetch<T>;
-    type Item = bool;
     type ReadOnlyFetch = WithFetch<T>;
-    type ReadOnlyItem = bool;
+    type _State = WithState<T>;
 }
 
 impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
@@ -274,12 +274,10 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
     }
 }
 
-impl<T: Component> FetchInit<'_> for WithoutState<T> {
+impl<T: Component> WorldQueryGats<'_> for Without<T> {
     type Fetch = WithoutFetch<T>;
-    type Item = bool;
-
     type ReadOnlyFetch = WithoutFetch<T>;
-    type ReadOnlyItem = bool;
+    type _State = WithoutState<T>;
 }
 
 impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
@@ -402,7 +400,7 @@ macro_rules! impl_query_filter_tuple {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         impl<$($filter: WorldQuery),*> WorldQuery for Or<($($filter,)*)>
-            where $(for<'w> <$filter::State as FetchInit<'w>>::Fetch: FilterFetch<'w>),*
+            where $(for<'w> <$filter as WorldQueryGats<'w>>::Fetch: FilterFetch<'w>),*
         {
             type State = Or<($($filter::State,)*)>;
 
@@ -413,13 +411,12 @@ macro_rules! impl_query_filter_tuple {
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, $($filter: FetchInit<'w>),*> FetchInit<'w> for Or<($($filter,)*)>
+        impl<'w, $($filter: WorldQueryGats<'w>),*> WorldQueryGats<'w> for Or<($($filter,)*)>
             where $($filter::Fetch: FilterFetch<'w>),*
         {
             type Fetch = Or<($(OrFetch<'w, $filter::Fetch>,)*)>;
-            type Item = bool;
             type ReadOnlyFetch = Or<($(OrFetch<'w, $filter::Fetch>,)*)>;
-            type ReadOnlyItem = bool;
+            type _State = Or<($($filter::_State,)*)>;
         }
 
         #[allow(unused_variables)]
@@ -604,11 +601,10 @@ macro_rules! impl_tick_filter {
             }
         }
 
-        impl<'w, T: Component> FetchInit<'w> for $state_name<T> {
+        impl<'w, T: Component> WorldQueryGats<'w> for $name<T> {
             type Fetch = $fetch_name<'w, T>;
-            type Item = bool;
             type ReadOnlyFetch = $fetch_name<'w, T>;
-            type ReadOnlyItem = bool;
+            type _State = $state_name<T>;
         }
 
         impl<'w, T: Component> Fetch<'w> for $fetch_name<'w, T> {
@@ -636,7 +632,7 @@ macro_rules! impl_tick_filter {
             }
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-                self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks());
+                self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice());
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
@@ -644,7 +640,7 @@ macro_rules! impl_tick_filter {
                     StorageType::Table => {
                         self.entity_table_rows = Some(archetype.entity_table_rows());
                         let table = &tables[archetype.table_id()];
-                        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks());
+                        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice());
                     }
                     StorageType::SparseSet => self.entities = Some(archetype.entities()),
                 }
@@ -662,7 +658,13 @@ macro_rules! impl_tick_filter {
                     }
                     StorageType::SparseSet => {
                         let entity = *self.entities.unwrap_or_else(|| debug_checked_unreachable()).get_unchecked(archetype_index);
-                        let ticks = self.sparse_set.unwrap_or_else(|| debug_checked_unreachable()).get_ticks(entity).cloned().unwrap();
+                        let ticks = self
+                            .sparse_set
+                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .get_ticks(entity)
+                            .map(|ticks| &*ticks.get())
+                            .cloned()
+                            .unwrap();
                         $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }

@@ -361,8 +361,12 @@ where
         }
         let archetype = &world.archetypes[location.archetype_id];
         let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter =
-            QueryFetch::<F>::init(world, &self.filter_state, last_change_tick, change_tick);
+        let mut filter = <QueryFetch<F> as Fetch>::init(
+            world,
+            &self.filter_state,
+            last_change_tick,
+            change_tick,
+        );
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
@@ -788,8 +792,12 @@ where
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter =
-            QueryFetch::<F>::init(world, &self.filter_state, last_change_tick, change_tick);
+        let mut filter = <QueryFetch<F> as Fetch>::init(
+            world,
+            &self.filter_state,
+            last_change_tick,
+            change_tick,
+        );
 
         if <QueryFetch<'static, Q>>::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
             let tables = &world.storages().tables;
@@ -860,7 +868,7 @@ where
                         scope.spawn(async move {
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-                            let mut filter = QueryFetch::<F>::init(
+                            let mut filter = <QueryFetch<F> as Fetch>::init(
                                 world,
                                 &self.filter_state,
                                 last_change_tick,
@@ -892,7 +900,7 @@ where
                         scope.spawn(async move {
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-                            let mut filter = QueryFetch::<F>::init(
+                            let mut filter = <QueryFetch<F> as Fetch>::init(
                                 world,
                                 &self.filter_state,
                                 last_change_tick,

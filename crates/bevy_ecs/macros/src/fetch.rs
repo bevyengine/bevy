@@ -382,20 +382,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         },
     };
 
-    let fetch_init_assoc_items = match fetch_struct_attributes.is_filter {
-        true => quote! {
-            type Item = bool;
-            type ReadOnlyItem = bool;
-        },
-        false => quote! {
-            type Item = #item_struct_name #user_ty_generics_with_world;
-            type ReadOnlyItem = #read_only_item_struct_name #user_ty_generics_with_world;
-        },
-    };
-
     let read_only_asserts = match fetch_struct_attributes.is_mutable {
         true => quote! {
-            // this is technically unnecessary as `<_ as FetchInit<'world>>::ReadOnlyFetch: ReadOnlyFetch<'world>`
+            // this is technically unnecessary as `<_ as WorldQueryGats<'world>>::ReadOnlyFetch: ReadOnlyFetch<'world>`
             // but to protect against future mistakes we assert the assoc type implements `ReadOnlyFetch` anyway
             #( assert_readonly::<'__w, #path::query::ROQueryFetch<'__w, #field_types>>(); )*
         },
@@ -419,10 +408,10 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 }
         }
 
-        impl #user_impl_generics_with_world #path::query::FetchInit<'__w> for #state_struct_name #user_ty_generics #user_where_clauses {
+        impl #user_impl_generics_with_world #path::query::WorldQueryGats<'__w> for #struct_name #user_ty_generics #user_where_clauses {
             type Fetch = #fetch_struct_name #user_ty_generics_with_world;
             type ReadOnlyFetch = #read_only_fetch_struct_name #user_ty_generics_with_world;
-            #fetch_init_assoc_items
+            type _State = #state_struct_name #user_ty_generics;
         }
 
         /// SAFETY: each item in the struct is read only

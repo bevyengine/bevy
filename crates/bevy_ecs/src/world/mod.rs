@@ -713,7 +713,7 @@ impl World {
             return false;
         };
         // SAFE: resources table always have row 0
-        let ticks = unsafe { column.get_ticks_unchecked(0) };
+        let ticks = unsafe { &*column.get_ticks_unchecked(0).get() };
         ticks.is_added(self.last_change_tick(), self.read_change_tick())
     }
 
@@ -730,7 +730,7 @@ impl World {
             return false;
         };
         // SAFE: resources table always have row 0
-        let ticks = unsafe { column.get_ticks_unchecked(0) };
+        let ticks = unsafe { &*column.get_ticks_unchecked(0).get() };
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
 
@@ -1113,7 +1113,7 @@ impl World {
         Some(Mut {
             value: column.get_data_ptr().assert_unique().deref_mut(),
             ticks: Ticks {
-                component_ticks: column.get_ticks_mut_unchecked(0),
+                component_ticks: &mut *column.get_ticks_unchecked(0).get(),
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.read_change_tick(),
             },

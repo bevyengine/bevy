@@ -32,6 +32,8 @@ impl std::fmt::Debug for BlobVec {
 }
 
 impl BlobVec {
+    // FIXME: this definitely needs to be an unsafe fn because we have no idea what safety invariants
+    // the `unsafe fn(OwningPtr<'_>)` might have i.e. `|_| std::hint::unreachable_unchecked()`
     pub fn new(item_layout: Layout, drop: unsafe fn(OwningPtr<'_>), capacity: usize) -> BlobVec {
         if item_layout.size() == 0 {
             BlobVec {
@@ -80,6 +82,8 @@ impl BlobVec {
         }
     }
 
+    // FIXME: this should probably be an unsafe fn as it shouldnt be called if the layout
+    // is for a ZST
     fn grow_exact(&mut self, increment: usize) {
         debug_assert!(self.item_layout.size() != 0);
 
@@ -103,19 +107,21 @@ impl BlobVec {
         self.capacity = new_capacity;
     }
 
+    // FIXME: Replace with something that doesnt require temporarily increasing
+    //        the length of the `BlobVec` into uninitialised memory.
+    // FIXME: Safety invariant of memory being uninitialised makes no
+    //        sense as we don't guarantee that destructors will run.
     /// # Safety
     /// - index must be in bounds
     /// - the memory in the `BlobVec` starting at index `index`, of a size matching this `BlobVec`'s
     /// `item_layout`, must have been previously allocated, but not initialized yet
     /// - the memory at `*value` must be previously initialized with an item matching this
     /// `BlobVec`'s `item_layout`
-    /// - the item that was stored in `*value` is left logically uninitialised/moved out of after
-    /// calling this function, and as such should not be used or dropped by the caller.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked_mut(index);
-        std::ptr::copy_nonoverlapping(
+        std::ptr::copy_nonoverlapping::<u8>(
             value.inner().as_ptr(),
             ptr.inner().as_ptr(),
             self.item_layout.size(),
@@ -129,8 +135,6 @@ impl BlobVec {
     /// this [`BlobVec`]'s `item_layout`
     /// - the memory at `*value` must also be previously initialized with an item matching this
     /// [`BlobVec`]'s `item_layout`
-    /// - the item that was stored in `*value` is left logically uninitialised/moved out of after
-    /// calling this function, and as such should not be used or dropped by the caller.
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
         // If `drop` panics, then when the collection is dropped during stack unwinding, the
@@ -142,7 +146,7 @@ impl BlobVec {
         self.len = 0;
         // Drop the old value, then write back, justifying the promotion
         (self.drop)(OwningPtr::new(ptr));
-        std::ptr::copy_nonoverlapping(
+        std::ptr::copy_nonoverlapping::<u8>(
             value.inner().as_ptr(),
             ptr.as_ptr(),
             self.item_layout.size(),
@@ -150,6 +154,8 @@ impl BlobVec {
         self.len = old_len;
     }
 
+    // FIXME: Remove this function and replace it with something that cant be used without
+    //        initialising the new element.
     /// Increases the length by one (and grows the vec if needed) with uninitialized memory and
     /// returns the index
     ///
@@ -180,16 +186,20 @@ impl BlobVec {
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < `self.len()`
     #[inline]
+    #[must_use = "The returned pointer should be used to dropped the removed element"]
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> OwningPtr<'_> {
+        // FIXME: This should probably just use `core::ptr::swap` and return an `OwningPtr`
+        //        into the underlying `BlobVec` allocation.
+
         debug_assert!(index < self.len());
         let last = self.len - 1;
         let swap_scratch = self.swap_scratch.as_ptr();
-        std::ptr::copy_nonoverlapping(
+        std::ptr::copy_nonoverlapping::<u8>(
             self.get_unchecked_mut(index).inner().as_ptr(),
             swap_scratch,
             self.item_layout.size(),
         );
-        std::ptr::copy(
+        std::ptr::copy::<u8>(
             self.get_unchecked_mut(last).inner().as_ptr(),
             self.get_unchecked_mut(index).inner().as_ptr(),
             self.item_layout.size(),
@@ -199,7 +209,7 @@ impl BlobVec {
     }
 
     /// # Safety
-    /// index must be in-bounds
+    /// It is the caller's responsibility to ensure that `index` is < self.len()
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
@@ -232,18 +242,18 @@ impl BlobVec {
         unsafe { Ptr::new(self.data) }
     }
 
-    /// # Safety
-    /// The type `T` must be the type of the items in this [`BlobVec`].
-    pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
-        // SAFE: the inner data will remain valid for as long as 'self.
-        std::slice::from_raw_parts(self.data.as_ptr() as *const _, self.len)
-    }
-
     /// Gets a [`PtrMut`] to the start of the vec
     #[inline]
     pub fn get_ptr_mut(&mut self) -> PtrMut<'_> {
         // SAFE: the inner data will remain valid for as long as 'self.
         unsafe { PtrMut::new(self.data) }
+    }
+
+    /// # Safety
+    /// The type `T` must be the type of the items in this [`BlobVec`].
+    pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
+        // SAFE: the inner data will remain valid for as long as 'self.
+        std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
     }
 
     pub fn clear(&mut self) {
@@ -369,11 +379,7 @@ mod tests {
     /// value at the given `index`
     unsafe fn get_mut<T>(blob_vec: &mut BlobVec, index: usize) -> &mut T {
         assert!(index < blob_vec.len());
-        &mut *blob_vec
-            .get_unchecked_mut(index)
-            .inner()
-            .as_ptr()
-            .cast::<T>()
+        blob_vec.get_unchecked_mut(index).deref_mut::<T>()
     }
 
     #[test]

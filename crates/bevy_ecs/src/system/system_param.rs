@@ -324,7 +324,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
             });
         Res {
             value: column.get_data_ptr().deref::<T>(),
-            ticks: column.get_ticks_unchecked(0),
+            ticks: &*column.get_ticks_unchecked(0).get(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -363,7 +363,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
             .get_populated_resource_column(state.0.component_id)
             .map(|column| Res {
                 value: column.get_data_ptr().deref::<T>(),
-                ticks: column.get_ticks_unchecked(0),
+                ticks: &*column.get_ticks_unchecked(0).get(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -882,7 +882,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
 
         NonSend {
             value: column.get_data_ptr().deref::<T>(),
-            ticks: column.get_ticks_unchecked(0).clone(),
+            ticks: column.get_ticks_unchecked(0).get().read().clone(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -922,7 +922,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
             .get_populated_resource_column(state.0.component_id)
             .map(|column| NonSend {
                 value: column.get_data_ptr().deref::<T>(),
-                ticks: column.get_ticks_unchecked(0).clone(),
+                ticks: column.get_ticks_unchecked(0).get().read().clone(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -996,7 +996,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         NonSendMut {
             value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
             ticks: Ticks {
-                component_ticks: column.get_ticks_mut_unchecked(0),
+                component_ticks: &mut *column.get_ticks_unchecked(0).get(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },
@@ -1035,7 +1035,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
             .map(|column| NonSendMut {
                 value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    component_ticks: column.get_ticks_mut_unchecked(0),
+                    component_ticks: &mut *column.get_ticks_unchecked(0).get(),
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
                 },
