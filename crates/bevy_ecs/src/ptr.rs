@@ -90,6 +90,9 @@ impl<'a> OwningPtr<'a> {
 pub(crate) trait UnsafeCellDeref<'a, T> {
     unsafe fn deref_mut(self) -> &'a mut T;
     unsafe fn deref(self) -> &'a T;
+    unsafe fn read(self) -> T
+    where
+        Self: Copy;
 }
 impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     unsafe fn deref_mut(self) -> &'a mut T {
@@ -97,5 +100,12 @@ impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     }
     unsafe fn deref(self) -> &'a T {
         &*self.get()
+    }
+
+    unsafe fn read(self) -> T
+    where
+        Self: Copy,
+    {
+        self.get().read()
     }
 }
