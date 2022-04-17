@@ -1,3 +1,5 @@
+//! Create and play an animation defined by code that operates on the `Transform` component.
+
 use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::prelude::*;
@@ -134,8 +136,8 @@ fn setup(
                         material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
                         ..default()
                     })
-                    // Add the Name component
-                    .insert(satellite);
+                        // Add the Name component
+                        .insert(satellite);
                 });
         });
 }

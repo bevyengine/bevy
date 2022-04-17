@@ -1,4 +1,5 @@
 //! This example illustrates how to use logs in bevy
+
 use bevy::prelude::*;
 
 fn main() {
