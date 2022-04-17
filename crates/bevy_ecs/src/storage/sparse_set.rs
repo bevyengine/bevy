@@ -141,8 +141,8 @@ impl ComponentSparseSet {
             *self.ticks.get_unchecked_mut(dense_index) =
                 UnsafeCell::new(ComponentTicks::new(change_tick));
         } else {
-            self.dense.push(value);
             let dense_index = self.dense.len();
+            self.dense.push(value);
             self.sparse.insert(entity, dense_index);
             debug_assert_eq!(self.ticks.len(), dense_index);
             debug_assert_eq!(self.entities.len(), dense_index);
