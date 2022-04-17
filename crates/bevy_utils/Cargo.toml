@@ -1,6 +1,6 @@
 [package]
 name = "bevy_utils"
-version = "0.7.0"
+version = "0.8.0-dev"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_derive = { path = "../bevy_derive", version = "0.7.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
 ahash = "0.7.0"
 tracing = {version = "0.1", features = ["release_max_level_info"]}
 instant = { version = "0.1", features = ["wasm-bindgen"] }
