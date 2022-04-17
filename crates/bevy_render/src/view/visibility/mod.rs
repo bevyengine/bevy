@@ -159,9 +159,7 @@ pub fn check_visibility(
     )>,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
-        visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
-
         let (visible_entity_sender, visible_entity_receiver) = crossbeam_channel::unbounded();
 
         visible_entity_query.par_for_each_mut(
@@ -182,7 +180,6 @@ pub fn check_visibility(
                 if !visibility.is_visible {
                     return;
                 }
-
                 let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                 if !view_mask.intersects(&entity_mask) {
                     return;
@@ -211,7 +208,6 @@ pub fn check_visibility(
                 visible_entity_sender.send(entity).ok();
             },
         );
-
         visible_entities.entities = visible_entity_receiver.try_iter().collect();
     }
 }
