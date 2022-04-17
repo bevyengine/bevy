@@ -34,7 +34,7 @@ impl std::fmt::Debug for BlobVec {
 impl BlobVec {
     /// # Safety
     ///
-    /// `drop` should be safe to call with an OwningPtr pointing to any item that's been pushed into this BlobVec.
+    /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobVec`].
     pub unsafe fn new(
         item_layout: Layout,
         drop: unsafe fn(OwningPtr<'_>),
@@ -114,7 +114,7 @@ impl BlobVec {
 
     /// # Safety
     /// - index must be in bounds
-    /// - the memory in the `BlobVec` starting at index `index`, of a size matching this `BlobVec`'s
+    /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
     /// `item_layout`, must have been previously allocated.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
@@ -153,10 +153,10 @@ impl BlobVec {
         self.len = old_len;
     }
 
-    /// Pushes a value to the BlobVec.
+    /// Pushes a value to the [`BlobVec`].
     ///
     /// # Safety
-    /// `value` must be valid to add to this `BlobVec`
+    /// `value` must be valid to add to this [`BlobVec`]
     #[inline]
     pub unsafe fn push(&mut self, value: OwningPtr<'_>) {
         self.reserve_exact(1);
