@@ -59,7 +59,15 @@ sudo dnf install alsa-lib-devel.x86_64
 
 ```bash
 toolbox enter
-sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel wayland-devel libxkbcommon-devel rust-alsa-sys-devel.noarch
+sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel wayland-devel libxkbcommon-devel
+exit
+```
+
+In the future, run cargo inside toolbox. For example:
+
+```bash
+toolbox enter
+cargo run --features bevy/dynamic
 exit
 ```
 
