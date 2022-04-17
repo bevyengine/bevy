@@ -54,7 +54,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// The derive macro implements [`WorldQuery`] for your type and declares an additional struct
 /// which will be used as an item for query iterators. The implementation also generates two other
-/// structs that implement [`Fetch`] and [`FetchState`] and are used as [`WorldQuery::Fetch`] and
+/// structs that implement [`Fetch`] and [`FetchState`] and are used as [`WorldQuery::Fetch`](WorldQueryGats::Fetch) and
 /// [`WorldQuery::State`] associated types respectively.
 ///
 /// The derive macro requires every struct field to implement the `WorldQuery` trait.
@@ -265,7 +265,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// Using [`derive@super::WorldQuery`] macro in conjunctions with the `#[world_query(filter)]`
 /// attribute allows creating custom query filters.
 ///
-/// To do so, all fields in the struct must be filters themselves (their [`WorldQuery::Fetch`]
+/// To do so, all fields in the struct must be filters themselves (their [`WorldQuery::Fetch`](WorldQueryGats::Fetch)
 /// associated types should implement [`super::FilterFetch`]).
 ///
 /// ```
@@ -316,7 +316,7 @@ pub trait WorldQueryGats<'world> {
 /// Types that implement this trait are responsible for fetching query items from tables or
 /// archetypes.
 ///
-/// Every type that implements [`WorldQuery`] have their associated [`WorldQuery::Fetch`] and
+/// Every type that implements [`WorldQuery`] have their associated [`WorldQuery::Fetch`](WorldQueryGats::Fetch)  and
 /// [`WorldQuery::State`] types that are essential for fetching component data.
 pub trait Fetch<'world>: Sized {
     type Item;
