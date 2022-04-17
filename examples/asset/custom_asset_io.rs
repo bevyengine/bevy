@@ -25,7 +25,7 @@ impl AssetIo for CustomAssetIo {
     fn read_directory(
         &self,
         path: &Path,
-    ) -> Result<Box<dyn Iterator<Item=PathBuf>>, AssetIoError> {
+    ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
         info!("read_directory({:?})", path);
         self.0.read_directory(path)
     }

@@ -136,8 +136,8 @@ fn setup(
                         material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
                         ..default()
                     })
-                        // Add the Name component
-                        .insert(satellite);
+                    // Add the Name component
+                    .insert(satellite);
                 });
         });
 }

@@ -86,7 +86,7 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
             2.0 * BOARD_SIZE_J as f32 / 3.0,
             BOARD_SIZE_J as f32 / 2.0 - 0.5,
         )
-            .looking_at(game.camera_is_focus, Vec3::Y),
+        .looking_at(game.camera_is_focus, Vec3::Y),
         ..default()
     });
     commands.spawn_bundle(UiCameraBundle::default());
