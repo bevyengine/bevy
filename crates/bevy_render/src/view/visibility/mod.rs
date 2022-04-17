@@ -150,7 +150,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 }
 
 pub fn check_visibility(
-    pool: Res<bevy_tasks::prelude::ComputeTaskPool>,
+    thread_pool: Res<bevy_tasks::prelude::ComputeTaskPool>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
     mut visible_entity_query: Query<(
         Entity,
@@ -169,8 +169,8 @@ pub fn check_visibility(
         let (visible_entity_sender, visible_entity_receiver) = unbounded();
 
         visible_entity_query.par_for_each_mut(
-            &pool,
-            32,
+            &thread_pool,
+            10000,
             |(
                 entity,
                 visibility,
