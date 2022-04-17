@@ -19,7 +19,8 @@ pub trait Command: Send + Sync + 'static {
 
 /// A list of commands that runs at the end of the stage of the system that called them.
 ///
-/// Each command can be used to modify the [`World`] for things like:
+/// Commands are executed one at a time in an exclusive fashion.
+//// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning entities
 /// * inserting components on new or existing entities
 /// * inserting resources
