@@ -363,7 +363,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             false,
             true,
             read_only_fetch_struct_name.clone(),
-            read_only_item_struct_name.clone(),
+            read_only_item_struct_name,
         ),
         false => quote! {},
     };
