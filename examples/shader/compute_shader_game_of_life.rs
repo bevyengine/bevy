@@ -1,3 +1,5 @@
+//! A compute shader simulating Conway's Game of Life
+
 use bevy::{
     core_pipeline::node::MAIN_PASS_DEPENDENCIES,
     prelude::*,
@@ -77,6 +79,7 @@ impl Plugin for GameOfLifeComputePlugin {
 
 #[derive(Deref)]
 struct GameOfLifeImage(Handle<Image>);
+
 struct GameOfLifeImageBindGroup(BindGroup);
 
 fn extract_game_of_life_image(mut commands: Commands, image: Res<GameOfLifeImage>) {
@@ -180,14 +183,14 @@ impl render_graph::Node for GameOfLifeNode {
         match self.state {
             GameOfLifeState::Loading => {
                 if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
+                pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
                 {
                     self.state = GameOfLifeState::Init
                 }
             }
             GameOfLifeState::Init => {
                 if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
+                pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
                 {
                     self.state = GameOfLifeState::Update
                 }

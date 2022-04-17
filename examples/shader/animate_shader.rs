@@ -1,3 +1,6 @@
+//! Shows how to pass changing data like the time since startup into a shader, using a custom
+//! specialized pipeline.
+
 use bevy::{
     core_pipeline::Transparent3d,
     ecs::system::{lifetimeless::SRes, SystemParamItem},
@@ -85,7 +88,7 @@ fn extract_custom_material(
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for entity in query.iter_mut() {
-        values.push((entity, (CustomMaterial,)));
+        values.push((entity, (CustomMaterial, )));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -244,6 +247,7 @@ type DrawCustom = (
 );
 
 struct SetTimeBindGroup<const I: usize>;
+
 impl<const I: usize> EntityRenderCommand for SetTimeBindGroup<I> {
     type Param = SRes<TimeMeta>;
 

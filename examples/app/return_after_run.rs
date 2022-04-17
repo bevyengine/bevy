@@ -1,3 +1,5 @@
+//! Show how to return to main after the Bevy app has exited
+
 use bevy::{prelude::*, winit::WinitSettings};
 
 fn main() {

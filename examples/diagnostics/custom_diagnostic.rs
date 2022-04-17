@@ -1,9 +1,10 @@
+//! This example illustrates how to create a custom diagnostic
+
 use bevy::{
     diagnostic::{Diagnostic, DiagnosticId, Diagnostics, LogDiagnosticsPlugin},
     prelude::*,
 };
 
-/// This example illustrates how to create a custom diagnostic
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

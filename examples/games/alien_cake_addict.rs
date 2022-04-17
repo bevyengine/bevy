@@ -1,3 +1,5 @@
+//! Eat the cakes. Eat them all. An example 3D game
+
 use bevy::{core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d};
 use rand::Rng;
 
@@ -84,7 +86,7 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
             2.0 * BOARD_SIZE_J as f32 / 3.0,
             BOARD_SIZE_J as f32 / 2.0 - 0.5,
         )
-        .looking_at(game.camera_is_focus, Vec3::Y),
+            .looking_at(game.camera_is_focus, Vec3::Y),
         ..default()
     });
     commands.spawn_bundle(UiCameraBundle::default());
@@ -268,12 +270,12 @@ fn focus_camera(
                 .translation
                 .lerp(bonus_transform.translation, 0.5);
         }
-    // otherwise, if there is only a player, target the player
+        // otherwise, if there is only a player, target the player
     } else if let Some(player_entity) = game.player.entity {
         if let Ok(player_transform) = transforms.p1().get(player_entity) {
             game.camera_should_focus = player_transform.translation;
         }
-    // otherwise, target the middle
+        // otherwise, target the middle
     } else {
         game.camera_should_focus = Vec3::from(RESET_FOCUS);
     }

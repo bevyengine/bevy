@@ -1,3 +1,8 @@
+//! This example illustrates how "reflection" works in Bevy.
+//! Reflection provide a way to dynamically interact with Rust types, such as accessing fields
+//! by their string name. Reflection is a core part of Bevy and enables a number of interesting
+//! scenarios (like scenes).
+
 use bevy::{
     prelude::*,
     reflect::{
@@ -7,9 +12,6 @@ use bevy::{
 };
 use serde::de::DeserializeSeed;
 
-/// This example illustrates how "reflection" works in Bevy. Reflection provide a way to dynamically
-/// interact with Rust types, such as accessing fields by their string name. Reflection is a core
-/// part of Bevy and enables a number of interesting scenarios (like scenes).
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

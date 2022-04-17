@@ -1,3 +1,5 @@
+//! Implements a custom asset loader
+
 use bevy::{
     asset::{AssetLoader, LoadContext, LoadedAsset},
     prelude::*,

@@ -1,3 +1,6 @@
+//! Illustrates the difference between direction of a translation in respect to local object or
+//! global object Transform
+
 use bevy::prelude::*;
 
 // Define a marker for entities that should be changed via their global transform.
@@ -114,9 +117,10 @@ The red cube is moved through its GlobalTransform and thus is unaffected by the 
             TextAlignment {
                 horizontal: HorizontalAlign::Left,
                 ..Default::default()
-            }
+            },
         ),
-        ..Default::default()});
+        ..Default::default()
+    });
 }
 
 // This system will move all cubes that are marked as ChangeGlobal according to their global transform.
@@ -146,10 +150,10 @@ fn move_cubes_according_to_local_transform(
 fn update_directional_input(mut direction: ResMut<Direction>, keyboard_input: Res<Input<KeyCode>>) {
     let horizontal_movement = Vec3::X
         * (keyboard_input.pressed(KeyCode::Right) as i32
-            - keyboard_input.pressed(KeyCode::Left) as i32) as f32;
+        - keyboard_input.pressed(KeyCode::Left) as i32) as f32;
     let vertical_movement = Vec3::Y
         * (keyboard_input.pressed(KeyCode::Up) as i32
-            - keyboard_input.pressed(KeyCode::Down) as i32) as f32;
+        - keyboard_input.pressed(KeyCode::Down) as i32) as f32;
     direction.0 = horizontal_movement + vertical_movement;
 }
 

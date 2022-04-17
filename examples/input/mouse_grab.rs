@@ -1,3 +1,5 @@
+//! Demonstrates handling a mouse button press/release
+
 use bevy::prelude::*;
 
 fn main() {

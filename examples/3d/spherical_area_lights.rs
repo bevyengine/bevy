@@ -1,3 +1,5 @@
+//! Demonstrates how point light radius values affect light behavior.
+
 use bevy::prelude::*;
 
 fn main() {

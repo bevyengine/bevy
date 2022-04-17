@@ -1,3 +1,5 @@
+//! This example illustrates the various reflection types available
+
 use bevy::{
     prelude::*,
     reflect::{DynamicList, ReflectRef},
@@ -5,7 +7,6 @@ use bevy::{
 };
 use serde::{Deserialize, Serialize};
 
-/// This example illustrates the various reflection types available
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

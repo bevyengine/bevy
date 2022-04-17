@@ -1,3 +1,5 @@
+//! Prints out all mouse events (buttons, movement, etc.)
+
 use bevy::prelude::*;
 
 fn main() {

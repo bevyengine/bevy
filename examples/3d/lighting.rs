@@ -1,3 +1,5 @@
+//! Illustrates various lighting options in a simple scene
+
 use bevy::prelude::*;
 
 fn main() {

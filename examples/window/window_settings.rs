@@ -1,6 +1,7 @@
+//! This example illustrates how to customize the default window settings
+
 use bevy::{prelude::*, window::PresentMode};
 
-/// This example illustrates how to customize the default window settings
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {

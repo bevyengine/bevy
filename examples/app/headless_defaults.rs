@@ -1,3 +1,5 @@
+//! An application that runs with default plugins, but without an actual renderer
+
 use bevy::{prelude::*, render::settings::WgpuSettings};
 
 fn main() {

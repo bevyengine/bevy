@@ -1,3 +1,6 @@
+//! Demonstrates creating a custom material that uses "shaders defs", a tool to selectively
+//! toggle parts of a shader
+
 use bevy::{
     core_pipeline::Transparent3d,
     pbr::{

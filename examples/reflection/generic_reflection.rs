@@ -1,10 +1,12 @@
+//! Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
+
 use bevy::{prelude::*, reflect::TypeRegistry};
 use std::any::TypeId;
 
-/// You must manually register each instance of a generic type
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // You must manually register each instance of a generic type
         .register_type::<MyType<u32>>()
         .add_startup_system(setup)
         .run();

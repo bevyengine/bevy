@@ -1,3 +1,5 @@
+//! Illustrates ticking `Timer` resources inside systems and handling their state
+
 use bevy::{log::info, prelude::*};
 
 fn main() {

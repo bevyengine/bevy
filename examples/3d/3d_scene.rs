@@ -1,3 +1,5 @@
+//! Simple 3D scene with basic shapes and lighting
+
 use bevy::prelude::*;
 
 fn main() {

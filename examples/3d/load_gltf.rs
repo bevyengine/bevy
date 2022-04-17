@@ -1,3 +1,5 @@
+//! Loads and renders a gltf file as a scene
+
 use bevy::prelude::*;
 
 fn main() {

@@ -1,3 +1,7 @@
+//! Implements a custom asset io loader
+//! An [`AssetIo`] load is what the assert server uses to read the raw bytes of assets.
+//! It does not know anything about the asset formats, only how to talk the underlying storage.
+
 use bevy::{
     asset::{AssetIo, AssetIoError, Metadata},
     prelude::*,
@@ -21,7 +25,7 @@ impl AssetIo for CustomAssetIo {
     fn read_directory(
         &self,
         path: &Path,
-    ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
+    ) -> Result<Box<dyn Iterator<Item=PathBuf>>, AssetIoError> {
         info!("read_directory({:?})", path);
         self.0.read_directory(path)
     }
