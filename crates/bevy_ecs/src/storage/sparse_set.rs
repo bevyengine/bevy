@@ -103,7 +103,9 @@ pub struct ComponentSparseSet {
 impl ComponentSparseSet {
     pub fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
-            dense: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
+            dense: unsafe {
+                BlobVec::new(component_info.layout(), component_info.drop(), capacity)
+            },
             ticks: Vec::with_capacity(capacity),
             entities: Vec::with_capacity(capacity),
             sparse: Default::default(),
@@ -139,8 +141,8 @@ impl ComponentSparseSet {
             *self.ticks.get_unchecked_mut(dense_index) =
                 UnsafeCell::new(ComponentTicks::new(change_tick));
         } else {
-            let dense_index = self.dense.push_uninit();
-            self.dense.initialize_unchecked(dense_index, value);
+            self.dense.push(value);
+            let dense_index = self.dense.len();
             self.sparse.insert(entity, dense_index);
             debug_assert_eq!(self.ticks.len(), dense_index);
             debug_assert_eq!(self.entities.len(), dense_index);

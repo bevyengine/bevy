@@ -32,9 +32,14 @@ impl std::fmt::Debug for BlobVec {
 }
 
 impl BlobVec {
-    // FIXME: this definitely needs to be an unsafe fn because we have no idea what safety invariants
-    // the `unsafe fn(OwningPtr<'_>)` might have i.e. `|_| std::hint::unreachable_unchecked()`
-    pub fn new(item_layout: Layout, drop: unsafe fn(OwningPtr<'_>), capacity: usize) -> BlobVec {
+    /// # Safety
+    ///
+    /// `drop` should be safe to call with an OwningPtr pointing to any item that's been pushed into this BlobVec.
+    pub unsafe fn new(
+        item_layout: Layout,
+        drop: unsafe fn(OwningPtr<'_>),
+        capacity: usize,
+    ) -> BlobVec {
         if item_layout.size() == 0 {
             BlobVec {
                 swap_scratch: NonNull::dangling(),
@@ -45,7 +50,7 @@ impl BlobVec {
                 drop,
             }
         } else {
-            let swap_scratch = NonNull::new(unsafe { std::alloc::alloc(item_layout) })
+            let swap_scratch = NonNull::new(std::alloc::alloc(item_layout))
                 .unwrap_or_else(|| std::alloc::handle_alloc_error(item_layout));
             let mut blob_vec = BlobVec {
                 swap_scratch,
@@ -107,16 +112,10 @@ impl BlobVec {
         self.capacity = new_capacity;
     }
 
-    // FIXME: Replace with something that doesnt require temporarily increasing
-    //        the length of the `BlobVec` into uninitialised memory.
-    // FIXME: Safety invariant of memory being uninitialised makes no
-    //        sense as we don't guarantee that destructors will run.
     /// # Safety
     /// - index must be in bounds
     /// - the memory in the `BlobVec` starting at index `index`, of a size matching this `BlobVec`'s
-    /// `item_layout`, must have been previously allocated, but not initialized yet
-    /// - the memory at `*value` must be previously initialized with an item matching this
-    /// `BlobVec`'s `item_layout`
+    /// `item_layout`, must have been previously allocated.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
@@ -154,19 +153,16 @@ impl BlobVec {
         self.len = old_len;
     }
 
-    // FIXME: Remove this function and replace it with something that cant be used without
-    //        initialising the new element.
-    /// Increases the length by one (and grows the vec if needed) with uninitialized memory and
-    /// returns the index
+    /// Pushes a value to the BlobVec.
     ///
     /// # Safety
-    /// the newly allocated space must be immediately populated with a valid value
+    /// `value` must be valid to add to this `BlobVec`
     #[inline]
-    pub unsafe fn push_uninit(&mut self) -> usize {
+    pub unsafe fn push(&mut self, value: OwningPtr<'_>) {
         self.reserve_exact(1);
         let index = self.len;
         self.len += 1;
-        index
+        self.initialize_unchecked(index, value);
     }
 
     /// # Safety
@@ -189,7 +185,7 @@ impl BlobVec {
     #[must_use = "The returned pointer should be used to dropped the removed element"]
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> OwningPtr<'_> {
         // FIXME: This should probably just use `core::ptr::swap` and return an `OwningPtr`
-        //        into the underlying `BlobVec` allocation.
+        //        into the underlying `BlobVec` allocation, and remove swap_scratch
 
         debug_assert!(index < self.len());
         let last = self.len - 1;
@@ -358,9 +354,8 @@ mod tests {
     ///
     /// `blob_vec` must have a layout that matches `Layout::new::<T>()`
     unsafe fn push<T>(blob_vec: &mut BlobVec, value: T) {
-        let index = blob_vec.push_uninit();
         OwningPtr::make(value, |ptr| {
-            blob_vec.initialize_unchecked(index, ptr);
+            blob_vec.push(ptr);
         });
     }
 
@@ -386,7 +381,7 @@ mod tests {
     fn resize_test() {
         let item_layout = Layout::new::<usize>();
         let drop = drop_ptr::<usize>;
-        let mut blob_vec = BlobVec::new(item_layout, drop, 64);
+        let mut blob_vec = unsafe { BlobVec::new(item_layout, drop, 64) };
         unsafe {
             for i in 0..1_000 {
                 push(&mut blob_vec, i as usize);
@@ -416,7 +411,7 @@ mod tests {
         {
             let item_layout = Layout::new::<Foo>();
             let drop = drop_ptr::<Foo>;
-            let mut blob_vec = BlobVec::new(item_layout, drop, 2);
+            let mut blob_vec = unsafe { BlobVec::new(item_layout, drop, 2) };
             assert_eq!(blob_vec.capacity(), 2);
             unsafe {
                 let foo1 = Foo {
@@ -476,6 +471,6 @@ mod tests {
     fn blob_vec_drop_empty_capacity() {
         let item_layout = Layout::new::<Foo>();
         let drop = drop_ptr::<Foo>;
-        let _ = BlobVec::new(item_layout, drop, 0);
+        let _ = unsafe { BlobVec::new(item_layout, drop, 0) };
     }
 }

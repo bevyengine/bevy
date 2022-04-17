@@ -41,7 +41,7 @@ impl Column {
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Column {
             component_id: component_info.id(),
-            data: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
+            data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             ticks: Vec::with_capacity(capacity),
         }
     }
@@ -122,8 +122,7 @@ impl Column {
     // # Safety
     // - ptr must point to valid data of this column's component type
     pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
-        let row = self.data.push_uninit();
-        self.data.initialize_unchecked(row, ptr);
+        self.data.push(ptr);
         self.ticks.push(UnsafeCell::new(ticks));
     }
 
