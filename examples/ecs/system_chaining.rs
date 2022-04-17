@@ -1,4 +1,4 @@
-//! Illustrates how to use States to control transitioning from a Menu state to an InGame state
+//! Illustrates how to use States to control transitioning from a Menu state to an `InGame` state
 
 use anyhow::Result;
 use bevy::prelude::*;

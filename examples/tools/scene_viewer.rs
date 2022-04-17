@@ -1,7 +1,7 @@
 //! A simple way to view glTF models with Bevy.
 //! Just run `cargo run --release --example scene_viewer -- /path/to/model.gltf#Scene0`,
 //! replacing the path as appropriate.
-//! With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory.
+//! With no arguments it will load the `FieldHelmet` glTF model from the repository assets subdirectory.
 
 use bevy::{
     asset::{AssetServerSettings, LoadState},
