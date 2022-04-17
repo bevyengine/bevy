@@ -54,6 +54,13 @@ Add your arch to the end of the package to remove the linker error. For example:
 ```bash
 sudo dnf install alsa-lib-devel.x86_64
 ```
+## Fedora / Silverblue
+
+```bash
+toolbox enter
+sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel wayland-devel libxkbcommon-devel rust-alsa-sys-devel.noarch
+exit
+```
 
 ## Arch / Manjaro
 
