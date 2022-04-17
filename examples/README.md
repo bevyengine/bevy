@@ -74,7 +74,6 @@ git checkout v0.4.0
 
 <!-- MD026 - Hello, World! looks better with the ! -->
 <!-- markdownlint-disable-next-line MD026 -->
-
 ## Hello, World!
 
 Example | File | Description
