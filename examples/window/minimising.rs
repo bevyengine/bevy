@@ -16,7 +16,8 @@ fn main() {
         .insert_resource(MinimiseTimer(Timer::new(Duration::from_secs(2), false)))
         .add_plugins(DefaultPlugins)
         .add_system(minimise_automatically)
-        .add_startup_system(setup)
+        .add_startup_system(setup_3d)
+        .add_startup_system(setup_rect)
         .run();
 }
 
@@ -31,7 +32,7 @@ fn minimise_automatically(
 }
 
 /// A simple 3d scene, taken from the `3d_scene` example
-fn setup(
+fn setup_3d(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -62,6 +63,19 @@ fn setup(
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
+}
+
+/// A simple 2d scene, taken from the `rect` example
+fn setup_rect(mut commands: Commands) {
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            color: Color::rgb(0.25, 0.25, 0.75),
+            custom_size: Some(Vec2::new(50.0, 50.0)),
+            ..default()
+        },
         ..default()
     });
 }
