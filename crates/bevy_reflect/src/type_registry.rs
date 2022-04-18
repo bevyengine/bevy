@@ -376,8 +376,6 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// let value = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
 ///
 /// println!("{:?}", value);
-///
-/// # Ok(())
 /// ```
 #[derive(Clone)]
 pub struct ReflectFromPtr {
