@@ -6,12 +6,6 @@ use bevy_ecs::{event::EventReader, system::ResMut};
 /// This event is the translated version of the `WindowEvent::KeyboardInput` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
 ///
-/// ## Access
-///
-/// To access or send keyboard input events use one of the following:
-/// - To access keyboard input events: `EventReader<KeyboardInput>`
-/// - To send keyboard input events: `EventWriter<KeyboardInput>`
-///
 /// ## Usage
 ///
 /// The event is read inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
