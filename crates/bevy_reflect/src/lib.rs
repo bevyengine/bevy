@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.md")]
+#![doc = include_str ! ("../README.md")]
 
 mod array;
 mod fields;
@@ -12,6 +12,7 @@ mod tuple_struct;
 mod type_info;
 mod type_registry;
 mod type_uuid;
+
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
@@ -960,6 +961,37 @@ bevy_reflect::tests::should_reflect_debug::Test {
             v.apply(&d);
 
             assert_eq!(v, vec3(4.0, 2.0, 1.0));
+        }
+        #[test]
+        fn register_all_types() {
+            #[derive(Reflect)]
+            struct Foo;
+            #[derive(Reflect)]
+            struct Bar;
+            #[derive(Reflect)]
+            struct Baz;
+
+            trait SomeTrait {}
+            trait NoneTrait {}
+
+            impl SomeTrait for Foo {}
+            impl SomeTrait for Bar {}
+
+            register_all! {
+                traits: [SomeTrait],
+                types: [Foo, Bar, Baz]
+            }
+
+            let mut registry = TypeRegistry::default();
+            register_types(&mut registry);
+
+            let ty = registry.get(TypeId::of::<Foo>()).unwrap();
+            assert!(ty.trait_cast::<dyn SomeTrait>(&Foo).is_some());
+            assert!(ty.trait_cast::<dyn NoneTrait>(&Foo).is_none());
+
+            let ty = registry.get(TypeId::of::<Baz>()).unwrap();
+            assert!(ty.trait_cast::<dyn SomeTrait>(&Baz).is_none());
+            assert!(ty.trait_cast::<dyn NoneTrait>(&Baz).is_none());
         }
     }
 }
