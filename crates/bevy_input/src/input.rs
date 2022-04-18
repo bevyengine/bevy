@@ -7,6 +7,8 @@ use bevy_ecs::schedule::State;
 
 /// A "press-able" input of type `T`.
 ///
+/// ## Usage
+///
 /// This type can be used as a resource to keep the current state of an input, by reacting to
 /// events from the input. For a given input value:
 ///
@@ -14,14 +16,16 @@ use bevy_ecs::schedule::State;
 /// * [`Input::just_pressed`] will return `true` for one frame after a press event.
 /// * [`Input::just_released`] will return `true` for one frame after a release event.
 ///
+/// ## Multiple systems
+///
 /// In case multiple systems are checking for [`Input::just_pressed`] or [`Input::just_released`]
 /// but only one should react, for example in the case of triggering
-/// [`State`] change, you should consider clearing the input state, either by:
+/// [`State`](bevy_ecs::schedule::State) change, you should consider clearing the input state, either by:
 ///
 /// * Using [`Input::clear_just_pressed`] or [`Input::clear_just_released`] instead.
 /// * Calling [`Input::clear`] or [`Input::reset`] immediately after the state change.
 ///
-/// ## Notes when adding this resource for a new input type
+/// ## Note
 ///
 /// When adding this resource for a new input type, you should:
 ///
@@ -30,8 +34,11 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
 #[derive(Debug, Clone)]
 pub struct Input<T: Eq + Hash> {
+    /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
+    /// A collection of every button that has just been pressed.
     just_pressed: HashSet<T>,
+    /// A collection of every button that has just been released.
     just_released: HashSet<T>,
 }
 
@@ -49,7 +56,7 @@ impl<T> Input<T>
 where
     T: Copy + Eq + Hash,
 {
-    /// Register a press for input `input`.
+    /// Registers a press for the given `input`.
     pub fn press(&mut self, input: T) {
         // Returns `true` if the `input` wasn't pressed.
         if self.pressed.insert(input) {
@@ -57,17 +64,17 @@ where
         }
     }
 
-    /// Check if `input` has been pressed.
+    /// Returns `true` if the `input` has been pressed.
     pub fn pressed(&self, input: T) -> bool {
         self.pressed.contains(&input)
     }
 
-    /// Check if any item in `inputs` has been pressed.
+    /// Returns `true` if any item in `inputs` has been pressed.
     pub fn any_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.pressed(it))
     }
 
-    /// Register a release for input `input`.
+    /// Registers a release for the given `input`.
     pub fn release(&mut self, input: T) {
         // Returns `true` if the `input` was pressed.
         if self.pressed.remove(&input) {
@@ -75,64 +82,64 @@ where
         }
     }
 
-    /// Check if `input` has been just pressed.
+    /// Returns `true` if the `input` has just been pressed.
     pub fn just_pressed(&self, input: T) -> bool {
         self.just_pressed.contains(&input)
     }
 
-    /// Check if any item in `inputs` has just been pressed.
+    /// Returns `true` if any item in `inputs` has just been pressed.
     pub fn any_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.just_pressed(it))
     }
 
-    /// Clear the "just pressed" state of `input`. Future calls to [`Input::just_pressed`] for the
-    /// given input will return false until a new press event occurs.
-    /// Returns true if `input` is currently "just pressed"
+    /// Clears the `just_pressed` state of the `input` and returns `true` if the `input` has just been pressed.
+    ///
+    /// Future calls to [`Input::just_pressed`] for the given input will return false until a new press event occurs.
     pub fn clear_just_pressed(&mut self, input: T) -> bool {
         self.just_pressed.remove(&input)
     }
 
-    /// Check if `input` has been just released.
+    /// Returns `true` if the `input` has just been released.
     pub fn just_released(&self, input: T) -> bool {
         self.just_released.contains(&input)
     }
 
-    /// Check if any item in `inputs` has just been released.
+    /// Returns `true` if any item in `inputs` has just been released.
     pub fn any_just_released(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.just_released(it))
     }
 
-    /// Clear the "just released" state of `input`. Future calls to [`Input::just_released`] for the
-    /// given input will return false until a new release event occurs.
-    /// Returns true if `input` is currently "just released"
+    /// Clears the `just_released` state of the `input` and returns `true` if the `input` has just been released.
+    ///
+    /// Future calls to [`Input::just_released`] for the given input will return false until a new release event occurs.
     pub fn clear_just_released(&mut self, input: T) -> bool {
         self.just_released.remove(&input)
     }
 
-    /// Reset all status for input `input`.
+    /// Clears the `pressed`, `just_pressed` and `just_released` data of the `input`.
     pub fn reset(&mut self, input: T) {
         self.pressed.remove(&input);
         self.just_pressed.remove(&input);
         self.just_released.remove(&input);
     }
 
-    /// Clear just pressed and just released information.
+    /// Clears the `just pressed` and `just released` data for every input.
     pub fn clear(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
     }
 
-    /// List all inputs that are pressed.
+    /// An iterator visiting every pressed input in arbitrary order.
     pub fn get_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
         self.pressed.iter()
     }
 
-    /// List all inputs that are just pressed.
+    /// An iterator visiting every just pressed input in arbitrary order.
     pub fn get_just_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_pressed.iter()
     }
 
-    /// List all inputs that are just released.
+    /// An iterator visiting every just released input in arbitrary order.
     pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_released.iter()
     }
