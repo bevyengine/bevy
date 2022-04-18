@@ -206,7 +206,7 @@ pub fn get_transcoded_formats(
     is_srgb: bool,
 ) -> (TranscoderBlockFormat, TextureFormat) {
     match data_format {
-        DataFormat::R8 => {
+        DataFormat::Rrr => {
             if supported_compressed_formats.contains(CompressedImageFormats::BC) {
                 (TranscoderBlockFormat::BC4, TextureFormat::Bc4RUnorm)
             } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
@@ -218,7 +218,7 @@ pub fn get_transcoded_formats(
                 (TranscoderBlockFormat::RGBA32, TextureFormat::R8Unorm)
             }
         }
-        DataFormat::Rg8 => {
+        DataFormat::Rrrg | DataFormat::Rg => {
             if supported_compressed_formats.contains(CompressedImageFormats::BC) {
                 (TranscoderBlockFormat::BC5, TextureFormat::Bc5RgUnorm)
             } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
@@ -232,7 +232,7 @@ pub fn get_transcoded_formats(
         }
         // NOTE: Rgba16Float should be transcoded to BC6H/ASTC_HDR. Neither are supported by
         // basis-universal, nor is ASTC_HDR supported by wgpu
-        DataFormat::Rgb8 | DataFormat::Rgba8 | DataFormat::Rgba16Float => {
+        DataFormat::Rgb | DataFormat::Rgba => {
             // NOTE: UASTC can be losslessly transcoded to ASTC4x4 and ASTC uses the same
             // space as BC7 (128-bits per 4x4 texel block) so prefer ASTC over BC for
             // transcoding speed and quality.
@@ -1247,18 +1247,18 @@ pub fn ktx2_dfd_to_texture_format(
         }
         Some(ColorModel::UASTC) => {
             return Err(TextureError::FormatRequiresTranscodingError(
-                TranscodeFormat::Uastc(match sample_information.len() {
-                    1 => DataFormat::R8,
-                    2 => DataFormat::Rg8,
-                    3 => DataFormat::Rgb8,
-                    4 => {
-                        if sample_information[0].bit_length == 8 {
-                            DataFormat::Rgba8
-                        } else {
-                            DataFormat::Rgba16Float
-                        }
+                TranscodeFormat::Uastc(match sample_information[0].channel_type {
+                    0 => DataFormat::Rgb,
+                    3 => DataFormat::Rgba,
+                    4 => DataFormat::Rrr,
+                    5 => DataFormat::Rrrg,
+                    6 => DataFormat::Rg,
+                    channel_type => {
+                        return Err(TextureError::UnsupportedTextureFormat(format!(
+                            "Invalid KTX2 UASTC channel type: {}",
+                            channel_type
+                        )))
                     }
-                    _ => DataFormat::Rgba8,
                 }),
             ));
         }
