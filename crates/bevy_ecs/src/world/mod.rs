@@ -78,7 +78,7 @@ pub struct World {
 
 impl Default for World {
     fn default() -> Self {
-        World {
+        let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
             components: Default::default(),
@@ -92,8 +92,10 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
-            system_registry: Default::default(),
         }
+       // This resource is required by bevy_ecs itself, so cannot be included in a plugin
+        world.init_resource::<SystemRegistry>();
+        world
     }
 }
 
