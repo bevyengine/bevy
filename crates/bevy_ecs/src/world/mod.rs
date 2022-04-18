@@ -70,11 +70,15 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
+    /// Stores the systems associated with this [`World`],
+    ///
+    /// These system can be manually run using [`World::run_system`].
+    pub system_registry: SystemRegistry,
 }
 
 impl Default for World {
     fn default() -> Self {
-        let mut world = Self {
+        World {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
             components: Default::default(),
@@ -88,6 +92,7 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
+            system_registry: Default::default(),
         }
     }
 }
