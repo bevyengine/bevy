@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::Indices,
+        mesh::{Indices, MeshVertexAttribute},
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
@@ -72,7 +72,10 @@ fn star(
     // And a RGB color attribute as well
     let mut v_color: Vec<u32> = vec![Color::BLACK.as_linear_rgba_u32()];
     v_color.extend_from_slice(&[Color::YELLOW.as_linear_rgba_u32(); 10]);
-    star.insert_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
+    star.insert_attribute(
+        MeshVertexAttribute::new("Vertex_Color", 1, VertexFormat::Uint32),
+        v_color,
+    );
 
     // Now, we specify the indices of the vertex that are going to compose the
     // triangles in our star. Vertices in triangles have to be specified in CCW
