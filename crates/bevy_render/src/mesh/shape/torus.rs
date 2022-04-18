@@ -47,12 +47,12 @@ impl From<Torus> for Mesh {
 
                 let tan_ring = Vec3::new(
                     theta.cos() * phi.sin() * -1.0,
-                    theta.sin() * phi.sin() * -1.0,
                     phi.cos(),
+                    theta.sin() * phi.sin() * -1.0,
                 );
-                let tan = Vec3::new(theta.sin() * -1.0, theta.cos(), 0.0);
+                let tan = Vec3::new(theta.sin() * -1.0, 0.0, theta.cos());
 
-                let normal = tan.cross(tan_ring).normalize();
+                let normal = tan_ring.cross(tan).normalize();
 
                 positions.push([x, y, z]);
                 normals.push(normal.into());
