@@ -371,7 +371,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// let value = Reflected("Hello world!".to_string());
 /// let value: *const () = &value as *const _ as *const ();
 ///
-/// let reflect_from_ptr = type_registry.get(std::any::TypeId::of::<Reflected>())?.data::<ReflectFromPtr>()?;
+/// let reflect_from_ptr = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap().data::<ReflectFromPtr>().unwrap();
 /// // SAFE: `value` is a pointer to an valid value of `Reflected`
 /// let value = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
 ///
