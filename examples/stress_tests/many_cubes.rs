@@ -1,6 +1,6 @@
 //! Simple benchmark to test per-entity draw overhead
 //!
-//! To a realistic performance result, run this in release mode.
+//! To measure performance realistically, be sure to run this in release mode.
 //! `cargo run --example many_cubes --release`
 //!
 //! Per default this arranges the meshes in a cubical pattern, where the number of visible meshes
