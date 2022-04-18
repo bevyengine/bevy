@@ -75,7 +75,8 @@ mod tests {
         ];
 
         for (value, expected) in cases {
-            let gamepad_button = GamepadButton(Gamepad(1), GamepadButtonType::RightTrigger);
+            let gamepad_button =
+                GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger);
             let mut axis = Axis::<GamepadButton>::default();
 
             axis.set(gamepad_button, value);
@@ -90,7 +91,8 @@ mod tests {
         let cases = [-1.0, -0.9, -0.1, 0.0, 0.1, 0.9, 1.0];
 
         for value in cases {
-            let gamepad_button = GamepadButton(Gamepad(1), GamepadButtonType::RightTrigger);
+            let gamepad_button =
+                GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger);
             let mut axis = Axis::<GamepadButton>::default();
 
             axis.set(gamepad_button, value);
