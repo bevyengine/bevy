@@ -83,16 +83,20 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
-    /// Access cache used by [WorldCell].
+    /// Access cache used by [`WorldCell`].
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
+    /// Stores the systems associated with this [`World`],
+    ///
+    /// These system can be manually run using [`World::run_system`].
+    pub system_registry: SystemRegistry,
 }
 
 impl Default for World {
     fn default() -> Self {
-        let mut world = Self {
+        World {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Default::default(),
             components: Default::default(),
@@ -106,10 +110,8 @@ impl Default for World {
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: 0,
-        };
-        // This resource is required by bevy_ecs itself, so cannot be included in a plugin
-        world.init_resource::<SystemRegistry>();
-        world
+            system_registry: Default::default(),
+        }
     }
 }
 
