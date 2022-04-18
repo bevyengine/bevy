@@ -358,7 +358,8 @@ pub struct ReflectFromPtr {
 }
 
 impl ReflectFromPtr {
-    /// # Safety:
+    /// # Safety
+    ///
     /// - `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// - the lifetime `'a` of the return type can be arbitrarily chosen by the caller, who must ensure that during
     /// that lifetime, `val` is valid
@@ -366,7 +367,8 @@ impl ReflectFromPtr {
         (self.to_reflect)(val, PhantomData)
     }
 
-    /// # Safety:
+    /// # Safety
+    ///
     /// - `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// - the lifetime `'a` of the return type can be arbitrarily chosen by the caller, who must ensure that during
     /// that lifetime, `val` is valid and not aliased
