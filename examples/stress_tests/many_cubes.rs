@@ -8,7 +8,7 @@
 //! distributes the meshes evenly.
 //!
 //! To start the demo using the spherical layout run
-//! `cargo run --example many_cubes --release -- sphere`
+//! `cargo run --example many_cubes --release sphere`
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
