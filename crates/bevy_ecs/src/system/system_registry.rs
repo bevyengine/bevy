@@ -1,7 +1,6 @@
 use bevy_utils::HashMap;
 use std::marker::PhantomData;
 
-use crate::archetype::ArchetypeGeneration;
 use crate::schedule::SystemLabel;
 use crate::system::{Command, IntoSystem, System, SystemTypeIdLabel};
 use crate::world::{Mut, World};
@@ -125,27 +124,6 @@ pub struct SystemRegistry {
 
 struct StoredSystem {
     system: Box<dyn System<In = (), Out = ()>>,
-    generation: ArchetypeGeneration,
-}
-
-impl StoredSystem {
-    /// Updates archetypes to ensure our access pointers are correct
-    ///
-    /// This logic must be run after each system is run, as each system can modify archetypes
-    // TODO: remove this method once https://github.com/bevyengine/bevy/pull/4115 is merged
-    fn update_archetypes(&mut self, world: &mut World) {
-        // This logic is borrowed directly from SingleThreadedExecutor
-        let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.generation, new_generation);
-        self.generation = new_generation;
-
-        let archetype_index_range = old_generation.value()..new_generation.value();
-
-        for archetype in archetypes.archetypes[archetype_index_range].iter() {
-            self.system.new_archetype(archetype);
-        }
-    }
 }
 
 impl SystemRegistry {
@@ -205,12 +183,9 @@ impl SystemRegistry {
     ) {
         // Intialize the system's state
         boxed_system.initialize(world);
-        // Record the archetype generation at the time of its creation
-        let archetype_generation = ArchetypeGeneration::initial();
 
         let stored_system = StoredSystem {
             system: boxed_system,
-            generation: archetype_generation,
         };
 
         // Add the system to the end of the vec
@@ -236,8 +211,6 @@ impl SystemRegistry {
     fn run_system_at_index(&mut self, world: &mut World, index: usize) {
         let ref mut stored_system = self.systems[index];
 
-        // Update the archetypes to make sure our data access is correct
-        stored_system.update_archetypes(world);
         // Run the system
         stored_system.system.run((), world);
         // Apply any generated commands
