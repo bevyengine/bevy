@@ -350,6 +350,35 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
     }
 }
 
+/// [`Reflect`] values are commonly used in situations where the actual types of values
+/// are not known at runtime. In such situations you might have access to a `*const ()`
+/// that you know implements [`Reflect`], but have no way of turning it into a `&dyn Reflect`.
+///
+/// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`,
+/// it internally saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
+/// from a pointer.
+///
+/// # Example
+/// ```rust
+/// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
+///
+/// #[derive(Reflect)]
+/// struct Reflected(String);
+///
+/// let mut type_registry = TypeRegistry::default();
+/// type_registry.register::<Reflected>();
+///
+/// let value = Reflected("Hello world!".to_string());
+/// let value: *const () = &value as *const _ as *const ();
+///
+/// let reflect_from_ptr = type_registry.get(std::any::TypeId::of::<Reflected>())?.data::<ReflectFromPtr>()?;
+/// // SAFE: `value` is a pointer to an valid value of `Reflected`
+/// let value = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
+///
+/// println!("{:?}", value);
+///
+/// # Ok(())
+/// ```
 #[derive(Clone)]
 pub struct ReflectFromPtr {
     type_id: TypeId,
