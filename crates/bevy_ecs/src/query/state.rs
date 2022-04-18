@@ -2,6 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
     entity::Entity,
+    prelude::FromWorld,
     query::{
         Access, Fetch, FetchState, FilterFetch, FilteredAccess, NopFetch, QueryCombinationIter,
         QueryIter, WorldQuery,
@@ -30,6 +31,15 @@ where
     pub(crate) matched_archetype_ids: Vec<ArchetypeId>,
     pub(crate) fetch_state: Q::State,
     pub(crate) filter_state: F::State,
+}
+
+impl<Q: WorldQuery, F: WorldQuery> FromWorld for QueryState<Q, F>
+where
+    F::Fetch: FilterFetch,
+{
+    fn from_world(world: &mut World) -> Self {
+        world.query_filtered()
+    }
 }
 
 impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F>

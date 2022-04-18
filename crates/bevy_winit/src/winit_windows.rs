@@ -22,13 +22,6 @@ impl WinitWindows {
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
     ) -> Window {
-        #[cfg(target_os = "windows")]
-        let mut winit_window_builder = {
-            use winit::platform::windows::WindowBuilderExtWindows;
-            winit::window::WindowBuilder::new().with_drag_and_drop(false)
-        };
-
-        #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
         winit_window_builder = match window_descriptor.mode {

@@ -17,13 +17,13 @@ use crate::{
     storage::{Column, SparseSet, Storages},
     system::Resource,
 };
+use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
     fmt,
     mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
 };
-
 mod identifier;
 
 pub use identifier::WorldId;
@@ -224,8 +224,8 @@ impl World {
     /// let entity = world.spawn()
     ///     .insert(Position { x: 0.0, y: 0.0 })
     ///     .id();
-    ///
-    /// let mut position = world.entity_mut(entity).get_mut::<Position>().unwrap();
+    /// let mut entity_mut = world.entity_mut(entity);
+    /// let mut position = entity_mut.get_mut::<Position>().unwrap();
     /// position.x = 1.0;
     /// ```
     #[inline]
@@ -437,7 +437,8 @@ impl World {
     /// ```
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        self.get_entity_mut(entity)?.get_mut()
+        // SAFE: lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_entity_mut(entity)?.get_unchecked_mut::<T>() }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
@@ -462,6 +463,7 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
+        debug!("Despawning entity {:?}", entity);
         self.get_entity_mut(entity)
             .map(|e| {
                 e.despawn();

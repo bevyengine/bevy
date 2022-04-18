@@ -380,7 +380,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
         }
 
-        unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
+        unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> #where_clause {
             fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
                 Self {
                     state: TSystemParamState::init(world, system_meta),
