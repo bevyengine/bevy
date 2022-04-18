@@ -1,4 +1,6 @@
 //! A compute shader simulating Conway's Game of Life
+//! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
+//! is rendered to the screen.
 
 use bevy::{
     core_pipeline::node::MAIN_PASS_DEPENDENCIES,
