@@ -5,9 +5,6 @@ use bevy_utils::HashMap;
 
 /// A touch input event.
 ///
-/// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
-/// It is available to the end user and can be used for game logic.
-///
 /// ## Logic
 ///
 /// Every time the user touches the screen, a new [`TouchPhase::Started`] event with an unique
@@ -24,6 +21,11 @@ use bevy_utils::HashMap;
 /// A [`TouchPhase::Cancelled`] event is emitted when the system has canceled tracking this
 /// touch, such as when the window loses focus, or on iOS if the user moves the
 /// device against their face.
+///
+/// ## Note
+///
+/// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
+/// It is available to the end user and can be used for game logic.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TouchInput {
     /// The phase of the touch input.
@@ -201,13 +203,13 @@ impl From<&TouchInput> for Touch {
 /// The resource is updated inside of the [`touch_screen_input_system`](crate::touch::touch_screen_input_system).
 #[derive(Debug, Clone, Default)]
 pub struct Touches {
-    /// A collection of every button that is currently being pressed.
+    /// A collection of every [`Touch`] that is currently being pressed.
     pressed: HashMap<u64, Touch>,
-    /// A collection of every button that just got pressed.
+    /// A collection of every [`Touch`] that just got pressed.
     just_pressed: HashMap<u64, Touch>,
-    /// A collection of every button that just got released.
+    /// A collection of every [`Touch`] that just got released.
     just_released: HashMap<u64, Touch>,
-    /// A collection of every button that just got cancelled.
+    /// A collection of every [`Touch`] that just got cancelled.
     just_cancelled: HashMap<u64, Touch>,
 }
 
@@ -286,6 +288,12 @@ impl Touches {
     }
 
     /// Clears the `just_pressed`, `just_released`, and `just_cancelled` collections.
+    ///
+    /// This is not clearing the `pressed` collection, because it could incorrectly mark
+    /// a touch input as not pressed eventhough it is pressed. This could happen if the
+    /// touch input is not moving for a single frame and would therefore be marked as
+    /// not pressed, because this function is called on every single frame no matter
+    /// if there was an event or not.
     fn update(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
