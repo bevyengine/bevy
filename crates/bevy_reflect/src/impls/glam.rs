@@ -171,29 +171,3 @@ impl_reflect_struct_and_from_reflect_struct!(
 // to Vec4 and DVec4, so you may use those instead and convert between.
 impl_reflect_value!(Quat(PartialEq, Serialize, Deserialize));
 impl_reflect_value!(DQuat(PartialEq, Serialize, Deserialize));
-
-#[test]
-fn temp_test() {
-    let v = vec3(12.0, 0.0, 0.0);
-
-    let refl: &dyn Reflect = &v;
-
-    assert!(matches!(refl.reflect_ref(), bevy_reflect::ReflectRef::Struct(_)));
-
-    assert!(match refl.reflect_ref() {
-        bevy_reflect::ReflectRef::Struct(s) => s.field("x").is_some(),
-        _ => false
-    });
-
-    assert!(match refl.reflect_ref() {
-        bevy_reflect::ReflectRef::Struct(s) => s.field("x").unwrap().downcast_ref::<f32>().unwrap() == &12.0,
-        _ => false
-    });
-
-    use bevy_reflect::FromReflect;
-    let v2 = Vec3::from_reflect(refl).unwrap();
-
-    assert_eq!(v2.x, 12.0);
-
-    assert!(refl.reflect_partial_eq(&v2).is_some() && refl.reflect_partial_eq(&v2).unwrap())
-}
