@@ -1,14 +1,17 @@
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 
+/// Simple flying camera plugin.
+/// In order to function, [`CameraController`] should be attached to the camera.
 pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(camera_controller);
+        app.add_system(camera_controller).add_system(print_controls);
     }
 }
 
+/// Provides basic movement functionality to the attached camera
 #[derive(Component)]
 pub struct CameraController {
     pub enabled: bool,
@@ -28,6 +31,34 @@ pub struct CameraController {
     pub pitch: f32,
     pub yaw: f32,
     pub velocity: Vec3,
+}
+
+impl CameraController {
+    pub fn print_controls(&self) {
+        println!(
+            "
+===============================
+======= Camera Controls =======
+===============================
+    {:?} - Forward
+    {:?} - Backward
+    {:?} - Left
+    {:?} - Right
+    {:?} - Up
+    {:?} - Down
+    {:?} - Run
+    {:?} - EnableMouse
+",
+            self.key_forward,
+            self.key_back,
+            self.key_left,
+            self.key_right,
+            self.key_up,
+            self.key_down,
+            self.key_run,
+            self.key_enable_mouse,
+        );
+    }
 }
 
 impl Default for CameraController {
@@ -51,6 +82,16 @@ impl Default for CameraController {
             yaw: 0.0,
             velocity: Vec3::ZERO,
         }
+    }
+}
+
+pub fn print_controls(controller: Query<&CameraController>, mut controls_printed: Local<bool>) {
+    if *controls_printed {
+        return;
+    }
+    if let Some(controller) = controller.iter().next() {
+        controller.print_controls();
+        *controls_printed = true;
     }
 }
 
