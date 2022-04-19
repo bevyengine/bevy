@@ -113,6 +113,7 @@ impl<'a> PtrMut<'a> {
 }
 impl_ptr!(OwningPtr);
 impl<'a> OwningPtr<'a> {
+    #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
         let mut temp = MaybeUninit::new(val);
         let ptr = unsafe { NonNull::new_unchecked(temp.as_mut_ptr().cast::<u8>()) };
@@ -125,6 +126,48 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     pub unsafe fn read<T>(self) -> T {
         self.inner().as_ptr().cast::<T>().read()
+    }
+}
+
+/// roughly equilavent to &'a [T] but with length information cut out
+pub struct ThinSlicePtr<'a, T> {
+    ptr: NonNull<T>,
+    #[cfg(debug_assertions)]
+    len: usize,
+    _marker: PhantomData<&'a [T]>,
+}
+
+impl<'a, T> ThinSlicePtr<'a, T> {
+    pub unsafe fn get(self, index: usize) -> &'a T {
+        #[cfg(debug_assertions)]
+        debug_assert!(index < self.len);
+
+        &*self.ptr.as_ptr().add(index)
+    }
+}
+
+impl<'a, T> Clone for ThinSlicePtr<'a, T> {
+    fn clone(&self) -> Self {
+        Self {
+            ptr: self.ptr,
+            #[cfg(debug_assertions)]
+            len: self.len,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, T> Copy for ThinSlicePtr<'a, T> {}
+
+impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
+    #[inline]
+    fn from(slice: &'a [T]) -> Self {
+        Self {
+            ptr: unsafe { NonNull::new_unchecked(slice.as_ptr() as *mut T) },
+            #[cfg(debug_assertions)]
+            len: slice.len(),
+            _marker: PhantomData,
+        }
     }
 }
 

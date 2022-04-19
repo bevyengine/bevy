@@ -2,6 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
+    ptr::{ThinSlicePtr, UnsafeCellDeref},
     query::{
         debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, WorldQuery,
         WorldQueryGats,
@@ -529,10 +530,10 @@ macro_rules! impl_tick_filter {
         #[doc(hidden)]
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
-            table_ticks: Option<&'w [UnsafeCell<ComponentTicks>]>,
-            entity_table_rows: Option<&'w [usize]>,
+            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+            entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
             marker: PhantomData<T>,
-            entities: Option<&'w [Entity]>,
+            entities: Option<ThinSlicePtr<'w, Entity>>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
             change_tick: u32,
@@ -622,32 +623,32 @@ macro_rules! impl_tick_filter {
             };
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-                self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice());
+                self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice().into());
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        self.entity_table_rows = Some(archetype.entity_table_rows());
+                        self.entity_table_rows = Some(archetype.entity_table_rows().into());
                         let table = &tables[archetype.table_id()];
-                        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice());
+                        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice().into());
                     }
-                    StorageType::SparseSet => self.entities = Some(archetype.entities()),
+                    StorageType::SparseSet => self.entities = Some(archetype.entities().into()),
                 }
             }
 
             unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                $is_detected(&*(&*self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get_unchecked(table_row)).get(), self.last_change_tick, self.change_tick)
+                $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), self.last_change_tick, self.change_tick)
             }
 
             unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        let table_row = *self.entity_table_rows.unwrap_or_else(|| debug_checked_unreachable()).get_unchecked(archetype_index);
-                        $is_detected(&*(&*self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get_unchecked(table_row)).get(), self.last_change_tick, self.change_tick)
+                        let table_row = *self.entity_table_rows.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
+                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
-                        let entity = *self.entities.unwrap_or_else(|| debug_checked_unreachable()).get_unchecked(archetype_index);
+                        let entity = *self.entities.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
                         let ticks = self
                             .sparse_set
                             .unwrap_or_else(|| debug_checked_unreachable())
