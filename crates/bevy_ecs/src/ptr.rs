@@ -48,6 +48,7 @@ macro_rules! impl_ptr {
         impl $ptr<'_> {
             /// # Safety
             /// the offset cannot make the existing ptr null, or take it out of bounds for its allocation.
+            #[inline]
             pub unsafe fn offset(self, count: isize) -> Self {
                 Self(
                     NonNull::new_unchecked(self.0.as_ptr().offset(count)),
@@ -57,6 +58,7 @@ macro_rules! impl_ptr {
 
             /// # Safety
             /// the offset cannot make the existing ptr null, or take it out of bounds for its allocation.
+            #[inline]
             pub unsafe fn add(self, count: usize) -> Self {
                 Self(
                     NonNull::new_unchecked(self.0.as_ptr().add(count)),
@@ -67,10 +69,12 @@ macro_rules! impl_ptr {
             /// # Safety
             ///
             /// The lifetime for the returned item must not exceed the lifetime `inner` is valid for
+            #[inline]
             pub unsafe fn new(inner: NonNull<u8>) -> Self {
                 Self(inner, PhantomData)
             }
 
+            #[inline]
             pub fn inner(&self) -> NonNull<u8> {
                 self.0
             }
@@ -83,12 +87,14 @@ impl<'a> Ptr<'a> {
     /// # Safety
     ///
     /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
+    #[inline]
     pub unsafe fn assert_unique(self) -> PtrMut<'a> {
         PtrMut(self.0, PhantomData)
     }
 
     /// # Safety
     /// Must point to a valid `T`
+    #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
         &*self.0.as_ptr().cast()
     }
@@ -99,6 +105,7 @@ impl<'a> PtrMut<'a> {
     ///
     /// # Safety
     /// Must have right to drop or move out of [`PtrMut`], and current [`PtrMut`] should not be accessed again unless it's written to again.
+    #[inline]
     pub unsafe fn promote(self) -> OwningPtr<'a> {
         OwningPtr(self.0, PhantomData)
     }
@@ -107,6 +114,7 @@ impl<'a> PtrMut<'a> {
     ///
     /// # Safety
     /// Must point to a valid `T`
+    #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
         &mut *self.inner().as_ptr().cast()
     }
@@ -124,6 +132,7 @@ impl<'a> OwningPtr<'a> {
     ///
     /// # Safety
     /// Must point to a valid `T`.
+    #[inline]
     pub unsafe fn read<T>(self) -> T {
         self.inner().as_ptr().cast::<T>().read()
     }
@@ -138,6 +147,7 @@ pub struct ThinSlicePtr<'a, T> {
 }
 
 impl<'a, T> ThinSlicePtr<'a, T> {
+    #[inline]
     pub unsafe fn get(self, index: usize) -> &'a T {
         #[cfg(debug_assertions)]
         debug_assert!(index < self.len);
@@ -179,13 +189,16 @@ pub(crate) trait UnsafeCellDeref<'a, T> {
         T: Copy;
 }
 impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
+    #[inline]
     unsafe fn deref_mut(self) -> &'a mut T {
         &mut *self.get()
     }
+    #[inline]
     unsafe fn deref(self) -> &'a T {
         &*self.get()
     }
 
+    #[inline]
     unsafe fn read(self) -> T
     where
         T: Copy,
