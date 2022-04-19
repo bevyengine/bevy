@@ -1431,12 +1431,15 @@ impl Default for MainThreadValidator {
 #[cfg(test)]
 mod tests {
     use super::World;
-    use crate::change_detection::DetectChanges;
+    use crate::{
+        change_detection::DetectChanges,
+        component::{ComponentDescriptor, StorageType},
+    };
     use bevy_ecs_macros::Component;
     use std::{
         panic,
         sync::{
-            atomic::{AtomicBool, Ordering},
+            atomic::{AtomicBool, AtomicU32, Ordering},
             Arc, Mutex,
         },
     };
@@ -1599,5 +1602,45 @@ mod tests {
         let resource = unsafe { &*resource.cast::<TestResource>() };
 
         assert_eq!(resource.0, 43);
+    }
+
+    #[test]
+    fn custom_resource_with_layout() {
+        static DROP_COUNT: AtomicU32 = AtomicU32::new(0);
+
+        let mut world = World::new();
+
+        // SAFE: the drop function is valid for the layout and the data will be safe to access from any thread
+        let descriptor = unsafe {
+            ComponentDescriptor::new_with_layout(
+                "Custom Test Component".to_string(),
+                StorageType::Table,
+                std::alloc::Layout::new::<[u8; 8]>(),
+                |ptr| {
+                    let data = ptr.cast::<[u8; 8]>().read();
+                    assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
+                    DROP_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                },
+            )
+        };
+
+        let component_id = world.init_component_with_descriptor(descriptor);
+
+        let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+        // SAFE: value is valid for the component layout
+        unsafe { world.insert_resource_by_id(component_id, &value as *const _ as *const ()) };
+
+        let data = unsafe {
+            world
+                .get_resource_by_id(component_id)
+                .unwrap()
+                .cast::<[u8; 8]>()
+                .read()
+        };
+        assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
+
+        drop(world);
+
+        assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 }
