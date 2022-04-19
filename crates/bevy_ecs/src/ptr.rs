@@ -148,6 +148,10 @@ pub struct ThinSlicePtr<'a, T> {
 
 impl<'a, T> ThinSlicePtr<'a, T> {
     #[inline]
+    /// Indexes the slice without doing bounds checks
+    ///
+    /// # Safety
+    /// `index` must be inbounds.
     pub unsafe fn get(self, index: usize) -> &'a T {
         #[cfg(debug_assertions)]
         debug_assert!(index < self.len);

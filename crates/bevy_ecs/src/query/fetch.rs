@@ -1376,7 +1376,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                         let table_ticks = self
                             .table_ticks
                             .unwrap_or_else(|| debug_checked_unreachable());
-                        table_ticks.get(table_row).deref().clone()
+                        table_ticks.get(table_row).read()
                     },
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
@@ -1409,7 +1409,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                 let table_ticks = self
                     .table_ticks
                     .unwrap_or_else(|| debug_checked_unreachable());
-                table_ticks.get(table_row).deref().clone()
+                table_ticks.get(table_row).read()
             },
             marker: PhantomData,
             last_change_tick: self.last_change_tick,
