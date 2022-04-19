@@ -56,7 +56,7 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
-            .add_event::<WindowCommandsQueued>()
+            .add_event::<WindowCommandQueued>()
             .init_resource::<Windows>();
 
         if self.add_primary_window {

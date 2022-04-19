@@ -109,6 +109,7 @@ pub struct WindowMoved {
 
 /// An event that is sent when window commands have been queued
 #[derive(Debug)]
-pub struct WindowCommandsQueued {
-    pub commands: Vec<(Entity, WindowCommand)>,
+pub struct WindowCommandQueued {
+    pub window: Entity,
+    pub command: WindowCommand,
 }

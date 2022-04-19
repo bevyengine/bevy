@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_math::{IVec2, Vec2};
 
 use crate::{
-    CursorIcon, PresentMode, WindowCommand, WindowCommandsQueued, WindowMode,
+    CursorIcon, PresentMode, WindowCommand, WindowCommandQueued, WindowMode,
     WindowResizeConstraints,
 };
 
@@ -27,11 +27,11 @@ impl WindowCommandQueue {
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
         let mut events = world
-            .get_resource_mut::<Events<WindowCommandsQueued>>()
+            .get_resource_mut::<Events<WindowCommandQueued>>()
             .unwrap();
-        events.send(WindowCommandsQueued {
-            commands: self.commands.drain(..).collect(),
-        });
+        for (window, command) in self.commands.drain(..) {
+            events.send(WindowCommandQueued { window, command });
+        }
     }
 }
 
@@ -168,18 +168,21 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WindowCommandQueue {
 #[cfg(test)]
 mod test {
     use bevy_ecs::{
-        event::{Events, ManualEventReader, EventReader},
-        prelude::{World, Added}, schedule::{SystemStage, Stage}, system::{Commands, Query}, entity::Entity,
+        entity::Entity,
+        event::{EventReader, Events, ManualEventReader},
+        prelude::{Added, World},
+        schedule::{Stage, SystemStage},
+        system::{Commands, Query},
     };
 
-    use crate::{WindowCommandQueue, WindowCommands, WindowCommandsQueued, WindowDescriptor};
+    use crate::{WindowCommandQueue, WindowCommandQueued, WindowCommands, WindowDescriptor};
 
     #[test]
     fn test_commands() {
         let mut world = World::new();
 
-        let mut ev_commands = ManualEventReader::<WindowCommandsQueued>::default();
-        world.init_resource::<Events<WindowCommandsQueued>>();
+        let mut ev_commands = ManualEventReader::<WindowCommandQueued>::default();
+        world.init_resource::<Events<WindowCommandQueued>>();
 
         let mut queue = WindowCommandQueue::default();
         let mut commands = WindowCommands::new(&mut queue);
@@ -193,13 +196,12 @@ mod test {
 
         queue.apply(&mut world);
 
-        let events = world
-            .get_resource::<Events<WindowCommandsQueued>>()
-            .unwrap();
+        let events = world.get_resource::<Events<WindowCommandQueued>>().unwrap();
         let commands = ev_commands
             .iter(events)
-            .flat_map(|queued| &queued.commands)
-            .map(|(window, command)| format!("window = {window:?}, command = {command:?}"))
+            .map(|WindowCommandQueued { window, command }| {
+                format!("window = {window:?}, command = {command:?}")
+            })
             .collect::<Vec<_>>();
 
         assert_eq!(
@@ -221,8 +223,8 @@ mod test {
         window_commands.set_title(second_window, "some title".to_string());
     }
 
-    fn check_events(mut events: EventReader<WindowCommandsQueued>) {
-        for (window, command) in events.iter().flat_map(|queued| &queued.commands) {
+    fn check_events(mut events: EventReader<WindowCommandQueued>) {
+        for WindowCommandQueued { window, command } in events.iter() {
             println!("window = {window:?}, command = {command:?}");
         }
     }
@@ -230,12 +232,12 @@ mod test {
     #[test]
     fn test_system() {
         let mut world = World::new();
-        world.init_resource::<Events<WindowCommandsQueued>>();
+        world.init_resource::<Events<WindowCommandQueued>>();
 
         let mut stage = SystemStage::single_threaded();
         stage.add_system(spawn_windows);
         stage.add_system(check_events);
-        
+
         stage.run(&mut world);
         stage.run(&mut world);
     }
@@ -249,7 +251,9 @@ mod test {
         window_commands.set_title(second_window, "some title".to_string());
     }
 
-    fn check_window_descriptors(descriptors: Query<(Entity, &WindowDescriptor), Added<WindowDescriptor>>) {
+    fn check_window_descriptors(
+        descriptors: Query<(Entity, &WindowDescriptor), Added<WindowDescriptor>>,
+    ) {
         for (entity, descriptor) in descriptors.iter() {
             println!("entity = {entity:?}, descriptor = {descriptor:?}");
         }
@@ -258,18 +262,22 @@ mod test {
     #[test]
     fn test_window_descriptors() {
         let mut world = World::new();
-        world.init_resource::<Events<WindowCommandsQueued>>();
+        world.init_resource::<Events<WindowCommandQueued>>();
 
-        let mut stage = SystemStage::single_threaded();
-        stage.add_system(spawn_window_descriptors);
-        stage.add_system(check_events);
-        stage.add_system(check_window_descriptors);
-        
+        let mut startup_stage =
+            SystemStage::single_threaded().with_system(spawn_window_descriptors);
+
+        startup_stage.run(&mut world);
+
+        let mut stage = SystemStage::single_threaded()
+            .with_system(check_window_descriptors)
+            .with_system(check_events);
+            
         stage.run(&mut world);
         stage.run(&mut world);
 
         world.spawn().insert(WindowDescriptor::default());
-        
+
         stage.run(&mut world);
     }
 }
