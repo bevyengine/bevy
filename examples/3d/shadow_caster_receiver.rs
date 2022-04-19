@@ -6,7 +6,10 @@ use example_utils::camera::{CameraController, CameraControllerPlugin};
 
 fn main() {
     println!(
-        "Controls:
+        "
+===============================
+======= Scene Controls ========
+===============================
     C      - toggle shadow casters (i.e. casters become not, and not casters become casters)
     R      - toggle shadow receivers (i.e. receivers become not, and not receivers become receivers)
     L      - switch between directional and point lights"

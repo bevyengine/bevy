@@ -17,13 +17,9 @@ struct CameraControllerCheckSystem;
 fn main() {
     println!(
         "
-Controls:
-    MOUSE  - Move camera orientation
-    LClick - Enable mouse movement
-    WSAD   - forward/back/strafe left/right
-    LShift - 'run'
-    E      - up
-    Q      - down
+===============================
+======= Scene Controls ========
+===============================
     L      - animate light direction
     U      - toggle shadows
     C      - cycle through cameras

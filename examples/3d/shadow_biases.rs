@@ -3,11 +3,10 @@ use example_utils::camera::{CameraController, CameraControllerPlugin};
 
 fn main() {
     println!(
-        "Controls:
-    WSAD   - forward/back/strafe left/right
-    LShift - 'run'
-    E      - up
-    Q      - down
+        "
+===============================
+======= Scene Controls ========
+===============================
     L      - switch between directional and point lights
     1/2    - decrease/increase point light depth bias
     3/4    - decrease/increase point light normal bias
