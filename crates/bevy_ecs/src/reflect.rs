@@ -103,8 +103,10 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .entity_mut(destination_entity)
                     .insert(destination_component);
             },
-            reflect_component: |world, entity| unsafe {
-                crate::world::get::<C>(world, entity, world.get_entity(entity)?.location())
+            reflect_component: |world, entity| {
+                world
+                    .get_entity(entity)?
+                    .get::<C>()
                     .map(|c| c as &dyn Reflect)
             },
             reflect_component_mut: |world, entity| unsafe {

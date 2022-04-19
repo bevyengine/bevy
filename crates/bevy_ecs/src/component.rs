@@ -351,7 +351,7 @@ impl Components {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,
     pub(crate) changed: u32,
