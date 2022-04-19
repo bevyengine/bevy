@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
+use crate::WindowCommand;
+
 use super::{WindowDescriptor, WindowId};
+use bevy_ecs::entity::Entity;
 use bevy_math::{IVec2, Vec2};
 
 /// A window event that is sent whenever a windows logical size has changed
@@ -102,4 +105,10 @@ pub enum FileDragAndDrop {
 pub struct WindowMoved {
     pub id: WindowId,
     pub position: IVec2,
+}
+
+/// An event that is sent when window commands have been queued
+#[derive(Debug)]
+pub struct WindowCommandsQueued {
+    pub commands: Vec<(Entity, WindowCommand)>,
 }

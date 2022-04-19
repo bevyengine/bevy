@@ -1,3 +1,4 @@
+use bevy_ecs::prelude::Component;
 use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
@@ -19,7 +20,7 @@ pub struct WindowId(Uuid);
 /// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor::present_mode)
 /// or updated on a [`Window`](Window::set_present_mode).
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// The presentation engine does **not** wait for a vertical blanking period and
@@ -75,7 +76,7 @@ impl Default for WindowId {
 /// Please note that if the window is resizable, then when the window is
 /// maximized it may have a size outside of these limits. The functionality
 /// required to disable maximizing is not yet exposed by winit.
-#[derive(Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct WindowResizeConstraints {
     pub min_width: f32,
     pub min_height: f32,
@@ -222,7 +223,7 @@ pub enum WindowCommand {
 }
 
 /// Defines the way a window is displayed
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
 pub enum WindowMode {
     /// Creates a window that uses the given size
     Windowed,
@@ -586,7 +587,7 @@ impl Window {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct WindowDescriptor {
     pub width: f32,
     pub height: f32,
