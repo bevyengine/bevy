@@ -12,6 +12,34 @@ After running your app a `json` file in the "chrome tracing format" will be prod
 
 ![image](https://user-images.githubusercontent.com/2694663/141657409-6f4a3ad3-59b6-4378-95ba-66c0dafecd8e.png)
 
+### Backend: trace_tracy
+
+The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
+> A real time, nanosecond resolution, remote telemetry, hybrid frame and sampling profiler for games and other applications.
+
+There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
+
+It has a command line capture tool that can be used for capturing with minimal disruption to the execution of graphical applications, saving the profile data to a file. It also has a GUI that can be used to inspect these profile files, or live capture them, though running the live capture on the same machine will be a competing graphical application, which may impact results. As such, @superdump tends to use the command line to for capturing, and the GUI tool for inspecting.
+
+In one terminal, run:
+`./capture-release -o my_capture.tracy`
+This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing.
+
+Then run your application, enabling the `trace_tracy` feature:
+`cargo run --release --features bevy/trace_tracy`
+
+After running your app, you can open the captured profile file (`my_capture.tracy` in the example above) in the Tracy GUI application to see a timeline of the executed spans:
+
+<img width="1840" alt="Tracy timeline" src="https://user-images.githubusercontent.com/302146/163988636-25c017ab-64bc-4da7-a897-a80098b667ef.png">
+
+There is a button to display statistics of mean time per call (MTPC) for all systems:
+
+<img width="1086" alt="Tracy span MTPC overview" src="https://user-images.githubusercontent.com/302146/163988302-c21102d8-b7eb-476d-a741-a2c28d9bf8c1.png">
+
+Or you can select an individual system and inspect its statistics to see things like the distribution of execution times in a graph, or statistical aggregates such as mean, median, standard deviation, etc. It will look something like this:
+
+<img width="514" alt="Tracy span detailed statistics" src="https://user-images.githubusercontent.com/302146/163988464-86e1a3ee-e97b-49ae-9f7e-4ff2b8b761ad.png">
+
 ### Adding your own spans
 
 Add spans to your app like this (these are in `bevy::prelude::*` and `bevy::log::*`, just like the normal logging macros).
