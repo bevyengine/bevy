@@ -8,6 +8,7 @@ pub fn impl_struct(
     bevy_reflect_path: &Path,
     active_fields: &[(&Field, usize)],
     ignored_fields: &[(&Field, usize)],
+    custom_ctor: Option<proc_macro2::TokenStream>
 ) -> TokenStream {
     let field_names = active_fields
         .iter()
@@ -60,17 +61,36 @@ pub fn impl_struct(
         #(#field_types: #bevy_reflect_path::FromReflect,)*
     });
 
+    let ctor = if let Some(ctor) = custom_ctor {
+        quote!(
+            let mut value: Self = #ctor;
+            #(
+                value.#field_idents = {
+                    <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(ref_struct.field(#field_names)?)?
+                };
+            )*
+            Some(value)
+        )
+    } else {
+        quote!(
+            Some(
+                Self {
+                    #(#field_idents: {
+                        <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(ref_struct.field(#field_names)?)?
+                    },)*
+                    #(#ignored_field_idents: Default::default(),)*
+                }
+            )
+        )
+    };
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
         {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
                 use #bevy_reflect_path::Struct;
                 if let #bevy_reflect_path::ReflectRef::Struct(ref_struct) = reflect.reflect_ref() {
-                    let mut value: Self = Default::default();
-                    #(
-                        value.#field_idents = <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(ref_struct.field(#field_names)?)?;
-                    )*
-                    Some(value)
+                    #ctor
                 } else {
                     None
                 }

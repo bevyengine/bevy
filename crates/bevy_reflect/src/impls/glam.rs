@@ -31,6 +31,7 @@ impl_reflect_value!(DQuat(PartialEq, Serialize, Deserialize));
 */
 
 impl_reflect_struct_and_from_reflect_struct!(
+    Constructor(Default::default())
     struct IVec2 {
         x: i32,
         y: i32
@@ -38,6 +39,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 
 impl_reflect_struct_and_from_reflect_struct!(
+    Constructor(Default::default())
     struct Vec3 {
         x: f32,
         y: f32,
@@ -85,4 +87,9 @@ fn temp_test() {
         bevy_reflect::ReflectRef::Struct(s) => s.field("x").unwrap().downcast_ref::<f32>().unwrap() == &12.0,
         _ => false
     });
+
+    use bevy_reflect::FromReflect;
+    let v2 = Vec3::from_reflect(refl).unwrap();
+
+    assert_eq!(v2.x, 12.0);
 }

@@ -577,6 +577,21 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenStream {
+    let mut iter = input.into_iter();
+    let (r#constructor, ctor) = (iter.next().unwrap(), iter.next().unwrap());
+    match r#constructor {
+        proc_macro::TokenTree::Ident(i) => if i.to_string() != "Constructor" {
+            panic!("Invalid constructor syntax")
+        },
+        _ => panic!("Invalid constructor syntax")
+    };
+    let ctor: proc_macro2::TokenStream = match ctor {
+        proc_macro::TokenTree::Group(g) => g.stream(),
+        _ => panic!("Invalid constructor syntax")
+    }.into();
+
+    let input = iter.collect();
+
     let ast = parse_macro_input!(input as DeriveInput);
 
     let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
@@ -675,7 +690,8 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
         generics, 
         &bevy_reflect_path, 
         &active_fields, 
-        &ignored_fields
+        &ignored_fields,
+        Some(ctor)
     ).into();
 
     quote!(
@@ -940,6 +956,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
             &bevy_reflect_path,
             &active_fields,
             &ignored_fields,
+            None
         ),
         DeriveType::TupleStruct => from_reflect::impl_tuple_struct(
             type_name,
