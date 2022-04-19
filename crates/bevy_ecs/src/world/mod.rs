@@ -1109,8 +1109,8 @@ impl World {
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
-    /// You should always prefer to use the [`World::get_resource`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.
+    /// **You should prefer to use the typed API [`World::get_resource`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
         let info = self.components.get_info(component_id)?;
@@ -1128,8 +1128,8 @@ impl World {
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
-    /// You should always prefer to use the [`World::get_resource_mut`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.
+    /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         let info = self.components.get_info(component_id)?;
@@ -1213,8 +1213,14 @@ impl World {
         }
     }
 
+    /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
+    ///
+    /// **You should prefer to use the typed API [`World::insert_resource`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`]
+    ///
     pub unsafe fn insert_resource_by_id(&mut self, component_id: ComponentId, value: *const ()) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);

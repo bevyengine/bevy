@@ -99,11 +99,11 @@ impl<'w> EntityRef<'w> {
 }
 
 impl<'w> EntityRef<'w> {
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
     /// **You should prefer to use the typed API where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
-    ///
-    /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
     /// which is only valid while the `'w` borrow of the lifetime is active.
@@ -496,11 +496,11 @@ impl<'w> EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
     /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
-    ///
-    /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
     /// which is only valid while the [`EntityMut`] is alive.
@@ -512,11 +512,11 @@ impl<'w> EntityMut<'w> {
         }
     }
 
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
     /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
-    ///
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
     ///
     /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
     /// which is only valid while the [`EntityMut`] is alive.
