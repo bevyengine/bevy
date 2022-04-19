@@ -2,9 +2,7 @@ use bevy_ecs::{
     entity::Entity,
     event::Events,
     prelude::World,
-    system::{
-        ReadOnlySystemParamFetch, SystemMeta, SystemParam, SystemParamFetch, SystemParamState,
-    },
+    system::{Command, Commands},
 };
 use bevy_math::{IVec2, Vec2};
 
@@ -13,123 +11,103 @@ use crate::{
     WindowResizeConstraints,
 };
 
-#[derive(Debug, Default)]
-pub struct WindowCommandQueue {
-    commands: Vec<(Entity, WindowCommand)>,
+struct WindowInternalCommand {
+    window: Entity,
+    command: WindowCommand,
 }
 
-impl WindowCommandQueue {
-    #[inline]
-    pub fn push(&mut self, window: Entity, command: WindowCommand) {
-        self.commands.push((window, command));
-    }
-
-    #[inline]
-    pub fn apply(&mut self, world: &mut World) {
+impl Command for WindowInternalCommand {
+    fn write(self, world: &mut World) {
         let mut events = world
             .get_resource_mut::<Events<WindowCommandQueued>>()
             .unwrap();
-        for (window, command) in self.commands.drain(..) {
-            events.send(WindowCommandQueued { window, command });
-        }
+        let WindowInternalCommand { window, command } = self;
+        events.send(WindowCommandQueued { window, command });
     }
 }
 
-pub struct WindowCommands<'s> {
-    queue: &'s mut WindowCommandQueue,
+pub struct WindowCommands<'w, 's, 'a> {
+    window: Entity,
+    commands: &'a mut Commands<'w, 's>,
 }
 
-impl<'s> WindowCommands<'s> {
-    pub fn new(queue: &'s mut WindowCommandQueue) -> Self {
-        Self { queue }
+impl<'w, 's, 'a> WindowCommands<'w, 's, 'a> {
+    #[inline]
+    pub fn push(&mut self, command: WindowCommand) -> &mut Self {
+        self.commands.add(WindowInternalCommand {
+            window: self.window,
+            command,
+        });
+        self
     }
 
     #[inline]
-    pub fn push(&mut self, window: Entity, command: WindowCommand) {
-        self.queue.push(window, command);
+    pub fn set_window_mode(&mut self, mode: WindowMode, resolution: (u32, u32)) -> &mut Self {
+        self.push(WindowCommand::SetWindowMode { mode, resolution })
     }
 
     #[inline]
-    pub fn set_window_mode(&mut self, window: Entity, mode: WindowMode, resolution: (u32, u32)) {
-        self.queue
-            .push(window, WindowCommand::SetWindowMode { mode, resolution });
+    pub fn set_title(&mut self, title: String) -> &mut Self {
+        self.push(WindowCommand::SetTitle { title })
     }
 
     #[inline]
-    pub fn set_title(&mut self, window: Entity, title: String) {
-        self.queue.push(window, WindowCommand::SetTitle { title });
-    }
-
-    #[inline]
-    pub fn set_scale_factor(&mut self, window: Entity, scale_factor: f64) {
-        self.queue
-            .push(window, WindowCommand::SetScaleFactor { scale_factor });
+    pub fn set_scale_factor(&mut self, scale_factor: f64) -> &mut Self {
+        self.push(WindowCommand::SetScaleFactor { scale_factor })
     }
 
     #[inline]
     pub fn set_resolution(
         &mut self,
-        window: Entity,
         logical_resolution: (f32, f32),
         scale_factor: f64,
-    ) {
-        self.queue.push(
-            window,
-            WindowCommand::SetResolution {
-                logical_resolution,
-                scale_factor,
-            },
-        );
+    ) -> &mut Self {
+        self.push(WindowCommand::SetResolution {
+            logical_resolution,
+            scale_factor,
+        })
     }
 
     #[inline]
     #[doc(alias = "set_vsync")]
-    pub fn set_present_mode(&mut self, window: Entity, present_mode: PresentMode) {
-        self.queue
-            .push(window, WindowCommand::SetPresentMode { present_mode });
+    pub fn set_present_mode(&mut self, present_mode: PresentMode) -> &mut Self {
+        self.push(WindowCommand::SetPresentMode { present_mode })
     }
 
     #[inline]
-    pub fn set_resizable(&mut self, window: Entity, resizable: bool) {
-        self.queue
-            .push(window, WindowCommand::SetResizable { resizable });
+    pub fn set_resizable(&mut self, resizable: bool) -> &mut Self {
+        self.push(WindowCommand::SetResizable { resizable })
     }
 
     #[inline]
-    pub fn set_decorations(&mut self, window: Entity, decorations: bool) {
-        self.queue
-            .push(window, WindowCommand::SetDecorations { decorations });
+    pub fn set_decorations(&mut self, decorations: bool) -> &mut Self {
+        self.push(WindowCommand::SetDecorations { decorations })
     }
 
     #[inline]
-    pub fn set_cursor_lock_mode(&mut self, window: Entity, locked: bool) {
-        self.queue
-            .push(window, WindowCommand::SetCursorLockMode { locked });
+    pub fn set_cursor_lock_mode(&mut self, locked: bool) -> &mut Self {
+        self.push(WindowCommand::SetCursorLockMode { locked })
     }
 
     #[inline]
-    pub fn set_cursor_icon(&mut self, window: Entity, icon: CursorIcon) {
-        self.queue
-            .push(window, WindowCommand::SetCursorIcon { icon });
+    pub fn set_cursor_icon(&mut self, icon: CursorIcon) -> &mut Self {
+        self.push(WindowCommand::SetCursorIcon { icon })
     }
 
     #[inline]
-    pub fn set_cursor_visibility(&mut self, window: Entity, visible: bool) {
-        self.queue
-            .push(window, WindowCommand::SetCursorVisibility { visible });
+    pub fn set_cursor_visibility(&mut self, visible: bool) -> &mut Self {
+        self.push(WindowCommand::SetCursorVisibility { visible })
     }
 
     #[inline]
-    pub fn set_cursor_position(&mut self, window: Entity, position: Vec2) {
-        self.queue
-            .push(window, WindowCommand::SetCursorPosition { position });
+    pub fn set_cursor_position(&mut self, position: Vec2) -> &mut Self {
+        self.push(WindowCommand::SetCursorPosition { position })
     }
 
     /// Sets the window to maximized.
     #[inline]
-    pub fn set_maximized(&mut self, window: Entity, maximized: bool) {
-        self.queue
-            .push(window, WindowCommand::SetMaximized { maximized });
+    pub fn set_maximized(&mut self, maximized: bool) -> &mut Self {
+        self.push(WindowCommand::SetMaximized { maximized })
     }
 
     /// Sets the window to minimized or back.
@@ -138,9 +116,8 @@ impl<'s> WindowCommands<'s> {
     /// - iOS / Android / Web: Unsupported.
     /// - Wayland: Un-minimize is unsupported.
     #[inline]
-    pub fn set_minimized(&mut self, window: Entity, minimized: bool) {
-        self.queue
-            .push(window, WindowCommand::SetMinimized { minimized });
+    pub fn set_minimized(&mut self, minimized: bool) -> &mut Self {
+        self.push(WindowCommand::SetMinimized { minimized })
     }
 
     /// Modifies the position of the window in physical pixels.
@@ -157,52 +134,33 @@ impl<'s> WindowCommands<'s> {
     /// - Web: Sets the top-left coordinates relative to the viewport.
     /// - Android / Wayland: Unsupported.
     #[inline]
-    pub fn set_position(&mut self, window: Entity, position: IVec2) {
-        self.queue
-            .push(window, WindowCommand::SetPosition { position });
+    pub fn set_position(&mut self, position: IVec2) -> &mut Self {
+        self.push(WindowCommand::SetPosition { position })
     }
 
     /// Modifies the minimum and maximum window bounds for resizing in logical pixels.
     #[inline]
     pub fn set_resize_constraints(
         &mut self,
-        window: Entity,
         resize_constraints: WindowResizeConstraints,
-    ) {
-        self.queue.push(
+    ) -> &mut Self {
+        self.push(WindowCommand::SetResizeConstraints { resize_constraints })
+    }
+}
+
+pub trait CommandsExt<'w, 's> {
+    fn window<'a>(&'a mut self, window: Entity) -> WindowCommands<'w, 's, 'a>;
+}
+
+impl<'w, 's> CommandsExt<'w, 's> for Commands<'w, 's> {
+    #[track_caller]
+    fn window<'a>(&'a mut self, window: Entity) -> WindowCommands<'w, 's, 'a> {
+        // currently there is no way of checking if an entity exists from `Commands`
+        // some function like `exists` or `contains` should get added to `Commands`
+        WindowCommands {
             window,
-            WindowCommand::SetResizeConstraints { resize_constraints },
-        );
-    }
-}
-
-impl<'s> SystemParam for WindowCommands<'s> {
-    type Fetch = WindowCommandQueue;
-}
-
-unsafe impl ReadOnlySystemParamFetch for WindowCommandQueue {}
-
-unsafe impl SystemParamState for WindowCommandQueue {
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
-        Default::default()
-    }
-
-    fn apply(&mut self, world: &mut World) {
-        self.apply(world);
-    }
-}
-
-impl<'w, 's> SystemParamFetch<'w, 's> for WindowCommandQueue {
-    type Item = WindowCommands<'s>;
-
-    #[inline]
-    unsafe fn get_param(
-        state: &'s mut Self,
-        _system_meta: &SystemMeta,
-        _world: &'w World,
-        _change_tick: u32,
-    ) -> Self::Item {
-        WindowCommands::new(state)
+            commands: self,
+        }
     }
 }
 
@@ -213,10 +171,10 @@ mod test {
         event::{EventReader, Events, ManualEventReader},
         prelude::{Added, World},
         schedule::{Stage, SystemStage},
-        system::{Commands, Query},
+        system::{CommandQueue, Commands, Query},
     };
 
-    use crate::{WindowCommandQueue, WindowCommandQueued, WindowCommands, WindowDescriptor};
+    use crate::{CommandsExt, WindowCommandQueued, WindowDescriptor};
 
     #[test]
     fn test_commands() {
@@ -225,15 +183,19 @@ mod test {
         let mut ev_commands = ManualEventReader::<WindowCommandQueued>::default();
         world.init_resource::<Events<WindowCommandQueued>>();
 
-        let mut queue = WindowCommandQueue::default();
-        let mut commands = WindowCommands::new(&mut queue);
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
 
-        let first_window = world.spawn().id();
-        commands.set_resizable(first_window, true);
-        commands.set_decorations(first_window, false);
+        let first_window = commands.spawn().id();
+        commands
+            .window(first_window)
+            .set_resizable(true)
+            .set_decorations(false);
 
-        let second_window = world.spawn().id();
-        commands.set_title(second_window, "some title".to_string());
+        let second_window = commands.spawn().id();
+        commands
+            .window(second_window)
+            .set_title("some title".to_string());
 
         queue.apply(&mut world);
 
@@ -255,13 +217,17 @@ mod test {
         );
     }
 
-    fn spawn_windows(mut commands: Commands, mut window_commands: WindowCommands) {
+    fn spawn_windows(mut commands: Commands) {
         let first_window = commands.spawn().id();
-        window_commands.set_resizable(first_window, true);
-        window_commands.set_decorations(first_window, false);
+        commands
+            .window(first_window)
+            .set_resizable(true)
+            .set_decorations(false);
 
         let second_window = commands.spawn().id();
-        window_commands.set_title(second_window, "some title".to_string());
+        commands
+            .window(second_window)
+            .set_title("some title".to_string());
     }
 
     fn check_events(mut events: EventReader<WindowCommandQueued>) {
@@ -283,13 +249,17 @@ mod test {
         stage.run(&mut world);
     }
 
-    fn spawn_window_descriptors(mut commands: Commands, mut window_commands: WindowCommands) {
+    fn spawn_window_descriptors(mut commands: Commands) {
         let first_window = commands.spawn().insert(WindowDescriptor::default()).id();
-        window_commands.set_resizable(first_window, true);
-        window_commands.set_decorations(first_window, false);
+        commands
+            .window(first_window)
+            .set_resizable(true)
+            .set_decorations(false);
 
         let second_window = commands.spawn().insert(WindowDescriptor::default()).id();
-        window_commands.set_title(second_window, "some title".to_string());
+        commands
+            .window(second_window)
+            .set_title("some title".to_string());
     }
 
     fn check_window_descriptors(
