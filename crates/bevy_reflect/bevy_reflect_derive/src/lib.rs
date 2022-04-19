@@ -575,6 +575,92 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     )
 }
 
+#[proc_macro]
+pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
+    let ident = &ast.ident;
+    let generics = &ast.generics;
+    let data = match &ast.data {
+        Data::Struct(r#struct) => r#struct,
+        // Don't believe enum reflection is implemented right now,
+        // and unions are likely not going to be reflected.
+        _ => unimplemented!()
+    };
+    let fields = &data.fields;
+    let fields_and_args = fields
+        .iter()
+        .enumerate()
+        .map(|(i, f)| {
+            (
+                f,
+                f.attrs
+                    .iter()
+                    .find(|a| *a.path.get_ident().as_ref().unwrap() == REFLECT_ATTRIBUTE_NAME)
+                    .map(|a| {
+                        syn::custom_keyword!(ignore);
+                        let mut attribute_args = PropAttributeArgs { ignore: None };
+                        a.parse_args_with(|input: ParseStream| {
+                            if input.parse::<Option<ignore>>()?.is_some() {
+                                attribute_args.ignore = Some(true);
+                                return Ok(());
+                            }
+                            Ok(())
+                        })
+                        .expect("Invalid 'property' attribute format.");
+
+                        attribute_args
+                    }),
+                i,
+            )
+        })
+        .collect::<Vec<(&Field, Option<PropAttributeArgs>, usize)>>();
+    let active_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs, _i)| {
+            attrs.is_none()
+                || match attrs.as_ref().unwrap().ignore {
+                    Some(ignore) => !ignore,
+                    None => true,
+                }
+        })
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
+
+    let mut reflect_attrs = ReflectAttrs::default();
+    for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+        let meta_list = if let Meta::List(meta_list) = attribute {
+            meta_list
+        } else {
+            continue;
+        };
+
+        if let Some(ident) = meta_list.path.get_ident() {
+            if ident == REFLECT_ATTRIBUTE_NAME || ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+                reflect_attrs = ReflectAttrs::from_nested_metas(&meta_list.nested);
+            }
+        }
+    }
+
+    let registration_data = &reflect_attrs.data;
+    let get_type_registration_impl = impl_get_type_registration(
+        ident,
+        &bevy_reflect_path,
+        registration_data,
+        generics,
+    );
+
+    impl_struct(
+        ident,
+        generics,
+        &get_type_registration_impl,
+        &bevy_reflect_path,
+        &reflect_attrs,
+        &active_fields
+    )
+}
+
 #[derive(Default)]
 struct ReflectAttrs {
     reflect_hash: TraitImpl,
