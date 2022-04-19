@@ -287,9 +287,15 @@ use std::{
 ///
 /// #[derive(WorldQuery)]
 /// #[world_query(filter)]
-/// struct MyFilter<T: Component, P: Component> {
+/// struct FooBarFilter {
 ///     _foo: With<Foo>,
 ///     _bar: With<Bar>,
+/// }
+///
+/// #[derive(WorldQuery)]
+/// #[world_query(filter)]
+/// struct MyFilter<T: Component, P: Component> {
+///     _foobar: FooBarFilter,
 ///     _or: Or<(With<Baz>, Changed<Foo>, Added<Bar>)>,
 ///     _generic_tuple: (With<T>, Without<P>),
 ///     #[world_query(ignore)]

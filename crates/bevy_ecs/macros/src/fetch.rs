@@ -218,7 +218,11 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
     // Replace lifetime `'world` with `'fetch`. See `replace_lifetime_for_type` for more details.
     let mut fetch_generics = ast.generics.clone();
-    *fetch_generics.params.first_mut().unwrap() = fetch_lifetime_param;
+    if let Some(first_fetch_lifetime) = fetch_generics.params.first_mut() {
+        if *first_fetch_lifetime == world_lifetime_param {
+            *first_fetch_lifetime = fetch_lifetime_param;
+        }
+    }
 
     let fetch_ty_generics = if fetch_struct_attributes.is_filter {
         ty_generics.clone()
