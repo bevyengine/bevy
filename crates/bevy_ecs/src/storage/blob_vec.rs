@@ -58,6 +58,7 @@ impl BlobVec {
         self.capacity
     }
 
+    #[inline]
     pub fn layout(&self) -> Layout {
         self.item_layout
     }

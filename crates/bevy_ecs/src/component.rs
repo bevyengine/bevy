@@ -290,6 +290,7 @@ impl Components {
         ComponentId(index)
     }
 
+    #[inline]
     fn init_component_inner(
         components: &mut Vec<ComponentInfo>,
         storages: &mut Storages,
