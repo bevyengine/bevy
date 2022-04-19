@@ -679,7 +679,10 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
                     .unwrap_or_else(|| debug_checked_unreachable());
                 debug_assert!(archetype_index < entities.len());
                 let entity = *entities.get_unchecked(archetype_index);
-                sparse_set.get(entity).unwrap().deref::<T>()
+                sparse_set
+                    .get(entity)
+                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .deref::<T>()
             }
         }
     }
@@ -892,7 +895,9 @@ impl<'w, 's, T: Component> Fetch<'w> for WriteFetch<'w, T> {
                     .unwrap_or_else(|| debug_checked_unreachable());
                 debug_assert!(archetype_index < entities.len());
                 let entity = *entities.get_unchecked(archetype_index);
-                let (component, component_ticks) = sparse_set.get_with_ticks(entity).unwrap();
+                let (component, component_ticks) = sparse_set
+                    .get_with_ticks(entity)
+                    .unwrap_or_else(|| debug_checked_unreachable());
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: Ticks {
@@ -1003,7 +1008,10 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
                     .unwrap_or_else(|| debug_checked_unreachable());
                 debug_assert!(archetype_index < entities.len());
                 let entity = *entities.get_unchecked(archetype_index);
-                sparse_set.get(entity).unwrap().deref::<T>()
+                sparse_set
+                    .get(entity)
+                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .deref::<T>()
             }
         }
     }
@@ -1391,7 +1399,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                         .get_ticks(entity)
                         .map(|ticks| &*ticks.get())
                         .cloned()
-                        .unwrap(),
+                        .unwrap_or_else(|| debug_checked_unreachable()),
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
                     change_tick: self.change_tick,
