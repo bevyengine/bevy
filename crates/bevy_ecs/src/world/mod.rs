@@ -1373,6 +1373,28 @@ impl World {
 
         Some(MutUntyped { value, ticks })
     }
+
+    /// Removes the resource of a given type, if it exists. Otherwise returns [None].
+    ///
+    /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
+        let info = self.components.get_info(component_id)?;
+        if !info.is_send_and_sync() {
+            self.validate_non_send_access_untyped(info.name());
+        }
+
+        let resource_archetype = self.archetypes.resource_mut();
+        let unique_components = resource_archetype.unique_components_mut();
+        let column = unique_components.get_mut(component_id)?;
+        if column.is_empty() {
+            return None;
+        }
+        // SAFE: if a resource column exists, row 0 exists as well
+        unsafe { column.swap_remove_unchecked(0) };
+
+        Some(())
+    }
 }
 
 impl fmt::Debug for World {
@@ -1639,7 +1661,7 @@ mod tests {
         };
         assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
 
-        drop(world);
+        assert!(world.remove_resource_by_id(component_id).is_some());
 
         assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
