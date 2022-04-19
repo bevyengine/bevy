@@ -1,3 +1,6 @@
+// this is just for testing purposes, will replace window.rs eventually
+pub mod draft;
+
 mod commands;
 mod cursor;
 mod event;
