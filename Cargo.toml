@@ -123,7 +123,7 @@ futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
 
 # Example crates
-examples_utils = { path = "examples_utils", version = "0.7.0-dev" }
+examples_utils = { path = "examples_utils", version = "0.8.0-dev" }
 
 [[example]]
 name = "hello_world"
