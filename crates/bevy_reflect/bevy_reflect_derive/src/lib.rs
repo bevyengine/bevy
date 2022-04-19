@@ -580,15 +580,18 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
     let mut iter = input.into_iter();
     let (r#constructor, ctor) = (iter.next().unwrap(), iter.next().unwrap());
     match r#constructor {
-        proc_macro::TokenTree::Ident(i) => if i.to_string() != "Constructor" {
-            panic!("Invalid constructor syntax")
-        },
-        _ => panic!("Invalid constructor syntax")
+        proc_macro::TokenTree::Ident(i) => {
+            if i.to_string() != "Constructor" {
+                panic!("Invalid constructor syntax")
+            }
+        }
+        _ => panic!("Invalid constructor syntax"),
     };
     let ctor: proc_macro2::TokenStream = match ctor {
         proc_macro::TokenTree::Group(g) => g.stream(),
-        _ => panic!("Invalid constructor syntax")
-    }.into();
+        _ => panic!("Invalid constructor syntax"),
+    }
+    .into();
 
     let input = iter.collect();
 
@@ -601,7 +604,7 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
         Data::Struct(r#struct) => r#struct,
         // I don't believe enum reflection is implemented right now,
         // and unions are likely not going to be reflected.
-        _ => unimplemented!()
+        _ => unimplemented!(),
     };
     let fields = &data.fields;
     let fields_and_args = fields
@@ -669,12 +672,8 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
     }
 
     let registration_data = &reflect_attrs.data;
-    let get_type_registration_impl = impl_get_type_registration(
-        ident,
-        &bevy_reflect_path,
-        registration_data,
-        generics,
-    );
+    let get_type_registration_impl =
+        impl_get_type_registration(ident, &bevy_reflect_path, registration_data, generics);
 
     let impl_struct: proc_macro2::TokenStream = impl_struct(
         ident,
@@ -682,23 +681,26 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
         &get_type_registration_impl,
         &bevy_reflect_path,
         &reflect_attrs,
-        &active_fields
-    ).into();
+        &active_fields,
+    )
+    .into();
 
     let impl_from_struct: proc_macro2::TokenStream = from_reflect::impl_struct(
-        ident, 
-        generics, 
-        &bevy_reflect_path, 
-        &active_fields, 
+        ident,
+        generics,
+        &bevy_reflect_path,
+        &active_fields,
         &ignored_fields,
-        Some(ctor)
-    ).into();
+        Some(ctor),
+    )
+    .into();
 
     quote!(
         #impl_struct
 
         #impl_from_struct
-    ).into()
+    )
+    .into()
 }
 
 #[derive(Default)]
@@ -956,7 +958,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
             &bevy_reflect_path,
             &active_fields,
             &ignored_fields,
-            None
+            None,
         ),
         DeriveType::TupleStruct => from_reflect::impl_tuple_struct(
             type_name,

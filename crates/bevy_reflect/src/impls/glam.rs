@@ -1,7 +1,7 @@
 use crate as bevy_reflect;
-use crate::ReflectDeserialize;
 use crate::reflect::Reflect;
-use bevy_reflect_derive::{impl_reflect_value, impl_reflect_struct_and_from_reflect_struct};
+use crate::ReflectDeserialize;
+use bevy_reflect_derive::{impl_reflect_struct_and_from_reflect_struct, impl_reflect_value};
 use glam::*;
 
 impl_reflect_struct_and_from_reflect_struct!(
@@ -165,7 +165,7 @@ impl_reflect_struct_and_from_reflect_struct!(
     }
 );
 
-// Quat fields are read-only (as of now), and reflection is currently missing 
+// Quat fields are read-only (as of now), and reflection is currently missing
 // mechanisms for read-only fields. I doubt those mechanisms would be added,
 // so for now quaternions will remain as values. They are represented identically
 // to Vec4 and DVec4, so you may use those instead and convert between.
