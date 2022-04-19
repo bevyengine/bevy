@@ -16,6 +16,9 @@ use super::ReadOnlyFetch;
 
 /// Extension trait for [`Fetch`] containing methods used by query filters.
 /// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
+///
+/// This trait is automatically implemented for every type that implements [`Fetch`] trait and
+/// specifies `bool` as the associated type for [`Fetch::Item`].
 pub trait FilterFetch<'w>: Fetch<'w> {
     /// # Safety
     ///
@@ -139,13 +142,6 @@ impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
     type Item = bool;
     type State = WithState<T>;
 
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
-
     unsafe fn init(
         _world: &World,
         _state: &WithState<T>,
@@ -156,6 +152,13 @@ impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
             marker: PhantomData,
         }
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
@@ -284,13 +287,6 @@ impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
     type Item = bool;
     type State = WithoutState<T>;
 
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
-
     unsafe fn init(
         _world: &World,
         _state: &WithoutState<T>,
@@ -301,6 +297,13 @@ impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
             marker: PhantomData,
         }
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
@@ -372,7 +375,8 @@ impl<T> Copy for WithoutFetch<T> {}
 pub struct Or<T>(pub T);
 
 /// The [`Fetch`] of [`Or`].
-#[derive(Clone)]
+#[derive(Clone, Copy)]
+#[doc(hidden)]
 pub struct OrFetch<'w, T: FilterFetch<'w>> {
     fetch: T,
     matches: bool,
@@ -437,7 +441,7 @@ macro_rules! impl_query_filter_tuple {
             }
 
             #[inline]
-            unsafe fn set_table(&mut self, state: & Self::State, table: &'w Table) {
+            unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
@@ -534,20 +538,6 @@ macro_rules! impl_tick_filter {
             change_tick: u32,
         }
 
-        impl<T> Clone for $fetch_name<'_, T> {
-            fn clone(&self) -> Self {
-                Self {
-                    table_ticks: self.table_ticks.clone(),
-                    entity_table_rows: self.entity_table_rows.clone(),
-                    marker: self.marker.clone(),
-                    entities: self.entities.clone(),
-                    sparse_set: self.sparse_set.clone(),
-                    last_change_tick: self.last_change_tick.clone(),
-                    change_tick: self.change_tick.clone(),
-                }
-            }
-        }
-
         #[doc(hidden)]
         $(#[$state_meta])*
         pub struct $state_name<T> {
@@ -611,13 +601,6 @@ macro_rules! impl_tick_filter {
             type State = $state_name<T>;
             type Item = bool;
 
-            const IS_DENSE: bool = {
-                match T::Storage::STORAGE_TYPE {
-                    StorageType::Table => true,
-                    StorageType::SparseSet => false,
-                }
-            };
-
             unsafe fn init(world: &'w World, state: & $state_name<T>, last_change_tick: u32, change_tick: u32) -> Self {
                 Self {
                     table_ticks: None,
@@ -630,6 +613,13 @@ macro_rules! impl_tick_filter {
                     change_tick,
                 }
             }
+
+            const IS_DENSE: bool = {
+                match T::Storage::STORAGE_TYPE {
+                    StorageType::Table => true,
+                    StorageType::SparseSet => false,
+                }
+            };
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
                 self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice());
@@ -673,6 +663,22 @@ macro_rules! impl_tick_filter {
 
         /// SAFETY: read-only access
         unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for $fetch_name<'w, T> {}
+
+        impl<T> Clone for $fetch_name<'_, T> {
+            fn clone(&self) -> Self {
+                Self {
+                    table_ticks: self.table_ticks.clone(),
+                    entity_table_rows: self.entity_table_rows.clone(),
+                    marker: self.marker.clone(),
+                    entities: self.entities.clone(),
+                    sparse_set: self.sparse_set.clone(),
+                    last_change_tick: self.last_change_tick.clone(),
+                    change_tick: self.change_tick.clone(),
+                }
+            }
+        }
+
+        impl<T> Copy for $fetch_name<'_, T> {}
     };
 }
 

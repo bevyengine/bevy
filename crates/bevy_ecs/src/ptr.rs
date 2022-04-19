@@ -1,20 +1,53 @@
 use std::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 
-/// Type-erased pointer into memory. Guaranteed to be correctly aligned, non-null and safe to read for a particular type.
+/// Type-erased borrow of some unknown type chosen when constructing this type.
+///
+/// This type tries to act "borrow-like" which means that:
+/// - It should be considered immutable: its target must not be changed while this pointer is alive.
+/// - It must always points to a valid value of whatever the pointee type is.
+/// - The lifetime `'a` accurately represents how long the pointer is valid for.
+///
+/// It may be helpful to think of this type as similar to `&'a dyn Any` but without
+/// the metadata and able to point to data that does not correspond to a Rust type.
 #[derive(Copy, Clone)]
+#[repr(transparent)]
 pub struct Ptr<'a>(NonNull<u8>, PhantomData<&'a u8>);
 
-/// Type-erased pointer into memory. Guaranteed to be correctly aligned, non-null and safe to modify for a particular type.
+/// Type-erased mutable borrow of some unknown type chosen when constructing this type.
+///
+/// This type tries to act "borrow-like" which means that:
+/// - Pointer is considered exclusive and mutable. It cannot be cloned as this would lead to
+///   aliased mutability.
+/// - It must always points to a valid value of whatever the pointee type is.
+/// - The lifetime `'a` accurately represents how long the pointer is valid for.
+///
+/// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
+/// the metadata and able to point to data that does not correspond to a Rust type.
+#[repr(transparent)]
 pub struct PtrMut<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
 
-/// Type-erased pointer into memory. Guaranteed to be correctly aligned, non-null and safe to move out of for a particular type.
+/// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
+/// Conceptually represents ownership of whatever data is being pointed to and so is
+/// responsible for calling its `Drop` impl. This pointer is _not_ responsible for freeing
+/// the memory pointed to by this pointer as it may be pointing to an element in a `Vec` or
+/// to a local in a function etc.
+///
+/// This type tries to act "borrow-like" like which means that:
+/// - Pointer should be considered exclusive and mutable. It cannot be cloned as this would lead
+///   to aliased mutability and potentially use after free bugs.
+/// - It must always points to a valid value of whatever the pointee type is.
+/// - The lifetime `'a` accurately represents how long the pointer is valid for.
+///
+/// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
+/// without the metadata and able to point to data that does not correspond to a Rust type.
+#[repr(transparent)]
 pub struct OwningPtr<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
 
 macro_rules! impl_ptr {
     ($ptr:ident) => {
         impl $ptr<'_> {
             /// # Safety
-            /// the offset cannot make the existing ptr null, or take it out of bounds for it's allocation.
+            /// the offset cannot make the existing ptr null, or take it out of bounds for its allocation.
             pub unsafe fn offset(self, count: isize) -> Self {
                 Self(
                     NonNull::new_unchecked(self.0.as_ptr().offset(count)),
@@ -23,7 +56,7 @@ macro_rules! impl_ptr {
             }
 
             /// # Safety
-            /// the offset cannot make the existing ptr null, or take it out of bounds for it's allocation.
+            /// the offset cannot make the existing ptr null, or take it out of bounds for its allocation.
             pub unsafe fn add(self, count: usize) -> Self {
                 Self(
                     NonNull::new_unchecked(self.0.as_ptr().add(count)),
@@ -32,7 +65,8 @@ macro_rules! impl_ptr {
             }
 
             /// # Safety
-            /// the lifetime for the returned item must not exceed the lifetime `inner` is valid for
+            ///
+            /// The lifetime for the returned item must not exceed the lifetime `inner` is valid for
             pub unsafe fn new(inner: NonNull<u8>) -> Self {
                 Self(inner, PhantomData)
             }
@@ -47,7 +81,8 @@ macro_rules! impl_ptr {
 impl_ptr!(Ptr);
 impl<'a> Ptr<'a> {
     /// # Safety
-    /// another [`PtrMut`] for the same [`Ptr`] shouldn't be created until the first is dropped.
+    ///
+    /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     pub unsafe fn assert_unique(self) -> PtrMut<'a> {
         PtrMut(self.0, PhantomData)
     }
@@ -60,12 +95,16 @@ impl<'a> Ptr<'a> {
 }
 impl_ptr!(PtrMut);
 impl<'a> PtrMut<'a> {
+    /// Transforms this [`PtrMut`] into an [`OwningPtr`]
+    ///
     /// # Safety
     /// Must have right to drop or move out of [`PtrMut`], and current [`PtrMut`] should not be accessed again unless it's written to again.
     pub unsafe fn promote(self) -> OwningPtr<'a> {
         OwningPtr(self.0, PhantomData)
     }
 
+    /// Transforms this [`PtrMut<T>`] into a `&mut T` with the same lifetime
+    ///
     /// # Safety
     /// Must point to a valid `T`
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
@@ -80,8 +119,10 @@ impl<'a> OwningPtr<'a> {
         f(Self(ptr, PhantomData))
     }
 
+    //// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
+    ///
     /// # Safety
-    /// must point to a valid `T`.
+    /// Must point to a valid `T`.
     pub unsafe fn read<T>(self) -> T {
         self.inner().as_ptr().cast::<T>().read()
     }
@@ -92,7 +133,7 @@ pub(crate) trait UnsafeCellDeref<'a, T> {
     unsafe fn deref(self) -> &'a T;
     unsafe fn read(self) -> T
     where
-        Self: Copy;
+        T: Copy;
 }
 impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     unsafe fn deref_mut(self) -> &'a mut T {
@@ -104,7 +145,7 @@ impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
 
     unsafe fn read(self) -> T
     where
-        Self: Copy,
+        T: Copy,
     {
         self.get().read()
     }

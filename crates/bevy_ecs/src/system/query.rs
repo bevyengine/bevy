@@ -452,16 +452,16 @@ where
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn for_each<'this, FN: FnMut(ROQueryItem<'this, Q>)>(&'this self, f: FN) {
+    pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
+            self.state.for_each_unchecked_manual::<ROQueryFetch<Q>, _>(
                 self.world,
                 f,
                 self.last_change_tick,
                 self.change_tick,
-            )
+            );
         };
     }
 
@@ -521,17 +521,17 @@ where
     ///* `batch_size` - The number of batches to spawn
     ///* `f` - The function to run on each item in the query
     #[inline]
-    pub fn par_for_each<'this, FN: Fn(ROQueryItem<'this, Q>) + Send + Sync + Clone>(
+    pub fn par_for_each<'this>(
         &'this self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: FN,
+        f: impl Fn(ROQueryItem<'this, Q>) + Send + Sync + Clone,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
             self.state
-                .par_for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
+                .par_for_each_unchecked_manual::<ROQueryFetch<Q>, _>(
                     self.world,
                     task_pool,
                     batch_size,

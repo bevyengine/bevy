@@ -322,13 +322,6 @@ pub trait Fetch<'world>: Sized {
     type Item;
     type State: FetchState;
 
-    /// Returns true if (and only if) every table of every archetype matched by this fetch contains
-    /// all of the matched components. This is used to select a more efficient "table iterator"
-    /// for "dense" queries. If this returns true, [`Fetch::set_table`] and [`Fetch::table_fetch`]
-    /// will be called for iterators. If this returns false, [`Fetch::set_archetype`] and
-    /// [`Fetch::archetype_fetch`] will be called for iterators.
-    const IS_DENSE: bool;
-
     /// Creates a new instance of this fetch.
     ///
     /// # Safety
@@ -341,6 +334,13 @@ pub trait Fetch<'world>: Sized {
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self;
+
+    /// Returns true if (and only if) every table of every archetype matched by this fetch contains
+    /// all of the matched components. This is used to select a more efficient "table iterator"
+    /// for "dense" queries. If this returns true, [`Fetch::set_table`] and [`Fetch::table_fetch`]
+    /// will be called for iterators. If this returns false, [`Fetch::set_archetype`] and
+    /// [`Fetch::archetype_fetch`] will be called for iterators.
+    const IS_DENSE: bool;
 
     /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on
     /// archetypes that match this [`Fetch`].
@@ -569,6 +569,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
 }
 
 /// The [`Fetch`] of `&T`.
+#[doc(hidden)]
 pub struct ReadFetch<'w, T> {
     // T::Storage = TableStorage
     table_components: Option<&'w [UnsafeCell<T>]>,
@@ -702,6 +703,7 @@ impl<T: Component> WorldQuery for &mut T {
 }
 
 /// The [`Fetch`] of `&mut T`.
+#[doc(hidden)]
 pub struct WriteFetch<'w, T> {
     table_components: Option<&'w [UnsafeCell<T>]>,
     table_ticks: Option<&'w [UnsafeCell<ComponentTicks>]>,
@@ -1259,6 +1261,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 }
 
 /// The [`Fetch`] of [`ChangeTrackers`].
+#[doc(hidden)]
 pub struct ChangeTrackersFetch<'w, T> {
     table_ticks: Option<&'w [UnsafeCell<ComponentTicks>]>,
     entity_table_rows: Option<&'w [usize]>,
@@ -1429,13 +1432,13 @@ macro_rules! impl_tuple_fetch {
             type Item = ($($name::Item,)*);
             type State = ($($name::State,)*);
 
-            const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
-
             #[allow(clippy::unused_unit)]
             unsafe fn init(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
                 let ($($name,)*) = state;
                 ($($name::init(_world, $name, _last_change_tick, _change_tick),)*)
             }
+
+            const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             #[inline]
             unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &'w Archetype, _tables: &'w Tables) {
@@ -1624,9 +1627,6 @@ macro_rules! impl_anytuple_fetch {
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
-            // type Fetch = AnyOf<($(($name::Fetch, bool),)*)>;
-            // type ReadOnlyFetch = AnyOf<($(($name::ReadOnlyFetch, bool),)*)>;
-
             type State = AnyOf<($($name::State,)*)>;
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {

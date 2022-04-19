@@ -133,8 +133,8 @@ impl ComponentSparseSet {
     /// set.
     ///
     /// # Safety
-    /// The `value` pointer must point to a valid address that matches the `Layout`
-    /// inside the `ComponentInfo` given when constructing this sparse set.
+    /// The `value` pointer must point to a valid address that matches the [`Layout`]
+    /// inside the [`ComponentInfo`] given when constructing this sparse set.
     pub unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity) {
             self.dense.replace_unchecked(dense_index, value);
@@ -186,7 +186,7 @@ impl ComponentSparseSet {
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).
-    #[must_use = "The returned pointer should be used to dropped the removed component"]
+    #[must_use = "The returned pointer must be used to drop the removed component."]
     pub fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
         self.sparse.remove(entity).map(|dense_index| {
             self.ticks.swap_remove(dense_index);

@@ -197,8 +197,7 @@ impl World {
     ///     .insert(Position { x: 0.0, y: 0.0 })
     ///     .id();
     ///
-    /// let entity = world.entity(entity);
-    /// let position = entity.get::<Position>().unwrap();
+    /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[inline]
@@ -338,7 +337,7 @@ impl World {
     ///     .insert_bundle((Num(1), Label("hello"))) // add a bundle of components
     ///     .id();
     ///
-    /// let position = world.get::<Position>(entity).unwrap();
+    /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
     pub fn spawn(&mut self) -> EntityMut {
@@ -415,7 +414,7 @@ impl World {
     /// ```
     #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
-        unsafe { get(self, entity, self.get_entity(entity)?.location()) }
+        self.get_entity(entity)?.get()
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [Component] of the given type.
@@ -684,7 +683,7 @@ impl World {
         // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
         // ptr value / drop is called when R is dropped
         let (ptr, _) = unsafe { column.swap_remove_and_forget_unchecked(0) };
-        // SAFE: column is of type T
+        // SAFE: column is of type R
         Some(unsafe { ptr.read::<R>() })
     }
 
@@ -1063,16 +1062,16 @@ impl World {
         };
         // SAFE: pointer is of type R
         // Read the value onto the stack to avoid potential mut aliasing.
-        let mut val = unsafe { ptr.read::<R>() };
-        let value = Mut {
-            value: &mut val,
+        let mut value = unsafe { ptr.read::<R>() };
+        let value_mut = Mut {
+            value: &mut value,
             ticks: Ticks {
                 component_ticks: &mut ticks,
                 last_change_tick,
                 change_tick,
             },
         };
-        let result = f(self, value);
+        let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>());
 
         let resource_archetype = self.archetypes.resource_mut();
@@ -1081,9 +1080,9 @@ impl World {
             .get_mut(component_id)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
 
-        OwningPtr::make(val, |ptr| {
+        OwningPtr::make(value, |ptr| {
             unsafe {
-                // SAFE: pointer is of type T
+                // SAFE: pointer is of type R
                 column.push(ptr, ticks);
             }
         });
@@ -1146,17 +1145,17 @@ impl World {
     /// # Safety
     /// `component_id` must be valid and correspond to a resource component of type `R`
     #[inline]
-    unsafe fn insert_resource_with_id<T>(&mut self, component_id: ComponentId, value: T) {
+    unsafe fn insert_resource_with_id<R>(&mut self, component_id: ComponentId, value: R) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
-            // SAFE: column is of type T and has been allocated above
+            // SAFE: column is of type R and has been allocated above
             OwningPtr::make(value, |ptr| {
                 column.push(ptr, ComponentTicks::new(change_tick));
             });
         } else {
-            // SAFE: column is of type T and has already been allocated
-            *column.get_data_unchecked_mut(0).deref_mut::<T>() = value;
+            // SAFE: column is of type R and has already been allocated
+            *column.get_data_unchecked_mut(0).deref_mut::<R>() = value;
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
     }

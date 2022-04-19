@@ -65,7 +65,10 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFE: entity location is valid and returned component is of type T
-        unsafe { get(self.world, self.entity, self.location) }
+        unsafe {
+            get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
+                .map(|value| value.deref::<T>())
+        }
     }
 
     /// Gets a mutable reference to the component of type `T` associated with
@@ -719,18 +722,6 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
             true
         }
     });
-}
-
-// SAFETY: EntityLocation must be valid
-#[inline]
-pub(crate) unsafe fn get<T: Component>(
-    world: &World,
-    entity: Entity,
-    location: EntityLocation,
-) -> Option<&T> {
-    // SAFE: entity location is valid and returned component is of type T
-    get_component_with_type(world, TypeId::of::<T>(), entity, location)
-        .map(|value| value.deref::<T>())
 }
 
 // SAFETY: EntityLocation must be valid
