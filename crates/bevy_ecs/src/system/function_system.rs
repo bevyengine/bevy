@@ -249,33 +249,13 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// fn my_system_function(an_usize_resource: Res<usize>) {}
 ///
-/// let system = IntoSystem::system(my_system_function);
+/// let system = IntoSystem::into_system(my_system_function);
 /// ```
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
 pub trait IntoSystem<In, Out, Params>: Sized {
     type System: System<In = In, Out = Out>;
-    /// Turns this value into its corresponding [`System`].
-    ///
-    /// Use of this method was formerly required whenever adding a `system` to an `App`.
-    /// or other cases where a system is required.
-    /// However, since [#2398](https://github.com/bevyengine/bevy/pull/2398),
-    /// this is no longer required.
-    ///
-    /// In future, this method will be removed.
-    ///
-    /// One use of this method is to assert that a given function is a valid system.
-    /// For this case, use [`bevy_ecs::system::assert_is_system`] instead.
-    ///
-    /// [`bevy_ecs::system::assert_is_system`]: [`crate::system::assert_is_system`]:
-    #[deprecated(
-        since = "0.7.0",
-        note = "`.system()` is no longer needed, as methods which accept systems will convert functions into a system automatically"
-    )]
-    fn system(self) -> Self::System {
-        IntoSystem::into_system(self)
-    }
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 }
@@ -322,7 +302,7 @@ pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
-/// You get this by calling [`IntoSystem::system`]  on a function that only accepts
+/// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
