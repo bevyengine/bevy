@@ -32,7 +32,8 @@ macro_rules! impl_ptr {
             }
 
             /// # Safety
-            /// the lifetime for the returned item must not exceed the lifetime `inner` is valid for
+            ///
+            /// The lifetime for the returned item must not exceed the lifetime `inner` is valid for
             pub unsafe fn new(inner: NonNull<u8>) -> Self {
                 Self(inner, PhantomData)
             }
@@ -47,7 +48,8 @@ macro_rules! impl_ptr {
 impl_ptr!(Ptr);
 impl<'a> Ptr<'a> {
     /// # Safety
-    /// another [`PtrMut`] for the same [`Ptr`] shouldn't be created until the first is dropped.
+    ///
+    /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     pub unsafe fn assert_unique(self) -> PtrMut<'a> {
         PtrMut(self.0, PhantomData)
     }
@@ -60,12 +62,16 @@ impl<'a> Ptr<'a> {
 }
 impl_ptr!(PtrMut);
 impl<'a> PtrMut<'a> {
+    /// Transforms this [`PtrMut`] into an [`OwningPtr`]
+    ///
     /// # Safety
     /// Must have right to drop or move out of [`PtrMut`], and current [`PtrMut`] should not be accessed again unless it's written to again.
     pub unsafe fn promote(self) -> OwningPtr<'a> {
         OwningPtr(self.0, PhantomData)
     }
 
+    /// Transforms this [`PtrMut<T>`] into a `&mut T` with the same lifetime
+    ///
     /// # Safety
     /// Must point to a valid `T`
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
@@ -80,8 +86,10 @@ impl<'a> OwningPtr<'a> {
         f(Self(ptr, PhantomData))
     }
 
+    //// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
+    ///
     /// # Safety
-    /// must point to a valid `T`.
+    /// Must point to a valid `T`.
     pub unsafe fn read<T>(self) -> T {
         self.inner().as_ptr().cast::<T>().read()
     }

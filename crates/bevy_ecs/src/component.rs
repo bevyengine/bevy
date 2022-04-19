@@ -176,6 +176,7 @@ pub struct ComponentDescriptor {
     drop: for<'a> unsafe fn(OwningPtr<'a>),
 }
 
+// We need to ignore the `drop` field in our `Debug` impl
 impl std::fmt::Debug for ComponentDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ComponentDescriptor")

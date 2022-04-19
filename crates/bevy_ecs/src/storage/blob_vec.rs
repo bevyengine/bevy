@@ -19,6 +19,7 @@ pub struct BlobVec {
     drop: unsafe fn(OwningPtr<'_>),
 }
 
+// We want to ignore the `drop` field in our `Debug` impl
 impl std::fmt::Debug for BlobVec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BlobVec")
@@ -87,7 +88,7 @@ impl BlobVec {
         }
     }
 
-    // FIXME: this should probably be an unsafe fn as it shouldnt be called if the layout
+    // FIXME: this should probably be an unsafe fn as it shouldn't be called if the layout
     // is for a ZST
     fn grow_exact(&mut self, increment: usize) {
         debug_assert!(self.item_layout.size() != 0);
@@ -245,6 +246,8 @@ impl BlobVec {
         unsafe { PtrMut::new(self.data) }
     }
 
+    /// Get a reference to the entire [`BlobVec`] as if it were an array with elements of type `T`
+    ///
     /// # Safety
     /// The type `T` must be the type of the items in this [`BlobVec`].
     pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
