@@ -121,6 +121,7 @@ impl<'a> PtrMut<'a> {
 }
 impl_ptr!(OwningPtr);
 impl<'a> OwningPtr<'a> {
+    /// Consumes a value and creates an OwningPtr to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
         let mut temp = MaybeUninit::new(val);
