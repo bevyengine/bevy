@@ -68,7 +68,7 @@ pub fn impl_struct(
                 if let #bevy_reflect_path::ReflectRef::Struct(ref_struct) = reflect.reflect_ref() {
                     let mut value: Self = Default::default();
                     #(
-                        value.#field_idents = <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(ref_struct.field(#field_names)?)?
+                        value.#field_idents = <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(ref_struct.field(#field_names)?)?;
                     )*
                     Some(value)
                 } else {

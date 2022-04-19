@@ -576,7 +576,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
+pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
@@ -584,7 +584,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
     let generics = &ast.generics;
     let data = match &ast.data {
         Data::Struct(r#struct) => r#struct,
-        // Don't believe enum reflection is implemented right now,
+        // I don't believe enum reflection is implemented right now,
         // and unions are likely not going to be reflected.
         _ => unimplemented!()
     };
@@ -627,6 +627,16 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
         })
         .map(|(f, _attr, i)| (*f, *i))
         .collect::<Vec<(&Field, usize)>>();
+    let ignored_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs, _i)| {
+            attrs
+                .as_ref()
+                .map(|attrs| attrs.ignore.unwrap_or(false))
+                .unwrap_or(false)
+        })
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
 
     let mut reflect_attrs = ReflectAttrs::default();
     for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
@@ -651,14 +661,28 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
         generics,
     );
 
-    impl_struct(
+    let impl_struct: proc_macro2::TokenStream = impl_struct(
         ident,
         generics,
         &get_type_registration_impl,
         &bevy_reflect_path,
         &reflect_attrs,
         &active_fields
-    )
+    ).into();
+
+    let impl_from_struct: proc_macro2::TokenStream = from_reflect::impl_struct(
+        ident, 
+        generics, 
+        &bevy_reflect_path, 
+        &active_fields, 
+        &ignored_fields
+    ).into();
+
+    quote!(
+        #impl_struct
+
+        #impl_from_struct
+    ).into()
 }
 
 #[derive(Default)]

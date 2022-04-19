@@ -1,7 +1,7 @@
 use crate as bevy_reflect;
 use crate::ReflectDeserialize;
 use crate::reflect::Reflect;
-use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value, impl_reflect_struct};
+use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value, impl_reflect_struct_and_from_reflect_struct};
 use glam::*;
 
 // impl_reflect_value!(IVec2(PartialEq, Serialize, Deserialize));
@@ -30,14 +30,14 @@ impl_reflect_value!(DQuat(PartialEq, Serialize, Deserialize));
 ==========================
 */
 
-impl_reflect_struct!(
+impl_reflect_struct_and_from_reflect_struct!(
     struct IVec2 {
         x: i32,
         y: i32
     }
 );
 
-impl_reflect_struct!(
+impl_reflect_struct_and_from_reflect_struct!(
     struct Vec3 {
         x: f32,
         y: f32,
@@ -45,14 +45,14 @@ impl_reflect_struct!(
     }
 );
 
-impl_from_reflect_value!(IVec2);
+// impl_from_reflect_value!(IVec2);
 impl_from_reflect_value!(IVec3);
 impl_from_reflect_value!(IVec4);
 impl_from_reflect_value!(UVec2);
 impl_from_reflect_value!(UVec3);
 impl_from_reflect_value!(UVec4);
 impl_from_reflect_value!(Vec2);
-impl_from_reflect_value!(Vec3);
+// impl_from_reflect_value!(Vec3);
 impl_from_reflect_value!(Vec4);
 impl_from_reflect_value!(Vec3A);
 impl_from_reflect_value!(DVec2);
