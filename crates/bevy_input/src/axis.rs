@@ -1,12 +1,12 @@
 use bevy_utils::HashMap;
 use std::hash::Hash;
 
-/// Stores the position data of input devices of type T
+/// Stores the position data of the input devices of type `T`.
 ///
-/// Values are stored as `f32` values, which range from `min` to `max`.
-/// The valid range is from -1.0 to 1.0, inclusive.
+/// The values are stored as `f32`s, which range from [`Axis::MIN`] to [`Axis::MAX`], inclusive.
 #[derive(Debug)]
 pub struct Axis<T> {
+    /// The position data of the input devices.
     axis_data: HashMap<T, f32>,
 }
 
@@ -25,27 +25,29 @@ impl<T> Axis<T>
 where
     T: Copy + Eq + Hash,
 {
+    /// The smallest possible axis value.
     pub const MIN: f32 = -1.0;
+
+    /// The largest possible axis value.
     pub const MAX: f32 = 1.0;
 
-    /// Inserts a position data for an input device,
-    /// restricting the position data to an interval `min..=max`.
+    /// Sets the position data of the `input_device` to `position_data`.
     ///
-    /// If the input device wasn't present before, [None] is returned.
+    /// The `position_data` is clamped to be between [`Axis::MIN`] and [`Axis::MAX`], inclusive.
     ///
-    /// If the input device was present, the position data is updated, and the old value is returned.
+    /// If the `input_device`:
+    /// - was present before, the position data is updated, and the old value is returned.
+    /// - wasn't present before, [None] is returned.
     pub fn set(&mut self, input_device: T, position_data: f32) -> Option<f32> {
         let new_position_data = position_data.clamp(Self::MIN, Self::MAX);
         self.axis_data.insert(input_device, new_position_data)
     }
 
-    /// Returns a position data corresponding to the input device.
+    /// Returns a position data corresponding to the `input_device`.
     pub fn get(&self, input_device: T) -> Option<f32> {
         self.axis_data.get(&input_device).copied()
     }
-
-    /// Removes the position data of the input device,
-    /// returning the position data if the input device was previously set.
+    /// Removes the position data of the `input_device`, returning the position data if the input device was previously set.
     pub fn remove(&mut self, input_device: T) -> Option<f32> {
         self.axis_data.remove(&input_device)
     }
