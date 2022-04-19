@@ -73,6 +73,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// #[derive(WorldQuery)]
 /// struct MyQuery {
 ///     entity: Entity,
+///     // We must explicitly list out all lifetimes, as we are defining a struct
 ///     foo: &'static Foo,
 ///     bar: Option<&'static Bar>,
 /// }
@@ -303,11 +304,16 @@ pub trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self>;
 }
 
+/// The [`Fetch`] of a [`Query`], which declares which data it needs access to
 pub type QueryFetch<'w, Q> = <Q as WorldQueryGats<'w>>::Fetch;
+/// The item type returned when a [`Query`] is iterated over
 pub type QueryItem<'w, Q> = <<Q as WorldQueryGats<'w>>::Fetch as Fetch<'w>>::Item;
+/// The read-only [`Fetch`] of a [`Query`], which declares which data it needs access to when accessed immutably
 pub type ROQueryFetch<'w, Q> = <Q as WorldQueryGats<'w>>::ReadOnlyFetch;
+/// The read-only variant of the item type returned when a [`Query`] is iterated over immutably
 pub type ROQueryItem<'w, Q> = <<Q as WorldQueryGats<'w>>::ReadOnlyFetch as Fetch<'w>>::Item;
 
+/// A helper trait for [`WorldQuery`] that works around Rust's lack of Generic Associated Types
 pub trait WorldQueryGats<'world> {
     type Fetch: Fetch<'world, State = Self::_State>;
     type ReadOnlyFetch: Fetch<'world, State = Self::_State> + ReadOnlyFetch<'world>;
@@ -327,8 +333,8 @@ pub trait Fetch<'world>: Sized {
     ///
     /// # Safety
     ///
-    /// `state` must have been initialized (via [`FetchState::init`]) using the same `world` passed in
-    /// to this function.
+    /// `state` must have been initialized (via [`FetchState::init`]) using the same `world` passed
+    /// in to this function.
     unsafe fn init(
         world: &'world World,
         state: &Self::State,
@@ -412,7 +418,7 @@ pub unsafe trait FetchState: Send + Sync + Sized {
 /// # Safety
 ///
 /// This must only be implemented for read-only fetches.
-pub unsafe trait ReadOnlyFetch<'w>: Fetch<'w> {}
+pub unsafe trait ReadOnlyFetch<'world>: Fetch<'world> {}
 
 impl WorldQuery for Entity {
     type State = EntityState;
@@ -1036,7 +1042,7 @@ pub struct OptionFetch<T> {
     matches: bool,
 }
 
-/// SAFETY: [`OptionFetch`] is read only because T is read only
+/// SAFETY: [`OptionFetch`] is read only because `T` is read only
 unsafe impl<'w, T: ReadOnlyFetch<'w>> ReadOnlyFetch<'w> for OptionFetch<T> {}
 
 /// The [`FetchState`] of `Option<T>`.
@@ -1377,7 +1383,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                         let table_ticks = self
                             .table_ticks
                             .unwrap_or_else(|| debug_checked_unreachable());
-                        table_ticks.get(table_row).deref().clone()
+                        table_ticks.get(table_row).read()
                     },
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,
@@ -1410,7 +1416,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                 let table_ticks = self
                     .table_ticks
                     .unwrap_or_else(|| debug_checked_unreachable());
-                table_ticks.get(table_row).deref().clone()
+                table_ticks.get(table_row).read()
             },
             marker: PhantomData,
             last_change_tick: self.last_change_tick,
