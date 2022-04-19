@@ -104,7 +104,7 @@ impl<'a> PtrMut<'a> {
     /// Transforms this [`PtrMut`] into an [`OwningPtr`]
     ///
     /// # Safety
-    /// Must have right to drop or move out of [`PtrMut`], and current [`PtrMut`] should not be accessed again unless it's written to again.
+    /// Must have right to drop or move out of [`PtrMut`].
     #[inline]
     pub unsafe fn promote(self) -> OwningPtr<'a> {
         OwningPtr(self.0, PhantomData)
