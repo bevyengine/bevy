@@ -173,6 +173,8 @@ pub struct ComponentDescriptor {
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
+    // SAFETY: this function must be safe to call with pointers pointing to items of the type
+    // this descriptor describes.
     drop: for<'a> unsafe fn(OwningPtr<'a>),
 }
 

@@ -103,6 +103,7 @@ pub struct ComponentSparseSet {
 impl ComponentSparseSet {
     pub fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
+            // SAFE: component_info.drop() is compatible with the items that will be inserted.
             dense: unsafe {
                 BlobVec::new(component_info.layout(), component_info.drop(), capacity)
             },

@@ -299,6 +299,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 pub trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
     type State: FetchState;
 
+    /// This function manually implements variance for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self>;
 }
 
