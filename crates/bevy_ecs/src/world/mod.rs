@@ -1105,54 +1105,6 @@ impl World {
         Some(&*column.get_data_ptr().as_ptr().cast::<R>())
     }
 
-    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
-    /// The returned pointer must not be used to modify the resource, and must not be
-    /// dereferenced after the immutable borrow of the [`World`] ends.
-    ///
-    /// **You should prefer to use the typed API [`World::get_resource`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
-    #[inline]
-    pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
-        let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
-            self.validate_non_send_access_untyped(info.name());
-        }
-
-        let column = self.get_populated_resource_column(component_id)?;
-        // Safety: get_data_ptr requires that the mutability rules are not violated, and the caller promises
-        // to not modify the resource or dereference it after the immutable borrow of the world ends
-        Some(unsafe { column.get_data_ptr().as_ptr().cast() })
-    }
-
-    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
-    /// The returned pointer may be used to modify the resource, as long as the mutable borrow
-    /// of the [`World`] is still valid.
-    ///
-    /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
-    #[inline]
-    pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
-            self.validate_non_send_access_untyped(info.name());
-        }
-
-        let column = self.get_populated_resource_column(component_id)?;
-        // Safety: get_data_ptr requires that the mutability rules are not violated, and the caller promises
-        // to only modify the resource while the mutable borrow of the world is valid
-        let value = unsafe { column.get_data_ptr().as_ptr().cast() };
-        let ticks = Ticks {
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            // - users of MutUntyped promise to not dereference the pointer after the MutUntyped is dead
-            component_ticks: unsafe { &mut *column.get_ticks_mut_ptr_unchecked(0) },
-            last_change_tick: self.last_change_tick(),
-            change_tick: self.read_change_tick(),
-        };
-
-        Some(MutUntyped { value, ticks })
-    }
-
     /// # Safety
     /// `component_id` must be assigned to a component of type `R`
     /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
@@ -1370,6 +1322,56 @@ impl World {
         self.storages.sparse_sets.clear();
         self.archetypes.clear_entities();
         self.entities.clear();
+    }
+}
+
+impl World {
+    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// The returned pointer must not be used to modify the resource, and must not be
+    /// dereferenced after the immutable borrow of the [`World`] ends.
+    ///
+    /// **You should prefer to use the typed API [`World::get_resource`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    #[inline]
+    pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
+        let info = self.components.get_info(component_id)?;
+        if !info.is_send_and_sync() {
+            self.validate_non_send_access_untyped(info.name());
+        }
+
+        let column = self.get_populated_resource_column(component_id)?;
+        // Safety: get_data_ptr requires that the mutability rules are not violated, and the caller promises
+        // to not modify the resource or dereference it after the immutable borrow of the world ends
+        Some(unsafe { column.get_data_ptr().as_ptr().cast() })
+    }
+
+    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// The returned pointer may be used to modify the resource, as long as the mutable borrow
+    /// of the [`World`] is still valid.
+    ///
+    /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    #[inline]
+    pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        let info = self.components.get_info(component_id)?;
+        if !info.is_send_and_sync() {
+            self.validate_non_send_access_untyped(info.name());
+        }
+
+        let column = self.get_populated_resource_column(component_id)?;
+        // Safety: get_data_ptr requires that the mutability rules are not violated, and the caller promises
+        // to only modify the resource while the mutable borrow of the world is valid
+        let value = unsafe { column.get_data_ptr().as_ptr().cast() };
+        let ticks = Ticks {
+            // - index is in-bounds because the column is initialized and non-empty
+            // - no other reference to the ticks of the same row can exist at the same time
+            // - users of MutUntyped promise to not dereference the pointer after the MutUntyped is dead
+            component_ticks: unsafe { &mut *column.get_ticks_mut_ptr_unchecked(0) },
+            last_change_tick: self.last_change_tick(),
+            change_tick: self.read_change_tick(),
+        };
+
+        Some(MutUntyped { value, ticks })
     }
 }
 
