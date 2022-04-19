@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
     render::{render_resource::WgpuFeatures, settings::WgpuSettings},
 };
-use example_utils::camera::{CameraController, CameraControllerPlugin};
+use examples_utils::camera::{CameraController, CameraControllerPlugin};
 
 fn main() {
     App::new()

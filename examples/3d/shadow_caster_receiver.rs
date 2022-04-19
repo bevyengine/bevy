@@ -2,7 +2,7 @@ use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
-use example_utils::camera::{CameraController, CameraControllerPlugin};
+use examples_utils::camera::{CameraController, CameraControllerPlugin};
 
 fn main() {
     println!(

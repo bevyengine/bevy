@@ -1,5 +1,5 @@
 [package]
-name = "example_utils"
+name = "examples_utils"
 version = "0.7.0-dev"
 edition = "2021"
 description = "Utilities used in exampes for Bevy Engine"

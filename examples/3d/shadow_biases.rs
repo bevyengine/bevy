@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use example_utils::camera::{CameraController, CameraControllerPlugin};
+use examples_utils::camera::{CameraController, CameraControllerPlugin};
 
 fn main() {
     println!(

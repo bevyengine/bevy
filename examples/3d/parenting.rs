@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use example_utils::camera::{CameraController, CameraControllerPlugin};
+use examples_utils::camera::{CameraController, CameraControllerPlugin};
 
 /// This example illustrates how to create parent->child relationships between entities how parent
 /// transforms are propagated to their descendants
