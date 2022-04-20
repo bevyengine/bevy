@@ -121,7 +121,7 @@ impl<'a> PtrMut<'a> {
 }
 impl_ptr!(OwningPtr);
 impl<'a> OwningPtr<'a> {
-    /// Consumes a value and creates an OwningPtr to it while ensuring a double drop does not happen.
+    /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
         let mut temp = MaybeUninit::new(val);
@@ -139,7 +139,7 @@ impl<'a> OwningPtr<'a> {
     }
 }
 
-/// roughly equilavent to &'a [T] but with length information cut out
+/// Conceptually equilavent to `&'a [T]` but with length information cut out for performance reasons
 pub struct ThinSlicePtr<'a, T> {
     ptr: NonNull<T>,
     #[cfg(debug_assertions)]

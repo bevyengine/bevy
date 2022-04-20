@@ -304,13 +304,13 @@ pub trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self>;
 }
 
-/// The [`Fetch`] of a [`Query`], which declares which data it needs access to
+/// The [`Fetch`] of a [`WorldQuery`], which declares which data it needs access to
 pub type QueryFetch<'w, Q> = <Q as WorldQueryGats<'w>>::Fetch;
-/// The item type returned when a [`Query`] is iterated over
+/// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, Q> = <<Q as WorldQueryGats<'w>>::Fetch as Fetch<'w>>::Item;
-/// The read-only [`Fetch`] of a [`Query`], which declares which data it needs access to when accessed immutably
+/// The read-only [`Fetch`] of a [`WorldQuery`], which declares which data it needs access to when accessed immutably
 pub type ROQueryFetch<'w, Q> = <Q as WorldQueryGats<'w>>::ReadOnlyFetch;
-/// The read-only variant of the item type returned when a [`Query`] is iterated over immutably
+/// The read-only variant of the item type returned when a [`WorldQuery`] is iterated over immutably
 pub type ROQueryItem<'w, Q> = <<Q as WorldQueryGats<'w>>::ReadOnlyFetch as Fetch<'w>>::Item;
 
 /// A helper trait for [`WorldQuery`] that works around Rust's lack of Generic Associated Types
