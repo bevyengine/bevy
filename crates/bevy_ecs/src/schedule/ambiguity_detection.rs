@@ -420,7 +420,7 @@ impl SystemStage {
 				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n");
 
             if report_level == ExecutionOrderAmbiguities::Warn {
-                warning_string += "Set the level of the `ReportExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::WarnVerbose` for more details.";
+                warning_string += "Set the level of the `ExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::WarnVerbose` for more details.";
             } else {
                 for (i, ambiguity) in ambiguities.iter().enumerate() {
                     let ambiguity_number = i + 1;
