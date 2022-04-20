@@ -157,7 +157,7 @@ pub struct WindowPosition(pub IVec2);
 /// `Immediate` or `Mailbox` will gracefully fallback to `Fifo` when unavailable.
 ///
 /// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor::present_mode)
-/// or updated on a [`Window`](Window::set_present_mode).
+/// or updated using [`WindowCommands`](crate::WindowCommands::set_present_mode).
 #[repr(C)]
 #[derive(Component, Reflect, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[doc(alias = "vsync")]
@@ -281,7 +281,7 @@ impl WindowResolution {
     }
 
     /// The requested window client area width in logical pixels from window
-    /// creation or the last call to [`set_resolution`](Window::set_resolution).
+    /// creation or the last call to [`set_resolution`](crate::WindowCommands::set_resolution).
     ///
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
@@ -291,7 +291,7 @@ impl WindowResolution {
     }
 
     /// The requested window client area height in logical pixels from window
-    /// creation or the last call to [`set_resolution`](Window::set_resolution).
+    /// creation or the last call to [`set_resolution`](crate::WindowCommands::set_resolution).
     ///
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
@@ -309,7 +309,7 @@ impl WindowResolution {
     }
 
     /// The window scale factor as reported by the window backend.
-    /// This value is unaffected by [`scale_factor_override`](WindowResolution::scale_factor_override).
+    /// This value is unaffected by [`Self::set_scale_factor_override`].
     #[inline]
     pub fn scale_factor_backend(&self) -> f64 {
         self.scale_factor_backend
@@ -317,7 +317,7 @@ impl WindowResolution {
     /// Request the OS to resize the window such the the client area matches the
     /// specified width and height.
     ///
-    /// Call [`Commands::add`] with returned command if some
+    /// Call [`Commands::add`](bevy_ecs::system::Commands::add) with returned command if some
     #[allow(clippy::float_cmp)]
     pub fn set_resolution(&mut self, width: f32, height: f32) -> Option<WindowCommand> {
         if self.requested_width == width && self.requested_height == height {
@@ -335,7 +335,7 @@ impl WindowResolution {
 
     /// Override the os-reported scaling factor
     ///
-    /// Call [`Commands::add`] on the two returned command if some
+    /// Call [`Commands::add`](bevy_ecs::system::Commands::add) on the two returned command if some
     #[allow(clippy::float_cmp)]
     pub fn set_scale_factor_override(
         &mut self,

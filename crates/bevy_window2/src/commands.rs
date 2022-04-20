@@ -198,7 +198,7 @@ impl<'w, 's, 'a> WindowCommands<'w, 's, 'a> {
     }
 }
 
-/// Extension trait for adding a [`WindowCommands`] helper for [`Commands`]
+/// Extension trait for [`Commands`], adding a [`WindowCommands`] helper 
 pub trait CommandsExt<'w, 's> {
     /// Returns an [`WindowCommands`] builder for the requested window.
     fn window<'a>(&'a mut self, window: Entity) -> WindowCommands<'w, 's, 'a>;
