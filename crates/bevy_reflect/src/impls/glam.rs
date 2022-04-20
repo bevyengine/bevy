@@ -6,6 +6,7 @@ use glam::*;
 
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct IVec2 {
         x: i32,
@@ -14,6 +15,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct IVec3 {
         x: i32,
@@ -23,6 +25,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct IVec4 {
         x: i32,
@@ -34,6 +37,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct UVec2 {
         x: u32,
@@ -42,6 +46,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct UVec3 {
         x: u32,
@@ -51,6 +56,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct UVec4 {
         x: u32,
@@ -62,6 +68,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct Vec2 {
         x: f32,
@@ -70,6 +77,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct Vec3 {
         x: f32,
@@ -79,6 +87,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct Vec3A {
         x: f32,
@@ -88,6 +97,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct Vec4 {
         x: f32,
@@ -99,6 +109,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct DVec2 {
         x: f64,
@@ -107,6 +118,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct DVec3 {
         x: f64,
@@ -116,6 +128,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct DVec4 {
         x: f64,
@@ -127,6 +140,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct Mat3 {
         x_axis: Vec3,
@@ -136,6 +150,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct Mat4 {
         x_axis: Vec4,
@@ -147,6 +162,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct DMat3 {
         x_axis: DVec3,
@@ -156,6 +172,7 @@ impl_reflect_struct_and_from_reflect_struct!(
 );
 impl_reflect_struct_and_from_reflect_struct!(
     Constructor(Default::default())
+    BevyReflectPath(self::bevy_reflect)
     #[reflect(PartialEq, Serialize, Deserialize)]
     struct DMat4 {
         x_axis: DVec4,

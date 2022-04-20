@@ -577,7 +577,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenStream {
-    let mut iter = input.into_iter();
+    let mut iter = input.into_iter().peekable();
     let (r#constructor, ctor) = (iter.next().unwrap(), iter.next().unwrap());
     match r#constructor {
         proc_macro::TokenTree::Ident(i) => {
@@ -593,11 +593,32 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
     }
     .into();
 
+    let path_override = if let Some(next) = iter.peek() {
+        if match next {
+            proc_macro::TokenTree::Ident(i) => i.to_string() == "BevyReflectPath",
+            _ => false,
+        } {
+            _ = iter.next(); // Discard BevyReflectPath
+            Some(match iter.next() {
+                Some(proc_macro::TokenTree::Group(g)) => g.stream(),
+                _ => panic!("Invalid BevyReflectPath override!"),
+            })
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     let input = iter.collect();
 
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
+    let bevy_reflect_path = if let Some(r#override) = path_override {
+        syn::parse(r#override).expect("Invalid BevyReflectPath override!")
+    } else {
+        BevyManifest::default().get_path("bevy_reflect")
+    };
     let ident = &ast.ident;
     let generics = &ast.generics;
     let data = match &ast.data {
