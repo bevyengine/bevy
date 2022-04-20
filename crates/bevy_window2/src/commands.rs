@@ -250,12 +250,12 @@ mod tests {
             .map(|WindowCommandQueued { window_id, command }| format!("{window_id:?}: {command:?}"))
             .collect::<Vec<_>>();
         let expected = vec![
-            "0v0: SetCursorLockMode { locked: false }".to_string(),
-            "0v0: SetTitle { title: \"first\" }".to_string(),
-            "0v0: SetPosition { position: IVec2(1, 1) }".to_string(),
-            "1v0: SetCursorLockMode { locked: true }".to_string(),
-            "1v0: SetTitle { title: \"second\" }".to_string(),
-            "1v0: SetPosition { position: IVec2(0, 0) }".to_string(),
+            "0v0: SetCursorLockMode(false)".to_string(),
+            "0v0: SetTitle(\"first\")".to_string(),
+            "0v0: SetPosition(IVec2(1, 1))".to_string(),
+            "1v0: SetCursorLockMode(true)".to_string(),
+            "1v0: SetTitle(\"second\")".to_string(),
+            "1v0: SetPosition(IVec2(0, 0))".to_string(),
         ];
         assert_eq!(received, expected);
     }
