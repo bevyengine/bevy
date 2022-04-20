@@ -1,7 +1,5 @@
-use bevy_reflect::Reflect;
-
 /// The icon to display for a window's cursor
-#[derive(Debug, Reflect, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum CursorIcon {
     Default,
     Crosshair,

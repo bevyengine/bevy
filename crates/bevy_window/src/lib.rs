@@ -1,7 +1,3 @@
-// this is just for testing purposes, will replace window.rs eventually
-pub mod draft;
-
-mod commands;
 mod cursor;
 mod event;
 mod raw_window_handle;
@@ -10,7 +6,6 @@ mod window;
 mod windows;
 
 pub use crate::raw_window_handle::*;
-pub use commands::*;
 pub use cursor::*;
 pub use event::*;
 pub use system::*;
@@ -59,7 +54,6 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
-            .add_event::<WindowCommandQueued>()
             .init_resource::<Windows>();
 
         if self.add_primary_window {

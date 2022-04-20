@@ -1,5 +1,5 @@
 [package]
-name = "bevy_window"
+name = "bevy_window2"
 version = "0.8.0-dev"
 edition = "2021"
 description = "Provides windowing functionality for Bevy Engine"
@@ -11,8 +11,10 @@ keywords = ["bevy"]
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.8.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 raw-window-handle = "0.4.2"
 
