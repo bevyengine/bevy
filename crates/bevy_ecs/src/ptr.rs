@@ -10,7 +10,6 @@ use std::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull}
 /// It may be helpful to think of this type as similar to `&'a dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
 #[derive(Copy, Clone)]
-#[repr(transparent)]
 pub struct Ptr<'a>(NonNull<u8>, PhantomData<&'a u8>);
 
 /// Type-erased mutable borrow of some unknown type chosen when constructing this type.
@@ -23,7 +22,6 @@ pub struct Ptr<'a>(NonNull<u8>, PhantomData<&'a u8>);
 ///
 /// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
-#[repr(transparent)]
 pub struct PtrMut<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
 
 /// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
@@ -40,7 +38,6 @@ pub struct PtrMut<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
 ///
 /// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
 /// without the metadata and able to point to data that does not correspond to a Rust type.
-#[repr(transparent)]
 pub struct OwningPtr<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
 
 macro_rules! impl_ptr {
