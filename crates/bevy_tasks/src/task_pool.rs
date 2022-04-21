@@ -213,7 +213,7 @@ impl TaskPool {
     ///
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
-        F: for<'scope> FnOnce(&'env Scope<'scope, 'env, T>),
+        F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         // SAFETY: This safety comment applies to all references transmuted to 'env.
@@ -333,15 +333,15 @@ impl Drop for TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'env async_executor::Executor<'env>,
-    task_scope_executor: &'env async_executor::Executor<'env>,
-    spawned: &'env ConcurrentQueue<async_executor::Task<T>>,
+    executor: &'scope async_executor::Executor<'scope>,
+    task_scope_executor: &'scope async_executor::Executor<'scope>,
+    spawned: &'scope ConcurrentQueue<async_executor::Task<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
 }
 
-impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
+impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// Spawns a scoped future onto the thread pool. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
@@ -350,7 +350,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// instead.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'env + Send>(&self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         let task = self.executor.spawn(f);
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
@@ -363,7 +363,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_scope<Fut: Future<Output = T> + 'env + Send>(&self, f: Fut) {
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         let task = self.task_scope_executor.spawn(f);
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
