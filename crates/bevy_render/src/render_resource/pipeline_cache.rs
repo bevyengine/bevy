@@ -129,9 +129,24 @@ impl ShaderCache {
                         return Err(PipelineCacheError::AsModuleDescriptorError(err, processed));
                     }
                 };
-                entry.insert(Arc::new(
-                    render_device.create_shader_module(&module_descriptor),
-                ))
+
+                render_device
+                    .wgpu_device()
+                    .push_error_scope(wgpu::ErrorFilter::Validation);
+                let shader_module = render_device.create_shader_module(&module_descriptor);
+                let error = render_device.wgpu_device().pop_error_scope();
+
+                // `now_or_never` will return Some if the future is ready and None otherwise.
+                // On native platforms, wgpu will yield the error immediatly while on wasm it may take longer since the browser APIs are asynchronous.
+                // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
+                // and on wasm the error will be handled by wgpu and crash the application.
+                if let Some(Some(wgpu::Error::Validation { description, .. })) =
+                    bevy_utils::futures::now_or_never(error)
+                {
+                    return Err(PipelineCacheError::CreateShaderModule(description));
+                }
+
+                entry.insert(Arc::new(shader_module))
             }
         };
 
@@ -479,6 +494,10 @@ impl PipelineCache {
                             log_shader_error(source, err);
                             continue;
                         }
+                        PipelineCacheError::CreateShaderModule(description) => {
+                            error!("failed to create shader module: {}", description);
+                            continue;
+                        }
                     }
                 }
             }
@@ -626,6 +645,8 @@ pub enum PipelineCacheError {
     AsModuleDescriptorError(AsModuleDescriptorError, ProcessedShader),
     #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
+    #[error("Could not create shader module: {0}")]
+    CreateShaderModule(String),
 }
 
 struct ErrorSources<'a> {

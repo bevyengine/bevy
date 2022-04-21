@@ -11,13 +11,14 @@ use crate::{
 use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
+    change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::{DetectChanges, QueryState, With},
+    prelude::With,
     query::Added,
     reflect::ReflectComponent,
-    system::{Commands, Query, QuerySet, Res, ResMut},
+    system::{Commands, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::{Reflect, ReflectDeserialize};
@@ -27,7 +28,7 @@ use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 use wgpu::Extent3d;
 
-#[derive(Component, Default, Debug, Reflect)]
+#[derive(Component, Default, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
@@ -78,6 +79,7 @@ impl RenderTarget {
                 UVec2::new(width, height)
             }),
         }
+        .filter(|size| size.x > 0 && size.y > 0)
     }
     pub fn get_logical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<Vec2> {
         match self {
@@ -153,9 +155,9 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut image_asset_events: EventReader<AssetEvent<Image>>,
     windows: Res<Windows>,
     images: Res<Assets<Image>>,
-    mut queries: QuerySet<(
-        QueryState<(Entity, &mut Camera, &mut T)>,
-        QueryState<Entity, Added<Camera>>,
+    mut queries: ParamSet<(
+        Query<(Entity, &mut Camera, &mut T)>,
+        Query<Entity, Added<Camera>>,
     )>,
 ) {
     let mut changed_window_ids = Vec::new();
@@ -191,10 +193,10 @@ pub fn camera_system<T: CameraProjection + Component>(
         .collect();
 
     let mut added_cameras = vec![];
-    for entity in &mut queries.q1().iter() {
+    for entity in &mut queries.p1().iter() {
         added_cameras.push(entity);
     }
-    for (entity, mut camera, mut camera_projection) in queries.q0().iter_mut() {
+    for (entity, mut camera, mut camera_projection) in queries.p0().iter_mut() {
         if camera
             .target
             .is_changed(&changed_window_ids, &changed_image_handles)
@@ -268,14 +270,22 @@ impl<T: Component> ActiveCamera<T> {
 
 pub fn set_active_camera<T: Component>(
     mut active_camera: ResMut<ActiveCamera<T>>,
-    cameras: Query<Entity, With<T>>,
+    cameras: Query<Entity, (With<Camera>, With<T>)>,
 ) {
-    if active_camera.get().is_some() {
-        return;
+    // Check if there is already an active camera set and
+    // that it has not been deleted on the previous frame
+    if let Some(camera) = active_camera.get() {
+        if cameras.contains(camera) {
+            return;
+        }
     }
 
+    // If the previous active camera ceased to exist
+    // fallback to another camera of the same type T
     if let Some(camera) = cameras.iter().next() {
         active_camera.camera = Some(camera);
+    } else {
+        active_camera.camera = None;
     }
 }
 
@@ -303,8 +313,8 @@ pub fn extract_cameras<M: Component + Default>(
                     ExtractedView {
                         projection: camera.projection_matrix,
                         transform: *transform,
-                        width: size.x.max(1),
-                        height: size.y.max(1),
+                        width: size.x,
+                        height: size.y,
                         near: camera.near,
                         far: camera.far,
                     },

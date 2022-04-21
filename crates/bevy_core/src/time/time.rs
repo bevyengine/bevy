@@ -75,13 +75,13 @@ impl Time {
         self.startup
     }
 
-    /// The ['Instant'] when [`Time::update`] was last called, if it exists
+    /// The [`Instant`] when [`Time::update`] was last called, if it exists
     #[inline]
     pub fn last_update(&self) -> Option<Instant> {
         self.last_update
     }
 
-    /// The ['Duration'] from startup to the last update
+    /// The [`Duration`] from startup to the last update
     #[inline]
     pub fn time_since_startup(&self) -> Duration {
         self.time_since_startup

@@ -97,6 +97,7 @@ impl SpecializedMaterial for CustomMaterial {
     fn key(_: &<CustomMaterial as RenderAsset>::PreparedAsset) -> Self::Key {}
 
     fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _: Self::Key,
         _layout: &MeshVertexBufferLayout,

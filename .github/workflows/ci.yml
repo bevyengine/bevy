@@ -24,7 +24,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -70,12 +70,44 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- nonlocal
 
+  miri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('**/Cargo.toml') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: miri
+          override: true
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: CI job
+        run: cargo miri test -p bevy_ecs
+        env:
+          # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
+          RUSTFLAGS: -Zrandomize-layout
+          # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
+          # -Zmiri-ignore-leaks is needed because running bevy_ecs tests finds a memory leak but its impossible
+          # to track down because allocids are nondeterministic.
+          # -Zmiri-tag-raw-pointers is not strictly "necessary" but enables a lot of extra UB checks relating
+          # to raw pointer aliasing rules that we should be trying to uphold.
+          MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-tag-raw-pointers
+
   check-benches:
     runs-on: ubuntu-latest
     needs: ci
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -101,7 +133,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -128,7 +160,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -228,7 +260,7 @@ jobs:
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/checkout@v3
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -242,13 +274,13 @@ jobs:
           toolchain: stable
       - name: Build bevy
         run: |
-          cargo build --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_winit,render,png,hdr,x11,bevy_ci_testing,trace,trace_chrome"
+          cargo build --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_winit,render,png,hdr,x11,bevy_ci_testing,trace,trace_chrome,bevy_audio,vorbis"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo "running $example_name - "`date`
-            time CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_winit,render,png,hdr,x11,bevy_ci_testing,trace,trace_chrome"
+            time CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_winit,render,png,hdr,x11,bevy_ci_testing,trace,trace_chrome,bevy_audio,vorbis"
             sleep 10
           done
           zip traces.zip trace*.json
@@ -295,7 +327,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/

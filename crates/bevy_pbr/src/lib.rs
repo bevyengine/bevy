@@ -150,12 +150,10 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 RenderStage::Prepare,
-                // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
-                // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
-                render::prepare_clusters
-                    .exclusive_system()
-                    .label(RenderLightSystems::PrepareClusters)
-                    .after(RenderLightSystems::PrepareLights),
+                // NOTE: This needs to run after prepare_lights. As prepare_lights is an exclusive system,
+                // just adding it to the non-exclusive systems in the Prepare stage means it runs after
+                // prepare_lights.
+                render::prepare_clusters.label(RenderLightSystems::PrepareClusters),
             )
             .add_system_to_stage(
                 RenderStage::Queue,

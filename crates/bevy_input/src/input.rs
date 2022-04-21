@@ -51,11 +51,10 @@ where
 {
     /// Register a press for input `input`.
     pub fn press(&mut self, input: T) {
-        if !self.pressed(input) {
+        // Returns `true` if the `input` wasn't pressed.
+        if self.pressed.insert(input) {
             self.just_pressed.insert(input);
         }
-
-        self.pressed.insert(input);
     }
 
     /// Check if `input` has been pressed.
@@ -70,11 +69,10 @@ where
 
     /// Register a release for input `input`.
     pub fn release(&mut self, input: T) {
-        if self.pressed(input) {
+        // Returns `true` if the `input` was pressed.
+        if self.pressed.remove(&input) {
             self.just_released.insert(input);
         }
-
-        self.pressed.remove(&input);
     }
 
     /// Check if `input` has been just pressed.
@@ -171,6 +169,8 @@ mod test {
         // Clear the `input`, removing just pressed and just released
         input.clear();
 
+        // After calling clear, inputs should still be pressed but not be just_pressed
+
         // Check if they're marked "just pressed"
         assert!(!input.just_pressed(DummyInput::Input1));
         assert!(!input.just_pressed(DummyInput::Input2));
@@ -180,7 +180,6 @@ mod test {
         assert!(input.pressed(DummyInput::Input2));
 
         // Release the inputs and check state
-
         input.release(DummyInput::Input1);
         input.release(DummyInput::Input2);
 
