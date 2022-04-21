@@ -188,3 +188,6 @@ impl_reflect_struct_and_from_reflect_struct!(
 // to Vec4 and DVec4, so you may use those instead and convert between.
 impl_reflect_value!(Quat(PartialEq, Serialize, Deserialize));
 impl_reflect_value!(DQuat(PartialEq, Serialize, Deserialize));
+
+impl_from_reflect_value!(Quat);
+impl_from_reflect_value!(DQuat);
