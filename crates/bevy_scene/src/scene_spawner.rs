@@ -2,13 +2,11 @@ use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
-    event::{Events, ManualEventReader},
-    reflect::{ReflectComponent, ReflectMapEntities},
+    event::ManualEventReader,
     system::Command,
-    world::{Mut, World},
+    world::{EntityRef, Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};
-use bevy_reflect::TypeRegistryArc;
 use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
@@ -27,17 +25,70 @@ impl InstanceId {
     }
 }
 
+#[derive(Hash, Debug, PartialEq, Eq)]
+pub enum SceneHandle {
+    World(Handle<Scene>),
+    Reflected(Handle<DynamicScene>),
+}
+impl Clone for SceneHandle {
+    fn clone(&self) -> Self {
+        match self {
+            Self::World(handle) => Self::World(handle.clone_weak()),
+            Self::Reflected(handle) => Self::Reflected(handle.clone_weak()),
+        }
+    }
+}
+impl SceneHandle {
+    fn write_to_world(&self, world: &mut World, entity_map: &mut EntityMap) -> SpawnResult<()> {
+        let err = || self.non_existing();
+        match self {
+            Self::Reflected(scene) => {
+                world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
+                    let scene = scenes.get(scene).ok_or_else(err)?;
+                    scene.write_to_world(world, entity_map)
+                })?
+            }
+            Self::World(scene) => world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
+                let scene = scenes.get(scene).ok_or_else(err)?;
+                scene.write_to_world(world, entity_map)
+            })?,
+        };
+        Ok(())
+    }
+
+    fn non_existing(&self) -> SceneSpawnError {
+        SceneSpawnError::NonExistentScene {
+            handle: self.clone(),
+        }
+    }
+}
+impl From<Handle<Scene>> for SceneHandle {
+    fn from(handle: Handle<Scene>) -> Self {
+        Self::World(handle)
+    }
+}
+impl From<Handle<DynamicScene>> for SceneHandle {
+    fn from(handle: Handle<DynamicScene>) -> Self {
+        Self::Reflected(handle)
+    }
+}
+
 #[derive(Default)]
 pub struct SceneSpawner {
-    spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>>,
-    spawned_dynamic_scenes: HashMap<Handle<DynamicScene>, Vec<InstanceId>>,
-    spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
-    dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId)>,
-    scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
-    scenes_to_despawn: Vec<Handle<DynamicScene>>,
+    instances: HashMap<SceneHandle, Vec<InstanceId>>,
+    instances_info: HashMap<InstanceId, InstanceInfo>,
+    readers: SceneEventReaders,
+    scenes_to_spawn: Vec<(SceneHandle, InstanceId)>,
     instances_to_despawn: Vec<InstanceId>,
     scenes_with_parent: Vec<(InstanceId, Entity)>,
+}
+
+/// Helper struct to wrap `ManualEventReader` for the various scene handle
+/// types.
+#[derive(Default)]
+struct SceneEventReaders {
+    dynamic: ManualEventReader<AssetEvent<DynamicScene>>,
+    real: ManualEventReader<AssetEvent<Scene>>,
 }
 
 #[derive(Error, Debug)]
@@ -47,283 +98,235 @@ pub enum SceneSpawnError {
     #[error("scene contains the unregistered type `{type_name}`. consider registering the type using `app.register_type::<T>()`")]
     UnregisteredType { type_name: String },
     #[error("scene does not exist")]
-    NonExistentScene { handle: Handle<DynamicScene> },
-    #[error("scene does not exist")]
-    NonExistentRealScene { handle: Handle<Scene> },
+    NonExistentScene { handle: SceneHandle },
 }
 
+pub type SpawnResult<T> = Result<T, SceneSpawnError>;
 impl SceneSpawner {
-    pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) {
+    /// Spawn a scene.
+    ///
+    /// This will only update the world when [`scene_spawner_system`] runs, see
+    /// [`SceneSpawner::spawn_sync`] for a method with immediate world update.
+    ///
+    /// The returned [`InstanceId`] can be used later to refer to the specific
+    /// instance of the scene you spawned.
+    pub fn spawn(&mut self, scene_handle: Handle<Scene>) -> InstanceId {
         let instance_id = InstanceId::new();
-        self.dynamic_scenes_to_spawn
-            .push((scene_handle, instance_id));
+        self.scenes_to_spawn
+            .push((scene_handle.into(), instance_id));
+        instance_id
     }
 
+    /// Spawn a dynamic scene. See [`SceneSpawner::spawn`].
+    pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) -> InstanceId {
+        let instance_id = InstanceId::new();
+        self.scenes_to_spawn
+            .push((scene_handle.into(), instance_id));
+        instance_id
+    }
+
+    /// Spawn a scene as a child of an existing entity.
+    ///
+    /// The returned [`InstanceId`] can be used later to refer to the specific
+    /// instance of the scene you spawned.
+    pub fn spawn_as_child(&mut self, scene_handle: Handle<Scene>, parent: Entity) -> InstanceId {
+        let instance_id = self.spawn(scene_handle);
+        self.scenes_with_parent.push((instance_id, parent));
+        instance_id
+    }
+
+    /// Spawn a dynamic scene as a child of an existing entity. See
+    /// [`SceneSpawner::spawn_as_child`].
     pub fn spawn_dynamic_as_child(
         &mut self,
         scene_handle: Handle<DynamicScene>,
         parent: Entity,
     ) -> InstanceId {
-        let instance_id = InstanceId::new();
-        self.dynamic_scenes_to_spawn
-            .push((scene_handle, instance_id));
+        let instance_id = self.spawn_dynamic(scene_handle);
         self.scenes_with_parent.push((instance_id, parent));
         instance_id
     }
 
-    pub fn spawn(&mut self, scene_handle: Handle<Scene>) -> InstanceId {
-        let instance_id = InstanceId::new();
-        self.scenes_to_spawn.push((scene_handle, instance_id));
-        instance_id
+    /// Despawn the provided scene. This will remove the scene and
+    /// all its related entities from the world.
+    ///
+    /// This will only update the world when [`scene_spawner_system`] runs, see
+    /// [`SceneSpawner::despawn_sync`] for a method with immediate world
+    /// update.
+    pub fn despawn(&mut self, scene_handle: Handle<Scene>) -> SpawnResult<()> {
+        self.despawn_scene(scene_handle.into())
     }
 
-    pub fn spawn_as_child(&mut self, scene_handle: Handle<Scene>, parent: Entity) -> InstanceId {
-        let instance_id = InstanceId::new();
-        self.scenes_to_spawn.push((scene_handle, instance_id));
-        self.scenes_with_parent.push((instance_id, parent));
-        instance_id
+    /// Despawn the provided dynamic scene. See [`SceneSpawner::despawn`].
+    pub fn despawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) -> SpawnResult<()> {
+        self.despawn_scene(scene_handle.into())
     }
 
-    pub fn despawn(&mut self, scene_handle: Handle<DynamicScene>) {
-        self.scenes_to_despawn.push(scene_handle);
+    fn despawn_scene(&mut self, scene_handle: SceneHandle) -> SpawnResult<()> {
+        let err = || scene_handle.non_existing();
+        for instance_id in self.instances.get(&scene_handle).ok_or_else(err)? {
+            self.instances_to_despawn.push(*instance_id);
+        }
+        Ok(())
+    }
+
+    /// Despawns immediately the provided scene.
+    ///
+    /// This will remove the scene and all its related entities from the world.
+    /// The world will be updated before this method returns. Requires
+    /// exclusive world acces through `&mut World`.
+    ///
+    /// [`SceneSpawner::despawn`] does the same thing, but does not require
+    /// exclusive world access, it will update the world when
+    /// [`scene_spawner_system`] runs.
+    pub fn despawn_sync(
+        &mut self,
+        world: &mut World,
+        scene_handle: Handle<Scene>,
+    ) -> SpawnResult<()> {
+        self.despawn_scene_sync(world, scene_handle.into())
+    }
+
+    /// Despawns immediately the provided dynamic scene. See
+    /// [`SceneSpawner::despawn_sync`].
+    pub fn despawn_dynamic_sync(
+        &mut self,
+        world: &mut World,
+        scene_handle: Handle<DynamicScene>,
+    ) -> SpawnResult<()> {
+        self.despawn_scene_sync(world, scene_handle.into())
+    }
+
+    fn despawn_scene_sync(
+        &mut self,
+        world: &mut World,
+        scene_handle: SceneHandle,
+    ) -> SpawnResult<()> {
+        let err = || scene_handle.non_existing();
+        for instance_id in self.instances.get(&scene_handle).ok_or_else(err)? {
+            let instance_info = self.instances_info.remove(instance_id).ok_or_else(err)?;
+            for entity in instance_info.entity_map.values() {
+                // Ignore result: if it is already despawned, good!
+                let _ = world.despawn(entity);
+            }
+        }
+        self.instances.remove(&scene_handle);
+        Ok(())
     }
 
     pub fn despawn_instance(&mut self, instance_id: InstanceId) {
         self.instances_to_despawn.push(instance_id);
     }
 
-    pub fn despawn_sync(
-        &mut self,
-        world: &mut World,
-        scene_handle: Handle<DynamicScene>,
-    ) -> Result<(), SceneSpawnError> {
-        if let Some(instance_ids) = self.spawned_dynamic_scenes.remove(&scene_handle) {
-            for instance_id in instance_ids {
-                self.despawn_instance_sync(world, &instance_id);
-            }
-        }
-        Ok(())
-    }
-
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
-        if let Some(instance) = self.spawned_instances.remove(instance_id) {
-            for entity in instance.entity_map.values() {
+        if let Some(instance_info) = self.instances_info.remove(instance_id) {
+            for entity in instance_info.entity_map.values() {
+                // Ignore result: if it is already despawned, good!
                 let _ = world.despawn(entity);
             }
         }
     }
 
-    pub fn spawn_dynamic_sync(
-        &mut self,
-        world: &mut World,
-        scene_handle: &Handle<DynamicScene>,
-    ) -> Result<(), SceneSpawnError> {
-        let mut entity_map = EntityMap::default();
-        Self::spawn_dynamic_internal(world, scene_handle, &mut entity_map)?;
-        let instance_id = InstanceId::new();
-        self.spawned_instances
-            .insert(instance_id, InstanceInfo { entity_map });
-        let spawned = self
-            .spawned_dynamic_scenes
-            .entry(scene_handle.clone())
-            .or_insert_with(Vec::new);
-        spawned.push(instance_id);
-        Ok(())
-    }
-
-    fn spawn_dynamic_internal(
-        world: &mut World,
-        scene_handle: &Handle<DynamicScene>,
-        entity_map: &mut EntityMap,
-    ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
-            let scene =
-                scenes
-                    .get(scene_handle)
-                    .ok_or_else(|| SceneSpawnError::NonExistentScene {
-                        handle: scene_handle.clone_weak(),
-                    })?;
-            scene.write_to_world(world, entity_map)
-        })
-    }
-
+    /// Spawn a scene into the world immediately.
+    ///
+    /// The world will be updated before this method returns. Requires
+    /// exclusive world acces through [`&mut World`].
     pub fn spawn_sync(
         &mut self,
         world: &mut World,
         scene_handle: Handle<Scene>,
-    ) -> Result<InstanceId, SceneSpawnError> {
-        self.spawn_sync_internal(world, scene_handle, InstanceId::new())
+    ) -> SpawnResult<InstanceId> {
+        self.spawn_scene_instance(world, scene_handle.into(), InstanceId::new())
     }
 
-    fn spawn_sync_internal(
+    /// Spawn a scene into the world immediately. See
+    /// [`SceneSpawner::spawn_sync`].
+    pub fn spawn_dynamic_sync(
         &mut self,
         world: &mut World,
-        scene_handle: Handle<Scene>,
+        scene_handle: Handle<DynamicScene>,
+    ) -> SpawnResult<InstanceId> {
+        self.spawn_scene_instance(world, scene_handle.into(), InstanceId::new())
+    }
+
+    /// Spawn a scene instance, using the provided [`InstanceId`].
+    fn spawn_scene_instance(
+        &mut self,
+        world: &mut World,
+        scene_handle: SceneHandle,
         instance_id: InstanceId,
-    ) -> Result<InstanceId, SceneSpawnError> {
-        let mut instance_info = InstanceInfo {
-            entity_map: EntityMap::default(),
-        };
-        let type_registry = world.resource::<TypeRegistryArc>().clone();
-        let type_registry = type_registry.read();
-        world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
-            let scene =
-                scenes
-                    .get(&scene_handle)
-                    .ok_or_else(|| SceneSpawnError::NonExistentRealScene {
-                        handle: scene_handle.clone(),
-                    })?;
+    ) -> SpawnResult<InstanceId> {
+        let mut entity_map = EntityMap::default();
+        scene_handle.write_to_world(world, &mut entity_map)?;
 
-            for archetype in scene.world.archetypes().iter() {
-                for scene_entity in archetype.entities() {
-                    let entity = *instance_info
-                        .entity_map
-                        .entry(*scene_entity)
-                        .or_insert_with(|| world.spawn().id());
-                    for component_id in archetype.components() {
-                        let component_info = scene
-                            .world
-                            .components()
-                            .get_info(component_id)
-                            .expect("component_ids in archetypes should have ComponentInfo");
-
-                        let reflect_component = type_registry
-                            .get(component_info.type_id().unwrap())
-                            .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                                type_name: component_info.name().to_string(),
-                            })
-                            .and_then(|registration| {
-                                registration.data::<ReflectComponent>().ok_or_else(|| {
-                                    SceneSpawnError::UnregisteredComponent {
-                                        type_name: component_info.name().to_string(),
-                                    }
-                                })
-                            })?;
-                        reflect_component.copy_component(
-                            &scene.world,
-                            world,
-                            *scene_entity,
-                            entity,
-                        );
-                    }
-                }
-            }
-            for registration in type_registry.iter() {
-                if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                    map_entities_reflect
-                        .map_entities(world, &instance_info.entity_map)
-                        .unwrap();
-                }
-            }
-            self.spawned_instances.insert(instance_id, instance_info);
-            let spawned = self
-                .spawned_scenes
-                .entry(scene_handle)
-                .or_insert_with(Vec::new);
-            spawned.push(instance_id);
-            Ok(instance_id)
-        })
+        self.instances_info
+            .insert(instance_id, InstanceInfo { entity_map });
+        let spawned = self.instances.entry(scene_handle).or_default();
+        spawned.push(instance_id);
+        Ok(instance_id)
     }
 
     pub fn update_spawned_scenes(
         &mut self,
         world: &mut World,
-        scene_handles: &[Handle<DynamicScene>],
-    ) -> Result<(), SceneSpawnError> {
+        scene_handles: &[SceneHandle],
+    ) -> SpawnResult<()> {
         for scene_handle in scene_handles {
-            if let Some(spawned_instances) = self.spawned_dynamic_scenes.get(scene_handle) {
-                for instance_id in spawned_instances.iter() {
-                    if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
-                        Self::spawn_dynamic_internal(
-                            world,
-                            scene_handle,
-                            &mut instance_info.entity_map,
-                        )?;
-                    }
-                }
+            let err = || scene_handle.non_existing();
+            for instance_id in self.instances.get(scene_handle).ok_or_else(err)? {
+                let instance_info = self.instances_info.get_mut(instance_id).ok_or_else(err)?;
+                scene_handle.write_to_world(world, &mut instance_info.entity_map)?;
             }
         }
         Ok(())
     }
 
-    pub fn despawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
-        let scenes_to_despawn = std::mem::take(&mut self.scenes_to_despawn);
-
-        for scene_handle in scenes_to_despawn {
-            self.despawn_sync(world, scene_handle)?;
-        }
-        Ok(())
-    }
-
-    pub fn despawn_queued_instances(&mut self, world: &mut World) {
+    /// Manually despawn instances marked for elimination.
+    pub fn despawn_queued_instances(&mut self, world: &mut World) -> SpawnResult<()> {
         let instances_to_despawn = std::mem::take(&mut self.instances_to_despawn);
 
-        for instance_id in instances_to_despawn {
-            self.despawn_instance_sync(world, &instance_id);
+        for instance in instances_to_despawn {
+            self.despawn_instance_sync(world, &instance);
         }
+        Ok(())
     }
 
-    pub fn spawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
-        let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
-
-        for (scene_handle, instance_id) in scenes_to_spawn {
-            let mut entity_map = EntityMap::default();
-
-            match Self::spawn_dynamic_internal(world, &scene_handle, &mut entity_map) {
-                Ok(_) => {
-                    self.spawned_instances
-                        .insert(instance_id, InstanceInfo { entity_map });
-                    let spawned = self
-                        .spawned_dynamic_scenes
-                        .entry(scene_handle.clone())
-                        .or_insert_with(Vec::new);
-                    spawned.push(instance_id);
-                }
-                Err(SceneSpawnError::NonExistentScene { .. }) => {
-                    self.dynamic_scenes_to_spawn
-                        .push((scene_handle, instance_id));
-                }
-                Err(err) => return Err(err),
-            }
-        }
-
+    /// Manually spawn scenes marked for creation.
+    pub fn spawn_queued_scenes(&mut self, world: &mut World) -> SpawnResult<()> {
         let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
-
         for (scene_handle, instance_id) in scenes_to_spawn {
-            match self.spawn_sync_internal(world, scene_handle, instance_id) {
+            match self.spawn_scene_instance(world, scene_handle, instance_id) {
                 Ok(_) => {}
-                Err(SceneSpawnError::NonExistentRealScene { handle }) => {
+                // The scene to spawn did not exist in the Assets<Scene> (or
+                // Assets<DynamicScene>) collection, meaning it still didn't
+                // finish loading, so we keep it tucked into the spawn queue to
+                // try loading it later, once it fully loaded.
+                Err(SceneSpawnError::NonExistentScene { handle }) => {
+                    // NOTE: the handle in NonExistentScene is a weak handle, I
+                    // found that cloning scene_handle **would break Scene (but
+                    // not DynamicScene) loading**
                     self.scenes_to_spawn.push((handle, instance_id));
                 }
                 Err(err) => return Err(err),
             }
         }
-
         Ok(())
     }
 
     pub(crate) fn set_scene_instance_parent_sync(&mut self, world: &mut World) {
         let scenes_with_parent = std::mem::take(&mut self.scenes_with_parent);
 
+        // Only the root of the scene _does not_ have a parent.
+        let has_no_parents = |entity: EntityRef| !entity.contains::<Parent>();
+        let is_scene_root =
+            |entity, world: &World| world.get_entity(entity).map_or(false, has_no_parents);
+
         for (instance_id, parent) in scenes_with_parent {
-            if let Some(instance) = self.spawned_instances.get(&instance_id) {
+            if let Some(instance) = self.instances_info.get(&instance_id) {
                 for entity in instance.entity_map.values() {
-                    // Add the `Parent` component to the scene root, and update the `Children` component of
-                    // the scene parent
-                    if !world
-                        .get_entity(entity)
-                        // This will filter only the scene root entity, as all other from the
-                        // scene have a parent
-                        .map(|entity| entity.contains::<Parent>())
-                        // Default is true so that it won't run on an entity that wouldn't exist anymore
-                        // this case shouldn't happen anyway
-                        .unwrap_or(true)
-                    {
-                        AddChild {
-                            parent,
-                            child: entity,
-                        }
-                        .write(world);
+                    if is_scene_root(entity, world) {
+                        let child = entity;
+                        AddChild { parent, child }.write(world);
                     }
                 }
             } else {
@@ -332,44 +335,51 @@ impl SceneSpawner {
         }
     }
 
-    /// Check that an scene instance spawned previously is ready to use
+    /// Check that a scene instance spawned previously is ready to use.
     pub fn instance_is_ready(&self, instance_id: InstanceId) -> bool {
-        self.spawned_instances.contains_key(&instance_id)
+        self.instances_info.contains_key(&instance_id)
     }
 
-    /// Get an iterator over the entities in an instance, once it's spawned
+    /// Get an iterator over the entities in an instance, once it's spawned.
     pub fn iter_instance_entities(
         &'_ self,
         instance_id: InstanceId,
     ) -> Option<impl Iterator<Item = Entity> + '_> {
-        self.spawned_instances
+        self.instances_info
             .get(&instance_id)
             .map(|instance| instance.entity_map.values())
     }
 }
 
+/// Update the world according to queued scene commands.
+///
+/// This system runs at the very end of the
+/// [`CoreStage::PreUpdate`](bevy_app::prelude::CoreStage::PreUpdate) stage.
+/// Meaning That scene updates (typically in the case of hot-reloading) will
+/// be visible in the `CoreStage::Update` (the default) stage.
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
-        let scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
-
-        let mut updated_spawned_scenes = Vec::new();
         let scene_spawner = &mut *scene_spawner;
-        for event in scene_spawner
-            .scene_asset_event_reader
-            .iter(scene_asset_events)
-        {
+        let mut updated_spawned_scenes = Vec::new();
+        for event in scene_spawner.readers.dynamic.iter(world.resource()) {
             if let AssetEvent::Modified { handle } = event {
-                if scene_spawner.spawned_dynamic_scenes.contains_key(handle) {
-                    updated_spawned_scenes.push(handle.clone_weak());
+                let scene_handle = SceneHandle::Reflected(handle.clone_weak());
+                if scene_spawner.instances.contains_key(&scene_handle) {
+                    updated_spawned_scenes.push(scene_handle);
+                }
+            }
+        }
+        for event in scene_spawner.readers.real.iter(world.resource()) {
+            if let AssetEvent::Modified { handle } = event {
+                let scene_handle = SceneHandle::World(handle.clone_weak());
+                if scene_spawner.instances.contains_key(&scene_handle) {
+                    updated_spawned_scenes.push(scene_handle);
                 }
             }
         }
 
-        scene_spawner.despawn_queued_scenes(world).unwrap();
-        scene_spawner.despawn_queued_instances(world);
-        scene_spawner
-            .spawn_queued_scenes(world)
-            .unwrap_or_else(|err| panic!("{}", err));
+        scene_spawner.despawn_queued_instances(world).unwrap();
+        scene_spawner.spawn_queued_scenes(world).unwrap();
         scene_spawner
             .update_spawned_scenes(world, &updated_spawned_scenes)
             .unwrap();
