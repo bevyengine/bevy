@@ -115,9 +115,8 @@ pub struct Image {
 impl Default for Image {
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size() as usize];
         Image {
-            data,
+            data: Vec::new(),
             texture_descriptor: wgpu::TextureDescriptor {
                 size: wgpu::Extent3d {
                     width: 1,
@@ -566,31 +565,33 @@ impl RenderAsset for Image {
             )
         } else {
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                &image.data,
-                ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
-                    rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                        std::num::NonZeroU32::new(image.texture_descriptor.size.height)
-                    } else {
-                        None
+            if !image.data.is_empty() {
+                let format_size = image.texture_descriptor.format.pixel_size();
+                render_queue.write_texture(
+                    ImageCopyTexture {
+                        texture: &texture,
+                        mip_level: 0,
+                        origin: Origin3d::ZERO,
+                        aspect: wgpu::TextureAspect::All,
                     },
-                },
-                image.texture_descriptor.size,
-            );
+                    &image.data,
+                    ImageDataLayout {
+                        offset: 0,
+                        bytes_per_row: Some(
+                            std::num::NonZeroU32::new(
+                                image.texture_descriptor.size.width * format_size as u32,
+                            )
+                            .unwrap(),
+                        ),
+                        rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
+                            std::num::NonZeroU32::new(image.texture_descriptor.size.height)
+                        } else {
+                            None
+                        },
+                    },
+                    image.texture_descriptor.size,
+                );
+            }
             texture
         };
 

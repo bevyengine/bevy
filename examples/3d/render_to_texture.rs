@@ -122,7 +122,7 @@ fn setup(
     };
 
     // This is the texture that will be rendered to.
-    let mut image = Image {
+    let image = Image {
         texture_descriptor: TextureDescriptor {
             label: None,
             size,
@@ -136,9 +136,6 @@ fn setup(
         },
         ..default()
     };
-
-    // fill image.data with zeroes
-    image.resize(size);
 
     let image_handle = images.add(image);
 
