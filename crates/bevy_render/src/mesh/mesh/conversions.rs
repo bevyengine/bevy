@@ -25,8 +25,20 @@
 //! ```
 
 use crate::mesh::VertexAttributeValues;
+use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
 use bevy_utils::EnumVariantMeta;
 use thiserror::Error;
+
+macro_rules! convert_vec_of_vec {
+    ($x:expr, $t:ty, $s:literal) => {
+        unsafe {
+            // SAFETY: x is only used in this file. It is called only with x being a value of type `Vec<Vec3>` or something similar.
+            // Vec3 is a repr(C) struct containing 3 f32s, hence it is transmutable to a [f32; 3].
+            let mut v = std::mem::ManuallyDrop::new($x);
+            Vec::from_raw_parts(v.as_mut_ptr() as *mut [$t; $s], v.len(), v.capacity())
+        }
+    };
+}
 
 #[derive(Debug, Clone, Error)]
 #[error("cannot convert VertexAttributeValues::{variant} to {into}")]
@@ -127,6 +139,60 @@ impl From<Vec<[u16; 4]>> for VertexAttributeValues {
 impl From<Vec<[u8; 4]>> for VertexAttributeValues {
     fn from(vec: Vec<[u8; 4]>) -> Self {
         VertexAttributeValues::Unorm8x4(vec)
+    }
+}
+
+impl From<Vec<Vec2>> for VertexAttributeValues {
+    fn from(vec: Vec<Vec2>) -> Self {
+        VertexAttributeValues::Float32x2(convert_vec_of_vec!(vec, f32, 2))
+    }
+}
+
+impl From<Vec<IVec2>> for VertexAttributeValues {
+    fn from(vec: Vec<IVec2>) -> Self {
+        VertexAttributeValues::Sint32x2(convert_vec_of_vec!(vec, i32, 2))
+    }
+}
+
+impl From<Vec<UVec2>> for VertexAttributeValues {
+    fn from(vec: Vec<UVec2>) -> Self {
+        VertexAttributeValues::Uint32x2(convert_vec_of_vec!(vec, u32, 2))
+    }
+}
+
+impl From<Vec<Vec3>> for VertexAttributeValues {
+    fn from(vec: Vec<Vec3>) -> Self {
+        VertexAttributeValues::Float32x3(convert_vec_of_vec!(vec, f32, 3))
+    }
+}
+
+impl From<Vec<IVec3>> for VertexAttributeValues {
+    fn from(vec: Vec<IVec3>) -> Self {
+        VertexAttributeValues::Sint32x3(convert_vec_of_vec!(vec, i32, 3))
+    }
+}
+
+impl From<Vec<UVec3>> for VertexAttributeValues {
+    fn from(vec: Vec<UVec3>) -> Self {
+        VertexAttributeValues::Uint32x3(convert_vec_of_vec!(vec, u32, 3))
+    }
+}
+
+impl From<Vec<Vec4>> for VertexAttributeValues {
+    fn from(vec: Vec<Vec4>) -> Self {
+        VertexAttributeValues::Float32x4(convert_vec_of_vec!(vec, f32, 4))
+    }
+}
+
+impl From<Vec<IVec4>> for VertexAttributeValues {
+    fn from(vec: Vec<IVec4>) -> Self {
+        VertexAttributeValues::Sint32x4(convert_vec_of_vec!(vec, i32, 4))
+    }
+}
+
+impl From<Vec<UVec4>> for VertexAttributeValues {
+    fn from(vec: Vec<UVec4>) -> Self {
+        VertexAttributeValues::Uint32x4(convert_vec_of_vec!(vec, u32, 4))
     }
 }
 
@@ -360,6 +426,10 @@ impl TryFrom<VertexAttributeValues> for Vec<f32> {
 
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::PI;
+
+    use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
+
     use super::VertexAttributeValues;
     #[test]
     fn f32() {
@@ -407,6 +477,11 @@ mod tests {
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
         assert!(error.is_err());
+
+        let buffer = vec![Vec2::new(0., PI); 2];
+        let values = VertexAttributeValues::from(buffer);
+        let result_into: Vec<[f32; 2]> = values.try_into().unwrap();
+        assert_eq!(result_into[1][1], PI);
     }
 
     #[test]
@@ -419,6 +494,11 @@ mod tests {
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
         assert!(error.is_err());
+
+        let buffer = vec![IVec2::new(0, -1); 2];
+        let values = VertexAttributeValues::from(buffer);
+        let result_into: Vec<[i32; 2]> = values.try_into().unwrap();
+        assert_eq!(result_into[1][1], -1);
     }
 
     #[test]
@@ -431,6 +511,11 @@ mod tests {
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
         assert!(error.is_err());
+
+        let buffer = vec![UVec2::new(0, u32::MAX); 2];
+        let values = VertexAttributeValues::from(buffer);
+        let result_into: Vec<[u32; 2]> = values.try_into().unwrap();
+        assert_eq!(result_into[1][1], u32::MAX);
     }
 
     #[test]
@@ -443,6 +528,11 @@ mod tests {
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
         assert!(error.is_err());
+
+        let buffer = vec![Vec3::new(0., 0., PI); 2];
+        let values = VertexAttributeValues::from(buffer);
+        let result_into: Vec<[f32; 3]> = values.try_into().unwrap();
+        assert_eq!(result_into[1][2], PI);
     }
 
     #[test]
@@ -455,6 +545,11 @@ mod tests {
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
         assert!(error.is_err());
+
+        let buffer = vec![IVec3::new(0, 0, -1); 2];
+        let values = VertexAttributeValues::from(buffer);
+        let result_into: Vec<[i32; 3]> = values.try_into().unwrap();
+        assert_eq!(result_into[1][2], -1);
     }
 
     #[test]
@@ -467,6 +562,11 @@ mod tests {
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
         assert!(error.is_err());
+
+        let buffer = vec![UVec3::new(0, 0, u32::MAX); 2];
+        let values = VertexAttributeValues::from(buffer);
+        let result_into: Vec<[u32; 3]> = values.try_into().unwrap();
+        assert_eq!(result_into[1][2], u32::MAX);
     }
 
     #[test]
@@ -479,6 +579,11 @@ mod tests {
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
         assert!(error.is_err());
+
+        let buffer = vec![Vec4::new(0., 0., 0., PI); 2];
+        let values = VertexAttributeValues::from(buffer);
+        let result_into: Vec<[f32; 4]> = values.try_into().unwrap();
+        assert_eq!(result_into[1][3], PI);
     }
 
     #[test]
@@ -491,6 +596,11 @@ mod tests {
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
         assert!(error.is_err());
+
+        let buffer = vec![IVec4::new(0, 0, 0, -1); 2];
+        let values = VertexAttributeValues::from(buffer);
+        let result_into: Vec<[i32; 4]> = values.try_into().unwrap();
+        assert_eq!(result_into[1][3], -1);
     }
 
     #[test]
@@ -503,6 +613,11 @@ mod tests {
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
         assert!(error.is_err());
+
+        let buffer = vec![UVec4::new(0, 0, 0, u32::MAX); 2];
+        let values = VertexAttributeValues::from(buffer);
+        let result_into: Vec<[u32; 4]> = values.try_into().unwrap();
+        assert_eq!(result_into[1][3], u32::MAX);
     }
 
     #[test]
