@@ -248,8 +248,7 @@ pub fn find_ambiguities(
     let full_bitset: FixedBitSet = (0..systems.len()).collect();
     let mut processed = FixedBitSet::with_capacity(systems.len());
     for (index_a, relations) in all_relations.drain(..).enumerate() {
-        for index_b in full_bitset.difference(&relations)
-        {
+        for index_b in full_bitset.difference(&relations) {
             if !processed.contains(index_b)
                 && !should_ignore_ambiguity(systems, index_a, index_b, crates_filter, report_level)
             {
@@ -314,6 +313,7 @@ impl SystemStage {
                 "bevy_core_pipeline".to_string(),
                 "bevy_ui".to_string(),
                 "bevy_hierarchy".to_string(),
+                "bevy_animation".to_string(),
                 // Misc
                 "bevy_winit".to_string(),
                 "bevy_audio".to_string(),
@@ -420,7 +420,7 @@ impl SystemStage {
 				You may want to add `.before()` or `.after()` ordering constraints between some of these systems to prevent bugs.\n");
 
             if report_level == ExecutionOrderAmbiguities::Warn {
-                warning_string += "Set the level of the `ExecutionOrderAmbiguities` resource to `AmbiguityReportLevel::WarnVerbose` for more details.";
+                warning_string += "Set the level of the `ExecutionOrderAmbiguities` resource to `ExecutionOrderAmbiguities::WarnVerbose` for more details.";
             } else {
                 for (i, ambiguity) in ambiguities.iter().enumerate() {
                     let ambiguity_number = i + 1;
