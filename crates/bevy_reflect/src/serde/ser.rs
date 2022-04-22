@@ -388,9 +388,9 @@ mod tests {
     #[derive(Reflect, Debug, PartialEq)]
     struct SomeTupleStruct(String);
 
-    /// Implements a custom serialize using #[reflect(Serialize)].
+    /// Implements a custom serialize using `#[reflect(Serialize)]`.
     ///
-    /// For testing purposes, this is just the auto-generated one from deriving.
+    /// For testing purposes, this just uses the generated one from deriving Serialize.
     #[derive(Reflect, Debug, PartialEq, Serialize)]
     #[reflect(Serialize)]
     struct CustomSerialize {
