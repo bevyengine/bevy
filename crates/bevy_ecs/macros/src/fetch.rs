@@ -382,15 +382,21 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         },
     };
 
-    // Double-check that the data fetched is read-only
-    // This is technically unnecessary as `<_ as WorldQueryGats<'world>>::ReadOnlyFetch: ReadOnlyFetch<'world>`
-    // but to protect against future mistakes we assert the assoc type implements `ReadOnlyFetch` anyway
     let read_only_asserts = match fetch_struct_attributes.is_mutable {
         true => quote! {
-            // If the fetch is not mutable, we can check the `ROQueryFetch` type
+            // Double-check that the data fetched by `ROQueryFetch` is read-only.
+            // This is technically unnecessary as `<_ as WorldQueryGats<'world>>::ReadOnlyFetch: ReadOnlyFetch<'world>`
+            // but to protect against future mistakes we assert the assoc type implements `ReadOnlyFetch` anyway
             #( assert_readonly::<'__w, #path::query::ROQueryFetch<'__w, #field_types>>(); )*
         },
         false => quote! {
+            // Statically checks that the safety guarantee of `ReadOnlyFetch` for `$fetch_struct_name` actually holds true.
+            // We need this to make sure that we don't compile `ReadOnlyFetch` if our struct contains nested `WorldQuery`
+            // members that don't implement it. I.e.:
+            // ```
+            // #[derive(WorldQuery)]
+            // pub struct Foo { a: &'static mut MyComponent }
+            // ```
             #( assert_readonly::<'__w, #path::query::QueryFetch<'__w, #field_types>>(); )*
         },
     };
@@ -420,9 +426,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         unsafe impl #user_impl_generics_with_world #path::query::ReadOnlyFetch<'__w>
             for #read_only_fetch_struct_name #user_ty_generics_with_world #user_where_clauses_with_world {}
 
-        // Statically checks that the safety guarantee actually holds true. We need this to make
-        // sure that we don't compile `ReadOnlyFetch` if our struct contains nested `WorldQuery`
-        // members that don't implement it.
         #[allow(dead_code)]
         const _: () = {
             fn assert_readonly<'w, T>()
