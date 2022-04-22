@@ -30,8 +30,8 @@ impl<T: AsStd430, U: AsStd430 + Default> Default for StorageBuffer<T, U> {
 impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
     // NOTE: AsStd430::std430_size_static() uses size_of internally but trait functions cannot be
     // marked as const functions
-    const BODY_SIZE: usize = std::mem::size_of::<U>();
-    const ITEM_SIZE: usize = std::mem::size_of::<T>();
+    const BODY_SIZE: usize = std::mem::size_of::<U::Output>();
+    const ITEM_SIZE: usize = std::mem::size_of::<T::Output>();
 
     /// Gets the reference to the underlying buffer, if one has been allocated.
     #[inline]
