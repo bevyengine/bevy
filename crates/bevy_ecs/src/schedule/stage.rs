@@ -783,9 +783,9 @@ mod tests {
         entity::Entity,
         query::{ChangeTrackers, Changed},
         schedule::{
-            BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage,
-            SystemSet, SystemStage,
+            ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, RunCriteria,
+            RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage, SystemSet,
+            SystemStage,
         },
         system::{In, IntoExclusiveSystem, Local, Query, ResMut},
         world::World,
