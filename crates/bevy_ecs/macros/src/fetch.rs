@@ -243,7 +243,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         } else {
             quote! {
                 #derive_macro_call
-
+                #[automatically_derived]
                 #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                     #(#(#field_attrs)* #field_visibilities #field_idents: #path::query::#item_type_alias<'__w, #field_types>,)*
                     #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
