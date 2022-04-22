@@ -1,11 +1,14 @@
+use crate::{app::AppExit, App};
 use serde::Deserialize;
 
-use crate::{app::AppExit, App};
-
-/// Configuration for automated testing on CI
+/// A configuration struct for automated CI testing.
+///
+/// It gets used when the `bevy_ci_testing` feature is enabled to automatically
+/// exit a Bevy app when run through the CI. This is needed because otherwise
+/// Bevy apps would be stuck in the game loop and wouldn't allow the CI to progress.
 #[derive(Deserialize)]
 pub struct CiTestingConfig {
-    /// Number of frames after wich Bevy should exit
+    /// The number of frames after which Bevy should exit.
     pub exit_after: Option<u32>,
 }
 

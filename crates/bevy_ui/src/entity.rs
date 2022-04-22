@@ -2,9 +2,9 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage, CAMERA_UI,
+    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
 };
-use bevy_ecs::bundle::Bundle;
+use bevy_ecs::{bundle::Bundle, prelude::Component};
 use bevy_render::{
     camera::{Camera, DepthCalculation, OrthographicProjection, WindowOrigin},
     view::{Visibility, VisibleEntities},
@@ -135,10 +135,12 @@ impl Default for ButtonBundle {
         }
     }
 }
+#[derive(Component, Default)]
+pub struct CameraUi;
 
 /// The camera that is needed to see UI elements
 #[derive(Bundle, Debug)]
-pub struct UiCameraBundle {
+pub struct UiCameraBundle<M: Component> {
     /// The camera component
     pub camera: Camera,
     /// The orthographic projection settings
@@ -150,16 +152,16 @@ pub struct UiCameraBundle {
     /// Contains visible entities
     // FIXME there is no frustrum culling for UI
     pub visible_entities: VisibleEntities,
+    pub marker: M,
 }
 
-impl Default for UiCameraBundle {
+impl Default for UiCameraBundle<CameraUi> {
     fn default() -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
         let far = 1000.0;
         UiCameraBundle {
             camera: Camera {
-                name: Some(CAMERA_UI.to_string()),
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {
@@ -171,6 +173,7 @@ impl Default for UiCameraBundle {
             transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
             global_transform: Default::default(),
             visible_entities: Default::default(),
+            marker: CameraUi,
         }
     }
 }

@@ -29,12 +29,13 @@ pub mod prelude {
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
-            Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
+            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage,
+            StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
             Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
-            NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
+            NonSendMut, ParamSet, Query, RemovedComponents, Res, ResMut, System,
+            SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };
@@ -55,12 +56,11 @@ mod tests {
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
-    use parking_lot::Mutex;
     use std::{
         any::TypeId,
         sync::{
             atomic::{AtomicUsize, Ordering},
-            Arc,
+            Arc, Mutex,
         },
     };
 
@@ -382,11 +382,11 @@ mod tests {
         world
             .query::<(Entity, &A)>()
             .par_for_each(&world, &task_pool, 2, |(e, &A(i))| {
-                results.lock().push((e, i));
+                results.lock().unwrap().push((e, i));
             });
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }
@@ -406,11 +406,11 @@ mod tests {
             &world,
             &task_pool,
             2,
-            |(e, &SparseStored(i))| results.lock().push((e, i)),
+            |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
         );
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }
@@ -636,8 +636,18 @@ mod tests {
     #[test]
     fn table_add_remove_many() {
         let mut world = World::default();
-        let mut entities = Vec::with_capacity(10_000);
-        for _ in 0..1000 {
+        #[cfg(miri)]
+        let (mut entities, to) = {
+            let to = 10;
+            (Vec::with_capacity(to), to)
+        };
+        #[cfg(not(miri))]
+        let (mut entities, to) = {
+            let to = 10_000;
+            (Vec::with_capacity(to), to)
+        };
+
+        for _ in 0..to {
             entities.push(world.spawn().insert(B(0)).id());
         }
 

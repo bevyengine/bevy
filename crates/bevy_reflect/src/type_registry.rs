@@ -353,6 +353,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 #[cfg(test)]
 mod test {
     use crate::TypeRegistration;
+    use bevy_utils::HashMap;
 
     #[test]
     fn test_get_short_name() {
@@ -390,37 +391,36 @@ mod test {
         );
     }
 
-    // TODO: re-enable
-    // #[test]
-    // fn test_property_type_registration() {
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<f64>>().short_name,
-    //         "Option<f64>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<HashMap<u32, String>>().short_name,
-    //         "HashMap<u32, String>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<u32, String>>>().short_name,
-    //         "Option<HashMap<u32, String>>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<u32, Option<String>>>>().short_name,
-    //         "Option<HashMap<u32, Option<String>>>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<String, Option<String>>>>().short_name,
-    //         "Option<HashMap<String, Option<String>>>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<Option<String>, Option<String>>>>().short_name,
-    //         "Option<HashMap<Option<String>, Option<String>>>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<Option<String>, (String, Option<String>)>>>()
-    //             .short_name,
-    //         "Option<HashMap<Option<String>, (String, Option<String>)>>"
-    //     );
-    // }
+    #[test]
+    fn test_property_type_registration() {
+        assert_eq!(
+            TypeRegistration::of::<Option<f64>>().short_name,
+            "Option<f64>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<HashMap<u32, String>>().short_name,
+            "HashMap<u32, String>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<u32, String>>>().short_name,
+            "Option<HashMap<u32, String>>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<u32, Option<String>>>>().short_name,
+            "Option<HashMap<u32, Option<String>>>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<String, Option<String>>>>().short_name,
+            "Option<HashMap<String, Option<String>>>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<Option<String>, Option<String>>>>().short_name,
+            "Option<HashMap<Option<String>, Option<String>>>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<Option<String>, (String, Option<String>)>>>()
+                .short_name,
+            "Option<HashMap<Option<String>, (String, Option<String>)>>"
+        );
+    }
 }

@@ -1,3 +1,4 @@
+pub mod futures;
 pub mod label;
 
 mod default;

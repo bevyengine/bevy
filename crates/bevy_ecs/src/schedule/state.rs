@@ -392,6 +392,11 @@ where
     pub fn inactives(&self) -> &[T] {
         self.stack.split_last().map(|(_, rest)| rest).unwrap()
     }
+
+    /// Clears the scheduled state operation.
+    pub fn clear_schedule(&mut self) {
+        self.scheduled = None;
+    }
 }
 
 #[derive(Debug, Error)]

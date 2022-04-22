@@ -2,6 +2,12 @@
 
 #![warn(missing_docs)]
 
+#[cfg(feature = "bevy_animation")]
+pub mod animation {
+    //! Provides types and plugins for animations.
+    pub use bevy_animation::*;
+}
+
 pub mod app {
     //! Build bevy apps, create plugins, and read events.
     pub use bevy_app::*;
@@ -55,6 +61,11 @@ pub mod gilrs {
 pub mod gltf {
     //! Support for GLTF file loading.
     pub use bevy_gltf::*;
+}
+
+pub mod hierarchy {
+    //! Entity hierarchies and property inheritance
+    pub use bevy_hierarchy::*;
 }
 
 pub mod input {

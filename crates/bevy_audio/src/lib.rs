@@ -35,7 +35,7 @@ mod audio_source;
 /// The `bevy_audio` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Audio, AudioOutput, AudioSource, Decodable};
+    pub use crate::{Audio, AudioOutput, AudioSource, Decodable, PlaybackSettings};
 }
 
 pub use audio::*;

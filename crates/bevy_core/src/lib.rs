@@ -16,7 +16,7 @@ pub mod prelude {
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use float_ord::*;
 pub use name::*;
-pub use task_pool_options::DefaultTaskPoolOptions;
+pub use task_pool_options::*;
 pub use time::*;
 
 use bevy_app::prelude::*;
