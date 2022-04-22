@@ -90,9 +90,6 @@ We heavily limit who has merge rights within the org because this requires a lar
 Making a game engine is a huge project and facilitating collaboration is a lot of work. At the moment @cart is our only paid contributor, so [go sponsor him!](https://github.com/sponsors/cart)
 We track issues and pull requests that must be included in releases using [Milestones](https://github.com/bevyengine/bevy/milestones).
 
-You can see what we're planning by following along at the [Bevy Roadmap](https://github.com/bevyengine/bevy/projects/1).
-If you'd like an up-to-the-minute look at our progress on a specific project, feel free to ask on Discord.
-
 ### Making changes to Bevy
 
 Most changes don't require much "process". If your change is relatively straightforward, just do the following:
