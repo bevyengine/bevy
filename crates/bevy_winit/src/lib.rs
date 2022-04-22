@@ -26,9 +26,8 @@ use bevy_window::{
     RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
     WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
-use winit::dpi::LogicalSize;
 use winit::{
-    dpi::PhysicalPosition,
+    dpi::{LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
