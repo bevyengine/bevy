@@ -49,11 +49,11 @@ pub use erased_serde;
 #[cfg(test)]
 #[allow(clippy::blacklisted_name, clippy::approx_constant)]
 mod tests {
+    #[cfg(feature = "glam")]
+    use ::glam::{vec3, Vec3};
     use ::serde::de::DeserializeSeed;
     use ::serde::Serialize;
     use bevy_utils::HashMap;
-    #[cfg(feature = "glam")]
-    use ::glam::{vec3, Vec3};
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
@@ -474,8 +474,10 @@ mod tests {
             let mut result = Vec3::default();
 
             result.apply(&*dynamic_struct);
-            
+
             assert_eq!(result, vec3(12.0, 3.0, -6.9));
         }
+
+        // Tests: Paths, Dynamic Construction,
     }
 }
