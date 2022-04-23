@@ -92,7 +92,7 @@ The current structure is as follows:
   * Trivial PRs can be merged without approvals
   * Relatively uncontroversial PRs can be merged following approval from at least one other community member with appropriate expertise.
   * Controversial PRs are added to a backlog for @cart to address once two maintainers agree that they are ready.
-  * If 45 days elapse without action on a controversial PR (approval, feedback or an explicity request to defer), they can be merged without project lead approval.
+  * If 45 days elapse without action on a controversial PR (approval, feedback or an explicit request to defer), they can be merged without project lead approval.
 * The Bevy org is made up of trusted community contributors: this is a relatively low bar, and org members help triage and maintain the project.
 * Community contributors (this means you!) can freely open issues, submit PRs and review PRs to improve Bevy.
   * As discussed above, community reviews on PRs are incredibly helpful to enable maintainers to merge in uncontroversial PRs in a timely fashion.
@@ -101,6 +101,7 @@ The current structure is as follows:
 
 This strategy relies on a classification of PRs into three categories: **trivial**, **uncontroversial** and **controversial**.
 When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
+PRs that are deemed controversial will receive the `S-Controversial` label, and will have to go through the more thorough review process.
 
 PRs are trivial if there is no reasonable argument against them. This might include:
 
@@ -120,7 +121,7 @@ PRs are controversial if there is serious design discussion required, or a large
 8. High levels of technical complexity.
 9. Adding a dependency.
 
-Finally, by the law of the excluded middle, changes are relatively uncontroversial if they are neither trivial or controversial.
+Finally, changes are "relatively uncontroversial" if they are neither trivial or controversial.
 Most PRs should fall into this category.
 
 ## How we work together
