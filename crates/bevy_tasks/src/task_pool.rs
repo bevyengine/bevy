@@ -173,7 +173,7 @@ impl TaskPool {
     ///
     /// # Lifetimes
     ///
-    /// The [`TaskPool::Scope`] object takes two lifetimes: `'scope` and `'env`.
+    /// The [`Scope`] object takes two lifetimes: `'scope` and `'env`.
     ///
     /// The `'scope` lifetime represents the lifetime of the scope. That is the time during
     /// which the provided closure and tasks that are spawned into the scope are run.
