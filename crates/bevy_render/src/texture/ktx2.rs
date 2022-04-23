@@ -13,6 +13,8 @@ use ktx2::{
 };
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
+const UASTC_BLOCK_SIZE_BYTES: usize = 128 / 8;
+
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 
 pub fn ktx2_buffer_to_image(
@@ -115,33 +117,40 @@ pub fn ktx2_buffer_to_image(
                     let (block_width_pixels, block_height_pixels) = (4, 4);
 
                     let transcoder = LowLevelUastcTranscoder::new();
-                    for (level, level_data) in levels.iter().enumerate() {
-                        let slice_parameters = SliceParametersUastc {
-                            num_blocks_x: ((original_width + block_width_pixels - 1)
-                                / block_width_pixels)
-                                .max(1),
-                            num_blocks_y: ((original_height + block_height_pixels - 1)
-                                / block_height_pixels)
-                                .max(1),
-                            has_alpha: false,
-                            original_width,
-                            original_height,
-                        };
+                    for layer in 0..layer_count as usize {
+                        for (level, level_data) in levels.iter().enumerate() {
+                            let (num_blocks_x, num_blocks_y) = (
+                                ((original_width + block_width_pixels - 1) / block_width_pixels).max(1),
+                                ((original_height + block_height_pixels - 1) / block_height_pixels)
+                                    .max(1),
+                            );
+                            let bytes_per_layer =
+                                num_blocks_x as usize * num_blocks_y as usize * UASTC_BLOCK_SIZE_BYTES;
 
-                        transcoder
-                            .transcode_slice(
-                                level_data,
-                                slice_parameters,
-                                DecodeFlags::HIGH_QUALITY,
-                                transcode_block_format,
-                            )
-                            .map(|transcoded_level| transcoded.push(transcoded_level))
-                            .map_err(|error| {
-                                TextureError::SuperDecompressionError(format!(
-                                    "Failed to transcode mip level {} from UASTC to {:?}: {:?}",
-                                    level, transcode_block_format, error
-                                ))
-                            })?;
+                            let slice_parameters = SliceParametersUastc {
+                                num_blocks_x,
+                                num_blocks_y,
+                                has_alpha: false,
+                                original_width,
+                                original_height,
+                            };
+
+                            transcoder
+                                .transcode_slice(
+                                    &level_data[(layer * bytes_per_layer)
+                                        ..((layer + 1) * bytes_per_layer)],
+                                    slice_parameters,
+                                    DecodeFlags::HIGH_QUALITY,
+                                    transcode_block_format,
+                                )
+                                .map(|transcoded_level| transcoded.push(transcoded_level))
+                                .map_err(|error| {
+                                    TextureError::SuperDecompressionError(format!(
+                                        "Failed to transcode mip level {} layer {} from UASTC to {:?}: {:?}",
+                                        level, layer, transcode_block_format, error
+                                    ))
+                                })?;
+                        }
 
                         // Next mip dimensions are half the current, minimum 1x1
                         original_width = (original_width / 2).max(1);
