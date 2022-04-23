@@ -1,6 +1,9 @@
-use crate::schedule::{
-    AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
-    RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel,
+use crate::{
+    schedule::{
+        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
+        RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel,
+    },
+    system::AsSystemLabel,
 };
 
 use super::IntoSystemDescriptor;
@@ -95,14 +98,14 @@ impl SystemSet {
     }
 
     #[must_use]
-    pub fn before(mut self, label: impl SystemLabel) -> Self {
-        self.before.push(Box::new(label));
+    pub fn before<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> Self {
+        self.before.push(Box::new(label.as_system_label()));
         self
     }
 
     #[must_use]
-    pub fn after(mut self, label: impl SystemLabel) -> Self {
-        self.after.push(Box::new(label));
+    pub fn after<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> Self {
+        self.after.push(Box::new(label.as_system_label()));
         self
     }
 
@@ -136,5 +139,17 @@ impl SystemSet {
             }
         }
         (run_criteria, systems)
+    }
+}
+
+#[cfg(tests)]
+mod tests {
+    use super::SystemSet;
+
+    #[test]
+    fn can_coerce_system_to_label() {
+        let system_1 = || {};
+        let sysetm_2 = || {};
+        let _system_set = SystemSet::new().after(system_1).before(system_2);
     }
 }
