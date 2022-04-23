@@ -74,6 +74,7 @@ impl TaskPool {
             executor,
             results,
             scope: PhantomData,
+            env: PhantomData,
         };
 
         let scope_ref: &'env mut Scope<'_, 'env, T> = unsafe { mem::transmute(&mut scope) };
@@ -130,7 +131,10 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'env async_executor::LocalExecutor<'env>,
     // Vector to gather results of all futures spawned during scope run
     results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>>,
-    scope: PhantomData<&'scope ()>,
+
+    // make `Scope` invariant over 'scope and 'env
+    scope: PhantomData<&'scope mut &'scope ()>,
+    env: PhantomData<&'env mut &'env ()>,
 }
 
 impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
