@@ -81,9 +81,9 @@ impl Time {
 
     /// Update time with a specified [`Instant`]
     ///
-    /// This method is for use in tests, and should generally not be called on the [`Time`] resource
-    /// as part of your app. Doing so will conflict with the `time_system` called by
-    /// [`CorePlugin`](crate::CorePlugin), and result in inaccurate performance measurements.
+    /// This method is provided for use in tests. Calling this method on the [`Time`] resource as
+    /// part of your app will most likely result in inaccurate timekeeping, as the resource is
+    /// ordinarily managed by the [`CorePlugin`](crate::CorePlugin).
     pub fn update_with_instant(&mut self, instant: Instant) {
         if let Some(last_update) = self.last_update {
             self.delta = instant - last_update;
