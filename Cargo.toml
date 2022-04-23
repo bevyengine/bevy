@@ -21,6 +21,7 @@ default = [
   "bevy_audio",
   "bevy_gilrs",
   "bevy_winit",
+  "bevy_camera",
   "render",
   "png",
   "hdr",
@@ -56,6 +57,7 @@ bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
 bevy_winit = ["bevy_internal/bevy_winit"]
+bevy_camera  = ["bevy_internal/bevy_camera"]
 
 # Tracing features
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -121,6 +123,7 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
+image = { version = "0.23.12", default-features = false }
 
 [[example]]
 name = "hello_world"
@@ -183,6 +186,10 @@ path = "examples/3d/3d_scene.rs"
 [[example]]
 name = "3d_shapes"
 path = "examples/3d/shapes.rs"
+
+[[example]]
+name = "frame_capture"
+path = "examples/3d/frame_capture.rs"
 
 [[example]]
 name = "lighting"
