@@ -142,6 +142,45 @@ impl TaskPool {
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_tasks::TaskPool;
+    ///
+    /// let pool = TaskPool::new();
+    /// let mut x = 0;
+    /// let results = pool.scope(|s| {
+    ///     s.spawn(async {
+    ///         // you can borrow the spawner inside a task and spawn tasks from within the task
+    ///         s.spawn(async {
+    ///             // borrow x and mutate it.
+    ///             x = 2;
+    ///             // return a value from the task
+    ///             1
+    ///         });
+    ///         // return some other value from the first task
+    ///         0
+    ///     });
+    /// });
+    ///
+    /// // results are returned in the order the tasks are spawned in.
+    /// // Note: the ordering may become non-deterministic if you spawn from within tasks.
+    /// // the ordering is only guaranteed when tasks are spawned directly from the main closure.
+    /// assert_eq!(&results[..], &[0, 1]);
+    /// // can access x after scope runs
+    /// assert_eq!(x, 2);
+    /// ```
+    ///
+    /// # Lifetimes
+    ///
+    /// The [`TaskPool::Scope`] object takes two lifetimes: `'scope` and `'env`.
+    ///
+    /// The `'scope` lifetime represents the lifetime of the scope. That is the time during
+    /// which the provided closure and tasks that are spawned into the scope are run.
+    ///
+    /// The `'env` lifetime represents the lifetime of whatever is borrowed by the scope.
+    /// Thus this lifetime must outlive `'scope`.
+    ///
     /// ```compile_fail
     /// use bevy_tasks::TaskPool;
     /// fn scope_escapes_closure() {
