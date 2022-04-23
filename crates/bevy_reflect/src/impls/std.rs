@@ -1,8 +1,7 @@
 use crate as bevy_reflect;
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType, GetTypeRegistration,
-    List, ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    TypeRegistration,
+    map_partial_eq, serde::Serializable, DynamicMap, FromReflect, GetTypeRegistration, List,
+    ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, TypeRegistration,
 };
 
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
@@ -147,7 +146,7 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
 impl<T: FromReflect + for<'de> Deserialize<'de>> GetTypeRegistration for Vec<T> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Vec<T>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Vec<T>>::from_type());
+        registration.insert::<Self, ReflectDeserialize>();
         registration
     }
 }
@@ -269,7 +268,7 @@ where
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+        registration.insert::<Self, ReflectDeserialize>();
         registration
     }
 }
@@ -354,7 +353,7 @@ unsafe impl Reflect for Cow<'static, str> {
 impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
+        registration.insert::<Self, ReflectDeserialize>();
         registration
     }
 }

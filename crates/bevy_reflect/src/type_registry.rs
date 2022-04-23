@@ -182,27 +182,30 @@ impl TypeRegistration {
     /// data.
     ///
     /// Returns `None` if no such value exists.
+    ///
+    /// The value is guaranteed to be a value of `T` generated using [`FromType`] of the type that this
+    /// registration is used for.
     pub fn data<T: TypeData>(&self) -> Option<&T> {
         self.data
             .get(&TypeId::of::<T>())
             .and_then(|value| value.downcast_ref())
     }
 
-    /// Returns a mutable reference to the value of type `T` in this
-    /// registration's type data.
+    /// Inserts an instance of `D` into this registration's type data.
+    /// The value is created using the [`FromType<T>`] impl for `D`
+    /// and `T` must match the type that this [`TypeRegistration`] was created for.
     ///
-    /// Returns `None` if no such value exists.
-    pub fn data_mut<T: TypeData>(&mut self) -> Option<&mut T> {
-        self.data
-            .get_mut(&TypeId::of::<T>())
-            .and_then(|value| value.downcast_mut())
-    }
-
-    /// Inserts an instance of `T` into this registration's type data.
-    ///
-    /// If another instance of `T` was previously inserted, it is replaced.
-    pub fn insert<T: TypeData>(&mut self, data: T) {
-        self.data.insert(TypeId::of::<T>(), Box::new(data));
+    /// If another instance of `D` was previously inserted, it is replaced.
+    pub fn insert<T: 'static, D: TypeData + FromType<T>>(&mut self) {
+        if self.type_id != std::any::TypeId::of::<T>() {
+            panic!(
+            "called `TypeRegistration::insert` on a registration for `{}` with data for type `{}`",
+            self.short_name,
+            std::any::type_name::<T>()
+        );
+        }
+        let data = <D as FromType<T>>::from_type();
+        self.data.insert(TypeId::of::<D>(), Box::new(data));
     }
 
     /// Creates type registration information for `T`.
@@ -308,8 +311,8 @@ where
 
 /// Trait used to generate [`TypeData`] for trait reflection.
 ///
-/// This is used by the `#[derive(Reflect)]` macro to generate an implementation
-/// of [`TypeData`] to pass to [`TypeRegistration::insert`].
+/// This is used by [`TypeRegistration::insert`] to generate an implementation
+/// of [`TypeData`] for the type `T`.
 pub trait FromType<T> {
     fn from_type() -> Self;
 }
@@ -352,7 +355,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 
 #[cfg(test)]
 mod test {
-    use crate::TypeRegistration;
+    use crate::{FromType, TypeRegistration};
     use bevy_utils::HashMap;
 
     #[test]
@@ -422,5 +425,28 @@ mod test {
                 .short_name,
             "Option<HashMap<Option<String>, (String, Option<String>)>>"
         );
+    }
+
+    #[derive(Clone)]
+    struct SomeTypeData;
+    impl<T> FromType<T> for SomeTypeData {
+        fn from_type() -> Self {
+            SomeTypeData
+        }
+    }
+
+    #[test]
+    fn test_type_registration_insert() {
+        let mut registration = TypeRegistration::of::<f64>();
+        registration.insert::<f64, SomeTypeData>();
+
+        assert!(registration.data::<SomeTypeData>().is_some());
+    }
+
+    #[test]
+    #[should_panic = "for `f64` with data for type `f32`"]
+    fn test_type_registration_wrong_type() {
+        let mut registration = TypeRegistration::of::<f64>();
+        registration.insert::<f32, SomeTypeData>();
     }
 }
