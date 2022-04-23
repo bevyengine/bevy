@@ -90,7 +90,7 @@ The current structure is as follows:
 * @cart is our project lead, and has final say on controversial decisions
 * There is a small group of other maintainers (@alice-i-cecile, @mockersf and @superdump), who have merge rights but abide by the following rules:
   * Trivial PRs can be merged without approvals
-  * Relatively uncontroversial PRs can be merged following approval from at least one other community member with appropriate expertise.
+  * Relatively uncontroversial PRs can be merged following approval from at least two other community members with appropriate expertise.
   * Controversial PRs are added to a backlog for @cart to address once two maintainers agree that they are ready.
   * If 45 days elapse without action on a controversial PR (approval, feedback or an explicit request to defer), they can be merged without project lead approval.
 * The Bevy org is made up of trusted community contributors: this is a relatively low bar, and org members help triage and maintain the project.
