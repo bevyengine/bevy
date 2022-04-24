@@ -2,6 +2,7 @@ extern crate proc_macro;
 
 mod app_plugin;
 mod bevy_main;
+mod derefs;
 mod enum_variant_meta;
 mod modules;
 
@@ -13,6 +14,61 @@ use quote::format_ident;
 #[proc_macro_derive(DynamicPlugin)]
 pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     app_plugin::derive_dynamic_plugin(input)
+}
+
+/// Implements [`Deref`] for _single-item_ structs. This is especially useful when
+/// utilizing the [newtype] pattern.
+///
+/// If you need [`DerefMut`] as well, consider using the other [derive] macro alongside
+/// this one.
+///
+/// # Example
+///
+/// ```
+/// use bevy_derive::Deref;
+///
+/// #[derive(Deref)]
+/// struct MyNewtype(String);
+///
+/// let foo = MyNewtype(String::from("Hello"));
+/// assert_eq!(5, foo.len());
+/// ```
+///
+/// [`Deref`]: std::ops::Deref
+/// [newtype]: https://doc.rust-lang.org/rust-by-example/generics/new_types.html
+/// [`DerefMut`]: std::ops::DerefMut
+/// [derive]: crate::derive_deref_mut
+#[proc_macro_derive(Deref)]
+pub fn derive_deref(input: TokenStream) -> TokenStream {
+    derefs::derive_deref(input)
+}
+
+/// Implements [`DerefMut`] for _single-item_ structs. This is especially useful when
+/// utilizing the [newtype] pattern.
+///
+/// [`DerefMut`] requires a [`Deref`] implementation. You can implement it manually or use
+/// Bevy's [derive] macro for convenience.
+///
+/// # Example
+///
+/// ```
+/// use bevy_derive::{Deref, DerefMut};
+///
+/// #[derive(Deref, DerefMut)]
+/// struct MyNewtype(String);
+///
+/// let mut foo = MyNewtype(String::from("Hello"));
+/// foo.push_str(" World!");
+/// assert_eq!("Hello World!", *foo);
+/// ```
+///
+/// [`DerefMut`]: std::ops::DerefMut
+/// [newtype]: https://doc.rust-lang.org/rust-by-example/generics/new_types.html
+/// [`Deref`]: std::ops::Deref
+/// [derive]: crate::derive_deref
+#[proc_macro_derive(DerefMut)]
+pub fn derive_deref_mut(input: TokenStream) -> TokenStream {
+    derefs::derive_deref_mut(input)
 }
 
 #[proc_macro_attribute]

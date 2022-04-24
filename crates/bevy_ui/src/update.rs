@@ -8,12 +8,10 @@ use bevy_ecs::{
     query::{With, Without},
     system::{Commands, Query},
 };
+use bevy_hierarchy::{Children, Parent};
 use bevy_math::Vec2;
 use bevy_sprite::Rect;
-use bevy_transform::{
-    components::GlobalTransform,
-    prelude::{Children, Parent, Transform},
-};
+use bevy_transform::components::{GlobalTransform, Transform};
 
 /// The resolution of Z values for UI
 pub const UI_Z_STEP: f32 = 0.001;
@@ -141,7 +139,8 @@ mod tests {
         system::{CommandQueue, Commands},
         world::World,
     };
-    use bevy_transform::{components::Transform, hierarchy::BuildChildren};
+    use bevy_hierarchy::BuildChildren;
+    use bevy_transform::components::Transform;
 
     use crate::Node;
 

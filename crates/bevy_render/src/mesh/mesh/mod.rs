@@ -1,4 +1,6 @@
 mod conversions;
+pub mod skinning;
+pub use wgpu::PrimitiveTopology;
 
 use crate::{
     primitives::Aabb,
@@ -14,8 +16,8 @@ use bevy_utils::{EnumVariantMeta, Hashed};
 use std::{collections::BTreeMap, hash::Hash};
 use thiserror::Error;
 use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexAttribute,
-    VertexFormat, VertexStepMode,
+    util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
+    VertexStepMode,
 };
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -78,7 +80,7 @@ impl Mesh {
         MeshVertexAttribute::new("Vertex_JointWeight", 5, VertexFormat::Float32x4);
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint32);
+        MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint16x4);
 
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
@@ -250,23 +252,16 @@ impl Mesh {
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
-    ///
-    /// # Panics
-    /// If the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     pub fn duplicate_vertices(&mut self) {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
             indices.map(|i| values[i]).collect()
         }
 
-        assert!(
-            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
-            "can only duplicate vertices for `TriangleList`s"
-        );
-
         let indices = match self.indices.take() {
             Some(indices) => indices,
             None => return,
         };
+
         for attributes in self.attributes.values_mut() {
             let indices = indices.iter();
             match &mut attributes.values {
@@ -305,10 +300,16 @@ impl Mesh {
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
     ///
     /// # Panics
-    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or
+    /// if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Consider calling [`Mesh::duplicate_vertices`] or export your mesh with normal attributes.
     pub fn compute_flat_normals(&mut self) {
         assert!(self.indices().is_none(), "`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
+
+        assert!(
+            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
+            "`compute_flat_normals` can only work on `TriangleList`s"
+        );
 
         let positions = self
             .attribute(Mesh::ATTRIBUTE_POSITION)
