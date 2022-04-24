@@ -6,7 +6,7 @@ use bevy::render::camera::{CameraTypePlugin, RenderTarget};
 use bevy::render::render_resource::TextureFormat;
 
 #[derive(Component, Default)]
-pub struct CaptureCamera1;
+pub struct CaptureCamera;
 
 // Marks the first pass cube (rendered to a texture.)
 #[derive(Component)]
@@ -16,6 +16,7 @@ struct FirstPassCube;
 #[derive(Component)]
 struct MainPassCube;
 
+/// This example shows how to render to a double buffered texture that is then used in the same render layer.
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 }) // Use 4x MSAA
@@ -24,7 +25,7 @@ fn main() {
             brightness: 1.0 / 5.0f32,
         })
         .add_plugins(DefaultPlugins)
-        .add_plugin(CameraTypePlugin::<CaptureCamera1>::default())
+        .add_plugin(CameraTypePlugin::<CaptureCamera>::default())
         .add_plugin(FrameCapturePlugin)
         .add_startup_system(setup)
         .add_system(cube_rotator_system)
@@ -106,7 +107,7 @@ fn setup(
             let render_target = RenderTarget::Image(capture.gpu_image.clone());
             clear_colors.insert(render_target.clone(), Color::GRAY);
             parent
-                .spawn_bundle(PerspectiveCameraBundle::<CaptureCamera1> {
+                .spawn_bundle(PerspectiveCameraBundle::<CaptureCamera> {
                     camera: Camera {
                         target: render_target,
                         ..default()

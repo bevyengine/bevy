@@ -7,8 +7,9 @@ use bevy::render::render_resource::TextureFormat;
 use bevy::render::renderer::RenderDevice;
 
 #[derive(Component, Default)]
-pub struct CaptureCamera1;
+pub struct CaptureCamera;
 
+/// This example shows how to render to an image file.
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 }) // Use 4x MSAA
@@ -17,7 +18,7 @@ fn main() {
             brightness: 1.0 / 5.0f32,
         })
         .add_plugins(DefaultPlugins)
-        .add_plugin(CameraTypePlugin::<CaptureCamera1>::default())
+        .add_plugin(CameraTypePlugin::<CaptureCamera>::default())
         .add_plugin(FrameCapturePlugin)
         .add_startup_system(setup)
         .add_system(animate_light_direction)
@@ -52,7 +53,7 @@ fn setup(
             let render_target = RenderTarget::Image(capture.gpu_image.clone());
             clear_colors.insert(render_target.clone(), Color::GRAY);
             parent
-                .spawn_bundle(PerspectiveCameraBundle::<CaptureCamera1> {
+                .spawn_bundle(PerspectiveCameraBundle::<CaptureCamera> {
                     camera: Camera {
                         target: render_target,
                         ..default()
