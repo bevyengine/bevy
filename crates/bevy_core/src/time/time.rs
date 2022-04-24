@@ -29,6 +29,10 @@ impl Default for Time {
 
 impl Time {
     /// Updates the internal time measurements.
+    ///
+    /// Calling this method on the [`Time`] resource as part of your app will most likely result in
+    /// inaccurate timekeeping, as the resource is ordinarily managed by the
+    /// [`CorePlugin`](crate::CorePlugin).
     pub fn update(&mut self) {
         self.update_with_instant(Instant::now());
     }
