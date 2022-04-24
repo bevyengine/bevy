@@ -965,6 +965,8 @@ where
         &'s mut self,
         world: &'w World,
     ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QuerySingleError> {
+        self.update_archetypes(world);
+        
         // SAFETY: query is read only
         unsafe {
             self.get_single_unchecked_manual::<Q::ReadOnlyFetch>(
@@ -1002,6 +1004,8 @@ where
         &'s mut self,
         world: &'w mut World,
     ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError> {
+        self.update_archetypes(world);
+        
         // SAFETY: query has unique world access
         unsafe {
             self.get_single_unchecked_manual::<Q::Fetch>(
@@ -1026,6 +1030,8 @@ where
         &'s mut self,
         world: &'w World,
     ) -> Result<<Q::Fetch as Fetch<'w, 's>>::Item, QuerySingleError> {
+        self.update_archetypes(world);
+        
         self.get_single_unchecked_manual::<Q::Fetch>(
             world,
             world.last_change_tick(),
