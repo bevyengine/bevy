@@ -15,6 +15,7 @@ use bevy_render::render_resource::{
 };
 use bevy_render::renderer::{RenderContext, RenderDevice, RenderQueue};
 use bevy_render::{RenderApp, RenderStage};
+use wgpu::{BufferView, MapMode};
 
 // The name of the final node of the first pass.
 pub const FRAME_CAPTURE_DRIVER: &str = "frame_capture_driver";
@@ -83,6 +84,20 @@ impl FrameCapture {
             active,
             camera: None,
         }
+    }
+
+    pub fn get_buffer<F>(&self, render_device: &RenderDevice, f: F)
+    where
+        F: FnOnce(BufferView),
+    {
+        let large_buffer_slice = self.cpu_buffer.slice(..);
+        render_device.map_buffer(&large_buffer_slice, MapMode::Read);
+        {
+            let large_padded_buffer = large_buffer_slice.get_mapped_range();
+
+            f(large_padded_buffer);
+        }
+        self.cpu_buffer.unmap();
     }
 }
 
@@ -165,8 +180,8 @@ impl render_graph::Node for CaptureCameraDriver {
     }
 }
 
-pub struct CapturePlugin;
-impl Plugin for CapturePlugin {
+pub struct FrameCapturePlugin;
+impl Plugin for FrameCapturePlugin {
     fn build(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
 

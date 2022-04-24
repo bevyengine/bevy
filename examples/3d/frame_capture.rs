@@ -1,9 +1,9 @@
-use bevy::camera::{CapturePlugin, FrameCapture};
+use bevy::camera::{FrameCapture, FrameCapturePlugin};
 use bevy::core_pipeline::RenderTargetClearColors;
 use bevy::prelude::*;
 use bevy::render::camera::{CameraTypePlugin, RenderTarget};
 
-use bevy::render::render_resource::{MapMode, TextureFormat};
+use bevy::render::render_resource::TextureFormat;
 use bevy::render::renderer::RenderDevice;
 
 #[derive(Component, Default)]
@@ -21,7 +21,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(CameraTypePlugin::<CaptureCamera1>::default())
         .add_plugin(CameraTypePlugin::<CaptureCamera2>::default())
-        .add_plugin(CapturePlugin)
+        .add_plugin(FrameCapturePlugin)
         .add_startup_system(setup)
         .add_system(animate_light_direction)
         .add_system(save_img)
@@ -120,20 +120,15 @@ fn animate_light_direction(
 
 pub fn save_img(captures: Query<&FrameCapture>, render_device: Res<RenderDevice>) {
     for (i, capture) in captures.iter().enumerate() {
-        let large_buffer_slice = capture.cpu_buffer.slice(..);
-        render_device.map_buffer(&large_buffer_slice, MapMode::Read);
-        {
-            let large_padded_buffer = large_buffer_slice.get_mapped_range();
-
+        capture.get_buffer(&render_device, |buf| {
             image::save_buffer(
                 format!("../test{i}.png"),
-                &large_padded_buffer,
+                &buf,
                 capture.width,
                 capture.height,
                 image::ColorType::Rgba8,
             )
             .unwrap();
-        }
-        capture.cpu_buffer.unmap();
+        });
     }
 }
