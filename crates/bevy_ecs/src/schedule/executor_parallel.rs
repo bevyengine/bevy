@@ -121,6 +121,8 @@ impl ParallelSystemExecutor for ParallelExecutor {
         let compute_pool = world
             .get_resource_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
             .clone();
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("parallel scope").entered();
         compute_pool.scope(|scope| {
             self.prepare_systems(systems);
             let parallel_executor = async {
