@@ -188,8 +188,16 @@ name = "3d_shapes"
 path = "examples/3d/shapes.rs"
 
 [[example]]
-name = "frame_capture"
-path = "examples/3d/frame_capture.rs"
+name = "frame_capture_cpu"
+path = "examples/3d/frame_capture_cpu.rs"
+
+[[example]]
+name = "frame_capture_double_buffer"
+path = "examples/3d/frame_capture_double_buffer.rs"
+
+[[example]]
+name = "frame_capture_gpu"
+path = "examples/3d/frame_capture_gpu.rs"
 
 [[example]]
 name = "lighting"

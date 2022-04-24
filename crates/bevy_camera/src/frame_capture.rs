@@ -20,9 +20,34 @@ use wgpu::{BufferView, MapMode};
 // The name of the final node of the first pass.
 pub const FRAME_CAPTURE_DRIVER: &str = "frame_capture_driver";
 
+#[derive(Clone)]
+pub struct CPUBuffer(pub Buffer);
+
+impl CPUBuffer {
+    pub fn get<F>(&self, render_device: &RenderDevice, f: F)
+    where
+        F: FnOnce(BufferView),
+    {
+        let large_buffer_slice = self.0.slice(..);
+        render_device.map_buffer(&large_buffer_slice, MapMode::Read);
+        {
+            let large_padded_buffer = large_buffer_slice.get_mapped_range();
+
+            f(large_padded_buffer);
+        }
+        self.0.unmap();
+    }
+}
+
+#[derive(Clone)]
+pub enum TargetBuffer {
+    CPUBuffer(CPUBuffer),
+    GPUBuffer(Handle<Image>),
+}
+
 #[derive(Component, Clone)]
 pub struct FrameCapture {
-    pub cpu_buffer: Buffer,
+    pub target_buffer: Option<TargetBuffer>,
     pub gpu_image: Handle<Image>,
     pub width: u32,
     pub height: u32,
@@ -31,7 +56,7 @@ pub struct FrameCapture {
 }
 
 impl FrameCapture {
-    pub fn new(
+    pub fn new_cpu_buffer(
         width: u32,
         height: u32,
         active: bool,
@@ -77,7 +102,7 @@ impl FrameCapture {
         });
 
         FrameCapture {
-            cpu_buffer,
+            target_buffer: Some(TargetBuffer::CPUBuffer(CPUBuffer(cpu_buffer))),
             gpu_image,
             width,
             height,
@@ -85,19 +110,108 @@ impl FrameCapture {
             camera: None,
         }
     }
+    pub fn new_gpu_buffer(
+        width: u32,
+        height: u32,
+        active: bool,
+        format: TextureFormat,
+        images: &mut Assets<Image>,
+    ) -> Self {
+        let size = Extent3d {
+            width,
+            height,
+            ..Default::default()
+        };
 
-    pub fn get_buffer<F>(&self, render_device: &RenderDevice, f: F)
-    where
-        F: FnOnce(BufferView),
-    {
-        let large_buffer_slice = self.cpu_buffer.slice(..);
-        render_device.map_buffer(&large_buffer_slice, MapMode::Read);
-        {
-            let large_padded_buffer = large_buffer_slice.get_mapped_range();
+        // This is the texture that will be rendered to.
+        let mut image = Image {
+            texture_descriptor: TextureDescriptor {
+                label: None,
+                size,
+                dimension: TextureDimension::D2,
+                format,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST
+                    | TextureUsages::COPY_SRC
+                    | TextureUsages::RENDER_ATTACHMENT,
+            },
+            ..Default::default()
+        };
+        image.resize(size);
 
-            f(large_padded_buffer);
+        let gpu_image = images.add(image);
+
+        FrameCapture {
+            target_buffer: None,
+            gpu_image,
+            width,
+            height,
+            active,
+            camera: None,
         }
-        self.cpu_buffer.unmap();
+    }
+    pub fn new_gpu_double_buffer(
+        width: u32,
+        height: u32,
+        active: bool,
+        format: TextureFormat,
+        images: &mut Assets<Image>,
+    ) -> Self {
+        let size = Extent3d {
+            width,
+            height,
+            ..Default::default()
+        };
+
+        // This is the texture that will be rendered to.
+        let mut image = Image {
+            texture_descriptor: TextureDescriptor {
+                label: None,
+                size,
+                dimension: TextureDimension::D2,
+                format,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST
+                    | TextureUsages::COPY_SRC
+                    | TextureUsages::RENDER_ATTACHMENT,
+            },
+            ..Default::default()
+        };
+        image.resize(size);
+
+        let gpu_image = images.add(image);
+
+        // This is the texture that will be copied to.
+        let mut image = Image {
+            texture_descriptor: TextureDescriptor {
+                label: None,
+                size,
+                dimension: TextureDimension::D2,
+                format,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST
+                    | TextureUsages::RENDER_ATTACHMENT,
+            },
+            ..Default::default()
+        };
+        image.resize(size);
+
+        let buffered_image = images.add(image);
+
+        FrameCapture {
+            target_buffer: Some(TargetBuffer::GPUBuffer(buffered_image)),
+            gpu_image,
+            width,
+            height,
+            active,
+            camera: None,
+        }
     }
 }
 
@@ -132,50 +246,90 @@ impl render_graph::Node for CaptureCameraDriver {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
-
         for capture in self.captures.iter() {
             graph.run_sub_graph(
                 draw_3d_graph::NAME,
                 vec![SlotValue::Entity(capture.camera.unwrap())],
             )?;
 
-            let gpu_image = gpu_images.get(&capture.gpu_image).unwrap();
-            let mut encoder = render_context
-                .render_device
-                .create_command_encoder(&CommandEncoderDescriptor::default());
-            let padded_bytes_per_row =
-                RenderDevice::align_copy_bytes_per_row((gpu_image.size.width) as usize) * 4;
+            match &capture.target_buffer {
+                Some(target_buffer) => match target_buffer {
+                    TargetBuffer::CPUBuffer(buf) => {
+                        let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
+                        let gpu_image = gpu_images.get(&capture.gpu_image).unwrap();
 
-            let texture_extent = Extent3d {
-                width: gpu_image.size.width as u32,
-                height: gpu_image.size.height as u32,
-                depth_or_array_layers: 1,
-            };
+                        let mut encoder = render_context
+                            .render_device
+                            .create_command_encoder(&CommandEncoderDescriptor::default());
 
-            encoder.copy_texture_to_buffer(
-                gpu_image.texture.as_image_copy(),
-                ImageCopyBuffer {
-                    buffer: &capture.cpu_buffer,
-                    layout: ImageDataLayout {
-                        offset: 0,
-                        bytes_per_row: Some(
-                            std::num::NonZeroU32::new(padded_bytes_per_row as u32).unwrap(),
-                        ),
-                        rows_per_image: None,
-                    },
+                        let padded_bytes_per_row =
+                            RenderDevice::align_copy_bytes_per_row((gpu_image.size.width) as usize)
+                                * 4;
+
+                        let texture_extent = Extent3d {
+                            width: gpu_image.size.width as u32,
+                            height: gpu_image.size.height as u32,
+                            depth_or_array_layers: 1,
+                        };
+
+                        encoder.copy_texture_to_buffer(
+                            gpu_image.texture.as_image_copy(),
+                            ImageCopyBuffer {
+                                buffer: &buf.0,
+                                layout: ImageDataLayout {
+                                    offset: 0,
+                                    bytes_per_row: Some(
+                                        std::num::NonZeroU32::new(padded_bytes_per_row as u32)
+                                            .unwrap(),
+                                    ),
+                                    rows_per_image: None,
+                                },
+                            },
+                            texture_extent,
+                        );
+
+                        let render_queue = world.get_resource::<RenderQueue>().unwrap();
+                        render_queue.submit(std::iter::once(encoder.finish()));
+                    }
+                    TargetBuffer::GPUBuffer(buf) => {
+                        let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
+                        let gpu_image = gpu_images.get(&capture.gpu_image).unwrap();
+
+                        let mut encoder = render_context
+                            .render_device
+                            .create_command_encoder(&CommandEncoderDescriptor::default());
+
+                        let target_image = gpu_images.get(&buf).unwrap();
+                        encoder.copy_texture_to_texture(
+                            gpu_image.texture.as_image_copy(),
+                            target_image.texture.as_image_copy(),
+                            Extent3d {
+                                width: gpu_image.size.width as u32,
+                                height: gpu_image.size.height as u32,
+                                depth_or_array_layers: 1,
+                            },
+                        );
+
+                        let render_queue = world.get_resource::<RenderQueue>().unwrap();
+                        render_queue.submit(std::iter::once(encoder.finish()));
+                    }
                 },
-                texture_extent,
-            );
-            let render_queue = world.get_resource::<RenderQueue>().unwrap();
-            render_queue.submit(std::iter::once(encoder.finish()));
+                None => continue,
+            }
         }
 
         Ok(())
     }
+
     fn update(&mut self, world: &mut World) {
-        for cap in world.query::<&mut FrameCapture>().iter_mut(world) {
-            self.captures.push(cap.clone());
+        let mut query = world.query::<&mut FrameCapture>();
+        let it = query.iter_mut(world);
+        // When the camera count changes, update self.captures
+        if it.len() != self.captures.len() {
+            self.captures.clear();
+            for cap in it {
+                self.captures.push(cap.clone());
+            }
         }
     }
 }

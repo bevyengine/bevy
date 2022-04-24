@@ -11,6 +11,7 @@ pub struct CaptureCamera1;
 
 fn main() {
     App::new()
+        .insert_resource(Msaa { samples: 4 }) // Use 4x MSAA
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,
@@ -40,7 +41,7 @@ fn setup(
             ..default()
         })
         .with_children(|parent| {
-            let capture = FrameCapture::new(
+            let capture = FrameCapture::new_cpu_buffer(
                 512,
                 512,
                 true,
@@ -95,15 +96,22 @@ fn animate_light_direction(
 
 pub fn save_img(captures: Query<&FrameCapture>, render_device: Res<RenderDevice>) {
     for (i, capture) in captures.iter().enumerate() {
-        capture.get_buffer(&render_device, |buf| {
-            image::save_buffer(
-                format!("../test{i}.png"),
-                &buf,
-                capture.width,
-                capture.height,
-                image::ColorType::Rgba8,
-            )
-            .unwrap();
-        });
+        if let Some(target_buffer) = &capture.target_buffer {
+            match target_buffer {
+                bevy::camera::TargetBuffer::CPUBuffer(target_buffer) => {
+                    target_buffer.get(&render_device, |buf| {
+                        image::save_buffer(
+                            format!("../test{i}.png"),
+                            &buf,
+                            capture.width,
+                            capture.height,
+                            image::ColorType::Rgba8,
+                        )
+                        .unwrap();
+                    });
+                }
+                _ => continue,
+            }
+        }
     }
 }
