@@ -9,9 +9,6 @@ use bevy::render::renderer::RenderDevice;
 #[derive(Component, Default)]
 pub struct CaptureCamera1;
 
-#[derive(Component, Default)]
-pub struct CaptureCamera2;
-
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
@@ -20,7 +17,6 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(CameraTypePlugin::<CaptureCamera1>::default())
-        .add_plugin(CameraTypePlugin::<CaptureCamera2>::default())
         .add_plugin(FrameCapturePlugin)
         .add_startup_system(setup)
         .add_system(animate_light_direction)
@@ -56,27 +52,6 @@ fn setup(
             clear_colors.insert(render_target.clone(), Color::GRAY);
             parent
                 .spawn_bundle(PerspectiveCameraBundle::<CaptureCamera1> {
-                    camera: Camera {
-                        target: render_target,
-                        ..default()
-                    },
-                    ..PerspectiveCameraBundle::new()
-                })
-                .insert(capture);
-        })
-        .with_children(|parent| {
-            let capture = FrameCapture::new(
-                512,
-                512,
-                true,
-                TextureFormat::Rgba8UnormSrgb,
-                &mut images,
-                &render_device,
-            );
-            let render_target = RenderTarget::Image(capture.gpu_image.clone());
-            clear_colors.insert(render_target.clone(), Color::BISQUE);
-            parent
-                .spawn_bundle(PerspectiveCameraBundle::<CaptureCamera2> {
                     camera: Camera {
                         target: render_target,
                         ..default()
