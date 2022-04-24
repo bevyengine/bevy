@@ -1,3 +1,5 @@
+//! Shows how to render to an image file.
+
 use bevy::camera::{FrameCapture, FrameCapturePlugin};
 use bevy::core_pipeline::RenderTargetClearColors;
 use bevy::prelude::*;
@@ -9,7 +11,6 @@ use bevy::render::renderer::RenderDevice;
 #[derive(Component, Default)]
 pub struct CaptureCamera;
 
-/// This example shows how to render to an image file.
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 }) // Use 4x MSAA

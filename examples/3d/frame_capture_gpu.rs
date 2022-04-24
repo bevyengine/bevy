@@ -1,3 +1,5 @@
+//! Shows how to render to a texture.
+
 use bevy::camera::{FrameCapture, FrameCapturePlugin};
 use bevy::core_pipeline::RenderTargetClearColors;
 use bevy::prelude::*;
@@ -17,7 +19,6 @@ struct FirstPassCube;
 #[derive(Component)]
 struct MainPassCube;
 
-/// This example shows how to render to a texture.
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 }) // Use 4x MSAA

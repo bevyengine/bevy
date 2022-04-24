@@ -1,3 +1,5 @@
+//! Shows how to render to a double buffered texture that can then be used on the same render layer.
+
 use bevy::camera::{FrameCapture, FrameCapturePlugin, TargetBuffer};
 use bevy::core_pipeline::RenderTargetClearColors;
 use bevy::prelude::*;
@@ -16,7 +18,6 @@ struct FirstPassCube;
 #[derive(Component)]
 struct MainPassCube;
 
-/// This example shows how to render to a double buffered texture that is then used in the same render layer.
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 }) // Use 4x MSAA
