@@ -466,7 +466,7 @@ impl<'w> EntityMut<'w> {
 }
 
 // TODO: move to Storages?
-/// Get a raw pointer to a particular [Component] on a particular [Entity] in the provided [World].
+/// Get a raw pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
 /// `entity_location` must be within bounds of the given archetype and `entity` must exist inside
@@ -498,7 +498,7 @@ unsafe fn get_component(
 }
 
 // TODO: move to Storages?
-/// Get a raw pointer to and the [ComponentTicks] of a particular [Component] on a particular [Entity] in the provided [World].
+/// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] on a particular [`Entity`] in the provided [World].
 ///
 /// # Safety
 /// Caller must ensure that `component_id` is valid
@@ -572,7 +572,7 @@ unsafe fn take_component(
     }
 }
 
-/// Get a raw pointer to a particular [Component] by [TypeId] on a particular [Entity] in the provided [World].
+/// Get a raw pointer to a particular [`Component`] by [`TypeId`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
 /// `entity_location` must be within bounds of an archetype that exists.
@@ -586,7 +586,7 @@ unsafe fn get_component_with_type(
     get_component(world, component_id, entity, location)
 }
 
-/// Get a raw pointer to and [ComponentTicks] of a particular [Component] by [TypeId] on a particular [Entity] in the provided [World].
+/// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] by [`TypeId`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
 /// `entity_location` must be within bounds of an archetype that exists.
