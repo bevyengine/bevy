@@ -86,15 +86,11 @@ impl LogDiagnosticsPlugin {
     ) {
         if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
-                for diagnostic in filter
-                    .iter()
-                    .map(|id| {
-                        diagnostics
-                            .get(*id)
-                            .filter(|diagnostic| diagnostic.is_enabled)
-                    })
-                    .flatten()
-                {
+                for diagnostic in filter.iter().flat_map(|id| {
+                    diagnostics
+                        .get(*id)
+                        .filter(|diagnostic| diagnostic.is_enabled)
+                }) {
                     Self::log_diagnostic(diagnostic);
                 }
             } else {
@@ -115,15 +111,11 @@ impl LogDiagnosticsPlugin {
     ) {
         if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
-                for diagnostic in filter
-                    .iter()
-                    .map(|id| {
-                        diagnostics
-                            .get(*id)
-                            .filter(|diagnostic| diagnostic.is_enabled)
-                    })
-                    .flatten()
-                {
+                for diagnostic in filter.iter().flat_map(|id| {
+                    diagnostics
+                        .get(*id)
+                        .filter(|diagnostic| diagnostic.is_enabled)
+                }) {
                     debug!("{:#?}\n", diagnostic);
                 }
             } else {
