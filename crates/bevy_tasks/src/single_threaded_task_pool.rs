@@ -146,7 +146,6 @@ pub struct Scope<'scope, 'env: 'scope, T> {
 }
 
 impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
-impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
@@ -158,9 +157,9 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
         self.spawn_on_scope(f);
     }
 
-    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
-    /// the provided future. The results of the future will be returned as a part of
-    /// [`TaskPool::scope`]'s return value.
+    /// Spawns a scoped future that runs on the thread the scope called from. The 
+    /// scope *must* outlive the provided future. The results of the future will be 
+    /// returned as a part of [`TaskPool::scope`]'s return value.
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
