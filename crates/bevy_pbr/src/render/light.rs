@@ -236,7 +236,7 @@ pub struct ShadowPipeline {
 impl FromWorld for ShadowPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -255,7 +255,7 @@ impl FromWorld for ShadowPipeline {
             label: Some("shadow_view_layout"),
         });
 
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+        let mesh_pipeline = world.resource::<MeshPipeline>();
         let skinned_mesh_layout = mesh_pipeline.skinned_mesh_layout.clone();
 
         ShadowPipeline {

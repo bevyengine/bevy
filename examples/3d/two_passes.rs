@@ -35,7 +35,7 @@ fn main() {
     // This will add 3D render phases for the new camera.
     render_app.add_system_to_stage(RenderStage::Extract, extract_first_pass_camera_phases);
 
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
     // Add a node for the first pass.
     graph.add_node(FIRST_PASS_DRIVER, driver);
