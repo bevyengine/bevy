@@ -24,17 +24,22 @@ use bevy_app::prelude::*;
 use bevy_ecs::{event::Events, schedule::SystemLabel};
 
 pub struct WindowPlugin {
+    /// Whether to create a window when added.
+    /// Note that if there are no windows, by default
     pub add_primary_window: bool,
-    /// Whether to close the app when there are no open windows.
-    /// If disabling this, consider ensuring that you send a [`bevy_app::AppExit`] event yourself
-    /// when the app should exit; otherwise you will create headless processes, which would be
-    /// surprising for your users.
+    /// Whether to exit the app when there are no open windows.
+    /// If disabling this, ensure that you send the [`bevy_app::AppExit`]
+    /// event when the app should exit. If this does not occur, you will
+    /// create 'headless' processes (processes without windows), which may
+    /// surprise your users.
     ///
-    /// This setting controls whether this plugin adds [`exit_on_all_closed`]
+    /// If true, this plugin will add [`exit_on_all_closed`] to [`CoreStage::Update`].
     pub exit_on_all_closed: bool,
     /// Whether to close windows when they are requested to be closed (i.e. when the close button is pressed)
     ///
-    /// This setting controls whether this plugin adds [`close_when_requested`]
+    /// Not adding this system (without replacement) will lead to the close button having no effect.
+    ///
+    /// If true, this plugin will add [`close_when_requested`] to [`CoreStage::Update`].
     pub close_when_requested: bool,
 }
 

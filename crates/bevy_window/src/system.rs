@@ -4,20 +4,18 @@ use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
 use bevy_input::{keyboard::KeyCode, Input};
 
-/// Whether to exit the application when there are no open windows.
+/// Exit the application when there are no open windows.
 ///
-/// By default, this system is added by the [`crate::WindowPlugin`].
+/// This system is added by the [`crate::WindowPlugin`] in the default configuration.
 /// To disable this behaviour, set `close_when_requested` (on the [`crate::WindowPlugin`]) to `false`.
-/// Please ensure that you read the caveats documented on that field.
-
+/// nsure that you read the caveats documented on that field.
 pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Res<Windows>) {
     if windows.iter().count() == 0 {
         app_exit_events.send(AppExit);
     }
 }
 
-/// Whether to close windows when they are requested to be closed (i.e. when the close button is pressed).
-/// Not adding this system (without replacement) will lead to the close button having no effect.
+/// Whether to close windows when they are requested to be closed (e.g.  when the close button is pressed).
 ///
 /// By default, this system is added by the [`crate::WindowPlugin`].
 /// To disable this behaviour, set `close_when_requested` (on the [`crate::WindowPlugin`]) to `false`
