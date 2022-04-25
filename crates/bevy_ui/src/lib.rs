@@ -31,6 +31,7 @@ use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_math::Rect;
 use bevy_transform::TransformSystem;
+use bevy_window::ModifiesWindows;
 use update::{ui_z_system, update_clipping_system};
 
 use crate::prelude::CameraUi;
@@ -84,7 +85,9 @@ impl Plugin for UiPlugin {
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::text_system.before(UiSystem::Flex),
+                widget::text_system
+                    .before(UiSystem::Flex)
+                    .after(ModifiesWindows),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -94,7 +97,8 @@ impl Plugin for UiPlugin {
                 CoreStage::PostUpdate,
                 flex_node_system
                     .label(UiSystem::Flex)
-                    .before(TransformSystem::TransformPropagate),
+                    .before(TransformSystem::TransformPropagate)
+                    .after(ModifiesWindows),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
