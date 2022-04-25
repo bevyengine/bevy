@@ -184,7 +184,7 @@ impl Diagnostics {
 
     /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
     /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
-    /// costly to get.
+    /// costly to calculate.
     pub fn add_measurement<F>(&mut self, id: DiagnosticId, value: F)
     where
         F: FnOnce() -> f64,
