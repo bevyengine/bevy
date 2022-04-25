@@ -5,7 +5,6 @@ use bevy_math::Vec2;
 /// A mouse button input event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseInput` from the `winit` crate.
-/// It can be used for game logic.
 ///
 /// ## Usage
 ///
@@ -45,7 +44,6 @@ pub enum MouseButton {
 /// A mouse motion event.
 ///
 /// This event is the translated version of the `DeviceEvent::MouseMotion` from the `winit` crate.
-/// It can be used for game logic.
 #[derive(Debug, Clone)]
 pub struct MouseMotion {
     /// The delta of the previous and current mouse positions.
@@ -75,7 +73,6 @@ pub enum MouseScrollUnit {
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
-/// It can be used for game logic.
 #[derive(Debug, Clone)]
 pub struct MouseWheel {
     /// The mouse scroll unit.
