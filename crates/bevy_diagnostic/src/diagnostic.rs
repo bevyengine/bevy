@@ -53,7 +53,7 @@ impl Diagnostic {
 
             self.sum += value;
         } else {
-            self.history.pop_front();
+            self.history.clear();
             self.sum = value;
         }
         self.history
