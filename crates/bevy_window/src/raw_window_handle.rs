@@ -3,7 +3,7 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 /// A wrapper over [`RawWindowHandle`] that allows us to safely pass it across threads.
 ///
 /// Depending on the platform, the underlying pointer-containing handle cannot be used on all threads,
-/// and so we cannot simply make it (or any type that has a safe opration to get a [`RawWindowHandle`])
+/// and so we cannot simply make it (or any type that has a safe operation to get a [`RawWindowHandle`])
 /// thread-safe.
 #[derive(Debug, Clone)]
 pub struct RawWindowHandleWrapper(RawWindowHandle);
@@ -13,7 +13,7 @@ impl RawWindowHandleWrapper {
         Self(handle)
     }
 
-    /// Returns a [`HasRawWindowHandle`] impl, which exposes [`RawWindowHandle`]
+    /// Returns a [`HasRawWindowHandle`] impl, which exposes [`RawWindowHandle`].
     ///
     /// # Safety
     ///
@@ -32,7 +32,7 @@ impl RawWindowHandleWrapper {
 unsafe impl Send for RawWindowHandleWrapper {}
 unsafe impl Sync for RawWindowHandleWrapper {}
 
-/// A [`RawWindowHandleWrapper`] that cannot be sent across threads
+/// A [`RawWindowHandleWrapper`] that cannot be sent across threads.
 ///
 /// This safely exposes a [`RawWindowHandle`], but care must be taken to ensure that the construction itself is correct.
 ///
