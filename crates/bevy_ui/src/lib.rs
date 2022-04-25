@@ -29,7 +29,6 @@ use crate::Size;
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
-use bevy_math::Rect;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
 use update::{ui_z_system, update_clipping_system};
@@ -71,7 +70,7 @@ impl Plugin for UiPlugin {
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()
-            .register_type::<Rect<Val>>()
+            .register_type::<UiRect<Val>>()
             .register_type::<Style>()
             .register_type::<UiColor>()
             .register_type::<UiImage>()
