@@ -98,7 +98,7 @@ where
 // SAFE: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<Q: WorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F>
 where
-    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch<'x>,
+    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch,
     for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
 }

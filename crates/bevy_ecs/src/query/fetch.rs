@@ -316,7 +316,7 @@ pub type ROQueryItem<'w, Q> = <<Q as WorldQueryGats<'w>>::ReadOnlyFetch as Fetch
 /// A helper trait for [`WorldQuery`] that works around Rust's lack of Generic Associated Types
 pub trait WorldQueryGats<'world> {
     type Fetch: Fetch<'world, State = Self::_State>;
-    type ReadOnlyFetch: Fetch<'world, State = Self::_State> + ReadOnlyFetch<'world>;
+    type ReadOnlyFetch: Fetch<'world, State = Self::_State> + ReadOnlyFetch;
     type _State: FetchState;
 }
 
@@ -418,7 +418,7 @@ pub unsafe trait FetchState: Send + Sync + Sized {
 /// # Safety
 ///
 /// This must only be implemented for read-only fetches.
-pub unsafe trait ReadOnlyFetch<'world>: Fetch<'world> {}
+pub unsafe trait ReadOnlyFetch {}
 
 impl WorldQuery for Entity {
     type State = EntityState;
@@ -436,7 +436,7 @@ pub struct EntityFetch<'w> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<'w> ReadOnlyFetch<'w> for EntityFetch<'w> {}
+unsafe impl<'w> ReadOnlyFetch for EntityFetch<'w> {}
 
 /// The [`FetchState`] of [`Entity`].
 #[doc(hidden)]
@@ -596,7 +596,7 @@ impl<T> Clone for ReadFetch<'_, T> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for ReadFetch<'w, T> {}
+unsafe impl<'w, T: Component> ReadOnlyFetch for ReadFetch<'w, T> {}
 
 impl<'w, T: Component> WorldQueryGats<'w> for &T {
     type Fetch = ReadFetch<'w, T>;
@@ -747,7 +747,7 @@ pub struct ReadOnlyWriteFetch<'w, T> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for ReadOnlyWriteFetch<'w, T> {}
+unsafe impl<'w, T: Component> ReadOnlyFetch for ReadOnlyWriteFetch<'w, T> {}
 
 impl<T> Clone for ReadOnlyWriteFetch<'_, T> {
     fn clone(&self) -> Self {
@@ -1043,7 +1043,7 @@ pub struct OptionFetch<T> {
 }
 
 /// SAFETY: [`OptionFetch`] is read only because `T` is read only
-unsafe impl<'w, T: ReadOnlyFetch<'w>> ReadOnlyFetch<'w> for OptionFetch<T> {}
+unsafe impl<T: ReadOnlyFetch> ReadOnlyFetch for OptionFetch<T> {}
 
 /// The [`FetchState`] of `Option<T>`.
 #[doc(hidden)]
@@ -1298,7 +1298,7 @@ impl<T> Clone for ChangeTrackersFetch<'_, T> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for ChangeTrackersFetch<'w, T> {}
+unsafe impl<'w, T: Component> ReadOnlyFetch for ChangeTrackersFetch<'w, T> {}
 
 impl<'w, T: Component> WorldQueryGats<'w> for ChangeTrackers<T> {
     type Fetch = ChangeTrackersFetch<'w, T>;
@@ -1520,7 +1520,7 @@ macro_rules! impl_tuple_fetch {
         }
 
         /// SAFETY: each item in the tuple is read only
-        unsafe impl<'w, $($name: ReadOnlyFetch<'w>),*> ReadOnlyFetch<'w> for ($($name,)*) {}
+        unsafe impl<'w, $($name: ReadOnlyFetch),*> ReadOnlyFetch for ($($name,)*) {}
 
     };
 }
@@ -1646,7 +1646,7 @@ macro_rules! impl_anytuple_fetch {
         }
 
         /// SAFETY: each item in the tuple is read only
-        unsafe impl<'w, $($name: ReadOnlyFetch<'w>),*> ReadOnlyFetch<'w> for AnyOf<($(($name, bool),)*)> {}
+        unsafe impl<'w, $($name: ReadOnlyFetch),*> ReadOnlyFetch for AnyOf<($(($name, bool),)*)> {}
 
     };
 }

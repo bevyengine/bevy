@@ -385,9 +385,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let read_only_asserts = match fetch_struct_attributes.is_mutable {
         true => quote! {
             // Double-check that the data fetched by `ROQueryFetch` is read-only.
-            // This is technically unnecessary as `<_ as WorldQueryGats<'world>>::ReadOnlyFetch: ReadOnlyFetch<'world>`
+            // This is technically unnecessary as `<_ as WorldQueryGats<'world>>::ReadOnlyFetch: ReadOnlyFetch`
             // but to protect against future mistakes we assert the assoc type implements `ReadOnlyFetch` anyway
-            #( assert_readonly::<'__w, #path::query::ROQueryFetch<'__w, #field_types>>(); )*
+            #( assert_readonly::<#path::query::ROQueryFetch<'__w, #field_types>>(); )*
         },
         false => quote! {
             // Statically checks that the safety guarantee of `ReadOnlyFetch` for `$fetch_struct_name` actually holds true.
@@ -397,7 +397,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             // #[derive(WorldQuery)]
             // pub struct Foo { a: &'static mut MyComponent }
             // ```
-            #( assert_readonly::<'__w, #path::query::QueryFetch<'__w, #field_types>>(); )*
+            #( assert_readonly::<#path::query::QueryFetch<'__w, #field_types>>(); )*
         },
     };
 
@@ -423,14 +423,14 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         }
 
         /// SAFETY: each item in the struct is read only
-        unsafe impl #user_impl_generics_with_world #path::query::ReadOnlyFetch<'__w>
+        unsafe impl #user_impl_generics_with_world #path::query::ReadOnlyFetch
             for #read_only_fetch_struct_name #user_ty_generics_with_world #user_where_clauses_with_world {}
 
         #[allow(dead_code)]
         const _: () = {
-            fn assert_readonly<'w, T>()
+            fn assert_readonly<T>()
             where
-                T: #path::query::ReadOnlyFetch<'w>,
+                T: #path::query::ReadOnlyFetch,
             {
             }
 

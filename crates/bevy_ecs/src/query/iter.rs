@@ -283,8 +283,8 @@ where
 impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
-    QueryFetch<'w, Q>: Clone + ReadOnlyFetch<'w>,
-    for<'x> QueryFetch<'x, F>: Clone + FilterFetch<'x> + ReadOnlyFetch<'x>,
+    QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
+    for<'x> QueryFetch<'x, F>: Clone + FilterFetch<'x> + ReadOnlyFetch,
 {
     type Item = [QueryItem<'w, Q>; K];
 

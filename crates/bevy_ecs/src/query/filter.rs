@@ -185,7 +185,7 @@ impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
 }
 
 // SAFETY: no component access or archetype component access
-unsafe impl<T: Component> ReadOnlyFetch<'_> for WithFetch<T> {}
+unsafe impl<T: Component> ReadOnlyFetch for WithFetch<T> {}
 
 impl<T> Clone for WithFetch<T> {
     fn clone(&self) -> Self {
@@ -330,7 +330,7 @@ impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
 }
 
 // SAFETY: no component access or archetype component access
-unsafe impl<T: Component> ReadOnlyFetch<'_> for WithoutFetch<T> {}
+unsafe impl<T: Component> ReadOnlyFetch for WithoutFetch<T> {}
 
 impl<T> Clone for WithoutFetch<T> {
     fn clone(&self) -> Self {
@@ -508,7 +508,7 @@ macro_rules! impl_query_filter_tuple {
         }
 
         // SAFE: filters are read only
-        unsafe impl<'w, $($filter: FilterFetch<'w>),*> ReadOnlyFetch<'w> for Or<($(OrFetch<'w, $filter>,)*)> {}
+        unsafe impl<'w, $($filter: FilterFetch<'w>),*> ReadOnlyFetch for Or<($(OrFetch<'w, $filter>,)*)> {}
     };
 }
 
@@ -663,7 +663,7 @@ macro_rules! impl_tick_filter {
         }
 
         /// SAFETY: read-only access
-        unsafe impl<'w, T: Component> ReadOnlyFetch<'w> for $fetch_name<'w, T> {}
+        unsafe impl<'w, T: Component> ReadOnlyFetch for $fetch_name<'w, T> {}
 
         impl<T> Clone for $fetch_name<'_, T> {
             fn clone(&self) -> Self {

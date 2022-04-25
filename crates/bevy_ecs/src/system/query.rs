@@ -1162,7 +1162,7 @@ pub enum QuerySingleError {
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
     for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch<'x>,
+    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch,
 {
     /// Returns the query result for the given [`Entity`], with the actual "inner" world lifetime.
     ///
