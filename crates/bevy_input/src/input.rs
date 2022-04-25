@@ -147,25 +147,216 @@ where
 
 #[cfg(test)]
 mod test {
+    use crate::Input;
+
+    /// Used for testing the functionality of [`Input`].
+    #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+    enum DummyInput {
+        Input1,
+        Input2,
+    }
 
     #[test]
-    fn input_test() {
-        use crate::Input;
+    fn test_press() {
+        let mut input = Input::default();
+        assert!(!input.pressed.contains(&DummyInput::Input1));
+        assert!(!input.just_pressed.contains(&DummyInput::Input1));
+        input.press(DummyInput::Input1);
+        assert!(input.just_pressed.contains(&DummyInput::Input1));
+        assert!(input.pressed.contains(&DummyInput::Input1));
+    }
 
-        /// Used for testing `Input` functionality
-        #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-        enum DummyInput {
-            Input1,
-            Input2,
+    #[test]
+    fn test_pressed() {
+        let mut input = Input::default();
+        assert!(!input.pressed(DummyInput::Input1));
+        input.press(DummyInput::Input1);
+        assert!(input.pressed(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_any_pressed() {
+        let mut input = Input::default();
+        assert!(!input.any_pressed([DummyInput::Input1]));
+        assert!(!input.any_pressed([DummyInput::Input2]));
+        assert!(!input.any_pressed([DummyInput::Input1, DummyInput::Input2]));
+        input.press(DummyInput::Input1);
+        assert!(input.any_pressed([DummyInput::Input1]));
+        assert!(!input.any_pressed([DummyInput::Input2]));
+        assert!(input.any_pressed([DummyInput::Input1, DummyInput::Input2]));
+    }
+
+    #[test]
+    fn test_release() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        assert!(input.pressed.contains(&DummyInput::Input1));
+        assert!(!input.just_released.contains(&DummyInput::Input1));
+        input.release(DummyInput::Input1);
+        assert!(!input.pressed.contains(&DummyInput::Input1));
+        assert!(input.just_released.contains(&DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_just_pressed() {
+        let mut input = Input::default();
+        assert!(!input.just_pressed(DummyInput::Input1));
+        input.press(DummyInput::Input1);
+        assert!(input.just_pressed(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_any_just_pressed() {
+        let mut input = Input::default();
+        assert!(!input.any_just_pressed([DummyInput::Input1]));
+        assert!(!input.any_just_pressed([DummyInput::Input2]));
+        assert!(!input.any_just_pressed([DummyInput::Input1, DummyInput::Input2]));
+        input.press(DummyInput::Input1);
+        assert!(input.any_just_pressed([DummyInput::Input1]));
+        assert!(!input.any_just_pressed([DummyInput::Input2]));
+        assert!(input.any_just_pressed([DummyInput::Input1, DummyInput::Input2]));
+    }
+
+    #[test]
+    fn test_clear_just_pressed() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        assert!(input.just_pressed(DummyInput::Input1));
+        input.clear_just_pressed(DummyInput::Input1);
+        assert!(!input.just_pressed(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_just_released() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        assert!(!input.just_released(DummyInput::Input1));
+        input.release(DummyInput::Input1);
+        assert!(input.just_released(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_any_just_released() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        assert!(!input.any_just_released([DummyInput::Input1]));
+        assert!(!input.any_just_released([DummyInput::Input2]));
+        assert!(!input.any_just_released([DummyInput::Input1, DummyInput::Input2]));
+        input.release(DummyInput::Input1);
+        assert!(input.any_just_released([DummyInput::Input1]));
+        assert!(!input.any_just_released([DummyInput::Input2]));
+        assert!(input.any_just_released([DummyInput::Input1, DummyInput::Input2]));
+    }
+
+    #[test]
+    fn test_clear_just_released() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        input.release(DummyInput::Input1);
+        assert!(input.just_released(DummyInput::Input1));
+        input.clear_just_released(DummyInput::Input1);
+        assert!(!input.just_released(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_reset() {
+        let mut input = Input::default();
+
+        // Pressed
+        input.press(DummyInput::Input1);
+        assert!(input.pressed(DummyInput::Input1));
+        assert!(input.just_pressed(DummyInput::Input1));
+        assert!(!input.just_released(DummyInput::Input1));
+        input.reset(DummyInput::Input1);
+        assert!(!input.pressed(DummyInput::Input1));
+        assert!(!input.just_pressed(DummyInput::Input1));
+        assert!(!input.just_released(DummyInput::Input1));
+
+        // Released
+        input.press(DummyInput::Input1);
+        input.release(DummyInput::Input1);
+        assert!(!input.pressed(DummyInput::Input1));
+        assert!(input.just_pressed(DummyInput::Input1));
+        assert!(input.just_released(DummyInput::Input1));
+        input.reset(DummyInput::Input1);
+        assert!(!input.pressed(DummyInput::Input1));
+        assert!(!input.just_pressed(DummyInput::Input1));
+        assert!(!input.just_released(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut input = Input::default();
+
+        // Pressed
+        input.press(DummyInput::Input1);
+        assert!(input.pressed(DummyInput::Input1));
+        assert!(input.just_pressed(DummyInput::Input1));
+        assert!(!input.just_released(DummyInput::Input1));
+        input.clear();
+        assert!(input.pressed(DummyInput::Input1));
+        assert!(!input.just_pressed(DummyInput::Input1));
+        assert!(!input.just_released(DummyInput::Input1));
+
+        // Released
+        input.press(DummyInput::Input1);
+        input.release(DummyInput::Input1);
+        assert!(!input.pressed(DummyInput::Input1));
+        assert!(!input.just_pressed(DummyInput::Input1));
+        assert!(input.just_released(DummyInput::Input1));
+        input.clear();
+        assert!(!input.pressed(DummyInput::Input1));
+        assert!(!input.just_pressed(DummyInput::Input1));
+        assert!(!input.just_released(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_get_pressed() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+        let pressed = input.get_pressed();
+        assert_eq!(pressed.len(), 2);
+        for pressed_input in pressed {
+            assert!(input.pressed.contains(pressed_input));
         }
+    }
 
+    #[test]
+    fn test_get_just_pressed() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+        let just_pressed = input.get_just_pressed();
+        assert_eq!(just_pressed.len(), 2);
+        for just_pressed_input in just_pressed {
+            assert!(input.just_pressed.contains(just_pressed_input));
+        }
+    }
+
+    #[test]
+    fn test_get_just_released() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+        input.release(DummyInput::Input1);
+        input.release(DummyInput::Input2);
+        let just_released = input.get_just_released();
+        assert_eq!(just_released.len(), 2);
+        for just_released_input in just_released {
+            assert!(input.just_released.contains(just_released_input));
+        }
+    }
+
+    #[test]
+    fn test_general_input_handling() {
         let mut input = Input::default();
 
         // Test pressing
         input.press(DummyInput::Input1);
         input.press(DummyInput::Input2);
 
-        // Check if they were "just pressed" (pressed on this update)
+        // Check if they were `just_pressed` (pressed on this update)
         assert!(input.just_pressed(DummyInput::Input1));
         assert!(input.just_pressed(DummyInput::Input2));
 
@@ -173,12 +364,10 @@ mod test {
         assert!(input.pressed(DummyInput::Input1));
         assert!(input.pressed(DummyInput::Input2));
 
-        // Clear the `input`, removing just pressed and just released
+        // Clear the `input`, removing `just_pressed` and `just_released`
         input.clear();
 
-        // After calling clear, inputs should still be pressed but not be just_pressed
-
-        // Check if they're marked "just pressed"
+        // Check if they're marked `just_pressed`
         assert!(!input.just_pressed(DummyInput::Input1));
         assert!(!input.just_pressed(DummyInput::Input2));
 
@@ -190,7 +379,7 @@ mod test {
         input.release(DummyInput::Input1);
         input.release(DummyInput::Input2);
 
-        // Check if they're marked as "just released" (released on this update)
+        // Check if they're marked as `just_released` (released on this update)
         assert!(input.just_released(DummyInput::Input1));
         assert!(input.just_released(DummyInput::Input2));
 
@@ -205,19 +394,18 @@ mod test {
         assert!(!input.just_released(DummyInput::Input1));
         assert!(!input.just_released(DummyInput::Input2));
 
-        // Set up an `Input` to test resetting.
+        // Set up an `Input` to test resetting
         let mut input = Input::default();
 
         input.press(DummyInput::Input1);
         input.release(DummyInput::Input2);
 
-        // Reset the `Input` and test it was reset correctly.
+        // Reset the `Input` and test if it was reset correctly
         input.reset(DummyInput::Input1);
         input.reset(DummyInput::Input2);
 
         assert!(!input.just_pressed(DummyInput::Input1));
         assert!(!input.pressed(DummyInput::Input1));
-
         assert!(!input.just_released(DummyInput::Input2));
     }
 }
