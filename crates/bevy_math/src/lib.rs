@@ -1,5 +1,11 @@
-pub use glam::*;
+//! Provides math types and functionality for the Bevy game engine.
+//!
+//! The commonly used types are vectors like [`Vec2`] and [`Vec3`] and
+//! matrices like [`Mat3`] and [`Mat4`].
 
+#![warn(missing_docs)]
+
+/// The `bevy_math` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -7,3 +13,5 @@ pub mod prelude {
         Vec2, Vec3, Vec4,
     };
 }
+
+pub use glam::*;
