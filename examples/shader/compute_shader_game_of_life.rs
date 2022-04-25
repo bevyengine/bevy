@@ -8,7 +8,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         RenderApp, RenderStage,
     },
-    window::WindowDescriptor,
+    window::{WindowDescriptor, PresentMode},
 };
 use std::borrow::Cow;
 
@@ -19,8 +19,10 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(WindowDescriptor {
-            // uncomment for unthrottled FPS
-            // vsync: false,
+            // uncomment one for unthrottled FPS
+            // if it doesn't work try the other one
+            //present_mode: PresentMode::Mailbox,
+            //present_mode: PresentMode::Immediate,
             ..default()
         })
         .add_plugins(DefaultPlugins)
