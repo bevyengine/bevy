@@ -157,8 +157,8 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         self.spawn_on_scope(f);
     }
 
-    /// Spawns a scoped future that runs on the thread the scope called from. The 
-    /// scope *must* outlive the provided future. The results of the future will be 
+    /// Spawns a scoped future that runs on the thread the scope called from. The
+    /// scope *must* outlive the provided future. The results of the future will be
     /// returned as a part of [`TaskPool::scope`]'s return value.
     ///
     /// For more information, see [`TaskPool::scope`].
