@@ -104,7 +104,8 @@ impl Diagnostic {
         self.measurement().map(|measurement| measurement.value)
     }
 
-    /// If this diagnostic has more than one value, return the average.
+    /// Return the mean (average) of this diagnostic's values.
+    /// N.B. this a cheap operation as the sum is cached.
     pub fn average(&self) -> Option<f64> {
         if !self.history.is_empty() {
             Some(self.sum / self.history.len() as f64)
