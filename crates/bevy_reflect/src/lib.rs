@@ -478,6 +478,40 @@ mod tests {
             assert_eq!(result, vec3(12.0, 3.0, -6.9));
         }
 
-        // Tests: Paths, Dynamic Construction,
+        #[test]
+        fn vec3_field_access() {
+            let mut v = vec3(1.0, 2.0, 3.0);
+
+            assert_eq!(*v.get_field::<f32>("x").unwrap(), 1.0);
+
+            *v.get_field_mut::<f32>("y").unwrap() = 6.0;
+
+            assert_eq!(v.y, 6.0);
+        }
+
+        #[test]
+        fn vec3_path_access() {
+            let mut v = vec3(1.0, 2.0, 3.0);
+
+            assert_eq!(*v.path("x").unwrap().downcast_ref::<f32>().unwrap(), 1.0);
+
+            *v.path_mut("y").unwrap().downcast_mut::<f32>().unwrap() = 6.0;
+
+            assert_eq!(v.y, 6.0);
+        }
+
+        #[test]
+        fn vec3_apply_dynamic() {
+            let mut v = vec3(3.0, 3.0, 3.0);
+
+            let mut d = DynamicStruct::default();
+            d.insert("x", 4.0f32);
+            d.insert("y", 2.0f32);
+            d.insert("z", 1.0f32);
+
+            v.apply(&d);
+
+            assert_eq!(v, vec3(4.0, 2.0, 1.0));
+        }
     }
 }
