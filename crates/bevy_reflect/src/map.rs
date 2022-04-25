@@ -147,6 +147,16 @@ unsafe impl Reflect for DynamicMap {
         self
     }
 
+    #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         if let ReflectRef::Map(map_value) = value.reflect_ref() {
             for (key, value) in map_value.iter() {

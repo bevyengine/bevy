@@ -110,6 +110,14 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
         self
     }
 
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         crate::list_apply(self, value);
     }
@@ -220,6 +228,14 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         self
     }
 
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         if let ReflectRef::Map(map_value) = value.reflect_ref() {
             for (key, value) in map_value.iter() {
@@ -301,6 +317,14 @@ unsafe impl Reflect for Cow<'static, str> {
     }
 
     fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
         self
     }
 

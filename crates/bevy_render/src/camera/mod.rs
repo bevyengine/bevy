@@ -12,6 +12,8 @@ use crate::{
     view::{ComputedVisibility, Visibility, VisibleEntities},
 };
 use bevy_app::{App, CoreStage, Plugin};
+use bevy_ecs::schedule::ParallelSystemDescriptorCoercion;
+use bevy_window::ModifiesWindows;
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -32,11 +34,11 @@ impl Plugin for CameraPlugin {
             .register_type::<Camera2d>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                crate::camera::camera_system::<OrthographicProjection>,
+                crate::camera::camera_system::<OrthographicProjection>.after(ModifiesWindows),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                crate::camera::camera_system::<PerspectiveProjection>,
+                crate::camera::camera_system::<PerspectiveProjection>.after(ModifiesWindows),
             )
             .add_plugin(CameraTypePlugin::<Camera3d>::default())
             .add_plugin(CameraTypePlugin::<Camera2d>::default());
