@@ -423,4 +423,19 @@ mod tests {
             std::any::type_name::<TestTupleStruct>()
         );
     }
+
+    #[test]
+    fn as_reflect() {
+        trait TestTrait: Reflect {}
+
+        #[derive(Reflect)]
+        struct TestStruct;
+
+        impl TestTrait for TestStruct {}
+
+        let trait_object: Box<dyn TestTrait> = Box::new(TestStruct);
+
+        // Should compile:
+        let _ = trait_object.as_reflect();
+    }
 }
