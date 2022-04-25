@@ -39,7 +39,7 @@ pub enum MouseButton {
     Right,
     /// The middle mouse button.
     Middle,
-    /// Another mouse button the associated number.
+    /// Another mouse button with the associated number.
     Other(u16),
 }
 
@@ -49,11 +49,13 @@ pub enum MouseButton {
 /// It is available to the end user and can be used for game logic.
 #[derive(Debug, Clone)]
 pub struct MouseMotion {
-    /// The delta of the previous and current mouse position.
+    /// The delta of the previous and current mouse positions.
     pub delta: Vec2,
 }
 
-/// A description of how a value of a [`MouseWheel`](crate::mouse::MouseWheel) event has to be interpreted.
+/// The scroll unit.
+///
+/// Describes how a value of a [`MouseWheel`](crate::mouse::MouseWheel) event has to be interpreted.
 ///
 /// The value of the event can either be interpreted as the amount of lines or the amount of pixels
 /// to scroll.
