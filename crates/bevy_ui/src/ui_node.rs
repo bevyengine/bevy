@@ -1,6 +1,7 @@
+use crate::Size;
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Size, Vec2};
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::{
     color::Color,

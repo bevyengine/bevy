@@ -29,11 +29,66 @@ impl Default for Time {
 
 impl Time {
     /// Updates the internal time measurements.
+    ///
+    /// Calling this method on the [`Time`] resource as part of your app will most likely result in
+    /// inaccurate timekeeping, as the resource is ordinarily managed by the
+    /// [`CorePlugin`](crate::CorePlugin).
     pub fn update(&mut self) {
         self.update_with_instant(Instant::now());
     }
 
-    pub(crate) fn update_with_instant(&mut self, instant: Instant) {
+    /// Update time with a specified [`Instant`]
+    ///
+    /// This method is provided for use in tests. Calling this method on the [`Time`] resource as
+    /// part of your app will most likely result in inaccurate timekeeping, as the resource is
+    /// ordinarily managed by the [`CorePlugin`](crate::CorePlugin).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_core::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_utils::Duration;
+    /// # fn main () {
+    /// #     test_health_system();
+    /// # }
+    /// struct Health {
+    ///     // Health value between 0.0 and 1.0
+    ///     health_value: f32,
+    /// }
+    ///
+    /// fn health_system(time: Res<Time>, mut health: ResMut<Health>) {
+    ///     // Increase health value by 0.1 per second, independent of frame rate,
+    ///     // but not beyond 1.0
+    ///     health.health_value = (health.health_value + 0.1 * time.delta_seconds()).min(1.0);
+    /// }
+    ///
+    /// // Mock time in tests
+    /// fn test_health_system() {
+    ///     let mut world = World::default();
+    ///     let mut time = Time::default();
+    ///     time.update();
+    ///     world.insert_resource(time);
+    ///     world.insert_resource(Health { health_value: 0.2 });
+    ///
+    ///     let mut update_stage = SystemStage::single_threaded();
+    ///     update_stage.add_system(health_system);
+    ///
+    ///     // Simulate that 30 ms have passed
+    ///     let mut time = world.resource_mut::<Time>();
+    ///     let last_update = time.last_update().unwrap();
+    ///     time.update_with_instant(last_update + Duration::from_millis(30));
+    ///
+    ///     // Run system
+    ///     update_stage.run(&mut world);
+    ///
+    ///     // Check that 0.003 has been added to the health value
+    ///     let expected_health_value = 0.2 + 0.1 * 0.03;
+    ///     let actual_health_value = world.resource::<Health>().health_value;
+    ///     assert_eq!(expected_health_value, actual_health_value);
+    /// }
+    /// ```
+    pub fn update_with_instant(&mut self, instant: Instant) {
         if let Some(last_update) = self.last_update {
             self.delta = instant - last_update;
             self.delta_seconds_f64 = self.delta.as_secs_f64();

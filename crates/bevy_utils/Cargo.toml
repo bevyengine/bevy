@@ -11,7 +11,7 @@ keywords = ["bevy"]
 [dependencies]
 bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
 ahash = "0.7.0"
-tracing = {version = "0.1", features = ["release_max_level_info"]}
+tracing = { version = "0.1" }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 uuid = { version = "0.8", features = ["v4", "serde"] }
 hashbrown = { version = "0.11", features = ["serde"] }
