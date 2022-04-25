@@ -920,6 +920,11 @@ fn run_once(mut app: App) {
     app.update();
 }
 
-/// An event that indicates the [`App`] should exit. This will fully exit the app process.
+/// An event that indicates the [`App`] should exit. This will fully exit the app process at the
+/// start of the next tick of the schedule.
+///
+/// You can also use this event to detect that an exit was requested. In order to receive it, systems
+/// subscribing to this event should run after it was emitted and before the schedule of the same
+/// frame is over.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;

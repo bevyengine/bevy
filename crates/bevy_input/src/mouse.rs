@@ -1,4 +1,4 @@
-use crate::{ElementState, Input};
+use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
 use bevy_math::Vec2;
 
@@ -6,7 +6,7 @@ use bevy_math::Vec2;
 #[derive(Debug, Clone)]
 pub struct MouseButtonInput {
     pub button: MouseButton,
-    pub state: ElementState,
+    pub state: ButtonState,
 }
 
 /// A button on a mouse device
@@ -49,8 +49,8 @@ pub fn mouse_button_input_system(
     mouse_button_input.clear();
     for event in mouse_button_input_events.iter() {
         match event.state {
-            ElementState::Pressed => mouse_button_input.press(event.button),
-            ElementState::Released => mouse_button_input.release(event.button),
+            ButtonState::Pressed => mouse_button_input.press(event.button),
+            ButtonState::Released => mouse_button_input.release(event.button),
         }
     }
 }

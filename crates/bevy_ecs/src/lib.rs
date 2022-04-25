@@ -56,12 +56,11 @@ mod tests {
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
-    use parking_lot::Mutex;
     use std::{
         any::TypeId,
         sync::{
             atomic::{AtomicUsize, Ordering},
-            Arc,
+            Arc, Mutex,
         },
     };
 
@@ -383,11 +382,11 @@ mod tests {
         world
             .query::<(Entity, &A)>()
             .par_for_each(&world, &task_pool, 2, |(e, &A(i))| {
-                results.lock().push((e, i));
+                results.lock().unwrap().push((e, i));
             });
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }
@@ -407,11 +406,11 @@ mod tests {
             &world,
             &task_pool,
             2,
-            |(e, &SparseStored(i))| results.lock().push((e, i)),
+            |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
         );
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }

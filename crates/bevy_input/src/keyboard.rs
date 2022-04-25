@@ -1,4 +1,4 @@
-use crate::{ElementState, Input};
+use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
 
 /// A keyboard input event.
@@ -17,7 +17,7 @@ pub struct KeyboardInput {
     /// The key code of the key.
     pub key_code: Option<KeyCode>,
     /// The press state of the key.
-    pub state: ElementState,
+    pub state: ButtonState,
 }
 
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.
@@ -39,8 +39,8 @@ pub fn keyboard_input_system(
         } = event
         {
             match state {
-                ElementState::Pressed => keyboard_input.press(*key_code),
-                ElementState::Released => keyboard_input.release(*key_code),
+                ButtonState::Pressed => keyboard_input.press(*key_code),
+                ButtonState::Released => keyboard_input.release(*key_code),
             }
         }
     }

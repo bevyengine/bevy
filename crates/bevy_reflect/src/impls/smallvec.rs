@@ -64,6 +64,14 @@ where
         self
     }
 
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         crate::list_apply(self, value);
     }
