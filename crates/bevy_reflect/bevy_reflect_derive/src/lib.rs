@@ -575,59 +575,94 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     )
 }
 
-#[proc_macro]
-pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenStream {
-    let mut iter = input.into_iter().peekable();
-    let (r#constructor, ctor) = (iter.next().unwrap(), iter.next().unwrap());
-    match r#constructor {
-        proc_macro::TokenTree::Ident(i) => {
-            if i.to_string() != "Constructor" {
-                panic!("Invalid constructor syntax")
+struct ReflectStructDef {
+    type_name: Ident,
+    generics: Generics,
+    attrs: ReflectAttrs,
+    fields: Fields,
+    ctor: Option<proc_macro2::TokenStream>,
+    path: Path,
+}
+
+impl Parse for ReflectStructDef {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut ctor = None;
+        let mut path = None;
+        while input.fork().peek(Ident) {
+            let ident = input.parse::<Ident>().unwrap();
+            match &ident.to_string()[..] {
+                "Constructor" => {
+                    let ctor_group = input
+                        .parse::<proc_macro2::Group>()
+                        .expect("Invalid constructor syntax");
+
+                    ctor = Some(ctor_group.stream());
+                }
+                "BevyReflectPath" => {
+                    let path_group = input
+                        .parse::<proc_macro2::Group>()
+                        .expect("Invalid path override syntax");
+
+                    path = Some(path_group.stream());
+                }
+                _ => (),
             }
         }
-        _ => panic!("Invalid constructor syntax"),
-    };
-    let ctor: proc_macro2::TokenStream = match ctor {
-        proc_macro::TokenTree::Group(g) => g.stream(),
-        _ => panic!("Invalid constructor syntax"),
-    }
-    .into();
 
-    let path_override = if let Some(next) = iter.peek() {
-        if match next {
-            proc_macro::TokenTree::Ident(i) => i.to_string() == "BevyReflectPath",
-            _ => false,
-        } {
-            _ = iter.next(); // Discard BevyReflectPath
-            Some(match iter.next() {
-                Some(proc_macro::TokenTree::Group(g)) => g.stream(),
-                _ => panic!("Invalid BevyReflectPath override!"),
-            })
+        let path = if let Some(path) = path {
+            syn::parse(path.into()).expect("Invalid BevyReflectPath override!")
         } else {
-            None
+            BevyManifest::default().get_path("bevy_reflect")
+        };
+
+        let ast = input.parse::<DeriveInput>()?;
+
+        let type_name = ast.ident;
+        let generics = ast.generics;
+        let fields = match ast.data {
+            Data::Struct(data) => data.fields,
+            // I don't believe enum reflection is implemented right now,
+            // and unions are likely not going to be reflected.
+            _ => unimplemented!(),
+        };
+
+        let mut attrs = ReflectAttrs::default();
+        for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+            let meta_list = if let Meta::List(meta_list) = attribute {
+                meta_list
+            } else {
+                continue;
+            };
+
+            if let Some(ident) = meta_list.path.get_ident() {
+                if ident == REFLECT_ATTRIBUTE_NAME || ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+                    attrs = ReflectAttrs::from_nested_metas(&meta_list.nested);
+                }
+            }
         }
-    } else {
-        None
-    };
 
-    let input = iter.collect();
+        Ok(Self {
+            type_name,
+            generics,
+            attrs,
+            fields,
+            ctor,
+            path,
+        })
+    }
+}
 
-    let ast = parse_macro_input!(input as DeriveInput);
+#[proc_macro]
+pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenStream {
+    let ReflectStructDef {
+        type_name,
+        generics,
+        attrs,
+        fields,
+        ctor,
+        path,
+    } = parse_macro_input!(input as ReflectStructDef);
 
-    let bevy_reflect_path = if let Some(r#override) = path_override {
-        syn::parse(r#override).expect("Invalid BevyReflectPath override!")
-    } else {
-        BevyManifest::default().get_path("bevy_reflect")
-    };
-    let ident = &ast.ident;
-    let generics = &ast.generics;
-    let data = match &ast.data {
-        Data::Struct(r#struct) => r#struct,
-        // I don't believe enum reflection is implemented right now,
-        // and unions are likely not going to be reflected.
-        _ => unimplemented!(),
-    };
-    let fields = &data.fields;
     let fields_and_args = fields
         .iter()
         .enumerate()
@@ -677,42 +712,27 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
         .map(|(f, _attr, i)| (*f, *i))
         .collect::<Vec<(&Field, usize)>>();
 
-    let mut reflect_attrs = ReflectAttrs::default();
-    for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
-        let meta_list = if let Meta::List(meta_list) = attribute {
-            meta_list
-        } else {
-            continue;
-        };
-
-        if let Some(ident) = meta_list.path.get_ident() {
-            if ident == REFLECT_ATTRIBUTE_NAME || ident == REFLECT_VALUE_ATTRIBUTE_NAME {
-                reflect_attrs = ReflectAttrs::from_nested_metas(&meta_list.nested);
-            }
-        }
-    }
-
-    let registration_data = &reflect_attrs.data;
+    let registration_data = &attrs.data;
     let get_type_registration_impl =
-        impl_get_type_registration(ident, &bevy_reflect_path, registration_data, generics);
+        impl_get_type_registration(&type_name, &path, registration_data, &generics);
 
     let impl_struct: proc_macro2::TokenStream = impl_struct(
-        ident,
-        generics,
+        &type_name,
+        &generics,
         &get_type_registration_impl,
-        &bevy_reflect_path,
-        &reflect_attrs,
+        &path,
+        &attrs,
         &active_fields,
     )
     .into();
 
     let impl_from_struct: proc_macro2::TokenStream = from_reflect::impl_struct(
-        ident,
-        generics,
-        &bevy_reflect_path,
+        &type_name,
+        &generics,
+        &path,
         &active_fields,
         &ignored_fields,
-        Some(ctor),
+        ctor,
     )
     .into();
 
