@@ -266,7 +266,7 @@ pub enum KeyCode {
     Asterisk,
     /// The `Plus` / `+` key.
     Plus,
-    /// The `At` key.
+    /// The `At` / `@` key.
     At,
     /// The `Ax` key.
     Ax,
