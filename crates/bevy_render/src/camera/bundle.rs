@@ -133,9 +133,18 @@ impl OrthographicCameraBundle<Camera2d> {
     /// corresponding to `Z=+999.9` (closest to camera) to `Z=-0.1` (furthest away from
     /// camera) in world space.
     pub fn new_2d() -> Self {
+        Self::new_2d_with_far(1000.0)
+    }
+
+    /// Create an orthographic projection camera with a custom Z position.
+    ///
+    /// The camera is placed at `Z=far-0.1`, looking toward the world origin `(0,0,0)`.
+    /// Its orthographic projection extends from `0.0` to `-far` in camera view space,
+    /// corresponding to `Z=far-0.1` (closest to camera) to `Z=-0.1` (furthest away from
+    /// camera) in world space.
+    pub fn new_2d_with_far(far: f32) -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
-        let far = 1000.0;
         let orthographic_projection = OrthographicProjection {
             far,
             depth_calculation: DepthCalculation::ZDifference,
