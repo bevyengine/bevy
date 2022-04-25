@@ -1,8 +1,7 @@
 use crate::{
     AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap,
-    JustifyContent, PositionType, Style, UiRect, Val,
+    JustifyContent, PositionType, Size, Style, UiRect, Val,
 };
-use bevy_math::Size;
 
 pub fn from_rect(
     scale_factor: f64,

@@ -1,7 +1,7 @@
-use crate::UiRect;
+use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Size, Vec2};
+use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::{
     color::Color,

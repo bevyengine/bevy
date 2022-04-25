@@ -14,6 +14,8 @@ pub use material::*;
 pub use pbr_material::*;
 pub use render::*;
 
+use bevy_window::ModifiesWindows;
+
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -86,7 +88,8 @@ impl Plugin for PbrPlugin {
                 CoreStage::PostUpdate,
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystem::TransformPropagate)
+                    .after(ModifiesWindows),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

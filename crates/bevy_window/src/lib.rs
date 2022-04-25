@@ -21,7 +21,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::event::Events;
+use bevy_ecs::{event::Events, schedule::SystemLabel};
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,
@@ -74,3 +74,6 @@ impl Plugin for WindowPlugin {
         }
     }
 }
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub struct ModifiesWindows;

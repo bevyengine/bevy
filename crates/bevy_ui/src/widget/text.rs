@@ -1,11 +1,11 @@
-use crate::{CalculatedSize, Style, Val};
+use crate::{CalculatedSize, Size, Style, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
     system::{Local, ParamSet, Query, Res, ResMut},
 };
-use bevy_math::Size;
+use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
@@ -78,7 +78,7 @@ pub fn text_system(
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
-            let node_size = Size::new(
+            let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
                     style.size.width,
@@ -117,8 +117,8 @@ pub fn text_system(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
                     calculated_size.size = Size {
-                        width: scale_value(text_layout_info.size.width, inv_scale_factor),
-                        height: scale_value(text_layout_info.size.height, inv_scale_factor),
+                        width: scale_value(text_layout_info.size.x, inv_scale_factor),
+                        height: scale_value(text_layout_info.size.y, inv_scale_factor),
                     };
                 }
             }

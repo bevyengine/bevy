@@ -44,7 +44,6 @@ pub use audio_source::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::system::IntoExclusiveSystem;
 
 /// Adds support for audio playback to a Bevy Application
 ///
@@ -60,7 +59,7 @@ impl Plugin for AudioPlugin {
             .init_resource::<Audio<AudioSource>>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                play_queued_audio_system::<AudioSource>.exclusive_system(),
+                play_queued_audio_system::<AudioSource>,
             );
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]

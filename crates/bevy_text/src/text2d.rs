@@ -7,7 +7,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Local, ParamSet, Query, Res, ResMut},
 };
-use bevy_math::{Size, Vec3};
+use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
@@ -22,7 +22,7 @@ use crate::{
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Text2dSize {
-    pub size: Size,
+    pub size: Vec2,
 }
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
@@ -35,13 +35,13 @@ pub struct Text2dSize {
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Text2dBounds {
-    pub size: Size,
+    pub size: Vec2,
 }
 
 impl Default for Text2dBounds {
     fn default() -> Self {
         Self {
-            size: Size::new(f32::MAX, f32::MAX),
+            size: Vec2::new(f32::MAX, f32::MAX),
         }
     }
 }
@@ -73,7 +73,7 @@ pub fn extract_text2d_sprite(
         if !visibility.is_visible {
             continue;
         }
-        let (width, height) = (calculated_size.size.width, calculated_size.size.height);
+        let (width, height) = (calculated_size.size.x, calculated_size.size.y);
 
         if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
             let text_glyphs = &text_layout.glyphs;
@@ -161,11 +161,11 @@ pub fn text2d_system(
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, bounds, mut calculated_size)) = query.get_mut(entity) {
             let text_bounds = match bounds {
-                Some(bounds) => Size {
-                    width: scale_value(bounds.size.width, scale_factor),
-                    height: scale_value(bounds.size.height, scale_factor),
-                },
-                None => Size::new(f32::MAX, f32::MAX),
+                Some(bounds) => Vec2::new(
+                    scale_value(bounds.size.x, scale_factor),
+                    scale_value(bounds.size.y, scale_factor),
+                ),
+                None => Vec2::new(f32::MAX, f32::MAX),
             };
             match text_pipeline.queue_text(
                 entity,
@@ -190,10 +190,10 @@ pub fn text2d_system(
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
-                    calculated_size.size = Size {
-                        width: scale_value(text_layout_info.size.width, 1. / scale_factor),
-                        height: scale_value(text_layout_info.size.height, 1. / scale_factor),
-                    };
+                    calculated_size.size = Vec2::new(
+                        scale_value(text_layout_info.size.x, 1. / scale_factor),
+                        scale_value(text_layout_info.size.y, 1. / scale_factor),
+                    );
                 }
             }
         }
