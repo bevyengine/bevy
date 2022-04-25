@@ -1222,6 +1222,11 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R8G8_SNORM => TextureFormat::Rg8Snorm,
         ktx2::Format::R8G8_UINT => TextureFormat::Rg8Uint,
         ktx2::Format::R8G8_SINT => TextureFormat::Rg8Sint,
+        ktx2::Format::R8G8B8_UNORM | ktx2::Format::R8G8B8_SRGB => {
+            return Err(TextureError::FormatRequiresTranscodingError(
+                TranscodeFormat::Rgb8,
+            ));
+        }
         ktx2::Format::R8G8B8A8_UNORM | ktx2::Format::R8G8B8A8_SRGB => {
             if is_srgb {
                 TextureFormat::Rgba8UnormSrgb
