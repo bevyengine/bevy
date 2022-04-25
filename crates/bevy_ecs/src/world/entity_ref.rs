@@ -9,7 +9,7 @@ use crate::{
 };
 use std::any::TypeId;
 
-/// A read-only reference to a particular [Entity] and all of its components
+/// A read-only reference to a particular [`Entity`] and all of its components
 pub struct EntityRef<'w> {
     world: &'w World,
     entity: Entity,
@@ -99,7 +99,7 @@ impl<'w> EntityRef<'w> {
     }
 }
 
-/// A mutable reference to a particular [Entity] and all of its components
+/// A mutable reference to a particular [`Entity`] and all of its components
 pub struct EntityMut<'w> {
     world: &'w mut World,
     entity: Entity,
