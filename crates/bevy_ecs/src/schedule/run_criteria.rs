@@ -42,6 +42,10 @@ pub enum ShouldRun {
 }
 
 impl ShouldRun {
+    /// A run criterion which returns [`ShouldRun::Yes`] exactly once.
+    ///
+    /// This leads to the systems controlled by it only being
+    /// executed one time only.
     pub fn once(mut ran: Local<bool>) -> ShouldRun {
         if *ran {
             ShouldRun::No
