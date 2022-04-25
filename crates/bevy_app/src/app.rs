@@ -921,5 +921,9 @@ fn run_once(mut app: App) {
 }
 
 /// An event that indicates the [`App`] should exit. This will fully exit the app process.
+///
+/// You can also use this event to detect that an exit was requested. In order to receive it, systems
+/// subscribing to this event should run before [`CoreStage::Last`], which is when the app exiting
+/// actually occurs.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;
