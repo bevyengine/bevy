@@ -1,5 +1,5 @@
 //! A test to confirm that `bevy` allows minimising the window
-//! This is run in CI to ensure that this doens't regress again.
+//! This is run in CI to ensure that this doesn't regress again.
 use bevy::prelude::*;
 
 fn main() {
@@ -13,7 +13,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_system(minimise_automatically)
         .add_startup_system(setup_3d)
-        .add_startup_system(setup_rect)
+        .add_startup_system(setup_2d)
         .run();
 }
 
@@ -62,7 +62,7 @@ fn setup_3d(
 }
 
 /// A simple 2d scene, taken from the `rect` example
-fn setup_rect(mut commands: Commands) {
+fn setup_2d(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {

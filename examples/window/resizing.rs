@@ -1,5 +1,5 @@
 //! A test to confirm that `bevy` allows setting the window to arbitrary small sizes
-//! This is run in CI to ensure that this doens't regress again.
+//! This is run in CI to ensure that this doesn't regress again.
 
 use bevy::{input::system::exit_on_esc_system, prelude::*};
 
@@ -7,6 +7,9 @@ use bevy::{input::system::exit_on_esc_system, prelude::*};
 // TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
 const MAX_WIDTH: u16 = 401;
 const MAX_HEIGHT: u16 = 401;
+const MIN_WIDTH: u16 = 1;
+const MIN_HEIGHT: u16 = 1;
+const RESIZE_STEP: u16 = 4;
 
 struct Dimensions {
     width: u16,
@@ -32,7 +35,7 @@ fn main() {
         .add_system(sync_dimensions)
         .add_system(exit_on_esc_system)
         .add_startup_system(setup_3d)
-        .add_startup_system(setup_rect)
+        .add_startup_system(setup_2d)
         .run();
 }
 
@@ -61,31 +64,31 @@ fn change_window_size(
     let width = windows.width;
     match *phase {
         Phase::ContractingY => {
-            if windows.height <= 1 {
+            if height <= MIN_HEIGHT {
                 *phase = ContractingX;
             } else {
-                windows.height -= 4;
+                windows.height -= RESIZE_STEP;
             }
         }
         Phase::ContractingX => {
-            if width <= 1 {
+            if width <= MIN_WIDTH {
                 *phase = ExpandingY;
             } else {
-                windows.width -= 4;
+                windows.width -= RESIZE_STEP;
             }
         }
         Phase::ExpandingY => {
             if height >= MAX_HEIGHT {
                 *phase = ExpandingX;
             } else {
-                windows.height += 4;
+                windows.height += RESIZE_STEP;
             }
         }
         Phase::ExpandingX => {
             if width >= MAX_WIDTH {
                 *phase = ContractingY;
             } else {
-                windows.width += 4;
+                windows.width += RESIZE_STEP;
             }
         }
     }
@@ -137,7 +140,7 @@ fn setup_3d(
 }
 
 /// A simple 2d scene, taken from the `rect` example
-fn setup_rect(mut commands: Commands) {
+fn setup_2d(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
