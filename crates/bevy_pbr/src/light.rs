@@ -489,7 +489,7 @@ fn ndc_position_to_cluster(
     view_z: f32,
 ) -> UVec3 {
     let cluster_dimensions_f32 = cluster_dimensions.as_vec3();
-    let frag_coord = (ndc_p.xy() * OTHER_VEC2_HALF + VEC2_HALF).clamp(Vec2::ZERO, Vec2::ONE);
+    let frag_coord = (ndc_p.xy() * VEC2_HALF_NEGATIVE_Y + VEC2_HALF).clamp(Vec2::ZERO, Vec2::ONE);
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
     let z_slice = view_z_to_z_slice(
         cluster_factors,
@@ -503,7 +503,7 @@ fn ndc_position_to_cluster(
 }
 
 const VEC2_HALF: Vec2 = const_vec2!([0.5, 0.5]);
-const OTHER_VEC2_HALF: Vec2 = const_vec2!([0.5, -0.5]);
+const VEC2_HALF_NEGATIVE_Y: Vec2 = const_vec2!([0.5, -0.5]);
 
 // Calculate bounds for the light using a view space aabb.
 // Returns a (Vec3, Vec3) containing min and max with
