@@ -1,4 +1,4 @@
-use bevy::ecs::{component::Component, entity::Entity, world::World};
+use bevy_ecs::{component::Component, entity::Entity, world::World};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 criterion_group!(

@@ -95,7 +95,8 @@ impl Default for WindowResizeConstraints {
 }
 
 impl WindowResizeConstraints {
-    pub fn check_constraints(&self) -> WindowResizeConstraints {
+    #[must_use]
+    pub fn check_constraints(&self) -> Self {
         let WindowResizeConstraints {
             mut min_width,
             mut min_height,
@@ -365,7 +366,7 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, position: IVec2) {
         self.command_queue
-            .push(WindowCommand::SetPosition { position })
+            .push(WindowCommand::SetPosition { position });
     }
 
     /// Modifies the minimum and maximum window bounds for resizing in logical pixels.

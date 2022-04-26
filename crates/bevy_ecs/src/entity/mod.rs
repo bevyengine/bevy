@@ -199,7 +199,7 @@ impl<'a> core::iter::ExactSizeIterator for ReserveEntitiesIterator<'a> {}
 
 #[derive(Debug, Default)]
 pub struct Entities {
-    pub meta: Vec<EntityMeta>,
+    pub(crate) meta: Vec<EntityMeta>,
 
     /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
     /// that have been freed or are in the process of being allocated:
@@ -540,8 +540,14 @@ impl Entities {
         unsafe {
             self.flush(|_entity, location| {
                 location.archetype_id = ArchetypeId::INVALID;
-            })
+            });
         }
+    }
+
+    /// Accessor for getting the length of the vec in `self.meta`
+    #[inline]
+    pub fn meta_len(&self) -> usize {
+        self.meta.len()
     }
 
     #[inline]
@@ -612,7 +618,7 @@ mod tests {
         unsafe {
             entities.flush(|_entity, _location| {
                 // do nothing ... leaving entity location invalid
-            })
+            });
         };
 
         assert!(entities.contains(e));

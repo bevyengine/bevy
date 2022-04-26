@@ -55,14 +55,6 @@ mod sealed {
     impl Sealed for super::SparseStorage {}
 }
 
-// ECS dependencies cannot derive Component, so we must implement it manually for relevant structs.
-impl<T> Component for bevy_tasks::Task<T>
-where
-    Self: Send + Sync + 'static,
-{
-    type Storage = TableStorage;
-}
-
 /// The storage used for a specific component type.
 ///
 /// # Examples
@@ -179,7 +171,7 @@ pub struct ComponentDescriptor {
 impl ComponentDescriptor {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: *mut u8) {
-        x.cast::<T>().drop_in_place()
+        x.cast::<T>().drop_in_place();
     }
 
     pub fn new<T: Component>() -> Self {

@@ -4,7 +4,7 @@ use crate::{
     bundle::Bundle,
     component::Component,
     entity::{Entities, Entity},
-    world::World,
+    world::{FromWorld, World},
 };
 use bevy_utils::tracing::{error, warn};
 pub use command_queue::CommandQueue;
@@ -17,13 +17,19 @@ pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
-/// A list of commands that modify a [`World`], running at the end of the stage where they
-/// have been invoked.
+/// A list of commands that runs at the end of the stage of the system that called them.
+///
+/// Commands are executed one at a time in an exclusive fashion.
+//// Each command can be used to modify the [`World`] in arbitrary ways:
+/// * spawning or despawning entities
+/// * inserting components on new or existing entities
+/// * inserting resources
+/// * etc.
 ///
 /// # Usage
 ///
-/// `Commands` is a [`SystemParam`](crate::system::SystemParam), therefore it is declared
-/// as a function parameter:
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied at the end of the current stage.
+/// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -33,7 +39,8 @@ pub trait Command: Send + Sync + 'static {
 /// }
 /// ```
 ///
-/// Then, commands can be invoked by calling the methods of `commands`.
+/// Each command is implemented as a separate method.
+/// Check the [`Command`] trait for a list of available commands (or implement your own!).
 pub struct Commands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,
@@ -107,7 +114,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawns a [`Bundle`] without pre-allocating an [`Entity`]. The [`Entity`] will be allocated
     /// when this [`Command`] is applied.
     pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
-        self.queue.push(Spawn { bundle })
+        self.queue.push(Spawn { bundle });
     }
 
     /// Creates a new entity with the components contained in `bundle`.
@@ -261,9 +268,45 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(InsertOrSpawnBatch { bundles_iter });
     }
 
+    /// Inserts a resource with standard starting values to the [`World`].
+    ///
+    /// If the resource already exists, nothing happens.
+    ///
+    /// The value given by the [`FromWorld::from_world`] method will be used.
+    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
+    /// and those default values will be here instead.
+    ///
+    /// See [`World::init_resource`] for more details.
+    /// Note that commands do not take effect immediately.
+    /// When possible, prefer the equivalent methods on `App` or `World`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Default)]
+    /// # struct Scoreboard {
+    /// #     current_score: u32,
+    /// #     high_score: u32,
+    /// # }
+    /// #
+    /// # fn initialise_scoreboard(mut commands: Commands) {
+    /// commands.init_resource::<Scoreboard>();
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
+    /// ```
+    pub fn init_resource<R: Resource + FromWorld>(&mut self) {
+        self.queue.push(InitResource::<R> {
+            _phantom: PhantomData::<R>::default(),
+        });
+    }
+
     /// Inserts a resource to the [`World`], overwriting any previous value of the same type.
     ///
     /// See [`World::insert_resource`] for more details.
+    /// Note that commands do not take effect immediately.
+    /// When possible, prefer the equivalent methods on `App` or `World`.
     ///
     /// # Example
     ///
@@ -283,8 +326,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn insert_resource<T: Resource>(&mut self, resource: T) {
-        self.queue.push(InsertResource { resource })
+    pub fn insert_resource<R: Resource>(&mut self, resource: R) {
+        self.queue.push(InsertResource { resource });
     }
 
     /// Removes a resource from the [`World`].
@@ -306,8 +349,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn remove_resource<T: Resource>(&mut self) {
-        self.queue.push(RemoveResource::<T> {
+    pub fn remove_resource<R: Resource>(&mut self) {
+        self.queue.push(RemoveResource::<R> {
             phantom: PhantomData,
         });
     }
@@ -535,7 +578,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     pub fn despawn(&mut self) {
         self.commands.add(Despawn {
             entity: self.entity,
-        })
+        });
     }
 
     /// Returns the underlying [`Commands`].
@@ -549,7 +592,7 @@ where
     F: FnOnce(&mut World) + Send + Sync + 'static,
 {
     fn write(self, world: &mut World) {
-        self(world)
+        self(world);
     }
 }
 
@@ -713,23 +756,33 @@ where
     }
 }
 
-pub struct InsertResource<T: Resource> {
-    pub resource: T,
+pub struct InitResource<R: Resource + FromWorld> {
+    _phantom: PhantomData<R>,
 }
 
-impl<T: Resource> Command for InsertResource<T> {
+impl<R: Resource + FromWorld> Command for InitResource<R> {
+    fn write(self, world: &mut World) {
+        world.init_resource::<R>();
+    }
+}
+
+pub struct InsertResource<R: Resource> {
+    pub resource: R,
+}
+
+impl<R: Resource> Command for InsertResource<R> {
     fn write(self, world: &mut World) {
         world.insert_resource(self.resource);
     }
 }
 
-pub struct RemoveResource<T: Resource> {
-    pub phantom: PhantomData<T>,
+pub struct RemoveResource<R: Resource> {
+    pub phantom: PhantomData<R>,
 }
 
-impl<T: Resource> Command for RemoveResource<T> {
+impl<R: Resource> Command for RemoveResource<R> {
     fn write(self, world: &mut World) {
-        world.remove_resource::<T>();
+        world.remove_resource::<R>();
     }
 }
 

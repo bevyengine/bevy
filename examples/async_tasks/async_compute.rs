@@ -22,7 +22,9 @@ fn main() {
 // Number of cubes to spawn across the x, y, and z axis
 const NUM_CUBES: u32 = 6;
 
+#[derive(Deref)]
 struct BoxMeshHandle(Handle<Mesh>);
+#[derive(Deref)]
 struct BoxMaterialHandle(Handle<StandardMaterial>);
 
 /// Startup system which runs only once and generates our Box Mesh
@@ -40,6 +42,9 @@ fn add_assets(
     let box_material_handle = materials.add(Color::rgb(1.0, 0.2, 0.3).into());
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
+
+#[derive(Component)]
+struct ComputeTransform(Task<Transform>);
 
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
@@ -64,7 +69,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
                 });
 
                 // Spawn new entity and add our new task as a component
-                commands.spawn().insert(task);
+                commands.spawn().insert(ComputeTransform(task));
             }
         }
     }
@@ -76,22 +81,22 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
 /// removes the task component from the entity.
 fn handle_tasks(
     mut commands: Commands,
-    mut transform_tasks: Query<(Entity, &mut Task<Transform>)>,
+    mut transform_tasks: Query<(Entity, &mut ComputeTransform)>,
     box_mesh_handle: Res<BoxMeshHandle>,
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
     for (entity, mut task) in transform_tasks.iter_mut() {
-        if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
+        if let Some(transform) = future::block_on(future::poll_once(&mut task.0)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
-                mesh: box_mesh_handle.0.clone(),
-                material: box_material_handle.0.clone(),
+                mesh: box_mesh_handle.clone(),
+                material: box_material_handle.clone(),
                 transform,
-                ..Default::default()
+                ..default()
             });
 
             // Task is complete, so remove task component from entity
-            commands.entity(entity).remove::<Task<Transform>>();
+            commands.entity(entity).remove::<ComputeTransform>();
         }
     }
 }
@@ -108,13 +113,13 @@ fn setup_env(mut commands: Commands) {
     // lights
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 12.0, 15.0),
-        ..Default::default()
+        ..default()
     });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

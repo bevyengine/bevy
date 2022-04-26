@@ -35,7 +35,7 @@ use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_phase::AddRenderCommand,
-    render_resource::{Shader, SpecializedPipelines},
+    render_resource::{Shader, SpecializedRenderPipelines},
     RenderApp, RenderStage,
 };
 
@@ -52,11 +52,12 @@ pub enum SpriteSystem {
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+        let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
         app.add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
+            .register_type::<Mesh2dHandle>()
             .add_plugin(Mesh2dRenderPlugin)
             .add_plugin(ColorMaterialPlugin);
 
@@ -64,7 +65,7 @@ impl Plugin for SpritePlugin {
             render_app
                 .init_resource::<ImageBindGroups>()
                 .init_resource::<SpritePipeline>()
-                .init_resource::<SpecializedPipelines<SpritePipeline>>()
+                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<SpriteAssetEvents>()

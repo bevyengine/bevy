@@ -65,6 +65,11 @@ pub mod tasks {
     pub use bevy_tasks::*;
 }
 
+pub mod hierarchy {
+    //! Entity hierarchies and property inheritance
+    pub use bevy_hierarchy::*;
+}
+
 pub mod transform {
     //! Local and global transforms (e.g. translation, scale, rotation).
     pub use bevy_transform::*;
@@ -78,6 +83,12 @@ pub mod utils {
 pub mod window {
     //! Configuration, creation, and management of one or more windows.
     pub use bevy_window::*;
+}
+
+#[cfg(feature = "bevy_animation")]
+pub mod animation {
+    //! Provides types and plugins for animations.
+    pub use bevy_animation::*;
 }
 
 #[cfg(feature = "bevy_audio")]
@@ -113,6 +124,10 @@ pub mod pbr {
 #[cfg(feature = "bevy_render")]
 pub mod render {
     //! Cameras, meshes, textures, shaders, and pipelines.
+    //! Use [`RenderDevice::features`](bevy_render::renderer::RenderDevice::features),
+    //! [`RenderDevice::limits`](bevy_render::renderer::RenderDevice::limits), and the
+    //! [`WgpuAdapterInfo`](bevy_render::render_resource::WgpuAdapterInfo) resource to
+    //! get runtime information about the actual adapter, backend, features, and limits.
     pub use bevy_render::*;
 }
 

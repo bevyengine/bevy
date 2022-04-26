@@ -8,10 +8,10 @@ use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_log::warn;
 use bevy_tasks::TaskPool;
-use bevy_utils::{HashMap, Uuid};
+use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
-use std::{collections::hash_map::Entry, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an `AssetServer`
@@ -92,11 +92,24 @@ impl AssetServer {
         }
     }
 
+    pub fn asset_io(&self) -> &dyn AssetIo {
+        &*self.server.asset_io
+    }
+
     pub(crate) fn register_asset_type<T: Asset>(&self) -> Assets<T> {
-        self.server.asset_lifecycles.write().insert(
-            T::TYPE_UUID,
-            Box::new(AssetLifecycleChannel::<T>::default()),
-        );
+        if self
+            .server
+            .asset_lifecycles
+            .write()
+            .insert(
+                T::TYPE_UUID,
+                Box::new(AssetLifecycleChannel::<T>::default()),
+            )
+            .is_some()
+        {
+            panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
+                std::any::type_name::<T>(), T::TYPE_UUID);
+        }
         Assets::new(self.server.asset_ref_counter.channel.sender.clone())
     }
 
@@ -346,11 +359,11 @@ impl AssetServer {
         });
 
         // load asset dependencies and prepare asset type hashmap
-        for (label, loaded_asset) in load_context.labeled_assets.iter_mut() {
+        for (label, loaded_asset) in &mut load_context.labeled_assets {
             let label_id = LabelId::from(label.as_ref().map(|label| label.as_str()));
             let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
             source_info.asset_types.insert(label_id, type_uuid);
-            for dependency in loaded_asset.dependencies.iter() {
+            for dependency in &loaded_asset.dependencies {
                 self.load_untracked(dependency.clone(), false);
             }
         }
@@ -475,7 +488,7 @@ impl AssetServer {
 
     fn create_assets_in_load_context(&self, load_context: &mut LoadContext) {
         let asset_lifecycles = self.server.asset_lifecycles.read();
-        for (label, asset) in load_context.labeled_assets.iter_mut() {
+        for (label, asset) in &mut load_context.labeled_assets {
             let asset_value = asset
                 .value
                 .take()
@@ -665,7 +678,7 @@ mod test {
                     extensions == vec!["v1.2.3.pong", "2.3.pong", "3.pong", "pong"],
                 _ => false,
             }
-        )
+        );
     }
 
     #[test]
@@ -781,24 +794,18 @@ mod test {
         app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
-            let asset_server = world.get_resource::<AssetServer>().unwrap();
+            let asset_server = world.resource::<AssetServer>();
             let id = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
                 .unwrap();
             asset_server.get_handle_untyped(id)
         }
 
         fn get_asset(id: impl Into<HandleId>, world: &World) -> Option<&PngAsset> {
-            world
-                .get_resource::<Assets<PngAsset>>()
-                .unwrap()
-                .get(id.into())
+            world.resource::<Assets<PngAsset>>().get(id.into())
         }
 
         fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
-            world
-                .get_resource::<AssetServer>()
-                .unwrap()
-                .get_load_state(id.into())
+            world.resource::<AssetServer>().get_load_state(id.into())
         }
 
         // ---

@@ -370,9 +370,9 @@ impl From<Capsule> for Mesh {
         assert_eq!(tris.len(), fs_len);
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vs);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vns);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vts);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vs);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vns);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vts);
         mesh.set_indices(Some(Indices::U32(tris)));
         mesh
     }
