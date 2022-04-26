@@ -638,28 +638,25 @@ impl Parse for ReflectStructDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut ctor = None;
         let mut path = None;
-        while input.fork().peek(Ident) {
-            let ident = input.fork().parse::<Ident>().unwrap();
-            match &ident.to_string()[..] {
-                "Constructor" => {
-                    input.parse::<Ident>().unwrap();
 
-                    let ctor_group = input
-                        .parse::<proc_macro2::Group>()
-                        .expect("Invalid constructor syntax");
+        syn::custom_keyword!(Constructor);
+        syn::custom_keyword!(BevyReflectPath);
 
-                    ctor = Some(ctor_group.stream());
-                }
-                "BevyReflectPath" => {
-                    input.parse::<Ident>().unwrap();
+        loop {
+            if input.parse::<Constructor>().is_ok() {
+                let ctor_group = input
+                .parse::<proc_macro2::Group>()
+                .expect("Invalid constructor syntax");
 
-                    let path_group = input
-                        .parse::<proc_macro2::Group>()
-                        .expect("Invalid path override syntax");
+                ctor = Some(ctor_group.stream());
+            } else if input.parse::<BevyReflectPath>().is_ok() {
+                let path_group = input
+                .parse::<proc_macro2::Group>()
+                .expect("Invalid path override syntax");
 
-                    path = Some(path_group.stream());
-                }
-                _ => (),
+                path = Some(path_group.stream());
+            } else {
+                break;
             }
         }
 
