@@ -28,6 +28,11 @@ path = "benches/bevy_ecs/stages.rs"
 harness = false
 
 [[bench]]
+name = "run_criteria"
+path = "benches/bevy_ecs/run_criteria.rs"
+harness = false
+
+[[bench]]
 name = "commands"
 path = "benches/bevy_ecs/commands.rs"
 harness = false
