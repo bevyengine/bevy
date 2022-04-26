@@ -1,6 +1,6 @@
 use crate::{Window, WindowCloseRequested, WindowFocused, WindowId, Windows};
+
 use bevy_app::AppExit;
-// use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::prelude::*;
 use bevy_input::{keyboard::KeyCode, Input};
 
