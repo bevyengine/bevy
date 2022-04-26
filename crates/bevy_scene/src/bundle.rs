@@ -43,8 +43,7 @@ pub struct SceneBundle {
 }
 
 /// System that will spawn scenes from [`SceneBundle`].
-#[allow(clippy::type_complexity)]
-pub fn scene_bundle_spawner(
+pub fn scene_spawner(
     mut commands: Commands,
     mut scene_to_spawn: Query<
         (Entity, &Handle<Scene>, Option<&mut SceneInstance>),
@@ -75,8 +74,7 @@ pub struct DynamicSceneBundle {
 }
 
 /// System that will spawn scenes from [`DynamicSceneBundle`].
-#[allow(clippy::type_complexity)]
-pub fn dynamic_scene_bundle_spawner(
+pub fn dynamic_scene_spawner(
     mut commands: Commands,
     mut dynamic_scene_to_spawn: Query<
         (Entity, &Handle<DynamicScene>, Option<&mut SceneInstance>),
