@@ -6,19 +6,24 @@ use bevy_input::{keyboard::KeyCode, Input};
 
 /// Exit the application when there are no open windows.
 ///
-/// This system is added by the [`crate::WindowPlugin`] in the default configuration.
-/// To disable this behaviour, set `close_when_requested` (on the [`crate::WindowPlugin`]) to `false`.
-/// nsure that you read the caveats documented on that field.
+/// This system is added by the [`WindowPlugin`] in the default configuration.
+/// To disable this behaviour, set `close_when_requested` (on the [`WindowPlugin`]) to `false`.
+/// Ensure that you read the caveats documented on that field if doing so.
+///
+/// [`WindowPlugin`]: crate::WindowPlugin
 pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Res<Windows>) {
     if windows.iter().count() == 0 {
         app_exit_events.send(AppExit);
     }
 }
 
-/// Whether to close windows when they are requested to be closed (e.g.  when the close button is pressed).
+/// Close windows in response to [`WindowCloseRequested`] (e.g.  when the close button is pressed).
 ///
-/// By default, this system is added by the [`crate::WindowPlugin`].
-/// To disable this behaviour, set `close_when_requested` (on the [`crate::WindowPlugin`]) to `false`
+/// This system is added by the [`WindowPlugin`] in the default configuration.
+/// To disable this behaviour, set `close_when_requested` (on the [`WindowPlugin`]) to `false`.
+/// Ensure that you read the caveats documented on that field if doing so.
+///
+/// [`WindowPlugin`]: crate::WindowPlugin
 pub fn close_when_requested(
     mut windows: ResMut<Windows>,
     mut closed: EventReader<WindowCloseRequested>,
@@ -28,11 +33,9 @@ pub fn close_when_requested(
     }
 }
 
-// TODO: Consider using the kbd tag here for escape: <kbd>esc</kbd>
-// Currently, it isn't rendered by vscode's hover markdown provider (and the contents are lost)
-/// Close the focused window whenever the escape key is pressed
+/// Close the focused window whenever the escape key (<kbd>Esc</kbd>) is pressed
 ///
-/// This is useful for examples
+/// This is useful for examples or prototyping.
 pub fn close_on_esc(
     mut focused: Local<Option<WindowId>>,
     mut focused_events: EventReader<WindowFocused>,

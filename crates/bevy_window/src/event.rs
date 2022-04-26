@@ -20,12 +20,17 @@ pub struct CreateWindow {
     pub descriptor: WindowDescriptor,
 }
 
-/// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
-/// there have been no window events.
+/// An event that indicates the window should redraw, even if its control flow
+/// is set to [`Wait`] and there have been no window events.
+///
+/// [`Wait`]: crate::PresentMode::Wait
 #[derive(Debug, Clone)]
 pub struct RequestRedraw;
 
 /// An event that is sent whenever a new window is created.
+///
+/// To create a new window, send a [`CreateWindow`] event - this
+/// event will be sent in the handler for that event.
 #[derive(Debug, Clone)]
 pub struct WindowCreated {
     pub id: WindowId,
@@ -47,8 +52,8 @@ pub struct WindowCloseRequested {
     pub id: WindowId,
 }
 
-/// An event that is sent whenever a window is closed.
-/// This will be sent in response to the [`Window::close`] method.
+/// An event that is sent whenever a window is closed. This will be sent by the
+/// handler for [`Window::close`].
 ///
 /// [`Window::close`]: crate::Window::close
 #[derive(Debug, Clone)]
