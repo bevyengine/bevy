@@ -608,20 +608,18 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 }
 
 /// Represents the information needed to implement a type as a Reflect Struct.
-/// TODO: Update this docstring as other suggestions are added
 /// ## Example
 /// ```
 /// impl_reflect_struct_and_from_reflect_struct!(
-///    Constructor(Default::default()) // << ctor
-///    BevyReflectPath(self::bevy_reflect) // << path
-///    #[reflect(PartialEq, Serialize, Deserialize)] // << attrs
-///    //   type_name generics
-///    //      vvv      vvv
-///    //     |---||----------|
-///    struct Thing<T1, T2, T3> {
-///        x: T1, // ]
+///    //               path override                ctor override                       attrs
+///    //        |-------------------------|  |-------------------------|  |-------------------------------|
+///    #[reflect(path = "self::bevy_reflect", ctor = "Default::default()", PartialEq, Serialize, Deserialize)]
+///    //            type_name       generics
+///    //     |-------------------||----------|
+///    struct ThingThatImReflecting<T1, T2, T3> {
+///        x: T1, // |
 ///        y: T2, // |- fields
-///        z: T3  // ]
+///        z: T3  // |
 ///    }
 /// );
 /// ```
@@ -631,41 +629,11 @@ struct ReflectStructDef {
     attrs: ReflectAttrs,
     fields: Fields,
     ctor: Option<proc_macro2::TokenStream>,
-    path: Path,
+    bevy_reflect_path: Option<Path>,
 }
 
 impl Parse for ReflectStructDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut ctor = None;
-        let mut path = None;
-
-        syn::custom_keyword!(Constructor);
-        syn::custom_keyword!(BevyReflectPath);
-
-        loop {
-            if input.parse::<Constructor>().is_ok() {
-                let ctor_group = input
-                    .parse::<proc_macro2::Group>()
-                    .expect("Invalid constructor syntax");
-
-                ctor = Some(ctor_group.stream());
-            } else if input.parse::<BevyReflectPath>().is_ok() {
-                let path_group = input
-                    .parse::<proc_macro2::Group>()
-                    .expect("Invalid path override syntax");
-
-                path = Some(path_group.stream());
-            } else {
-                break;
-            }
-        }
-
-        let path = if let Some(path) = path {
-            syn::parse(path.into()).expect("Invalid BevyReflectPath override!")
-        } else {
-            BevyManifest::default().get_path("bevy_reflect")
-        };
-
         let ast = input.parse::<DeriveInput>()?;
 
         let type_name = ast.ident;
@@ -675,6 +643,9 @@ impl Parse for ReflectStructDef {
             Data::Enum(_) => panic!("Enums are not currently supported for reflection"),
             Data::Union(_) => panic!("Unions are not supported for reflection")
         };
+
+        let mut ctor = None;
+        let mut bevy_reflect_path = None;
 
         let mut attrs = ReflectAttrs::default();
         for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
@@ -686,6 +657,28 @@ impl Parse for ReflectStructDef {
 
             if let Some(ident) = meta_list.path.get_ident() {
                 if ident == REFLECT_ATTRIBUTE_NAME || ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+                    for name_val in meta_list.nested.iter().filter_map(|m| if let NestedMeta::Meta(Meta::NameValue(name_val)) = m { Some(name_val) } else { None }) {
+                        if let Some(syn::PathSegment { ident, arguments: _ }) = name_val.path.segments.first() {
+                            match &ident.to_string()[..] {
+                                "path" => {
+                                    let path_str = match &name_val.lit {
+                                        syn::Lit::Str(s) => s,
+                                        _ => panic!("Invalid path")
+                                    };
+                                    bevy_reflect_path = Some(path_str.parse::<Path>().expect("Invalid path"));
+                                },
+                                "ctor" => {
+                                    let ctor_str = match &name_val.lit {
+                                        syn::Lit::Str(s) => s,
+                                        _ => panic!("Invalid ctor")
+                                    };
+                                    ctor = Some(ctor_str.parse::<proc_macro2::TokenStream>().expect("Invalid ctor code"));
+                                },
+                                _ => ()
+                            }
+                        }
+                    }
+
                     attrs = ReflectAttrs::from_nested_metas(&meta_list.nested);
                 }
             }
@@ -697,7 +690,7 @@ impl Parse for ReflectStructDef {
             attrs,
             fields,
             ctor,
-            path,
+            bevy_reflect_path,
         })
     }
 }
@@ -706,13 +699,16 @@ impl Parse for ReflectStructDef {
 /// the definitions of cannot be altered. It is an alternative to [impl_reflect_value] and
 /// [impl_from_reflect_value] which implement foreign types as Value types. This macro
 /// implements them as Struct types, which have greater functionality.
-/// TODO: update this example as the other suggestions are added
+/// 
+/// The extra ctor tag allows overriding the default construction behavior, which is necessary
+/// for non-constructible foreign types, among other cases.
+/// 
+/// The extra path tag allows overriding the path used to access the bevy_reflect module, which
+/// can be helpful in certain edge cases of invocations of the macro.
 /// ## Example
 /// ```
 /// impl_reflect_struct_and_from_reflect_struct!(
-///    Constructor(Default::default())
-///    BevyReflectPath(self::bevy_reflect)
-///    #[reflect(PartialEq, Serialize, Deserialize)]
+///    #[reflect(ctor = "Default::default()", path = "self::bevy_reflect", PartialEq, Serialize, Deserialize)]
 ///    struct Vec3 {
 ///        x: f32,
 ///        y: f32,
@@ -728,8 +724,14 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
         attrs,
         fields,
         ctor,
-        path,
+        bevy_reflect_path,
     } = parse_macro_input!(input as ReflectStructDef);
+
+    let bevy_reflect_path = if let Some(path) = bevy_reflect_path {
+        path
+    } else {
+        BevyManifest::default().get_path("bevy_reflect")
+    };
 
     let fields_and_args = fields
         .iter()
@@ -782,13 +784,13 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
 
     let registration_data = &attrs.data;
     let get_type_registration_impl =
-        impl_get_type_registration(&type_name, &path, registration_data, &generics);
+        impl_get_type_registration(&type_name, &bevy_reflect_path, registration_data, &generics);
 
     let impl_struct: proc_macro2::TokenStream = impl_struct(
         &type_name,
         &generics,
         &get_type_registration_impl,
-        &path,
+        &bevy_reflect_path,
         &attrs,
         &active_fields,
     )
@@ -797,7 +799,7 @@ pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenS
     let impl_from_struct: proc_macro2::TokenStream = from_reflect::impl_struct(
         &type_name,
         &generics,
-        &path,
+        &bevy_reflect_path,
         &active_fields,
         &ignored_fields,
         ctor,
