@@ -641,7 +641,7 @@ impl Parse for ReflectStructDef {
         let fields = match ast.data {
             Data::Struct(data) => data.fields,
             Data::Enum(_) => panic!("Enums are not currently supported for reflection"),
-            Data::Union(_) => panic!("Unions are not supported for reflection")
+            Data::Union(_) => panic!("Unions are not supported for reflection"),
         };
 
         let mut ctor = None;
@@ -657,24 +657,39 @@ impl Parse for ReflectStructDef {
 
             if let Some(ident) = meta_list.path.get_ident() {
                 if ident == REFLECT_ATTRIBUTE_NAME || ident == REFLECT_VALUE_ATTRIBUTE_NAME {
-                    for name_val in meta_list.nested.iter().filter_map(|m| if let NestedMeta::Meta(Meta::NameValue(name_val)) = m { Some(name_val) } else { None }) {
-                        if let Some(syn::PathSegment { ident, arguments: _ }) = name_val.path.segments.first() {
+                    for name_val in meta_list.nested.iter().filter_map(|m| {
+                        if let NestedMeta::Meta(Meta::NameValue(name_val)) = m {
+                            Some(name_val)
+                        } else {
+                            None
+                        }
+                    }) {
+                        if let Some(syn::PathSegment {
+                            ident,
+                            arguments: _,
+                        }) = name_val.path.segments.first()
+                        {
                             match &ident.to_string()[..] {
                                 "path" => {
                                     let path_str = match &name_val.lit {
                                         syn::Lit::Str(s) => s,
-                                        _ => panic!("Invalid path")
+                                        _ => panic!("Invalid path"),
                                     };
-                                    bevy_reflect_path = Some(path_str.parse::<Path>().expect("Invalid path"));
-                                },
+                                    bevy_reflect_path =
+                                        Some(path_str.parse::<Path>().expect("Invalid path"));
+                                }
                                 "ctor" => {
                                     let ctor_str = match &name_val.lit {
                                         syn::Lit::Str(s) => s,
-                                        _ => panic!("Invalid ctor")
+                                        _ => panic!("Invalid ctor"),
                                     };
-                                    ctor = Some(ctor_str.parse::<proc_macro2::TokenStream>().expect("Invalid ctor code"));
-                                },
-                                _ => ()
+                                    ctor = Some(
+                                        ctor_str
+                                            .parse::<proc_macro2::TokenStream>()
+                                            .expect("Invalid ctor code"),
+                                    );
+                                }
+                                _ => (),
                             }
                         }
                     }
@@ -699,10 +714,10 @@ impl Parse for ReflectStructDef {
 /// the definitions of cannot be altered. It is an alternative to [impl_reflect_value] and
 /// [impl_from_reflect_value] which implement foreign types as Value types. This macro
 /// implements them as Struct types, which have greater functionality.
-/// 
+///
 /// The extra ctor tag allows overriding the default construction behavior, which is necessary
 /// for non-constructible foreign types, among other cases.
-/// 
+///
 /// The extra path tag allows overriding the path used to access the bevy_reflect module, which
 /// can be helpful in certain edge cases of invocations of the macro.
 /// ## Example
