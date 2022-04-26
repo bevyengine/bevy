@@ -639,9 +639,11 @@ impl Parse for ReflectStructDef {
         let mut ctor = None;
         let mut path = None;
         while input.fork().peek(Ident) {
-            let ident = input.parse::<Ident>().unwrap();
+            let ident = input.fork().parse::<Ident>().unwrap();
             match &ident.to_string()[..] {
                 "Constructor" => {
+                    input.parse::<Ident>().unwrap();
+
                     let ctor_group = input
                         .parse::<proc_macro2::Group>()
                         .expect("Invalid constructor syntax");
@@ -649,6 +651,8 @@ impl Parse for ReflectStructDef {
                     ctor = Some(ctor_group.stream());
                 }
                 "BevyReflectPath" => {
+                    input.parse::<Ident>().unwrap();
+
                     let path_group = input
                         .parse::<proc_macro2::Group>()
                         .expect("Invalid path override syntax");
