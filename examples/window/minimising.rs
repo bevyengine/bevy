@@ -1,9 +1,6 @@
-use std::time::Duration;
-
+//! A test to confirm that `bevy` allows minimising the window
+//! This is run in CI to ensure that this doens't regress again.
 use bevy::prelude::*;
-
-#[derive(Deref, DerefMut)]
-struct MinimiseTimer(Timer);
 
 fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
@@ -13,7 +10,6 @@ fn main() {
             title: "Minimising".into(),
             ..Default::default()
         })
-        .insert_resource(MinimiseTimer(Timer::new(Duration::from_secs(2), false)))
         .add_plugins(DefaultPlugins)
         .add_system(minimise_automatically)
         .add_startup_system(setup_3d)
@@ -21,13 +17,11 @@ fn main() {
         .run();
 }
 
-fn minimise_automatically(
-    mut windows: ResMut<Windows>,
-    mut timer: ResMut<MinimiseTimer>,
-    time: Res<Time>,
-) {
-    if timer.tick(time.delta()).just_finished() {
+fn minimise_automatically(mut windows: ResMut<Windows>, mut frames: Local<u32>) {
+    if *frames == 60 {
         windows.get_primary_mut().unwrap().set_minimized(true);
+    } else {
+        *frames += 1;
     }
 }
 

@@ -1,7 +1,10 @@
+//! A test to confirm that `bevy` allows setting the window to arbitrary small sizes
+//! This is run in CI to ensure that this doens't regress again.
+
 use bevy::{input::system::exit_on_esc_system, prelude::*};
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
-// TODO: Add a test for platforms other than X11 for 0x0, despite those currently unsupported on CI.
+// TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
 const MAX_WIDTH: u16 = 401;
 const MAX_HEIGHT: u16 = 401;
 
