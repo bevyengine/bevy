@@ -13,6 +13,7 @@ pub fn transform_propagate_system(
     mut root_query: Query<
         (
             Option<&Children>,
+            Option<Changed<Children>>,
             &Transform,
             Changed<Transform>,
             &mut GlobalTransform,
@@ -23,10 +24,13 @@ pub fn transform_propagate_system(
         (&Transform, Changed<Transform>, &mut GlobalTransform),
         With<Parent>,
     >,
-    children_query: Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
+    children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
 ) {
-    for (children, transform, transform_changed, mut global_transform) in root_query.iter_mut() {
-        let mut changed = false;
+    for (children, maybe_changed_children, transform, transform_changed, mut global_transform) in
+        root_query.iter_mut()
+    {
+        // TODO: Use `Option::contains` when stable
+        let mut changed = maybe_changed_children == Some(true);
         if transform_changed {
             *global_transform = GlobalTransform::from(*transform);
             changed = true;
@@ -34,7 +38,7 @@ pub fn transform_propagate_system(
 
         if let Some(children) = children {
             for child in children.iter() {
-                propagate_recursive(
+                let _ = propagate_recursive(
                     &global_transform,
                     &mut transform_query,
                     &children_query,
@@ -52,35 +56,34 @@ fn propagate_recursive(
         (&Transform, Changed<Transform>, &mut GlobalTransform),
         With<Parent>,
     >,
-    children_query: &Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
+    children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
     mut changed: bool,
-) {
+    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
+) -> Result<(), ()> {
     let global_matrix = {
-        if let Ok((transform, transform_changed, mut global_transform)) =
-            transform_query.get_mut(entity)
-        {
-            changed |= transform_changed;
-            if changed {
-                *global_transform = parent.mul_transform(*transform);
-            }
-            *global_transform
-        } else {
-            return;
+        let (transform, transform_changed, mut global_transform) =
+            transform_query.get_mut(entity).map_err(drop)?;
+
+        changed |= transform_changed;
+        if changed {
+            *global_transform = parent.mul_transform(*transform);
         }
+        *global_transform
     };
 
-    if let Ok(Some(children)) = children_query.get(entity) {
-        for child in children.iter() {
-            propagate_recursive(
-                &global_matrix,
-                transform_query,
-                children_query,
-                *child,
-                changed,
-            );
-        }
+    let (children, changed_children) = children_query.get(entity).map_err(drop)?;
+    changed |= changed_children;
+    for child in children.iter() {
+        let _ = propagate_recursive(
+            &global_matrix,
+            transform_query,
+            children_query,
+            *child,
+            changed,
+        );
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -90,6 +93,7 @@ mod test {
         system::{CommandQueue, Commands},
         world::World,
     };
+    use bevy_math::vec3;
 
     use crate::components::{GlobalTransform, Transform};
     use crate::systems::transform_propagate_system;
@@ -269,6 +273,56 @@ mod test {
                 .cloned()
                 .collect::<Vec<_>>(),
             vec![children[1]]
+        );
+    }
+
+    #[test]
+    fn correct_transforms_when_no_children() {
+        let mut world = World::default();
+
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(transform_propagate_system);
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        let mut command_queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut command_queue, &world);
+
+        let translation = vec3(1.0, 0.0, 0.0);
+
+        let parent = commands
+            .spawn()
+            .insert(Transform::from_translation(translation))
+            .insert(GlobalTransform::default())
+            .id();
+
+        let child = commands
+            .spawn()
+            .insert_bundle((
+                Transform::identity(),
+                GlobalTransform::default(),
+                Parent(parent),
+            ))
+            .id();
+
+        let children = &[child];
+
+        command_queue.apply(&mut world);
+        schedule.run(&mut world);
+
+        // check the `Children` structure is spawned
+        assert_eq!(&**world.get::<Children>(parent).unwrap(), &*children);
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<GlobalTransform>(child).unwrap(),
+            &GlobalTransform {
+                translation,
+                ..Default::default()
+            },
         );
     }
 }
