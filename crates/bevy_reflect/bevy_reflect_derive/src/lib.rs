@@ -672,9 +672,8 @@ impl Parse for ReflectStructDef {
         let generics = ast.generics;
         let fields = match ast.data {
             Data::Struct(data) => data.fields,
-            // I don't believe enum reflection is implemented right now,
-            // and unions are likely not going to be reflected.
-            _ => unimplemented!(),
+            Data::Enum(_) => panic!("Enums are not currently supported for reflection"),
+            Data::Union(_) => panic!("Unions are not supported for reflection")
         };
 
         let mut attrs = ReflectAttrs::default();
