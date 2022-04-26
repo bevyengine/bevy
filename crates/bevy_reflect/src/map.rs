@@ -220,6 +220,15 @@ impl<'a> Iterator for MapIter<'a> {
     }
 }
 
+impl IntoIterator for DynamicMap {
+    type Item = (Box<dyn Reflect>, Box<dyn Reflect>);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
+    }
+}
+
 impl<'a> ExactSizeIterator for MapIter<'a> {}
 
 /// Compares a [`Map`] with a [`Reflect`] value.
@@ -252,4 +261,29 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DynamicMap;
+
+    #[test]
+    fn test_into_iter() {
+        let expected = vec!["foo", "bar", "baz"];
+
+        let mut map = DynamicMap::default();
+        map.insert(0usize, expected[0].to_string());
+        map.insert(1usize, expected[1].to_string());
+        map.insert(2usize, expected[2].to_string());
+
+        for (index, item) in map.into_iter().enumerate() {
+            let key = item.0.take::<usize>().expect("couldn't downcast to usize");
+            let value = item
+                .1
+                .take::<String>()
+                .expect("couldn't downcast to String");
+            assert_eq!(index, key);
+            assert_eq!(expected[index], value);
+        }
+    }
 }
