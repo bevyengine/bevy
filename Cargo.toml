@@ -617,11 +617,11 @@ path = "examples/window/window_settings.rs"
 
 [[example]]
 name = "resizing"
-path = "examples/window/resizing.rs"
+path = "tests/window/resizing.rs"
 
 [[example]]
 name = "minimising"
-path = "examples/window/minimising.rs"
+path = "tests/window/minimising.rs"
 
 
 # Android
