@@ -607,7 +607,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     )
 }
 
-/// Represents the information needed to implement a type as a Reflect Struct. 
+/// Represents the information needed to implement a type as a Reflect Struct.
 /// TODO: Update this docstring as other suggestions are added
 /// ## Example
 /// ```
@@ -615,12 +615,12 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 ///    Constructor(Default::default()) // << ctor
 ///    BevyReflectPath(self::bevy_reflect) // << path
 ///    #[reflect(PartialEq, Serialize, Deserialize)] // << attrs
-///    //   type_name generics 
+///    //   type_name generics
 ///    //      vvv      vvv
 ///    //     |---||----------|
 ///    struct Thing<T1, T2, T3> {
 ///        x: T1, // ]
-///        y: T2, // |- fields 
+///        y: T2, // |- fields
 ///        z: T3  // ]
 ///    }
 /// );
@@ -645,14 +645,14 @@ impl Parse for ReflectStructDef {
         loop {
             if input.parse::<Constructor>().is_ok() {
                 let ctor_group = input
-                .parse::<proc_macro2::Group>()
-                .expect("Invalid constructor syntax");
+                    .parse::<proc_macro2::Group>()
+                    .expect("Invalid constructor syntax");
 
                 ctor = Some(ctor_group.stream());
             } else if input.parse::<BevyReflectPath>().is_ok() {
                 let path_group = input
-                .parse::<proc_macro2::Group>()
-                .expect("Invalid path override syntax");
+                    .parse::<proc_macro2::Group>()
+                    .expect("Invalid path override syntax");
 
                 path = Some(path_group.stream());
             } else {
@@ -705,10 +705,10 @@ impl Parse for ReflectStructDef {
 
 /// A replacement for #\[derive(Reflect)] to be used with foreign types which
 /// the definitions of cannot be altered. It is an alternative to [impl_reflect_value] and
-/// [impl_from_reflect_value] which implement foreign types as Value types. This macro 
+/// [impl_from_reflect_value] which implement foreign types as Value types. This macro
 /// implements them as Struct types, which have greater functionality.
 /// TODO: update this example as the other suggestions are added
-/// ## Example 
+/// ## Example
 /// ```
 /// impl_reflect_struct_and_from_reflect_struct!(
 ///    Constructor(Default::default())
