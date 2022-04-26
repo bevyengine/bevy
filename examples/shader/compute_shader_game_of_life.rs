@@ -8,7 +8,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         RenderApp, RenderStage,
     },
-    window::{WindowDescriptor, PresentMode},
+    window::{PresentMode, WindowDescriptor},
 };
 use std::borrow::Cow;
 
