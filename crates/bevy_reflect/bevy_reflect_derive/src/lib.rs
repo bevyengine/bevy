@@ -711,8 +711,8 @@ impl Parse for ReflectStructDef {
 }
 
 /// A replacement for #\[derive(Reflect)] to be used with foreign types which
-/// the definitions of cannot be altered. It is an alternative to [impl_reflect_value] and
-/// [impl_from_reflect_value] which implement foreign types as Value types. This macro
+/// the definitions of cannot be altered. It is an alternative to [`impl_reflect_value`] and
+/// [`impl_from_reflect_value`] which implement foreign types as Value types. This macro
 /// implements them as Struct types, which have greater functionality.
 ///
 /// The extra ctor tag allows overriding the default construction behavior, which is necessary
