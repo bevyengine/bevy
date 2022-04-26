@@ -1,10 +1,5 @@
 use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::{
-    entity::Entity,
-    prelude::Changed,
-    query::{With, Without},
-    system::Query,
-};
+use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
@@ -88,11 +83,9 @@ fn propagate_recursive(
 
 #[cfg(test)]
 mod test {
-    use bevy_ecs::{
-        schedule::{Schedule, Stage, SystemStage},
-        system::{CommandQueue, Commands},
-        world::World,
-    };
+    use bevy_app::prelude::*;
+    use bevy_ecs::prelude::*;
+    use bevy_ecs::system::CommandQueue;
     use bevy_math::vec3;
 
     use crate::components::{GlobalTransform, Transform};
@@ -278,27 +271,22 @@ mod test {
 
     #[test]
     fn correct_transforms_when_no_children() {
-        let mut world = World::default();
+        let mut app = App::new();
 
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system);
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
-
-        let mut command_queue = CommandQueue::default();
-        let mut commands = Commands::new(&mut command_queue, &world);
+        app.add_system(parent_update_system);
+        app.add_system(transform_propagate_system);
 
         let translation = vec3(1.0, 0.0, 0.0);
 
-        let parent = commands
+        let parent = app
+            .world
             .spawn()
             .insert(Transform::from_translation(translation))
             .insert(GlobalTransform::default())
             .id();
 
-        let child = commands
+        let child = app
+            .world
             .spawn()
             .insert_bundle((
                 Transform::identity(),
@@ -307,22 +295,33 @@ mod test {
             ))
             .id();
 
-        let children = &[child];
+        let grandchild = app
+            .world
+            .spawn()
+            .insert_bundle((
+                Transform::identity(),
+                GlobalTransform::default(),
+                Parent(child),
+            ))
+            .id();
 
-        command_queue.apply(&mut world);
-        schedule.run(&mut world);
+        app.update();
 
         // check the `Children` structure is spawned
-        assert_eq!(&**world.get::<Children>(parent).unwrap(), &*children);
+        assert_eq!(&**app.world.get::<Children>(parent).unwrap(), &[child]);
+        assert_eq!(&**app.world.get::<Children>(child).unwrap(), &[grandchild]);
+        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
+        app.update();
 
-        schedule.run(&mut world);
-
-        assert_eq!(
-            world.get::<GlobalTransform>(child).unwrap(),
-            &GlobalTransform {
-                translation,
-                ..Default::default()
-            },
-        );
+        let mut state = app.world.query::<&GlobalTransform>();
+        for global in state.iter(&app.world) {
+            assert_eq!(
+                global,
+                &GlobalTransform {
+                    translation,
+                    ..Default::default()
+                },
+            );
+        }
     }
 }
