@@ -168,11 +168,8 @@ fn change_window(
                     }
                 }
                 bevy_window::WindowCommand::Close => {
-                    let window = winit_windows.remove_window(id);
-                    // Close the window
-                    drop(window);
-                    // Since we borrow `windows` here to iterate through them, we can't mutate it here.
-                    // Add it to the queue to solve this
+                    // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
+                    // Add the removal requests to a queue to solve this
                     removed_windows.push(id);
                     // No need to run any further commands - this drops the rest of the commands, although the `bevy_window::Window` will be dropped later anyway
                     break;
@@ -182,6 +179,9 @@ fn change_window(
     }
     if !removed_windows.is_empty() {
         for id in removed_windows {
+            // Close the OS window. (The `Drop` impl actually closes the window)
+            let _ = winit_windows.remove_window(id);
+            // Clean up our own data structures
             windows.remove(id);
             window_close_events.send(WindowClosed { id });
         }
