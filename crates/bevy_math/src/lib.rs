@@ -1,7 +1,8 @@
 //! Provides math types and functionality for the Bevy game engine.
 //!
-//! The commonly used types are vectors like [`Vec2`] and [`Vec3`] and
-//! matrices like [`Mat3`] and [`Mat4`].
+//! The commonly used types are vectors like [`Vec2`] and [`Vec3`],
+//! matrices like [`Mat3`] and [`Mat4`] and orientation representations
+//! like [`Quat`].
 
 #![warn(missing_docs)]
 
