@@ -2,7 +2,9 @@ use std::collections::HashSet;
 
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{
+    const_vec3, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
+};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
@@ -582,16 +584,13 @@ fn cluster_space_light_aabb(
     );
     // clamp to ndc coords
     (
-        aabb_min.clamp(
-            Vec3::new(-1.0, -1.0, f32::MIN),
-            Vec3::new(1.0, 1.0, f32::MAX),
-        ),
-        aabb_max.clamp(
-            Vec3::new(-1.0, -1.0, f32::MIN),
-            Vec3::new(1.0, 1.0, f32::MAX),
-        ),
+        aabb_min.clamp(NDC_MIN, NDC_MAX),
+        aabb_max.clamp(NDC_MIN, NDC_MAX),
     )
 }
+
+const NDC_MIN: Vec3 = const_vec3!([-1.0, -1.0, f32::MIN]);
+const NDC_MAX: Vec3 = const_vec3!([1.0, 1.0, f32::MAX]);
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
 // can be used to limit the number of point light shadows to render based on the device and
