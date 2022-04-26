@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{
-    const_vec3, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
+    const_vec2, const_vec3, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
 };
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -489,8 +489,7 @@ fn ndc_position_to_cluster(
     view_z: f32,
 ) -> UVec3 {
     let cluster_dimensions_f32 = cluster_dimensions.as_vec3();
-    let frag_coord =
-        (ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
+    let frag_coord = (ndc_p.xy() * OTHER_VEC2_HALF + VEC2_HALF).clamp(Vec2::ZERO, Vec2::ONE);
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
     let z_slice = view_z_to_z_slice(
         cluster_factors,
@@ -502,6 +501,9 @@ fn ndc_position_to_cluster(
         .extend(z_slice)
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
 }
+
+const VEC2_HALF: Vec2 = const_vec2!([0.5, 0.5]);
+const OTHER_VEC2_HALF: Vec2 = const_vec2!([0.5, -0.5]);
 
 // Calculate bounds for the light using a view space aabb.
 // Returns a (Vec3, Vec3) containing min and max with
