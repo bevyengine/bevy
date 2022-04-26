@@ -607,6 +607,24 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     )
 }
 
+/// Represents the information needed to implement a type as a Reflect Struct. 
+/// TODO: Update this docstring as other suggestions are added
+/// ## Example
+/// ```
+/// impl_reflect_struct_and_from_reflect_struct!(
+///    Constructor(Default::default()) // << ctor
+///    BevyReflectPath(self::bevy_reflect) // << path
+///    #[reflect(PartialEq, Serialize, Deserialize)] // << attrs
+///    //   type_name generics 
+///    //      vvv      vvv
+///    //     |---||----------|
+///    struct Thing<T1, T2, T3> {
+///        x: T1, // ]
+///        y: T2, // |- fields 
+///        z: T3  // ]
+///    }
+/// );
+/// ```
 struct ReflectStructDef {
     type_name: Ident,
     generics: Generics,
@@ -684,6 +702,24 @@ impl Parse for ReflectStructDef {
     }
 }
 
+/// A replacement for #\[derive(Reflect)] to be used with foreign types which
+/// the definitions of cannot be altered. It is an alternative to [impl_reflect_value] and
+/// [impl_from_reflect_value] which implement foreign types as Value types. This macro 
+/// implements them as Struct types, which have greater functionality.
+/// TODO: update this example as the other suggestions are added
+/// ## Example 
+/// ```
+/// impl_reflect_struct_and_from_reflect_struct!(
+///    Constructor(Default::default())
+///    BevyReflectPath(self::bevy_reflect)
+///    #[reflect(PartialEq, Serialize, Deserialize)]
+///    struct Vec3 {
+///        x: f32,
+///        y: f32,
+///        z: f32
+///    }
+/// );
+/// ```
 #[proc_macro]
 pub fn impl_reflect_struct_and_from_reflect_struct(input: TokenStream) -> TokenStream {
     let ReflectStructDef {
