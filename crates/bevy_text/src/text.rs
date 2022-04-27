@@ -13,6 +13,12 @@ pub struct Text {
     pub alignment: TextAlignment,
 }
 
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component)]
+pub struct BidiCorrectedText {
+    pub sections: Vec<TextSection>,
+}
+
 impl Text {
     /// Constructs a [`Text`] with (initially) one section.
     ///
@@ -60,6 +66,7 @@ impl Text {
                 style,
             }],
             alignment,
+            ..Default::default()
         }
     }
 }
