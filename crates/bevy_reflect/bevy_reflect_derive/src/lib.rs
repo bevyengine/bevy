@@ -640,8 +640,18 @@ impl Parse for ReflectStructDef {
         let generics = ast.generics;
         let fields = match ast.data {
             Data::Struct(data) => data.fields,
-            Data::Enum(_) => panic!("Enums are not currently supported for reflection"),
-            Data::Union(_) => panic!("Unions are not supported for reflection"),
+            Data::Enum(data) => {
+                return Err(syn::Error::new(
+                    data.enum_token.span,
+                    "Enums are not currently supported for reflection",
+                ))
+            }
+            Data::Union(data) => {
+                return Err(syn::Error::new(
+                    data.union_token.span,
+                    "Unions are not supported for reflection",
+                ))
+            }
         };
 
         let mut ctor = None;
@@ -672,21 +682,41 @@ impl Parse for ReflectStructDef {
                             match &ident.to_string()[..] {
                                 "path" => {
                                     let path_str = match &name_val.lit {
-                                        syn::Lit::Str(s) => s,
-                                        _ => panic!("Invalid path"),
-                                    };
+                                        syn::Lit::Str(s) => Ok(s),
+                                        _ => Err(syn::Error::new(
+                                            name_val.lit.span(),
+                                            "Invalid path",
+                                        )),
+                                    }?;
                                     bevy_reflect_path =
-                                        Some(path_str.parse::<Path>().expect("Invalid path"));
+                                        Some(path_str.parse::<Path>().map_err(|e| {
+                                            let mut err = syn::Error::new(
+                                                path_str.span(),
+                                                "Failed to parse path:",
+                                            );
+                                            err.combine(e);
+                                            err
+                                        })?);
                                 }
                                 "ctor" => {
                                     let ctor_str = match &name_val.lit {
-                                        syn::Lit::Str(s) => s,
-                                        _ => panic!("Invalid ctor"),
-                                    };
+                                        syn::Lit::Str(s) => Ok(s),
+                                        _ => Err(syn::Error::new(
+                                            name_val.lit.span(),
+                                            "Invalid ctor value",
+                                        )),
+                                    }?;
                                     ctor = Some(
-                                        ctor_str
-                                            .parse::<proc_macro2::TokenStream>()
-                                            .expect("Invalid ctor code"),
+                                        ctor_str.parse::<proc_macro2::TokenStream>().map_err(
+                                            |e| {
+                                                let mut err = syn::Error::new(
+                                                    ctor_str.span(),
+                                                    "Failed to parse ctor:",
+                                                );
+                                                err.combine(e);
+                                                err
+                                            },
+                                        )?,
                                     );
                                 }
                                 _ => (),
