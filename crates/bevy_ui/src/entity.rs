@@ -77,8 +77,8 @@ pub struct TextBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Visualized Text Data
-    pub visualized: BidiCorrectedText,
+    /// Bidi corrected Text Data
+    pub bidi_corrected: BidiCorrectedText,
 }
 
 impl Default for TextBundle {
@@ -92,7 +92,7 @@ impl Default for TextBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            visualized: Default::default(),
+            bidi_corrected: Default::default(),
         }
     }
 }

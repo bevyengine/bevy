@@ -13,9 +13,11 @@ use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_window::{WindowId, Windows};
+use unicode_bidi::BidiInfo;
 
 use crate::{
-    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, VerticalAlign,
+    BidiCorrectedText, DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError,
+    TextSection, VerticalAlign,
 };
 
 /// The calculated size of text drawn in 2D scene.
@@ -56,6 +58,7 @@ pub struct Text2dBundle {
     pub text_2d_size: Text2dSize,
     pub text_2d_bounds: Text2dBounds,
     pub visibility: Visibility,
+    pub bidi_corrected: BidiCorrectedText,
 }
 
 pub fn extract_text2d_sprite(
@@ -141,7 +144,15 @@ pub fn text2d_system(
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: ParamSet<(
         Query<Entity, (With<Text2dSize>, Changed<Text>)>,
-        Query<(&Text, Option<&Text2dBounds>, &mut Text2dSize), With<Text2dSize>>,
+        Query<
+            (
+                &Text,
+                Option<&Text2dBounds>,
+                &mut Text2dSize,
+                &mut BidiCorrectedText,
+            ),
+            With<Text2dSize>,
+        >,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
@@ -159,7 +170,7 @@ pub fn text2d_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p1();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, bounds, mut calculated_size)) = query.get_mut(entity) {
+        if let Ok((text, bounds, mut calculated_size, mut bidi_corrected)) = query.get_mut(entity) {
             let text_bounds = match bounds {
                 Some(bounds) => Vec2::new(
                     scale_value(bounds.size.x, scale_factor),
@@ -167,10 +178,25 @@ pub fn text2d_system(
                 ),
                 None => Vec2::new(f32::MAX, f32::MAX),
             };
+
+            bidi_corrected.sections.clear();
+            for section in &text.sections {
+                let bidi_info = BidiInfo::new(&section.value, None);
+                for para in &bidi_info.paragraphs {
+                    let line = para.range.clone();
+                    let display = bidi_info.reorder_line(para, line);
+                    let section = TextSection {
+                        value: display.into_owned(),
+                        style: section.style.clone(),
+                    };
+                    bidi_corrected.sections.push(section);
+                }
+            }
+
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
-                &text.sections,
+                &bidi_corrected.sections,
                 scale_factor,
                 text.alignment,
                 text_bounds,

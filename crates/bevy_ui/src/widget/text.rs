@@ -80,7 +80,7 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size, mut visualized)) = query.get_mut(entity) {
+        if let Ok((text, style, mut calculated_size, mut bidi_corrected)) = query.get_mut(entity) {
             let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
@@ -96,7 +96,7 @@ pub fn text_system(
                 ),
             );
 
-            visualized.sections.clear();
+            bidi_corrected.sections.clear();
             for section in &text.sections {
                 let bidi_info = BidiInfo::new(&section.value, None);
                 for para in &bidi_info.paragraphs {
@@ -106,14 +106,14 @@ pub fn text_system(
                         value: display.into_owned(),
                         style: section.style.clone(),
                     };
-                    visualized.sections.push(section);
+                    bidi_corrected.sections.push(section);
                 }
             }
 
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
-                &visualized.sections,
+                &bidi_corrected.sections,
                 scale_factor,
                 text.alignment,
                 node_size,
