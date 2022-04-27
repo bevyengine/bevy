@@ -65,6 +65,11 @@ pub mod tasks {
     pub use bevy_tasks::*;
 }
 
+pub mod hierarchy {
+    //! Entity hierarchies and property inheritance
+    pub use bevy_hierarchy::*;
+}
+
 pub mod transform {
     //! Local and global transforms (e.g. translation, scale, rotation).
     pub use bevy_transform::*;
@@ -78,6 +83,12 @@ pub mod utils {
 pub mod window {
     //! Configuration, creation, and management of one or more windows.
     pub use bevy_window::*;
+}
+
+#[cfg(feature = "bevy_animation")]
+pub mod animation {
+    //! Provides types and plugins for animations.
+    pub use bevy_animation::*;
 }
 
 #[cfg(feature = "bevy_audio")]

@@ -5,8 +5,11 @@ use crate::{
     },
     system::{In, IntoChainSystem, Local, Res, ResMut},
 };
-use std::{any::TypeId, fmt::Debug, hash::Hash};
-use thiserror::Error;
+use std::{
+    any::TypeId,
+    fmt::{self, Debug},
+    hash::Hash,
+};
 
 pub trait StateData: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
 impl<T> StateData for T where T: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
@@ -392,16 +395,37 @@ where
     pub fn inactives(&self) -> &[T] {
         self.stack.split_last().map(|(_, rest)| rest).unwrap()
     }
+
+    /// Clears the scheduled state operation.
+    pub fn clear_schedule(&mut self) {
+        self.scheduled = None;
+    }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum StateError {
-    #[error("Attempted to change the state to the current state.")]
     AlreadyInState,
-    #[error("Attempted to queue a state change, but there was already a state queued.")]
     StateAlreadyQueued,
-    #[error("Attempted to queue a pop, but there is nothing to pop.")]
     StackEmpty,
+}
+
+impl std::error::Error for StateError {}
+
+impl fmt::Display for StateError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            StateError::AlreadyInState => {
+                write!(f, "Attempted to change the state to the current state.")
+            }
+            StateError::StateAlreadyQueued => write!(
+                f,
+                "Attempted to queue a state change, but there was already a state queued."
+            ),
+            StateError::StackEmpty => {
+                write!(f, "Attempted to queue a pop, but there is nothing to pop.")
+            }
+        }
+    }
 }
 
 fn should_run_adapter<T: StateData>(In(cmp_result): In<bool>, state: Res<State<T>>) -> ShouldRun {
@@ -629,7 +653,7 @@ mod test {
         ];
 
         stage.run(&mut world);
-        let mut collected = world.get_resource_mut::<Vec<&'static str>>().unwrap();
+        let mut collected = world.resource_mut::<Vec<&'static str>>();
         let mut count = 0;
         for (found, expected) in collected.drain(..).zip(EXPECTED) {
             assert_eq!(found, *expected);
@@ -638,7 +662,7 @@ mod test {
         // If not equal, some elements weren't executed
         assert_eq!(EXPECTED.len(), count);
         assert_eq!(
-            world.get_resource::<State<MyState>>().unwrap().current(),
+            world.resource::<State<MyState>>().current(),
             &MyState::Final
         );
     }
@@ -661,7 +685,7 @@ mod test {
         world.insert_resource("control");
         let mut stage = SystemStage::parallel().with_system(should_run_once);
         stage.run(&mut world);
-        assert!(*world.get_resource::<bool>().unwrap(), "after control");
+        assert!(*world.resource::<bool>(), "after control");
 
         world.insert_resource(false);
         world.insert_resource("test");
@@ -669,7 +693,7 @@ mod test {
             .with_system_set(State::<AppState>::get_driver())
             .with_system(should_run_once);
         stage.run(&mut world);
-        assert!(*world.get_resource::<bool>().unwrap(), "after test");
+        assert!(*world.resource::<bool>(), "after test");
     }
 
     #[test]
@@ -712,19 +736,19 @@ mod test {
         stage.run(&mut world);
 
         // A. Restart state
-        let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
+        let mut state = world.resource_mut::<State<LoadState>>();
         let result = state.restart();
         assert!(matches!(result, Ok(())));
         stage.run(&mut world);
 
         // B. Restart state (overwrite schedule)
-        let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
+        let mut state = world.resource_mut::<State<LoadState>>();
         state.set(LoadState::Finish).unwrap();
         state.overwrite_restart();
         stage.run(&mut world);
 
         // C. Fail restart state (transition already scheduled)
-        let mut state = world.get_resource_mut::<State<LoadState>>().unwrap();
+        let mut state = world.resource_mut::<State<LoadState>>();
         state.set(LoadState::Finish).unwrap();
         let result = state.restart();
         assert!(matches!(result, Err(StateError::StateAlreadyQueued)));
@@ -743,7 +767,7 @@ mod test {
             LoadStatus::EnterFinish,
         ];
 
-        let mut collected = world.get_resource_mut::<Vec<LoadStatus>>().unwrap();
+        let mut collected = world.resource_mut::<Vec<LoadStatus>>();
         let mut count = 0;
         for (found, expected) in collected.drain(..).zip(EXPECTED) {
             assert_eq!(found, *expected);
@@ -752,7 +776,7 @@ mod test {
         // If not equal, some elements weren't executed
         assert_eq!(EXPECTED.len(), count);
         assert_eq!(
-            world.get_resource::<State<LoadState>>().unwrap().current(),
+            world.resource::<State<LoadState>>().current(),
             &LoadState::Finish
         );
     }

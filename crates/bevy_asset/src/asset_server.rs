@@ -60,16 +60,9 @@ pub struct AssetServerInternal {
 }
 
 /// Loads assets from the filesystem on background threads
+#[derive(Clone)]
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
-}
-
-impl Clone for AssetServer {
-    fn clone(&self) -> Self {
-        Self {
-            server: self.server.clone(),
-        }
-    }
 }
 
 impl AssetServer {
@@ -629,18 +622,7 @@ mod test {
     fn setup(asset_path: impl AsRef<Path>) -> AssetServer {
         use crate::FileAssetIo;
 
-        AssetServer {
-            server: Arc::new(AssetServerInternal {
-                loaders: Default::default(),
-                extension_to_loader_index: Default::default(),
-                asset_sources: Default::default(),
-                asset_ref_counter: Default::default(),
-                handle_to_path: Default::default(),
-                asset_lifecycles: Default::default(),
-                task_pool: Default::default(),
-                asset_io: Box::new(FileAssetIo::new(asset_path, false)),
-            }),
-        }
+        AssetServer::new(FileAssetIo::new(asset_path, false), Default::default())
     }
 
     #[test]
@@ -794,24 +776,18 @@ mod test {
         app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
-            let asset_server = world.get_resource::<AssetServer>().unwrap();
+            let asset_server = world.resource::<AssetServer>();
             let id = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
                 .unwrap();
             asset_server.get_handle_untyped(id)
         }
 
         fn get_asset(id: impl Into<HandleId>, world: &World) -> Option<&PngAsset> {
-            world
-                .get_resource::<Assets<PngAsset>>()
-                .unwrap()
-                .get(id.into())
+            world.resource::<Assets<PngAsset>>().get(id.into())
         }
 
         fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
-            world
-                .get_resource::<AssetServer>()
-                .unwrap()
-                .get_load_state(id.into())
+            world.resource::<AssetServer>().get_load_state(id.into())
         }
 
         // ---

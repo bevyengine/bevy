@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
@@ -53,7 +53,7 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        let render_device = app.world.get_resource::<RenderDevice>().unwrap();
+        let render_device = app.world.resource::<RenderDevice>();
         let buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("time uniform buffer"),
             size: std::mem::size_of::<f32>() as u64,
@@ -98,7 +98,7 @@ fn queue_custom(
     custom_pipeline: Res<CustomPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<CustomMaterial>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
@@ -186,10 +186,10 @@ pub struct CustomPipeline {
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let asset_server = world.resource::<AssetServer>();
         let shader = asset_server.load("shaders/animate_shader.wgsl");
 
-        let render_device = world.get_resource_mut::<RenderDevice>().unwrap();
+        let render_device = world.resource_mut::<RenderDevice>();
         let time_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("time bind group"),
@@ -205,7 +205,7 @@ impl FromWorld for CustomPipeline {
                 }],
             });
 
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+        let mesh_pipeline = world.resource::<MeshPipeline>();
 
         CustomPipeline {
             shader,

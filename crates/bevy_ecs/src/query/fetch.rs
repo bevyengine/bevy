@@ -340,6 +340,13 @@ pub trait Fetch<'world, 'state>: Sized {
     /// [`Fetch::archetype_fetch`] will be called for iterators.
     const IS_DENSE: bool;
 
+    /// Returns true if (and only if) this Fetch relies strictly on archetypes to limit which
+    /// components are acessed by the Query.
+    ///
+    /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
+    /// many elements are being iterated (such as `Iterator::collect()`).
+    const IS_ARCHETYPAL: bool;
+
     /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on
     /// archetypes that match this [`Fetch`].
     ///
@@ -413,6 +420,7 @@ impl WorldQuery for Entity {
 }
 
 /// The [`Fetch`] of [`Entity`].
+#[doc(hidden)]
 #[derive(Clone)]
 pub struct EntityFetch {
     entities: *const Entity,
@@ -422,6 +430,7 @@ pub struct EntityFetch {
 unsafe impl ReadOnlyFetch for EntityFetch {}
 
 /// The [`FetchState`] of [`Entity`].
+#[doc(hidden)]
 pub struct EntityState;
 
 // SAFETY: no component or archetype access
@@ -455,6 +464,8 @@ impl<'w, 's> Fetch<'w, 's> for EntityFetch {
     type State = EntityState;
 
     const IS_DENSE: bool = true;
+
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init(
         _world: &World,
@@ -500,6 +511,7 @@ impl<T: Component> WorldQuery for &T {
 }
 
 /// The [`FetchState`] of `&T`.
+#[doc(hidden)]
 pub struct ReadState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -547,6 +559,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
 }
 
 /// The [`Fetch`] of `&T`.
+#[doc(hidden)]
 pub struct ReadFetch<T> {
     table_components: NonNull<T>,
     entity_table_rows: *const usize,
@@ -578,6 +591,8 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadFetch<T> {
             StorageType::SparseSet => false,
         }
     };
+
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init(
         world: &World,
@@ -656,6 +671,7 @@ impl<T: Component> WorldQuery for &mut T {
 }
 
 /// The [`Fetch`] of `&mut T`.
+#[doc(hidden)]
 pub struct WriteFetch<T> {
     table_components: NonNull<T>,
     table_ticks: *const UnsafeCell<ComponentTicks>,
@@ -681,6 +697,7 @@ impl<T> Clone for WriteFetch<T> {
 }
 
 /// The [`ReadOnlyFetch`] of `&mut T`.
+#[doc(hidden)]
 pub struct ReadOnlyWriteFetch<T> {
     table_components: NonNull<T>,
     entities: *const Entity,
@@ -703,6 +720,7 @@ impl<T> Clone for ReadOnlyWriteFetch<T> {
 }
 
 /// The [`FetchState`] of `&mut T`.
+#[doc(hidden)]
 pub struct WriteState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -759,6 +777,8 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
             StorageType::SparseSet => false,
         }
     };
+
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init(
         world: &World,
@@ -866,6 +886,8 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<T> {
         }
     };
 
+    const IS_ARCHETYPAL: bool = true;
+
     unsafe fn init(
         world: &World,
         state: &Self::State,
@@ -940,6 +962,7 @@ impl<T: WorldQuery> WorldQuery for Option<T> {
 }
 
 /// The [`Fetch`] of `Option<T>`.
+#[doc(hidden)]
 #[derive(Clone)]
 pub struct OptionFetch<T> {
     fetch: T,
@@ -950,6 +973,7 @@ pub struct OptionFetch<T> {
 unsafe impl<T: ReadOnlyFetch> ReadOnlyFetch for OptionFetch<T> {}
 
 /// The [`FetchState`] of `Option<T>`.
+#[doc(hidden)]
 pub struct OptionState<T: FetchState> {
     state: T,
 }
@@ -992,6 +1016,8 @@ impl<'w, 's, T: Fetch<'w, 's>> Fetch<'w, 's> for OptionFetch<T> {
     type State = OptionState<T::State>;
 
     const IS_DENSE: bool = T::IS_DENSE;
+
+    const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
 
     unsafe fn init(
         world: &World,
@@ -1116,6 +1142,7 @@ impl<T: Component> WorldQuery for ChangeTrackers<T> {
 }
 
 /// The [`FetchState`] of [`ChangeTrackers`].
+#[doc(hidden)]
 pub struct ChangeTrackersState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
@@ -1163,6 +1190,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 }
 
 /// The [`Fetch`] of [`ChangeTrackers`].
+#[doc(hidden)]
 pub struct ChangeTrackersFetch<T> {
     table_ticks: *const ComponentTicks,
     entity_table_rows: *const usize,
@@ -1200,6 +1228,8 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for ChangeTrackersFetch<T> {
             StorageType::SparseSet => false,
         }
     };
+
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init(
         world: &World,
@@ -1303,6 +1333,8 @@ macro_rules! impl_tuple_fetch {
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
+            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+
             #[inline]
             unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &Archetype, _tables: &Tables) {
                 let ($($name,)*) = self;
@@ -1395,6 +1427,8 @@ macro_rules! impl_anytuple_fetch {
 
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
+
+            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
             #[inline]
             unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &Archetype, _tables: &Tables) {
@@ -1500,6 +1534,8 @@ impl<'w, 's, State: FetchState> Fetch<'w, 's> for NopFetch<State> {
     type State = State;
 
     const IS_DENSE: bool = true;
+
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
     unsafe fn init(

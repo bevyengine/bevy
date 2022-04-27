@@ -14,6 +14,8 @@ pub use material::*;
 pub use pbr_material::*;
 pub use render::*;
 
+use bevy_window::ModifiesWindows;
+
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -71,9 +73,9 @@ impl Plugin for PbrPlugin {
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
             .init_resource::<AmbientLight>()
+            .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .init_resource::<VisiblePointLights>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 // NOTE: Clusters need to have been added before update_clusters is run so
@@ -84,17 +86,10 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                // NOTE: Must come after add_clusters!
-                update_clusters
-                    .label(SimulationLightSystems::UpdateClusters)
-                    .after(TransformSystem::TransformPropagate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
-                    .after(SimulationLightSystems::UpdateClusters),
+                    .after(ModifiesWindows),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -124,8 +119,7 @@ impl Plugin for PbrPlugin {
             );
 
         app.world
-            .get_resource_mut::<Assets<StandardMaterial>>()
-            .unwrap()
+            .resource_mut::<Assets<StandardMaterial>>()
             .set_untracked(
                 Handle::<StandardMaterial>::default(),
                 StandardMaterial {
@@ -159,12 +153,10 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 RenderStage::Prepare,
-                // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
-                // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
-                render::prepare_clusters
-                    .exclusive_system()
-                    .label(RenderLightSystems::PrepareClusters)
-                    .after(RenderLightSystems::PrepareLights),
+                // NOTE: This needs to run after prepare_lights. As prepare_lights is an exclusive system,
+                // just adding it to the non-exclusive systems in the Prepare stage means it runs after
+                // prepare_lights.
+                render::prepare_clusters.label(RenderLightSystems::PrepareClusters),
             )
             .add_system_to_stage(
                 RenderStage::Queue,
@@ -180,7 +172,7 @@ impl Plugin for PbrPlugin {
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
             .unwrap();

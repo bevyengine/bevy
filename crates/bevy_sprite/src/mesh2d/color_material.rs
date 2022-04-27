@@ -35,8 +35,7 @@ impl Plugin for ColorMaterialPlugin {
         app.add_plugin(Material2dPlugin::<ColorMaterial>::default());
 
         app.world
-            .get_resource_mut::<Assets<ColorMaterial>>()
-            .unwrap()
+            .resource_mut::<Assets<ColorMaterial>>()
             .set_untracked(
                 Handle::<ColorMaterial>::default(),
                 ColorMaterial {

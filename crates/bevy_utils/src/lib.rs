@@ -1,16 +1,23 @@
-mod enum_variant_meta;
+pub mod prelude {
+    pub use crate::default;
+}
+
+pub mod futures;
 pub mod label;
 
+mod default;
+mod float_ord;
+
 pub use ahash::AHasher;
-pub use enum_variant_meta::*;
-pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
+pub use default::default;
+pub use float_ord::*;
 pub use hashbrown;
-use hashbrown::hash_map::RawEntryMut;
 pub use instant::{Duration, Instant};
 pub use tracing;
 pub use uuid::Uuid;
 
 use ahash::RandomState;
+use hashbrown::hash_map::RawEntryMut;
 use std::{
     fmt::Debug,
     future::Future,
@@ -25,6 +32,8 @@ pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[cfg(target_arch = "wasm32")]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+
+pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
 
 /// A hasher builder that will create a fixed hasher.
 #[derive(Debug, Clone, Default)]
@@ -190,7 +199,7 @@ pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;
 pub trait PreHashMapExt<K, V> {
     /// Tries to get or insert the value for the given `key` using the pre-computed hash first.
     /// If the [`PreHashMap`] does not already contain the `key`, it will clone it and insert
-    /// the value returned by `func`.  
+    /// the value returned by `func`.
     fn get_or_insert_with<F: FnOnce() -> V>(&mut self, key: &Hashed<K>, func: F) -> &mut V;
 }
 

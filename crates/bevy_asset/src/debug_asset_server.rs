@@ -1,5 +1,6 @@
-use bevy_app::{App, Events, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_ecs::{
+    event::Events,
     schedule::SystemLabel,
     system::{NonSendMut, Res, ResMut, SystemState},
 };

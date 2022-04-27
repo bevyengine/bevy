@@ -14,7 +14,7 @@ pub struct UiPipeline {
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -62,7 +62,7 @@ impl FromWorld for UiPipeline {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {}
 
-impl SpecializedPipeline for UiPipeline {
+impl SpecializedRenderPipeline for UiPipeline {
     type Key = UiPipelineKey;
     /// FIXME: there are no specialization for now, should this be removed?
     fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
@@ -74,7 +74,7 @@ impl SpecializedPipeline for UiPipeline {
                 // uv
                 VertexFormat::Float32x2,
                 // color
-                VertexFormat::Uint32,
+                VertexFormat::Float32x4,
             ],
         );
         let shader_defs = Vec::new();

@@ -29,12 +29,13 @@ pub mod prelude {
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
-            Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
+            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage,
+            StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
             Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
-            NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
+            NonSendMut, ParamSet, Query, RemovedComponents, Res, ResMut, System,
+            SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };
@@ -50,17 +51,17 @@ mod tests {
         component::{Component, ComponentId},
         entity::Entity,
         query::{
-            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
+            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, Or, With, Without,
+            WorldQuery,
         },
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
-    use parking_lot::Mutex;
     use std::{
         any::TypeId,
         sync::{
             atomic::{AtomicUsize, Ordering},
-            Arc,
+            Arc, Mutex,
         },
     };
 
@@ -382,11 +383,11 @@ mod tests {
         world
             .query::<(Entity, &A)>()
             .par_for_each(&world, &task_pool, 2, |(e, &A(i))| {
-                results.lock().push((e, i));
+                results.lock().unwrap().push((e, i));
             });
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }
@@ -406,11 +407,11 @@ mod tests {
             &world,
             &task_pool,
             2,
-            |(e, &SparseStored(i))| results.lock().push((e, i)),
+            |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
         );
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }
@@ -636,8 +637,18 @@ mod tests {
     #[test]
     fn table_add_remove_many() {
         let mut world = World::default();
-        let mut entities = Vec::with_capacity(10_000);
-        for _ in 0..1000 {
+        #[cfg(miri)]
+        let (mut entities, to) = {
+            let to = 10;
+            (Vec::with_capacity(to), to)
+        };
+        #[cfg(not(miri))]
+        let (mut entities, to) = {
+            let to = 10_000;
+            (Vec::with_capacity(to), to)
+        };
+
+        for _ in 0..to {
             entities.push(world.spawn().insert(B(0)).id());
         }
 
@@ -1010,29 +1021,26 @@ mod tests {
             .get_archetype_component_id(resource_id)
             .unwrap();
 
-        assert_eq!(*world.get_resource::<i32>().expect("resource exists"), 123);
+        assert_eq!(*world.resource::<i32>(), 123);
         assert!(world.contains_resource::<i32>());
         assert!(world.is_resource_added::<i32>());
         assert!(world.is_resource_changed::<i32>());
 
         world.insert_resource(456u64);
-        assert_eq!(
-            *world.get_resource::<u64>().expect("resource exists"),
-            456u64
-        );
+        assert_eq!(*world.resource::<u64>(), 456u64);
 
         world.insert_resource(789u64);
-        assert_eq!(*world.get_resource::<u64>().expect("resource exists"), 789);
+        assert_eq!(*world.resource::<u64>(), 789);
 
         {
-            let mut value = world.get_resource_mut::<u64>().expect("resource exists");
+            let mut value = world.resource_mut::<u64>();
             assert_eq!(*value, 789);
             *value = 10;
         }
 
         assert_eq!(
-            world.get_resource::<u64>(),
-            Some(&10),
+            world.resource::<u64>(),
+            &10,
             "resource changes are preserved"
         );
 
@@ -1183,8 +1191,8 @@ mod tests {
         let mut world = World::default();
         world.insert_non_send_resource(123i32);
         world.insert_non_send_resource(456i64);
-        assert_eq!(*world.get_non_send_resource::<i32>().unwrap(), 123);
-        assert_eq!(*world.get_non_send_resource_mut::<i64>().unwrap(), 456);
+        assert_eq!(*world.non_send_resource::<i32>(), 123);
+        assert_eq!(*world.non_send_resource_mut::<i64>(), 456);
     }
 
     #[test]
@@ -1193,7 +1201,7 @@ mod tests {
         let mut world = World::default();
         world.insert_non_send_resource(0i32);
         std::thread::spawn(move || {
-            let _ = world.get_non_send_resource_mut::<i32>();
+            let _ = world.non_send_resource_mut::<i32>();
         })
         .join()
         .unwrap();
@@ -1323,7 +1331,7 @@ mod tests {
             *value += 1;
             assert!(!world.contains_resource::<i32>());
         });
-        assert_eq!(*world.get_resource::<i32>().unwrap(), 1);
+        assert_eq!(*world.resource::<i32>(), 1);
     }
 
     #[test]
@@ -1389,10 +1397,44 @@ mod tests {
             "world should not have any entities"
         );
         assert_eq!(
-            *world.get_resource::<i32>().unwrap(),
+            *world.resource::<i32>(),
             0,
             "world should still contain resources"
         );
+    }
+
+    #[test]
+    fn test_is_archetypal_size_hints() {
+        let mut world = World::default();
+        macro_rules! query_min_size {
+            ($query:ty, $filter:ty) => {
+                world
+                    .query_filtered::<$query, $filter>()
+                    .iter(&world)
+                    .size_hint()
+                    .0
+            };
+        }
+
+        world.spawn().insert_bundle((A(1), B(1), C));
+        world.spawn().insert_bundle((A(1), C));
+        world.spawn().insert_bundle((A(1), B(1)));
+        world.spawn().insert_bundle((B(1), C));
+        world.spawn().insert(A(1));
+        world.spawn().insert(C);
+        assert_eq!(2, query_min_size![(), (With<A>, Without<B>)],);
+        assert_eq!(3, query_min_size![&B, Or<(With<A>, With<C>)>],);
+        assert_eq!(1, query_min_size![&B, (With<A>, With<C>)],);
+        assert_eq!(1, query_min_size![(&A, &B), With<C>],);
+        assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
+        assert_eq!(4, query_min_size![ChangeTrackers<A>, ()],);
+        // All the following should set minimum size to 0, as it's impossible to predict
+        // how many entites the filters will trim.
+        assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");
+        assert_eq!(0, query_min_size![(), Changed<A>], "Simple Changed");
+        assert_eq!(0, query_min_size![(&A, &B), Changed<A>],);
+        assert_eq!(0, query_min_size![&A, (Changed<A>, With<B>)],);
+        assert_eq!(0, query_min_size![(&A, &B), Or<(Changed<A>, Changed<B>)>],);
     }
 
     #[test]
