@@ -73,6 +73,11 @@ impl AnimationClip {
         &self.curves
     }
 
+    /// Duration of the clip, represented in seconds
+    pub fn duration(&self) -> &f32 {
+        &self.duration
+    }
+
     /// Add a [`VariableCurve`] to an [`EntityPath`].
     pub fn add_curve_to_path(&mut self, path: EntityPath, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
