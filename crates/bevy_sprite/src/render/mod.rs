@@ -5,7 +5,6 @@ use crate::{
     Rect, Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::{
     prelude::*,
@@ -27,6 +26,7 @@ use bevy_render::{
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;

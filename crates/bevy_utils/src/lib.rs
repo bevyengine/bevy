@@ -7,10 +7,12 @@ pub mod label;
 
 mod default;
 mod enum_variant_meta;
+mod float_ord;
 
 pub use ahash::AHasher;
 pub use default::default;
 pub use enum_variant_meta::*;
+pub use float_ord::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant};
 pub use tracing;
