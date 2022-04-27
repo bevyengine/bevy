@@ -340,7 +340,7 @@ impl PipelineCache {
         id
     }
 
-    fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
+    pub fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
         let pipelines_to_queue = self.shader_cache.set_shader(handle, shader.clone());
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -348,7 +348,7 @@ impl PipelineCache {
         }
     }
 
-    fn remove_shader(&mut self, shader: &Handle<Shader>) {
+    pub fn remove_shader(&mut self, shader: &Handle<Shader>) {
         let pipelines_to_queue = self.shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
