@@ -106,7 +106,6 @@ struct GenericQuery<T: Component, P: Component> {
 }
 
 #[derive(WorldQuery)]
-#[world_query(filter)]
 struct QueryFilter<T: Component, P: Component> {
     _c: With<ComponentC>,
     _d: With<ComponentD>,

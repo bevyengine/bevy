@@ -12,12 +12,10 @@ use crate::bevy_ecs_path;
 
 #[derive(Default)]
 struct FetchStructAttributes {
-    pub is_filter: bool,
     pub is_mutable: bool,
     pub derive_args: Punctuated<syn::NestedMeta, syn::token::Comma>,
 }
 
-static FILTER_ATTRIBUTE_NAME: &str = "filter";
 static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
 static DERIVE_ATTRIBUTE_NAME: &str = "derive";
 
@@ -69,15 +67,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                             DERIVE_ATTRIBUTE_NAME
                         );
                     }
-                } else if ident == FILTER_ATTRIBUTE_NAME {
-                    if let syn::Meta::Path(_) = meta {
-                        fetch_struct_attributes.is_filter = true;
-                    } else {
-                        panic!(
-                            "The `{}` attribute is expected to have no value or arguments",
-                            FILTER_ATTRIBUTE_NAME
-                        );
-                    }
                 } else {
                     panic!(
                         "Unrecognized attribute: `{}`",
@@ -88,13 +77,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             Ok(())
         })
         .unwrap_or_else(|_| panic!("Invalid `{}` attribute format", WORLD_QUERY_ATTRIBUTE_NAME));
-    }
-
-    if fetch_struct_attributes.is_filter && fetch_struct_attributes.is_mutable {
-        panic!(
-            "The `{}` attribute is not expected to be used in conjunction with the `{}` attribute",
-            FILTER_ATTRIBUTE_NAME, MUTABLE_ATTRIBUTE_NAME
-        );
     }
 
     let user_generics = ast.generics.clone();
@@ -168,10 +150,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
     let path = bevy_ecs_path();
 
-    let impl_fetch = |is_filter: bool,
-                      is_readonly: bool,
-                      fetch_struct_name: Ident,
-                      item_struct_name: Ident| {
+    let impl_fetch = |is_readonly: bool, fetch_struct_name: Ident, item_struct_name: Ident| {
         let fetch_type_alias = if is_readonly {
             &read_only_fetch_type_alias
         } else {
@@ -183,145 +162,93 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             &item_type_alias
         };
 
-        if is_filter {
-            quote! {
-                #[doc(hidden)]
-                #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
-                    #(#field_idents: #path::query::#fetch_type_alias::<'__w, #field_types>,)*
-
-                    #(#ignored_field_idents: #ignored_field_types,)*
-                }
-
-                impl #user_impl_generics_with_world #path::query::Fetch<'__w>
-                    for #fetch_struct_name #user_ty_generics_with_world #user_where_clauses_with_world {
-
-                    type Item = bool;
-                    type State = #state_struct_name #user_ty_generics;
-
-                    unsafe fn init(_world: &'__w #path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
-                        #fetch_struct_name {
-                            #(
-                                #field_idents:
-                                    #path::query::#fetch_type_alias::<'__w, #field_types>::init(
-                                        _world, &state.#field_idents, _last_change_tick, _change_tick
-                                    ),
-                            )*
-                            #(#ignored_field_idents: Default::default(),)*
-                        }
-                    }
-
-                    const IS_DENSE: bool = true #(&& #path::query::#read_only_fetch_type_alias::<'__w, #field_types>::IS_DENSE)*;
-
-                    #[inline]
-                    unsafe fn set_archetype(
-                        &mut self,
-                        _state: &Self::State,
-                        _archetype: &'__w #path::archetype::Archetype,
-                        _tables: &'__w #path::storage::Tables
-                    ) {
-                        #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _tables);)*
-                    }
-
-                    #[inline]
-                    unsafe fn set_table(&mut self, _state: &Self::State, _table: &'__w #path::storage::Table) {
-                        #(self.#field_idents.set_table(&_state.#field_idents, _table);)*
-                    }
-
-                    #[inline]
-                    unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
-                        use #path::query::FilterFetch;
-                        true #(&& self.#field_idents.table_filter_fetch(_table_row))*
-                    }
-
-                    #[inline]
-                    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
-                        use #path::query::FilterFetch;
-                        true #(&& self.#field_idents.archetype_filter_fetch(_archetype_index))*
-                    }
-                }
+        quote! {
+            #derive_macro_call
+            #[automatically_derived]
+            #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
+                #(#(#field_attrs)* #field_visibilities #field_idents: #path::query::#item_type_alias<'__w, #field_types>,)*
+                #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
-        } else {
-            quote! {
-                #derive_macro_call
-                #[automatically_derived]
-                #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
-                    #(#(#field_attrs)* #field_visibilities #field_idents: #path::query::#item_type_alias<'__w, #field_types>,)*
-                    #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
+
+            #[doc(hidden)]
+            #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
+                #(#field_idents: #path::query::#fetch_type_alias::<'__w, #field_types>,)*
+                #(#ignored_field_idents: #ignored_field_types,)*
+            }
+
+            impl #user_impl_generics_with_world #path::query::Fetch<'__w>
+                for #fetch_struct_name #user_ty_generics_with_world #user_where_clauses_with_world {
+
+                type Item = #item_struct_name #user_ty_generics_with_world;
+                type State = #state_struct_name #user_ty_generics;
+
+                unsafe fn init(_world: &'__w #path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
+                    Self {
+                        #(#field_idents:
+                            #path::query::#fetch_type_alias::<'__w, #field_types>::init(
+                                _world,
+                                &state.#field_idents,
+                                _last_change_tick,
+                                _change_tick
+                            ),
+                        )*
+                        #(#ignored_field_idents: Default::default(),)*
+                    }
                 }
 
-                #[doc(hidden)]
-                #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
-                    #(#field_idents: #path::query::#fetch_type_alias::<'__w, #field_types>,)*
-                    #(#ignored_field_idents: #ignored_field_types,)*
+                const IS_DENSE: bool = true #(&& #path::query::#fetch_type_alias::<'__w, #field_types>::IS_DENSE)*;
+
+                /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
+                #[inline]
+                unsafe fn set_archetype(
+                    &mut self,
+                    _state: &Self::State,
+                    _archetype: &'__w #path::archetype::Archetype,
+                    _tables: &'__w #path::storage::Tables
+                ) {
+                    #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _tables);)*
                 }
 
-                impl #user_impl_generics_with_world #path::query::Fetch<'__w>
-                    for #fetch_struct_name #user_ty_generics_with_world #user_where_clauses_with_world {
+                /// SAFETY: we call `set_table` for each member that implements `Fetch`
+                #[inline]
+                unsafe fn set_table(&mut self, _state: &Self::State, _table: &'__w #path::storage::Table) {
+                    #(self.#field_idents.set_table(&_state.#field_idents, _table);)*
+                }
 
-                    type Item = #item_struct_name #user_ty_generics_with_world;
-                    type State = #state_struct_name #user_ty_generics;
-
-                    unsafe fn init(_world: &'__w #path::world::World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self {
-                        Self {
-                            #(#field_idents:
-                                #path::query::#fetch_type_alias::<'__w, #field_types>::init(
-                                    _world,
-                                    &state.#field_idents,
-                                    _last_change_tick,
-                                    _change_tick
-                                ),
-                            )*
-                            #(#ignored_field_idents: Default::default(),)*
-                        }
+                /// SAFETY: we call `table_fetch` for each member that implements `Fetch`.
+                #[inline]
+                unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
+                    Self::Item {
+                        #(#field_idents: self.#field_idents.table_fetch(_table_row),)*
+                        #(#ignored_field_idents: Default::default(),)*
                     }
+                }
 
-                    const IS_DENSE: bool = true #(&& #path::query::#fetch_type_alias::<'__w, #field_types>::IS_DENSE)*;
-
-                    /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
-                    #[inline]
-                    unsafe fn set_archetype(
-                        &mut self,
-                        _state: &Self::State,
-                        _archetype: &'__w #path::archetype::Archetype,
-                        _tables: &'__w #path::storage::Tables
-                    ) {
-                        #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _tables);)*
+                /// SAFETY: we call `archetype_fetch` for each member that implements `Fetch`.
+                #[inline]
+                unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
+                    Self::Item {
+                        #(#field_idents: self.#field_idents.archetype_fetch(_archetype_index),)*
+                        #(#ignored_field_idents: Default::default(),)*
                     }
+                }
 
-                    /// SAFETY: we call `set_table` for each member that implements `Fetch`
-                    #[inline]
-                    unsafe fn set_table(&mut self, _state: &Self::State, _table: &'__w #path::storage::Table) {
-                        #(self.#field_idents.set_table(&_state.#field_idents, _table);)*
-                    }
+                #[allow(unused_variables)]
+                #[inline]
+                unsafe fn table_filter_fetch(&mut self, _table_row: usize) -> bool {
+                    true #(&& self.#field_idents.table_filter_fetch(_table_row))*
+                }
 
-                    /// SAFETY: we call `table_fetch` for each member that implements `Fetch`.
-                    #[inline]
-                    unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
-                        Self::Item {
-                            #(#field_idents: self.#field_idents.table_fetch(_table_row),)*
-                            #(#ignored_field_idents: Default::default(),)*
-                        }
-                    }
-
-                    /// SAFETY: we call `archetype_fetch` for each member that implements `Fetch`.
-                    #[inline]
-                    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
-                        Self::Item {
-                            #(#field_idents: self.#field_idents.archetype_fetch(_archetype_index),)*
-                            #(#ignored_field_idents: Default::default(),)*
-                        }
-                    }
+                #[allow(unused_variables)]
+                #[inline]
+                unsafe fn archetype_filter_fetch(&mut self, _archetype_index: usize) -> bool {
+                    true #(&& self.#field_idents.archetype_filter_fetch(_archetype_index))*
                 }
             }
         }
     };
 
-    let fetch_impl = impl_fetch(
-        fetch_struct_attributes.is_filter,
-        false,
-        fetch_struct_name.clone(),
-        item_struct_name.clone(),
-    );
+    let fetch_impl = impl_fetch(false, fetch_struct_name.clone(), item_struct_name.clone());
 
     let state_impl = quote! {
         #[doc(hidden)]
@@ -360,26 +287,11 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
     let read_only_fetch_impl = match fetch_struct_attributes.is_mutable {
         true => impl_fetch(
-            false,
             true,
             read_only_fetch_struct_name.clone(),
             read_only_item_struct_name,
         ),
         false => quote! {},
-    };
-
-    let fn_shrink_internals = match fetch_struct_attributes.is_filter {
-        true => quote! { item },
-        false => quote! {
-            #item_struct_name {
-                #(
-                   #field_idents : < #field_types as #path::query::WorldQuery> :: shrink( item.#field_idents ),
-                )*
-                #(
-                    #ignored_field_idents: item.#ignored_field_idents,
-                )*
-            }
-        },
     };
 
     let read_only_asserts = match fetch_struct_attributes.is_mutable {
@@ -412,7 +324,14 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             type State = #state_struct_name #user_ty_generics;
             fn shrink<'__wlong: '__wshort, '__wshort>(item: #path::query::#item_type_alias<'__wlong, Self>)
                 -> #path::query::#item_type_alias<'__wshort, Self> {
-                    #fn_shrink_internals
+                    #item_struct_name {
+                        #(
+                           #field_idents : < #field_types as #path::query::WorldQuery> :: shrink( item.#field_idents ),
+                        )*
+                        #(
+                            #ignored_field_idents: item.#ignored_field_idents,
+                        )*
+                    }
                 }
         }
 

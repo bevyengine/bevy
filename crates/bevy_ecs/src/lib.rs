@@ -47,14 +47,11 @@ pub use bevy_ecs_macros::all_tuples;
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::query::QueryFetch;
     use crate::{
         bundle::Bundle,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{
-            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
-        },
+        query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -900,10 +897,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
-        where
-            for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-        {
+        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)

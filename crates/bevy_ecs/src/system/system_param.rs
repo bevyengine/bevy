@@ -7,8 +7,8 @@ use crate::{
     entity::{Entities, Entity},
     ptr::UnsafeCellDeref,
     query::{
-        Access, FilterFetch, FilteredAccess, FilteredAccessSet, QueryFetch, QueryState,
-        ReadOnlyFetch, WorldQuery,
+        Access, FilteredAccess, FilteredAccessSet, QueryFetch, QueryState, ReadOnlyFetch,
+        WorldQuery,
     },
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
@@ -88,26 +88,20 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     ) -> Self::Item;
 }
 
-impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-{
+impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F> {
     type Fetch = QueryState<Q, F>;
 }
 
 // SAFE: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<Q: WorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F>
-where
-    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch,
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
+unsafe impl<Q: WorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F> where
+    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch
 {
 }
 
 // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this QueryState conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState for QueryState<Q, F>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
+unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState
+    for QueryState<Q, F>
 {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let state = QueryState::new(world);
@@ -138,8 +132,6 @@ where
 
 impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's>
     for QueryState<Q, F>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
     type Item = Query<'w, 's, Q, F>;
 
@@ -1405,7 +1397,7 @@ mod tests {
     use super::SystemParam;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        query::{FilterFetch, QueryFetch, WorldQuery},
+        query::WorldQuery,
         system::Query,
     };
 
@@ -1416,10 +1408,7 @@ mod tests {
         's,
         Q: WorldQuery + Send + Sync + 'static,
         F: WorldQuery + Send + Sync + 'static = (),
-    >
-    where
-        for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-    {
+    > {
         _query: Query<'w, 's, Q, F>,
     }
 }

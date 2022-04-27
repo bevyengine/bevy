@@ -4,8 +4,8 @@ use crate::{
     entity::Entity,
     ptr::{ThinSlicePtr, UnsafeCellDeref},
     query::{
-        debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, WorldQuery,
-        WorldQueryGats,
+        debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, QueryFetch,
+        ROQueryFetch, WorldQuery, WorldQueryGats,
     },
     storage::{ComponentSparseSet, Table, Tables},
     world::World,
@@ -14,40 +14,6 @@ use bevy_ecs_macros::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 use super::ReadOnlyFetch;
-
-/// Extension trait for [`Fetch`] containing methods used by query filters.
-/// This trait exists to allow "short circuit" behaviors for relevant query filter fetches.
-///
-/// This trait is automatically implemented for every type that implements [`Fetch`] trait and
-/// specifies `bool` as the associated type for [`Fetch::Item`].
-pub trait FilterFetch<'w>: Fetch<'w> {
-    /// # Safety
-    ///
-    /// Must always be called _after_ [`Fetch::set_archetype`]. `archetype_index` must be in the range
-    /// of the current archetype.
-    unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool;
-
-    /// # Safety
-    ///
-    /// Must always be called _after_ [`Fetch::set_table`]. `table_row` must be in the range of the
-    /// current table.
-    unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool;
-}
-
-impl<'w, T> FilterFetch<'w> for T
-where
-    T: Fetch<'w, Item = bool>,
-{
-    #[inline]
-    unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
-        self.archetype_fetch(archetype_index)
-    }
-
-    #[inline]
-    unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
-        self.table_fetch(table_row)
-    }
-}
 
 /// Filter that selects entities with a component `T`.
 ///
@@ -140,7 +106,7 @@ impl<T: Component> WorldQueryGats<'_> for With<T> {
 }
 
 impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
-    type Item = bool;
+    type Item = ();
     type State = WithState<T>;
 
     unsafe fn init(
@@ -174,14 +140,10 @@ impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
     }
 
     #[inline]
-    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
-        true
-    }
+    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) {}
 
     #[inline]
-    unsafe fn table_fetch(&mut self, _table_row: usize) -> bool {
-        true
-    }
+    unsafe fn table_fetch(&mut self, _table_row: usize) {}
 }
 
 // SAFETY: no component access or archetype component access
@@ -285,7 +247,7 @@ impl<T: Component> WorldQueryGats<'_> for Without<T> {
 }
 
 impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
-    type Item = bool;
+    type Item = ();
     type State = WithoutState<T>;
 
     unsafe fn init(
@@ -319,14 +281,10 @@ impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
     }
 
     #[inline]
-    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> bool {
-        true
-    }
+    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) {}
 
     #[inline]
-    unsafe fn table_fetch(&mut self, _table_row: usize) -> bool {
-        true
-    }
+    unsafe fn table_fetch(&mut self, _table_row: usize) {}
 }
 
 // SAFETY: no component access or archetype component access
@@ -378,7 +336,7 @@ pub struct Or<T>(pub T);
 /// The [`Fetch`] of [`Or`].
 #[derive(Clone, Copy)]
 #[doc(hidden)]
-pub struct OrFetch<'w, T: FilterFetch<'w>> {
+pub struct OrFetch<'w, T: Fetch<'w>> {
     fetch: T,
     matches: bool,
     _marker: PhantomData<&'w ()>,
@@ -388,25 +346,7 @@ macro_rules! impl_query_filter_tuple {
     ($(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, $($filter: FilterFetch<'w>),*> FilterFetch<'w> for ($($filter,)*) {
-            #[inline]
-            unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
-                let ($($filter,)*) = self;
-                true $(&& $filter.table_filter_fetch(table_row))*
-            }
-
-            #[inline]
-            unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
-                let ($($filter,)*) = self;
-                true $(&& $filter.archetype_filter_fetch(archetype_index))*
-            }
-        }
-
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        impl<$($filter: WorldQuery),*> WorldQuery for Or<($($filter,)*)>
-            where $(for<'w> <$filter as WorldQueryGats<'w>>::Fetch: FilterFetch<'w>),*
-        {
+        impl<$($filter: WorldQuery),*> WorldQuery for Or<($($filter,)*)> {
             type State = Or<($($filter::State,)*)>;
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: super::QueryItem<'wlong, Self>) -> super::QueryItem<'wshort, Self> {
@@ -416,17 +356,15 @@ macro_rules! impl_query_filter_tuple {
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, $($filter: WorldQueryGats<'w>),*> WorldQueryGats<'w> for Or<($($filter,)*)>
-            where $($filter::Fetch: FilterFetch<'w>),*
-        {
-            type Fetch = Or<($(OrFetch<'w, $filter::Fetch>,)*)>;
-            type ReadOnlyFetch = Or<($(OrFetch<'w, $filter::Fetch>,)*)>;
+        impl<'w, $($filter: WorldQueryGats<'w>),*> WorldQueryGats<'w> for Or<($($filter,)*)> {
+            type Fetch = Or<($(OrFetch<'w, QueryFetch<'w, $filter>>,)*)>;
+            type ReadOnlyFetch = Or<($(OrFetch<'w, ROQueryFetch<'w, $filter>>,)*)>;
             type _State = Or<($($filter::_State,)*)>;
         }
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, $($filter: FilterFetch<'w>),*> Fetch<'w> for Or<($(OrFetch<'w, $filter>,)*)> {
+        impl<'w, $($filter: Fetch<'w>),*> Fetch<'w> for Or<($(OrFetch<'w, $filter>,)*)> {
             type State = Or<($(<$filter as Fetch<'w>>::State,)*)>;
             type Item = bool;
 
@@ -476,6 +414,16 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &mut self.0;
                 false $(|| ($filter.matches && $filter.fetch.archetype_filter_fetch(archetype_index)))*
             }
+
+            #[inline]
+            unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
+                self.table_fetch(table_row)
+            }
+
+            #[inline]
+            unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
+                self.archetype_fetch(archetype_index)
+            }
         }
 
         // SAFETY: update_component_access and update_archetype_component_access are called for each item in the tuple
@@ -508,7 +456,7 @@ macro_rules! impl_query_filter_tuple {
         }
 
         // SAFE: filters are read only
-        unsafe impl<'w, $($filter: FilterFetch<'w>),*> ReadOnlyFetch for Or<($(OrFetch<'w, $filter>,)*)> {}
+        unsafe impl<'w, $($filter: Fetch<'w> + ReadOnlyFetch),*> ReadOnlyFetch for Or<($(OrFetch<'w, $filter>,)*)> {}
     };
 }
 
@@ -659,6 +607,16 @@ macro_rules! impl_tick_filter {
                         $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }
+            }
+
+            #[inline]
+            unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
+                self.table_fetch(table_row)
+            }
+
+            #[inline]
+            unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
+                self.archetype_fetch(archetype_index)
             }
         }
 

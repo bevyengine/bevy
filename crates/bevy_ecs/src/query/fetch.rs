@@ -263,11 +263,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// ## Filters
 ///
-/// Using [`derive@super::WorldQuery`] macro in conjunctions with the `#[world_query(filter)]`
-/// attribute allows creating custom query filters.
-///
-/// To do so, all fields in the struct must be filters themselves (their [`WorldQuery::Fetch`](WorldQueryGats::Fetch)
-/// associated types should implement [`super::FilterFetch`]).
+/// Using [`derive@super::WorldQuery`] macro we can create our own query filters.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -283,7 +279,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// struct Qux;
 ///
 /// #[derive(WorldQuery)]
-/// #[world_query(filter)]
 /// struct MyFilter<T: Component, P: Component> {
 ///     _foo: With<Foo>,
 ///     _bar: With<Bar>,
@@ -389,6 +384,26 @@ pub trait Fetch<'world>: Sized {
     /// Must always be called _after_ [`Fetch::set_table`]. `table_row` must be in the range of the
     /// current table
     unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item;
+
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`Fetch::set_archetype`]. `archetype_index` must be in the range
+    /// of the current archetype.
+    #[allow(unused_variables)]
+    #[inline]
+    unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
+        true
+    }
+
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`Fetch::set_table`]. `table_row` must be in the range of the
+    /// current table.
+    #[allow(unused_variables)]
+    #[inline]
+    unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
+        true
+    }
 }
 
 /// State used to construct a Fetch. This will be cached inside [`QueryState`](crate::query::QueryState),
@@ -1475,6 +1490,20 @@ macro_rules! impl_tuple_fetch {
                 let ($($name,)*) = self;
                 ($($name.archetype_fetch(_archetype_index),)*)
             }
+
+            #[allow(unused_variables)]
+            #[inline]
+            unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
+                let ($($name,)*) = self;
+                true $(&& $name.table_filter_fetch(table_row))*
+            }
+
+            #[allow(unused_variables)]
+            #[inline]
+            unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
+                let ($($name,)*) = self;
+                true $(&& $name.archetype_filter_fetch(archetype_index))*
+            }
         }
 
         // SAFETY: update_component_access and update_archetype_component_access are called for each item in the tuple
@@ -1552,7 +1581,6 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = &state.0;
                 AnyOf(($(($name::init(_world, $name, _last_change_tick, _change_tick), false),)*))
             }
-
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 

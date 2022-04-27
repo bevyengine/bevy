@@ -4,8 +4,8 @@ use crate::{
     entity::Entity,
     prelude::FromWorld,
     query::{
-        Access, Fetch, FetchState, FilterFetch, FilteredAccess, NopFetch, QueryCombinationIter,
-        QueryIter, WorldQuery,
+        Access, Fetch, FetchState, FilteredAccess, NopFetch, QueryCombinationIter, QueryIter,
+        WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -17,10 +17,7 @@ use thiserror::Error;
 use super::{QueryFetch, QueryItem, ROQueryFetch, ROQueryItem};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
-pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-{
+pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
@@ -35,19 +32,13 @@ where
     pub(crate) filter_state: F::State,
 }
 
-impl<Q: WorldQuery, F: WorldQuery> FromWorld for QueryState<Q, F>
-where
-    for<'w> QueryFetch<'w, F>: FilterFetch<'w>,
-{
+impl<Q: WorldQuery, F: WorldQuery> FromWorld for QueryState<Q, F> {
     fn from_world(world: &mut World) -> Self {
         world.query_filtered()
     }
 }
 
-impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-{
+impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let fetch_state = <Q::State as FetchState>::init(world);

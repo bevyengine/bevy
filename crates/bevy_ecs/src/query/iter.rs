@@ -1,6 +1,6 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
-    query::{Fetch, FilterFetch, QueryState, WorldQuery},
+    query::{Fetch, QueryState, WorldQuery},
     storage::{TableId, Tables},
     world::World,
 };
@@ -12,10 +12,7 @@ use super::{QueryFetch, QueryItem, ReadOnlyFetch};
 ///
 /// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-{
+pub struct QueryIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
@@ -30,7 +27,6 @@ where
 
 impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIter<'w, 's, Q, QF, F>
 where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
     QF: Fetch<'w, State = Q::State>,
 {
     /// # Safety
@@ -75,7 +71,6 @@ where
 impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State>,
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
     type Item = QF::Item;
 
@@ -155,10 +150,7 @@ where
     }
 }
 
-pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-{
+pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
@@ -166,10 +158,7 @@ where
     cursors: [QueryIterationCursor<'w, 's, Q, QueryFetch<'w, Q>, F>; K],
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-{
+impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K> {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
@@ -284,7 +273,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
     QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
-    for<'x> QueryFetch<'x, F>: Clone + FilterFetch<'x> + ReadOnlyFetch,
+    for<'x> QueryFetch<'x, F>: Clone + ReadOnlyFetch,
 {
     type Item = [QueryItem<'w, Q>; K];
 
@@ -374,7 +363,6 @@ where
 impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIterationCursor<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State>,
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
 {
     unsafe fn init_empty(
         world: &'w World,

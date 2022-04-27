@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        FilterFetch, NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem,
-        QueryIter, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
+        NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
+        QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -240,20 +240,14 @@ use thiserror::Error;
 /// methods instead. Keep in mind though that they will return a [`QuerySingleError`] if the
 /// number of query results differ from being exactly one. If that's the case, use `iter.next()`
 /// (or `iter_mut.next()`) to only get the first query result.
-pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-{
+pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()> {
     pub(crate) world: &'world World,
     pub(crate) state: &'state QueryState<Q, F>,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
-where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
-{
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// Creates a new query.
     ///
     /// # Safety
@@ -1161,7 +1155,6 @@ pub enum QuerySingleError {
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
-    for<'x> QueryFetch<'x, F>: FilterFetch<'x>,
     for<'x> QueryFetch<'x, Q>: ReadOnlyFetch,
 {
     /// Returns the query result for the given [`Entity`], with the actual "inner" world lifetime.

@@ -1410,8 +1410,8 @@ impl ShadowPassNode {
 
     pub fn new(world: &mut World) -> Self {
         Self {
-            main_view_query: world.query(),
-            view_light_query: world.query(),
+            main_view_query: QueryState::new(world),
+            view_light_query: QueryState::new(world),
         }
     }
 }
