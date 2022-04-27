@@ -608,8 +608,8 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 }
 
 /// Represents the information needed to implement a type as a Reflect Struct.
-/// ## Example
-/// ```
+/// # Example
+/// ```ignore
 /// impl_reflect_struct_and_from_reflect_struct!(
 ///    //               path override                ctor override                       attrs
 ///    //        |-------------------------|  |-------------------------|  |-------------------------------|
@@ -711,17 +711,17 @@ impl Parse for ReflectStructDef {
 }
 
 /// A replacement for #\[derive(Reflect)] to be used with foreign types which
-/// the definitions of cannot be altered. It is an alternative to [`impl_reflect_value`] and
-/// [`impl_from_reflect_value`] which implement foreign types as Value types. This macro
+/// the definitions of cannot be altered. It is an alternative to [`impl_reflect_value!`] and
+/// [`impl_from_reflect_value!`] which implement foreign types as Value types. This macro
 /// implements them as Struct types, which have greater functionality.
 ///
 /// The extra ctor tag allows overriding the default construction behavior, which is necessary
 /// for non-constructible foreign types, among other cases.
 ///
-/// The extra path tag allows overriding the path used to access the bevy_reflect module, which
+/// The extra path tag allows overriding the path used to access the `bevy_reflect` module, which
 /// can be helpful in certain edge cases of invocations of the macro.
-/// ## Example
-/// ```
+/// # Example
+/// ```ignore
 /// impl_reflect_struct_and_from_reflect_struct!(
 ///    #[reflect(ctor = "Default::default()", path = "self::bevy_reflect", PartialEq, Serialize, Deserialize)]
 ///    struct Vec3 {
