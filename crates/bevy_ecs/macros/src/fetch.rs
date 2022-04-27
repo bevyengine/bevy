@@ -92,16 +92,16 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let struct_name = ast.ident.clone();
 
     let item_struct_name = Ident::new(&format!("{}Item", struct_name), Span::call_site());
-    let read_only_item_struct_name = match fetch_struct_attributes.is_mutable {
-        true => Ident::new(&format!("{}ReadOnlyItem", struct_name), Span::call_site()),
-        false => item_struct_name.clone(),
-    };
+    let read_only_item_struct_name = fetch_struct_attributes
+        .is_mutable
+        .then(|| Ident::new(&format!("{}ReadOnlyItem", struct_name), Span::call_site()))
+        .unwrap_or_else(|| item_struct_name.clone());
 
     let fetch_struct_name = Ident::new(&format!("{}Fetch", struct_name), Span::call_site());
-    let read_only_fetch_struct_name = match fetch_struct_attributes.is_mutable {
-        true => Ident::new(&format!("{}ReadOnlyFetch", struct_name), Span::call_site()),
-        false => fetch_struct_name.clone(),
-    };
+    let read_only_fetch_struct_name = fetch_struct_attributes
+        .is_mutable
+        .then(|| Ident::new(&format!("{}ReadOnlyFetch", struct_name), Span::call_site()))
+        .unwrap_or_else(|| fetch_struct_name.clone());
 
     let state_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
 
