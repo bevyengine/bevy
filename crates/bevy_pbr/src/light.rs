@@ -579,20 +579,21 @@ fn cluster_space_light_aabb(
             .max(light_aabb_ndc_xymax_far),
     );
 
-    // pack unadjusted z depth into the vecs
-    let (aabb_min, aabb_max) = (
-        light_aabb_ndc_min.xy().extend(light_aabb_view_min.z),
-        light_aabb_ndc_max.xy().extend(light_aabb_view_max.z),
+    // clamp to ndc coords without depth
+    let (aabb_min_ndc, aabb_max_ndc) = (
+        light_aabb_ndc_min.xy().clamp(NDC_MIN, NDC_MAX),
+        light_aabb_ndc_max.xy().clamp(NDC_MIN, NDC_MAX),
     );
-    // clamp to ndc coords
+
+    // pack unadjusted z depth into the vecs
     (
-        aabb_min.clamp(NDC_MIN, NDC_MAX),
-        aabb_max.clamp(NDC_MIN, NDC_MAX),
+        aabb_min_ndc.extend(light_aabb_view_min.z),
+        aabb_max_ndc.extend(light_aabb_view_max.z),
     )
 }
 
-const NDC_MIN: Vec3 = const_vec3!([-1.0, -1.0, f32::MIN]);
-const NDC_MAX: Vec3 = const_vec3!([1.0, 1.0, f32::MAX]);
+const NDC_MIN: Vec2 = const_vec2!([-1.0, -1.0]);
+const NDC_MAX: Vec2 = const_vec2!([1.0, 1.0]);
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
 // can be used to limit the number of point light shadows to render based on the device and
