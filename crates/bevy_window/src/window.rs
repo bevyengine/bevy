@@ -594,9 +594,25 @@ pub struct WindowDescriptor {
     pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
     pub title: String,
-    #[cfg(any(feature = "x11", feature = "wayland"))]
+    #[cfg(all(
+        any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ),
+        any(feature = "x11", feature = "wayland")
+    ))]
     pub desktop_id: String,
-    #[cfg(feature = "x11")]
+    #[cfg(all(
+        any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ),
+        feature = "x11"
+    ))]
     pub desktop_instance: String,
     #[doc(alias = "vsync")]
     pub present_mode: PresentMode,
@@ -621,9 +637,25 @@ impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
             title: "app".to_string(),
-            #[cfg(any(feature = "x11", feature = "wayland"))]
+            #[cfg(all(
+                any(
+                    target_os = "linux",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd"
+                ),
+                any(feature = "x11", feature = "wayland")
+            ))]
             desktop_id: "app".to_string(),
-            #[cfg(feature = "x11")]
+            #[cfg(all(
+                any(
+                    target_os = "linux",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd"
+                ),
+                feature = "x11"
+            ))]
             desktop_instance: "Main".to_string(),
             width: 1280.,
             height: 720.,
