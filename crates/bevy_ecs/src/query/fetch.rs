@@ -344,6 +344,13 @@ pub trait Fetch<'world>: Sized {
     /// [`Fetch::archetype_fetch`] will be called for iterators.
     const IS_DENSE: bool;
 
+    /// Returns true if (and only if) this Fetch relies strictly on archetypes to limit which
+    /// components are acessed by the Query.
+    ///
+    /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
+    /// many elements are being iterated (such as `Iterator::collect()`).
+    const IS_ARCHETYPAL: bool;
+
     /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on
     /// archetypes that match this [`Fetch`].
     ///
@@ -495,6 +502,8 @@ impl<'w> Fetch<'w> for EntityFetch<'w> {
 
     const IS_DENSE: bool = true;
 
+    const IS_ARCHETYPAL: bool = true;
+
     unsafe fn init(
         _world: &'w World,
         _state: &EntityState,
@@ -629,6 +638,8 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
             StorageType::SparseSet => false,
         }
     };
+
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init(
         world: &'w World,
@@ -840,6 +851,8 @@ impl<'w, 's, T: Component> Fetch<'w> for WriteFetch<'w, T> {
         }
     };
 
+    const IS_ARCHETYPAL: bool = true;
+
     unsafe fn init(
         world: &'w World,
         state: &WriteState<T>,
@@ -956,6 +969,8 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
             StorageType::SparseSet => false,
         }
     };
+
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init(
         world: &'w World,
@@ -1110,6 +1125,8 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     type State = OptionState<T::State>;
 
     const IS_DENSE: bool = T::IS_DENSE;
+
+    const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
 
     unsafe fn init(
         world: &'w World,
@@ -1332,6 +1349,8 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
         }
     };
 
+    const IS_ARCHETYPAL: bool = true;
+
     unsafe fn init(
         world: &'w World,
         state: &ChangeTrackersState<T>,
@@ -1463,6 +1482,8 @@ macro_rules! impl_tuple_fetch {
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
+            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+
             #[inline]
             unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &'w Archetype, _tables: &'w Tables) {
                 let ($($name,)*) = self;
@@ -1584,6 +1605,8 @@ macro_rules! impl_anytuple_fetch {
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
+            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+
             #[inline]
             unsafe fn set_archetype(&mut self, _state: &Self::State, _archetype: &'w Archetype, _tables: &'w Tables) {
                 let ($($name,)*) = &mut self.0;
@@ -1695,6 +1718,9 @@ impl<'w, State: FetchState> Fetch<'w> for NopFetch<State> {
 
     const IS_DENSE: bool = true;
 
+    const IS_ARCHETYPAL: bool = true;
+
+    #[inline(always)]
     unsafe fn init(
         _world: &'w World,
         _state: &State,

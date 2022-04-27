@@ -10,6 +10,7 @@ use crate::{
 };
 use std::{any::TypeId, cell::UnsafeCell};
 
+/// A read-only reference to a particular [`Entity`] and all of its components
 pub struct EntityRef<'w> {
     world: &'w World,
     entity: Entity,
@@ -99,6 +100,7 @@ impl<'w> EntityRef<'w> {
     }
 }
 
+/// A mutable reference to a particular [`Entity`] and all of its components
 pub struct EntityMut<'w> {
     world: &'w mut World,
     entity: Entity,
@@ -465,6 +467,8 @@ impl<'w> EntityMut<'w> {
 }
 
 // TODO: move to Storages?
+/// Get a raw pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
+///
 /// # Safety
 /// `entity_location` must be within bounds of the given archetype and `entity` must exist inside
 /// the archetype
@@ -495,6 +499,8 @@ unsafe fn get_component(
 }
 
 // TODO: move to Storages?
+/// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] on a particular [`Entity`] in the provided [World].
+///
 /// # Safety
 /// Caller must ensure that `component_id` is valid
 #[inline]
@@ -567,6 +573,8 @@ unsafe fn take_component<'a>(
     }
 }
 
+/// Get a raw pointer to a particular [`Component`] by [`TypeId`] on a particular [`Entity`] in the provided [`World`].
+///
 /// # Safety
 /// `entity_location` must be within bounds of an archetype that exists.
 unsafe fn get_component_with_type(
@@ -579,6 +587,8 @@ unsafe fn get_component_with_type(
     get_component(world, component_id, entity, location)
 }
 
+/// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] by [`TypeId`] on a particular [`Entity`] in the provided [`World`].
+///
 /// # Safety
 /// `entity_location` must be within bounds of an archetype that exists.
 pub(crate) unsafe fn get_component_and_ticks_with_type(

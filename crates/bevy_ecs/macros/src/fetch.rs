@@ -198,6 +198,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
                 const IS_DENSE: bool = true #(&& #path::query::#fetch_type_alias::<'__w, #field_types>::IS_DENSE)*;
 
+                const IS_ARCHETYPAL: bool = true #(&& #path::query::#fetch_type_alias::<'__w, #field_types>::IS_ARCHETYPAL)*;
+
                 /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
                 #[inline]
                 unsafe fn set_archetype(

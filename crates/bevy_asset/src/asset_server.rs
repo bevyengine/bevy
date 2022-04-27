@@ -60,16 +60,9 @@ pub struct AssetServerInternal {
 }
 
 /// Loads assets from the filesystem on background threads
+#[derive(Clone)]
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
-}
-
-impl Clone for AssetServer {
-    fn clone(&self) -> Self {
-        Self {
-            server: self.server.clone(),
-        }
-    }
 }
 
 impl AssetServer {
@@ -629,18 +622,7 @@ mod test {
     fn setup(asset_path: impl AsRef<Path>) -> AssetServer {
         use crate::FileAssetIo;
 
-        AssetServer {
-            server: Arc::new(AssetServerInternal {
-                loaders: Default::default(),
-                extension_to_loader_index: Default::default(),
-                asset_sources: Default::default(),
-                asset_ref_counter: Default::default(),
-                handle_to_path: Default::default(),
-                asset_lifecycles: Default::default(),
-                task_pool: Default::default(),
-                asset_io: Box::new(FileAssetIo::new(asset_path, false)),
-            }),
-        }
+        AssetServer::new(FileAssetIo::new(asset_path, false), Default::default())
     }
 
     #[test]
