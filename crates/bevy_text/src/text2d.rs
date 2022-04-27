@@ -66,13 +66,22 @@ pub fn extract_text2d_sprite(
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,
-    text2d_query: Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>,
+    text2d_query: Query<(
+        Entity,
+        &Visibility,
+        &Text,
+        &BidiCorrectedText,
+        &GlobalTransform,
+        &Text2dSize,
+    )>,
 ) {
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
 
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
+    for (entity, visibility, text, bidi_corrected, transform, calculated_size) in
+        text2d_query.iter()
+    {
         if !visibility.is_visible {
             continue;
         }
@@ -94,7 +103,7 @@ pub fn extract_text2d_sprite(
             text_transform.scale /= scale_factor;
 
             for text_glyph in text_glyphs {
-                let color = text.sections[text_glyph.section_index]
+                let color = bidi_corrected.sections[text_glyph.section_index]
                     .style
                     .color
                     .as_rgba_linear();

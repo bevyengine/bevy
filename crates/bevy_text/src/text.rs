@@ -66,7 +66,6 @@ impl Text {
                 style,
             }],
             alignment,
-            ..Default::default()
         }
     }
 }
