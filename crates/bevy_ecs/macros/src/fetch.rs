@@ -92,16 +92,18 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let struct_name = ast.ident.clone();
 
     let item_struct_name = Ident::new(&format!("{}Item", struct_name), Span::call_site());
-    let read_only_item_struct_name = fetch_struct_attributes
-        .is_mutable
-        .then(|| Ident::new(&format!("{}ReadOnlyItem", struct_name), Span::call_site()))
-        .unwrap_or_else(|| item_struct_name.clone());
+    let read_only_item_struct_name = if fetch_struct_attributes.is_mutable {
+        Ident::new(&format!("{}ReadOnlyItem", struct_name), Span::call_site())
+    } else {
+        item_struct_name.clone()
+    };
 
     let fetch_struct_name = Ident::new(&format!("{}Fetch", struct_name), Span::call_site());
-    let read_only_fetch_struct_name = fetch_struct_attributes
-        .is_mutable
-        .then(|| Ident::new(&format!("{}ReadOnlyFetch", struct_name), Span::call_site()))
-        .unwrap_or_else(|| fetch_struct_name.clone());
+    let read_only_fetch_struct_name = if fetch_struct_attributes.is_mutable {
+        Ident::new(&format!("{}ReadOnlyFetch", struct_name), Span::call_site())
+    } else {
+        fetch_struct_name.clone()
+    };
 
     let state_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
 
@@ -287,23 +289,25 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         }
     };
 
-    let read_only_fetch_impl = match fetch_struct_attributes.is_mutable {
-        true => impl_fetch(
+    let read_only_fetch_impl = if fetch_struct_attributes.is_mutable {
+        impl_fetch(
             true,
             read_only_fetch_struct_name.clone(),
             read_only_item_struct_name,
-        ),
-        false => quote! {},
+        )
+    } else {
+        quote! {}
     };
 
-    let read_only_asserts = match fetch_struct_attributes.is_mutable {
-        true => quote! {
+    let read_only_asserts = if fetch_struct_attributes.is_mutable {
+        quote! {
             // Double-check that the data fetched by `ROQueryFetch` is read-only.
             // This is technically unnecessary as `<_ as WorldQueryGats<'world>>::ReadOnlyFetch: ReadOnlyFetch`
             // but to protect against future mistakes we assert the assoc type implements `ReadOnlyFetch` anyway
             #( assert_readonly::<#path::query::ROQueryFetch<'__w, #field_types>>(); )*
-        },
-        false => quote! {
+        }
+    } else {
+        quote! {
             // Statically checks that the safety guarantee of `ReadOnlyFetch` for `$fetch_struct_name` actually holds true.
             // We need this to make sure that we don't compile `ReadOnlyFetch` if our struct contains nested `WorldQuery`
             // members that don't implement it. I.e.:
@@ -312,7 +316,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             // pub struct Foo { a: &'static mut MyComponent }
             // ```
             #( assert_readonly::<#path::query::QueryFetch<'__w, #field_types>>(); )*
-        },
+        }
     };
 
     let tokens = TokenStream::from(quote! {
