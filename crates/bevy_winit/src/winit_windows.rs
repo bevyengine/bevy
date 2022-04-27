@@ -4,7 +4,15 @@ use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::LogicalSize;
 
-#[cfg(any(feature = "x11", feature = "wayland"))]
+#[cfg(all(
+    any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ),
+    any(feature = "x11", feature = "wayland")
+))]
 use winit::platform::unix::WindowBuilderExtUnix;
 
 #[derive(Debug, Default)]
@@ -106,7 +114,15 @@ impl WinitWindows {
         let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);
 
         #[allow(unused_mut)]
-        #[cfg(feature = "x11")]
+        #[cfg(all(
+            any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            ),
+            feature = "x11"
+        ))]
         let mut winit_window_builder = winit_window_builder.with_class(
             window_descriptor.desktop_instance.clone(), // that's actually wm_instance
             window_descriptor.desktop_id.clone(),       // and that's wm_class
@@ -125,7 +141,15 @@ impl WinitWindows {
         */
 
         #[allow(unused_mut)]
-        #[cfg(feature = "wayland")]
+        #[cfg(all(
+            any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            ),
+            feature = "wayland"
+        ))]
         let mut winit_window_builder =
             winit_window_builder.with_app_id(window_descriptor.desktop_id.clone());
 
