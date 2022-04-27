@@ -8,7 +8,7 @@ use bevy_ecs::{event::EventReader, system::ResMut};
 ///
 /// ## Usage
 ///
-/// The event is read inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
+/// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
 #[derive(Debug, Clone)]
 pub struct KeyboardInput {
@@ -79,7 +79,7 @@ pub enum KeyCode {
     Key8,
     /// The `9` key over the letters.
     Key9,
-    /// The `0` key over the `O` and `P` keys.
+    /// The `0` key over the letters.
     Key0,
 
     /// The `A` key.
@@ -216,7 +216,7 @@ pub enum KeyCode {
     /// The `Down` / `Down Arrow` key.
     Down,
 
-    /// The `Back` / `Backspace` key, right over the `Enter` key.
+    /// The `Back` / `Backspace` key.
     Back,
     /// The `Return` / `Enter` key.
     Return,
