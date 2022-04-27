@@ -292,18 +292,22 @@ macro_rules! maybe_trait_cast {
 }
 
 #[macro_export]
-macro_rules! register_type{
-    ($type_registry:ident, $this_type:ty, $($trait_type:path),* $(,)?) => {
-        {{
-        let mut type_registration = <$this_type as $crate::GetTypeRegistration>::get_type_registration();
+macro_rules! register_type {
+    ($type_registry:ident, $this_type:ty, $($trait_type:path),* $(,)?) => {{
+        let type_registration = match $type_registry.get_mut(::std::any::TypeId::of::<$this_type>()) {
+            Some(registration) => registration,
+            None => {
+                $type_registry.register::<$this_type>();
+                $type_registry.get_mut(::std::any::TypeId::of::<$this_type>()).unwrap()
+            }
+        };
+
         $(
             if let Some(cast_fn) = $crate::maybe_trait_cast!($this_type, $trait_type) {{
                 type_registration.register_trait_cast::<dyn $trait_type>(cast_fn);
             }}
         )*
-        $type_registry.add_registration(type_registration);
-    }}
-    };
+    }};
 }
 
 /// A record of data about a type.
@@ -607,7 +611,9 @@ mod test {
     }
 
     trait Test {}
+
     impl Test for HashMap<u32, u32> {}
+
     trait TestNot {}
 
     // the user should specify all traits in a top-level crate.

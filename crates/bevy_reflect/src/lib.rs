@@ -977,18 +977,41 @@ bevy_reflect::tests::should_reflect_debug::Test {
             impl SomeTrait for Foo {}
             impl SomeTrait for Bar {}
 
+            struct SomeTypeData;
+            impl TypeData for SomeTypeData {
+                fn clone_type_data(&self) -> Box<dyn TypeData> {
+                    Box::new(SomeTypeData)
+                }
+            }
+
+            // Register a set of types and traits
             register_all! {
                 traits: [SomeTrait],
                 types: [Foo, Bar, Baz]
             }
 
             let mut registry = TypeRegistry::default();
-            register_types(&mut registry);
 
+            // Pre-register `Foo`
+            registry.register::<Foo>();
+            let foo = registry.get_mut(TypeId::of::<Foo>()).unwrap();
+            foo.insert(SomeTypeData);
+
+            // Register all and make sure it doesn't overwrite any existing data
+            assert!(registry
+                .get_type_data::<SomeTypeData>(TypeId::of::<Foo>())
+                .is_some());
+            register_types(&mut registry);
+            assert!(registry
+                .get_type_data::<SomeTypeData>(TypeId::of::<Foo>())
+                .is_some());
+
+            // Test that Foo has the proper trait casts
             let ty = registry.get(TypeId::of::<Foo>()).unwrap();
             assert!(ty.trait_cast::<dyn SomeTrait>(&Foo).is_some());
             assert!(ty.trait_cast::<dyn NoneTrait>(&Foo).is_none());
 
+            // Test that Baz has no trait casts
             let ty = registry.get(TypeId::of::<Baz>()).unwrap();
             assert!(ty.trait_cast::<dyn SomeTrait>(&Baz).is_none());
             assert!(ty.trait_cast::<dyn NoneTrait>(&Baz).is_none());
