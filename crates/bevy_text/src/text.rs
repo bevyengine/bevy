@@ -13,7 +13,7 @@ pub struct Text {
     pub alignment: TextAlignment,
 }
 
-/// Corrected text data after applying the Unicode BiDi Algorithm
+/// Corrected text data after applying the Unicode Bidirectional Algorithm
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component)]
 pub struct BidiCorrectedText {
