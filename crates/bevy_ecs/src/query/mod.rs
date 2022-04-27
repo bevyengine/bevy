@@ -10,6 +10,13 @@ pub use filter::*;
 pub use iter::*;
 pub use state::*;
 
+#[allow(unreachable_code)]
+unsafe fn debug_checked_unreachable() -> ! {
+    #[cfg(debug_assertions)]
+    unreachable!();
+    std::hint::unreachable_unchecked();
+}
+
 #[cfg(test)]
 mod tests {
     use super::AnyOf;
@@ -65,8 +72,8 @@ mod tests {
         assert_eq!(a_query.iter_combinations::<4>(w).size_hint().1, Some(1));
         assert_eq!(a_query.iter_combinations::<5>(w).count(), 0);
         assert_eq!(a_query.iter_combinations::<5>(w).size_hint().1, Some(0));
-        assert_eq!(a_query.iter_combinations::<1024>(w).count(), 0);
-        assert_eq!(a_query.iter_combinations::<1024>(w).size_hint().1, Some(0));
+        assert_eq!(a_query.iter_combinations::<128>(w).count(), 0);
+        assert_eq!(a_query.iter_combinations::<128>(w).size_hint().1, Some(0));
 
         let values: Vec<[&A; 2]> = world.query::<&A>().iter_combinations(&world).collect();
         assert_eq!(
@@ -146,8 +153,8 @@ mod tests {
         assert_eq!(a_with_b.iter_combinations::<4>(w).size_hint().1, Some(0));
         assert_eq!(a_with_b.iter_combinations::<5>(w).count(), 0);
         assert_eq!(a_with_b.iter_combinations::<5>(w).size_hint().1, Some(0));
-        assert_eq!(a_with_b.iter_combinations::<1024>(w).count(), 0);
-        assert_eq!(a_with_b.iter_combinations::<1024>(w).size_hint().1, Some(0));
+        assert_eq!(a_with_b.iter_combinations::<128>(w).count(), 0);
+        assert_eq!(a_with_b.iter_combinations::<128>(w).size_hint().1, Some(0));
 
         let mut a_wout_b = world.query_filtered::<&A, Without<B>>();
         let w = &world;
@@ -163,13 +170,13 @@ mod tests {
         assert_eq!(a_wout_b.iter_combinations::<4>(w).size_hint().1, Some(0));
         assert_eq!(a_wout_b.iter_combinations::<5>(w).count(), 0);
         assert_eq!(a_wout_b.iter_combinations::<5>(w).size_hint().1, Some(0));
-        assert_eq!(a_wout_b.iter_combinations::<1024>(w).count(), 0);
-        assert_eq!(a_wout_b.iter_combinations::<1024>(w).size_hint().1, Some(0));
+        assert_eq!(a_wout_b.iter_combinations::<128>(w).count(), 0);
+        assert_eq!(a_wout_b.iter_combinations::<128>(w).size_hint().1, Some(0));
 
         let values: HashSet<[&A; 2]> = a_wout_b.iter_combinations(&world).collect();
         assert_eq!(
             values,
-            [[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)],]
+            [[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]]
                 .into_iter()
                 .collect::<HashSet<_>>()
         );

@@ -6,6 +6,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod ptr;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -46,14 +47,12 @@ pub use bevy_ecs_macros::all_tuples;
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::prelude::Or;
     use crate::{
         bundle::Bundle,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{
-            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, Or, With, Without,
-            WorldQuery,
-        },
+        query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
@@ -899,10 +898,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
-        where
-            F::Fetch: FilterFetch,
-        {
+        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)

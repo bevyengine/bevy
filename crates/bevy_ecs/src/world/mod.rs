@@ -13,7 +13,8 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{AllocAtWithoutReplacement, Entities, Entity},
-    query::{FilterFetch, QueryState, WorldQuery},
+    ptr::{OwningPtr, UnsafeCellDeref},
+    query::{QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
     system::Resource,
 };
@@ -21,7 +22,6 @@ use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
     fmt,
-    mem::ManuallyDrop,
     sync::atomic::{AtomicU32, Ordering},
 };
 mod identifier;
@@ -438,7 +438,7 @@ impl World {
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
         // SAFE: lifetimes enforce correct usage of returned borrow
-        unsafe { self.get_entity_mut(entity)?.get_unchecked_mut::<T>() }
+        unsafe { get_mut(self, entity, self.get_entity(entity)?.location()) }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
@@ -545,7 +545,7 @@ impl World {
     /// ```
     #[inline]
     pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
-        QueryState::new(self)
+        self.query_filtered::<Q, ()>()
     }
 
     /// Returns [`QueryState`] for the given filtered [`WorldQuery`], which is used to efficiently
@@ -568,10 +568,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<Q: WorldQuery, F: WorldQuery>(&mut self) -> QueryState<Q, F>
-    where
-        F::Fetch: FilterFetch,
-    {
+    pub fn query_filtered<Q: WorldQuery, F: WorldQuery>(&mut self) -> QueryState<Q, F> {
         QueryState::new(self)
     }
 
@@ -684,7 +681,7 @@ impl World {
         // ptr value / drop is called when R is dropped
         let (ptr, _) = unsafe { column.swap_remove_and_forget_unchecked(0) };
         // SAFE: column is of type R
-        Some(unsafe { ptr.cast::<R>().read() })
+        Some(unsafe { ptr.read::<R>() })
     }
 
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
@@ -712,7 +709,7 @@ impl World {
             return false;
         };
         // SAFE: resources table always have row 0
-        let ticks = unsafe { column.get_ticks_unchecked(0) };
+        let ticks = unsafe { column.get_ticks_unchecked(0).deref() };
         ticks.is_added(self.last_change_tick(), self.read_change_tick())
     }
 
@@ -729,7 +726,7 @@ impl World {
             return false;
         };
         // SAFE: resources table always have row 0
-        let ticks = unsafe { column.get_ticks_unchecked(0) };
+        let ticks = unsafe { column.get_ticks_unchecked(0).deref() };
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
 
@@ -1038,6 +1035,9 @@ impl World {
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+        let last_change_tick = self.last_change_tick();
+        let change_tick = self.change_tick();
+
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<R>())
@@ -1057,31 +1057,32 @@ impl World {
             // the ptr value / drop is called when R is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
         };
-        // SAFE: pointer is of type T and valid to move out of
+        // SAFE: pointer is of type R
         // Read the value onto the stack to avoid potential mut aliasing.
-        let mut value = unsafe { std::ptr::read(ptr.cast::<R>()) };
+        let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
             ticks: Ticks {
                 component_ticks: &mut ticks,
-                last_change_tick: self.last_change_tick(),
-                change_tick: self.change_tick(),
+                last_change_tick,
+                change_tick,
             },
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>());
+
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
         let column = unique_components
             .get_mut(component_id)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
 
-        // Wrap the value in MaybeUninit to prepare for passing the value back into the ECS
-        let mut nodrop_wrapped_value = std::mem::MaybeUninit::new(value);
-        unsafe {
-            // SAFE: pointer is of type T, and valid to move out of
-            column.push(nodrop_wrapped_value.as_mut_ptr() as *mut _, ticks);
-        }
+        OwningPtr::make(value, |ptr| {
+            unsafe {
+                // SAFE: pointer is of type R
+                column.push(ptr, ticks);
+            }
+        });
         result
     }
 
@@ -1093,7 +1094,7 @@ impl World {
         component_id: ComponentId,
     ) -> Option<&R> {
         let column = self.get_populated_resource_column(component_id)?;
-        Some(&*column.get_data_ptr().as_ptr().cast::<R>())
+        Some(column.get_data_ptr().deref::<R>())
     }
 
     /// # Safety
@@ -1106,9 +1107,9 @@ impl World {
     ) -> Option<Mut<'_, R>> {
         let column = self.get_populated_resource_column(component_id)?;
         Some(Mut {
-            value: &mut *column.get_data_ptr().cast::<R>().as_ptr(),
+            value: column.get_data_ptr().assert_unique().deref_mut(),
             ticks: Ticks {
-                component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
+                component_ticks: column.get_ticks_unchecked(0).deref_mut(),
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.read_change_tick(),
             },
@@ -1145,13 +1146,13 @@ impl World {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
-            let mut value = ManuallyDrop::new(value);
             // SAFE: column is of type R and has been allocated above
-            let data = (&mut *value as *mut R).cast::<u8>();
-            column.push(data, ComponentTicks::new(change_tick));
+            OwningPtr::make(value, |ptr| {
+                column.push(ptr, ComponentTicks::new(change_tick));
+            });
         } else {
             // SAFE: column is of type R and has already been allocated
-            *column.get_data_unchecked(0).cast::<R>() = value;
+            *column.get_data_unchecked_mut(0).deref_mut::<R>() = value;
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
     }
@@ -1422,10 +1423,7 @@ mod tests {
         }
 
         pub fn finish(self, panic_res: std::thread::Result<()>) -> Vec<DropLogItem> {
-            let drop_log = Arc::try_unwrap(self.drop_log)
-                .unwrap()
-                .into_inner()
-                .unwrap();
+            let drop_log = self.drop_log.lock().unwrap();
             let expected_panic_flag = self.expected_panic_flag.load(Ordering::SeqCst);
 
             if !expected_panic_flag {
@@ -1435,7 +1433,7 @@ mod tests {
                 }
             }
 
-            drop_log
+            drop_log.to_owned()
         }
     }
 
@@ -1461,7 +1459,6 @@ mod tests {
                 DropLogItem::Create(0),
                 DropLogItem::Create(1),
                 DropLogItem::Drop(0),
-                DropLogItem::Drop(1)
             ]
         );
     }
