@@ -138,9 +138,6 @@ where
         }
     }
 
-    // NOTE: For unfiltered Queries this should actually return a exact size hint,
-    // to fulfil the ExactSizeIterator invariant, but this isn't practical without specialization.
-    // For more information see Issue #1686.
     fn size_hint(&self) -> (usize, Option<usize>) {
         let max_size = self
             .query_state
@@ -149,7 +146,9 @@ where
             .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
             .sum();
 
-        (0, Some(max_size))
+        let archetype_query = F::Fetch::IS_ARCHETYPAL && QF::IS_ARCHETYPAL;
+        let min_size = if archetype_query { max_size } else { 0 };
+        (min_size, Some(max_size))
     }
 }
 
@@ -297,9 +296,6 @@ where
         unsafe { QueryCombinationIter::fetch_next_aliased_unchecked(self) }
     }
 
-    // NOTE: For unfiltered Queries this should actually return a exact size hint,
-    // to fulfil the ExactSizeIterator invariant, but this isn't practical without specialization.
-    // For more information see Issue #1686.
     fn size_hint(&self) -> (usize, Option<usize>) {
         if K == 0 {
             return (0, Some(0));
@@ -324,7 +320,9 @@ where
                 n / k_factorial
             });
 
-        (0, max_combinations)
+        let archetype_query = F::Fetch::IS_ARCHETYPAL && QF::IS_ARCHETYPAL;
+        let min_combinations = if archetype_query { max_size } else { 0 };
+        (min_combinations, max_combinations)
     }
 }
 
@@ -332,7 +330,8 @@ where
 // (1) pre-computed archetype matches
 // (2) each archetype pre-computes length
 // (3) there are no per-entity filters
-// TODO: add an ArchetypeOnlyFilter that enables us to implement this for filters like With<T>
+// TODO: add an ArchetypeOnlyFilter that enables us to implement this for filters like With<T>.
+// This would need to be added to all types that implement Filter with Filter::IS_ARCHETYPAL = true
 impl<'w, 's, Q: WorldQuery, QF> ExactSizeIterator for QueryIter<'w, 's, Q, QF, ()>
 where
     QF: Fetch<'w, 's, State = Q::State>,
