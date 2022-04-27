@@ -212,7 +212,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
     unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[QueryItem<'w, Q>; K]>
     where
         QueryFetch<'w, Q>: Clone,
-        for<'x> QueryFetch<'x, F>: Clone,
+        QueryFetch<'w, F>: Clone,
     {
         if K == 0 {
             return None;
@@ -253,7 +253,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
     pub fn fetch_next(&mut self) -> Option<[QueryItem<'_, Q>; K]>
     where
         QueryFetch<'w, Q>: Clone,
-        for<'x> QueryFetch<'x, F>: Clone,
+        QueryFetch<'w, F>: Clone,
     {
         // safety: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
@@ -272,7 +272,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
     QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
-    for<'x> QueryFetch<'x, F>: Clone + ReadOnlyFetch,
+    QueryFetch<'w, F>: Clone + ReadOnlyFetch,
 {
     type Item = [QueryItem<'w, Q>; K];
 
@@ -344,7 +344,7 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::Stat
 impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State> + Clone,
-    for<'x> QueryFetch<'x, F>: Clone,
+    QueryFetch<'w, F>: Clone,
 {
     fn clone(&self) -> Self {
         Self {

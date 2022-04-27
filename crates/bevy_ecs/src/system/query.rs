@@ -1187,7 +1187,7 @@ impl std::fmt::Display for QuerySingleError {
 }
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
-    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch,
+    QueryFetch<'w, Q>: ReadOnlyFetch,
 {
     /// Returns the query result for the given [`Entity`], with the actual "inner" world lifetime.
     ///
