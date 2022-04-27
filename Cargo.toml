@@ -392,6 +392,10 @@ name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
 
 [[example]]
+name = "system_closure"
+path = "examples/ecs/system_closure.rs"
+
+[[example]]
 name = "system_param"
 path = "examples/ecs/system_param.rs"
 
