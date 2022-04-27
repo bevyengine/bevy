@@ -641,14 +641,14 @@ impl Parse for ReflectStructDef {
         let fields = match ast.data {
             Data::Struct(data) => data.fields,
             Data::Enum(data) => {
-                return Err(syn::Error::new(
-                    data.enum_token.span,
+                return Err(syn::Error::new_spanned(
+                    data.enum_token,
                     "Enums are not currently supported for reflection",
                 ))
             }
             Data::Union(data) => {
-                return Err(syn::Error::new(
-                    data.union_token.span,
+                return Err(syn::Error::new_spanned(
+                    data.union_token,
                     "Unions are not supported for reflection",
                 ))
             }
@@ -683,15 +683,15 @@ impl Parse for ReflectStructDef {
                                 "path" => {
                                     let path_str = match &name_val.lit {
                                         syn::Lit::Str(s) => Ok(s),
-                                        _ => Err(syn::Error::new(
-                                            name_val.lit.span(),
+                                        _ => Err(syn::Error::new_spanned(
+                                            &name_val.lit,
                                             "Invalid path",
                                         )),
                                     }?;
                                     bevy_reflect_path =
                                         Some(path_str.parse::<Path>().map_err(|e| {
-                                            let mut err = syn::Error::new(
-                                                path_str.span(),
+                                            let mut err = syn::Error::new_spanned(
+                                                path_str,
                                                 "Failed to parse path:",
                                             );
                                             err.combine(e);
@@ -701,16 +701,16 @@ impl Parse for ReflectStructDef {
                                 "ctor" => {
                                     let ctor_str = match &name_val.lit {
                                         syn::Lit::Str(s) => Ok(s),
-                                        _ => Err(syn::Error::new(
-                                            name_val.lit.span(),
+                                        _ => Err(syn::Error::new_spanned(
+                                            &name_val.lit,
                                             "Invalid ctor value",
                                         )),
                                     }?;
                                     ctor = Some(
                                         ctor_str.parse::<proc_macro2::TokenStream>().map_err(
                                             |e| {
-                                                let mut err = syn::Error::new(
-                                                    ctor_str.span(),
+                                                let mut err = syn::Error::new_spanned(
+                                                    ctor_str,
                                                     "Failed to parse ctor:",
                                                 );
                                                 err.combine(e);
