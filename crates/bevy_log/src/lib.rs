@@ -139,6 +139,7 @@ impl Plugin for LogPlugin {
             let chrome_layer = {
                 let mut layer = tracing_chrome::ChromeLayerBuilder::new();
                 if let Ok(path) = std::env::var("TRACE_CHROME") {
+                    println!("wut? {:?}", path);
                     layer = layer.file(path);
                 }
                 let (chrome_layer, guard) = layer
