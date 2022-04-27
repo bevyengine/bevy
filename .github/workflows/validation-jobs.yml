@@ -1,8 +1,10 @@
-name: daily jobs
+name: validation jobs
 
 on:
-  schedule:
-    - cron: "0 0 * * *"
+  push:
+    branches:
+      - staging
+      - trying
 
 env:
   CARGO_TERM_COLOR: always
