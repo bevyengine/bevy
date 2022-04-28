@@ -2,7 +2,7 @@ use crate as bevy_reflect;
 use crate::reflect::Reflect;
 use crate::ReflectDeserialize;
 use bevy_reflect_derive::{
-    impl_from_reflect_value, impl_reflect_struct_and_from_reflect_struct, impl_reflect_value,
+    impl_from_reflect_value, impl_reflect_struct, impl_reflect_value,
 };
 use glam::*;
 
