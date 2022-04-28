@@ -1,24 +1,26 @@
 extern crate proc_macro;
 
 use bevy_macro_utils::BevyManifest;
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::*;
 use uuid::Uuid;
 
 pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
-    let ast: DeriveInput = syn::parse(input).unwrap();
+    let mut ast: DeriveInput = syn::parse(input).unwrap();
     let bevy_reflect_path: Path = BevyManifest::default().get_path("bevy_reflect");
 
     // Build the trait implementation
     let name = &ast.ident;
 
-    let (impl_generics, type_generics, _) = &ast.generics.split_for_impl();
-    assert!(
-        impl_generics.to_token_stream().is_empty() && type_generics.to_token_stream().is_empty(),
-        "#[derive(TypeUuid)] is not supported for generics.",
-    );
+    ast.generics.type_params_mut().for_each(|param| {
+        param
+            .bounds
+            .push(syn::parse_quote!(#bevy_reflect_path::TypeUuid))
+    });
+
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     let mut uuid = None;
     for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
@@ -56,11 +58,17 @@ pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         .map(|byte| format!("{:#X}", byte))
         .map(|byte_str| syn::parse_str::<LitInt>(&byte_str).unwrap());
 
+    let base = quote! { #bevy_reflect_path::Uuid::from_bytes([#( #bytes ),*]) };
+    let type_uuid = ast.generics.type_params().fold(base, |acc, param| {
+        let ident = &param.ident;
+        quote! {
+            #bevy_reflect_path::__macro_exports::generate_composite_uuid(#acc, <#ident as #bevy_reflect_path::TypeUuid>::TYPE_UUID)
+        }
+    });
+
     let gen = quote! {
-        impl #bevy_reflect_path::TypeUuid for #name {
-            const TYPE_UUID: #bevy_reflect_path::Uuid = #bevy_reflect_path::Uuid::from_bytes([
-                #( #bytes ),*
-            ]);
+        impl #impl_generics #bevy_reflect_path::TypeUuid for #name #type_generics #where_clause {
+            const TYPE_UUID: #bevy_reflect_path::Uuid = #type_uuid;
         }
     };
     gen.into()

@@ -220,8 +220,8 @@ impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
 
 #[derive(Eq, PartialEq, Clone, Hash)]
 pub struct MaterialPipelineKey<T> {
-    mesh_key: MeshPipelineKey,
-    material_key: T,
+    pub mesh_key: MeshPipelineKey,
+    pub material_key: T,
 }
 
 pub struct MaterialPipeline<M: SpecializedMaterial> {

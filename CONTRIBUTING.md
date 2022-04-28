@@ -83,15 +83,52 @@ Check out the next section for details on how this plays out.
 
 Some Bevy Org members are also Triage Team members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community. Existing Org members can vist the Bevy Engine Org page and navigate to the Triage Team to request membership. Once again, if you are interested don't hesitate to apply. We generally accept membership requests.
 
-We heavily limit who has merge rights within the org because this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction. Currently, only @cart can merge every class of change. @mockersf is allowed to merge small "uncontroversial" changes, provided these changes have at least two approvals. Same goes for @alice-i-cecile and doc related changes. If there is an emergency that needs a quick resolution and @cart is not around, both @mockersf and @alice-i-cecile are allowed to merge changes that resolve the emergency.
+Merge rights within the org are relatively centralized: this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction.
+
+The current structure is as follows:
+
+* @cart is our project lead, and has final say on controversial decisions
+* There is a small group of other maintainers (@alice-i-cecile, @mockersf and @superdump), who have merge rights but abide by the following rules:
+  * Trivial PRs can be merged without approvals
+  * Relatively uncontroversial PRs can be merged following approval from at least two other community members with appropriate expertise.
+  * Controversial PRs are added to a backlog for @cart to address once two maintainers agree that they are ready.
+  * If 45 days elapse without action on a controversial PR (approval, feedback or an explicit request to defer), they can be merged without project lead approval.
+* The Bevy org is made up of trusted community contributors: this is a relatively low bar, and org members help triage and maintain the project.
+* Community contributors (this means you!) can freely open issues, submit PRs and review PRs to improve Bevy.
+  * As discussed above, community reviews on PRs are incredibly helpful to enable maintainers to merge in uncontroversial PRs in a timely fashion.
+
+### Classifying PRs
+
+This strategy relies on a classification of PRs into three categories: **trivial**, **uncontroversial** and **controversial**.
+When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
+PRs that are deemed controversial will receive the `S-Controversial` label, and will have to go through the more thorough review process.
+
+PRs are trivial if there is no reasonable argument against them. This might include:
+
+* fixing dead links
+* removing dead code or dependencies
+* typo and grammar fixes
+
+PRs are controversial if there is serious design discussion required, or a large impact to contributors or users. Factors that increase controversy include:
+
+1. Changes to project-wide workflow or style.
+2. New architecture for a large feature.
+3. PRs where a serious tradeoff must be made.
+4. Heavy user impact.
+5. New ways for users to make mistakes (footguns).
+6. Introductions of `unsafe` code.
+7. Large-scale code reorganization.
+8. High levels of technical complexity.
+9. Adding a dependency.
+
+Finally, changes are "relatively uncontroversial" if they are neither trivial or controversial.
+Most PRs should fall into this category.
 
 ## How we work together
 
-Making a game engine is a huge project and facilitating collaboration is a lot of work. At the moment @cart is our only paid contributor, so [go sponsor him!](https://github.com/sponsors/cart)
+Making a game engine is a huge project and facilitating collaboration is a lot of work.
+At the moment @cart is our only paid contributor, so [go sponsor him!](https://github.com/sponsors/cart)
 We track issues and pull requests that must be included in releases using [Milestones](https://github.com/bevyengine/bevy/milestones).
-
-You can see what we're planning by following along at the [Bevy Roadmap](https://github.com/bevyengine/bevy/projects/1).
-If you'd like an up-to-the-minute look at our progress on a specific project, feel free to ask on Discord.
 
 ### Making changes to Bevy
 

@@ -57,6 +57,12 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
     fn any_mut(&mut self) -> &mut dyn Any;
 
+    /// Casts this type to a reflected value
+    fn as_reflect(&self) -> &dyn Reflect;
+
+    /// Casts this type to a mutable reflected value
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
+
     /// Applies a reflected value to this value.
     ///
     /// If a type implements a subtrait of `Reflect`, then the semantics of this

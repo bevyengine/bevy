@@ -1,23 +1,46 @@
 use std::{
     alloc::{handle_alloc_error, Layout},
+    cell::UnsafeCell,
     ptr::NonNull,
 };
+
+use crate::ptr::{OwningPtr, Ptr, PtrMut};
 
 /// A flat, type-erased data storage type
 ///
 /// Used to densely store homogeneous ECS data.
-#[derive(Debug)]
 pub struct BlobVec {
     item_layout: Layout,
     capacity: usize,
+    /// Number of elements, not bytes
     len: usize,
     data: NonNull<u8>,
     swap_scratch: NonNull<u8>,
-    drop: unsafe fn(*mut u8),
+    drop: unsafe fn(OwningPtr<'_>),
+}
+
+// We want to ignore the `drop` field in our `Debug` impl
+impl std::fmt::Debug for BlobVec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BlobVec")
+            .field("item_layout", &self.item_layout)
+            .field("capacity", &self.capacity)
+            .field("len", &self.len)
+            .field("data", &self.data)
+            .field("swap_scratch", &self.swap_scratch)
+            .finish()
+    }
 }
 
 impl BlobVec {
-    pub fn new(item_layout: Layout, drop: unsafe fn(*mut u8), capacity: usize) -> BlobVec {
+    /// # Safety
+    ///
+    /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobVec`].
+    pub unsafe fn new(
+        item_layout: Layout,
+        drop: unsafe fn(OwningPtr<'_>),
+        capacity: usize,
+    ) -> BlobVec {
         if item_layout.size() == 0 {
             BlobVec {
                 swap_scratch: NonNull::dangling(),
@@ -28,7 +51,7 @@ impl BlobVec {
                 drop,
             }
         } else {
-            let swap_scratch = NonNull::new(unsafe { std::alloc::alloc(item_layout) })
+            let swap_scratch = NonNull::new(std::alloc::alloc(item_layout))
                 .unwrap_or_else(|| std::alloc::handle_alloc_error(item_layout));
             let mut blob_vec = BlobVec {
                 swap_scratch,
@@ -65,6 +88,8 @@ impl BlobVec {
         }
     }
 
+    // FIXME: this should probably be an unsafe fn as it shouldn't be called if the layout
+    // is for a ZST
     fn grow_exact(&mut self, increment: usize) {
         debug_assert!(self.item_layout.size() != 0);
 
@@ -76,7 +101,7 @@ impl BlobVec {
                 std::alloc::alloc(new_layout)
             } else {
                 std::alloc::realloc(
-                    self.get_ptr().as_ptr(),
+                    self.get_ptr_mut().inner().as_ptr(),
                     array_layout(&self.item_layout, self.capacity)
                         .expect("array layout should be valid"),
                     new_layout.size(),
@@ -90,17 +115,17 @@ impl BlobVec {
 
     /// # Safety
     /// - index must be in bounds
-    /// - the memory in the `BlobVec` starting at index `index`, of a size matching this `BlobVec`'s
-    /// `item_layout`, must have been previously allocated, but not initialized yet
-    /// - the memory at `*value` must be previously initialized with an item matching this
-    /// `BlobVec`'s `item_layout`
-    /// - the item that was stored in `*value` is left logically uninitialised/moved out of after
-    /// calling this function, and as such should not be used or dropped by the caller.
+    /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
+    /// `item_layout`, must have been previously allocated.
     #[inline]
-    pub unsafe fn initialize_unchecked(&mut self, index: usize, value: *mut u8) {
+    pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
-        let ptr = self.get_unchecked(index);
-        std::ptr::copy_nonoverlapping(value, ptr, self.item_layout.size());
+        let ptr = self.get_unchecked_mut(index);
+        std::ptr::copy_nonoverlapping::<u8>(
+            value.inner().as_ptr(),
+            ptr.inner().as_ptr(),
+            self.item_layout.size(),
+        );
     }
 
     /// # Safety
@@ -110,32 +135,35 @@ impl BlobVec {
     /// this [`BlobVec`]'s `item_layout`
     /// - the memory at `*value` must also be previously initialized with an item matching this
     /// [`BlobVec`]'s `item_layout`
-    /// - the item that was stored in `*value` is left logically uninitialised/moved out of after
-    /// calling this function, and as such should not be used or dropped by the caller.
-    pub unsafe fn replace_unchecked(&mut self, index: usize, value: *mut u8) {
+    pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
-        let ptr = self.get_unchecked(index);
         // If `drop` panics, then when the collection is dropped during stack unwinding, the
         // collection's `Drop` impl will call `drop` again for the old value (which is still stored
         // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
         // done.
-        let old_len = std::mem::replace(&mut self.len, 0);
-        (self.drop)(ptr);
-        std::ptr::copy_nonoverlapping(value, ptr, self.item_layout.size());
+        let old_len = self.len;
+        let ptr = self.get_unchecked_mut(index).promote().inner();
+        self.len = 0;
+        // Drop the old value, then write back, justifying the promotion
+        (self.drop)(OwningPtr::new(ptr));
+        std::ptr::copy_nonoverlapping::<u8>(
+            value.inner().as_ptr(),
+            ptr.as_ptr(),
+            self.item_layout.size(),
+        );
         self.len = old_len;
     }
 
-    /// Increases the length by one (and grows the vec if needed) with uninitialized memory and
-    /// returns the index
+    /// Pushes a value to the [`BlobVec`].
     ///
     /// # Safety
-    /// the newly allocated space must be immediately populated with a valid value
+    /// `value` must be valid to add to this [`BlobVec`]
     #[inline]
-    pub unsafe fn push_uninit(&mut self) -> usize {
+    pub unsafe fn push(&mut self, value: OwningPtr<'_>) {
         self.reserve_exact(1);
         let index = self.len;
         self.len += 1;
-        index
+        self.initialize_unchecked(index, value);
     }
 
     /// # Safety
@@ -154,50 +182,77 @@ impl BlobVec {
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < `self.len()`
-    /// Callers should _only_ access the returned pointer immediately after calling this function.
     #[inline]
-    pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> *mut u8 {
+    #[must_use = "The returned pointer should be used to dropped the removed element"]
+    pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> OwningPtr<'_> {
+        // FIXME: This should probably just use `core::ptr::swap` and return an `OwningPtr`
+        //        into the underlying `BlobVec` allocation, and remove swap_scratch
+
         debug_assert!(index < self.len());
         let last = self.len - 1;
         let swap_scratch = self.swap_scratch.as_ptr();
-        std::ptr::copy_nonoverlapping(
-            self.get_unchecked(index),
+        std::ptr::copy_nonoverlapping::<u8>(
+            self.get_unchecked_mut(index).inner().as_ptr(),
             swap_scratch,
             self.item_layout.size(),
         );
-        std::ptr::copy(
-            self.get_unchecked(last),
-            self.get_unchecked(index),
+        std::ptr::copy::<u8>(
+            self.get_unchecked_mut(last).inner().as_ptr(),
+            self.get_unchecked_mut(index).inner().as_ptr(),
             self.item_layout.size(),
         );
         self.len -= 1;
-        swap_scratch
-    }
-
-    /// # Safety
-    /// index must be in-bounds
-    #[inline]
-    pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
-        debug_assert!(index < self.len());
-        let value = self.swap_remove_and_forget_unchecked(index);
-        (self.drop)(value);
+        OwningPtr::new(self.swap_scratch)
     }
 
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < self.len()
     #[inline]
-    pub unsafe fn get_unchecked(&self, index: usize) -> *mut u8 {
+    pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
-        self.get_ptr().as_ptr().add(index * self.item_layout.size())
+        let drop = self.drop;
+        let value = self.swap_remove_and_forget_unchecked(index);
+        (drop)(value);
     }
 
-    /// Gets a pointer to the start of the vec
+    /// # Safety
+    /// It is the caller's responsibility to ensure that `index` is < self.len()
+    #[inline]
+    pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
+        debug_assert!(index < self.len());
+        self.get_ptr().add(index * self.item_layout.size())
+    }
+
+    /// # Safety
+    /// It is the caller's responsibility to ensure that `index` is < self.len()
+    #[inline]
+    pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
+        debug_assert!(index < self.len());
+        let layout_size = self.item_layout.size();
+        self.get_ptr_mut().add(index * layout_size)
+    }
+
+    /// Gets a [`Ptr`] to the start of the vec
+    #[inline]
+    pub fn get_ptr(&self) -> Ptr<'_> {
+        // SAFE: the inner data will remain valid for as long as 'self.
+        unsafe { Ptr::new(self.data) }
+    }
+
+    /// Gets a [`PtrMut`] to the start of the vec
+    #[inline]
+    pub fn get_ptr_mut(&mut self) -> PtrMut<'_> {
+        // SAFE: the inner data will remain valid for as long as 'self.
+        unsafe { PtrMut::new(self.data) }
+    }
+
+    /// Get a reference to the entire [`BlobVec`] as if it were an array with elements of type `T`
     ///
     /// # Safety
-    /// must ensure rust mutability rules are not violated
-    #[inline]
-    pub unsafe fn get_ptr(&self) -> NonNull<u8> {
-        self.data
+    /// The type `T` must be the type of the items in this [`BlobVec`].
+    pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
+        // SAFE: the inner data will remain valid for as long as 'self.
+        std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
     }
 
     pub fn clear(&mut self) {
@@ -205,12 +260,14 @@ impl BlobVec {
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
         // accidentally drop elements twice in the event of a drop impl panicking.
         self.len = 0;
+        let drop = self.drop;
+        let layout_size = self.item_layout.size();
         for i in 0..len {
             unsafe {
                 // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
                 // will panic here due to self.len being set to 0
-                let ptr = self.get_ptr().as_ptr().add(i * self.item_layout.size());
-                (self.drop)(ptr);
+                let ptr = self.get_ptr_mut().add(i * layout_size).promote();
+                (drop)(ptr);
             }
         }
     }
@@ -223,7 +280,7 @@ impl Drop for BlobVec {
             array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
         if array_layout.size() > 0 {
             unsafe {
-                std::alloc::dealloc(self.get_ptr().as_ptr(), array_layout);
+                std::alloc::dealloc(self.get_ptr_mut().inner().as_ptr(), array_layout);
                 std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
             }
         }
@@ -286,21 +343,23 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use crate::ptr::OwningPtr;
+
     use super::BlobVec;
     use std::{alloc::Layout, cell::RefCell, rc::Rc};
 
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
-    unsafe fn drop_ptr<T>(x: *mut u8) {
-        x.cast::<T>().drop_in_place();
+    unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
+        x.inner().cast::<T>().as_ptr().drop_in_place()
     }
 
     /// # Safety
     ///
     /// `blob_vec` must have a layout that matches `Layout::new::<T>()`
-    unsafe fn push<T>(blob_vec: &mut BlobVec, mut value: T) {
-        let index = blob_vec.push_uninit();
-        blob_vec.initialize_unchecked(index, (&mut value as *mut T).cast::<u8>());
-        std::mem::forget(value);
+    unsafe fn push<T>(blob_vec: &mut BlobVec, value: T) {
+        OwningPtr::make(value, |ptr| {
+            blob_vec.push(ptr);
+        });
     }
 
     /// # Safety
@@ -309,7 +368,7 @@ mod tests {
     unsafe fn swap_remove<T>(blob_vec: &mut BlobVec, index: usize) -> T {
         assert!(index < blob_vec.len());
         let value = blob_vec.swap_remove_and_forget_unchecked(index);
-        value.cast::<T>().read()
+        value.read::<T>()
     }
 
     /// # Safety
@@ -318,14 +377,14 @@ mod tests {
     /// value at the given `index`
     unsafe fn get_mut<T>(blob_vec: &mut BlobVec, index: usize) -> &mut T {
         assert!(index < blob_vec.len());
-        &mut *blob_vec.get_unchecked(index).cast::<T>()
+        blob_vec.get_unchecked_mut(index).deref_mut::<T>()
     }
 
     #[test]
     fn resize_test() {
         let item_layout = Layout::new::<usize>();
         let drop = drop_ptr::<usize>;
-        let mut blob_vec = BlobVec::new(item_layout, drop, 64);
+        let mut blob_vec = unsafe { BlobVec::new(item_layout, drop, 64) };
         unsafe {
             for i in 0..1_000 {
                 push(&mut blob_vec, i as usize);
@@ -355,7 +414,7 @@ mod tests {
         {
             let item_layout = Layout::new::<Foo>();
             let drop = drop_ptr::<Foo>;
-            let mut blob_vec = BlobVec::new(item_layout, drop, 2);
+            let mut blob_vec = unsafe { BlobVec::new(item_layout, drop, 2) };
             assert_eq!(blob_vec.capacity(), 2);
             unsafe {
                 let foo1 = Foo {
@@ -415,6 +474,6 @@ mod tests {
     fn blob_vec_drop_empty_capacity() {
         let item_layout = Layout::new::<Foo>();
         let drop = drop_ptr::<Foo>;
-        let _ = BlobVec::new(item_layout, drop, 0);
+        let _ = unsafe { BlobVec::new(item_layout, drop, 0) };
     }
 }

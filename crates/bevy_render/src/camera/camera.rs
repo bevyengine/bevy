@@ -28,7 +28,7 @@ use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 use wgpu::Extent3d;
 
-#[derive(Component, Default, Debug, Reflect)]
+#[derive(Component, Default, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
@@ -77,6 +77,7 @@ impl RenderTarget {
                 UVec2::new(width, height)
             }),
         }
+        .filter(|size| size.x > 0 && size.y > 0)
     }
     pub fn get_logical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<Vec2> {
         match self {
@@ -310,8 +311,8 @@ pub fn extract_cameras<M: Component + Default>(
                     ExtractedView {
                         projection: camera.projection_matrix,
                         transform: *transform,
-                        width: size.x.max(1),
-                        height: size.y.max(1),
+                        width: size.x,
+                        height: size.y,
                     },
                     visible_entities.clone(),
                     M::default(),

@@ -9,7 +9,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{Mat4, Size};
+use bevy_math::{Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::{
@@ -458,7 +458,7 @@ impl FromWorld for MeshPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: Size::new(
+                size: Vec2::new(
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),
