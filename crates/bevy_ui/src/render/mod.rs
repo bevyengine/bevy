@@ -25,7 +25,7 @@ use bevy_render::{
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
-use bevy_text::{BidiCorrectedText, DefaultTextPipeline};
+use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
@@ -172,7 +172,7 @@ pub fn extract_text_uinodes(
         Entity,
         &Node,
         &GlobalTransform,
-        &BidiCorrectedText,
+        &Text,
         &Visibility,
         Option<&CalculatedClip>,
     )>,
@@ -181,7 +181,7 @@ pub fn extract_text_uinodes(
 
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, uinode, transform, bidi_corrected, visibility, clip) in uinode_query.iter() {
+    for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
             continue;
         }
@@ -193,10 +193,9 @@ pub fn extract_text_uinodes(
             let text_glyphs = &text_layout.glyphs;
             let alignment_offset = (uinode.size / -2.0).extend(0.0);
 
+            let bidi_corrected = text.bidi_corrected_sections();
             for text_glyph in text_glyphs {
-                let color = bidi_corrected.sections[text_glyph.section_index]
-                    .style
-                    .color;
+                let color = bidi_corrected[text_glyph.section_index].style.color;
                 let atlas = texture_atlases
                     .get(text_glyph.atlas_info.texture_atlas.clone_weak())
                     .unwrap();

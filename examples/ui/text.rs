@@ -99,29 +99,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_self: AlignSelf::FlexEnd,
                 ..default()
             },
-            // Use `Text` directly
-            text: Text {
-                // Construct a `Vec` of `TextSection`s
-                sections: vec![
-                    TextSection {
-                        value: "FPS: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 60.0,
-                            color: Color::WHITE,
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                            font_size: 60.0,
-                            color: Color::GOLD,
-                        },
-                    },
-                ],
-                ..default()
-            },
+            text: Text::with_section(
+                "FPS: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 60.0,
+                    color: Color::WHITE,
+                },
+                Default::default(),
+            )
+            .add_section(
+                "".to_string(),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: 60.0,
+                    color: Color::GOLD,
+                },
+            ),
             ..default()
         })
         .insert(FpsText);

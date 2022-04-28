@@ -8,11 +8,8 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_text::{
-    BidiCorrectedText, DefaultTextPipeline, Font, FontAtlasSet, Text, TextError, TextSection,
-};
+use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
 use bevy_window::{WindowId, Windows};
-use unicode_bidi::BidiInfo;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -51,7 +48,7 @@ pub fn text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
-        Query<(&Text, &Style, &mut CalculatedSize, &mut BidiCorrectedText)>,
+        Query<(&mut Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary());
@@ -80,7 +77,7 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size, mut bidi_corrected)) = query.get_mut(entity) {
+        if let Ok((mut text, style, mut calculated_size)) = query.get_mut(entity) {
             let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
@@ -96,24 +93,12 @@ pub fn text_system(
                 ),
             );
 
-            bidi_corrected.sections.clear();
-            for section in &text.sections {
-                let bidi_info = BidiInfo::new(&section.value, None);
-                for para in &bidi_info.paragraphs {
-                    let line = para.range.clone();
-                    let display = bidi_info.reorder_line(para, line);
-                    let section = TextSection {
-                        value: display.into_owned(),
-                        style: section.style.clone(),
-                    };
-                    bidi_corrected.sections.push(section);
-                }
-            }
+            text.bidi_correct();
 
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
-                &bidi_corrected.sections,
+                &text.bidi_corrected_sections(),
                 scale_factor,
                 text.alignment,
                 node_size,

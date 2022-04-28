@@ -9,7 +9,7 @@ use bevy_render::{
     camera::{Camera, DepthCalculation, OrthographicProjection, WindowOrigin},
     view::{Visibility, VisibleEntities},
 };
-use bevy_text::{BidiCorrectedText, Text};
+use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -77,8 +77,6 @@ pub struct TextBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Bidi corrected Text Data
-    pub bidi_corrected: BidiCorrectedText,
 }
 
 impl Default for TextBundle {
@@ -92,7 +90,6 @@ impl Default for TextBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            bidi_corrected: Default::default(),
         }
     }
 }
