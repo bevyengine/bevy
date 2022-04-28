@@ -44,14 +44,15 @@ impl<T> Task<T> {
     /// Check if the task has been completed, and if so, return the value.
     pub fn check(&mut self) -> Option<T> {
         const NOOP_WAKER_VTABLE: &RawWakerVTable = &RawWakerVTable::new(
-            |_| RawWaker::new(0 as *const (), NOOP_WAKER_VTABLE),
+            |_| RawWaker::new(std::ptr::null::<()>(), NOOP_WAKER_VTABLE),
             |_| {},
             |_| {},
             |_| {},
         );
 
         // SAFE: all vtable functions are always safe to call.
-        let waker = unsafe { Waker::from_raw(RawWaker::new(0 as *const (), NOOP_WAKER_VTABLE)) };
+        let waker =
+            unsafe { Waker::from_raw(RawWaker::new(std::ptr::null::<()>(), NOOP_WAKER_VTABLE)) };
 
         match Pin::new(&mut self.0).poll(&mut Context::from_waker(&waker)) {
             Poll::Ready(val) => Some(val),
