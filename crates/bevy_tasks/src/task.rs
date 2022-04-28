@@ -1,7 +1,7 @@
 use std::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
 /// Wraps `async_executor::Task`, a spawned future.
@@ -39,6 +39,24 @@ impl<T> Task<T> {
     /// See `async_executor::Task::cancel`
     pub async fn cancel(self) -> Option<T> {
         self.0.cancel().await
+    }
+
+    /// Check if the task has been completed, and if so, return the value.
+    pub fn check(&mut self) -> Option<T> {
+        const NOOP_WAKER_VTABLE: &RawWakerVTable = &RawWakerVTable::new(
+            |_| RawWaker::new(0 as *const (), NOOP_WAKER_VTABLE),
+            |_| {},
+            |_| {},
+            |_| {},
+        );
+
+        // SAFE: all vtable functions are always safe to call.
+        let waker = unsafe { Waker::from_raw(RawWaker::new(0 as *const (), NOOP_WAKER_VTABLE)) };
+
+        match Pin::new(&mut self.0).poll(&mut Context::from_waker(&waker)) {
+            Poll::Ready(val) => Some(val),
+            Poll::Pending => None,
+        }
     }
 }
 
