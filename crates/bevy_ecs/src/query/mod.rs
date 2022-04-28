@@ -384,17 +384,18 @@ mod tests {
                 a: &'static A,
                 b: &'static B,
             }
-            let ab_data = world
-                .query::<(&A, &B)>()
-                .iter(&world)
-                .map(|(a, b)| (*a, *b))
-                .collect::<Vec<_>>();
-            let custom_ab_data = world
+
+            let custom_param_data = world
                 .query::<CustomAB>()
                 .iter(&world)
                 .map(|item| (*item.a, *item.b))
                 .collect::<Vec<_>>();
-            assert_eq!(ab_data, custom_ab_data);
+            let normal_data = world
+                .query::<(&A, &B)>()
+                .iter(&world)
+                .map(|(a, b)| (*a, *b))
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_data, normal_data);
         }
 
         {
@@ -405,17 +406,17 @@ mod tests {
                 opt: Option<&'static Sparse>,
             }
 
-            let ab_nested_data = world
-                .query::<(Entity, &B, Option<&Sparse>)>()
-                .iter(&world)
-                .map(|(e, b, opt)| (e, *b, opt.copied()))
-                .collect::<Vec<_>>();
-            let fancy_param_data = world
+            let custom_param_data = world
                 .query::<FancyParam>()
                 .iter(&world)
                 .map(|fancy| (fancy.e, *fancy.b, fancy.opt.copied()))
                 .collect::<Vec<_>>();
-            assert_eq!(ab_nested_data, fancy_param_data);
+            let normal_data = world
+                .query::<(Entity, &B, Option<&Sparse>)>()
+                .iter(&world)
+                .map(|(e, b, opt)| (e, *b, opt.copied()))
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_data, normal_data);
         }
 
         {
@@ -423,24 +424,13 @@ mod tests {
             struct MaybeBSparse {
                 blah: Option<(&'static B, &'static Sparse)>,
             }
-
             #[derive(WorldQuery)]
             struct MatchEverything {
                 abcs: AnyOf<(&'static A, &'static B, &'static C)>,
                 opt_bsparse: MaybeBSparse,
             }
 
-            let everything_data = world
-                .query::<(AnyOf<(&A, &B, &C)>, Option<(&B, &Sparse)>)>()
-                .iter(&world)
-                .map(|((a, b, c), bsparse)| {
-                    (
-                        (a.copied(), b.copied(), c.copied()),
-                        bsparse.map(|(b, sparse)| (*b, *sparse)),
-                    )
-                })
-                .collect::<Vec<_>>();
-            let match_everything_data = world
+            let custom_param_data = world
                 .query::<MatchEverything>()
                 .iter(&world)
                 .map(
@@ -455,7 +445,17 @@ mod tests {
                     },
                 )
                 .collect::<Vec<_>>();
-            assert_eq!(everything_data, match_everything_data)
+            let normal_data = world
+                .query::<(AnyOf<(&A, &B, &C)>, Option<(&B, &Sparse)>)>()
+                .iter(&world)
+                .map(|((a, b, c), bsparse)| {
+                    (
+                        (a.copied(), b.copied(), c.copied()),
+                        bsparse.map(|(b, sparse)| (*b, *sparse)),
+                    )
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_data, normal_data)
         }
 
         {
@@ -463,14 +463,13 @@ mod tests {
             struct AOrBFilter {
                 a: Or<(With<A>, With<B>)>,
             }
-
             #[derive(WorldQuery)]
-            struct NoSparseThatsSlowUwU {
+            struct NoSparseThatsSlow {
                 no: Without<Sparse>,
             }
 
             let custom_param_entities = world
-                .query_filtered::<Entity, (AOrBFilter, NoSparseThatsSlowUwU)>()
+                .query_filtered::<Entity, (AOrBFilter, NoSparseThatsSlow)>()
                 .iter(&world)
                 .collect::<Vec<_>>();
             let normal_entities = world
