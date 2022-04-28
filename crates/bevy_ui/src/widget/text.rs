@@ -98,7 +98,7 @@ pub fn text_system(
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
-                &text.bidi_corrected_sections(),
+                text.bidi_corrected_sections(),
                 scale_factor,
                 text.alignment,
                 node_size,

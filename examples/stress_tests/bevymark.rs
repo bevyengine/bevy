@@ -95,43 +95,39 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(UiCameraBundle::default());
     commands
         .spawn_bundle(TextBundle {
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "Bird Count: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
-                    },
-                    TextSection {
-                        value: "\nAverage FPS: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
-                    },
-                ],
-                ..default()
-            },
+            text: Text::with_section(
+                "Bird Count: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgb(0.0, 1.0, 0.0),
+                },
+                Default::default(),
+            )
+            .add_section(
+                "",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgb(0.0, 1.0, 1.0),
+                },
+            )
+            .add_section(
+                "\nAverage FPS: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgb(0.0, 1.0, 0.0),
+                },
+            )
+            .add_section(
+                "",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgb(0.0, 1.0, 1.0),
+                },
+            ),
             style: Style {
                 position_type: PositionType::Absolute,
                 position: UiRect {

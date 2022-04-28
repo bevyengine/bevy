@@ -176,43 +176,39 @@ pub(crate) mod test_setup {
                     },
                     ..Default::default()
                 },
-                text: Text {
-                    sections: vec![
-                        TextSection {
-                            value: "Press spacebar to cycle modes\n".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::WHITE,
-                            },
-                        },
-                        TextSection {
-                            value: "".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::GREEN,
-                            },
-                        },
-                        TextSection {
-                            value: "\nFrame: ".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::YELLOW,
-                            },
-                        },
-                        TextSection {
-                            value: "".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::YELLOW,
-                            },
-                        },
-                    ],
-                    alignment: TextAlignment::default(),
-                },
+                text: Text::with_section(
+                    "Press spacebar to cycle modes\n",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 50.0,
+                        color: Color::WHITE,
+                    },
+                    Default::default(),
+                )
+                .add_section(
+                    "",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 50.0,
+                        color: Color::GREEN,
+                    },
+                )
+                .add_section(
+                    "\nFrame: ",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 50.0,
+                        color: Color::YELLOW,
+                    },
+                )
+                .add_section(
+                    "",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 50.0,
+                        color: Color::YELLOW,
+                    },
+                ),
                 ..Default::default()
             })
             .insert(ModeText);
