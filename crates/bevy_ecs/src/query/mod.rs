@@ -19,18 +19,19 @@ unsafe fn debug_checked_unreachable() -> ! {
 
 #[cfg(test)]
 mod tests {
-    use super::AnyOf;
+    use super::WorldQuery;
+    use crate::prelude::{AnyOf, Entity, Or, With, Without};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::collections::HashSet;
 
-    #[derive(Component, Debug, Hash, Eq, PartialEq)]
+    #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy)]
     struct A(usize);
-    #[derive(Component, Debug, Eq, PartialEq)]
+    #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     struct B(usize);
-    #[derive(Component, Debug, Eq, PartialEq)]
+    #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     struct C(usize);
 
-    #[derive(Component, Debug, Eq, PartialEq)]
+    #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     #[component(storage = "SparseSet")]
     struct Sparse(usize);
 
@@ -336,5 +337,183 @@ mod tests {
             values,
             vec![(Some(&A(1)), Some(&B(2))), (Some(&A(2)), None),]
         );
+    }
+
+    #[test]
+    #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
+    fn self_conflicting_worldquery() {
+        #[derive(WorldQuery)]
+        #[world_query(mutable)]
+        struct SelfConflicting {
+            a: &'static mut A,
+            b: &'static mut A,
+        }
+
+        let mut world = World::new();
+        world.query::<SelfConflicting>();
+    }
+
+    #[test]
+    fn derived_worldqueries() {
+        let mut world = World::new();
+
+        world.spawn().insert_bundle((A(10), B(18), C(3), Sparse(4)));
+
+        world.spawn().insert_bundle((A(101), B(148), C(13)));
+        world.spawn().insert_bundle((A(51), B(46), Sparse(72)));
+        world.spawn().insert_bundle((A(398), C(6), Sparse(9)));
+        world.spawn().insert_bundle((B(11), C(28), Sparse(92)));
+
+        world.spawn().insert_bundle((C(18348), Sparse(101)));
+        world.spawn().insert_bundle((B(839), Sparse(5)));
+        world.spawn().insert_bundle((B(6721), C(122)));
+        world.spawn().insert_bundle((A(220), Sparse(63)));
+        world.spawn().insert_bundle((A(1092), C(382)));
+        world.spawn().insert_bundle((A(2058), B(3019)));
+
+        world.spawn().insert_bundle((B(38), C(8), Sparse(100)));
+        world.spawn().insert_bundle((A(111), C(52), Sparse(1)));
+        world.spawn().insert_bundle((A(599), B(39), Sparse(13)));
+        world.spawn().insert_bundle((A(55), B(66), C(77)));
+
+        world.spawn();
+
+        {
+            #[derive(WorldQuery)]
+            struct CustomAB {
+                a: &'static A,
+                b: &'static B,
+            }
+
+            let custom_param_data = world
+                .query::<CustomAB>()
+                .iter(&world)
+                .map(|item| (*item.a, *item.b))
+                .collect::<Vec<_>>();
+            let normal_data = world
+                .query::<(&A, &B)>()
+                .iter(&world)
+                .map(|(a, b)| (*a, *b))
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_data, normal_data);
+        }
+
+        {
+            #[derive(WorldQuery)]
+            struct FancyParam {
+                e: Entity,
+                b: &'static B,
+                opt: Option<&'static Sparse>,
+            }
+
+            let custom_param_data = world
+                .query::<FancyParam>()
+                .iter(&world)
+                .map(|fancy| (fancy.e, *fancy.b, fancy.opt.copied()))
+                .collect::<Vec<_>>();
+            let normal_data = world
+                .query::<(Entity, &B, Option<&Sparse>)>()
+                .iter(&world)
+                .map(|(e, b, opt)| (e, *b, opt.copied()))
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_data, normal_data);
+        }
+
+        {
+            #[derive(WorldQuery)]
+            struct MaybeBSparse {
+                blah: Option<(&'static B, &'static Sparse)>,
+            }
+            #[derive(WorldQuery)]
+            struct MatchEverything {
+                abcs: AnyOf<(&'static A, &'static B, &'static C)>,
+                opt_bsparse: MaybeBSparse,
+            }
+
+            let custom_param_data = world
+                .query::<MatchEverything>()
+                .iter(&world)
+                .map(
+                    |MatchEverythingItem {
+                         abcs: (a, b, c),
+                         opt_bsparse: MaybeBSparseItem { blah: bsparse },
+                     }| {
+                        (
+                            (a.copied(), b.copied(), c.copied()),
+                            bsparse.map(|(b, sparse)| (*b, *sparse)),
+                        )
+                    },
+                )
+                .collect::<Vec<_>>();
+            let normal_data = world
+                .query::<(AnyOf<(&A, &B, &C)>, Option<(&B, &Sparse)>)>()
+                .iter(&world)
+                .map(|((a, b, c), bsparse)| {
+                    (
+                        (a.copied(), b.copied(), c.copied()),
+                        bsparse.map(|(b, sparse)| (*b, *sparse)),
+                    )
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_data, normal_data)
+        }
+
+        {
+            #[derive(WorldQuery)]
+            struct AOrBFilter {
+                a: Or<(With<A>, With<B>)>,
+            }
+            #[derive(WorldQuery)]
+            struct NoSparseThatsSlow {
+                no: Without<Sparse>,
+            }
+
+            let custom_param_entities = world
+                .query_filtered::<Entity, (AOrBFilter, NoSparseThatsSlow)>()
+                .iter(&world)
+                .collect::<Vec<_>>();
+            let normal_entities = world
+                .query_filtered::<Entity, (Or<(With<A>, With<B>)>, Without<Sparse>)>()
+                .iter(&world)
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_entities, normal_entities);
+        }
+
+        {
+            #[derive(WorldQuery)]
+            struct CSparseFilter {
+                tuple_structs_pls: With<C>,
+                ugh: With<Sparse>,
+            }
+
+            let custom_param_entities = world
+                .query_filtered::<Entity, CSparseFilter>()
+                .iter(&world)
+                .collect::<Vec<_>>();
+            let normal_entities = world
+                .query_filtered::<Entity, (With<C>, With<Sparse>)>()
+                .iter(&world)
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_entities, normal_entities);
+        }
+
+        {
+            #[derive(WorldQuery)]
+            struct WithoutComps {
+                _1: Without<A>,
+                _2: Without<B>,
+                _3: Without<C>,
+            }
+
+            let custom_param_entities = world
+                .query_filtered::<Entity, WithoutComps>()
+                .iter(&world)
+                .collect::<Vec<_>>();
+            let normal_entities = world
+                .query_filtered::<Entity, (Without<A>, Without<B>, Without<C>)>()
+                .iter(&world)
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_entities, normal_entities);
+        }
     }
 }
