@@ -134,7 +134,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #ecs_path::ptr::OwningPtr::make(self.#field, &mut func);
             });
             field_from_components.push(quote! {
-                #field: func(ctx).inner().as_ptr().cast::<#field_type>().read(),
+                #field: func(ctx).read::<#field_type>(),
             });
         }
     }
