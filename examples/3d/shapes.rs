@@ -15,7 +15,7 @@ fn main() {
         .run();
 }
 
-// A marker component for our shapes so we can query them separately from the ground plane
+/// A marker component for our shapes so we can query them separately from the ground plane
 #[derive(Component)]
 struct Shape;
 
