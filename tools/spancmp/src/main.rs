@@ -1,5 +1,5 @@
 //! helper to extract span stats from a chrome trace file
-//! spec: https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.puwqg050lyuy
+//! spec: <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.puwqg050lyuy>
 
 use std::{
     collections::HashMap,
@@ -59,14 +59,14 @@ impl UnfinishedWrapper {
 impl Read for UnfinishedWrapper {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         let last = self.reader.read(self.buf.as_mut());
-        if matches!(last, Ok(0)) && self.buf[0] == 10 && self.finish.len() > 0 {
+        if matches!(last, Ok(0)) && self.buf[0] == 10 && !self.finish.is_empty() {
             let (next, remaining) = self.finish.as_bytes().split_at(1);
             buf[0] = next[0];
             self.finish = std::str::from_utf8(remaining).unwrap().to_string();
             return Ok(1);
         }
         buf[0] = self.buf[0];
-        return last;
+        last
     }
 }
 
