@@ -6,7 +6,7 @@ use bevy_reflect_derive::{
 };
 use glam::*;
 
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -19,7 +19,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         y: i32,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -33,7 +33,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         z: i32,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -49,7 +49,7 @@ impl_reflect_struct_and_from_reflect_struct!(
     }
 );
 
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -62,7 +62,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         y: u32,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -76,7 +76,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         z: u32,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -92,7 +92,7 @@ impl_reflect_struct_and_from_reflect_struct!(
     }
 );
 
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -105,7 +105,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         y: f32,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -119,7 +119,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         z: f32,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -133,7 +133,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         z: f32,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -149,7 +149,7 @@ impl_reflect_struct_and_from_reflect_struct!(
     }
 );
 
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -162,7 +162,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         y: f64,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -176,7 +176,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         z: f64,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -192,7 +192,7 @@ impl_reflect_struct_and_from_reflect_struct!(
     }
 );
 
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -206,7 +206,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         z_axis: Vec3,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -222,7 +222,7 @@ impl_reflect_struct_and_from_reflect_struct!(
     }
 );
 
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
@@ -236,7 +236,7 @@ impl_reflect_struct_and_from_reflect_struct!(
         z_axis: DVec3,
     }
 );
-impl_reflect_struct_and_from_reflect_struct!(
+impl_reflect_struct!(
     #[reflect(
         ctor = "Default::default()",
         path = "self::bevy_reflect",
