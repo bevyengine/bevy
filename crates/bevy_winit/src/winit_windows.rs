@@ -124,21 +124,19 @@ impl WinitWindows {
             feature = "x11"
         ))]
         let mut winit_window_builder = winit_window_builder.with_class(
-            window_descriptor.desktop_instance.clone(), // that's actually wm_instance
-            window_descriptor.desktop_id.clone(),       // and that's wm_class
+            window_descriptor.desktop_instance.clone(), // That's actually WM_INSTANCE
+            window_descriptor.desktop_id.clone(),       // And that's WM_CLASS
         );
-        /*
-        https://github.com/rust-windowing/winit/blob/ea1c031b54438e64576353b288848c07d2068214/src/platform/unix.rs#L337
-        337|    fn with_class(self, class: String, instance: String) -> Self;
-        https://github.com/rust-windowing/winit/blob/ea1c031b54438e64576353b288848c07d2068214/src/platform/unix.rs#L383
-        383|    fn with_class(mut self, instance: String, class: String) -> Self {
 
-        Because of type equality someone wrote those wrong and Rust didn't catch it!
-        rust-analyser uses only trait declaration, therefore it shows wrong parameter names
+        /// The right `with_class` function signature is:
+        ///    fn with_class(mut self, instance: String, class: String) -> Self;
 
-        This bug persists not only in 0.26.0, but also in 0.26.1
-        The next update will be breaking, no more differentiation between x11 class and wayland appid
-        */
+        /// When winit is upgraded to v0.27.0, change this to
+        /// let mut winit_window_builder = winit_window_builder.with_name(
+        ///     window_descriptor.desktop_id.clone(),
+        ///     window_descriptor.desktop_instance.clone()
+        /// )
+        /// (Source) https://github.com/rust-windowing/winit/blob/ce890c34551d9fb542f10dcb644d22d382e0c921/src/platform/unix.rs#L288
 
         #[allow(unused_mut)]
         #[cfg(all(
