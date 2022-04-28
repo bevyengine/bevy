@@ -1,3 +1,6 @@
+//! This example demonstrates the built-in 3d shapes in Bevy.
+//! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
+
 use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -12,6 +15,7 @@ fn main() {
         .run();
 }
 
+// A marker component for our shapes so we can query them separately from the ground plane
 #[derive(Component)]
 struct Shape;
 
