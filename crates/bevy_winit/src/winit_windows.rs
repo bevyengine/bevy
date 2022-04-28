@@ -128,15 +128,15 @@ impl WinitWindows {
             window_descriptor.desktop_id.clone(),       // And that's WM_CLASS
         );
 
-        /// The right `with_class` function signature is:
-        ///    fn with_class(mut self, instance: String, class: String) -> Self;
+        // The right `with_class` function signature is:
+        //    fn with_class(mut self, instance: String, class: String) -> Self;
 
-        /// When winit is upgraded to v0.27.0, change this to
-        /// let mut winit_window_builder = winit_window_builder.with_name(
-        ///     window_descriptor.desktop_id.clone(),
-        ///     window_descriptor.desktop_instance.clone()
-        /// )
-        /// (Source) https://github.com/rust-windowing/winit/blob/ce890c34551d9fb542f10dcb644d22d382e0c921/src/platform/unix.rs#L288
+        // When winit is upgraded to v0.27.0, change this to
+        // let mut winit_window_builder = winit_window_builder.with_name(
+        //     window_descriptor.desktop_id.clone(),
+        //     window_descriptor.desktop_instance.clone()
+        // )
+        // (Source) https://github.com/rust-windowing/winit/blob/ce890c34551d9fb542f10dcb644d22d382e0c921/src/platform/unix.rs#L288
 
         #[allow(unused_mut)]
         #[cfg(all(
