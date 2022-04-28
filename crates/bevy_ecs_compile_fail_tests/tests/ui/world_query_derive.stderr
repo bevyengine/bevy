@@ -4,16 +4,6 @@ error[E0277]: the trait bound `WriteFetch<'_, Foo>: ReadOnlyFetch` is not satisf
 7 | #[derive(WorldQuery)]
   |          ^^^^^^^^^^ the trait `ReadOnlyFetch` is not implemented for `WriteFetch<'_, Foo>`
   |
-  = help: the following other types implement trait `ReadOnlyFetch`:
-            ()
-            (F0, F1)
-            (F0, F1, F2)
-            (F0, F1, F2, F3)
-            (F0, F1, F2, F3, F4)
-            (F0, F1, F2, F3, F4, F5)
-            (F0, F1, F2, F3, F4, F5, F6)
-            (F0, F1, F2, F3, F4, F5, F6, F7)
-          and 52 others
 note: required by a bound in `_::assert_readonly`
  --> tests/ui/world_query_derive.rs:7:10
   |
@@ -27,16 +17,6 @@ error[E0277]: the trait bound `MutableMarkedFetch<'_>: ReadOnlyFetch` is not sat
 18 | #[derive(WorldQuery)]
    |          ^^^^^^^^^^ the trait `ReadOnlyFetch` is not implemented for `MutableMarkedFetch<'_>`
    |
-   = help: the following other types implement trait `ReadOnlyFetch`:
-             ()
-             (F0, F1)
-             (F0, F1, F2)
-             (F0, F1, F2, F3)
-             (F0, F1, F2, F3, F4)
-             (F0, F1, F2, F3, F4, F5)
-             (F0, F1, F2, F3, F4, F5, F6)
-             (F0, F1, F2, F3, F4, F5, F6, F7)
-           and 52 others
 note: required by a bound in `_::assert_readonly`
   --> tests/ui/world_query_derive.rs:18:10
    |
