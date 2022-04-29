@@ -591,7 +591,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// # use bevy_ecs::system::assert_is_system;
 /// struct Config(u32);
 /// struct Myu32Wrapper(u32);
-/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<Myu32Wrapper>) {
+/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<'_, Myu32Wrapper>) {
 ///     move |mut val| val.0 = value.0
 /// }
 ///
