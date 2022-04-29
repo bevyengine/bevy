@@ -960,7 +960,7 @@ mod tests {
         move |world| world.resource_mut::<Vec<usize>>().push(tag)
     }
 
-    fn make_parallel(tag: usize) -> impl FnMut(ResMut<Vec<usize>>) {
+    fn make_parallel(tag: usize) -> impl FnMut(ResMut<'_, Vec<usize>>) {
         move |mut resource: ResMut<Vec<usize>>| resource.push(tag)
     }
 

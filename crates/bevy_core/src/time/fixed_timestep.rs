@@ -119,7 +119,7 @@ impl FixedTimestep {
 
     fn prepare_system(
         mut state: LocalFixedTimestepState,
-    ) -> impl FnMut(Res<Time>, ResMut<FixedTimesteps>) -> ShouldRun {
+    ) -> impl FnMut(Res<'_, Time>, ResMut<'_, FixedTimesteps>) -> ShouldRun {
         move |time, mut fixed_timesteps| {
             let should_run = state.update(&time);
             if let Some(ref label) = state.label {
