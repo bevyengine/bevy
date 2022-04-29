@@ -1,5 +1,8 @@
+#define_import_path bevy_pbr::mesh_view_bind_group
+
 struct View {
     view_proj: mat4x4<f32>;
+    view: mat4x4<f32>;
     inverse_view: mat4x4<f32>;
     projection: mat4x4<f32>;
     world_position: vec3<f32>;
@@ -38,7 +41,7 @@ struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
     directional_lights: array<DirectionalLight, 1u>;
     ambient_color: vec4<f32>;
-    // x/y/z dimensions
+    // x/y/z dimensions and n_clusters in w
     cluster_dimensions: vec4<u32>;
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
     //
@@ -54,36 +57,66 @@ struct Lights {
     n_directional_lights: u32;
 };
 
+#ifdef NO_STORAGE_BUFFERS_SUPPORT
 struct PointLights {
     data: array<PointLight, 256u>;
 };
-
 struct ClusterLightIndexLists {
     // each u32 contains 4 u8 indices into the PointLights array
     data: array<vec4<u32>, 1024u>;
 };
-
 struct ClusterOffsetsAndCounts {
     // each u32 contains a 24-bit index into ClusterLightIndexLists in the high 24 bits
     // and an 8-bit count of the number of lights in the low 8 bits
     data: array<vec4<u32>, 1024u>;
 };
+#else
+struct PointLights {
+    data: array<PointLight>;
+};
+struct ClusterLightIndexLists {
+    data: array<u32>;
+};
+struct ClusterOffsetsAndCounts {
+    data: array<vec2<u32>>;
+};
+#endif
 
 [[group(0), binding(0)]]
 var<uniform> view: View;
 [[group(0), binding(1)]]
 var<uniform> lights: Lights;
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+[[group(0), binding(2)]]
+var point_shadow_textures: texture_depth_cube;
+#else
 [[group(0), binding(2)]]
 var point_shadow_textures: texture_depth_cube_array;
+#endif
 [[group(0), binding(3)]]
 var point_shadow_textures_sampler: sampler_comparison;
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+[[group(0), binding(4)]]
+var directional_shadow_textures: texture_depth_2d;
+#else
 [[group(0), binding(4)]]
 var directional_shadow_textures: texture_depth_2d_array;
+#endif
 [[group(0), binding(5)]]
 var directional_shadow_textures_sampler: sampler_comparison;
+
+#ifdef NO_STORAGE_BUFFERS_SUPPORT
 [[group(0), binding(6)]]
 var<uniform> point_lights: PointLights;
 [[group(0), binding(7)]]
 var<uniform> cluster_light_index_lists: ClusterLightIndexLists;
 [[group(0), binding(8)]]
 var<uniform> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
+#else
+[[group(0), binding(6)]]
+var<storage> point_lights: PointLights;
+[[group(0), binding(7)]]
+var<storage> cluster_light_index_lists: ClusterLightIndexLists;
+[[group(0), binding(8)]]
+var<storage> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
+#endif

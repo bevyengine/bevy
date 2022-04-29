@@ -1,7 +1,6 @@
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::Size;
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
 use bevy_render::color::Color;
 use serde::{Deserialize, Serialize};
 
@@ -65,7 +64,7 @@ impl Text {
     }
 }
 
-#[derive(Debug, Default, Clone, Reflect)]
+#[derive(Debug, Default, Clone, FromReflect, Reflect)]
 pub struct TextSection {
     pub value: String,
     pub style: TextStyle,
@@ -134,7 +133,7 @@ impl From<VerticalAlign> for glyph_brush_layout::VerticalAlign {
     }
 }
 
-#[derive(Clone, Debug, Reflect)]
+#[derive(Clone, Debug, Reflect, FromReflect)]
 pub struct TextStyle {
     pub font: Handle<Font>,
     pub font_size: f32,
@@ -149,10 +148,4 @@ impl Default for TextStyle {
             color: Color::WHITE,
         }
     }
-}
-
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
-pub struct Text2dSize {
-    pub size: Size,
 }

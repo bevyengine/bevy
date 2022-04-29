@@ -1,0 +1,20 @@
+[package]
+name = "crevice-tests"
+version = "0.1.0"
+edition = "2018"
+
+[features]
+wgpu-validation = ["wgpu", "naga", "futures"]
+
+[dependencies]
+bevy_crevice = { path = ".." }
+bevy-crevice-derive = { path = "../bevy-crevice-derive", features = ["debug-methods"] }
+
+anyhow = "1.0.44"
+bytemuck = "1.7.2"
+memoffset = "0.6.4"
+mint = "0.5.5"
+
+futures = { version = "0.3.17", features = ["executor"], optional = true }
+naga = { version = "0.8.0", features = ["glsl-in", "wgsl-out"], optional = true }
+wgpu = { version = "0.12.0", optional = true }

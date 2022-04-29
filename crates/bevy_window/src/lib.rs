@@ -1,3 +1,4 @@
+mod cursor;
 mod event;
 mod raw_window_handle;
 mod system;
@@ -5,6 +6,7 @@ mod window;
 mod windows;
 
 pub use crate::raw_window_handle::*;
+pub use cursor::*;
 pub use event::*;
 pub use system::*;
 pub use window::*;
@@ -13,12 +15,13 @@ pub use windows::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter, Window,
-        WindowDescriptor, WindowMoved, Windows,
+        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
+        Window, WindowDescriptor, WindowMoved, Windows,
     };
 }
 
-use bevy_app::{prelude::*, Events};
+use bevy_app::prelude::*;
+use bevy_ecs::{event::Events, schedule::SystemLabel};
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,
@@ -40,6 +43,7 @@ impl Plugin for WindowPlugin {
             .add_event::<CreateWindow>()
             .add_event::<WindowCreated>()
             .add_event::<WindowCloseRequested>()
+            .add_event::<RequestRedraw>()
             .add_event::<CloseWindow>()
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()
@@ -58,10 +62,7 @@ impl Plugin for WindowPlugin {
                 .get_resource::<WindowDescriptor>()
                 .map(|descriptor| (*descriptor).clone())
                 .unwrap_or_default();
-            let mut create_window_event = app
-                .world
-                .get_resource_mut::<Events<CreateWindow>>()
-                .unwrap();
+            let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
             create_window_event.send(CreateWindow {
                 id: WindowId::primary(),
                 descriptor: window_descriptor,
@@ -73,3 +74,6 @@ impl Plugin for WindowPlugin {
         }
     }
 }
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub struct ModifiesWindows;

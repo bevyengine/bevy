@@ -4,9 +4,10 @@ use syn::{parse_macro_input, ItemFn};
 
 pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
-    if input.sig.ident != "main" {
-        panic!("`bevy_main` can only be used on a function called 'main'.")
-    }
+    assert!(
+        input.sig.ident == "main",
+        "`bevy_main` can only be used on a function called 'main'.",
+    );
 
     TokenStream::from(quote! {
         #[no_mangle]

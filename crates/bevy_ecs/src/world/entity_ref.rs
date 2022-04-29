@@ -4,11 +4,13 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
+    ptr::{OwningPtr, Ptr},
     storage::{SparseSet, Storages},
     world::{Mut, World},
 };
-use std::any::TypeId;
+use std::{any::TypeId, cell::UnsafeCell};
 
+/// A read-only reference to a particular [`Entity`] and all of its components
 pub struct EntityRef<'w> {
     world: &'w World,
     entity: Entity,
@@ -26,6 +28,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
@@ -65,13 +68,20 @@ impl<'w> EntityRef<'w> {
         // SAFE: entity location is valid and returned component is of type T
         unsafe {
             get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-                .map(|value| &*value.cast::<T>())
+                .map(|value| value.deref::<T>())
         }
     }
 
+    /// Gets a mutable reference to the component of type `T` associated with
+    /// this entity without ensuring there are no other borrows active and without
+    /// ensuring that the returned reference will stay valid.
+    ///
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple
-    /// mutable references to the same component
+    ///
+    /// - The returned reference must never alias a mutable borrow of this component.
+    /// - The returned reference must not be used after this component is moved which
+    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
+    ///   operation on this world (non-exhaustive list).
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(
         &self,
@@ -80,9 +90,9 @@ impl<'w> EntityRef<'w> {
     ) -> Option<Mut<'w, T>> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
-                value: &mut *value.cast::<T>(),
+                value: value.assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    component_ticks: &mut *ticks,
+                    component_ticks: &mut *ticks.get(),
                     last_change_tick,
                     change_tick,
                 },
@@ -90,6 +100,7 @@ impl<'w> EntityRef<'w> {
     }
 }
 
+/// A mutable reference to a particular [`Entity`] and all of its components
 pub struct EntityMut<'w> {
     world: &'w mut World,
     entity: Entity,
@@ -113,6 +124,7 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
@@ -143,46 +155,37 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
-    pub fn get<T: Component>(&self) -> Option<&'w T> {
-        // SAFE: entity location is valid and returned component is of type T
+    pub fn get<T: Component>(&self) -> Option<&'_ T> {
+        // SAFE: lifetimes enforce correct usage of returned borrow
         unsafe {
             get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-                .map(|value| &*value.cast::<T>())
+                .map(|value| value.deref::<T>())
         }
     }
 
     #[inline]
-    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'w, T>> {
-        // SAFE: world access is unique, entity location is valid, and returned component is of type
-        // T
-        unsafe {
-            get_component_and_ticks_with_type(
-                self.world,
-                TypeId::of::<T>(),
-                self.entity,
-                self.location,
-            )
-            .map(|(value, ticks)| Mut {
-                value: &mut *value.cast::<T>(),
-                ticks: Ticks {
-                    component_ticks: &mut *ticks,
-                    last_change_tick: self.world.last_change_tick(),
-                    change_tick: self.world.change_tick(),
-                },
-            })
-        }
+    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFE: world access is unique, and lifetimes enforce correct usage of returned borrow
+        unsafe { self.get_unchecked_mut::<T>() }
     }
 
+    /// Gets a mutable reference to the component of type `T` associated with
+    /// this entity without ensuring there are no other borrows active and without
+    /// ensuring that the returned reference will stay valid.
+    ///
     /// # Safety
-    /// This allows aliased mutability. You must make sure this call does not result in multiple
-    /// mutable references to the same component
+    ///
+    /// - The returned reference must never alias a mutable borrow of this component.
+    /// - The returned reference must not be used after this component is moved which
+    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
+    ///   operation on this world (non-exhaustive list).
     #[inline]
-    pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
+    pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'_, T>> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
-                value: &mut *value.cast::<T>(),
+                value: value.assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    component_ticks: &mut *ticks,
+                    component_ticks: &mut *ticks.get(),
                     last_change_tick: self.world.last_change_tick(),
                     change_tick: self.world.read_change_tick(),
                 },
@@ -242,7 +245,7 @@ impl<'w> EntityMut<'w> {
         // SAFE: bundle components are iterated in order, which guarantees that the component type
         // matches
         let result = unsafe {
-            T::from_components(|| {
+            T::from_components(storages, |storages| {
                 let component_id = bundle_components.next().unwrap();
                 // SAFE: entity location is valid and table row is removed below
                 take_component(
@@ -389,7 +392,7 @@ impl<'w> EntityMut<'w> {
                 archetypes,
                 storages,
                 new_archetype_id,
-            )
+            );
         }
     }
 
@@ -448,22 +451,24 @@ impl<'w> EntityMut<'w> {
 
     /// # Safety
     /// Caller must not modify the world in a way that changes the current entity's location
-    /// If the caller _does_ do something that could change the location, self.update_location()
-    /// must be called before using any other methods in EntityMut
+    /// If the caller _does_ do something that could change the location, `self.update_location()`
+    /// must be called before using any other methods in [`EntityMut`]
     #[inline]
     pub unsafe fn world_mut(&mut self) -> &mut World {
         self.world
     }
 
-    /// Updates the internal entity location to match the current location in the internal [World].
-    /// This is only needed if the user called [EntityMut::world], which enables the location to
-    /// change.
+    /// Updates the internal entity location to match the current location in the internal
+    /// [`World`]. This is only needed if the user called [`EntityMut::world`], which enables the
+    /// location to change.
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
     }
 }
 
 // TODO: move to Storages?
+/// Get a raw pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
+///
 /// # Safety
 /// `entity_location` must be within bounds of the given archetype and `entity` must exist inside
 /// the archetype
@@ -473,7 +478,7 @@ unsafe fn get_component(
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<*mut u8> {
+) -> Option<Ptr<'_>> {
     let archetype = &world.archetypes[location.archetype_id];
     // SAFE: component_id exists and is therefore valid
     let component_info = world.components.get_info_unchecked(component_id);
@@ -494,6 +499,8 @@ unsafe fn get_component(
 }
 
 // TODO: move to Storages?
+/// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] on a particular [`Entity`] in the provided [World].
+///
 /// # Safety
 /// Caller must ensure that `component_id` is valid
 #[inline]
@@ -502,7 +509,7 @@ unsafe fn get_component_and_ticks(
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(*mut u8, *mut ComponentTicks)> {
+) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
     let archetype = &world.archetypes[location.archetype_id];
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
@@ -513,7 +520,7 @@ unsafe fn get_component_and_ticks(
             // SAFE: archetypes only store valid table_rows and the stored component type is T
             Some((
                 components.get_data_unchecked(table_row),
-                components.get_ticks_mut_ptr_unchecked(table_row),
+                components.get_ticks_unchecked(table_row),
             ))
         }
         StorageType::SparseSet => world
@@ -536,26 +543,26 @@ unsafe fn get_component_and_ticks(
 /// - `component_id` must be valid
 /// - The relevant table row **must be removed** by the caller once all components are taken
 #[inline]
-unsafe fn take_component(
+unsafe fn take_component<'a>(
     components: &Components,
-    storages: &mut Storages,
+    storages: &'a mut Storages,
     archetype: &Archetype,
     removed_components: &mut SparseSet<ComponentId, Vec<Entity>>,
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-) -> *mut u8 {
+) -> OwningPtr<'a> {
     let component_info = components.get_info_unchecked(component_id);
     let removed_components = removed_components.get_or_insert_with(component_id, Vec::new);
     removed_components.push(entity);
     match component_info.storage_type() {
         StorageType::Table => {
-            let table = &storages.tables[archetype.table_id()];
+            let table = &mut storages.tables[archetype.table_id()];
             // SAFE: archetypes will always point to valid columns
-            let components = table.get_column(component_id).unwrap();
+            let components = table.get_column_mut(component_id).unwrap();
             let table_row = archetype.entity_table_row(location.index);
             // SAFE: archetypes only store valid table_rows and the stored component type is T
-            components.get_data_unchecked(table_row)
+            components.get_data_unchecked_mut(table_row).promote()
         }
         StorageType::SparseSet => storages
             .sparse_sets
@@ -566,6 +573,8 @@ unsafe fn take_component(
     }
 }
 
+/// Get a raw pointer to a particular [`Component`] by [`TypeId`] on a particular [`Entity`] in the provided [`World`].
+///
 /// # Safety
 /// `entity_location` must be within bounds of an archetype that exists.
 unsafe fn get_component_with_type(
@@ -573,11 +582,13 @@ unsafe fn get_component_with_type(
     type_id: TypeId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<*mut u8> {
+) -> Option<Ptr<'_>> {
     let component_id = world.components.get_id(type_id)?;
     get_component(world, component_id, entity, location)
 }
 
+/// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] by [`TypeId`] on a particular [`Entity`] in the provided [`World`].
+///
 /// # Safety
 /// `entity_location` must be within bounds of an archetype that exists.
 pub(crate) unsafe fn get_component_and_ticks_with_type(
@@ -585,7 +596,7 @@ pub(crate) unsafe fn get_component_and_ticks_with_type(
     type_id: TypeId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(*mut u8, *mut ComponentTicks)> {
+) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
     let component_id = world.components.get_id(type_id)?;
     get_component_and_ticks(world, component_id, entity, location)
 }
@@ -720,7 +731,30 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
         } else {
             true
         }
-    })
+    });
+}
+
+// SAFETY: EntityLocation must be valid
+#[inline]
+pub(crate) unsafe fn get_mut<T: Component>(
+    world: &mut World,
+    entity: Entity,
+    location: EntityLocation,
+) -> Option<Mut<'_, T>> {
+    // SAFE: world access is unique, entity location is valid, and returned component is of type
+    // T
+    let change_tick = world.change_tick();
+    let last_change_tick = world.last_change_tick();
+    get_component_and_ticks_with_type(world, TypeId::of::<T>(), entity, location).map(
+        |(value, ticks)| Mut {
+            value: value.assert_unique().deref_mut::<T>(),
+            ticks: Ticks {
+                component_ticks: &mut *ticks.get(),
+                last_change_tick,
+                change_tick,
+            },
+        },
+    )
 }
 
 #[cfg(test)]

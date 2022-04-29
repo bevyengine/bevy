@@ -6,6 +6,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod ptr;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -26,15 +27,16 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{EventReader, EventWriter},
-        query::{Added, ChangeTrackers, Changed, Or, QueryState, With, Without},
+        query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, RunCriteriaPiping,
-            Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
+            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage,
+            StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            Commands, ConfigurableSystem, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem,
-            Local, NonSend, NonSendMut, Query, QuerySet, RemovedComponents, Res, ResMut, System,
+            Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
+            NonSendMut, ParamSet, Query, RemovedComponents, Res, ResMut, System,
+            SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };
@@ -45,22 +47,20 @@ pub use bevy_ecs_macros::all_tuples;
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::prelude::Or;
     use crate::{
         bundle::Bundle,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{
-            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
-        },
+        query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
         world::{Mut, World},
     };
     use bevy_tasks::TaskPool;
-    use parking_lot::Mutex;
     use std::{
         any::TypeId,
         sync::{
             atomic::{AtomicUsize, Ordering},
-            Arc,
+            Arc, Mutex,
         },
     };
 
@@ -382,11 +382,11 @@ mod tests {
         world
             .query::<(Entity, &A)>()
             .par_for_each(&world, &task_pool, 2, |(e, &A(i))| {
-                results.lock().push((e, i))
+                results.lock().unwrap().push((e, i));
             });
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }
@@ -406,11 +406,11 @@ mod tests {
             &world,
             &task_pool,
             2,
-            |(e, &SparseStored(i))| results.lock().push((e, i)),
+            |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
         );
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }
@@ -636,8 +636,18 @@ mod tests {
     #[test]
     fn table_add_remove_many() {
         let mut world = World::default();
-        let mut entities = Vec::with_capacity(10_000);
-        for _ in 0..1000 {
+        #[cfg(miri)]
+        let (mut entities, to) = {
+            let to = 10;
+            (Vec::with_capacity(to), to)
+        };
+        #[cfg(not(miri))]
+        let (mut entities, to) = {
+            let to = 10_000;
+            (Vec::with_capacity(to), to)
+        };
+
+        for _ in 0..to {
             entities.push(world.spawn().insert(B(0)).id());
         }
 
@@ -888,10 +898,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
-        where
-            F::Fetch: FilterFetch,
-        {
+        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
@@ -1010,29 +1017,26 @@ mod tests {
             .get_archetype_component_id(resource_id)
             .unwrap();
 
-        assert_eq!(*world.get_resource::<i32>().expect("resource exists"), 123);
+        assert_eq!(*world.resource::<i32>(), 123);
         assert!(world.contains_resource::<i32>());
         assert!(world.is_resource_added::<i32>());
         assert!(world.is_resource_changed::<i32>());
 
         world.insert_resource(456u64);
-        assert_eq!(
-            *world.get_resource::<u64>().expect("resource exists"),
-            456u64
-        );
+        assert_eq!(*world.resource::<u64>(), 456u64);
 
         world.insert_resource(789u64);
-        assert_eq!(*world.get_resource::<u64>().expect("resource exists"), 789);
+        assert_eq!(*world.resource::<u64>(), 789);
 
         {
-            let mut value = world.get_resource_mut::<u64>().expect("resource exists");
+            let mut value = world.resource_mut::<u64>();
             assert_eq!(*value, 789);
             *value = 10;
         }
 
         assert_eq!(
-            world.get_resource::<u64>(),
-            Some(&10),
+            world.resource::<u64>(),
+            &10,
             "resource changes are preserved"
         );
 
@@ -1130,18 +1134,12 @@ mod tests {
     #[test]
     fn remove_bundle() {
         let mut world = World::default();
-        world
-            .spawn()
-            .insert_bundle((A(1), B(1), TableStored("1")))
-            .id();
+        world.spawn().insert_bundle((A(1), B(1), TableStored("1")));
         let e2 = world
             .spawn()
             .insert_bundle((A(2), B(2), TableStored("2")))
             .id();
-        world
-            .spawn()
-            .insert_bundle((A(3), B(3), TableStored("3")))
-            .id();
+        world.spawn().insert_bundle((A(3), B(3), TableStored("3")));
 
         let mut query = world.query::<(&B, &TableStored)>();
         let results = query
@@ -1187,19 +1185,19 @@ mod tests {
     #[test]
     fn non_send_resource() {
         let mut world = World::default();
-        world.insert_non_send(123i32);
-        world.insert_non_send(456i64);
-        assert_eq!(*world.get_non_send_resource::<i32>().unwrap(), 123);
-        assert_eq!(*world.get_non_send_resource_mut::<i64>().unwrap(), 456);
+        world.insert_non_send_resource(123i32);
+        world.insert_non_send_resource(456i64);
+        assert_eq!(*world.non_send_resource::<i32>(), 123);
+        assert_eq!(*world.non_send_resource_mut::<i64>(), 456);
     }
 
     #[test]
     #[should_panic]
     fn non_send_resource_panic() {
         let mut world = World::default();
-        world.insert_non_send(0i32);
+        world.insert_non_send_resource(0i32);
         std::thread::spawn(move || {
-            let _ = world.get_non_send_resource_mut::<i32>();
+            let _ = world.non_send_resource_mut::<i32>();
         })
         .join()
         .unwrap();
@@ -1307,8 +1305,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        let _ = query.get(&world_a, Entity::new(0));
-        let _ = query.get(&world_b, Entity::new(0));
+        let _ = query.get(&world_a, Entity::from_raw(0));
+        let _ = query.get(&world_b, Entity::from_raw(0));
     }
 
     #[test]
@@ -1329,7 +1327,7 @@ mod tests {
             *value += 1;
             assert!(!world.contains_resource::<i32>());
         });
-        assert_eq!(*world.get_resource::<i32>().unwrap(), 1);
+        assert_eq!(*world.resource::<i32>(), 1);
     }
 
     #[test]
@@ -1395,10 +1393,44 @@ mod tests {
             "world should not have any entities"
         );
         assert_eq!(
-            *world.get_resource::<i32>().unwrap(),
+            *world.resource::<i32>(),
             0,
             "world should still contain resources"
         );
+    }
+
+    #[test]
+    fn test_is_archetypal_size_hints() {
+        let mut world = World::default();
+        macro_rules! query_min_size {
+            ($query:ty, $filter:ty) => {
+                world
+                    .query_filtered::<$query, $filter>()
+                    .iter(&world)
+                    .size_hint()
+                    .0
+            };
+        }
+
+        world.spawn().insert_bundle((A(1), B(1), C));
+        world.spawn().insert_bundle((A(1), C));
+        world.spawn().insert_bundle((A(1), B(1)));
+        world.spawn().insert_bundle((B(1), C));
+        world.spawn().insert(A(1));
+        world.spawn().insert(C);
+        assert_eq!(2, query_min_size![(), (With<A>, Without<B>)],);
+        assert_eq!(3, query_min_size![&B, Or<(With<A>, With<C>)>],);
+        assert_eq!(1, query_min_size![&B, (With<A>, With<C>)],);
+        assert_eq!(1, query_min_size![(&A, &B), With<C>],);
+        assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
+        assert_eq!(4, query_min_size![ChangeTrackers<A>, ()],);
+        // All the following should set minimum size to 0, as it's impossible to predict
+        // how many entites the filters will trim.
+        assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");
+        assert_eq!(0, query_min_size![(), Changed<A>], "Simple Changed");
+        assert_eq!(0, query_min_size![(&A, &B), Changed<A>],);
+        assert_eq!(0, query_min_size![&A, (Changed<A>, With<B>)],);
+        assert_eq!(0, query_min_size![(&A, &B), Or<(Changed<A>, Changed<B>)>],);
     }
 
     #[test]
@@ -1531,7 +1563,7 @@ mod tests {
     fn insert_or_spawn_batch() {
         let mut world = World::default();
         let e0 = world.spawn().insert(A(0)).id();
-        let e1 = Entity::new(1);
+        let e1 = Entity::from_raw(1);
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
 
@@ -1568,7 +1600,7 @@ mod tests {
     fn insert_or_spawn_batch_invalid() {
         let mut world = World::default();
         let e0 = world.spawn().insert(A(0)).id();
-        let e1 = Entity::new(1);
+        let e1 = Entity::from_raw(1);
         let e2 = world.spawn().id();
         let invalid_e2 = Entity {
             generation: 1,

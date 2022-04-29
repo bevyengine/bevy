@@ -6,11 +6,13 @@ use bevy::{
     },
     prelude::*,
     render::{
+        mesh::MeshVertexBufferLayout,
+        render_asset::RenderAssets,
         render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
-            RenderPipelineCache, RenderPipelineDescriptor, SpecializedPipeline,
-            SpecializedPipelines,
+            PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
+            SpecializedMeshPipelineError, SpecializedMeshPipelines,
         },
         view::ExtractedView,
         RenderApp, RenderStage,
@@ -22,10 +24,10 @@ pub struct IsRedPlugin;
 impl Plugin for IsRedPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<IsRed>::default());
-        app.sub_app(RenderApp)
+        app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawIsRed>()
             .init_resource::<IsRedPipeline>()
-            .init_resource::<SpecializedPipelines<IsRedPipeline>>()
+            .init_resource::<SpecializedMeshPipelines<IsRedPipeline>>()
             .add_system_to_stage(RenderStage::Queue, queue_custom);
     }
 }
@@ -76,46 +78,50 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
 struct IsRedPipeline {
-    mesh_pipline: MeshPipeline,
+    mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
 }
 
 impl FromWorld for IsRedPipeline {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+        let asset_server = world.resource::<AssetServer>();
+        let mesh_pipeline = world.resource::<MeshPipeline>();
         let shader = asset_server.load("shaders/shader_defs.wgsl");
         IsRedPipeline {
-            mesh_pipline: mesh_pipeline.clone(),
+            mesh_pipeline: mesh_pipeline.clone(),
             shader,
         }
     }
 }
 
-impl SpecializedPipeline for IsRedPipeline {
+impl SpecializedMeshPipeline for IsRedPipeline {
     type Key = (IsRed, MeshPipelineKey);
 
-    fn specialize(&self, (is_red, pbr_pipeline_key): Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(
+        &self,
+        (is_red, pbr_pipeline_key): Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = Vec::new();
         if is_red.0 {
             shader_defs.push("IS_RED".to_string());
         }
-        let mut descriptor = self.mesh_pipline.specialize(pbr_pipeline_key);
+        let mut descriptor = self.mesh_pipeline.specialize(pbr_pipeline_key, layout)?;
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.shader_defs = shader_defs.clone();
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader = self.shader.clone();
         fragment.shader_defs = shader_defs;
         descriptor.layout = Some(vec![
-            self.mesh_pipline.view_layout.clone(),
-            self.mesh_pipline.mesh_layout.clone(),
+            self.mesh_pipeline.view_layout.clone(),
+            self.mesh_pipeline.mesh_layout.clone(),
         ]);
-        descriptor
+        Ok(descriptor)
     }
 }
 
@@ -126,32 +132,44 @@ type DrawIsRed = (
     DrawMesh,
 );
 
+#[allow(clippy::too_many_arguments)]
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
+    render_meshes: Res<RenderAssets<Mesh>>,
     custom_pipeline: Res<IsRedPipeline>,
     msaa: Res<Msaa>,
-    mut pipelines: ResMut<SpecializedPipelines<IsRedPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
-    material_meshes: Query<(Entity, &MeshUniform, &IsRed), With<Handle<Mesh>>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<IsRedPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    material_meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform, &IsRed)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions
         .read()
         .get_id::<DrawIsRed>()
         .unwrap();
-    let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
-        for (entity, mesh_uniform, is_red) in material_meshes.iter() {
-            let pipeline =
-                pipelines.specialize(&mut pipeline_cache, &custom_pipeline, (*is_red, key));
-            transparent_phase.add(Transparent3d {
-                entity,
-                pipeline,
-                draw_function: draw_custom,
-                distance: view_row_2.dot(mesh_uniform.transform.col(3)),
-            });
+        for (entity, mesh_handle, mesh_uniform, is_red) in material_meshes.iter() {
+            if let Some(mesh) = render_meshes.get(mesh_handle) {
+                let key =
+                    msaa_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                let pipeline = pipelines
+                    .specialize(
+                        &mut pipeline_cache,
+                        &custom_pipeline,
+                        (*is_red, key),
+                        &mesh.layout,
+                    )
+                    .unwrap();
+                transparent_phase.add(Transparent3d {
+                    entity,
+                    pipeline,
+                    draw_function: draw_custom,
+                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                });
+            }
         }
     }
 }

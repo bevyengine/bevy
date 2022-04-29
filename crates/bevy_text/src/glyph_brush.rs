@@ -1,6 +1,6 @@
 use ab_glyph::{Font as _, FontArc, Glyph, ScaleFont as _};
 use bevy_asset::{Assets, Handle};
-use bevy_math::{Size, Vec2};
+use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use glyph_brush_layout::{
@@ -29,11 +29,11 @@ impl GlyphBrush {
     pub fn compute_glyphs<S: ToSectionText>(
         &self,
         sections: &[S],
-        bounds: Size,
+        bounds: Vec2,
         text_alignment: TextAlignment,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
-            bounds: (bounds.width, bounds.height),
+            bounds: (bounds.x, bounds.y),
             ..Default::default()
         };
         let section_glyphs = Layout::default()
@@ -73,7 +73,7 @@ impl GlyphBrush {
 
         let mut max_y = std::f32::MIN;
         let mut min_x = std::f32::MAX;
-        for sg in glyphs.iter() {
+        for sg in &glyphs {
             let glyph = &sg.glyph;
             let scaled_font = sections_data[sg.section_index].3;
             max_y = max_y.max(glyph.position.y - scaled_font.descent());
