@@ -92,8 +92,7 @@ struct StatsText;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let texture = asset_server.load("branding/icon.png");
 
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands
         .spawn_bundle(TextBundle {
             text: Text {

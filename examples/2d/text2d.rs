@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         horizontal: HorizontalAlign::Center,
     };
     // 2d camera
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
     // Demonstrate changing translation
     commands
         .spawn_bundle(Text2dBundle {

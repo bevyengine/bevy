@@ -1,0 +1,40 @@
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::prelude::*;
+use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_render::{color::Color, extract_resource::ExtractResource, RenderWorld};
+use serde::{Deserialize, Serialize};
+
+#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
+#[reflect_value(Serialize, Deserialize)]
+pub enum ClearColorConfig {
+    Default,
+    Custom(Color),
+    None,
+}
+
+impl Default for ClearColorConfig {
+    fn default() -> Self {
+        ClearColorConfig::Default
+    }
+}
+
+/// When used as a resource, sets the color that is used to clear the screen between frames.
+///
+/// This color appears as the "background" color for simple apps, when
+/// there are portions of the screen with nothing rendered.
+#[derive(Component, Clone, Debug, Deref, DerefMut, ExtractResource)]
+pub struct ClearColor(pub Color);
+
+impl Default for ClearColor {
+    fn default() -> Self {
+        Self(Color::rgb(0.4, 0.4, 0.4))
+    }
+}
+
+pub fn extract_clear_color(clear_color: Res<ClearColor>, mut render_world: ResMut<RenderWorld>) {
+    // If the clear color has changed
+    if clear_color.is_changed() {
+        // Update the clear color resource in the render world
+        render_world.insert_resource(clear_color.clone());
+    }
+}

@@ -4,7 +4,7 @@
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
 
 use bevy::{
-    core_pipeline::Transparent2d,
+    core_pipeline::core_2d::Transparent2d,
     prelude::*,
     reflect::TypeUuid,
     render::{
@@ -108,7 +108,7 @@ fn star(
     ));
     commands
         // And use an orthographic projection
-        .spawn_bundle(OrthographicCameraBundle::new_2d());
+        .spawn_bundle(Camera2dBundle::default());
 }
 
 /// A marker component for colored 2d meshes

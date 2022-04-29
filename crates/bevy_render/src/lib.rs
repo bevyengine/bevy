@@ -18,10 +18,7 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{
-            Camera, OrthographicCameraBundle, OrthographicProjection, PerspectiveCameraBundle,
-            PerspectiveProjection,
-        },
+        camera::{Camera, OrthographicProjection, PerspectiveProjection},
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
@@ -30,7 +27,6 @@ pub mod prelude {
     };
 }
 
-use bevy_utils::tracing::debug;
 pub use once_cell;
 
 use crate::{
@@ -47,6 +43,7 @@ use crate::{
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
+use bevy_utils::tracing::debug;
 use std::ops::{Deref, DerefMut};
 
 /// Contains the default Bevy rendering backend based on wgpu.
@@ -96,6 +93,12 @@ impl Deref for RenderWorld {
 impl DerefMut for RenderWorld {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+pub mod main_graph {
+    pub mod node {
+        pub const CAMERA_DRIVER: &str = "camera_driver";
     }
 }
 
@@ -171,13 +174,13 @@ impl Plugin for RenderPlugin {
                         .with_system(render_system.exclusive_system().at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
+                .init_resource::<RenderGraph>()
                 .insert_resource(instance)
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
-                .insert_resource(asset_server)
-                .init_resource::<RenderGraph>();
+                .insert_resource(asset_server);
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]

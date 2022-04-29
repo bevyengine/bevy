@@ -257,7 +257,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 }
 
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
-    let mut cam = OrthographicCameraBundle::new_2d();
+    let mut cam = Camera2dBundle::default();
     cam.transform.translation.z = 100.0;
     commands.spawn_bundle(cam);
 

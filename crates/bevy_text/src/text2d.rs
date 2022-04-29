@@ -48,7 +48,7 @@ impl Default for Text2dBounds {
     }
 }
 
-/// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
+/// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
