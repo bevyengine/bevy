@@ -228,11 +228,13 @@ pub struct ErasedNonNull {
 }
 
 impl ErasedNonNull {
-    pub fn new<T: ?Sized>(val: &T, type_id: TypeId) -> Self {
+    /// Creates a new type-erased [`ErasedNonNull`] instance for the given value.
+    pub fn new<T: ?Sized + 'static>(val: &T) -> Self {
         let size = core::mem::size_of::<*const T>();
         assert!(size <= core::mem::size_of::<[NonNull<()>; 2]>());
         let val = val as *const T;
         let mut storage = MaybeUninit::uninit();
+        // SAFE: Size of reference pointer guaranteed to fit within storage
         unsafe {
             core::ptr::copy(
                 &val as *const *const T as *const u8,
@@ -242,11 +244,22 @@ impl ErasedNonNull {
         };
         Self {
             storage,
-            ty: type_id,
+            ty: TypeId::of::<T>(),
         }
     }
-    pub unsafe fn as_ref<'a, T: ?Sized + 'static>(self) -> &'a T {
-        assert!(self.ty == TypeId::of::<T>());
+
+    /// Converts this type-erased value into a typed one.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the type `T` does not match the underlying type.
+    ///
+    /// # Safety
+    ///
+    /// Since the type `T` _must_ match the underlying type (or else panics), this method is
+    /// guaranteed to be safe.
+    pub unsafe fn into_ref<'a, T: ?Sized + 'static>(self) -> &'a T {
+        assert_eq!(self.ty, TypeId::of::<T>());
         let size = core::mem::size_of::<*const T>();
         let mut r: MaybeUninit<*const T> = MaybeUninit::uninit();
         core::ptr::copy(
@@ -263,14 +276,17 @@ macro_rules! maybe_trait_cast {
     ($this_type:ty, $trait_type:path) => {{
         {
             trait NotTrait {
-                const CAST_FN: Option<for<'a> fn(&'a $this_type) -> &'a dyn $trait_type> = None;
+                const CAST_FN: Option<
+                    for<'a> fn(&'a $this_type) -> &'a (dyn $trait_type + 'static),
+                > = None;
             }
             impl<T> NotTrait for T {}
             struct IsImplemented<T>(core::marker::PhantomData<T>);
 
             impl<T: $trait_type + 'static> IsImplemented<T> {
                 #[allow(dead_code)]
-                const CAST_FN: Option<for<'a> fn(&'a T) -> &'a dyn $trait_type> = Some(|a| a);
+                const CAST_FN: Option<for<'a> fn(&'a T) -> &'a (dyn $trait_type + 'static)> =
+                    Some(|a| a);
             }
             if IsImplemented::<$this_type>::CAST_FN.is_some() {
                 let f: fn(&dyn $crate::Reflect) -> $crate::ErasedNonNull =
@@ -278,10 +294,7 @@ macro_rules! maybe_trait_cast {
                         let cast_fn = IsImplemented::<$this_type>::CAST_FN.unwrap();
                         let static_val: &$this_type = val.downcast_ref::<$this_type>().unwrap();
                         let trait_val: &dyn $trait_type = (cast_fn)(static_val);
-                        $crate::ErasedNonNull::new(
-                            trait_val,
-                            core::any::TypeId::of::<dyn $trait_type>(),
-                        )
+                        $crate::ErasedNonNull::new(trait_val)
                     };
                 Some(f)
             } else {
@@ -354,7 +367,8 @@ impl TypeRegistration {
     pub fn trait_cast<'a, T: ?Sized + 'static>(&self, val: &'a dyn Reflect) -> Option<&'a T> {
         if let Some(cast) = self.trait_casts.get(&TypeId::of::<T>()) {
             let raw = cast(val);
-            Some(unsafe { raw.as_ref() })
+            // SAFE: Registered trait and type matches the call site
+            Some(unsafe { raw.into_ref() })
         } else {
             None
         }
@@ -538,8 +552,9 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
+    use std::any::Any;
 
     #[test]
     fn test_get_short_name() {
@@ -646,5 +661,35 @@ mod test {
             .trait_cast::<dyn erased_serde::Serialize>(&3u32)
             .is_some());
         assert!(ty.trait_cast::<dyn Test>(&3u32).is_none());
+    }
+
+    #[test]
+    fn erased_non_null_should_work() {
+        // &str -> &str
+        let input = "Hello, World!";
+        let erased = ErasedNonNull::new(input);
+        let output = unsafe { erased.into_ref::<str>() };
+        assert_eq!(input, output);
+        assert_eq!(input.type_id(), output.type_id());
+
+        // &dyn Test -> &dyn Test
+        let input: &dyn Test = &HashMap::<u32, u32>::default();
+        let erased = ErasedNonNull::new(input);
+        let output = unsafe { erased.into_ref::<dyn Test>() };
+        assert_eq!(input.type_id(), output.type_id());
+
+        // &() -> &()
+        let input: () = ();
+        let erased = ErasedNonNull::new(&input);
+        let output = unsafe { erased.into_ref::<()>() };
+        assert_eq!(input.type_id(), output.type_id());
+    }
+
+    #[test]
+    #[should_panic]
+    fn erased_non_null_should_panic_for_wrong_type() {
+        let input = "Hello, World!";
+        let erased = ErasedNonNull::new(input);
+        let output = unsafe { erased.into_ref::<i32>() };
     }
 }
