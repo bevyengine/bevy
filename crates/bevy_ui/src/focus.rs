@@ -18,7 +18,7 @@ use smallvec::SmallVec;
 ///
 /// This is commonly queried with a `Changed<Interaction>` filter.
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
+#[reflect_value(Component, Deserialize, PartialEq)]
 pub enum Interaction {
     /// The node has been clicked
     Clicked,
@@ -36,7 +36,7 @@ impl Default for Interaction {
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
+#[reflect_value(Component, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     /// Blocks interaction
     Block,

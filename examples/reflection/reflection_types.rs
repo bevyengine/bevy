@@ -37,7 +37,7 @@ pub struct C(usize);
 /// `Reflect::serialize()`. You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
 #[derive(Reflect, Hash, Serialize, PartialEq)]
-#[reflect(Hash, Serialize, PartialEq)]
+#[reflect(Hash, PartialEq)]
 pub struct D {
     x: usize,
 }
@@ -48,7 +48,7 @@ pub struct D {
 /// traits on `reflect_value` types to ensure that these values behave as expected when nested
 /// underneath Reflect-ed structs.
 #[derive(Reflect, Copy, Clone, PartialEq, Serialize, Deserialize)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect_value(PartialEq, Deserialize)]
 pub enum E {
     X,
     Y,

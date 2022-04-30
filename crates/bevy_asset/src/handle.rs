@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
     Reflect,
     FromReflect,
 )]
-#[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
+#[reflect_value(Deserialize, PartialEq, Hash)]
 pub enum HandleId {
     Id(Uuid, u64),
     AssetPathId(AssetPathId),

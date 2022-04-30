@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 /// Describes how to resize the Image node
 #[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
-#[reflect_value(Component, Serialize, Deserialize)]
+#[reflect_value(Component, Deserialize)]
 pub enum ImageMode {
     /// Keep the aspect ratio of the image
     KeepAspect,

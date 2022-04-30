@@ -304,7 +304,7 @@ impl RenderTarget {
 }
 
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect_value(Serialize, Deserialize)]
+#[reflect_value(Deserialize)]
 pub enum DepthCalculation {
     /// Pythagorean distance; works everywhere, more expensive to compute.
     Distance,

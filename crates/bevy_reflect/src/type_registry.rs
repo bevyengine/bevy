@@ -690,6 +690,6 @@ mod tests {
     fn erased_non_null_should_panic_for_wrong_type() {
         let input = "Hello, World!";
         let erased = ErasedNonNull::new(input);
-        let output = unsafe { erased.into_ref::<i32>() };
+        let _ = unsafe { erased.into_ref::<i32>() };
     }
 }

@@ -139,14 +139,14 @@ impl Default for PerspectiveProjection {
 
 // TODO: make this a component instead of a property
 #[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
-#[reflect_value(Serialize, Deserialize)]
+#[reflect_value(Deserialize)]
 pub enum WindowOrigin {
     Center,
     BottomLeft,
 }
 
 #[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
-#[reflect_value(Serialize, Deserialize)]
+#[reflect_value(Deserialize)]
 pub enum ScalingMode {
     /// Manually specify left/right/top/bottom values.
     /// Ignore window resizing; the image will stretch.

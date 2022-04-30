@@ -122,7 +122,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
     }
 }
 
-impl_reflect_value!(Entity(Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Entity(Hash, PartialEq, Deserialize));
 impl_from_reflect_value!(Entity);
 
 #[derive(Clone)]
