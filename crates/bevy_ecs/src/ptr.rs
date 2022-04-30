@@ -73,8 +73,8 @@ macro_rules! impl_ptr {
 
             /// Creates a typed, lifetimeless pointer from the underlying pointer.
             #[inline]
-            pub fn cast<T>(&self) -> NonNull<T> {
-                self.0.cast::<T>()
+            pub fn inner(&self) -> NonNull<u8> {
+                self.0
             }
         }
     };
@@ -114,7 +114,7 @@ impl<'a> PtrMut<'a> {
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
-        &mut *self.cast::<T>().as_ptr()
+        &mut *self.inner().cast::<T>().as_ptr()
     }
 }
 impl_ptr!(OwningPtr);
@@ -133,7 +133,7 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
-        self.cast::<T>().as_ptr().read()
+        self.inner().cast::<T>().as_ptr().read()
     }
 }
 
