@@ -72,6 +72,7 @@ macro_rules! impl_ptr {
             }
 
             #[inline]
+            #[allow(clippy::wrong_self_convention)]
             pub(crate) fn to_ptr(self) -> *mut u8 {
                 self.0.as_ptr()
             }
