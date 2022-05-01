@@ -71,10 +71,8 @@ macro_rules! impl_ptr {
                 Self(inner, PhantomData)
             }
 
-            /// Creates a typed, lifetimeless pointer from the underlying pointer.
-            #[inline]
-            pub fn inner(&self) -> NonNull<u8> {
-                self.0
+            pub unsafe fn as_ptr(self) -> *mut u8 {
+                self.0.as_ptr()
             }
         }
     };
@@ -94,7 +92,7 @@ impl<'a> Ptr<'a> {
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
-        &*self.0.as_ptr().cast()
+        &*self.as_ptr().cast()
     }
 }
 impl_ptr!(PtrMut);
@@ -114,7 +112,7 @@ impl<'a> PtrMut<'a> {
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
-        &mut *self.inner().cast::<T>().as_ptr()
+        &mut *self.as_ptr().cast()
     }
 }
 impl_ptr!(OwningPtr);
@@ -133,7 +131,16 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
-        self.inner().cast::<T>().as_ptr().read()
+        self.as_ptr().cast::<T>().read()
+    }
+
+    //// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
+    ///
+    /// # Safety
+    /// Must point to a valid `T`.
+    #[inline]
+    pub unsafe fn drop_as<T>(self) {
+        self.as_ptr().cast::<T>().drop_in_place()
     }
 }
 
