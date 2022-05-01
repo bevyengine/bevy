@@ -110,11 +110,8 @@ impl<'w> EntityRef<'w> {
     /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
     /// which is only valid while the `'w` borrow of the lifetime is active.
     #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
-        unsafe {
-            get_component(self.world, component_id, self.entity, self.location)
-                .map(|ptr| ptr as *const ())
-        }
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+        unsafe { get_component(self.world, component_id, self.entity, self.location) }
     }
 }
 
@@ -494,11 +491,8 @@ impl<'w> EntityMut<'w> {
     /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
-        unsafe {
-            get_component(self.world, component_id, self.entity, self.location)
-                .map(|ptr| ptr as *const ())
-        }
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+        unsafe { get_component(self.world, component_id, self.entity, self.location) }
     }
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
@@ -515,9 +509,9 @@ impl<'w> EntityMut<'w> {
         unsafe {
             get_component_and_ticks(self.world, component_id, self.entity, self.location).map(
                 |(value, ticks)| MutUntyped {
-                    value: value.cast(),
+                    value: value.assert_unique(),
                     ticks: Ticks {
-                        component_ticks: &mut *ticks,
+                        component_ticks: &mut *ticks.get(),
                         last_change_tick: self.world.last_change_tick(),
                         change_tick: self.world.read_change_tick(),
                     },
@@ -856,8 +850,10 @@ mod tests {
             .get_id(std::any::TypeId::of::<TestComponent>())
             .unwrap();
 
-        let test_component = world.entity(entity).get_by_id(component_id).unwrap();
-        let test_component = unsafe { &*test_component.cast::<TestComponent>() };
+        let entity = world.entity(entity);
+        let test_component = entity.get_by_id(component_id).unwrap();
+        // SAFE: points to a valid `TestComponent`
+        let test_component = unsafe { test_component.deref::<TestComponent>() };
 
         assert_eq!(test_component.0, 42);
     }
@@ -876,12 +872,14 @@ mod tests {
         {
             test_component.set_changed();
             // Safety: `test_component` has unique access of the `EntityMut` and is not used afterwards
-            let test_component = unsafe { &mut *test_component.ptr().cast::<TestComponent>() };
+            let test_component =
+                unsafe { test_component.into_inner().deref_mut::<TestComponent>() };
             test_component.0 = 43;
         }
 
-        let test_component = world.entity(entity).get_by_id(component_id).unwrap();
-        let test_component = unsafe { &*test_component.cast::<TestComponent>() };
+        let entity = world.entity(entity);
+        let test_component = entity.get_by_id(component_id).unwrap();
+        let test_component = unsafe { test_component.deref::<TestComponent>() };
 
         assert_eq!(test_component.0, 43);
     }

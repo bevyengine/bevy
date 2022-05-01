@@ -210,7 +210,7 @@ impl ComponentDescriptor {
         name: String,
         storage_type: StorageType,
         layout: Layout,
-        drop: unsafe fn(*mut u8),
+        drop: for<'a> unsafe fn(OwningPtr<'a>),
     ) -> Self {
         Self {
             name,

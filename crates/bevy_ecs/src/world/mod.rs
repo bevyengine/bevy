@@ -15,7 +15,7 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, StorageType,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
-    ptr::{OwningPtr, UnsafeCellDeref},
+    ptr::{OwningPtr, Ptr, UnsafeCellDeref},
     query::{QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
     system::Resource,
@@ -1174,22 +1174,23 @@ impl World {
     ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`]
-    ///
-    pub unsafe fn insert_resource_by_id(&mut self, component_id: ComponentId, value: *const ()) {
+    pub unsafe fn insert_resource_by_id(
+        &mut self,
+        component_id: ComponentId,
+        value: OwningPtr<'_>,
+    ) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
-            let value = ManuallyDrop::new(value);
-            // SAFE: column has been allocated above and `value` is valid as per the function's safety requirements
-            column.push(
-                value.cast::<u8>() as *mut _,
-                ComponentTicks::new(change_tick),
-            );
+            // SAFE: column is of type R and has been allocated above
+            column.push(value, ComponentTicks::new(change_tick));
         } else {
-            // SAFE: column has been allocated above and `value` is valid as per the function's safety requirements
-            let ptr = column.get_data_unchecked(0).cast::<u8>();
-            std::ptr::copy_nonoverlapping(value.cast::<u8>(), ptr, column.data.layout().size());
-
+            let ptr = column.get_data_unchecked_mut(0);
+            std::ptr::copy_nonoverlapping::<u8>(
+                value.inner().as_ptr(),
+                ptr.inner().as_ptr(),
+                column.data.layout().size(),
+            );
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
     }
@@ -1335,16 +1336,14 @@ impl World {
     /// **You should prefer to use the typed API [`World::get_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
-    pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<*const ()> {
+    pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         let info = self.components.get_info(component_id)?;
         if !info.is_send_and_sync() {
             self.validate_non_send_access_untyped(info.name());
         }
 
         let column = self.get_populated_resource_column(component_id)?;
-        // Safety: get_data_ptr requires that the mutability rules are not violated, and the caller promises
-        // to not modify the resource or dereference it after the immutable borrow of the world ends
-        Some(unsafe { column.get_data_ptr().as_ptr().cast() })
+        Some(column.get_data_ptr())
     }
 
     /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
@@ -1361,19 +1360,21 @@ impl World {
         }
 
         let column = self.get_populated_resource_column(component_id)?;
+
         // Safety: get_data_ptr requires that the mutability rules are not violated, and the caller promises
         // to only modify the resource while the mutable borrow of the world is valid
-        let value = unsafe { column.get_data_ptr().as_ptr().cast() };
         let ticks = Ticks {
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
-            // - users of MutUntyped promise to not dereference the pointer after the MutUntyped is dead
-            component_ticks: unsafe { &mut *column.get_ticks_mut_ptr_unchecked(0) },
+            component_ticks: unsafe { &mut *column.get_ticks_unchecked(0).get() },
             last_change_tick: self.last_change_tick(),
             change_tick: self.read_change_tick(),
         };
 
-        Some(MutUntyped { value, ticks })
+        Some(MutUntyped {
+            value: unsafe { column.get_data_ptr().assert_unique() },
+            ticks,
+        })
     }
 
     /// Removes the resource of a given type, if it exists. Otherwise returns [None].
@@ -1458,6 +1459,7 @@ mod tests {
     use crate::{
         change_detection::DetectChanges,
         component::{ComponentDescriptor, StorageType},
+        ptr::OwningPtr,
     };
     use bevy_ecs_macros::Component;
     use std::{
@@ -1597,7 +1599,7 @@ mod tests {
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
-        let resource = unsafe { &*resource.cast::<TestResource>() };
+        let resource = unsafe { resource.deref::<TestResource>() };
 
         assert_eq!(resource.0, 42);
     }
@@ -1614,12 +1616,12 @@ mod tests {
         {
             let mut resource = world.get_resource_mut_by_id(component_id).unwrap();
             resource.set_changed();
-            let resource = unsafe { &mut *resource.ptr().cast::<TestResource>() };
+            let resource = unsafe { resource.into_inner().deref_mut::<TestResource>() };
             resource.0 = 43;
         }
 
         let resource = world.get_resource_by_id(component_id).unwrap();
-        let resource = unsafe { &*resource.cast::<TestResource>() };
+        let resource = unsafe { resource.deref::<TestResource>() };
 
         assert_eq!(resource.0, 43);
     }
@@ -1637,7 +1639,7 @@ mod tests {
                 StorageType::Table,
                 std::alloc::Layout::new::<[u8; 8]>(),
                 |ptr| {
-                    let data = ptr.cast::<[u8; 8]>().read();
+                    let data = ptr.read::<[u8; 8]>();
                     assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
                     DROP_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 },
@@ -1647,17 +1649,18 @@ mod tests {
         let component_id = world.init_component_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
-        // SAFE: value is valid for the component layout
-        unsafe { world.insert_resource_by_id(component_id, &value as *const _ as *const ()) };
+        OwningPtr::make(value, |ptr| unsafe {
+            // SAFE: value is valid for the component layout
+            world.insert_resource_by_id(component_id, ptr);
+        });
 
         let data = unsafe {
             world
                 .get_resource_by_id(component_id)
                 .unwrap()
-                .cast::<[u8; 8]>()
-                .read()
+                .deref::<[u8; 8]>()
         };
-        assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(*data, [0, 1, 2, 3, 4, 5, 6, 7]);
 
         assert!(world.remove_resource_by_id(component_id).is_some());
 

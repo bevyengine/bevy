@@ -1,6 +1,6 @@
 //! Types that detect when their internal data mutate.
 
-use crate::{component::ComponentTicks, system::Resource};
+use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
@@ -209,7 +209,7 @@ impl_into_inner!(ReflectMut<'a>, dyn Reflect,);
 /// [`Mut`], but in situations where the types are not known at compile time
 /// or are defined outside of rust this can be used.
 pub struct MutUntyped<'a> {
-    pub(crate) value: *mut (),
+    pub(crate) value: PtrMut<'a>,
     pub(crate) ticks: Ticks<'a>,
 }
 
@@ -217,7 +217,7 @@ impl<'a> MutUntyped<'a> {
     /// Returns the pointer to the value, without marking it as changed.
     /// The value is only valid for the lifetime `'a`, after which it must not be used anymore.
     /// In order to mark the value as change, you need to call [`set_changed`](DetectChanges::set_changed) manually
-    pub fn ptr(&self) -> *mut () {
+    pub fn into_inner(self) -> PtrMut<'a> {
         self.value
     }
 }
@@ -244,6 +244,8 @@ impl DetectChanges for MutUntyped<'_> {
 
 impl std::fmt::Debug for MutUntyped<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("MutUntyped").field(&self.value).finish()
+        f.debug_tuple("MutUntyped")
+            .field(&self.value.inner())
+            .finish()
     }
 }
