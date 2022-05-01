@@ -1,4 +1,4 @@
-//! Allows reflection with trait objects
+//! Allows reflection with trait objects.
 
 use bevy::{prelude::*, reflect::TypeRegistry};
 

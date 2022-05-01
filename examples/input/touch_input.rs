@@ -1,4 +1,4 @@
-//! Displays touch presses, releases, and cancels
+//! Displays touch presses, releases, and cancels.
 
 use bevy::{input::touch::*, prelude::*};
 

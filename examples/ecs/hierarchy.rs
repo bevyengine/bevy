@@ -1,4 +1,4 @@
-//! Creates a hierarchy of parents and children entities
+//! Creates a hierarchy of parents and children entities.
 
 use bevy::prelude::*;
 

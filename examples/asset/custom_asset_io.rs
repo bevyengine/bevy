@@ -1,4 +1,4 @@
-//! Implements a custom asset io loader
+//! Implements a custom asset io loader.
 //! An [`AssetIo`] load is what the assert server uses to read the raw bytes of assets.
 //! It does not know anything about the asset formats, only how to talk the underlying storage.
 

@@ -1,4 +1,4 @@
-//! This example creates a [`SystemParam`] struct that counts the number of players
+//! This example creates a [`SystemParam`] struct that counts the number of players.
 
 use bevy::{ecs::system::SystemParam, prelude::*};
 

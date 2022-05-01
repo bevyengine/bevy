@@ -1,4 +1,4 @@
-//! This example illustrates how to customize the default window settings
+//! This example illustrates how to customize the default window settings.
 
 use bevy::prelude::*;
 

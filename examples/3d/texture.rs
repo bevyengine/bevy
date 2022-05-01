@@ -1,4 +1,4 @@
-//! This example shows various ways to configure texture materials in 3D
+//! This example shows various ways to configure texture materials in 3D.
 
 use bevy::prelude::*;
 

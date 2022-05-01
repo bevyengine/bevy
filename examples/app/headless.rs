@@ -1,6 +1,6 @@
 //! This example only enables a minimal set of plugins required for bevy to run.
 //! You can also completely remove rendering / windowing Plugin code from bevy
-//! by making your import look like this in your Cargo.toml
+//! by making your import look like this in your Cargo.toml.
 //!
 //! [dependencies]
 //! bevy = { version = "*", default-features = false }

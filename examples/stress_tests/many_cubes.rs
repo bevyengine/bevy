@@ -1,4 +1,4 @@
-//! Simple benchmark to test per-entity draw overhead
+//! Simple benchmark to test per-entity draw overhead.
 //!
 //! To measure performance realistically, be sure to run this in release mode.
 //! `cargo run --example many_cubes --release`

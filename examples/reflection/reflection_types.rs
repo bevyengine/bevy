@@ -1,4 +1,4 @@
-//! This example illustrates the various reflection types available
+//! This example illustrates the various reflection types available.
 
 use bevy::{
     prelude::*,

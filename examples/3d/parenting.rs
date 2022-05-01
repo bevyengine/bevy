@@ -1,5 +1,5 @@
-//! This example illustrates how to create parent->child relationships between entities how parent
-//! transforms are propagated to their descendants
+//! Illustrates how to create parent->child relationships between entities how parent transforms
+//! are propagated to their descendants.
 
 use bevy::prelude::*;
 

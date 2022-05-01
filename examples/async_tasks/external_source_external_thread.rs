@@ -1,4 +1,4 @@
-//! How to use an external thread to run an infinite task and communicate with a channel
+//! How to use an external thread to run an infinite task and communicate with a channel.
 
 use bevy::prelude::*;
 // Using crossbeam_channel instead of std as std `Receiver` is `!Sync`

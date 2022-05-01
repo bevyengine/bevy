@@ -1,5 +1,5 @@
 //! Shows how to render multiple passes to the same window, useful for rendering different views
-//! or drawing an object on top regardless of depth
+//! or drawing an object on top regardless of depth.
 
 use bevy::{
     core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},

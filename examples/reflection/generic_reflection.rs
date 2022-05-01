@@ -1,4 +1,4 @@
-//! Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
+//! Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types.
 
 use bevy::{prelude::*, reflect::TypeRegistry};
 use std::any::TypeId;

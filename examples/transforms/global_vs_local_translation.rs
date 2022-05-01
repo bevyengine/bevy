@@ -1,5 +1,5 @@
 //! Illustrates the difference between direction of a translation in respect to local object or
-//! global object Transform
+//! global object Transform.
 
 use bevy::prelude::*;
 

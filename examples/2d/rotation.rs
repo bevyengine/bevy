@@ -1,4 +1,4 @@
-//! Demonstrates rotating entities in 2D with quaternions.
+//! Demonstrates rotating entities in 2D using quaternions.
 
 use bevy::{
     core::FixedTimestep,

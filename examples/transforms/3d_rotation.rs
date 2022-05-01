@@ -1,4 +1,4 @@
-//! Illustrates how to (constantly) rotate an object around an axis
+//! Illustrates how to (constantly) rotate an object around an axis.
 
 use bevy::prelude::*;
 

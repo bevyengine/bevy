@@ -1,4 +1,4 @@
-//! Demonstrates a startup system (one that runs once when the app starts up)
+//! Demonstrates a startup system (one that runs once when the app starts up).
 
 use bevy::prelude::*;
 

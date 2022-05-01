@@ -1,4 +1,4 @@
-//! Eat the cakes. Eat them all. An example 3D game
+//! Eat the cakes. Eat them all. An example 3D game.
 
 use bevy::{core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d};
 use rand::Rng;

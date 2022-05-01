@@ -1,4 +1,4 @@
-//! Showcases wireframe rendering
+//! Showcases wireframe rendering.
 
 use bevy::{
     pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},

@@ -1,4 +1,4 @@
-//! This example illustrates how to load and play an audio file
+//! This example illustrates how to load and play an audio file.
 
 use bevy::prelude::*;
 

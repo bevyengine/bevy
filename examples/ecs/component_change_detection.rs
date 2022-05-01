@@ -1,4 +1,4 @@
-//! This example illustrates how to react to component change
+//! This example illustrates how to react to component change.
 
 use bevy::prelude::*;
 use rand::Rng;

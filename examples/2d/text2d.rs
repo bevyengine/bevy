@@ -1,4 +1,4 @@
-//! Example to show text rendering with moving, rotating and scaling text.
+//! Shows text rendering with moving, rotating and scaling text.
 //!
 //! Note that this uses [`Text2dBundle`] to display text alongside your other entities in a 2D scene.
 //!

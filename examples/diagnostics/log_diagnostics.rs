@@ -1,4 +1,4 @@
-//! Add a plugin that logs diagnostics, like frames per second (FPS), to the console
+//! Add a plugin that logs diagnostics, like frames per second (FPS), to the console.
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},

@@ -1,4 +1,4 @@
-//! This example illustrates various ways to load assets
+//! This example illustrates various ways to load assets.
 
 use bevy::prelude::*;
 

@@ -1,4 +1,4 @@
-//! This example illustrates how to use logs in bevy
+//! This example illustrates how to use logs in bevy.
 
 use bevy::prelude::*;
 

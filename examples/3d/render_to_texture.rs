@@ -1,4 +1,4 @@
-//! Shows how to render to a texture, useful for mirrors, UI, or exporting images
+//! Shows how to render to a texture, useful for mirrors, UI, or exporting images.
 
 use bevy::{
     core_pipeline::{

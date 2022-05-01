@@ -1,4 +1,4 @@
-//! This example illustrates loading and saving scenes from files
+//! This example illustrates loading and saving scenes from files.
 
 use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
 

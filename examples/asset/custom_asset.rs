@@ -1,4 +1,4 @@
-//! Implements a custom asset loader
+//! Implements a custom asset loader.
 
 use bevy::{
     asset::{AssetLoader, LoadContext, LoadedAsset},

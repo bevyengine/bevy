@@ -1,4 +1,4 @@
-//! Shows multiple transformations of objects
+//! Shows multiple transformations of objects.
 
 use bevy::prelude::*;
 

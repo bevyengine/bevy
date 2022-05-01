@@ -1,4 +1,4 @@
-//! Creates a solid color window
+//! Creates a solid color window.
 
 use bevy::prelude::*;
 

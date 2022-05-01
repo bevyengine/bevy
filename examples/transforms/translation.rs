@@ -1,4 +1,4 @@
-//! Illustrates how to move an object along an axis
+//! Illustrates how to move an object along an axis.
 
 use bevy::prelude::*;
 

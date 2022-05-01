@@ -1,4 +1,4 @@
-//! Demonstrates handling a key press/release
+//! Demonstrates handling a key press/release.
 
 use bevy::{
     input::{keyboard::KeyCode, Input},

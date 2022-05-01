@@ -1,4 +1,4 @@
-//! Demonstrates how shadow biases affect shadows in a 3d scene
+//! Demonstrates how shadow biases affect shadows in a 3d scene.
 
 use bevy::{input::mouse::MouseMotion, prelude::*};
 

@@ -1,4 +1,4 @@
-//! Demonstrates handling a mouse button press/release
+//! Demonstrates handling a mouse button press/release.
 
 use bevy::prelude::*;
 
