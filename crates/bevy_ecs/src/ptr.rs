@@ -113,7 +113,7 @@ impl<'a> Ptr<'a> {
 
     /// Gets the underlying pointer, erasing the associated lifetime.
     ///
-    /// If possible, it is strongly encouraged to use [deref](Self::deref) over this function,
+    /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
     /// as it retains the lifetime.
     ///
     /// # Safety
@@ -147,7 +147,7 @@ impl<'a> PtrMut<'a> {
 
     /// Gets the underlying pointer, erasing the associated lifetime.
     ///
-    /// If possible, it is strongly encouraged to use [deref_mut](Self::deref_mut) over
+    /// If possible, it is strongly encouraged to use [`deref_mut`](Self::deref_mut) over
     /// this function, as it retains the lifetime.
     ///
     /// # Safety
