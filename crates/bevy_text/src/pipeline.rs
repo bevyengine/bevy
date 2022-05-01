@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use ab_glyph::{PxScale, ScaleFont};
 use bevy_asset::{Assets, Handle, HandleId};
-use bevy_math::Size;
+use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
@@ -32,7 +32,7 @@ impl<ID> Default for TextPipeline<ID> {
 
 pub struct TextLayoutInfo {
     pub glyphs: Vec<PositionedGlyph>,
-    pub size: Size,
+    pub size: Vec2,
 }
 
 impl<ID: Hash + Eq> TextPipeline<ID> {
@@ -56,7 +56,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         sections: &[TextSection],
         scale_factor: f64,
         text_alignment: TextAlignment,
-        bounds: Size,
+        bounds: Vec2,
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
@@ -92,7 +92,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
                 id,
                 TextLayoutInfo {
                     glyphs: Vec::new(),
-                    size: Size::new(0., 0.),
+                    size: Vec2::new(0., 0.),
                 },
             );
             return Ok(());
@@ -112,7 +112,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
             max_y = max_y.max(glyph.position.y - scaled_font.descent());
         }
 
-        let size = Size::new(max_x - min_x, max_y - min_y);
+        let size = Vec2::new(max_x - min_x, max_y - min_y);
 
         let glyphs = self.brush.process_glyphs(
             section_glyphs,

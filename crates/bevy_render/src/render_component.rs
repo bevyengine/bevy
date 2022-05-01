@@ -8,7 +8,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{FilterFetch, QueryItem, WorldQuery},
+    query::{QueryItem, WorldQuery},
     system::{lifetimeless::Read, StaticSystemParam},
 };
 use std::{marker::PhantomData, ops::Deref};
@@ -139,10 +139,7 @@ impl<C, F> Default for ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C>
-where
-    <C::Filter as WorldQuery>::Fetch: FilterFetch,
-{
+impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(RenderStage::Extract, extract_components::<C>);
@@ -165,9 +162,7 @@ fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut query: StaticSystemParam<Query<(Entity, C::Query), C::Filter>>,
-) where
-    <C::Filter as WorldQuery>::Fetch: FilterFetch,
-{
+) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in query.iter_mut() {
         values.push((entity, (C::extract_component(query_item),)));

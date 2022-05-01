@@ -1,4 +1,3 @@
-use bevy_core::FloatOrd;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -13,6 +12,7 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
+use bevy_utils::FloatOrd;
 
 use crate::prelude::CameraUi;
 

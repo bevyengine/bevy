@@ -7,8 +7,9 @@ pub use loader::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::mesh::Mesh;
 use bevy_scene::Scene;
 
@@ -19,6 +20,7 @@ pub struct GltfPlugin;
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset_loader::<GltfLoader>()
+            .register_type::<GltfExtras>()
             .add_asset::<Gltf>()
             .add_asset::<GltfNode>()
             .add_asset::<GltfPrimitive>()
@@ -68,4 +70,10 @@ pub struct GltfMesh {
 pub struct GltfPrimitive {
     pub mesh: Handle<Mesh>,
     pub material: Option<Handle<StandardMaterial>>,
+}
+
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
+pub struct GltfExtras {
+    pub value: String,
 }

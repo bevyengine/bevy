@@ -1,6 +1,41 @@
+use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-use glam::Vec2;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+
+/// A rect, as defined by its "side" locations
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+pub struct UiRect<T: Reflect + PartialEq> {
+    pub left: T,
+    pub right: T,
+    pub top: T,
+    pub bottom: T,
+}
+
+impl<T: Reflect + PartialEq> UiRect<T> {
+    pub fn all(value: T) -> Self
+    where
+        T: Clone,
+    {
+        UiRect {
+            left: value.clone(),
+            right: value.clone(),
+            top: value.clone(),
+            bottom: value,
+        }
+    }
+}
+
+impl<T: Default + Reflect + PartialEq> Default for UiRect<T> {
+    fn default() -> Self {
+        Self {
+            left: Default::default(),
+            right: Default::default(),
+            top: Default::default(),
+            bottom: Default::default(),
+        }
+    }
+}
 
 /// A two dimensional "size" as defined by a width and height
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
@@ -21,41 +56,6 @@ impl<T: Default + Reflect + PartialEq> Default for Size<T> {
         Self {
             width: Default::default(),
             height: Default::default(),
-        }
-    }
-}
-
-/// A rect, as defined by its "side" locations
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
-pub struct Rect<T: Reflect + PartialEq> {
-    pub left: T,
-    pub right: T,
-    pub top: T,
-    pub bottom: T,
-}
-
-impl<T: Reflect + PartialEq> Rect<T> {
-    pub fn all(value: T) -> Self
-    where
-        T: Clone,
-    {
-        Rect {
-            left: value.clone(),
-            right: value.clone(),
-            top: value.clone(),
-            bottom: value,
-        }
-    }
-}
-
-impl<T: Default + Reflect + PartialEq> Default for Rect<T> {
-    fn default() -> Self {
-        Self {
-            left: Default::default(),
-            right: Default::default(),
-            top: Default::default(),
-            bottom: Default::default(),
         }
     }
 }

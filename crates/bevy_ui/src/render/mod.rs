@@ -9,7 +9,6 @@ pub use render_pass::*;
 use crate::{CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
-use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
@@ -27,6 +26,7 @@ use bevy_render::{
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
@@ -228,7 +228,7 @@ pub fn extract_text_uinodes(
 struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
-    pub color: u32,
+    pub color: [f32; 4],
 }
 
 pub struct UiMeta {
@@ -360,14 +360,11 @@ pub fn prepare_uinodes(
         ]
         .map(|pos| pos / atlas_extent);
 
-        // encode color as a single u32 to save space
-        let color = extracted_uinode.color.as_linear_rgba_u32();
-
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
-                color,
+                color: extracted_uinode.color.as_linear_rgba_f32(),
             });
         }
 

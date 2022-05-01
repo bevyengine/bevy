@@ -159,6 +159,11 @@ impl Plugin for LogPlugin {
             let tracy_layer = tracing_tracy::TracyLayer::new();
 
             let fmt_layer = tracing_subscriber::fmt::Layer::default();
+            #[cfg(feature = "tracing-tracy")]
+            let fmt_layer = fmt_layer.with_filter(
+                tracing_subscriber::filter::Targets::new().with_target("tracy", Level::ERROR),
+            );
+
             let subscriber = subscriber.with(fmt_layer);
 
             #[cfg(feature = "tracing-chrome")]

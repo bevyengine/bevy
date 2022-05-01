@@ -28,7 +28,7 @@ use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 use wgpu::Extent3d;
 
-#[derive(Component, Default, Debug, Reflect)]
+#[derive(Component, Default, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
@@ -79,6 +79,7 @@ impl RenderTarget {
                 UVec2::new(width, height)
             }),
         }
+        .filter(|size| size.x > 0 && size.y > 0)
     }
     pub fn get_logical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<Vec2> {
         match self {
@@ -269,14 +270,22 @@ impl<T: Component> ActiveCamera<T> {
 
 pub fn set_active_camera<T: Component>(
     mut active_camera: ResMut<ActiveCamera<T>>,
-    cameras: Query<Entity, With<T>>,
+    cameras: Query<Entity, (With<Camera>, With<T>)>,
 ) {
-    if active_camera.get().is_some() {
-        return;
+    // Check if there is already an active camera set and
+    // that it has not been deleted on the previous frame
+    if let Some(camera) = active_camera.get() {
+        if cameras.contains(camera) {
+            return;
+        }
     }
 
+    // If the previous active camera ceased to exist
+    // fallback to another camera of the same type T
     if let Some(camera) = cameras.iter().next() {
         active_camera.camera = Some(camera);
+    } else {
+        active_camera.camera = None;
     }
 }
 
@@ -304,8 +313,8 @@ pub fn extract_cameras<M: Component + Default>(
                     ExtractedView {
                         projection: camera.projection_matrix,
                         transform: *transform,
-                        width: size.x.max(1),
-                        height: size.y.max(1),
+                        width: size.x,
+                        height: size.y,
                         near: camera.near,
                         far: camera.far,
                     },
