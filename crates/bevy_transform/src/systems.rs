@@ -1,5 +1,5 @@
 use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::prelude::*;
+use bevy_ecs::prelude::{Changed, Entity, Query, With, Without};
 use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
