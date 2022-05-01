@@ -7,8 +7,7 @@ use bevy_hierarchy::{Children, Parent};
 pub fn transform_propagate_system(
     mut root_query: Query<
         (
-            Option<&Children>,
-            Option<Changed<Children>>,
+            Option<(&Children, Changed<Children>)>,
             &Transform,
             Changed<Transform>,
             &mut GlobalTransform,
@@ -21,17 +20,15 @@ pub fn transform_propagate_system(
     >,
     children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
 ) {
-    for (children, maybe_changed_children, transform, transform_changed, mut global_transform) in
-        root_query.iter_mut()
-    {
-        // TODO: Use `Option::contains` when stable
-        let mut changed = maybe_changed_children == Some(true);
+    for (children, transform, transform_changed, mut global_transform) in root_query.iter_mut() {
+        let mut changed = transform_changed;
         if transform_changed {
             *global_transform = GlobalTransform::from(*transform);
-            changed = true;
         }
 
-        if let Some(children) = children {
+        if let Some((children, changed_children)) = children {
+            // If our `Children` has changed, we need to recalculate everything below us
+            changed |= changed_children;
             for child in children.iter() {
                 let _ = propagate_recursive(
                     &global_transform,
@@ -68,6 +65,7 @@ fn propagate_recursive(
     };
 
     let (children, changed_children) = children_query.get(entity).map_err(drop)?;
+    // If our `Children` has changed, we need to recalculate everything below us
     changed |= changed_children;
     for child in children.iter() {
         let _ = propagate_recursive(
