@@ -71,6 +71,7 @@ macro_rules! impl_ptr {
                 Self(inner, PhantomData)
             }
 
+            #[inline]
             pub(crate) fn to_ptr(self) -> *mut u8 {
                 self.0.as_ptr()
             }
