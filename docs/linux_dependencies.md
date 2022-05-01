@@ -101,7 +101,7 @@ Note that this template doesn't add Rust to the environment because there are ma
 ## Opensuse Tumbleweed
 
 ```bash
-   sudo zypper install libudev-devel gcc-c++
+   sudo zypper install libudev-devel gcc-c++ alsa-lib-devel
 ```
 
 ## Gentoo
