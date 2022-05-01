@@ -121,11 +121,7 @@ impl BlobVec {
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked_mut(index);
-        std::ptr::copy_nonoverlapping::<u8>(
-            value.as_ptr(),
-            ptr.as_ptr(),
-            self.item_layout.size(),
-        );
+        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
     }
 
     /// # Safety
@@ -146,11 +142,7 @@ impl BlobVec {
         self.len = 0;
         // Drop the old value, then write back, justifying the promotion
         (self.drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
-        std::ptr::copy_nonoverlapping::<u8>(
-            value.as_ptr(),
-            ptr,
-            self.item_layout.size(),
-        );
+        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
         self.len = old_len;
     }
 

@@ -71,7 +71,7 @@ macro_rules! impl_ptr {
                 Self(inner, PhantomData)
             }
 
-            pub unsafe fn as_ptr(self) -> *mut u8 {
+            pub(crate) fn as_ptr(self) -> *mut u8 {
                 self.0.as_ptr()
             }
         }
