@@ -101,7 +101,7 @@ impl BlobVec {
                 std::alloc::alloc(new_layout)
             } else {
                 std::alloc::realloc(
-                    self.get_ptr_mut().as_ptr(),
+                    self.get_ptr_mut().to_ptr(),
                     array_layout(&self.item_layout, self.capacity)
                         .expect("array layout should be valid"),
                     new_layout.size(),
@@ -121,7 +121,7 @@ impl BlobVec {
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked_mut(index);
-        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
+        std::ptr::copy_nonoverlapping::<u8>(value.to_ptr(), ptr.to_ptr(), self.item_layout.size());
     }
 
     /// # Safety
@@ -138,11 +138,11 @@ impl BlobVec {
         // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
         // done.
         let old_len = self.len;
-        let ptr = self.get_unchecked_mut(index).promote().as_ptr();
+        let ptr = self.get_unchecked_mut(index).promote().to_ptr();
         self.len = 0;
         // Drop the old value, then write back, justifying the promotion
         (self.drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
-        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
+        std::ptr::copy_nonoverlapping::<u8>(value.to_ptr(), ptr, self.item_layout.size());
         self.len = old_len;
     }
 
@@ -184,13 +184,13 @@ impl BlobVec {
         let last = self.len - 1;
         let swap_scratch = self.swap_scratch.as_ptr();
         std::ptr::copy_nonoverlapping::<u8>(
-            self.get_unchecked_mut(index).as_ptr(),
+            self.get_unchecked_mut(index).to_ptr(),
             swap_scratch,
             self.item_layout.size(),
         );
         std::ptr::copy::<u8>(
-            self.get_unchecked_mut(last).as_ptr(),
-            self.get_unchecked_mut(index).as_ptr(),
+            self.get_unchecked_mut(last).to_ptr(),
+            self.get_unchecked_mut(index).to_ptr(),
             self.item_layout.size(),
         );
         self.len -= 1;
@@ -272,7 +272,7 @@ impl Drop for BlobVec {
             array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
         if array_layout.size() > 0 {
             unsafe {
-                std::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
+                std::alloc::dealloc(self.get_ptr_mut().to_ptr(), array_layout);
                 std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
             }
         }

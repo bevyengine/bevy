@@ -71,7 +71,7 @@ macro_rules! impl_ptr {
                 Self(inner, PhantomData)
             }
 
-            pub(crate) fn as_ptr(self) -> *mut u8 {
+            pub(crate) fn to_ptr(self) -> *mut u8 {
                 self.0.as_ptr()
             }
         }
@@ -92,7 +92,7 @@ impl<'a> Ptr<'a> {
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
-        &*self.as_ptr().cast()
+        &*self.to_ptr().cast()
     }
 }
 impl_ptr!(PtrMut);
@@ -112,7 +112,7 @@ impl<'a> PtrMut<'a> {
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
-        &mut *self.as_ptr().cast()
+        &mut *self.to_ptr().cast()
     }
 }
 impl_ptr!(OwningPtr);
@@ -131,7 +131,7 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
-        self.as_ptr().cast::<T>().read()
+        self.to_ptr().cast::<T>().read()
     }
 
     //// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
@@ -140,7 +140,7 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
-        self.as_ptr().cast::<T>().drop_in_place()
+        self.to_ptr().cast::<T>().drop_in_place()
     }
 }
 
