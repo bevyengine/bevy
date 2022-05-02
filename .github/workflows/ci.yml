@@ -41,7 +41,8 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
         if: runner.os == 'linux'
       - name: Build & run tests
-        run: cargo test --workspace
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- test
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
@@ -68,7 +69,7 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- nonlocal
+        run: cargo run -p ci -- lints
 
   miri:
     runs-on: ubuntu-latest
@@ -102,7 +103,7 @@ jobs:
           # to raw pointer aliasing rules that we should be trying to uphold.
           MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-tag-raw-pointers
 
-  check-benches:
+  check-compiles:
     runs-on: ubuntu-latest
     needs: ci
     steps:
@@ -115,15 +116,17 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-check-benches-${{ hashFiles('**/Cargo.toml') }}
+            crates/bevy_ecs_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-      - name: Check Benches
-        run: cd benches && cargo check --benches
+      - name: Check Compile
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- compile
 
   build-wasm:
     strategy:
@@ -292,23 +295,36 @@ jobs:
 
   check-doc:
     runs-on: ubuntu-latest
-    needs: check-markdown-links
-    if: always()
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-check-doc-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
         if: runner.os == 'linux'
-      - name: Installs cargo-deadlinks
-        run: cargo install --force cargo-deadlinks
       - name: Build and check doc
-        run: RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps --document-private-items
-      - name: Checks dead links
-        run: cargo deadlinks --dir target/doc/bevy
-        continue-on-error: true
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- doc
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0"
+      # This currently report a lot of false positives
+      # Enable it again once it's fixed - https://github.com/bevyengine/bevy/issues/1983
+      # - name: Installs cargo-deadlinks
+      #   run: cargo install --force cargo-deadlinks
+      # - name: Checks dead links
+      #   run: cargo deadlinks --dir target/doc/bevy
+      #   continue-on-error: true
 
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
