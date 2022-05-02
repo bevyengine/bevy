@@ -368,51 +368,55 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }));
 
     let struct_name = &ast.ident;
-    let fetch_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
     let fetch_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
-        impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-            type Fetch = #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
-        }
+        // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
+        // The struct can still be accessed via SystemParam::Fetch, e.g. EventReaderState can be accessed via
+        // <EventReader<'static, 'static, T> as SystemParam>::Fetch
+        const _: () = {
+            impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+                type Fetch = FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
+            }
 
-        #[doc(hidden)]
-        #fetch_struct_visibility struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
-            state: TSystemParamState,
-            marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
-        }
+            #[doc(hidden)]
+            #fetch_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
+                state: TSystemParamState,
+                marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
+            }
 
-        unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> #where_clause {
-            fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
-                Self {
-                    state: TSystemParamState::init(world, system_meta),
-                    marker: std::marker::PhantomData,
+            unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {
+                fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
+                    Self {
+                        state: TSystemParamState::init(world, system_meta),
+                        marker: std::marker::PhantomData,
+                    }
+                }
+
+                fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
+                    self.state.new_archetype(archetype, system_meta)
+                }
+
+                fn apply(&mut self, world: &mut #path::world::World) {
+                    self.state.apply(world)
                 }
             }
 
-            fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                self.state.new_archetype(archetype, system_meta)
-            }
-
-            fn apply(&mut self, world: &mut #path::world::World) {
-                self.state.apply(world)
-            }
-        }
-
-        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
-            type Item = #struct_name #ty_generics;
-            unsafe fn get_param(
-                state: &'s mut Self,
-                system_meta: &#path::system::SystemMeta,
-                world: &'w #path::world::World,
-                change_tick: u32,
-            ) -> Self::Item {
-                #struct_name {
-                    #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
-                    #(#ignored_fields: <#ignored_field_types>::default(),)*
+            impl #impl_generics #path::system::SystemParamFetch<'w, 's> for FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
+                type Item = #struct_name #ty_generics;
+                unsafe fn get_param(
+                    state: &'s mut Self,
+                    system_meta: &#path::system::SystemMeta,
+                    world: &'w #path::world::World,
+                    change_tick: u32,
+                ) -> Self::Item {
+                    #struct_name {
+                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#ignored_fields: <#ignored_field_types>::default(),)*
+                    }
                 }
             }
-        }
+        };
     })
 }
 
