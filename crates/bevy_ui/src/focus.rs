@@ -1,5 +1,4 @@
 use crate::{CalculatedClip, Node};
-use bevy_core::FloatOrd;
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -10,15 +9,22 @@ use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::FloatOrd;
 use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
+/// Describes what type of input interaction has occurred for a UI node.
+///
+/// This is commonly queried with a `Changed<Interaction>` filter.
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect_value(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
+    /// The node has been clicked
     Clicked,
+    /// The node has been hovered over
     Hovered,
+    /// Nothing has happened
     None,
 }
 
@@ -28,10 +34,13 @@ impl Default for Interaction {
     }
 }
 
+/// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect_value(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
+    /// Blocks interaction
     Block,
+    /// Lets interaction pass through
     Pass,
 }
 
@@ -41,11 +50,13 @@ impl Default for FocusPolicy {
     }
 }
 
+/// Contains entities whose Interaction should be set to None
 #[derive(Default)]
 pub struct State {
     entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
+/// The system that sets Interaction for all UI elements based on the mouse cursor activity
 #[allow(clippy::type_complexity)]
 pub fn ui_focus_system(
     mut state: Local<State>,
@@ -61,14 +72,9 @@ pub fn ui_focus_system(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let cursor_position = if let Some(cursor_position) = windows
+    let cursor_position = windows
         .get_primary()
-        .and_then(|window| window.cursor_position())
-    {
-        cursor_position
-    } else {
-        return;
-    };
+        .and_then(|window| window.cursor_position());
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
@@ -109,13 +115,20 @@ pub fn ui_focus_system(
                 }
                 // if the current cursor position is within the bounds of the node, consider it for
                 // clicking
-                if (min.x..max.x).contains(&cursor_position.x)
-                    && (min.y..max.y).contains(&cursor_position.y)
-                {
+                let contains_cursor = if let Some(cursor_position) = cursor_position {
+                    (min.x..max.x).contains(&cursor_position.x)
+                        && (min.y..max.y).contains(&cursor_position.y)
+                } else {
+                    false
+                };
+
+                if contains_cursor {
                     Some((entity, focus_policy, interaction, FloatOrd(position.z)))
                 } else {
                     if let Some(mut interaction) = interaction {
-                        if *interaction == Interaction::Hovered {
+                        if *interaction == Interaction::Hovered
+                            || (cursor_position.is_none() && *interaction != Interaction::None)
+                        {
                             *interaction = Interaction::None;
                         }
                     }
@@ -156,7 +169,8 @@ pub fn ui_focus_system(
     // reset lower nodes to None
     for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
         if let Some(mut interaction) = interaction {
-            if *interaction != Interaction::None {
+            // don't reset clicked nodes because they're handled separately
+            if *interaction != Interaction::Clicked && *interaction != Interaction::None {
                 *interaction = Interaction::None;
             }
         }

@@ -1,10 +1,10 @@
 use bevy_ecs::entity::Entity;
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt};
 
 use crate::render_resource::{Buffer, Sampler, TextureView};
 
 /// A value passed between render [`Nodes`](super::Node).
-/// Corresponds to the [SlotType] specified in the [`RenderGraph`](super::RenderGraph).
+/// Corresponds to the [`SlotType`] specified in the [`RenderGraph`](super::RenderGraph).
 ///
 /// Slots can have four different types of values:
 /// [`Buffer`], [`TextureView`], [`Sampler`] and [`Entity`].
@@ -72,6 +72,19 @@ pub enum SlotType {
     Sampler,
     /// An entity from the ECS.
     Entity,
+}
+
+impl fmt::Display for SlotType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            SlotType::Buffer => "Buffer",
+            SlotType::TextureView => "TextureView",
+            SlotType::Sampler => "Sampler",
+            SlotType::Entity => "Entity",
+        };
+
+        f.write_str(s)
+    }
 }
 
 /// A [`SlotLabel`] is used to reference a slot by either its name or index

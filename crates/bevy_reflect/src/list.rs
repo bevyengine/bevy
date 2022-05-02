@@ -4,14 +4,27 @@ use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
 pub trait List: Reflect {
+    /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
+
+    /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+
+    /// Appends an element to the list.
     fn push(&mut self, value: Box<dyn Reflect>);
+
+    /// Returns the number of elements in the list.
     fn len(&self) -> usize;
+
+    /// Returns `true` if the list contains no elements.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Returns an iterator over the list.
     fn iter(&self) -> ListIter;
+
+    /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
             name: self.type_name().to_string(),
@@ -20,6 +33,7 @@ pub trait List: Reflect {
     }
 }
 
+/// A list of reflected values.
 #[derive(Default)]
 pub struct DynamicList {
     name: String,
@@ -27,18 +41,28 @@ pub struct DynamicList {
 }
 
 impl DynamicList {
+    /// Returns the type name of the list.
+    ///
+    /// The value returned by this method is the same value returned by
+    /// [`Reflect::type_name`].
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Sets the type name of the list.
+    ///
+    /// The value set by this method is the value returned by
+    /// [`Reflect::type_name`].
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
 
+    /// Appends a typed value to the list.
     pub fn push<T: Reflect>(&mut self, value: T) {
         self.values.push(Box::new(value));
     }
 
+    /// Appends a [`Reflect`] trait object to the list.
     pub fn push_box(&mut self, value: Box<dyn Reflect>) {
         self.values.push(value);
     }
@@ -97,6 +121,16 @@ unsafe impl Reflect for DynamicList {
         self
     }
 
+    #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         list_apply(self, value);
     }
@@ -136,6 +170,7 @@ unsafe impl Reflect for DynamicList {
     }
 }
 
+/// An iterator over the elements of a [`List`].
 pub struct ListIter<'a> {
     pub(crate) list: &'a dyn List,
     pub(crate) index: usize,
@@ -156,8 +191,25 @@ impl<'a> Iterator for ListIter<'a> {
     }
 }
 
+impl IntoIterator for DynamicList {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
+    }
+}
+
 impl<'a> ExactSizeIterator for ListIter<'a> {}
 
+/// Applies the elements of `b` to the corresponding elements of `a`.
+///
+/// If the length of `b` is greater than that of `a`, the excess elements of `b`
+/// are cloned and appended to `a`.
+///
+/// # Panics
+///
+/// This function panics if `b` is not a list.
 #[inline]
 pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
     if let ReflectRef::List(list_value) = b.reflect_ref() {
@@ -175,6 +227,12 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
     }
 }
 
+/// Compares a [`List`] with a [`Reflect`] value.
+///
+/// Returns true if and only if all of the following are true:
+/// - `b` is a list;
+/// - `b` is the same length as `a`;
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     let list = if let ReflectRef::List(list) = b.reflect_ref() {
@@ -194,4 +252,22 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DynamicList;
+
+    #[test]
+    fn test_into_iter() {
+        let mut list = DynamicList::default();
+        list.push(0usize);
+        list.push(1usize);
+        list.push(2usize);
+        let items = list.into_iter();
+        for (index, item) in items.into_iter().enumerate() {
+            let value = item.take::<usize>().expect("couldn't downcast to usize");
+            assert_eq!(index, value);
+        }
+    }
 }

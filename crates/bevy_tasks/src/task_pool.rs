@@ -12,6 +12,7 @@ use crate::Task;
 
 /// Used to create a [`TaskPool`]
 #[derive(Debug, Default, Clone)]
+#[must_use]
 pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most n threads. Otherwise use
     /// the logical core count of the system
@@ -120,13 +121,23 @@ impl TaskPool {
                 let ex = Arc::clone(&executor);
                 let shutdown_rx = shutdown_rx.clone();
 
-                let thread_name = if let Some(thread_name) = thread_name {
-                    format!("{} ({})", thread_name, i)
-                } else {
-                    format!("TaskPool ({})", i)
+                // miri does not support setting thread names
+                // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
+                #[cfg(not(miri))]
+                let mut thread_builder = {
+                    let thread_name = if let Some(thread_name) = thread_name {
+                        format!("{} ({})", thread_name, i)
+                    } else {
+                        format!("TaskPool ({})", i)
+                    };
+                    thread::Builder::new().name(thread_name)
                 };
-
-                let mut thread_builder = thread::Builder::new().name(thread_name);
+                #[cfg(miri)]
+                let mut thread_builder = {
+                    let _ = i;
+                    let _ = thread_name;
+                    thread::Builder::new()
+                };
 
                 if let Some(stack_size) = stack_size {
                     thread_builder = thread_builder.stack_size(stack_size);
@@ -229,6 +240,8 @@ impl TaskPool {
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
     /// cancelled and "detached" allowing it to continue running without having to be polled by the
     /// end-user.
+    ///
+    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
@@ -236,6 +249,11 @@ impl TaskPool {
         Task::new(self.executor.spawn(future))
     }
 
+    /// Spawns a static future on the thread-local async executor for the current thread. The task
+    /// will run entirely on the thread the task was spawned on.  The returned Task is a future.
+    /// It can also be cancelled and "detached" allowing it to continue running without having
+    /// to be polled by the end-user. Users should generally prefer to use [`TaskPool::spawn`]
+    /// instead, unless the provided future is not `Send`.
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,
@@ -250,6 +268,9 @@ impl Default for TaskPool {
     }
 }
 
+/// A `TaskPool` scope for running one or more non-`'static` futures.
+///
+/// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
@@ -258,11 +279,25 @@ pub struct Scope<'scope, T> {
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
+    /// Spawns a scoped future onto the thread pool. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.
+    ///
+    /// If the provided future is non-`Send`, [`Scope::spawn_local`] should be used
+    /// instead.
+    ///
+    /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
         let task = self.executor.spawn(f);
         self.spawned.push(task);
     }
 
+    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
+    /// [`Scope::spawn`] instead, unless the provided future is not `Send`.
+    ///
+    /// For more information, see [`TaskPool::scope`].
     pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         let task = self.local_executor.spawn(f);
         self.spawned.push(task);

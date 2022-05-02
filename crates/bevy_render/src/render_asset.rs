@@ -3,7 +3,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::*, RunSystem, SystemParam, SystemParamItem},
+    system::{StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::{HashMap, HashSet};
 use std::marker::PhantomData;
@@ -27,7 +27,7 @@ pub trait RenderAsset: Asset {
     /// The GPU-representation of the the asset.
     type PreparedAsset: Send + Sync + 'static;
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
-    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) SystemParams.
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
     type Param: SystemParam;
     /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
     fn extract_asset(&self) -> Self::ExtractedAsset;
@@ -39,29 +39,69 @@ pub trait RenderAsset: Asset {
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
+#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
+pub enum PrepareAssetLabel {
+    PreAssetPrepare,
+    AssetPrepare,
+    PostAssetPrepare,
+}
+
+impl Default for PrepareAssetLabel {
+    fn default() -> Self {
+        Self::AssetPrepare
+    }
+}
+
 /// This plugin extracts the changed assets from the "app world" into the "render world"
 /// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
 ///
 /// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) and
 /// [`RenderStage::Prepare`](crate::RenderStage::Prepare) steps for the specified [`RenderAsset`].
-pub struct RenderAssetPlugin<A: RenderAsset>(PhantomData<fn() -> A>);
+pub struct RenderAssetPlugin<A: RenderAsset> {
+    prepare_asset_label: PrepareAssetLabel,
+    phantom: PhantomData<fn() -> A>,
+}
+
+impl<A: RenderAsset> RenderAssetPlugin<A> {
+    pub fn with_prepare_asset_label(prepare_asset_label: PrepareAssetLabel) -> Self {
+        Self {
+            prepare_asset_label,
+            phantom: PhantomData,
+        }
+    }
+}
 
 impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
     fn default() -> Self {
-        Self(PhantomData)
+        Self {
+            prepare_asset_label: Default::default(),
+            phantom: PhantomData,
+        }
     }
 }
 
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
-        let prepare_asset_system = PrepareAssetSystem::<A>::system(&mut render_app.world);
-        render_app
-            .init_resource::<ExtractedAssets<A>>()
-            .init_resource::<RenderAssets<A>>()
-            .init_resource::<PrepareNextFrameAssets<A>>()
-            .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>)
-            .add_system_to_stage(RenderStage::Prepare, prepare_asset_system);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            let prepare_asset_system = prepare_assets::<A>.label(self.prepare_asset_label.clone());
+
+            let prepare_asset_system = match self.prepare_asset_label {
+                PrepareAssetLabel::PreAssetPrepare => prepare_asset_system,
+                PrepareAssetLabel::AssetPrepare => {
+                    prepare_asset_system.after(PrepareAssetLabel::PreAssetPrepare)
+                }
+                PrepareAssetLabel::PostAssetPrepare => {
+                    prepare_asset_system.after(PrepareAssetLabel::AssetPrepare)
+                }
+            };
+
+            render_app
+                .init_resource::<ExtractedAssets<A>>()
+                .init_resource::<RenderAssets<A>>()
+                .init_resource::<PrepareNextFrameAssets<A>>()
+                .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>)
+                .add_system_to_stage(RenderStage::Prepare, prepare_asset_system);
+        }
     }
 }
 
@@ -118,16 +158,8 @@ fn extract_render_asset<A: RenderAsset>(
     commands.insert_resource(ExtractedAssets {
         extracted: extracted_assets,
         removed,
-    })
+    });
 }
-
-/// Specifies all ECS data required by [`PrepareAssetSystem`].
-pub type RenderAssetParams<R> = (
-    SResMut<ExtractedAssets<R>>,
-    SResMut<RenderAssets<R>>,
-    SResMut<PrepareNextFrameAssets<R>>,
-    <R as RenderAsset>::Param,
-);
 
 // TODO: consider storing inside system?
 /// All assets that should be prepared next frame.
@@ -145,38 +177,36 @@ impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
 
 /// This system prepares all assets of the corresponding [`RenderAsset`] type
 /// which where extracted this frame for the GPU.
-pub struct PrepareAssetSystem<R: RenderAsset>(PhantomData<R>);
-
-impl<R: RenderAsset> RunSystem for PrepareAssetSystem<R> {
-    type Param = RenderAssetParams<R>;
-
-    fn run(
-        (mut extracted_assets, mut render_assets, mut prepare_next_frame, mut param): SystemParamItem<Self::Param>,
-    ) {
-        let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-        for (handle, extracted_asset) in queued_assets.drain(..) {
-            match R::prepare_asset(extracted_asset, &mut param) {
-                Ok(prepared_asset) => {
-                    render_assets.insert(handle, prepared_asset);
-                }
-                Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
-                    prepare_next_frame.assets.push((handle, extracted_asset));
-                }
+fn prepare_assets<R: RenderAsset>(
+    mut extracted_assets: ResMut<ExtractedAssets<R>>,
+    mut render_assets: ResMut<RenderAssets<R>>,
+    mut prepare_next_frame: ResMut<PrepareNextFrameAssets<R>>,
+    param: StaticSystemParam<<R as RenderAsset>::Param>,
+) {
+    let mut param = param.into_inner();
+    let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    for (handle, extracted_asset) in queued_assets.drain(..) {
+        match R::prepare_asset(extracted_asset, &mut param) {
+            Ok(prepared_asset) => {
+                render_assets.insert(handle, prepared_asset);
+            }
+            Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
+                prepare_next_frame.assets.push((handle, extracted_asset));
             }
         }
+    }
 
-        for removed in std::mem::take(&mut extracted_assets.removed) {
-            render_assets.remove(&removed);
-        }
+    for removed in std::mem::take(&mut extracted_assets.removed) {
+        render_assets.remove(&removed);
+    }
 
-        for (handle, extracted_asset) in std::mem::take(&mut extracted_assets.extracted) {
-            match R::prepare_asset(extracted_asset, &mut param) {
-                Ok(prepared_asset) => {
-                    render_assets.insert(handle, prepared_asset);
-                }
-                Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
-                    prepare_next_frame.assets.push((handle, extracted_asset));
-                }
+    for (handle, extracted_asset) in std::mem::take(&mut extracted_assets.extracted) {
+        match R::prepare_asset(extracted_asset, &mut param) {
+            Ok(prepared_asset) => {
+                render_assets.insert(handle, prepared_asset);
+            }
+            Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
+                prepare_next_frame.assets.push((handle, extracted_asset));
             }
         }
     }

@@ -27,7 +27,7 @@ impl<'a> Serialize for SceneSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_seq(Some(self.scene.entities.len()))?;
-        for entity in self.scene.entities.iter() {
+        for entity in &self.scene.entities {
             state.serialize_element(&EntitySerializer {
                 entity,
                 registry: self.registry,

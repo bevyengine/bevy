@@ -51,7 +51,7 @@ impl Deref for Texture {
 pub struct TextureViewId(Uuid);
 
 /// This type combines wgpu's [`TextureView`](wgpu::TextureView) and
-/// [SurfaceTexture`](wgpu::SurfaceTexture) into the same interface.
+/// [`SurfaceTexture`](wgpu::SurfaceTexture) into the same interface.
 #[derive(Clone, Debug)]
 pub enum TextureViewValue {
     /// The value is an actual wgpu [`TextureView`](wgpu::TextureView).
