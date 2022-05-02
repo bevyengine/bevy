@@ -1,6 +1,7 @@
 use crate::{
     render_resource::{std140::AsStd140, DynamicUniformVec},
     renderer::{RenderDevice, RenderQueue},
+    view::ComputedVisibility,
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -131,18 +132,38 @@ fn prepare_uniform_components<C: Component>(
 ///
 /// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) step
 /// for the specified [`ExtractComponent`].
-pub struct ExtractComponentPlugin<C, F = ()>(PhantomData<fn() -> (C, F)>);
+pub struct ExtractComponentPlugin<C, F = ()> {
+    only_extract_visible: bool,
+    marker: PhantomData<fn() -> (C, F)>,
+}
 
 impl<C, F> Default for ExtractComponentPlugin<C, F> {
     fn default() -> Self {
-        Self(PhantomData)
+        Self {
+            only_extract_visible: false,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<C, F> ExtractComponentPlugin<C, F> {
+    pub fn extract_visible() -> Self {
+        Self {
+            only_extract_visible: true,
+            marker: PhantomData,
+        }
     }
 }
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, extract_components::<C>);
+            if self.only_extract_visible {
+                render_app
+                    .add_system_to_stage(RenderStage::Extract, extract_visible_components::<C>);
+            } else {
+                render_app.add_system_to_stage(RenderStage::Extract, extract_components::<C>);
+            }
         }
     }
 }
@@ -166,6 +187,22 @@ fn extract_components<C: ExtractComponent>(
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in query.iter_mut() {
         values.push((entity, (C::extract_component(query_item),)));
+    }
+    *previous_len = values.len();
+    commands.insert_or_spawn_batch(values);
+}
+
+/// This system extracts all visible components of the corresponding [`ExtractComponent`] type.
+fn extract_visible_components<C: ExtractComponent>(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    mut query: StaticSystemParam<Query<(Entity, Read<ComputedVisibility>, C::Query), C::Filter>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, computed_visibility, query_item) in query.iter_mut() {
+        if computed_visibility.is_visible {
+            values.push((entity, (C::extract_component(query_item),)));
+        }
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);

@@ -10,14 +10,14 @@ use bevy_ecs::{
     prelude::World,
     system::{
         lifetimeless::{Read, SQuery, SRes},
-        Commands, Local, Query, Res, ResMut, SystemParamItem,
+        Query, Res, ResMut, SystemParamItem,
     },
     world::FromWorld,
 };
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::ComputedVisibility,
     render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_component::ExtractComponentPlugin,
     render_phase::{
         AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
         SetItemPipeline, TrackedRenderPass,
@@ -204,6 +204,7 @@ impl<M: SpecializedMaterial> Default for MaterialPlugin<M> {
 impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
             .add_plugin(RenderAssetPlugin::<M>::default());
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -212,25 +213,9 @@ impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<MaterialPipeline<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system_to_stage(RenderStage::Extract, extract_materials::<M>)
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
         }
     }
-}
-
-fn extract_materials<M: SpecializedMaterial>(
-    mut commands: Commands,
-    query: Query<(Entity, &ComputedVisibility, &Handle<M>)>,
-    mut prev_len: Local<usize>,
-) {
-    let mut materials = Vec::with_capacity(*prev_len);
-    for (entity, computed_visibility, material) in query.iter() {
-        if computed_visibility.is_visible {
-            materials.push((entity, (material.clone_weak(),)));
-        }
-    }
-    *prev_len = materials.len();
-    commands.insert_or_spawn_batch(materials);
 }
 
 #[derive(Eq, PartialEq, Clone, Hash)]
