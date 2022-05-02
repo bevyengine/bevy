@@ -72,6 +72,8 @@ impl<'w> EntityRef<'w> {
         }
     }
 
+    /// Retrieves the change ticks for the given component. This can be useful for implementing change
+    /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<&'w ComponentTicks> {
         // SAFE: entity location is valid
@@ -178,6 +180,8 @@ impl<'w> EntityMut<'w> {
         unsafe { self.get_unchecked_mut::<T>() }
     }
 
+    /// Retrieves the change ticks for the given component. This can be useful for implementing change
+    /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<&ComponentTicks> {
         // SAFE: entity location is valid
