@@ -75,7 +75,7 @@ impl Plugin for InputPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                gamepad_connection_system.label(InputSystem),
+                gamepad_connection_system.after(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()
@@ -90,13 +90,13 @@ impl Plugin for InputPlugin {
 /// The current "press" state of an element
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub enum ElementState {
+pub enum ButtonState {
     Pressed,
     Released,
 }
 
-impl ElementState {
+impl ButtonState {
     pub fn is_pressed(&self) -> bool {
-        matches!(self, ElementState::Pressed)
+        matches!(self, ButtonState::Pressed)
     }
 }

@@ -8,7 +8,9 @@ use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
     prelude::Image,
-    primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
+    primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
+    render_resource::BufferBindingType,
+    renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
@@ -17,7 +19,8 @@ use bevy_window::Windows;
 
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
-    CUBE_MAP_FACES, MAX_POINT_LIGHTS, POINT_LIGHT_NEAR_Z,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS,
+    POINT_LIGHT_NEAR_Z,
 };
 
 /// A light that emits light in all directions from a central point.
@@ -323,7 +326,7 @@ impl ClusterConfig {
     fn first_slice_depth(&self) -> f32 {
         match self {
             ClusterConfig::None => 0.0,
-            ClusterConfig::Single => 1.0e9, // FIXME note can't use f32::MAX as the aabb explodes
+            ClusterConfig::Single => 0.0,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.first_slice_depth
             }
@@ -333,7 +336,7 @@ impl ClusterConfig {
     fn far_z_mode(&self) -> ClusterFarZMode {
         match self {
             ClusterConfig::None => ClusterFarZMode::Constant(0.0),
-            ClusterConfig::Single => ClusterFarZMode::Constant(1.0e9), // FIXME note can't use f32::MAX as the aabb explodes
+            ClusterConfig::Single => ClusterFarZMode::MaxLightRange,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.far_z_mode
             }
@@ -353,159 +356,51 @@ impl ClusterConfig {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Default)]
 pub struct Clusters {
     /// Tile size
     pub(crate) tile_size: UVec2,
     /// Number of clusters in x / y / z in the view frustum
-    pub(crate) axis_slices: UVec3,
+    pub(crate) dimensions: UVec3,
     /// Distance to the far plane of the first depth slice. The first depth slice is special
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
     pub(crate) near: f32,
     pub(crate) far: f32,
-    aabbs: Vec<Aabb>,
     pub(crate) lights: Vec<VisiblePointLights>,
 }
 
 impl Clusters {
-    fn new(tile_size: UVec2, screen_size: UVec2, z_slices: u32, near: f32, far: f32) -> Self {
-        let mut clusters = Self {
-            tile_size,
-            axis_slices: Default::default(),
-            near,
-            far,
-            aabbs: Default::default(),
-            lights: Default::default(),
-        };
-        clusters.update(tile_size, screen_size, z_slices);
-        clusters
-    }
+    fn update(&mut self, screen_size: UVec2, requested_dimensions: UVec3) {
+        debug_assert!(
+            requested_dimensions.x > 0 && requested_dimensions.y > 0 && requested_dimensions.z > 0
+        );
 
-    fn from_screen_size_and_dimensions(
-        screen_size: UVec2,
-        dimensions: UVec3,
-        near: f32,
-        far: f32,
-    ) -> Self {
-        debug_assert!(screen_size.x > 0 && screen_size.y > 0);
-        debug_assert!(dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0);
-        Clusters::new(
-            (screen_size.as_vec2() / dimensions.xy().as_vec2())
-                .ceil()
-                .as_uvec2(),
-            screen_size,
-            dimensions.z,
-            near,
-            far,
-        )
-    }
-
-    fn update(&mut self, tile_size: UVec2, screen_size: UVec2, z_slices: u32) {
-        self.tile_size = tile_size;
-        self.axis_slices = (screen_size.as_vec2() / tile_size.as_vec2())
+        let tile_size = (screen_size.as_vec2() / requested_dimensions.xy().as_vec2())
             .ceil()
             .as_uvec2()
-            .extend(z_slices);
+            .max(UVec2::ONE);
+        self.tile_size = tile_size;
+        self.dimensions = (screen_size.as_vec2() / tile_size.as_vec2())
+            .ceil()
+            .as_uvec2()
+            .extend(requested_dimensions.z)
+            .max(UVec3::ONE);
+
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
-        debug_assert!(self.axis_slices.x * self.axis_slices.y * self.axis_slices.z <= 4096);
+        debug_assert!(self.dimensions.x * self.dimensions.y * self.dimensions.z <= 4096);
+    }
+    fn clear(&mut self) {
+        self.tile_size = UVec2::ONE;
+        self.dimensions = UVec3::ZERO;
+        self.near = 0.0;
+        self.far = 0.0;
+        self.lights.clear();
     }
 }
 
 fn clip_to_view(inverse_projection: Mat4, clip: Vec4) -> Vec4 {
     let view = inverse_projection * clip;
     view / view.w
-}
-
-fn screen_to_view(screen_size: Vec2, inverse_projection: Mat4, screen: Vec2, ndc_z: f32) -> Vec4 {
-    let tex_coord = screen / screen_size;
-    let clip = Vec4::new(
-        tex_coord.x * 2.0 - 1.0,
-        (1.0 - tex_coord.y) * 2.0 - 1.0,
-        ndc_z,
-        1.0,
-    );
-    clip_to_view(inverse_projection, clip)
-}
-
-// Calculate the intersection of a ray from the eye through the view space position to a z plane
-fn line_intersection_to_z_plane(origin: Vec3, p: Vec3, z: f32) -> Vec3 {
-    let v = p - origin;
-    let t = (z - Vec3::Z.dot(origin)) / Vec3::Z.dot(v);
-    origin + t * v
-}
-
-#[allow(clippy::too_many_arguments)]
-fn compute_aabb_for_cluster(
-    z_near: f32,
-    z_far: f32,
-    tile_size: Vec2,
-    screen_size: Vec2,
-    inverse_projection: Mat4,
-    is_orthographic: bool,
-    cluster_dimensions: UVec3,
-    ijk: UVec3,
-) -> Aabb {
-    let ijk = ijk.as_vec3();
-
-    // Calculate the minimum and maximum points in screen space
-    let p_min = ijk.xy() * tile_size;
-    let p_max = p_min + tile_size;
-
-    let cluster_min;
-    let cluster_max;
-    if is_orthographic {
-        // Use linear depth slicing for orthographic
-
-        // Convert to view space at the cluster near and far planes
-        // NOTE: 1.0 is the near plane due to using reverse z projections
-        let p_min = screen_to_view(
-            screen_size,
-            inverse_projection,
-            p_min,
-            1.0 - (ijk.z / cluster_dimensions.z as f32),
-        )
-        .xyz();
-        let p_max = screen_to_view(
-            screen_size,
-            inverse_projection,
-            p_max,
-            1.0 - ((ijk.z + 1.0) / cluster_dimensions.z as f32),
-        )
-        .xyz();
-
-        cluster_min = p_min.min(p_max);
-        cluster_max = p_min.max(p_max);
-    } else {
-        // Convert to view space at the near plane
-        // NOTE: 1.0 is the near plane due to using reverse z projections
-        let p_min = screen_to_view(screen_size, inverse_projection, p_min, 1.0);
-        let p_max = screen_to_view(screen_size, inverse_projection, p_max, 1.0);
-
-        let z_far_over_z_near = -z_far / -z_near;
-        let cluster_near = if ijk.z == 0.0 {
-            0.0
-        } else {
-            -z_near * z_far_over_z_near.powf((ijk.z - 1.0) / (cluster_dimensions.z - 1) as f32)
-        };
-        // NOTE: This could be simplified to:
-        // cluster_far = cluster_near * z_far_over_z_near;
-        let cluster_far = if cluster_dimensions.z == 1 {
-            -z_far
-        } else {
-            -z_near * z_far_over_z_near.powf(ijk.z / (cluster_dimensions.z - 1) as f32)
-        };
-
-        // Calculate the four intersection points of the min and max points with the cluster near and far planes
-        let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
-        let p_min_far = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_far);
-        let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
-        let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
-
-        cluster_min = p_min_near.min(p_min_far).min(p_max_near.min(p_max_far));
-        cluster_max = p_min_near.max(p_min_far).max(p_max_near.max(p_max_far));
-    }
-
-    Aabb::from_min_max(cluster_min, cluster_max)
 }
 
 pub fn add_clusters(
@@ -515,96 +410,70 @@ pub fn add_clusters(
     for (entity, config) in cameras.iter() {
         let config = config.copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
-        let clusters = Clusters::from_screen_size_and_dimensions(UVec2::ONE, UVec3::ONE, 1.0, 1.0);
-        commands.entity(entity).insert_bundle((clusters, config));
+        commands
+            .entity(entity)
+            .insert_bundle((Clusters::default(), config));
     }
-}
-
-fn update_clusters(
-    screen_size: UVec2,
-    camera: &Camera,
-    cluster_dimensions: UVec3,
-    clusters: &mut Clusters,
-    near: f32,
-    far: f32,
-) {
-    let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
-    let inverse_projection = camera.projection_matrix.inverse();
-    // Don't update clusters if screen size is 0.
-    if screen_size.x == 0 || screen_size.y == 0 {
-        return;
-    }
-    *clusters =
-        Clusters::from_screen_size_and_dimensions(screen_size, cluster_dimensions, near, far);
-    let screen_size = screen_size.as_vec2();
-    let tile_size_u32 = clusters.tile_size;
-    let tile_size = tile_size_u32.as_vec2();
-
-    // Calculate view space AABBs
-    // NOTE: It is important that these are iterated in a specific order
-    // so that we can calculate the cluster index in the fragment shader!
-    // I (Rob Swain) choose to scan along rows of tiles in x,y, and for each tile then scan
-    // along z
-    let mut aabbs = Vec::with_capacity(
-        (clusters.axis_slices.y * clusters.axis_slices.x * clusters.axis_slices.z) as usize,
-    );
-    for y in 0..clusters.axis_slices.y {
-        for x in 0..clusters.axis_slices.x {
-            for z in 0..clusters.axis_slices.z {
-                aabbs.push(compute_aabb_for_cluster(
-                    near,
-                    far,
-                    tile_size,
-                    screen_size,
-                    inverse_projection,
-                    is_orthographic,
-                    clusters.axis_slices,
-                    UVec3::new(x, y, z),
-                ));
-            }
-        }
-    }
-    clusters.aabbs = aabbs;
 }
 
 #[derive(Clone, Component, Debug, Default)]
 pub struct VisiblePointLights {
-    pub entities: Vec<Entity>,
+    pub(crate) entities: Vec<Entity>,
 }
 
 impl VisiblePointLights {
-    pub fn from_light_count(count: usize) -> Self {
-        Self {
-            entities: Vec::with_capacity(count),
-        }
-    }
-
+    #[inline]
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
         self.entities.iter()
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.entities.len()
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.entities.is_empty()
     }
 }
 
+// NOTE: Keep in sync with bevy_pbr/src/render/pbr.wgsl
 fn view_z_to_z_slice(
     cluster_factors: Vec2,
-    z_slices: f32,
+    z_slices: u32,
     view_z: f32,
     is_orthographic: bool,
 ) -> u32 {
-    if is_orthographic {
+    let z_slice = if is_orthographic {
         // NOTE: view_z is correct in the orthographic case
         ((view_z - cluster_factors.x) * cluster_factors.y).floor() as u32
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        ((-view_z).ln() * cluster_factors.x - cluster_factors.y + 1.0).clamp(0.0, z_slices - 1.0)
-            as u32
+        ((-view_z).ln() * cluster_factors.x - cluster_factors.y + 1.0) as u32
+    };
+    // NOTE: We use min as we may limit the far z plane used for clustering to be closeer than
+    // the furthest thing being drawn. This means that we need to limit to the maximum cluster.
+    z_slice.min(z_slices - 1)
+}
+
+// NOTE: Keep in sync as the inverse of view_z_to_z_slice above
+fn z_slice_to_view_z(
+    near: f32,
+    far: f32,
+    z_slices: u32,
+    z_slice: u32,
+    is_orthographic: bool,
+) -> f32 {
+    if is_orthographic {
+        return -near - (far - near) * z_slice as f32 / z_slices as f32;
+    }
+
+    // Perspective
+    if z_slice == 0 {
+        0.0
+    } else {
+        -near * (far / near).powf((z_slice - 1) as f32 / (z_slices - 1) as f32)
     }
 }
 
@@ -621,7 +490,7 @@ fn ndc_position_to_cluster(
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
     let z_slice = view_z_to_z_slice(
         cluster_factors,
-        cluster_dimensions.z as f32,
+        cluster_dimensions.z,
         view_z,
         is_orthographic,
     );
@@ -723,7 +592,7 @@ fn cluster_space_light_aabb(
 }
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
-// can be used to render at most `MAX_POINT_LIGHT_SHADOW_MAPS` point light shadows and
+// can be used to limit the number of point light shadows to render based on the device and
 // we keep a stable set of lights visible
 pub(crate) fn point_light_order(
     (entity_1, shadows_enabled_1): (&Entity, &bool),
@@ -744,11 +613,28 @@ pub(crate) struct PointLightAssignmentData {
     shadows_enabled: bool,
 }
 
+#[derive(Default)]
+pub struct GlobalVisiblePointLights {
+    entities: HashSet<Entity>,
+}
+
+impl GlobalVisiblePointLights {
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = &Entity> {
+        self.entities.iter()
+    }
+
+    #[inline]
+    pub fn contains(&self, entity: Entity) -> bool {
+        self.entities.contains(&entity)
+    }
+}
+
 // NOTE: Run this before update_point_light_frusta!
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn assign_lights_to_clusters(
     mut commands: Commands,
-    mut global_lights: ResMut<VisiblePointLights>,
+    mut global_lights: ResMut<GlobalVisiblePointLights>,
     windows: Res<Windows>,
     images: Res<Assets<Image>>,
     mut views: Query<(
@@ -758,11 +644,20 @@ pub(crate) fn assign_lights_to_clusters(
         &Frustum,
         &ClusterConfig,
         &mut Clusters,
+        Option<&mut VisiblePointLights>,
     )>,
     lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut max_point_lights_warning_emitted: Local<bool>,
+    render_device: Option<Res<RenderDevice>>,
 ) {
+    let render_device = match render_device {
+        Some(render_device) => render_device,
+        None => return,
+    };
+
+    global_lights.entities.clear();
+    lights.clear();
     // collect just the relevant light query data into a persisted vec to avoid reallocating each frame
     lights.extend(
         lights_query
@@ -778,7 +673,13 @@ pub(crate) fn assign_lights_to_clusters(
             ),
     );
 
-    if lights.len() > MAX_POINT_LIGHTS {
+    let clustered_forward_buffer_binding_type =
+        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+    let supports_storage_buffers = matches!(
+        clustered_forward_buffer_binding_type,
+        BufferBindingType::Storage { .. }
+    );
+    if lights.len() > MAX_UNIFORM_BUFFER_POINT_LIGHTS && !supports_storage_buffers {
         lights.sort_by(|light_1, light_2| {
             point_light_order(
                 (&light_1.entity, &light_1.shadows_enabled),
@@ -789,12 +690,12 @@ pub(crate) fn assign_lights_to_clusters(
         // check each light against each view's frustum, keep only those that affect at least one of our views
         let frusta: Vec<_> = views
             .iter()
-            .map(|(_, _, _, frustum, _, _)| *frustum)
+            .map(|(_, _, _, frustum, _, _, _)| *frustum)
             .collect();
         let mut lights_in_view_count = 0;
         lights.retain(|light| {
             // take one extra light to check if we should emit the warning
-            if lights_in_view_count == MAX_POINT_LIGHTS + 1 {
+            if lights_in_view_count == MAX_UNIFORM_BUFFER_POINT_LIGHTS + 1 {
                 false
             } else {
                 let light_sphere = Sphere {
@@ -814,32 +715,43 @@ pub(crate) fn assign_lights_to_clusters(
             }
         });
 
-        if lights.len() > MAX_POINT_LIGHTS && !*max_point_lights_warning_emitted {
-            warn!("MAX_POINT_LIGHTS ({}) exceeded", MAX_POINT_LIGHTS);
+        if lights.len() > MAX_UNIFORM_BUFFER_POINT_LIGHTS && !*max_point_lights_warning_emitted {
+            warn!(
+                "MAX_UNIFORM_BUFFER_POINT_LIGHTS ({}) exceeded",
+                MAX_UNIFORM_BUFFER_POINT_LIGHTS
+            );
             *max_point_lights_warning_emitted = true;
         }
 
-        lights.truncate(MAX_POINT_LIGHTS);
+        lights.truncate(MAX_UNIFORM_BUFFER_POINT_LIGHTS);
     }
 
-    let light_count = lights.len();
-    let mut global_lights_set = HashSet::with_capacity(light_count);
-    for (view_entity, view_transform, camera, frustum, config, mut clusters) in views.iter_mut() {
+    for (view_entity, camera_transform, camera, frustum, config, clusters, mut visible_lights) in
+        views.iter_mut()
+    {
+        let clusters = clusters.into_inner();
+
         if matches!(config, ClusterConfig::None) {
-            commands.entity(view_entity).remove::<VisiblePointLights>();
+            if visible_lights.is_some() {
+                commands.entity(view_entity).remove::<VisiblePointLights>();
+            }
+            clusters.clear();
             continue;
         }
 
-        let view_transform = view_transform.compute_matrix();
+        let screen_size =
+            if let Some(screen_size) = camera.target.get_physical_size(&windows, &images) {
+                screen_size
+            } else {
+                clusters.clear();
+                continue;
+            };
+
+        let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
+
+        let view_transform = camera_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
-
-        let screen_size_u32 = camera.target.get_physical_size(&windows, &images);
-        let screen_size_u32 = screen_size_u32.unwrap_or_default();
-        if screen_size_u32.x == 0 || screen_size_u32.y == 0 {
-            continue;
-        }
-        let mut cluster_dimensions = config.dimensions_for_screen_size(screen_size_u32);
 
         let far_z = match config.far_z_mode() {
             ClusterFarZMode::CameraFarPlane => camera.far,
@@ -855,21 +767,19 @@ pub(crate) fn assign_lights_to_clusters(
             }
             ClusterFarZMode::Constant(far) => far,
         };
-        let first_slice_depth = match cluster_dimensions.z {
-            1 => config.first_slice_depth().max(far_z),
+        let first_slice_depth = match (is_orthographic, requested_cluster_dimensions.z) {
+            (true, _) => camera.near,
+            (false, 1) => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
         };
         // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering problems.
         let far_z = far_z.max(first_slice_depth);
-
         let cluster_factors = calculate_cluster_factors(
             first_slice_depth,
             far_z,
-            cluster_dimensions.z as f32,
+            requested_cluster_dimensions.z as f32,
             is_orthographic,
         );
-
-        let max_indices = ViewClusterBindings::MAX_INDICES;
 
         if config.dynamic_resizing() {
             let mut cluster_index_estimate = 0.0;
@@ -896,13 +806,13 @@ pub(crate) fn assign_lights_to_clusters(
                 // since we won't adjust z slices we can calculate exact number of slices required in z dimension
                 let z_cluster_min = view_z_to_z_slice(
                     cluster_factors,
-                    cluster_dimensions.z as f32,
+                    requested_cluster_dimensions.z,
                     light_aabb_min.z,
                     is_orthographic,
                 );
                 let z_cluster_max = view_z_to_z_slice(
                     cluster_factors,
-                    cluster_dimensions.z as f32,
+                    requested_cluster_dimensions.z,
                     light_aabb_max.z,
                     is_orthographic,
                 );
@@ -915,7 +825,10 @@ pub(crate) fn assign_lights_to_clusters(
                 // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each dimension
                 let xy_count = (xy_max - xy_min)
                     * 0.5
-                    * Vec2::new(cluster_dimensions.x as f32, cluster_dimensions.y as f32);
+                    * Vec2::new(
+                        requested_cluster_dimensions.x as f32,
+                        requested_cluster_dimensions.y as f32,
+                    );
 
                 // add up to 2 to each axis to account for overlap
                 let x_overlap = if xy_min.x <= -1.0 { 0.0 } else { 1.0 }
@@ -926,111 +839,319 @@ pub(crate) fn assign_lights_to_clusters(
                     (xy_count.x + x_overlap) * (xy_count.y + y_overlap) * z_count as f32;
             }
 
-            if cluster_index_estimate > max_indices as f32 {
+            if cluster_index_estimate > ViewClusterBindings::MAX_INDICES as f32 {
                 // scale x and y cluster count to be able to fit all our indices
 
                 // we take the ratio of the actual indices over the index estimate.
                 // this not not guaranteed to be small enough due to overlapped tiles, but
                 // the conservative estimate is more than sufficient to cover the
                 // difference
-                let index_ratio = max_indices as f32 / cluster_index_estimate as f32;
+                let index_ratio =
+                    ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate as f32;
                 let xy_ratio = index_ratio.sqrt();
 
-                cluster_dimensions.x =
-                    ((cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
-                cluster_dimensions.y =
-                    ((cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
+                requested_cluster_dimensions.x =
+                    ((requested_cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
+                requested_cluster_dimensions.y =
+                    ((requested_cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
             }
         }
 
-        update_clusters(
-            screen_size_u32,
-            camera,
-            cluster_dimensions,
-            &mut clusters,
-            first_slice_depth,
-            far_z,
+        clusters.update(screen_size, requested_cluster_dimensions);
+        clusters.near = first_slice_depth;
+        clusters.far = far_z;
+
+        // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
+        debug_assert!(
+            clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
         );
-        // NOTE: This is here to avoid bugs in future due to update_clusters() having updated clusters.axis_slices
-        // but cluster_dimensions has a different configuration.
-        #[allow(unused_assignments)]
-        {
-            cluster_dimensions = clusters.axis_slices;
+
+        let inverse_projection = camera.projection_matrix.inverse();
+
+        for lights in clusters.lights.iter_mut() {
+            lights.entities.clear();
         }
-        let cluster_count = clusters.aabbs.len();
+        clusters.lights.resize_with(
+            (clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z) as usize,
+            VisiblePointLights::default,
+        );
 
-        let mut clusters_lights =
-            vec![VisiblePointLights::from_light_count(light_count); cluster_count];
-        let mut visible_lights = Vec::with_capacity(light_count);
+        // Calculate the x/y/z cluster frustum planes in view space
+        let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
+        let mut y_planes = Vec::with_capacity(clusters.dimensions.y as usize + 1);
+        let mut z_planes = Vec::with_capacity(clusters.dimensions.z as usize + 1);
 
-        for light in lights.iter() {
-            let light_sphere = Sphere {
-                center: Vec3A::from(light.translation),
-                radius: light.range,
-            };
-
-            // Check if the light is within the view frustum
-            if !frustum.intersects_sphere(&light_sphere, true) {
-                continue;
+        if is_orthographic {
+            let x_slices = clusters.dimensions.x as f32;
+            for x in 0..=clusters.dimensions.x {
+                let x_proportion = x as f32 / x_slices;
+                let x_pos = x_proportion * 2.0 - 1.0;
+                let view_x = clip_to_view(inverse_projection, Vec4::new(x_pos, 0.0, 1.0, 1.0)).x;
+                let normal = Vec3::X;
+                let d = view_x * normal.x;
+                x_planes.push(Plane::new(normal.extend(d)));
             }
 
-            // NOTE: The light intersects the frustum so it must be visible and part of the global set
-            global_lights_set.insert(light.entity);
-            visible_lights.push(light.entity);
+            let y_slices = clusters.dimensions.y as f32;
+            for y in 0..=clusters.dimensions.y {
+                let y_proportion = 1.0 - y as f32 / y_slices;
+                let y_pos = y_proportion * 2.0 - 1.0;
+                let view_y = clip_to_view(inverse_projection, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
+                let normal = Vec3::Y;
+                let d = view_y * normal.y;
+                y_planes.push(Plane::new(normal.extend(d)));
+            }
+        } else {
+            let x_slices = clusters.dimensions.x as f32;
+            for x in 0..=clusters.dimensions.x {
+                let x_proportion = x as f32 / x_slices;
+                let x_pos = x_proportion * 2.0 - 1.0;
+                let nb = clip_to_view(inverse_projection, Vec4::new(x_pos, -1.0, 1.0, 1.0)).xyz();
+                let nt = clip_to_view(inverse_projection, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
+                let normal = nb.cross(nt);
+                let d = nb.dot(normal);
+                x_planes.push(Plane::new(normal.extend(d)));
+            }
 
-            // note: caching seems to be slower than calling twice for this aabb calculation
-            let (light_aabb_xy_ndc_z_view_min, light_aabb_xy_ndc_z_view_max) =
-                cluster_space_light_aabb(
-                    inverse_view_transform,
-                    camera.projection_matrix,
-                    &light_sphere,
+            let y_slices = clusters.dimensions.y as f32;
+            for y in 0..=clusters.dimensions.y {
+                let y_proportion = 1.0 - y as f32 / y_slices;
+                let y_pos = y_proportion * 2.0 - 1.0;
+                let nl = clip_to_view(inverse_projection, Vec4::new(-1.0, y_pos, 1.0, 1.0)).xyz();
+                let nr = clip_to_view(inverse_projection, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
+                let normal = nr.cross(nl);
+                let d = nr.dot(normal);
+                y_planes.push(Plane::new(normal.extend(d)));
+            }
+        }
+
+        let z_slices = clusters.dimensions.z;
+        for z in 0..=z_slices {
+            let view_z = z_slice_to_view_z(first_slice_depth, far_z, z_slices, z, is_orthographic);
+            let normal = -Vec3::Z;
+            let d = view_z * normal.z;
+            z_planes.push(Plane::new(normal.extend(d)));
+        }
+
+        let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
+            for light in lights.iter() {
+                let light_sphere = Sphere {
+                    center: Vec3A::from(light.translation),
+                    radius: light.range,
+                };
+
+                // Check if the light is within the view frustum
+                if !frustum.intersects_sphere(&light_sphere, true) {
+                    continue;
+                }
+
+                // NOTE: The light intersects the frustum so it must be visible and part of the global set
+                global_lights.entities.insert(light.entity);
+                visible_lights.push(light.entity);
+
+                // note: caching seems to be slower than calling twice for this aabb calculation
+                let (light_aabb_xy_ndc_z_view_min, light_aabb_xy_ndc_z_view_max) =
+                    cluster_space_light_aabb(
+                        inverse_view_transform,
+                        camera.projection_matrix,
+                        &light_sphere,
+                    );
+
+                let min_cluster = ndc_position_to_cluster(
+                    clusters.dimensions,
+                    cluster_factors,
+                    is_orthographic,
+                    light_aabb_xy_ndc_z_view_min,
+                    light_aabb_xy_ndc_z_view_min.z,
                 );
+                let max_cluster = ndc_position_to_cluster(
+                    clusters.dimensions,
+                    cluster_factors,
+                    is_orthographic,
+                    light_aabb_xy_ndc_z_view_max,
+                    light_aabb_xy_ndc_z_view_max.z,
+                );
+                let (min_cluster, max_cluster) =
+                    (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
 
-            let min_cluster = ndc_position_to_cluster(
-                clusters.axis_slices,
-                cluster_factors,
-                is_orthographic,
-                light_aabb_xy_ndc_z_view_min,
-                light_aabb_xy_ndc_z_view_min.z,
-            );
-            let max_cluster = ndc_position_to_cluster(
-                clusters.axis_slices,
-                cluster_factors,
-                is_orthographic,
-                light_aabb_xy_ndc_z_view_max,
-                light_aabb_xy_ndc_z_view_max.z,
-            );
-            let (min_cluster, max_cluster) =
-                (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
-
-            for y in min_cluster.y..=max_cluster.y {
-                let row_offset = y * clusters.axis_slices.x;
-                for x in min_cluster.x..=max_cluster.x {
-                    let col_offset = (row_offset + x) * clusters.axis_slices.z;
-                    for z in min_cluster.z..=max_cluster.z {
-                        // NOTE: cluster_index = (y * dim.x + x) * dim.z + z
-                        let cluster_index = (col_offset + z) as usize;
-                        let cluster_aabb = &clusters.aabbs[cluster_index];
-                        if light_sphere.intersects_obb(cluster_aabb, &view_transform) {
-                            clusters_lights[cluster_index].entities.push(light.entity);
+                // What follows is the Iterative Sphere Refinement algorithm from Just Cause 3
+                // Persson et al, Practical Clustered Shading
+                // http://newq.net/dl/pub/s2015_practical.pdf
+                // NOTE: A sphere under perspective projection is no longer a sphere. It gets
+                // stretched and warped, which prevents simpler algorithms from being correct
+                // as they often assume that the widest part of the sphere under projection is the
+                // center point on the axis of interest plus the radius, and that is not true!
+                let view_light_sphere = Sphere {
+                    center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
+                    radius: light_sphere.radius,
+                };
+                let light_center_clip =
+                    camera.projection_matrix * view_light_sphere.center.extend(1.0);
+                let light_center_ndc = light_center_clip.xyz() / light_center_clip.w;
+                let cluster_coordinates = ndc_position_to_cluster(
+                    clusters.dimensions,
+                    cluster_factors,
+                    is_orthographic,
+                    light_center_ndc,
+                    view_light_sphere.center.z,
+                );
+                let z_center = if light_center_ndc.z <= 1.0 {
+                    Some(cluster_coordinates.z)
+                } else {
+                    None
+                };
+                let y_center = if light_center_ndc.y > 1.0 {
+                    None
+                } else if light_center_ndc.y < -1.0 {
+                    Some(clusters.dimensions.y + 1)
+                } else {
+                    Some(cluster_coordinates.y)
+                };
+                for z in min_cluster.z..=max_cluster.z {
+                    let mut z_light = view_light_sphere.clone();
+                    if z_center.is_none() || z != z_center.unwrap() {
+                        // The z plane closer to the light has the larger radius circle where the
+                        // light sphere intersects the z plane.
+                        let z_plane = if z_center.is_some() && z < z_center.unwrap() {
+                            z_planes[(z + 1) as usize]
+                        } else {
+                            z_planes[z as usize]
+                        };
+                        // Project the sphere to this z plane and use its radius as the radius of a
+                        // new, refined sphere.
+                        if let Some(projected) = project_to_plane_z(z_light, z_plane) {
+                            z_light = projected;
+                        } else {
+                            continue;
+                        }
+                    }
+                    for y in min_cluster.y..=max_cluster.y {
+                        let mut y_light = z_light.clone();
+                        if y_center.is_none() || y != y_center.unwrap() {
+                            // The y plane closer to the light has the larger radius circle where the
+                            // light sphere intersects the y plane.
+                            let y_plane = if y_center.is_some() && y < y_center.unwrap() {
+                                y_planes[(y + 1) as usize]
+                            } else {
+                                y_planes[y as usize]
+                            };
+                            // Project the refined sphere to this y plane and use its radius as the
+                            // radius of a new, even more refined sphere.
+                            if let Some(projected) =
+                                project_to_plane_y(y_light, y_plane, is_orthographic)
+                            {
+                                y_light = projected;
+                            } else {
+                                continue;
+                            }
+                        }
+                        // Loop from the left to find the first affected cluster
+                        let mut min_x = min_cluster.x;
+                        loop {
+                            if min_x >= max_cluster.x
+                                || -get_distance_x(
+                                    x_planes[(min_x + 1) as usize],
+                                    y_light.center,
+                                    is_orthographic,
+                                ) + y_light.radius
+                                    > 0.0
+                            {
+                                break;
+                            }
+                            min_x += 1;
+                        }
+                        // Loop from the right to find the last affected cluster
+                        let mut max_x = max_cluster.x;
+                        loop {
+                            if max_x <= min_x
+                                || get_distance_x(
+                                    x_planes[max_x as usize],
+                                    y_light.center,
+                                    is_orthographic,
+                                ) + y_light.radius
+                                    > 0.0
+                            {
+                                break;
+                            }
+                            max_x -= 1;
+                        }
+                        let mut cluster_index = ((y * clusters.dimensions.x + min_x)
+                            * clusters.dimensions.z
+                            + z) as usize;
+                        // Mark the clusters in the range as affected
+                        for _ in min_x..=max_x {
+                            clusters.lights[cluster_index].entities.push(light.entity);
+                            cluster_index += clusters.dimensions.z as usize;
                         }
                     }
                 }
             }
-        }
+        };
 
-        for cluster_lights in &mut clusters_lights {
-            cluster_lights.entities.shrink_to_fit();
+        // reuse existing visible lights Vec, if it exists
+        if let Some(visible_lights) = visible_lights.as_mut() {
+            visible_lights.entities.clear();
+            update_from_light_intersections(&mut visible_lights.entities);
+        } else {
+            let mut entities = Vec::new();
+            update_from_light_intersections(&mut entities);
+            commands
+                .entity(view_entity)
+                .insert(VisiblePointLights { entities });
         }
-
-        clusters.lights = clusters_lights;
-        visible_lights.shrink_to_fit();
-        commands.entity(view_entity).insert(VisiblePointLights {
-            entities: visible_lights,
-        });
     }
-    global_lights.entities = global_lights_set.into_iter().collect();
-    lights.clear();
+}
+
+// NOTE: This exploits the fact that a x-plane normal has only x and z components
+fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
+    if is_orthographic {
+        point.x - plane.d()
+    } else {
+        // Distance from a point to a plane:
+        // signed distance to plane = (nx * px + ny * py + nz * pz + d) / n.length()
+        // NOTE: For a x-plane, ny and d are 0 and we have a unit normal
+        //                          = nx * px + nz * pz
+        plane.normal_d().xz().dot(point.xz())
+    }
+}
+
+// NOTE: This exploits the fact that a z-plane normal has only a z component
+fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
+    // p = sphere center
+    // n = plane normal
+    // d = n.p if p is in the plane
+    // NOTE: For a z-plane, nx and ny are both 0
+    // d = px * nx + py * ny + pz * nz
+    //   = pz * nz
+    // => pz = d / nz
+    let z = z_plane.d() / z_plane.normal_d().z;
+    let distance_to_plane = z - z_light.center.z;
+    if distance_to_plane.abs() > z_light.radius {
+        return None;
+    }
+    Some(Sphere {
+        center: Vec3A::from(z_light.center.xy().extend(z)),
+        // hypotenuse length = radius
+        // pythagorus = (distance to plane)^2 + b^2 = radius^2
+        radius: (z_light.radius * z_light.radius - distance_to_plane * distance_to_plane).sqrt(),
+    })
+}
+
+// NOTE: This exploits the fact that a y-plane normal has only y and z components
+fn project_to_plane_y(y_light: Sphere, y_plane: Plane, is_orthographic: bool) -> Option<Sphere> {
+    let distance_to_plane = if is_orthographic {
+        y_plane.d() - y_light.center.y
+    } else {
+        -y_light.center.yz().dot(y_plane.normal_d().yz())
+    };
+
+    if distance_to_plane.abs() > y_light.radius {
+        return None;
+    }
+    Some(Sphere {
+        center: y_light.center + distance_to_plane * y_plane.normal(),
+        radius: (y_light.radius * y_light.radius - distance_to_plane * distance_to_plane).sqrt(),
+    })
 }
 
 pub fn update_directional_light_frusta(
@@ -1065,7 +1186,7 @@ pub fn update_directional_light_frusta(
 
 // NOTE: Run this after assign_lights_to_clusters!
 pub fn update_point_light_frusta(
-    global_lights: Res<VisiblePointLights>,
+    global_lights: Res<GlobalVisiblePointLights>,
     mut views: Query<
         (Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta),
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
@@ -1078,18 +1199,13 @@ pub fn update_point_light_frusta(
         .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
 
-    let global_lights_set = global_lights
-        .entities
-        .iter()
-        .copied()
-        .collect::<HashSet<_>>();
     for (entity, transform, point_light, mut cubemap_frusta) in views.iter_mut() {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
         // Also, if the light is not relevant for any cluster, it will not be in the
         // global lights set and so there is no need to update its frusta.
-        if !point_light.shadows_enabled || !global_lights_set.contains(&entity) {
+        if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
             continue;
         }
 
@@ -1270,20 +1386,21 @@ mod test {
         let dims = config.dimensions_for_screen_size(screen_size);
 
         // note: near & far do not affect tiling
-        let clusters = Clusters::from_screen_size_and_dimensions(screen_size, dims, 5.0, 1000.0);
+        let mut clusters = Clusters::default();
+        clusters.update(screen_size, dims);
 
         // check we cover the screen
-        assert!(clusters.tile_size.x * clusters.axis_slices.x >= screen_size.x);
-        assert!(clusters.tile_size.y * clusters.axis_slices.y >= screen_size.y);
+        assert!(clusters.tile_size.x * clusters.dimensions.x >= screen_size.x);
+        assert!(clusters.tile_size.y * clusters.dimensions.y >= screen_size.y);
         // check a smaller number of clusters would not cover the screen
-        assert!(clusters.tile_size.x * (clusters.axis_slices.x - 1) < screen_size.x);
-        assert!(clusters.tile_size.y * (clusters.axis_slices.y - 1) < screen_size.y);
+        assert!(clusters.tile_size.x * (clusters.dimensions.x - 1) < screen_size.x);
+        assert!(clusters.tile_size.y * (clusters.dimensions.y - 1) < screen_size.y);
         // check a smaller tilesize would not cover the screen
-        assert!((clusters.tile_size.x - 1) * clusters.axis_slices.x < screen_size.x);
-        assert!((clusters.tile_size.y - 1) * clusters.axis_slices.y < screen_size.y);
+        assert!((clusters.tile_size.x - 1) * clusters.dimensions.x < screen_size.x);
+        assert!((clusters.tile_size.y - 1) * clusters.dimensions.y < screen_size.y);
         // check we don't have more clusters than pixels
-        assert!(clusters.axis_slices.x <= screen_size.x);
-        assert!(clusters.axis_slices.y <= screen_size.y);
+        assert!(clusters.dimensions.x <= screen_size.x);
+        assert!(clusters.dimensions.y <= screen_size.y);
 
         clusters
     }
@@ -1296,8 +1413,7 @@ mod test {
                 let screen_size = UVec2::new(x, y);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
-                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
-                        <= 4096
+                    clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
             }
         }
@@ -1311,15 +1427,13 @@ mod test {
                 let screen_size = UVec2::new(x, y);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
-                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
-                        <= 4096
+                    clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
 
                 let screen_size = UVec2::new(y, x);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
-                    clusters.axis_slices.x * clusters.axis_slices.y * clusters.axis_slices.z
-                        <= 4096
+                    clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
             }
         }

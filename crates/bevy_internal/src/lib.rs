@@ -85,6 +85,12 @@ pub mod window {
     pub use bevy_window::*;
 }
 
+#[cfg(feature = "bevy_animation")]
+pub mod animation {
+    //! Provides types and plugins for animations.
+    pub use bevy_animation::*;
+}
+
 #[cfg(feature = "bevy_audio")]
 pub mod audio {
     //! Provides types and plugins for audio playback.

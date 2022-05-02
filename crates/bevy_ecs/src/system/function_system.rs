@@ -1,7 +1,9 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
+    prelude::FromWorld,
     query::{Access, FilteredAccessSet},
+    schedule::SystemLabel,
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
         SystemParamState,
@@ -9,9 +11,10 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, fmt::Debug, hash::Hash, marker::PhantomData};
 
 /// The metadata of a [`System`].
+#[derive(Clone)]
 pub struct SystemMeta {
     pub(crate) name: Cow<'static, str>,
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
@@ -227,6 +230,12 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 }
 
+impl<Param: SystemParam> FromWorld for SystemState<Param> {
+    fn from_world(world: &mut World) -> Self {
+        Self::new(world)
+    }
+}
+
 /// Conversion trait to turn something into a [`System`].
 ///
 /// Use this to get a system from a function. Also note that every system implements this trait as
@@ -240,33 +249,13 @@ impl<Param: SystemParam> SystemState<Param> {
 ///
 /// fn my_system_function(an_usize_resource: Res<usize>) {}
 ///
-/// let system = IntoSystem::system(my_system_function);
+/// let system = IntoSystem::into_system(my_system_function);
 /// ```
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
 pub trait IntoSystem<In, Out, Params>: Sized {
     type System: System<In = In, Out = Out>;
-    /// Turns this value into its corresponding [`System`].
-    ///
-    /// Use of this method was formerly required whenever adding a `system` to an `App`.
-    /// or other cases where a system is required.
-    /// However, since [#2398](https://github.com/bevyengine/bevy/pull/2398),
-    /// this is no longer required.
-    ///
-    /// In future, this method will be removed.
-    ///
-    /// One use of this method is to assert that a given function is a valid system.
-    /// For this case, use [`bevy_ecs::system::assert_is_system`] instead.
-    ///
-    /// [`bevy_ecs::system::assert_is_system`]: [`crate::system::assert_is_system`]:
-    #[deprecated(
-        since = "0.7.0",
-        note = "`.system()` is no longer needed, as methods which accept systems will convert functions into a system automatically"
-    )]
-    fn system(self) -> Self::System {
-        IntoSystem::into_system(self)
-    }
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 }
@@ -308,11 +297,12 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// }
 /// ```
 pub struct In<In>(pub In);
+#[doc(hidden)]
 pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
-/// You get this by calling [`IntoSystem::system`]  on a function that only accepts
+/// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
@@ -322,6 +312,8 @@ where
     func: F,
     param_state: Option<Param::Fetch>,
     system_meta: SystemMeta,
+    world_id: Option<WorldId>,
+    archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     #[allow(clippy::type_complexity)]
     marker: PhantomData<fn() -> (In, Out, Marker)>,
@@ -343,6 +335,8 @@ where
             func,
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
+            world_id: None,
+            archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
         }
     }
@@ -362,12 +356,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn new_archetype(&mut self, archetype: &Archetype) {
-        let param_state = self.param_state.as_mut().unwrap();
-        param_state.new_archetype(archetype, &mut self.system_meta);
     }
 
     #[inline]
@@ -407,10 +395,26 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
+        self.world_id = Some(world.id());
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,
         ));
+    }
+
+    fn update_archetype_component_access(&mut self, world: &World) {
+        assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+        let archetypes = world.archetypes();
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+
+        for archetype_index in archetype_index_range {
+            self.param_state.as_mut().unwrap().new_archetype(
+                &archetypes[ArchetypeId::new(archetype_index)],
+                &mut self.system_meta,
+            );
+        }
     }
 
     #[inline]
@@ -420,6 +424,47 @@ where
             change_tick,
             self.system_meta.name.as_ref(),
         );
+    }
+    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+        vec![Box::new(self.func.as_system_label())]
+    }
+}
+
+/// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
+pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
+
+impl<T> Debug for SystemTypeIdLabel<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("SystemTypeIdLabel")
+            .field(&std::any::type_name::<T>())
+            .finish()
+    }
+}
+impl<T> Hash for SystemTypeIdLabel<T> {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+        // All SystemTypeIds of a given type are the same.
+    }
+}
+impl<T> Clone for SystemTypeIdLabel<T> {
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T> Copy for SystemTypeIdLabel<T> {}
+
+impl<T> PartialEq for SystemTypeIdLabel<T> {
+    #[inline]
+    fn eq(&self, _other: &Self) -> bool {
+        // All labels of a given type are equal, as they will all have the same type id
+        true
+    }
+}
+impl<T> Eq for SystemTypeIdLabel<T> {}
+
+impl<T> SystemLabel for SystemTypeIdLabel<T> {
+    fn dyn_clone(&self) -> Box<dyn SystemLabel> {
+        Box::new(*self)
     }
 }
 
@@ -489,3 +534,28 @@ macro_rules! impl_system_function {
 }
 
 all_tuples!(impl_system_function, 0, 16, F);
+
+/// Used to implicitly convert systems to their default labels. For example, it will convert
+/// "system functions" to their [`SystemTypeIdLabel`].
+pub trait AsSystemLabel<Marker> {
+    type SystemLabel: SystemLabel;
+    fn as_system_label(&self) -> Self::SystemLabel;
+}
+
+impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
+    AsSystemLabel<(In, Out, Param, Marker)> for T
+{
+    type SystemLabel = SystemTypeIdLabel<Self>;
+
+    fn as_system_label(&self) -> Self::SystemLabel {
+        SystemTypeIdLabel(PhantomData::<fn() -> Self>)
+    }
+}
+
+impl<T: SystemLabel + Clone> AsSystemLabel<()> for T {
+    type SystemLabel = T;
+
+    fn as_system_label(&self) -> Self::SystemLabel {
+        self.clone()
+    }
+}

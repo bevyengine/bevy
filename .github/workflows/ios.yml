@@ -18,7 +18,7 @@ jobs:
           toolchain: stable
           override: true
 
-      - uses: actions/cache@v2.1.6
+      - uses: actions/cache@v3
         with:
           path: |
             target

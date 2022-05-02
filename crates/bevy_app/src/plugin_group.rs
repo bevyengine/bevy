@@ -14,7 +14,7 @@ struct PluginEntry {
 }
 
 /// Facilitates the creation and configuration of a [`PluginGroup`].
-/// Provides a build ordering to ensure that [`Plugin`]s which produce/require a resource
+/// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::system::Resource)
 /// are built before/after dependent/depending [`Plugin`]s.
 #[derive(Default)]
 pub struct PluginGroupBuilder {
@@ -86,7 +86,7 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Enables a [`Plugin`]
+    /// Enables a [`Plugin`].
     ///
     /// [`Plugin`]s within a [`PluginGroup`] are enabled by default. This function is used to
     /// opt back in to a [`Plugin`] after [disabling](Self::disable) it.
@@ -99,7 +99,7 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Disables a [`Plugin`], preventing it from being added to the `App` with the rest of the [`PluginGroup`].
+    /// Disables a [`Plugin`], preventing it from being added to the [`App`] with the rest of the [`PluginGroup`].
     pub fn disable<T: Plugin>(&mut self) -> &mut Self {
         let mut plugin_entry = self
             .plugins

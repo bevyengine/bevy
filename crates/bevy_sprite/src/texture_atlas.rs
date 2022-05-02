@@ -1,4 +1,4 @@
-use crate::Rect;
+use crate::{Anchor, Rect};
 use bevy_asset::Handle;
 use bevy_ecs::component::Component;
 use bevy_math::Vec2;
@@ -30,6 +30,7 @@ pub struct TextureAtlasSprite {
     /// An optional custom size for the sprite that will be used when rendering, instead of the size
     /// of the sprite's image in the atlas
     pub custom_size: Option<Vec2>,
+    pub anchor: Anchor,
 }
 
 impl Default for TextureAtlasSprite {
@@ -40,6 +41,7 @@ impl Default for TextureAtlasSprite {
             flip_x: false,
             flip_y: false,
             custom_size: None,
+            anchor: Anchor::default(),
         }
     }
 }
