@@ -201,6 +201,10 @@ name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
 
 [[example]]
+name = "3d_shapes"
+path = "examples/3d/shapes.rs"
+
+[[example]]
 name = "shadow_caster_receiver"
 path = "examples/3d/shadow_caster_receiver.rs"
 
