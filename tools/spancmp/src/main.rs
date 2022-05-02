@@ -106,13 +106,13 @@ fn main() {
                 if let Some(other) = second.remove(span) {
                     // if there is a matching span in the second trace, compare the two
                     print!("  ");
-                    if stats.avg > other.avg {
+                    if stats.avg < other.avg {
                         stdout
                             .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
                             .unwrap();
                         print!("{:1.2}", 1.0);
                     } else {
-                        print!("{:1.2}", other.avg / stats.avg);
+                        print!("{:1.2}", stats.avg / other.avg);
                     }
                     print!(
                         "    {:10} {:15} {:15} {:15}",
@@ -122,13 +122,13 @@ fn main() {
                         .set_color(ColorSpec::new().set_fg(Some(Color::White)))
                         .unwrap();
                     print!("       |      ");
-                    if stats.avg < other.avg {
+                    if stats.avg > other.avg {
                         stdout
                             .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
                             .unwrap();
                         print!("{:1.2}", 1.0);
                     } else {
-                        print!("{:1.2}", stats.avg / other.avg);
+                        print!("{:1.2}", other.avg / stats.avg);
                     }
 
                     println!(
