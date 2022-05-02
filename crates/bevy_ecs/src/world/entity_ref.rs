@@ -4,7 +4,7 @@ use crate::{
     change_detection::{MutUntyped, Ticks},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    ptr::{OwningPtr, Ptr},
+    ptr::{OwningPtr, Ptr, UnsafeCellDeref},
     storage::{SparseSet, Storages},
     world::{Mut, World},
 };
@@ -92,7 +92,7 @@ impl<'w> EntityRef<'w> {
             .map(|(value, ticks)| Mut {
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    component_ticks: &mut *ticks.get(),
+                    component_ticks: ticks.deref_mut(),
                     last_change_tick,
                     change_tick,
                 },
@@ -200,7 +200,7 @@ impl<'w> EntityMut<'w> {
             .map(|(value, ticks)| Mut {
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    component_ticks: &mut *ticks.get(),
+                    component_ticks: ticks.deref_mut(),
                     last_change_tick: self.world.last_change_tick(),
                     change_tick: self.world.read_change_tick(),
                 },
@@ -511,7 +511,7 @@ impl<'w> EntityMut<'w> {
                 |(value, ticks)| MutUntyped {
                     value: value.assert_unique(),
                     ticks: Ticks {
-                        component_ticks: &mut *ticks.get(),
+                        component_ticks: ticks.deref_mut(),
                         last_change_tick: self.world.last_change_tick(),
                         change_tick: self.world.read_change_tick(),
                     },
@@ -804,7 +804,7 @@ pub(crate) unsafe fn get_mut<T: Component>(
         |(value, ticks)| Mut {
             value: value.assert_unique().deref_mut::<T>(),
             ticks: Ticks {
-                component_ticks: &mut *ticks.get(),
+                component_ticks: ticks.deref_mut(),
                 last_change_tick,
                 change_tick,
             },
