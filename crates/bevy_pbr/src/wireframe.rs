@@ -4,6 +4,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -61,7 +62,7 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
 
 /// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Wireframe;
 
 #[derive(Debug, Clone, Default)]
