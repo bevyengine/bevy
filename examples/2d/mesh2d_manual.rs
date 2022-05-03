@@ -60,7 +60,6 @@ fn star(
     // These vertices are specificed in 3D space.
     let mut v_pos = vec![[0.0, 0.0, 0.0]];
     for i in 0..10 {
-        
         // Angle of each vertex is 1/10 of TAU, plus PI/2 for positioning vertex 0
         let a = std::f32::consts::FRAC_PI_2 - i as f32 * std::f32::consts::TAU / 10.0;
         // Radius of internal vertices (2, 4, 6, 8, 10) is 100, it's 200 for external
