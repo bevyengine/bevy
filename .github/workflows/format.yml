@@ -1,7 +1,6 @@
 name: PR-Format
 
 on:
-  pull_request:
   push:
     branches-ignore:
       - 'dependabot/**'
