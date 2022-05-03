@@ -2,7 +2,7 @@ name: PR-Format
 
 on:
   pull_request:
-  push:
+    types: [synchronize]
     branches-ignore:
       - 'dependabot/**'
       - staging-squash-merge.tmp
@@ -29,4 +29,4 @@ jobs:
           git config user.email github-actions@github.com
           git add .
           git commit -m "Automated formatting"
-          git push
+          git push origin HEAD:${{ github.head_ref }}
