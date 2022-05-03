@@ -27,6 +27,7 @@ pub mod serde;
 pub mod std_traits;
 
 pub mod prelude {
+    pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
         reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize, Struct,
