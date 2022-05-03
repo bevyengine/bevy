@@ -29,4 +29,4 @@ jobs:
           git config user.email github-actions@github.com
           git add .
           git commit -m "Automated formatting"
-          git push
+          git push origin HEAD:${{ github.head_ref }}
