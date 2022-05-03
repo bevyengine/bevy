@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.7.0-dev"
+version = "0.8.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -104,11 +104,11 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 animation = ["bevy_internal/animation"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.7.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.7.0-dev", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.8.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.8.0-dev", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.7.0-dev", default-features = false, features = [
+bevy_internal = { path = "crates/bevy_internal", version = "0.8.0-dev", default-features = false, features = [
   "webgl",
 ] }
 
@@ -199,6 +199,10 @@ path = "examples/3d/pbr.rs"
 [[example]]
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
+
+[[example]]
+name = "3d_shapes"
+path = "examples/3d/shapes.rs"
 
 [[example]]
 name = "shadow_caster_receiver"
@@ -390,6 +394,10 @@ path = "examples/ecs/state.rs"
 [[example]]
 name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
+
+[[example]]
+name = "system_closure"
+path = "examples/ecs/system_closure.rs"
 
 [[example]]
 name = "system_param"
@@ -614,6 +622,15 @@ path = "examples/window/transparent_window.rs"
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
+
+[[example]]
+name = "resizing"
+path = "tests/window/resizing.rs"
+
+[[example]]
+name = "minimising"
+path = "tests/window/minimising.rs"
+
 
 # Android
 [[example]]

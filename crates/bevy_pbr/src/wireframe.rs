@@ -121,7 +121,7 @@ fn queue_wireframes(
         .get_id::<DrawWireframes>()
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, mut transparent_phase) in views.iter_mut() {
+    for (view, mut opaque_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
 
@@ -143,7 +143,7 @@ fn queue_wireframes(
                             return;
                         }
                     };
-                    transparent_phase.add(Opaque3d {
+                    opaque_phase.add(Opaque3d {
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,

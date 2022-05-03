@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{Mat4, Size};
+use bevy_math::{Mat4, Vec2};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
@@ -195,7 +195,7 @@ impl FromWorld for Mesh2dPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: Size::new(
+                size: Vec2::new(
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),

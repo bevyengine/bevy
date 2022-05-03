@@ -1,13 +1,13 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
+    ptr::{OwningPtr, Ptr, PtrMut},
     storage::{BlobVec, SparseSet},
 };
 use bevy_utils::HashMap;
 use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
-    ptr::NonNull,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,7 +41,8 @@ impl Column {
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Column {
             component_id: component_info.id(),
-            data: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
+            // SAFE: component_info.drop() is valid for the types that will be inserted.
+            data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             ticks: Vec::with_capacity(capacity),
         }
     }
@@ -53,7 +54,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub unsafe fn initialize(&mut self, row: usize, data: *mut u8, ticks: ComponentTicks) {
+    pub unsafe fn initialize(&mut self, row: usize, data: OwningPtr<'_>, ticks: ComponentTicks) {
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
         *self.ticks.get_unchecked_mut(row).get_mut() = ticks;
@@ -65,7 +66,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub unsafe fn replace(&mut self, row: usize, data: *mut u8, change_tick: u32) {
+    pub unsafe fn replace(&mut self, row: usize, data: OwningPtr<'_>, change_tick: u32) {
         debug_assert!(row < self.len());
         self.data.replace_unchecked(row, data);
         self.ticks
@@ -77,7 +78,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub unsafe fn initialize_data(&mut self, row: usize, data: *mut u8) {
+    pub unsafe fn initialize_data(&mut self, row: usize, data: OwningPtr<'_>) {
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
     }
@@ -109,10 +110,11 @@ impl Column {
     }
 
     #[inline]
+    #[must_use = "The returned pointer should be used to dropped the removed component"]
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: usize,
-    ) -> (*mut u8, ComponentTicks) {
+    ) -> (OwningPtr<'_>, ComponentTicks) {
         let data = self.data.swap_remove_and_forget_unchecked(row);
         let ticks = self.ticks.swap_remove(row).into_inner();
         (data, ticks)
@@ -120,9 +122,8 @@ impl Column {
 
     // # Safety
     // - ptr must point to valid data of this column's component type
-    pub(crate) unsafe fn push(&mut self, ptr: *mut u8, ticks: ComponentTicks) {
-        let row = self.data.push_uninit();
-        self.data.initialize_unchecked(row, ptr);
+    pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
+        self.data.push(ptr);
         self.ticks.push(UnsafeCell::new(ticks));
     }
 
@@ -132,50 +133,46 @@ impl Column {
         self.ticks.reserve_exact(additional);
     }
 
-    /// # Safety
-    /// must ensure rust mutability rules are not violated
     #[inline]
-    pub unsafe fn get_data_ptr(&self) -> NonNull<u8> {
+    pub fn get_data_ptr(&self) -> Ptr<'_> {
         self.data.get_ptr()
     }
 
-    #[inline]
-    pub fn get_ticks_ptr(&self) -> *const UnsafeCell<ComponentTicks> {
-        self.ticks.as_ptr()
+    /// # Safety
+    /// The type `T` must be the type of the items in this column.
+    pub unsafe fn get_data_slice<T>(&self) -> &[UnsafeCell<T>] {
+        self.data.get_slice()
     }
 
     #[inline]
-    pub fn get_ticks_const_ptr(&self) -> *const ComponentTicks {
-        // cast is valid, because UnsafeCell is repr(transparent)
-        self.get_ticks_ptr() as *const ComponentTicks
+    pub fn get_ticks_slice(&self) -> &[UnsafeCell<ComponentTicks>] {
+        &self.ticks
     }
 
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
-    /// - pointer cannot be dereferenced after mutable reference to this `Column` was live
     #[inline]
-    pub unsafe fn get_data_unchecked(&self, row: usize) -> *mut u8 {
+    pub unsafe fn get_data_unchecked(&self, row: usize) -> Ptr<'_> {
         debug_assert!(row < self.data.len());
         self.data.get_unchecked(row)
     }
 
     /// # Safety
-    /// index must be in-bounds
+    /// - index must be in-bounds
+    /// - no other reference to the data of the same row can exist at the same time
     #[inline]
-    pub unsafe fn get_ticks_unchecked(&self, row: usize) -> &ComponentTicks {
-        debug_assert!(row < self.ticks.len());
-        &*self.ticks.get_unchecked(row).get()
+    pub unsafe fn get_data_unchecked_mut(&mut self, row: usize) -> PtrMut<'_> {
+        debug_assert!(row < self.data.len());
+        self.data.get_unchecked_mut(row)
     }
 
     /// # Safety
-    /// - index must be in-bounds
-    /// - no other reference to the ticks of the same row can exist at the same time
-    /// - pointer cannot be dereferenced after mutable reference to this column was live
+    /// index must be in-bounds
     #[inline]
-    pub unsafe fn get_ticks_mut_ptr_unchecked(&self, row: usize) -> *mut ComponentTicks {
+    pub unsafe fn get_ticks_unchecked(&self, row: usize) -> &UnsafeCell<ComponentTicks> {
         debug_assert!(row < self.ticks.len());
-        self.ticks.get_unchecked(row).get()
+        self.ticks.get_unchecked(row)
     }
 
     pub fn clear(&mut self) {
@@ -257,8 +254,9 @@ impl Table {
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for column in self.columns.values_mut() {
+            let component_id = column.component_id;
             let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
-            if let Some(new_column) = new_table.get_column_mut(column.component_id) {
+            if let Some(new_column) = new_table.get_column_mut(component_id) {
                 new_column.initialize(new_row, data, ticks);
             }
         }
@@ -529,6 +527,7 @@ impl IndexMut<TableId> for Tables {
 mod tests {
     use crate as bevy_ecs;
     use crate::component::Component;
+    use crate::ptr::OwningPtr;
     use crate::storage::Storages;
     use crate::{component::Components, entity::Entity, storage::Table};
     #[derive(Component)]
@@ -547,12 +546,13 @@ mod tests {
             // SAFE: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);
-                let mut value = row;
-                let value_ptr = ((&mut value) as *mut usize).cast::<u8>();
-                table
-                    .get_column_mut(component_id)
-                    .unwrap()
-                    .initialize_data(row, value_ptr);
+                let value: W<usize> = W(row);
+                OwningPtr::make(value, |value_ptr| {
+                    table
+                        .get_column_mut(component_id)
+                        .unwrap()
+                        .initialize_data(row, value_ptr);
+                });
             };
         }
 

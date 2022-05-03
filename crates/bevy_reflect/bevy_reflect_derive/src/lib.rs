@@ -274,6 +274,17 @@ fn impl_struct(
             fn any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
             }
+
+            #[inline]
+            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
+            #[inline]
+            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
             #[inline]
             fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
                 use #bevy_reflect_path::Struct;
@@ -396,6 +407,17 @@ fn impl_tuple_struct(
             fn any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
             }
+
+            #[inline]
+            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
+            #[inline]
+            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
             #[inline]
             fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
                 use #bevy_reflect_path::TupleStruct;
@@ -471,6 +493,16 @@ fn impl_value(
 
             #[inline]
             fn any_mut(&mut self) -> &mut dyn std::any::Any {
+                self
+            }
+
+            #[inline]
+            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
+            #[inline]
+            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
                 self
             }
 

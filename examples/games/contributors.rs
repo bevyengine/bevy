@@ -15,7 +15,7 @@ fn main() {
         .add_system(move_system)
         .add_system(collision_system)
         .add_system(select_system)
-        .insert_resource(SelectionState::default())
+        .init_resource::<SelectionState>()
         .run();
 }
 
@@ -23,7 +23,7 @@ fn main() {
 type Contributors = HashSet<String>;
 
 struct ContributorSelection {
-    order: Vec<(String, Entity)>,
+    order: Vec<Entity>,
     idx: usize,
 }
 
@@ -46,6 +46,7 @@ struct ContributorDisplay;
 
 #[derive(Component)]
 struct Contributor {
+    name: String,
     hue: f32,
 }
 
@@ -85,23 +86,23 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         idx: 0,
     };
 
-    let mut rnd = rand::thread_rng();
+    let mut rng = rand::thread_rng();
 
     for name in contribs {
-        let pos = (rnd.gen_range(-400.0..400.0), rnd.gen_range(0.0..400.0));
-        let dir = rnd.gen_range(-1.0..1.0);
+        let pos = (rng.gen_range(-400.0..400.0), rng.gen_range(0.0..400.0));
+        let dir = rng.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
-        let hue = rnd.gen_range(0.0..=360.0);
+        let hue = rng.gen_range(0.0..=360.0);
 
         // some sprites should be flipped
-        let flipped = rnd.gen_bool(0.5);
+        let flipped = rng.gen_bool(0.5);
 
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
         let entity = commands
             .spawn()
             .insert_bundle((
-                Contributor { hue },
+                Contributor { name, hue },
                 Velocity {
                     translation: velocity,
                     rotation: -dir * 5.0,
@@ -120,10 +121,10 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
             })
             .id();
 
-        contributor_selection.order.push((name, entity));
+        contributor_selection.order.push(entity);
     }
 
-    contributor_selection.order.shuffle(&mut rnd);
+    contributor_selection.order.shuffle(&mut rng);
 
     commands.insert_resource(contributor_selection);
 }
@@ -183,11 +184,9 @@ fn select_system(
         timer.has_triggered = true;
     }
 
-    {
-        let (_, entity) = &contributor_selection.order[contributor_selection.idx];
-        if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
-            deselect(&mut sprite, contributor, &mut *transform);
-        }
+    let entity = contributor_selection.order[contributor_selection.idx];
+    if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
+        deselect(&mut sprite, contributor, &mut transform);
     }
 
     if (contributor_selection.idx + 1) < contributor_selection.order.len() {
@@ -196,22 +195,21 @@ fn select_system(
         contributor_selection.idx = 0;
     }
 
-    let (name, entity) = &contributor_selection.order[contributor_selection.idx];
+    let entity = contributor_selection.order[contributor_selection.idx];
 
-    if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(*entity) {
+    if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
         let mut text = text_query.single_mut();
-        select(&mut sprite, contributor, &mut *transform, &mut *text, name);
+        select(&mut sprite, contributor, &mut transform, &mut text);
     }
 }
 
-/// Change the modulate color to the "selected" colour,
-/// bring the object to the front and display the name.
+/// Change the tint color to the "selected" color, bring the object to the front
+/// and display the name.
 fn select(
     sprite: &mut Sprite,
     contributor: &Contributor,
     transform: &mut Transform,
     text: &mut Text,
-    name: &String,
 ) {
     sprite.color = Color::hsla(
         contributor.hue,
@@ -222,7 +220,7 @@ fn select(
 
     transform.translation.z = 100.0;
 
-    text.sections[1].value.clone_from(name);
+    text.sections[1].value.clone_from(&contributor.name);
     text.sections[1].style.color = sprite.color;
 }
 
@@ -257,7 +255,7 @@ fn collision_system(
     windows: Res<Windows>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let mut rnd = rand::thread_rng();
+    let mut rng = rand::thread_rng();
 
     let window = windows.primary();
 
@@ -277,7 +275,7 @@ fn collision_system(
         if bottom < ground {
             transform.translation.y = ground + SPRITE_SIZE / 2.0;
             // apply an impulse upwards
-            velocity.translation.y = rnd.gen_range(700.0..1000.0);
+            velocity.translation.y = rng.gen_range(700.0..1000.0);
         }
         if top > ceiling {
             transform.translation.y = ceiling - SPRITE_SIZE / 2.0;

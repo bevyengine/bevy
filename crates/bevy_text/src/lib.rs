@@ -31,6 +31,7 @@ use bevy_asset::AddAsset;
 use bevy_ecs::{entity::Entity, schedule::ParallelSystemDescriptorCoercion};
 use bevy_render::{RenderApp, RenderStage};
 use bevy_sprite::SpriteSystem;
+use bevy_window::ModifiesWindows;
 
 pub type DefaultTextPipeline = TextPipeline<Entity>;
 
@@ -46,7 +47,7 @@ impl Plugin for TextPlugin {
             .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
             .insert_resource(DefaultTextPipeline::default())
-            .add_system_to_stage(CoreStage::PostUpdate, text2d_system);
+            .add_system_to_stage(CoreStage::PostUpdate, text2d_system.after(ModifiesWindows));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(
