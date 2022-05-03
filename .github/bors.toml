@@ -14,7 +14,7 @@ status = [
     "check-unused-dependencies",
     "ci",
     "miri",
-    "check-benches",
+    "check-compiles",
 ]
 
 use_squash_merge = true
