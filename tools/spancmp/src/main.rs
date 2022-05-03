@@ -42,7 +42,7 @@ enum SpanOrIgnore {
 /// this wrapper finishes the json so that its valid
 struct UnfinishedWrapper {
     reader: BufReader<File>,
-    buf: Box<[u8; 1]>,
+    buf: [u8; 1],
     finish: String,
 }
 
@@ -50,8 +50,7 @@ impl UnfinishedWrapper {
     fn from(reader: BufReader<File>) -> UnfinishedWrapper {
         Self {
             reader,
-            // last: Ok(0),
-            buf: Box::new([0; 1]),
+            buf: [0; 1],
             finish: "{}]".to_string(),
         }
     }
