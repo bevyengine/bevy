@@ -133,18 +133,14 @@ impl Camera {
         world_position: Vec3,
     ) -> Option<Vec2> {
         let window_size = self.target.get_logical_size(windows, images)?;
-
-        if let Some(ndc_space_coords) = self.world_to_ndc(camera_transform, world_position) {
-            // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
-            if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
-                return None;
-            }
-
-            // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-            Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size)
-        } else {
-            None
+        let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
+        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
+        if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
+            return None;
         }
+
+        // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
+        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size)
     }
 
     /// Given a position in world space, use the camera to compute the Normalized Device Coordinates.
