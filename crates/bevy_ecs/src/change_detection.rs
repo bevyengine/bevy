@@ -254,6 +254,10 @@ impl DetectChanges for MutUntyped<'_> {
             .component_ticks
             .set_changed(self.ticks.change_tick);
     }
+
+    fn last_changed(&self) -> u32 {
+        self.ticks.last_change_tick
+    }
 }
 
 impl std::fmt::Debug for MutUntyped<'_> {
