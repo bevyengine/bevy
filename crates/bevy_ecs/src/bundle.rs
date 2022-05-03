@@ -112,10 +112,7 @@ macro_rules! tuple_impl {
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
                 #[allow(non_snake_case)]
-                let ($(mut $name,)*) = (
-                    $(func(ctx).inner().cast::<$name>(),)*
-                );
-                ($($name.as_ptr().read(),)*)
+                ($(func(ctx).read::<$name>(),)*)
             }
 
             #[allow(unused_variables, unused_mut)]

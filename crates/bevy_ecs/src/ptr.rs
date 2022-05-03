@@ -43,37 +43,49 @@ pub struct OwningPtr<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
 macro_rules! impl_ptr {
     ($ptr:ident) => {
         impl $ptr<'_> {
+            /// Calculates the offset from a pointer.
+            /// As the pointer is type-erased, there is no size information available. The provided
+            /// `count` parameter is in raw bytes.
+            ///
+            /// *See also: [`ptr::offset`][ptr_offset]*
+            ///
             /// # Safety
             /// the offset cannot make the existing ptr null, or take it out of bounds for its allocation.
+            ///
+            /// [ptr_offset]: https://doc.rust-lang.org/std/primitive.pointer.html#method.offset
             #[inline]
             pub unsafe fn offset(self, count: isize) -> Self {
                 Self(
-                    NonNull::new_unchecked(self.0.as_ptr().offset(count)),
+                    NonNull::new_unchecked(self.as_ptr().offset(count)),
                     PhantomData,
                 )
             }
 
+            /// Calculates the offset from a pointer (convenience for `.offset(count as isize)`).
+            /// As the pointer is type-erased, there is no size information available. The provided
+            /// `count` parameter is in raw bytes.
+            ///
+            /// *See also: [`ptr::add`][ptr_add]*
+            ///
             /// # Safety
             /// the offset cannot make the existing ptr null, or take it out of bounds for its allocation.
+            ///
+            /// [ptr_add]: https://doc.rust-lang.org/std/primitive.pointer.html#method.add
             #[inline]
             pub unsafe fn add(self, count: usize) -> Self {
                 Self(
-                    NonNull::new_unchecked(self.0.as_ptr().add(count)),
+                    NonNull::new_unchecked(self.as_ptr().add(count)),
                     PhantomData,
                 )
             }
 
-            /// # Safety
+            /// Creates a new instance from a raw pointer.
             ///
+            /// # Safety
             /// The lifetime for the returned item must not exceed the lifetime `inner` is valid for
             #[inline]
             pub unsafe fn new(inner: NonNull<u8>) -> Self {
                 Self(inner, PhantomData)
-            }
-
-            #[inline]
-            pub fn inner(&self) -> NonNull<u8> {
-                self.0
             }
         }
     };
@@ -81,19 +93,36 @@ macro_rules! impl_ptr {
 
 impl_ptr!(Ptr);
 impl<'a> Ptr<'a> {
-    /// # Safety
+    /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
+    /// # Safety
     /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     #[inline]
     pub unsafe fn assert_unique(self) -> PtrMut<'a> {
         PtrMut(self.0, PhantomData)
     }
 
+    /// Transforms this [`Ptr<T>`] into a `&T` with the same lifetime
+    ///
     /// # Safety
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
-        &*self.0.as_ptr().cast()
+        &*self.as_ptr().cast()
+    }
+
+    /// Gets the underlying pointer, erasing the associated lifetime.
+    ///
+    /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
+    /// as it retains the lifetime.
+    ///
+    /// # Safety
+    /// All subsequent operations to the returned pointer must be valid inside the
+    /// associated lifetime.
+    #[inline]
+    #[allow(clippy::wrong_self_convention)]
+    pub unsafe fn as_ptr(self) -> *mut u8 {
+        self.0.as_ptr()
     }
 }
 impl_ptr!(PtrMut);
@@ -113,7 +142,21 @@ impl<'a> PtrMut<'a> {
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
-        &mut *self.inner().as_ptr().cast()
+        &mut *self.as_ptr().cast()
+    }
+
+    /// Gets the underlying pointer, erasing the associated lifetime.
+    ///
+    /// If possible, it is strongly encouraged to use [`deref_mut`](Self::deref_mut) over
+    /// this function, as it retains the lifetime.
+    ///
+    /// # Safety
+    /// All subsequent operations to the returned pointer must be valid inside the
+    /// associated lifetime.
+    #[inline]
+    #[allow(clippy::wrong_self_convention)]
+    pub unsafe fn as_ptr(self) -> *mut u8 {
+        self.0.as_ptr()
     }
 }
 impl_ptr!(OwningPtr);
@@ -132,7 +175,30 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
-        self.inner().as_ptr().cast::<T>().read()
+        self.as_ptr().cast::<T>().read()
+    }
+
+    //// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
+    ///
+    /// # Safety
+    /// Must point to a valid `T`.
+    #[inline]
+    pub unsafe fn drop_as<T>(self) {
+        self.as_ptr().cast::<T>().drop_in_place()
+    }
+
+    /// Gets the underlying pointer, erasing the associated lifetime.
+    ///
+    /// If possible, it is strongly encouraged to use the other more type-safe functions
+    /// over this function.
+    ///
+    /// # Safety
+    /// All subsequent operations to the returned pointer must be valid inside the
+    /// associated lifetime.
+    #[inline]
+    #[allow(clippy::wrong_self_convention)]
+    pub unsafe fn as_ptr(self) -> *mut u8 {
+        self.0.as_ptr()
     }
 }
 
