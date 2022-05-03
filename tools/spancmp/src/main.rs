@@ -5,6 +5,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{BufReader, Read},
+    ops::Div,
 };
 
 use clap::Parser;
@@ -84,6 +85,28 @@ struct Args {
     second_trace: Option<String>,
 }
 
+const MARGIN_PERCENT: f32 = 0.02;
+fn print_relative(stdout: &mut StandardStream, v: f32) {
+    stdout
+        .set_color(ColorSpec::new().set_fg(Some(if v > 1.0 + MARGIN_PERCENT {
+            Color::Red
+        } else if v < 1.0 - MARGIN_PERCENT {
+            Color::Green
+        } else {
+            Color::White
+        })))
+        .unwrap();
+    if v > 1.0 + MARGIN_PERCENT {
+        print!("+");
+    } else if v >= 1.0 - MARGIN_PERCENT {
+        print!(" ");
+    }
+    print!("{:5.2}%", if v.is_nan() { 1.0 } else { (v - 1.0) * 100.0 });
+    stdout
+        .set_color(ColorSpec::new().set_fg(Some(Color::White)))
+        .unwrap();
+}
+
 fn main() {
     let cli = Args::parse();
 
@@ -106,44 +129,29 @@ fn main() {
                 if let Some(other) = second.remove(span) {
                     // if there is a matching span in the second trace, compare the two
                     print!("  ");
-                    if stats.avg < other.avg {
-                        stdout
-                            .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
-                            .unwrap();
-                        print!("{:1.2}", 1.0);
-                    } else {
-                        print!("{:1.2}", stats.avg / other.avg);
-                    }
-                    print!(
-                        "    {:10} {:15} {:15} {:15}",
-                        stats.count, stats.min, stats.avg, stats.max,
-                    );
-                    stdout
-                        .set_color(ColorSpec::new().set_fg(Some(Color::White)))
-                        .unwrap();
-                    print!("       |      ");
-                    if stats.avg > other.avg {
-                        stdout
-                            .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
-                            .unwrap();
-                        print!("{:1.2}", 1.0);
-                    } else {
-                        print!("{:1.2}", other.avg / stats.avg);
-                    }
 
-                    println!(
-                        "    {:10} {:15} {:15} {:15}",
-                        other.count, other.min, other.avg, other.max,
-                    );
-                    stdout
-                        .set_color(ColorSpec::new().set_fg(Some(Color::White)))
-                        .unwrap();
+                    let relative = &other / stats;
+
+                    print!("[count: {} | {} | ", stats.count, other.count);
+                    print_relative(&mut stdout, relative.count);
+                    print!("]  [min: {:4.3} | {:4.3} | ", stats.min, other.min);
+                    print_relative(&mut stdout, relative.min);
+                    print!("]  [avg: {:4.3} | {:4.3} | ", stats.avg, other.avg);
+                    print_relative(&mut stdout, relative.avg);
+                    print!("]  [max: {:4.3} | {:4.3} | ", stats.max, other.max);
+                    print_relative(&mut stdout, relative.max);
+                    println!("]");
                 } else {
                     // print the spans only present in the first trace
-                    println!(
-                        "{:10} {:15} {:15} {:15}",
-                        stats.count, stats.min, stats.avg, stats.max
-                    );
+                    print!("[count: {} | {} | ", stats.count, 0);
+                    print_relative(&mut stdout, 1.0);
+                    print!("]  [min: {:4.3} |       | ", stats.min);
+                    print_relative(&mut stdout, 1.0);
+                    print!("]  [avg: {:4.3} |       | ", stats.avg);
+                    print_relative(&mut stdout, 1.0);
+                    print!("]  [max: {:4.3} |       | ", stats.max);
+                    print_relative(&mut stdout, 1.0);
+                    println!("]");
                 }
             });
         second
@@ -153,15 +161,15 @@ fn main() {
             .for_each(|(span, stats)| {
                 // print the spans only present in the second trace
                 println!("{}", span);
-                print!("  ");
-                print!("    ");
-                print!("    {:10} {:15} {:15} {:15}", "", "", "", "",);
-                print!("       |      ");
-                print!("    ");
-                println!(
-                    "    {:10} {:15} {:15} {:15}",
-                    stats.count, stats.min, stats.avg, stats.max
-                );
+                print!("[count: {} | {} | ", 0, stats.count);
+                print_relative(&mut stdout, 1.0);
+                print!("]  [min:       | {:4.3} | ", stats.min);
+                print_relative(&mut stdout, 1.0);
+                print!("]  [avg:       | {:4.3} | ", stats.avg);
+                print_relative(&mut stdout, 1.0);
+                print!("]  [max:       | {:4.3} | ", stats.max);
+                print_relative(&mut stdout, 1.0);
+                println!("]");
             });
     } else {
         // just print stats from the first trace
@@ -258,4 +266,24 @@ struct SpanStats {
     avg: f32,
     min: f32,
     max: f32,
+}
+
+struct SpanRelative {
+    count: f32,
+    avg: f32,
+    min: f32,
+    max: f32,
+}
+
+impl Div for &SpanStats {
+    type Output = SpanRelative;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            count: self.count as f32 / rhs.count as f32,
+            avg: self.avg / rhs.avg,
+            min: self.min / rhs.min,
+            max: self.max / rhs.max,
+        }
+    }
 }
