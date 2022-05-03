@@ -138,7 +138,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         DeriveType::Struct | DeriveType::UnitStruct => impl_struct(
             type_name,
             &ast.generics,
-            get_type_registration_impl,
+            &get_type_registration_impl,
             &bevy_reflect_path,
             &reflect_attrs,
             &active_fields,
@@ -164,7 +164,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 fn impl_struct(
     struct_name: &Ident,
     generics: &Generics,
-    get_type_registration_impl: proc_macro2::TokenStream,
+    get_type_registration_impl: &proc_macro2::TokenStream,
     bevy_reflect_path: &Path,
     reflect_attrs: &ReflectAttrs,
     active_fields: &[(&Field, usize)],
@@ -274,6 +274,17 @@ fn impl_struct(
             fn any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
             }
+
+            #[inline]
+            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
+            #[inline]
+            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
             #[inline]
             fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
                 use #bevy_reflect_path::Struct;
@@ -396,6 +407,17 @@ fn impl_tuple_struct(
             fn any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
             }
+
+            #[inline]
+            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
+            #[inline]
+            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
             #[inline]
             fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
                 use #bevy_reflect_path::TupleStruct;
@@ -471,6 +493,16 @@ fn impl_value(
 
             #[inline]
             fn any_mut(&mut self) -> &mut dyn std::any::Any {
+                self
+            }
+
+            #[inline]
+            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+                self
+            }
+
+            #[inline]
+            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
                 self
             }
 
@@ -619,15 +651,15 @@ impl ReflectAttrs {
                                             match ident.as_str() {
                                                 "PartialEq" => {
                                                     attrs.reflect_partial_eq =
-                                                        TraitImpl::Custom(segment.ident.clone())
+                                                        TraitImpl::Custom(segment.ident.clone());
                                                 }
                                                 "Hash" => {
                                                     attrs.reflect_hash =
-                                                        TraitImpl::Custom(segment.ident.clone())
+                                                        TraitImpl::Custom(segment.ident.clone());
                                                 }
                                                 "Serialize" => {
                                                     attrs.serialize =
-                                                        TraitImpl::Custom(segment.ident.clone())
+                                                        TraitImpl::Custom(segment.ident.clone());
                                                 }
                                                 _ => {}
                                             }
@@ -732,14 +764,9 @@ pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     type_uuid::type_uuid_derive(input)
 }
 
-#[proc_macro]
-pub fn external_type_uuid(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    type_uuid::external_type_uuid(tokens)
-}
-
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
-    reflect_trait::reflect_trait(args, input)
+    reflect_trait::reflect_trait(&args, input)
 }
 
 #[proc_macro_derive(FromReflect)]

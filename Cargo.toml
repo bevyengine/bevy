@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.6.0"
+version = "0.8.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -17,6 +17,7 @@ members = ["crates/*", "examples/ios", "tools/ci", "errors"]
 
 [features]
 default = [
+  "animation",
   "bevy_audio",
   "bevy_gilrs",
   "bevy_winit",
@@ -43,6 +44,7 @@ render = [
 ]
 
 # Optional bevy crates
+bevy_animation = ["bevy_internal/bevy_animation"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -64,12 +66,17 @@ wgpu_trace = ["bevy_internal/wgpu_trace"]
 # Image format support for texture loading (PNG and HDR are enabled by default)
 hdr = ["bevy_internal/hdr"]
 png = ["bevy_internal/png"]
-dds = ["bevy_internal/dds"]
 tga = ["bevy_internal/tga"]
 jpeg = ["bevy_internal/jpeg"]
 bmp = ["bevy_internal/bmp"]
+basis-universal = ["bevy_internal/basis-universal"]
+dds = ["bevy_internal/dds"]
+ktx2 = ["bevy_internal/ktx2"]
+# For ktx2 supercompression
+zlib = ["bevy_internal/zlib"]
+zstd = ["bevy_internal/zstd"]
 
-# Audio format support (MP3 is enabled by default)
+# Audio format support (vorbis is enabled by default)
 flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
@@ -90,12 +97,20 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
+# Enable the "debug asset server" for hot reloading internal assets
+debug_asset_server = ["bevy_internal/debug_asset_server"]
+
+# Enable animation support, and glTF animation loading
+animation = ["bevy_internal/animation"]
+
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.6.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.8.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.8.0-dev", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.6.0", default-features = false, features = ["webgl"] }
+bevy_internal = { path = "crates/bevy_internal", version = "0.8.0-dev", default-features = false, features = [
+  "webgl",
+] }
 
 [dev-dependencies]
 anyhow = "1.0.4"
@@ -105,6 +120,7 @@ serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
+crossbeam-channel = "0.5.0"
 
 [[example]]
 name = "hello_world"
@@ -112,12 +128,12 @@ path = "examples/hello_world.rs"
 
 # 2D Rendering
 [[example]]
-name = "contributors"
-path = "examples/2d/contributors.rs"
+name = "move_sprite"
+path = "examples/2d/move_sprite.rs"
 
 [[example]]
-name = "many_sprites"
-path = "examples/2d/many_sprites.rs"
+name = "rotation"
+path = "examples/2d/rotation.rs"
 
 [[example]]
 name = "mesh2d"
@@ -165,10 +181,6 @@ name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
 [[example]]
-name = "many_cubes"
-path = "examples/3d/many_cubes.rs"
-
-[[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
@@ -201,12 +213,37 @@ name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
+name = "render_to_texture"
+path = "examples/3d/render_to_texture.rs"
+
+[[example]]
+name = "two_passes"
+path = "examples/3d/two_passes.rs"
+
+[[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
 
 [[example]]
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
+
+# Animation
+[[example]]
+name = "animated_fox"
+path = "examples/animation/animated_fox.rs"
+
+[[example]]
+name = "animated_transform"
+path = "examples/animation/animated_transform.rs"
+
+[[example]]
+name = "custom_skinned_mesh"
+path = "examples/animation/custom_skinned_mesh.rs"
+
+[[example]]
+name = "gltf_skinned_mesh"
+path = "examples/animation/gltf_skinned_mesh.rs"
 
 # Application
 [[example]]
@@ -279,10 +316,18 @@ path = "examples/asset/hot_asset_reloading.rs"
 name = "async_compute"
 path = "examples/async_tasks/async_compute.rs"
 
+[[example]]
+name = "external_source_external_thread"
+path = "examples/async_tasks/external_source_external_thread.rs"
+
 # Audio
 [[example]]
 name = "audio"
 path = "examples/audio/audio.rs"
+
+[[example]]
+name = "audio_control"
+path = "examples/audio/audio_control.rs"
 
 # Diagnostics
 [[example]]
@@ -303,12 +348,20 @@ name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
 
 [[example]]
+name = "custom_query_param"
+path = "examples/ecs/custom_query_param.rs"
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 
 [[example]]
 name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
+
+[[example]]
+name = "generic_system"
+path = "examples/ecs/generic_system.rs"
 
 [[example]]
 name = "hierarchy"
@@ -339,6 +392,10 @@ name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
 
 [[example]]
+name = "system_closure"
+path = "examples/ecs/system_closure.rs"
+
+[[example]]
 name = "system_param"
 path = "examples/ecs/system_param.rs"
 
@@ -353,15 +410,19 @@ path = "examples/ecs/timers.rs"
 # Games
 [[example]]
 name = "alien_cake_addict"
-path = "examples/game/alien_cake_addict.rs"
+path = "examples/games/alien_cake_addict.rs"
 
 [[example]]
 name = "breakout"
-path = "examples/game/breakout.rs"
+path = "examples/games/breakout.rs"
+
+[[example]]
+name = "contributors"
+path = "examples/games/contributors.rs"
 
 [[example]]
 name = "game_menu"
-path = "examples/game/game_menu.rs"
+path = "examples/games/game_menu.rs"
 
 # Input
 [[example]]
@@ -397,6 +458,10 @@ name = "mouse_input_events"
 path = "examples/input/mouse_input_events.rs"
 
 [[example]]
+name = "mouse_grab"
+path = "examples/input/mouse_grab.rs"
+
+[[example]]
 name = "touch_input"
 path = "examples/input/touch_input.rs"
 
@@ -428,12 +493,20 @@ path = "examples/scene/scene.rs"
 
 # Shaders
 [[example]]
+name = "custom_vertex_attribute"
+path = "examples/shader/custom_vertex_attribute.rs"
+
+[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
+
+[[example]]
+name = "shader_material_screenspace_texture"
+path = "examples/shader/shader_material_screenspace_texture.rs"
 
 [[example]]
 name = "shader_material_glsl"
@@ -451,10 +524,54 @@ path = "examples/shader/animate_shader.rs"
 name = "compute_shader_game_of_life"
 path = "examples/shader/compute_shader_game_of_life.rs"
 
-# Tools
+# Stress tests
+
 [[example]]
 name = "bevymark"
-path = "examples/tools/bevymark.rs"
+path = "examples/stress_tests/bevymark.rs"
+
+[[example]]
+name = "many_cubes"
+path = "examples/stress_tests/many_cubes.rs"
+
+[[example]]
+name = "many_lights"
+path = "examples/stress_tests/many_lights.rs"
+
+[[example]]
+name = "many_sprites"
+path = "examples/stress_tests/many_sprites.rs"
+
+[[example]]
+name = "transform_hierarchy"
+path = "examples/stress_tests/transform_hierarchy.rs"
+
+# Tools
+
+[[example]]
+name = "scene_viewer"
+path = "examples/tools/scene_viewer.rs"
+
+# Transforms
+[[example]]
+name = "global_vs_local_translation"
+path = "examples/transforms/global_vs_local_translation.rs"
+
+[[example]]
+name = "3d_rotation"
+path = "examples/transforms/3d_rotation.rs"
+
+[[example]]
+name = "scale"
+path = "examples/transforms/scale.rs"
+
+[[example]]
+name = "transform"
+path = "examples/transforms/transform.rs"
+
+[[example]]
+name = "translation"
+path = "examples/transforms/translation.rs"
 
 # UI (User Interface)
 [[example]]
@@ -483,6 +600,10 @@ name = "clear_color"
 path = "examples/window/clear_color.rs"
 
 [[example]]
+name = "low_power"
+path = "examples/window/low_power.rs"
+
+[[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
 
@@ -497,6 +618,15 @@ path = "examples/window/transparent_window.rs"
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
+
+[[example]]
+name = "resizing"
+path = "tests/window/resizing.rs"
+
+[[example]]
+name = "minimising"
+path = "tests/window/minimising.rs"
+
 
 # Android
 [[example]]

@@ -6,7 +6,7 @@ use crate::{
 };
 
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
-use bevy_utils::{AHashExt, Duration, HashMap, HashSet};
+use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
@@ -28,8 +28,8 @@ impl_reflect_value!(i32(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(i64(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(i128(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(isize(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f32(Serialize, Deserialize));
-impl_reflect_value!(f64(Serialize, Deserialize));
+impl_reflect_value!(f32(PartialEq, Serialize, Deserialize));
+impl_reflect_value!(f64(PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
@@ -110,6 +110,14 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
         self
     }
 
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         crate::list_apply(self, value);
     }
@@ -186,7 +194,7 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     }
 
     fn len(&self) -> usize {
-        HashMap::len(self)
+        Self::len(self)
     }
 
     fn iter(&self) -> MapIter {
@@ -199,7 +207,7 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     fn clone_dynamic(&self) -> DynamicMap {
         let mut dynamic_map = DynamicMap::default();
         dynamic_map.set_name(self.type_name().to_string());
-        for (k, v) in HashMap::iter(self) {
+        for (k, v) in self {
             dynamic_map.insert_boxed(k.clone_value(), v.clone_value());
         }
         dynamic_map
@@ -217,6 +225,14 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
     }
 
     fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
         self
     }
 
@@ -268,8 +284,8 @@ where
     V: Reflect + Clone + for<'de> Deserialize<'de>,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<HashMap<K, V>>();
-        registration.insert::<ReflectDeserialize>(FromType::<HashMap<K, V>>::from_type());
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -301,6 +317,14 @@ unsafe impl Reflect for Cow<'static, str> {
     }
 
     fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
         self
     }
 
@@ -368,9 +392,70 @@ impl FromReflect for Cow<'static, str> {
 #[cfg(test)]
 mod tests {
     use crate::Reflect;
+    use bevy_utils::HashMap;
+    use std::f32::consts::{PI, TAU};
 
     #[test]
     fn can_serialize_duration() {
-        assert!(std::time::Duration::ZERO.serializable().is_some())
+        assert!(std::time::Duration::ZERO.serializable().is_some());
+    }
+
+    #[test]
+    fn should_partial_eq_i32() {
+        let a: &dyn Reflect = &123_i32;
+        let b: &dyn Reflect = &123_i32;
+        let c: &dyn Reflect = &321_i32;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_f32() {
+        let a: &dyn Reflect = &PI;
+        let b: &dyn Reflect = &PI;
+        let c: &dyn Reflect = &TAU;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_string() {
+        let a: &dyn Reflect = &String::from("Hello");
+        let b: &dyn Reflect = &String::from("Hello");
+        let c: &dyn Reflect = &String::from("World");
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_vec() {
+        let a: &dyn Reflect = &vec![1, 2, 3];
+        let b: &dyn Reflect = &vec![1, 2, 3];
+        let c: &dyn Reflect = &vec![3, 2, 1];
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_hash_map() {
+        let mut a = HashMap::new();
+        a.insert(0usize, 1.23_f64);
+        let b = a.clone();
+        let mut c = HashMap::new();
+        c.insert(0usize, 3.21_f64);
+
+        let a: &dyn Reflect = &a;
+        let b: &dyn Reflect = &b;
+        let c: &dyn Reflect = &c;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_not_partial_eq_option() {
+        // Option<T> does not contain a `PartialEq` implementation, so it should return `None`
+        let a: &dyn Reflect = &Some(123);
+        let b: &dyn Reflect = &Some(123);
+        assert_eq!(None, a.reflect_partial_eq(b));
     }
 }

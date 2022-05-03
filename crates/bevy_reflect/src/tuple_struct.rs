@@ -210,6 +210,16 @@ unsafe impl Reflect for DynamicTupleStruct {
     }
 
     #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -228,7 +238,7 @@ unsafe impl Reflect for DynamicTupleStruct {
         if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
             for (i, value) in tuple_struct.iter_fields().enumerate() {
                 if let Some(v) = self.field_mut(i) {
-                    v.apply(value)
+                    v.apply(value);
                 }
             }
         } else {

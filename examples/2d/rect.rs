@@ -13,8 +13,8 @@ fn setup(mut commands: Commands) {
         sprite: Sprite {
             color: Color::rgb(0.25, 0.25, 0.75),
             custom_size: Some(Vec2::new(50.0, 50.0)),
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     });
 }

@@ -16,7 +16,7 @@ fn setup(
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(1.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // plane
@@ -25,9 +25,9 @@ fn setup(
         material: materials.add(StandardMaterial {
             base_color: Color::rgb(0.2, 0.2, 0.2),
             perceptual_roughness: 0.08,
-            ..Default::default()
+            ..default()
         }),
-        ..Default::default()
+        ..default()
     });
 
     const COUNT: usize = 6;
@@ -38,7 +38,7 @@ fn setup(
     let mesh = meshes.add(Mesh::from(shape::UVSphere {
         sectors: 128,
         stacks: 64,
-        ..Default::default()
+        ..default()
     }));
 
     for i in 0..COUNT {
@@ -52,11 +52,11 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color: Color::rgb(0.5, 0.5, 1.0),
                     unlit: true,
-                    ..Default::default()
+                    ..default()
                 }),
                 transform: Transform::from_xyz(position_range.start + percent * pos_len, 0.6, 0.0)
                     .with_scale(Vec3::splat(radius)),
-                ..Default::default()
+                ..default()
             })
             .with_children(|children| {
                 children.spawn_bundle(PointLightBundle {
@@ -64,9 +64,9 @@ fn setup(
                         intensity: 1500.0,
                         radius,
                         color: Color::rgb(0.2, 0.2, 1.0),
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
+                    ..default()
                 });
             });
     }
