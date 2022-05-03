@@ -122,6 +122,9 @@ impl Default for DepthCalculation {
 
 impl Camera {
     /// Given a position in world space, use the camera to compute the screen space coordinates.
+    ///
+    /// To get the coordinates in Normalized Device Coordinates, you should use
+    /// [`world_to_ndc`](Self::world_to_ndc).
     pub fn world_to_screen(
         &self,
         windows: &Windows,
@@ -130,18 +133,33 @@ impl Camera {
         world_position: Vec3,
     ) -> Option<Vec2> {
         let window_size = self.target.get_logical_size(windows, images)?;
-        // Build a transform to convert from world to NDC using camera data
-        let world_to_ndc: Mat4 =
-            self.projection_matrix * camera_transform.compute_matrix().inverse();
-        let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
+        let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
         // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
+
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
-        if !screen_space_coords.is_nan() {
-            Some(screen_space_coords)
+        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size)
+    }
+
+    /// Given a position in world space, use the camera to compute the Normalized Device Coordinates.
+    ///
+    /// Values returned will be between -1.0 and 1.0 when the position is in screen space.
+    /// To get the coordinates in the render target dimensions, you should use
+    /// [`world_to_screen`](Self::world_to_screen).
+    pub fn world_to_ndc(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Option<Vec3> {
+        // Build a transform to convert from world to NDC using camera data
+        let world_to_ndc: Mat4 =
+            self.projection_matrix * camera_transform.compute_matrix().inverse();
+        let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
+
+        if !ndc_space_coords.is_nan() {
+            Some(ndc_space_coords)
         } else {
             None
         }
