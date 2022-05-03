@@ -92,39 +92,17 @@ struct Args {
     second_trace: Option<String>,
 }
 
-const MARGIN_PERCENT: f32 = 0.02;
-fn print_relative(stdout: &mut StandardStream, v: f32) {
-    stdout
-        .set_color(ColorSpec::new().set_fg(Some(if v > 1.0 + MARGIN_PERCENT {
-            Color::Red
-        } else if v < 1.0 - MARGIN_PERCENT {
-            Color::Green
-        } else {
-            Color::White
-        })))
-        .unwrap();
-    if v > 1.0 + MARGIN_PERCENT {
-        print!("+");
-    } else if v >= 1.0 - MARGIN_PERCENT {
-        print!(" ");
-    }
-    print!("{:5.2}%", if v.is_nan() { 0.0 } else { (v - 1.0) * 100.0 });
-    stdout
-        .set_color(ColorSpec::new().set_fg(Some(Color::White)))
-        .unwrap();
-}
-
 fn main() {
     let cli = Args::parse();
+
+    // Setup stdout to support colors
+    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
     // Read the first trace file
     let first = read_trace(cli.trace);
     if let Some(second) = cli.second_trace {
         // Read the second trace file
         let mut second = read_trace(second);
-
-        // Setup stdout to support colors
-        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
         first
             .iter()
@@ -137,32 +115,14 @@ fn main() {
                 } else {
                     println!("{}", span);
                 }
-                if let Some(other) = second.remove(span) {
+                print!("  ");
+                let other = second.remove(span);
+                if other.is_some() {
                     // if there is a matching span in the second trace, compare the two
-                    print!("  ");
-
-                    let relative = &other / stats;
-
-                    print!("[count: {} | {} | ", stats.count, other.count);
-                    print_relative(&mut stdout, relative.count);
-                    print!("]  [min: {:4.3} | {:4.3} | ", stats.min, other.min);
-                    print_relative(&mut stdout, relative.min);
-                    print!("]  [avg: {:4.3} | {:4.3} | ", stats.avg, other.avg);
-                    print_relative(&mut stdout, relative.avg);
-                    print!("]  [max: {:4.3} | {:4.3} | ", stats.max, other.max);
-                    print_relative(&mut stdout, relative.max);
-                    println!("]");
+                    print_spanstats(&mut stdout, stats, other.as_ref());
                 } else {
                     // print the spans only present in the first trace
-                    print!("[count: {} | {} | ", stats.count, 0);
-                    print_relative(&mut stdout, 1.0);
-                    print!("]  [min: {:4.3} |       | ", stats.min);
-                    print_relative(&mut stdout, 1.0);
-                    print!("]  [avg: {:4.3} |       | ", stats.avg);
-                    print_relative(&mut stdout, 1.0);
-                    print!("]  [max: {:4.3} |       | ", stats.max);
-                    print_relative(&mut stdout, 1.0);
-                    println!("]");
+                    print_spanstats(&mut stdout, stats, None);
                 }
             });
         second
@@ -176,15 +136,8 @@ fn main() {
                 } else {
                     println!("{}", span);
                 }
-                print!("[count: {} | {} | ", 0, stats.count);
-                print_relative(&mut stdout, 1.0);
-                print!("]  [min:       | {:4.3} | ", stats.min);
-                print_relative(&mut stdout, 1.0);
-                print!("]  [avg:       | {:4.3} | ", stats.avg);
-                print_relative(&mut stdout, 1.0);
-                print!("]  [max:       | {:4.3} | ", stats.max);
-                print_relative(&mut stdout, 1.0);
-                println!("]");
+                print!("  ");
+                print_spanstats(&mut stdout, stats, None);
             });
     } else {
         // just print stats from the first trace
@@ -193,11 +146,13 @@ fn main() {
             .filter(|(_, stats)| filter_by_threshold(stats, cli.threshold))
             .filter(|(name, _)| filter_by_pattern(name, cli.pattern.as_ref()))
             .for_each(|(span, stats)| {
-                println!("{}", span);
-                println!(
-                    "    {:10} {:15} {:15} {:15}",
-                    stats.count, stats.min, stats.avg, stats.max
-                );
+                if cli.short {
+                    println!("{}", simplify_name(span));
+                } else {
+                    println!("{}", span);
+                }
+                print!("  ");
+                print_spanstats(&mut stdout, stats, None);
             });
     }
 }
@@ -283,6 +238,50 @@ struct SpanStats {
     max: f32,
 }
 
+fn print_spanstats(stdout: &mut StandardStream, stats: &SpanStats, other: Option<&SpanStats>) {
+    if let Some(other) = other {
+        let relative = other / stats;
+
+        print!("[count: {:8} | {:8} | ", stats.count, other.count);
+        print_relative(stdout, relative.count);
+        print!("]  [min: ");
+        print_delta_time_us(stats.min);
+        print!(" | ");
+        print_delta_time_us(other.min);
+        print!(" | ");
+        print_relative(stdout, relative.min);
+        print!("]  [avg: ");
+        print_delta_time_us(stats.avg);
+        print!(" | ");
+        print_delta_time_us(other.avg);
+        print!(" | ");
+        print_relative(stdout, relative.avg);
+        print!("]  [max: ");
+        print_delta_time_us(stats.max);
+        print!(" | ");
+        print_delta_time_us(other.max);
+        print!(" | ");
+        print_relative(stdout, relative.max);
+        println!("]");
+    } else {
+        print!("[count: {:8} | {:8} | ", stats.count, 0);
+        print_relative(stdout, 1.0);
+        print!("]  [min: ");
+        print_delta_time_us(stats.min);
+        print!(" |         | ");
+        print_relative(stdout, 1.0);
+        print!("]  [avg: ");
+        print_delta_time_us(stats.avg);
+        print!(" |         | ");
+        print_relative(stdout, 1.0);
+        print!("]  [max: ");
+        print_delta_time_us(stats.max);
+        print!(" |         | ");
+        print_relative(stdout, 1.0);
+        println!("]");
+    }
+}
+
 struct SpanRelative {
     count: f32,
     avg: f32,
@@ -300,6 +299,99 @@ impl Div for &SpanStats {
             min: self.min / rhs.min,
             max: self.max / rhs.max,
         }
+    }
+}
+
+const MARGIN_PERCENT: f32 = 2.0;
+fn print_relative(stdout: &mut StandardStream, v: f32) {
+    let v_delta_percent = if v.is_nan() { 0.0 } else { (v - 1.0) * 100.0 };
+    set_fg(stdout, if v_delta_percent > MARGIN_PERCENT {
+            Color::Red
+        } else if v_delta_percent < -MARGIN_PERCENT {
+            Color::Green
+        } else {
+            Color::White
+        });
+    if v_delta_percent > MARGIN_PERCENT {
+        print!("+");
+    } else if v_delta_percent >= -MARGIN_PERCENT {
+        print!(" ");
+    } else {
+        print!("-");
+    }
+    print_base10f32_fixed_width(v_delta_percent.abs(), 1.0);
+    print!("%");
+    set_fg(stdout, Color::White);
+}
+
+// Try to print time values using 4 numeric digits, a decimal point, and the unit
+const ONE_US_IN_SECONDS: f32 = 1e-6;
+
+fn print_delta_time_us(dt_us: f32) {
+    print_base10f32_fixed_width(dt_us, ONE_US_IN_SECONDS);
+    print!("s");
+}
+
+fn print_base10f32_fixed_width(v: f32, v_scale: f32) {
+    Scale::from_value_and_scale(v, v_scale).print_with_scale(v, v_scale);
+}
+
+#[derive(Debug)]
+pub struct Scale {
+    name: &'static str,
+    scale_factor: f32,
+}
+
+impl Scale {
+    pub const TERA: f32 = 1e12;
+    pub const GIGA: f32 = 1e9;
+    pub const MEGA: f32 = 1e6;
+    pub const KILO: f32 = 1e3;
+    pub const UNIT: f32 = 1e0;
+    pub const MILLI: f32 = 1e-3;
+    pub const MICRO: f32 = 1e-6;
+    pub const NANO: f32 = 1e-9;
+    pub const PICO: f32 = 1e-12;
+
+    pub fn from_value_and_scale(v: f32, v_scale: f32) -> Self {
+        assert!(v >= 0.0);
+        if v == 0.0 {
+            Self { name: " ", scale_factor: Self::UNIT }
+        } else if v * v_scale >= Self::TERA {
+            Self { name: "T", scale_factor: Self::TERA }
+        } else if v * v_scale >= Self::GIGA {
+            Self { name: "G", scale_factor: Self::GIGA }
+        } else if v * v_scale >= Self::MEGA {
+            Self { name: "M", scale_factor: Self::MEGA }
+        } else if v * v_scale >= Self::KILO {
+            Self { name: "k", scale_factor: Self::KILO }
+        } else if v * v_scale >= Self::UNIT {
+            Self { name: " ", scale_factor: Self::UNIT }
+        } else if v * v_scale >= Self::MILLI {
+            Self { name: "m", scale_factor: Self::MILLI }
+        } else if v * v_scale >= Self::MICRO {
+            Self { name: "µ", scale_factor: Self::MICRO }
+        } else if v * v_scale >= Self::NANO {
+            Self { name: "n", scale_factor: Self::NANO }
+        } else {
+            Self { name: "p", scale_factor: Self::PICO }
+        }
+    }
+
+    pub fn print(&self, v: f32) {
+        // NOTE: Hacks for rounding to decimal places to ensure precision is correct
+        let precision = if ((v * 10.0).round() / 10.0) >= 100.0 {
+            1
+        } else if ((v * 100.0).round() / 100.0) >= 10.0 {
+            2
+        } else {
+            3
+        };
+        print!("{:5.precision$}{}", v, self.name, precision = precision);
+    }
+
+    pub fn print_with_scale(&self, v: f32, v_scale: f32) {
+        self.print(v * v_scale / self.scale_factor);
     }
 }
 
@@ -328,4 +420,10 @@ fn simplify_name(name: &str) -> String {
         );
     }
     name.to_string()
+}
+
+fn set_fg(stdout: &mut StandardStream, color: Color) {
+    stdout
+        .set_color(ColorSpec::new().set_fg(Some(color)))
+        .unwrap();
 }
