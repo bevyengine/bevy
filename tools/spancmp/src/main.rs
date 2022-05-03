@@ -99,16 +99,16 @@ fn main() {
     let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
     // Read the first trace file
-    let first = read_trace(cli.trace);
-    if let Some(second) = cli.second_trace {
+    let reference = read_trace(cli.trace);
+    if let Some(comparison) = cli.second_trace {
         // Read the second trace file
-        let mut second = read_trace(second);
+        let mut comparison = read_trace(comparison);
 
-        first
+        reference
             .iter()
             .filter(|(_, stats)| filter_by_threshold(stats, cli.threshold))
             .filter(|(name, _)| filter_by_pattern(name, cli.pattern.as_ref()))
-            .for_each(|(span, stats)| {
+            .for_each(|(span, reference)| {
                 // for each span in the first trace
                 if cli.short {
                     println!("{}", simplify_name(span));
@@ -116,20 +116,14 @@ fn main() {
                     println!("{}", span);
                 }
                 print!("  ");
-                let other = second.remove(span);
-                if other.is_some() {
-                    // if there is a matching span in the second trace, compare the two
-                    print_spanstats(&mut stdout, stats, other.as_ref());
-                } else {
-                    // print the spans only present in the first trace
-                    print_spanstats(&mut stdout, stats, None);
-                }
+                let comparison = comparison.remove(span);
+                print_spanstats(&mut stdout, Some(reference), comparison.as_ref(), false);
             });
-        second
+        comparison
             .iter()
             .filter(|(_, stats)| filter_by_threshold(stats, cli.threshold))
             .filter(|(name, _)| filter_by_pattern(name, cli.pattern.as_ref()))
-            .for_each(|(span, stats)| {
+            .for_each(|(span, comparison)| {
                 // print the spans only present in the second trace
                 if cli.short {
                     println!("{}", simplify_name(span));
@@ -137,22 +131,22 @@ fn main() {
                     println!("{}", span);
                 }
                 print!("  ");
-                print_spanstats(&mut stdout, stats, None);
+                print_spanstats(&mut stdout, None, Some(comparison), false);
             });
     } else {
         // just print stats from the first trace
-        first
+        reference
             .iter()
             .filter(|(_, stats)| filter_by_threshold(stats, cli.threshold))
             .filter(|(name, _)| filter_by_pattern(name, cli.pattern.as_ref()))
-            .for_each(|(span, stats)| {
+            .for_each(|(span, reference)| {
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
                     println!("{}", span);
                 }
                 print!("  ");
-                print_spanstats(&mut stdout, stats, None);
+                print_spanstats(&mut stdout, Some(reference), None, true);
             });
     }
 }
@@ -238,47 +232,70 @@ struct SpanStats {
     max: f32,
 }
 
-fn print_spanstats(stdout: &mut StandardStream, stats: &SpanStats, other: Option<&SpanStats>) {
-    if let Some(other) = other {
-        let relative = other / stats;
+fn print_spanstats(
+    stdout: &mut StandardStream,
+    reference: Option<&SpanStats>,
+    comparison: Option<&SpanStats>,
+    reference_only: bool,
+) {
+    match (reference, comparison) {
+        (Some(reference), Some(comparison)) if !reference_only => {
+            let relative = comparison / reference;
 
-        print!("[count: {:8} | {:8} | ", stats.count, other.count);
-        print_relative(stdout, relative.count);
-        print!("]  [min: ");
-        print_delta_time_us(stats.min);
-        print!(" | ");
-        print_delta_time_us(other.min);
-        print!(" | ");
-        print_relative(stdout, relative.min);
-        print!("]  [avg: ");
-        print_delta_time_us(stats.avg);
-        print!(" | ");
-        print_delta_time_us(other.avg);
-        print!(" | ");
-        print_relative(stdout, relative.avg);
-        print!("]  [max: ");
-        print_delta_time_us(stats.max);
-        print!(" | ");
-        print_delta_time_us(other.max);
-        print!(" | ");
-        print_relative(stdout, relative.max);
-        println!("]");
-    } else {
-        print!("[count: {:8} | {:8} | ", stats.count, 0);
-        print_relative(stdout, 1.0);
-        print!("]  [min: ");
-        print_delta_time_us(stats.min);
-        print!(" |         | ");
-        print_relative(stdout, 1.0);
-        print!("]  [avg: ");
-        print_delta_time_us(stats.avg);
-        print!(" |         | ");
-        print_relative(stdout, 1.0);
-        print!("]  [max: ");
-        print_delta_time_us(stats.max);
-        print!(" |         | ");
-        print_relative(stdout, 1.0);
-        println!("]");
+            print!("[count: {:8} | {:8} | ", reference.count, comparison.count);
+            print_relative(stdout, relative.count);
+            print!("]  [min: ");
+            print_delta_time_us(reference.min);
+            print!(" | ");
+            print_delta_time_us(comparison.min);
+            print!(" | ");
+            print_relative(stdout, relative.min);
+            print!("]  [avg: ");
+            print_delta_time_us(reference.avg);
+            print!(" | ");
+            print_delta_time_us(comparison.avg);
+            print!(" | ");
+            print_relative(stdout, relative.avg);
+            print!("]  [max: ");
+            print_delta_time_us(reference.max);
+            print!(" | ");
+            print_delta_time_us(comparison.max);
+            print!(" | ");
+            print_relative(stdout, relative.max);
+            println!("]");
+        }
+        (Some(reference), None) if !reference_only => {
+            print!(
+                "[count: {:8} |          |        ]  [min:  ",
+                reference.count
+            );
+            print_delta_time_us(reference.min);
+            print!(" |         |         ]  [avg: ");
+            print_delta_time_us(reference.avg);
+            print!(" |         |         ]  [max: ");
+            print_delta_time_us(reference.max);
+            print!(" |         |         ]");
+        }
+        (None, Some(comparison)) => {
+            print!("[count:          | {:8} |         ", comparison.count);
+            print!("]  [min:         | ");
+            print_delta_time_us(comparison.min);
+            print!(" |         ]  [avg:         | ");
+            print_delta_time_us(comparison.avg);
+            print!(" |         ]  [max:         | ");
+            print_delta_time_us(comparison.max);
+            print!(" |         ]");
+        }
+        (Some(reference), _) if reference_only => {
+            print!("[count: {:8}]  [min: ", reference.count);
+            print_delta_time_us(reference.min);
+            print!("]  [avg: ");
+            print_delta_time_us(reference.avg);
+            print!("]  [max: ");
+            print_delta_time_us(reference.max);
+            println!("]");
+        }
+        _ => {}
     }
 }
 
@@ -305,13 +322,16 @@ impl Div for &SpanStats {
 const MARGIN_PERCENT: f32 = 2.0;
 fn print_relative(stdout: &mut StandardStream, v: f32) {
     let v_delta_percent = if v.is_nan() { 0.0 } else { (v - 1.0) * 100.0 };
-    set_fg(stdout, if v_delta_percent > MARGIN_PERCENT {
+    set_fg(
+        stdout,
+        if v_delta_percent > MARGIN_PERCENT {
             Color::Red
         } else if v_delta_percent < -MARGIN_PERCENT {
             Color::Green
         } else {
             Color::White
-        });
+        },
+    );
     if v_delta_percent > MARGIN_PERCENT {
         print!("+");
     } else if v_delta_percent >= -MARGIN_PERCENT {
@@ -356,25 +376,55 @@ impl Scale {
     pub fn from_value_and_scale(v: f32, v_scale: f32) -> Self {
         assert!(v >= 0.0);
         if v == 0.0 {
-            Self { name: " ", scale_factor: Self::UNIT }
+            Self {
+                name: " ",
+                scale_factor: Self::UNIT,
+            }
         } else if v * v_scale >= Self::TERA {
-            Self { name: "T", scale_factor: Self::TERA }
+            Self {
+                name: "T",
+                scale_factor: Self::TERA,
+            }
         } else if v * v_scale >= Self::GIGA {
-            Self { name: "G", scale_factor: Self::GIGA }
+            Self {
+                name: "G",
+                scale_factor: Self::GIGA,
+            }
         } else if v * v_scale >= Self::MEGA {
-            Self { name: "M", scale_factor: Self::MEGA }
+            Self {
+                name: "M",
+                scale_factor: Self::MEGA,
+            }
         } else if v * v_scale >= Self::KILO {
-            Self { name: "k", scale_factor: Self::KILO }
+            Self {
+                name: "k",
+                scale_factor: Self::KILO,
+            }
         } else if v * v_scale >= Self::UNIT {
-            Self { name: " ", scale_factor: Self::UNIT }
+            Self {
+                name: " ",
+                scale_factor: Self::UNIT,
+            }
         } else if v * v_scale >= Self::MILLI {
-            Self { name: "m", scale_factor: Self::MILLI }
+            Self {
+                name: "m",
+                scale_factor: Self::MILLI,
+            }
         } else if v * v_scale >= Self::MICRO {
-            Self { name: "µ", scale_factor: Self::MICRO }
+            Self {
+                name: "µ",
+                scale_factor: Self::MICRO,
+            }
         } else if v * v_scale >= Self::NANO {
-            Self { name: "n", scale_factor: Self::NANO }
+            Self {
+                name: "n",
+                scale_factor: Self::NANO,
+            }
         } else {
-            Self { name: "p", scale_factor: Self::PICO }
+            Self {
+                name: "p",
+                scale_factor: Self::PICO,
+            }
         }
     }
 
