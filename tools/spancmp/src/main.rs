@@ -100,7 +100,7 @@ fn print_relative(stdout: &mut StandardStream, v: f32) {
     } else if v >= 1.0 - MARGIN_PERCENT {
         print!(" ");
     }
-    print!("{:5.2}%", if v.is_nan() { 1.0 } else { (v - 1.0) * 100.0 });
+    print!("{:5.2}%", if v.is_nan() { 0.0 } else { (v - 1.0) * 100.0 });
     stdout
         .set_color(ColorSpec::new().set_fg(Some(Color::White)))
         .unwrap();
