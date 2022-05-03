@@ -81,6 +81,7 @@ struct Args {
     pattern: Option<Regex>,
 
     trace: String,
+    /// Optional, second trace to compare
     second_trace: Option<String>,
 }
 
