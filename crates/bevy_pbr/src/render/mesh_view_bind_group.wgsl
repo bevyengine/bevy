@@ -17,10 +17,12 @@ struct PointLight {
     projection_lr: vec4<f32>;
     color_inverse_square_range: vec4<f32>;
     position_radius: vec4<f32>;
+    spot_dir_angle_inner: vec4<f32>;
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32;
     shadow_depth_bias: f32;
     shadow_normal_bias: f32;
+    spot_angle_outer: f32;
 };
 
 let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
@@ -59,7 +61,7 @@ struct Lights {
 
 #ifdef NO_STORAGE_BUFFERS_SUPPORT
 struct PointLights {
-    data: array<PointLight, 256u>;
+    data: array<PointLight, 204u>;
 };
 struct ClusterLightIndexLists {
     // each u32 contains 4 u8 indices into the PointLights array

@@ -61,6 +61,7 @@ pub struct ExtractedPointLight {
     shadows_enabled: bool,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    spotlight_angles: Option<(f32, f32)>,
 }
 
 pub type ExtractedPointLightShadowMap = PointLightShadowMap;
@@ -87,9 +88,11 @@ pub struct GpuPointLight {
     projection_lr: Vec4,
     color_inverse_square_range: Vec4,
     position_radius: Vec4,
+    spot_dir_angle_inner: Vec4,
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    spot_angle_outer: f32,
 }
 
 pub enum GpuPointLights {
@@ -219,7 +222,7 @@ pub struct GpuLights {
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
-pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
+pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 204;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
@@ -472,6 +475,7 @@ pub fn extract_lights(
                         shadow_normal_bias: point_light.shadow_normal_bias
                             * point_light_texel_size
                             * std::f32::consts::SQRT_2,
+                        spotlight_angles: point_light.spotlight_angles
                     },
                     render_cubemap_visible_entities,
                 ),
@@ -728,6 +732,14 @@ pub fn prepare_lights(
         if light.shadows_enabled && index < max_point_light_shadow_maps {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
+
+        let (spot_dir, spot_angle_inner, spot_angle_outer) = match light.spotlight_angles {
+            Some((inner, outer)) => {
+                (light.transform.rotation * Vec3::Z, inner, outer)
+            },
+            None => (Vec3::ZERO, 0.0, 0.0),
+        };
+
         gpu_point_lights.push(GpuPointLight {
             projection_lr: Vec4::new(
                 cube_face_projection.z_axis.z,
@@ -742,9 +754,11 @@ pub fn prepare_lights(
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation.extend(light.radius),
+            spot_dir_angle_inner: spot_dir.extend(spot_angle_inner),
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
+            spot_angle_outer,
         });
         global_light_meta.entity_to_index.insert(entity, index);
     }

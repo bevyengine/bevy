@@ -303,6 +303,13 @@ fn point_light(
     let rangeAttenuation =
         getDistanceAttenuation(distance_square, light.color_inverse_square_range.w);
 
+    var spot_attenuation = 1.0;
+    let spot_dir = light.spot_dir_angle_inner.xyz;
+    if (dot(spot_dir,spot_dir) > 0.0) {
+        let angle: f32 = acos(dot(spot_dir, light_to_frag) / (length(spot_dir) * length(light_to_frag)));
+        spot_attenuation = 1.0 - saturate((angle - light.spot_dir_angle_inner.w) / (light.spot_angle_outer - light.spot_dir_angle_inner.w));
+    }
+
     // Specular.
     // Representative Point Area Lights.
     // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
@@ -346,7 +353,7 @@ fn point_light(
 
     // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
 
-    return ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
+    return ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL) * spot_attenuation;
 }
 
 fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
