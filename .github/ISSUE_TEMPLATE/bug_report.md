@@ -54,7 +54,6 @@ fn main(){
 }
 ```
 
-
 ## What went wrong
 
 If it's not clear:
