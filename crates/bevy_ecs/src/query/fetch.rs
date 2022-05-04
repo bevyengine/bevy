@@ -1091,7 +1091,13 @@ unsafe impl<T: FetchState> FetchState for OptionState<T> {
     }
 
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
-        self.state.update_component_access(access);
+        // We don't want to add the `with`/`without` of `T` as `Option<T>` will match things regardless of
+        // `T`'s filters. for example `Query<(Option<&U>, &mut V)>` will match every entity with a `V` component
+        // regardless of whether it has a `U` component. If we dont do this the query will not conflict with
+        // `Query<&mut V, Without<U>>` which would be unsound.
+        let mut intermediate = access.clone();
+        self.state.update_component_access(&mut intermediate);
+        access.extend_access(&intermediate);
     }
 
     fn update_archetype_component_access(
@@ -1660,7 +1666,34 @@ macro_rules! impl_anytuple_fetch {
 
             fn update_component_access(&self, _access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = &self.0;
-                $($name.update_component_access(_access);)*
+
+                // We do not unconditionally add `$name`'s `with`/`without` accesses to `_access`
+                // as this would be unsound. For example the following two queries should conflict:
+                // - Query<(AnyOf<(&A, ())>, &mut B)>
+                // - Query<&mut B, Without<A>>
+                //
+                // If we were to unconditionally add `$name`'s `with`/`without` accesses then `AnyOf<(&A, ())>`
+                // would have a `With<A>` access which is incorrect as this `WorldQuery` will match entities that
+                // do not have the `A` component. This is the same logic as the `Or<...>: WorldQuery` impl.
+                //
+                // The correct thing to do here is to only add a `with`/`without` access to `_access` if all
+                // `$name` params have that `with`/`without` access. More jargony put- we add the intersection
+                // of all `with`/`without` accesses of the `$name` params to `_access`.
+                let mut _intersected_access = _access.clone();
+                let mut _not_first = false;
+                $(
+                    if _not_first {
+                        let mut intermediate = _access.clone();
+                        $name.update_component_access(&mut intermediate);
+                        _intersected_access.extend_intersect_filter(&intermediate);
+                        _intersected_access.extend_access(&intermediate);
+                    } else {
+                        $name.update_component_access(&mut _intersected_access);
+                        _not_first = true;
+                    }
+                )*
+
+                *_access = _intersected_access;
             }
 
             fn update_archetype_component_access(&self, _archetype: &Archetype, _access: &mut Access<ArchetypeComponentId>) {

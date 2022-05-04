@@ -210,6 +210,15 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.without.insert(index.sparse_set_index());
     }
 
+    pub fn extend_intersect_filter(&mut self, other: &FilteredAccess<T>) {
+        self.without.intersect_with(&other.without);
+        self.with.intersect_with(&other.with);
+    }
+
+    pub fn extend_access(&mut self, other: &FilteredAccess<T>) {
+        self.access.extend(&other.access);
+    }
+
     /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
         if self.access.is_compatible(&other.access) {
