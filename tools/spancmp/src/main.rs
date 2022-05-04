@@ -110,11 +110,13 @@ fn main() {
             .filter(|(name, _)| filter_by_pattern(name, cli.pattern.as_ref()))
             .for_each(|(span, reference)| {
                 // for each span in the first trace
+                set_bold(&mut stdout, true);
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
                     println!("{}", span);
                 }
+                set_bold(&mut stdout, false);
                 print!("  ");
                 let comparison = comparison.remove(span);
                 print_spanstats(&mut stdout, Some(reference), comparison.as_ref(), false);
@@ -125,11 +127,13 @@ fn main() {
             .filter(|(name, _)| filter_by_pattern(name, cli.pattern.as_ref()))
             .for_each(|(span, comparison)| {
                 // print the spans only present in the second trace
+                set_bold(&mut stdout, true);
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
                     println!("{}", span);
                 }
+                set_bold(&mut stdout, false);
                 print!("  ");
                 print_spanstats(&mut stdout, None, Some(comparison), false);
             });
@@ -140,11 +144,13 @@ fn main() {
             .filter(|(_, stats)| filter_by_threshold(stats, cli.threshold))
             .filter(|(name, _)| filter_by_pattern(name, cli.pattern.as_ref()))
             .for_each(|(span, reference)| {
+                set_bold(&mut stdout, true);
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
                     println!("{}", span);
                 }
+                set_bold(&mut stdout, false);
                 print!("  ");
                 print_spanstats(&mut stdout, Some(reference), None, true);
             });
@@ -476,4 +482,7 @@ fn set_fg(stdout: &mut StandardStream, color: Color) {
     stdout
         .set_color(ColorSpec::new().set_fg(Some(color)))
         .unwrap();
+}
+fn set_bold(stdout: &mut StandardStream, bold: bool) {
+    stdout.set_color(ColorSpec::new().set_bold(bold)).unwrap();
 }
