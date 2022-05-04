@@ -16,8 +16,10 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_render_path::extract_resource::ExtractResource for #struct_name #type_generics #where_clause {
-            fn extract_resource(res: &Self) -> Self {
-                res.clone()
+            type Source = Self;
+
+            fn extract_resource(source: &Self::Source) -> Self {
+                source.clone()
             }
         }
     })

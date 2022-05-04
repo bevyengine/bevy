@@ -11,8 +11,10 @@ use crate::{RenderApp, RenderStage};
 /// Therefore the resource is transferred from the "main world" into the "render world"
 /// in the [`RenderStage::Extract`](crate::RenderStage::Extract) step.
 pub trait ExtractResource: Resource {
+    type Source: Resource;
+
     /// Defines how the resource is transferred into the "render world".
-    fn extract_resource(res: &Self) -> Self;
+    fn extract_resource(source: &Self::Source) -> Self;
 }
 
 /// This plugin extracts the resources into the "render world".
@@ -37,7 +39,7 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
 
 /// This system extracts the resource of the corresponding [`Resource`] type
 /// by cloning it.
-pub fn extract_resource<R: ExtractResource>(mut commands: Commands, resource: Res<R>) {
+pub fn extract_resource<R: ExtractResource>(mut commands: Commands, resource: Res<R::Source>) {
     if resource.is_changed() {
         commands.insert_resource(R::extract_resource(resource.into_inner()));
     }
