@@ -19,13 +19,12 @@ Ex: Windows 10, Ubuntu 18.04, iOS 14.
 The steps you took to uncover this bug. Please list full reproduction steps if
 feasible.
 
-## What you expected to happen
+## What went wrong
 
-What you think should've happened if everything was working properly.
+If it's not immediately obvious:
 
-## What actually happened
-
-The actual result of the actions you described.
+- what where you expecting?
+- what actually occured?
 
 ## Additional information
 
