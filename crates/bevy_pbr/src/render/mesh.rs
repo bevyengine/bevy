@@ -19,21 +19,19 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-use std::num::NonZeroU64;
+use encase::ShaderType;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
 const MAX_JOINTS: usize = 256;
-const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
-pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
@@ -62,21 +60,20 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
+        app.add_plugin(UniformComponentPlugin::<SkinnedMeshUniform>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<MeshPipeline>()
-                .init_resource::<SkinnedMeshUniform>()
                 .add_system_to_stage(RenderStage::Extract, extract_meshes)
                 .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
-                .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
         }
     }
 }
 
-#[derive(Component, AsStd140, Clone)]
+#[derive(Component, ShaderType, Clone)]
 pub struct MeshUniform {
     pub transform: Mat4,
     pub inverse_transpose_model: Mat4,
@@ -170,85 +167,47 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(not_caster_values);
 }
 
-#[derive(Debug, Default)]
-pub struct ExtractedJoints {
-    pub buffer: Vec<Mat4>,
-}
-
-#[derive(Component)]
-pub struct SkinnedMeshJoints {
-    pub index: u32,
-}
-
-impl SkinnedMeshJoints {
-    #[inline]
-    pub fn build(
-        skin: &SkinnedMesh,
-        inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
-        joints: &Query<&GlobalTransform>,
-        buffer: &mut Vec<Mat4>,
-    ) -> Option<Self> {
-        let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
-        let bindposes = inverse_bindposes.iter();
-        let skin_joints = skin.joints.iter();
-        let start = buffer.len();
-        for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(MAX_JOINTS) {
-            if let Ok(joint) = joints.get(*joint) {
-                buffer.push(joint.compute_affine() * *inverse_bindpose);
-            } else {
-                buffer.truncate(start);
-                return None;
-            }
-        }
-
-        // Pad to 256 byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(Mat4::ZERO);
-        }
-        Some(Self {
-            index: start as u32,
-        })
-    }
-
-    pub fn to_buffer_index(mut self) -> Self {
-        self.index *= std::mem::size_of::<Mat4>() as u32;
-        self
-    }
-}
-
 pub fn extract_skinned_meshes(
     query: Query<(Entity, &ComputedVisibility, &SkinnedMesh)>,
     inverse_bindposes: Res<Assets<SkinnedMeshInverseBindposes>>,
     joint_query: Query<&GlobalTransform>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    mut previous_joint_len: Local<usize>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    let mut joints = Vec::with_capacity(*previous_joint_len);
-    let mut last_start = 0;
 
     for (entity, computed_visibility, skin) in query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?
-        if let Some(skinned_joints) =
-            SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut joints)
-        {
-            last_start = last_start.max(skinned_joints.index as usize);
-            values.push((entity, (skinned_joints.to_buffer_index(),)));
+        if let Some(inverse_bindposes) = inverse_bindposes.get(&skin.inverse_bindposes) {
+            let bindposes = inverse_bindposes.iter();
+            let skin_joints = skin.joints.iter();
+            let entity_joints = bindposes
+                .zip(skin_joints)
+                .map(|(inverse_bindpose, joint)| {
+                    joint_query
+                        .get(*joint)
+                        .ok()
+                        .map(|joint| joint.compute_affine() * *inverse_bindpose)
+                })
+                .chain(std::iter::from_fn(|| Some(Some(Mat4::default()))))
+                .take(MAX_JOINTS)
+                .collect::<Option<Vec<Mat4>>>();
+
+            if let Some(entity_joints) = entity_joints {
+                values.push((
+                    entity,
+                    (SkinnedMeshUniform {
+                        joints: Box::new(entity_joints.try_into().unwrap()),
+                    },),
+                ));
+            }
         }
     }
 
-    // Pad out the buffer to ensure that there's enough space for bindings
-    while joints.len() - last_start < MAX_JOINTS {
-        joints.push(Mat4::ZERO);
-    }
-
     *previous_len = values.len();
-    *previous_joint_len = joints.len();
-    commands.insert_resource(ExtractedJoints { buffer: joints });
     commands.insert_or_spawn_batch(values);
 }
 
@@ -267,10 +226,7 @@ impl FromWorld for MeshPipeline {
         let render_device = world.resource::<RenderDevice>();
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-        let cluster_min_binding_size = match clustered_forward_buffer_binding_type {
-            BufferBindingType::Storage { .. } => None,
-            BufferBindingType::Uniform => BufferSize::new(16384),
-        };
+
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -280,7 +236,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                        min_binding_size: Some(ViewUniform::min_size()),
                     },
                     count: None,
                 },
@@ -291,7 +247,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(GpuLights::std140_size_static() as u64),
+                        min_binding_size: Some(GpuLights::min_size()),
                     },
                     count: None,
                 },
@@ -344,10 +300,12 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        // NOTE (when no storage buffers): Static size for uniform buffers.
-                        // GpuPointLight has a padded size of 64 bytes, so 16384 / 64 = 256
-                        // point lights max
-                        min_binding_size: cluster_min_binding_size,
+                        min_binding_size: Some(match clustered_forward_buffer_binding_type {
+                            BufferBindingType::Storage { .. } => {
+                                crate::GpuPointLightsStorage::min_size()
+                            }
+                            BufferBindingType::Uniform => crate::GpuPointLightsUniform::min_size(),
+                        }),
                     },
                     count: None,
                 },
@@ -358,9 +316,14 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        // NOTE (when no storage buffers): With 256 point lights max, indices
-                        // need 8 bits so use u8
-                        min_binding_size: cluster_min_binding_size,
+                        min_binding_size: Some(match clustered_forward_buffer_binding_type {
+                            BufferBindingType::Storage { .. } => {
+                                crate::GpuClusterLightIndexListsStorage::min_size()
+                            }
+                            BufferBindingType::Uniform => {
+                                crate::GpuClusterLightIndexListsUniform::min_size()
+                            }
+                        }),
                     },
                     count: None,
                 },
@@ -371,12 +334,14 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        // NOTE (when no storage buffers): The offset needs to address 16384
-                        // indices, which needs 14 bits. The count can be at most all 256 lights
-                        // so 8 bits.
-                        // NOTE: Pack the offset into the upper 19 bits and the count into the
-                        // lower 13 bits.
-                        min_binding_size: cluster_min_binding_size,
+                        min_binding_size: Some(match clustered_forward_buffer_binding_type {
+                            BufferBindingType::Storage { .. } => {
+                                crate::GpuClusterOffsetsAndCountsStorage::min_size()
+                            }
+                            BufferBindingType::Uniform => {
+                                crate::GpuClusterOffsetsAndCountsUniform::min_size()
+                            }
+                        }),
                     },
                     count: None,
                 },
@@ -390,7 +355,7 @@ impl FromWorld for MeshPipeline {
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: true,
-                min_binding_size: BufferSize::new(MeshUniform::std140_size_static() as u64),
+                min_binding_size: Some(crate::MeshUniform::min_size()),
             },
             count: None,
         };
@@ -410,7 +375,7 @@ impl FromWorld for MeshPipeline {
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: true,
-                            min_binding_size: BufferSize::new(JOINT_BUFFER_SIZE as u64),
+                            min_binding_size: Some(crate::SkinnedMeshUniform::min_size()),
                         },
                         count: None,
                     },
@@ -673,7 +638,7 @@ pub fn queue_mesh_bind_group(
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
-    skinned_mesh_uniform: Res<SkinnedMeshUniform>,
+    skinned_mesh_uniform: Res<ComponentUniforms<SkinnedMeshUniform>>,
 ) {
     if let Some(mesh_binding) = mesh_uniforms.uniforms().binding() {
         let mut mesh_bind_group = MeshBindGroup {
@@ -688,7 +653,7 @@ pub fn queue_mesh_bind_group(
             skinned: None,
         };
 
-        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.uniform_buffer() {
+        if let Some(skinned_mesh_binding) = skinned_mesh_uniform.uniforms().binding() {
             mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -697,11 +662,7 @@ pub fn queue_mesh_bind_group(
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Buffer(BufferBinding {
-                            buffer: skinned_joints_buffer,
-                            offset: 0,
-                            size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
-                        }),
+                        resource: skinned_mesh_binding,
                     },
                 ],
                 label: Some("skinned_mesh_bind_group"),
@@ -712,31 +673,19 @@ pub fn queue_mesh_bind_group(
     }
 }
 
-#[derive(Default)]
+#[derive(Component, ShaderType, Clone)]
 pub struct SkinnedMeshUniform {
-    pub buffer: UniformVec<Mat4>,
+    joints: Box<[Mat4; MAX_JOINTS]>,
 }
 
-pub fn prepare_skinned_meshes(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    extracted_joints: Res<ExtractedJoints>,
-    mut skinned_mesh_uniform: ResMut<SkinnedMeshUniform>,
-) {
-    if extracted_joints.buffer.is_empty() {
-        return;
-    }
+const _: () = assert!(<SkinnedMeshUniform as encase::Size>::SIZE.get() <= 16384);
 
-    skinned_mesh_uniform.buffer.clear();
-    skinned_mesh_uniform
-        .buffer
-        .reserve(extracted_joints.buffer.len(), &render_device);
-    for joint in extracted_joints.buffer.iter() {
-        skinned_mesh_uniform.buffer.push(*joint);
+impl Default for SkinnedMeshUniform {
+    fn default() -> Self {
+        Self {
+            joints: Box::new([Mat4::default(); MAX_JOINTS]),
+        }
     }
-    skinned_mesh_uniform
-        .buffer
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Component)]
@@ -848,7 +797,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
         SRes<MeshBindGroup>,
         SQuery<(
             Read<DynamicUniformIndex<MeshUniform>>,
-            Option<Read<SkinnedMeshJoints>>,
+            Option<Read<DynamicUniformIndex<SkinnedMeshUniform>>>,
         )>,
     );
     #[inline]
@@ -863,7 +812,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
             pass.set_bind_group(
                 I,
                 mesh_bind_group.into_inner().skinned.as_ref().unwrap(),
-                &[mesh_index.index(), joints.index],
+                &[mesh_index.index(), joints.index()],
             );
         } else {
             pass.set_bind_group(

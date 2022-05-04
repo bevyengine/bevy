@@ -118,6 +118,7 @@ rand = "0.8.0"
 ron = "0.7.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
+encase = { git = "https://github.com/teoxoy/encase", features = ["glam"] }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"

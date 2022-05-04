@@ -31,3 +31,4 @@ stretch = "0.3.2"
 serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
 bytemuck = { version = "1.5", features = ["derive"] }
+encase = { git = "https://github.com/teoxoy/encase", features = ["glam"] }

@@ -19,7 +19,7 @@ use bevy_render::{
         BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
@@ -30,6 +30,7 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
+use encase::ShaderType;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
@@ -48,7 +49,7 @@ impl FromWorld for SpritePipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                    min_binding_size: Some(ViewUniform::min_size()),
                 },
                 count: None,
             }],

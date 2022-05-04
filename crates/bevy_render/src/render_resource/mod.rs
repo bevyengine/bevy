@@ -8,7 +8,7 @@ mod pipeline_specializer;
 mod shader;
 mod storage_buffer;
 mod texture;
-mod uniform_vec;
+mod uniform_buffer;
 
 pub use bind_group::*;
 pub use bind_group_layout::*;
@@ -20,7 +20,7 @@ pub use pipeline_specializer::*;
 pub use shader::*;
 pub use storage_buffer::*;
 pub use texture::*;
-pub use uniform_vec::*;
+pub use uniform_buffer::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu::{
@@ -43,7 +43,5 @@ pub use wgpu::{
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
     VertexStepMode,
 };
-
-pub use bevy_crevice::*;
 
 pub use naga::ShaderStage;
