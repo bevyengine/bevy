@@ -40,7 +40,7 @@ You should also consider testing the examples of our upstream dependencies to he
 ## What you did
 
 The steps you took to uncover this bug.
-Please provide a runnable snippet that demonstrates the problem if you can.
+Please provide a runnable code snippet or link to an example that demonstrates the problem if you can.
 
 For example:
 
