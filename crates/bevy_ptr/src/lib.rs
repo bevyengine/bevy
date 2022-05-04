@@ -249,7 +249,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     }
 }
 
-pub(crate) trait UnsafeCellDeref<'a, T> {
+pub trait UnsafeCellDeref<'a, T> {
     unsafe fn deref_mut(self) -> &'a mut T;
     unsafe fn deref(self) -> &'a T;
     unsafe fn read(self) -> T
