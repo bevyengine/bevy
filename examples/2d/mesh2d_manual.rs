@@ -20,7 +20,6 @@ use bevy::{
         DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
         SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
-    utils::FloatOrd,
 };
 
 /// This example shows how to manually render 2d items using "mid level render apis" with a custom pipeline for 2d meshes

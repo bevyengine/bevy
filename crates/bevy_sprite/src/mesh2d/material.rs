@@ -28,7 +28,6 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::FloatOrd;
 use std::hash::Hash;
 use std::marker::PhantomData;
 

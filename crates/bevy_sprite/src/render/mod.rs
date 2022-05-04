@@ -26,7 +26,6 @@ use bevy_render::{
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
