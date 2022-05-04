@@ -57,9 +57,9 @@ fn main(){
 
 ## What went wrong
 
-If it's not immediately obvious:
+If it's not clear:
 
-- what where you expecting?
+- what were you expecting?
 - what actually happened?
 
 ## Additional information
