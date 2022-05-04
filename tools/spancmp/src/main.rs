@@ -2,16 +2,19 @@
 //! spec: <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.puwqg050lyuy>
 
 use std::{
+    cell::RefCell,
     collections::HashMap,
     fs::File,
     io::{BufReader, Read},
     ops::Div,
+    rc::Rc,
 };
 
 use clap::Parser;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
+use serde_json::Deserializer;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use bevy_reflect::TypeRegistration;
@@ -39,38 +42,6 @@ enum SpanOrIgnore {
     Span(Span),
     /// catchall that didn't match a span
     Ignore(Ignore),
-}
-
-/// Trace files are unfinished and not properly formed json
-/// this wrapper finishes the json so that its valid
-struct UnfinishedWrapper {
-    reader: BufReader<File>,
-    buf: [u8; 1],
-    finish: String,
-}
-
-impl UnfinishedWrapper {
-    fn from(reader: BufReader<File>) -> UnfinishedWrapper {
-        Self {
-            reader,
-            buf: [0; 1],
-            finish: "{}]".to_string(),
-        }
-    }
-}
-
-impl Read for UnfinishedWrapper {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
-        let last = self.reader.read(self.buf.as_mut());
-        if matches!(last, Ok(0)) && self.buf[0] == 10 && !self.finish.is_empty() {
-            let (next, remaining) = self.finish.as_bytes().split_at(1);
-            buf[0] = next[0];
-            self.finish = std::str::from_utf8(remaining).unwrap().to_string();
-            return Ok(1);
-        }
-        buf[0] = self.buf[0];
-        last
-    }
 }
 
 #[derive(Parser, Debug)]
@@ -169,20 +140,45 @@ fn filter_by_pattern(name: &str, pattern: Option<&Regex>) -> bool {
     }
 }
 
+#[derive(Clone)]
+struct SkipperWrapper {
+    reader: Rc<RefCell<BufReader<File>>>,
+}
+
+impl SkipperWrapper {
+    fn from(mut reader: BufReader<File>) -> SkipperWrapper {
+        let _ = reader.seek_relative(1);
+
+        Self {
+            reader: Rc::new(RefCell::new(reader)),
+        }
+    }
+
+    fn skip(&self) {
+        let _ = self.reader.borrow_mut().seek_relative(1);
+    }
+}
+
+impl Read for SkipperWrapper {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
+        self.reader.borrow_mut().read(buf)
+    }
+}
+
 fn read_trace(file: String) -> HashMap<String, SpanStats> {
     let file = File::open(file).unwrap();
     let reader = BufReader::new(file);
-    let reader_wrapper = UnfinishedWrapper::from(reader);
+    let reader_wrapper = SkipperWrapper::from(reader);
 
-    let spans: Vec<SpanOrIgnore> = serde_json::from_reader(reader_wrapper).unwrap();
+    let spans = Deserializer::from_reader(reader_wrapper.clone()).into_iter::<SpanOrIgnore>();
 
     let mut open_spans: HashMap<String, f32> = HashMap::new();
-    let mut all_spans: HashMap<String, Vec<f32>> = HashMap::new();
-
+    let mut all_spans_stats: HashMap<String, SpanStats> = HashMap::new();
     spans
-        .iter()
-        .flat_map(|s| {
-            if let SpanOrIgnore::Span(span) = s {
+        .flat_map(move |s| {
+            reader_wrapper.skip();
+
+            if let Ok(SpanOrIgnore::Span(span)) = s {
                 Some(span)
             } else {
                 None
@@ -192,41 +188,14 @@ fn read_trace(file: String) -> HashMap<String, SpanStats> {
             if s.ph == "B" {
                 open_spans.insert(s.name.clone(), s.ts);
             } else if s.ph == "E" {
-                let begin = open_spans.get(&s.name).unwrap();
-                all_spans
-                    .entry(s.name.clone())
+                let begin = open_spans.remove(&s.name).unwrap();
+                all_spans_stats
+                    .entry(s.name)
                     .or_default()
-                    .push(s.ts - begin);
+                    .add_span(s.ts - begin);
             }
         });
-    let all_spans_stats: HashMap<_, _> = all_spans
-        .into_iter()
-        .map(|(name, durations)| {
-            (
-                name,
-                SpanStats {
-                    count: durations.len(),
-                    min: *durations
-                        .iter()
-                        .min_by(|x, y| x.partial_cmp(y).unwrap())
-                        .unwrap(),
-                    max: *durations
-                        .iter()
-                        .max_by(|x, y| x.partial_cmp(y).unwrap())
-                        .unwrap(),
-                    avg: durations
-                        .iter()
-                        .fold((0.0, 0), |(current, count), new| {
-                            (
-                                (current * count as f32 + new) / (count as f32 + 1.0),
-                                count + 1,
-                            )
-                        })
-                        .0,
-                },
-            )
-        })
-        .collect();
+
     all_spans_stats
 }
 
@@ -302,6 +271,30 @@ fn print_spanstats(
             println!("]");
         }
         _ => {}
+    }
+}
+
+impl Default for SpanStats {
+    fn default() -> Self {
+        Self {
+            count: 0,
+            avg: 0.0,
+            min: f32::MAX,
+            max: 0.0,
+        }
+    }
+}
+
+impl SpanStats {
+    fn add_span(&mut self, duration: f32) {
+        if duration < self.min {
+            self.min = duration;
+        }
+        if duration > self.max {
+            self.max = duration;
+        }
+        self.avg = (self.avg * self.count as f32 + duration) / (self.count as f32 + 1.0);
+        self.count += 1;
     }
 }
 
