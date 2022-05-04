@@ -5,8 +5,11 @@ use crate::{
     },
     system::{In, IntoChainSystem, Local, Res, ResMut},
 };
-use std::{any::TypeId, fmt::Debug, hash::Hash};
-use thiserror::Error;
+use std::{
+    any::TypeId,
+    fmt::{self, Debug},
+    hash::Hash,
+};
 
 pub trait StateData: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
 impl<T> StateData for T where T: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
@@ -399,14 +402,30 @@ where
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum StateError {
-    #[error("Attempted to change the state to the current state.")]
     AlreadyInState,
-    #[error("Attempted to queue a state change, but there was already a state queued.")]
     StateAlreadyQueued,
-    #[error("Attempted to queue a pop, but there is nothing to pop.")]
     StackEmpty,
+}
+
+impl std::error::Error for StateError {}
+
+impl fmt::Display for StateError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            StateError::AlreadyInState => {
+                write!(f, "Attempted to change the state to the current state.")
+            }
+            StateError::StateAlreadyQueued => write!(
+                f,
+                "Attempted to queue a state change, but there was already a state queued."
+            ),
+            StateError::StackEmpty => {
+                write!(f, "Attempted to queue a pop, but there is nothing to pop.")
+            }
+        }
+    }
 }
 
 fn should_run_adapter<T: StateData>(In(cmp_result): In<bool>, state: Res<State<T>>) -> ShouldRun {

@@ -25,7 +25,6 @@
 //! ```
 
 use crate::mesh::VertexAttributeValues;
-use bevy_utils::EnumVariantMeta;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]
@@ -115,6 +114,12 @@ impl From<Vec<[i32; 4]>> for VertexAttributeValues {
 impl From<Vec<[u32; 4]>> for VertexAttributeValues {
     fn from(vec: Vec<[u32; 4]>) -> Self {
         VertexAttributeValues::Uint32x4(vec)
+    }
+}
+
+impl From<Vec<[u16; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[u16; 4]>) -> Self {
+        VertexAttributeValues::Uint16x4(vec)
     }
 }
 

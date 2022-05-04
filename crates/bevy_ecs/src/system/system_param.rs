@@ -5,15 +5,16 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
+    ptr::UnsafeCellDeref,
     query::{
-        Access, FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch,
+        Access, FilteredAccess, FilteredAccessSet, QueryFetch, QueryState, ReadOnlyFetch,
         WorldQuery,
     },
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ecs_macros::{all_tuples, impl_query_set};
+use bevy_ecs_macros::{all_tuples, impl_param_set};
 use std::{
     fmt::Debug,
     marker::PhantomData,
@@ -74,7 +75,7 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 pub unsafe trait ReadOnlySystemParamFetch {}
 
 pub trait SystemParamFetch<'world, 'state>: SystemParamState {
-    type Item;
+    type Item: SystemParam<Fetch = Self>;
     /// # Safety
     ///
     /// This call might access any of the input parameters in an unsafe way. Make sure the data
@@ -87,26 +88,20 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     ) -> Self::Item;
 }
 
-impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F>
-where
-    F::Fetch: FilterFetch,
-{
+impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F> {
     type Fetch = QueryState<Q, F>;
 }
 
 // SAFE: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<Q: WorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F>
-where
-    Q::Fetch: ReadOnlyFetch,
-    F::Fetch: FilterFetch,
+unsafe impl<Q: WorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F> where
+    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch
 {
 }
 
 // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this QueryState conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState for QueryState<Q, F>
-where
-    F::Fetch: FilterFetch,
+unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState
+    for QueryState<Q, F>
 {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let state = QueryState::new(world);
@@ -137,8 +132,6 @@ where
 
 impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's>
     for QueryState<Q, F>
-where
-    F::Fetch: FilterFetch,
 {
     type Item = Query<'w, 's, Q, F>;
 
@@ -170,21 +163,20 @@ fn assert_component_access_compatibility(
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
-    panic!("error[B0001]: Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `QuerySet`.",
+    panic!("error[B0001]: Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`.",
            query_type, filter_type, system_name, accesses);
 }
 
-pub struct QuerySet<'w, 's, T> {
-    query_states: &'s T,
+pub struct ParamSet<'w, 's, T: SystemParam> {
+    param_states: &'s mut T::Fetch,
     world: &'w World,
-    last_change_tick: u32,
+    system_meta: SystemMeta,
     change_tick: u32,
 }
+/// The [`SystemParamState`] of [`ParamSet<T::Item>`].
+pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
-#[doc(hidden)]
-pub struct QuerySetState<T>(T);
-
-impl_query_set!();
+impl_param_set!();
 
 pub trait Resource: Send + Sync + 'static {}
 
@@ -324,8 +316,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
                 )
             });
         Res {
-            value: &*column.get_data_ptr().cast::<T>().as_ptr(),
-            ticks: column.get_ticks_unchecked(0),
+            value: column.get_data_ptr().deref::<T>(),
+            ticks: column.get_ticks_unchecked(0).deref(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -363,8 +355,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| Res {
-                value: &*column.get_data_ptr().cast::<T>().as_ptr(),
-                ticks: column.get_ticks_unchecked(0),
+                value: column.get_data_ptr().deref::<T>(),
+                ticks: column.get_ticks_unchecked(0).deref(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -677,7 +669,9 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 /// and will need to be manually flushed using [`World::clear_trackers`]
 ///
 /// For users of `bevy` itself, this is automatically done in a system added by `MinimalPlugins`
-/// or `DefaultPlugins` at the end of each pass of the game loop.
+/// or `DefaultPlugins` at the end of each pass of the game loop during the `CoreStage::Last`
+/// stage. As such `RemovedComponents` systems should be scheduled after the stage where
+/// removal occurs but before `CoreStage::Last`.
 ///
 /// # Examples
 ///
@@ -880,8 +874,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
             });
 
         NonSend {
-            value: &*column.get_data_ptr().cast::<T>().as_ptr(),
-            ticks: column.get_ticks_unchecked(0).clone(),
+            value: column.get_data_ptr().deref::<T>(),
+            ticks: column.get_ticks_unchecked(0).read(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -920,8 +914,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| NonSend {
-                value: &*column.get_data_ptr().cast::<T>().as_ptr(),
-                ticks: column.get_ticks_unchecked(0).clone(),
+                value: column.get_data_ptr().deref::<T>(),
+                ticks: column.get_ticks_unchecked(0).read(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -993,9 +987,9 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
                 )
             });
         NonSendMut {
-            value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
+            value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
             ticks: Ticks {
-                component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
+                component_ticks: column.get_ticks_unchecked(0).deref_mut(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },
@@ -1032,9 +1026,9 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| NonSendMut {
-                value: &mut *column.get_data_ptr().cast::<T>().as_ptr(),
+                value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    component_ticks: &mut *column.get_ticks_mut_ptr_unchecked(0),
+                    component_ticks: column.get_ticks_unchecked(0).deref_mut(),
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
                 },
@@ -1170,11 +1164,33 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
     }
 }
 
-/// The [`SystemParamState`] of [`SystemChangeTick`].
+/// A [`SystemParam`] that reads the previous and current change ticks of the system.
+///
+/// A system's change ticks are updated each time it runs:
+/// - `last_change_tick` copies the previous value of `change_tick`
+/// - `change_tick` copies the current value of [`World::read_change_tick`]
+///
+/// Component change ticks that are more recent than `last_change_tick` will be detected by the system.
+/// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
+/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](crate::change_detection::ResMut).
 #[derive(Debug)]
 pub struct SystemChangeTick {
-    pub last_change_tick: u32,
-    pub change_tick: u32,
+    last_change_tick: u32,
+    change_tick: u32,
+}
+
+impl SystemChangeTick {
+    /// Returns the current [`World`] change tick seen by the system.
+    #[inline]
+    pub fn change_tick(&self) -> u32 {
+        self.change_tick
+    }
+
+    /// Returns the [`World`] change tick seen by the system the previous time it ran.
+    #[inline]
+    pub fn last_change_tick(&self) -> u32 {
+        self.last_change_tick
+    }
 }
 
 // SAFE: Only reads internal system state
@@ -1403,7 +1419,7 @@ mod tests {
     use super::SystemParam;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        query::{FilterFetch, WorldQuery},
+        query::WorldQuery,
         system::Query,
     };
 
@@ -1414,10 +1430,7 @@ mod tests {
         's,
         Q: WorldQuery + Send + Sync + 'static,
         F: WorldQuery + Send + Sync + 'static = (),
-    >
-    where
-        F::Fetch: FilterFetch,
-    {
+    > {
         _query: Query<'w, 's, Q, F>,
     }
 }

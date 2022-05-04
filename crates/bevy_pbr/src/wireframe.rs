@@ -4,6 +4,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -61,7 +62,7 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
 
 /// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Wireframe;
 
 #[derive(Debug, Clone, Default)]
@@ -110,9 +111,9 @@ fn queue_wireframes(
     mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
-    mut material_meshes: QuerySet<(
-        QueryState<(Entity, &Handle<Mesh>, &MeshUniform)>,
-        QueryState<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
+    mut material_meshes: ParamSet<(
+        Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
+        Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
     )>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
 ) {
@@ -121,7 +122,7 @@ fn queue_wireframes(
         .get_id::<DrawWireframes>()
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, mut transparent_phase) in views.iter_mut() {
+    for (view, mut opaque_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
 
@@ -143,7 +144,7 @@ fn queue_wireframes(
                             return;
                         }
                     };
-                    transparent_phase.add(Opaque3d {
+                    opaque_phase.add(Opaque3d {
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
@@ -153,9 +154,9 @@ fn queue_wireframes(
             };
 
         if wireframe_config.global {
-            material_meshes.q0().iter().for_each(add_render_phase);
+            material_meshes.p0().iter().for_each(add_render_phase);
         } else {
-            material_meshes.q1().iter().for_each(add_render_phase);
+            material_meshes.p1().iter().for_each(add_render_phase);
         }
     }
 }

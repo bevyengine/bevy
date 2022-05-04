@@ -1,6 +1,9 @@
+use crate::{
+    serde::Serializable, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
+    ReflectMut, ReflectRef, TypeRegistration,
+};
+use serde::Deserialize;
 use std::any::Any;
-
-use crate::{serde::Serializable, FromReflect, Reflect, ReflectMut, ReflectRef};
 
 /// A reflected Rust tuple.
 ///
@@ -223,6 +226,16 @@ unsafe impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -366,6 +379,14 @@ macro_rules! impl_reflect_tuple {
                 self
             }
 
+            fn as_reflect(&self) -> &dyn Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+                self
+            }
+
             fn apply(&mut self, value: &dyn Reflect) {
                 crate::tuple_apply(self, value);
             }
@@ -397,6 +418,14 @@ macro_rules! impl_reflect_tuple {
 
             fn serializable(&self) -> Option<Serializable> {
                 None
+            }
+        }
+
+        impl<$($name: Reflect + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+            fn get_type_registration() -> TypeRegistration {
+                let mut registration = TypeRegistration::of::<($($name,)*)>();
+                registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());
+                registration
             }
         }
 

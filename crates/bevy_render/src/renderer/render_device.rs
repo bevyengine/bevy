@@ -7,7 +7,7 @@ use crate::{
 };
 use futures_lite::future;
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, BufferBindingType};
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Clone)]
@@ -184,5 +184,16 @@ impl RenderDevice {
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
         let padded_bytes_per_row_padding = (align - row_bytes % align) % align;
         row_bytes + padded_bytes_per_row_padding
+    }
+
+    pub fn get_supported_read_only_binding_type(
+        &self,
+        buffers_per_shader_stage: u32,
+    ) -> BufferBindingType {
+        if self.limits().max_storage_buffers_per_shader_stage >= buffers_per_shader_stage {
+            BufferBindingType::Storage { read_only: true }
+        } else {
+            BufferBindingType::Uniform
+        }
     }
 }

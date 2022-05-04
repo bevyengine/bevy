@@ -1,12 +1,9 @@
-use std::num::NonZeroU64;
-
+use super::Buffer;
+use crate::renderer::{RenderDevice, RenderQueue};
 use bevy_crevice::std430::{self, AsStd430, Std430};
 use bevy_utils::tracing::warn;
+use std::num::NonZeroU64;
 use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsages};
-
-use crate::renderer::{RenderDevice, RenderQueue};
-
-use super::Buffer;
 
 /// A helper for a storage buffer binding with a body, or a variable-sized array, or both.
 pub struct StorageBuffer<T: AsStd430, U: AsStd430 = ()> {
@@ -125,5 +122,20 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
 
     pub fn values_mut(&mut self) -> &mut [T] {
         &mut self.values
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.values.clear();
+    }
+
+    #[inline]
+    pub fn push(&mut self, value: T) {
+        self.values.push(value);
+    }
+
+    #[inline]
+    pub fn append(&mut self, values: &mut Vec<T>) {
+        self.values.append(values);
     }
 }

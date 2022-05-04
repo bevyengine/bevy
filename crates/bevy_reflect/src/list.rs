@@ -121,6 +121,16 @@ unsafe impl Reflect for DynamicList {
         self
     }
 
+    #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         list_apply(self, value);
     }
@@ -181,6 +191,15 @@ impl<'a> Iterator for ListIter<'a> {
     }
 }
 
+impl IntoIterator for DynamicList {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
+    }
+}
+
 impl<'a> ExactSizeIterator for ListIter<'a> {}
 
 /// Applies the elements of `b` to the corresponding elements of `a`.
@@ -233,4 +252,22 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DynamicList;
+
+    #[test]
+    fn test_into_iter() {
+        let mut list = DynamicList::default();
+        list.push(0usize);
+        list.push(1usize);
+        list.push(2usize);
+        let items = list.into_iter();
+        for (index, item) in items.into_iter().enumerate() {
+            let value = item.take::<usize>().expect("couldn't downcast to usize");
+            assert_eq!(index, value);
+        }
+    }
 }

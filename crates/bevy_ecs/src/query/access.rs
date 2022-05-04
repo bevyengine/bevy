@@ -1,4 +1,5 @@
 use crate::storage::SparseSetIndex;
+use bevy_utils::HashSet;
 use fixedbitset::FixedBitSet;
 use std::marker::PhantomData;
 
@@ -129,7 +130,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
     with: FixedBitSet,
@@ -143,6 +144,14 @@ impl<T: SparseSetIndex> Default for FilteredAccess<T> {
             with: Default::default(),
             without: Default::default(),
         }
+    }
+}
+
+impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
+    fn from(filtered_access: FilteredAccess<T>) -> Self {
+        let mut base = FilteredAccessSet::<T>::default();
+        base.add(filtered_access);
+        base
     }
 }
 
@@ -191,7 +200,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.access.read_all();
     }
 }
-
+#[derive(Clone, Debug)]
 pub struct FilteredAccessSet<T: SparseSetIndex> {
     combined_access: Access<T>,
     filtered_accesses: Vec<FilteredAccess<T>>,
@@ -211,21 +220,41 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     pub fn get_conflicts(&self, filtered_access: &FilteredAccess<T>) -> Vec<T> {
         // if combined unfiltered access is incompatible, check each filtered access for
         // compatibility
+        let mut conflicts = HashSet::<usize>::default();
         if !filtered_access.access.is_compatible(&self.combined_access) {
             for current_filtered_access in &self.filtered_accesses {
                 if !current_filtered_access.is_compatible(filtered_access) {
-                    return current_filtered_access
-                        .access
-                        .get_conflicts(&filtered_access.access);
+                    conflicts.extend(
+                        current_filtered_access
+                            .access
+                            .get_conflicts(&filtered_access.access)
+                            .iter()
+                            .map(|ind| ind.sparse_set_index()),
+                    );
                 }
             }
         }
-        Vec::new()
+        conflicts
+            .iter()
+            .map(|ind| T::get_sparse_set_index(*ind))
+            .collect()
     }
 
     pub fn add(&mut self, filtered_access: FilteredAccess<T>) {
         self.combined_access.extend(&filtered_access.access);
         self.filtered_accesses.push(filtered_access);
+    }
+
+    pub fn extend(&mut self, filtered_access_set: FilteredAccessSet<T>) {
+        self.combined_access
+            .extend(&filtered_access_set.combined_access);
+        self.filtered_accesses
+            .extend(filtered_access_set.filtered_accesses);
+    }
+
+    pub fn clear(&mut self) {
+        self.combined_access.clear();
+        self.filtered_accesses.clear();
     }
 }
 
