@@ -22,7 +22,7 @@ If you are reporting a bug about:
 These issues are often specific to hardware or OS configuration and can be challenging to reproduce.
 As a result, please consider including information about:
 
-- the Rust version you're using
+- the Rust version you're using (you can get this by running `cargo --version`)
   - Bevy has a policy of relying on the "latest stable release" of Rust
   - Nightly should generally work, but there are sometimes regressions: please let us know!
 - the operating system, including its version
