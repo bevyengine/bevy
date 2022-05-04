@@ -274,7 +274,7 @@ fn print_spanstats(
             print_delta_time_us(reference.avg);
             print!(" |         |         ]  [max: ");
             print_delta_time_us(reference.max);
-            print!(" |         |         ]");
+            println!(" |         |         ]");
         }
         (None, Some(comparison)) => {
             print!("[count:          | {:8} |         ", comparison.count);
@@ -284,7 +284,7 @@ fn print_spanstats(
             print_delta_time_us(comparison.avg);
             print!(" |         ]  [max:         | ");
             print_delta_time_us(comparison.max);
-            print!(" |         ]");
+            println!(" |         ]");
         }
         (Some(reference), _) if reference_only => {
             print!("[count: {:8}]  [min: ", reference.count);
