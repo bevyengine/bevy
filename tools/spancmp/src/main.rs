@@ -9,9 +9,12 @@ use std::{
 };
 
 use clap::Parser;
+use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+
+use bevy_reflect::TypeRegistration;
 
 /// A span from the trace
 #[derive(Deserialize, Debug)]
@@ -80,6 +83,10 @@ struct Args {
     /// Filter spans by name matching the pattern
     pattern: Option<Regex>,
 
+    #[clap(short, long)]
+    /// Simplify system names
+    short: bool,
+
     trace: String,
     /// Optional, second trace to compare
     second_trace: Option<String>,
@@ -125,7 +132,11 @@ fn main() {
             .filter(|(name, _)| filter_by_pattern(name, cli.pattern.as_ref()))
             .for_each(|(span, stats)| {
                 // for each span in the first trace
-                println!("{}", span);
+                if cli.short {
+                    println!("{}", simplify_name(span));
+                } else {
+                    println!("{}", span);
+                }
                 if let Some(other) = second.remove(span) {
                     // if there is a matching span in the second trace, compare the two
                     print!("  ");
@@ -160,7 +171,11 @@ fn main() {
             .filter(|(name, _)| filter_by_pattern(name, cli.pattern.as_ref()))
             .for_each(|(span, stats)| {
                 // print the spans only present in the second trace
-                println!("{}", span);
+                if cli.short {
+                    println!("{}", simplify_name(span));
+                } else {
+                    println!("{}", span);
+                }
                 print!("[count: {} | {} | ", 0, stats.count);
                 print_relative(&mut stdout, 1.0);
                 print!("]  [min:       | {:4.3} | ", stats.min);
@@ -286,4 +301,31 @@ impl Div for &SpanStats {
             max: self.max / rhs.max,
         }
     }
+}
+
+lazy_static! {
+    static ref SYSTEM_NAME: Regex = Regex::new(r#"system: name="([^"]+)""#).unwrap();
+    static ref SYSTEM_OVERHEAD: Regex = Regex::new(r#"system overhead: name="([^"]+)""#).unwrap();
+    static ref SYSTEM_COMMANDS: Regex = Regex::new(r#"system_commands: name="([^"]+)""#).unwrap();
+}
+fn simplify_name(name: &str) -> String {
+    if let Some(captures) = SYSTEM_NAME.captures(name) {
+        return format!(
+            r#"system: name="{}""#,
+            TypeRegistration::get_short_name(&captures[1])
+        );
+    }
+    if let Some(captures) = SYSTEM_OVERHEAD.captures(name) {
+        return format!(
+            r#"system overhead: name="{}""#,
+            TypeRegistration::get_short_name(&captures[1])
+        );
+    }
+    if let Some(captures) = SYSTEM_COMMANDS.captures(name) {
+        return format!(
+            r#"system_commands: name="{}""#,
+            TypeRegistration::get_short_name(&captures[1])
+        );
+    }
+    name.to_string()
 }

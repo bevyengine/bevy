@@ -12,3 +12,5 @@ serde = { version = "1.0", features = ["derive"] }
 clap = { version = "3.1.12", features = ["derive"] }
 regex = "1.5"
 termcolor = "1.1"
+bevy_reflect = { path = "../../crates/bevy_reflect", version = "0.8.0-dev" }
+lazy_static = "1.4"
