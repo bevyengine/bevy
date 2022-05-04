@@ -19,7 +19,7 @@ If you are reporting a bug about:
 - unusual input bugs
 - hardware specific problems
 
-These issues are often specific to hardware or OS configuration, and can be challenging to reproduce.
+These issues are often specific to hardware or OS configuration and can be challenging to reproduce.
 As a result, please consider including information about:
 
 - the Rust version you're using
@@ -69,4 +69,11 @@ If it's not immediately obvious:
 
 ## Additional information
 
-Any additional information you would like to add such as screenshots, logs, etc.
+Other information that can be used to further reproduce or isolate the problem.
+This commonly includes:
+
+- screenshots
+- logs
+- theories about what might be going wrong
+- workarounds that you used
+- links to related bugs, PRs or discussions
