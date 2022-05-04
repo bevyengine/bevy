@@ -28,7 +28,8 @@ As a result, please consider including information about:
 - the operating system, including its version
   - e.g. Windows 10, Ubuntu 18.04, iOS 14.
 - relevant hardware
-  - e.g. Nvidia GTX 1080 graphics card or XBox series X controller
+  - if your bug is rendering-related, copy the adapter info that appears when you run Bevy
+  - e.g. `AdapterInfo { name: "NVIDIA GeForce RTX 2070", vendor: 4318, device: 7938, device_type: DiscreteGpu, backend: Vulkan }` or XBox series X controller
 
 You should also consider testing the examples of our upstream dependencies to help isolate the issue:
 
