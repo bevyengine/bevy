@@ -6,9 +6,9 @@ use bevy::{
     },
     prelude::*,
     render::{
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
-        render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
             PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,

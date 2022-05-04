@@ -7,9 +7,9 @@ use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_ecs_resource::{ExtractResource, ExtractResourcePlugin},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::{
         PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,

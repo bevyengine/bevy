@@ -2,8 +2,8 @@ use bevy::{
     core_pipeline::node::MAIN_PASS_DEPENDENCIES,
     prelude::*,
     render::{
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
-        render_ecs_resource::{ExtractResource, ExtractResourcePlugin},
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},

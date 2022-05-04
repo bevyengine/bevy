@@ -39,8 +39,8 @@ use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    extract_resource::ExtractResourcePlugin,
     prelude::Color,
-    render_ecs_resource::ExtractResourcePlugin,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedMeshPipelines},

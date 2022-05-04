@@ -10,9 +10,9 @@ pub use window::*;
 
 use crate::{
     camera::ExtractedCamera,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
     render_asset::RenderAssets,
-    render_ecs_resource::{ExtractResource, ExtractResourcePlugin},
     render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},

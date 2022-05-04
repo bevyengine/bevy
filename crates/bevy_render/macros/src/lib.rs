@@ -1,4 +1,4 @@
-mod render_ecs_resource;
+mod extract_resource;
 
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
@@ -12,5 +12,5 @@ pub(crate) fn bevy_render_path() -> syn::Path {
 
 #[proc_macro_derive(ExtractResource)]
 pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
-    render_ecs_resource::derive_extract_resource(input)
+    extract_resource::derive_extract_resource(input)
 }

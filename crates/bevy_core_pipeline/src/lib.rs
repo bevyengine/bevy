@@ -24,7 +24,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{ActiveCamera, Camera2d, Camera3d, ExtractedCamera, RenderTarget},
     color::Color,
-    render_ecs_resource::{ExtractResource, ExtractResourcePlugin},
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,

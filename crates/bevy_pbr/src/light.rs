@@ -7,9 +7,9 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
+    extract_resource::ExtractResource,
     prelude::Image,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
-    render_ecs_resource::ExtractResource,
     render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
