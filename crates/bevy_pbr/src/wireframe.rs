@@ -14,7 +14,7 @@ use bevy_render::{
         PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
-    view::{ExtractedView, Msaa},
+    view::{ExtractedView, Msaa, VisibleEntities},
     RenderApp, RenderStage,
 };
 use bevy_utils::tracing::error;
@@ -115,14 +115,14 @@ fn queue_wireframes(
         Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
         Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
     )>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
+    mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
     let draw_custom = opaque_3d_draw_functions
         .read()
         .get_id::<DrawWireframes>()
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, mut opaque_phase) in views.iter_mut() {
+    for (view, visible_entities, mut opaque_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
 
@@ -154,9 +154,19 @@ fn queue_wireframes(
             };
 
         if wireframe_config.global {
-            material_meshes.p0().iter().for_each(add_render_phase);
+            let query = material_meshes.p0();
+            visible_entities
+                .entities
+                .iter()
+                .filter_map(|visible_entity| query.get(*visible_entity).ok())
+                .for_each(add_render_phase);
         } else {
-            material_meshes.p1().iter().for_each(add_render_phase);
+            let query = material_meshes.p1();
+            visible_entities
+                .entities
+                .iter()
+                .filter_map(|visible_entity| query.get(*visible_entity).ok())
+                .for_each(add_render_phase);
         }
     }
 }
