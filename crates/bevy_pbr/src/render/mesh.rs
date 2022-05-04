@@ -1,6 +1,6 @@
 use crate::{
-    GlobalLightMeta, GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
-    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
+    GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
+    ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 use bevy_app::Plugin;
@@ -200,7 +200,7 @@ pub fn extract_skinned_meshes(
                 values.push((
                     entity,
                     (SkinnedMeshUniform {
-                        joints: Box::new(entity_joints.try_into().unwrap()),
+                        joints: entity_joints.into_boxed_slice().try_into().unwrap(),
                     },),
                 ));
             }
@@ -300,12 +300,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        min_binding_size: Some(match clustered_forward_buffer_binding_type {
-                            BufferBindingType::Storage { .. } => {
-                                crate::GpuPointLightsStorage::min_size()
-                            }
-                            BufferBindingType::Uniform => crate::GpuPointLightsUniform::min_size(),
-                        }),
+                        min_binding_size: Some(GpuPointLights::min_size(
+                            clustered_forward_buffer_binding_type,
+                        )),
                     },
                     count: None,
                 },
@@ -316,14 +313,11 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        min_binding_size: Some(match clustered_forward_buffer_binding_type {
-                            BufferBindingType::Storage { .. } => {
-                                crate::GpuClusterLightIndexListsStorage::min_size()
-                            }
-                            BufferBindingType::Uniform => {
-                                crate::GpuClusterLightIndexListsUniform::min_size()
-                            }
-                        }),
+                        min_binding_size: Some(
+                            ViewClusterBindings::min_size_cluster_light_index_lists(
+                                clustered_forward_buffer_binding_type,
+                            ),
+                        ),
                     },
                     count: None,
                 },
@@ -334,14 +328,11 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        min_binding_size: Some(match clustered_forward_buffer_binding_type {
-                            BufferBindingType::Storage { .. } => {
-                                crate::GpuClusterOffsetsAndCountsStorage::min_size()
-                            }
-                            BufferBindingType::Uniform => {
-                                crate::GpuClusterOffsetsAndCountsUniform::min_size()
-                            }
-                        }),
+                        min_binding_size: Some(
+                            ViewClusterBindings::min_size_cluster_offsets_and_counts(
+                                clustered_forward_buffer_binding_type,
+                            ),
+                        ),
                     },
                     count: None,
                 },
@@ -355,7 +346,7 @@ impl FromWorld for MeshPipeline {
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: true,
-                min_binding_size: Some(crate::MeshUniform::min_size()),
+                min_binding_size: Some(MeshUniform::min_size()),
             },
             count: None,
         };
@@ -375,7 +366,7 @@ impl FromWorld for MeshPipeline {
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: true,
-                            min_binding_size: Some(crate::SkinnedMeshUniform::min_size()),
+                            min_binding_size: Some(SkinnedMeshUniform::min_size()),
                         },
                         count: None,
                     },
@@ -678,6 +669,8 @@ pub struct SkinnedMeshUniform {
     joints: Box<[Mat4; MAX_JOINTS]>,
 }
 
+// NOTE: Assert at compile time that SkinnedMeshUniform
+// fits within the maximum uniform buffer binding size
 const _: () = assert!(<SkinnedMeshUniform as encase::Size>::SIZE.get() <= 16384);
 
 impl Default for SkinnedMeshUniform {

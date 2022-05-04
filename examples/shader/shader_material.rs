@@ -74,7 +74,7 @@ impl RenderAsset for CustomMaterial {
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let color = Vec4::from_slice(&extracted_asset.color.as_linear_rgba_f32());
 
-        let byte_buffer = [0; <Vec4 as encase::Size>::SIZE.get() as usize];
+        let byte_buffer = [0u8; <Vec4 as encase::Size>::SIZE.get() as usize];
         let mut buffer = encase::UniformBuffer::new(byte_buffer);
         buffer.write(&color).unwrap();
 

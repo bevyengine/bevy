@@ -35,7 +35,7 @@ use bevy_utils::{
     HashMap,
 };
 use encase::ShaderType;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroU64};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum RenderLightSystems {
@@ -158,6 +158,13 @@ impl GpuPointLights {
         match self {
             GpuPointLights::Uniform(buffer) => buffer.binding(),
             GpuPointLights::Storage(buffer) => buffer.binding(),
+        }
+    }
+
+    pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZeroU64 {
+        match buffer_binding_type {
+            BufferBindingType::Storage { .. } => GpuPointLightsStorage::min_size(),
+            BufferBindingType::Uniform => GpuPointLightsUniform::min_size(),
         }
     }
 }
@@ -1023,10 +1030,12 @@ fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
 }
 
 #[derive(ShaderType)]
-pub struct GpuClusterLightIndexListsUniform {
+struct GpuClusterLightIndexListsUniform {
     data: Box<[UVec4; ViewClusterBindings::MAX_UNIFORM_ITEMS]>,
 }
 
+// NOTE: Assert at compile time that GpuClusterLightIndexListsUniform
+// fits within the maximum uniform buffer binding size
 const _: () = assert!(<GpuClusterLightIndexListsUniform as encase::Size>::SIZE.get() <= 16384);
 
 impl Default for GpuClusterLightIndexListsUniform {
@@ -1038,7 +1047,7 @@ impl Default for GpuClusterLightIndexListsUniform {
 }
 
 #[derive(ShaderType)]
-pub struct GpuClusterOffsetsAndCountsUniform {
+struct GpuClusterOffsetsAndCountsUniform {
     data: Box<[UVec4; ViewClusterBindings::MAX_UNIFORM_ITEMS]>,
 }
 
@@ -1051,13 +1060,13 @@ impl Default for GpuClusterOffsetsAndCountsUniform {
 }
 
 #[derive(ShaderType, Default)]
-pub struct GpuClusterLightIndexListsStorage {
+struct GpuClusterLightIndexListsStorage {
     #[size(runtime)]
     data: Vec<u32>,
 }
 
 #[derive(ShaderType, Default)]
-pub struct GpuClusterOffsetsAndCountsStorage {
+struct GpuClusterOffsetsAndCountsStorage {
     #[size(runtime)]
     data: Vec<UVec2>,
 }
@@ -1239,6 +1248,24 @@ impl ViewClusterBindings {
                 cluster_offsets_and_counts,
                 ..
             } => cluster_offsets_and_counts.binding(),
+        }
+    }
+
+    pub fn min_size_cluster_light_index_lists(
+        buffer_binding_type: BufferBindingType,
+    ) -> NonZeroU64 {
+        match buffer_binding_type {
+            BufferBindingType::Storage { .. } => GpuClusterLightIndexListsStorage::min_size(),
+            BufferBindingType::Uniform => GpuClusterLightIndexListsUniform::min_size(),
+        }
+    }
+
+    pub fn min_size_cluster_offsets_and_counts(
+        buffer_binding_type: BufferBindingType,
+    ) -> NonZeroU64 {
+        match buffer_binding_type {
+            BufferBindingType::Storage { .. } => GpuClusterOffsetsAndCountsStorage::min_size(),
+            BufferBindingType::Uniform => GpuClusterOffsetsAndCountsUniform::min_size(),
         }
     }
 }
