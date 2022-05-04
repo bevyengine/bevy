@@ -54,7 +54,6 @@ fn main(){
 }
 ```
 
-If you can't produce a minimal reproduction, linking to a repository can also be very helpful.
 
 ## What went wrong
 
