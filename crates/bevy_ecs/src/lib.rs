@@ -14,6 +14,8 @@ pub mod storage;
 pub mod system;
 pub mod world;
 
+pub use bevy_ptr as ptr;
+
 /// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
