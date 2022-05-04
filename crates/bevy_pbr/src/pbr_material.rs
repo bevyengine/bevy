@@ -100,7 +100,7 @@ impl From<Color> for StandardMaterial {
     fn from(color: Color) -> Self {
         StandardMaterial {
             base_color: color,
-            alpha_mode: if color.a() != 1.0 {
+            alpha_mode: if color.a() < 1.0 {
                 AlphaMode::Blend
             } else {
                 AlphaMode::Opaque
