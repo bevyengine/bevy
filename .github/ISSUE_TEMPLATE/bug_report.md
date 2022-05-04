@@ -60,7 +60,7 @@ fn main(){
 If it's not immediately obvious:
 
 - what where you expecting?
-- what actually occured?
+- what actually happened?
 
 ## Additional information
 
