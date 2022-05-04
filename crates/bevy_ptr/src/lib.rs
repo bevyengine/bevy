@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 use std::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 
 /// Type-erased borrow of some unknown type chosen when constructing this type.
