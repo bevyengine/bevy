@@ -1,9 +1,9 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
-    ptr::{OwningPtr, Ptr, PtrMut},
     storage::{BlobVec, SparseSet},
 };
+use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::HashMap;
 use std::{
     cell::UnsafeCell,

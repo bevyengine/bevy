@@ -1,11 +1,11 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    ptr::OwningPtr,
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
+use bevy_ptr::OwningPtr;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},

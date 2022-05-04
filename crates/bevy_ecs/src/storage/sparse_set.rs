@@ -1,9 +1,9 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks},
     entity::Entity,
-    ptr::{OwningPtr, Ptr},
     storage::BlobVec,
 };
+use bevy_ptr::{OwningPtr, Ptr};
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 #[derive(Debug)]

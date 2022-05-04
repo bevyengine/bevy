@@ -2,7 +2,6 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
-    ptr::{ThinSlicePtr, UnsafeCellDeref},
     query::{
         debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, QueryFetch,
         ROQueryFetch, WorldQuery, WorldQueryGats,
@@ -11,6 +10,7 @@ use crate::{
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
+use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 use super::ReadOnlyFetch;

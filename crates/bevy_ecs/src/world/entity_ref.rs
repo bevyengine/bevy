@@ -4,10 +4,10 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    ptr::{OwningPtr, Ptr, UnsafeCellDeref},
     storage::{SparseSet, Storages},
     world::{Mut, World},
 };
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::{any::TypeId, cell::UnsafeCell};
 
 /// A read-only reference to a particular [`Entity`] and all of its components
