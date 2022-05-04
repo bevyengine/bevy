@@ -1,9 +1,6 @@
 use crate::{
-    archetype::ArchetypeComponentId,
-    component::ComponentId,
-    query::Access,
     schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
-    system::{BoxedSystem, IntoSystem, System},
+    system::{BoxedSystem, IntoSystem, Local},
     world::World,
 };
 use std::borrow::Cow;
@@ -42,6 +39,21 @@ pub enum ShouldRun {
     /// criteria should be checked again. This will cause the stage to loop over the remaining
     /// systems and criteria this tick until they no longer need to be checked.
     NoAndCheckAgain,
+}
+
+impl ShouldRun {
+    /// A run criterion which returns [`ShouldRun::Yes`] exactly once.
+    ///
+    /// This leads to the systems controlled by it only being
+    /// executed one time only.
+    pub fn once(mut ran: Local<bool>) -> ShouldRun {
+        if *ran {
+            ShouldRun::No
+        } else {
+            *ran = true;
+            ShouldRun::Yes
+        }
+    }
 }
 
 #[derive(Default)]
@@ -323,49 +335,4 @@ impl RunCriteria {
             after: vec![Box::new(label)],
         }
     }
-}
-
-#[derive(Default)]
-pub struct RunOnce {
-    ran: bool,
-    archetype_component_access: Access<ArchetypeComponentId>,
-    component_access: Access<ComponentId>,
-}
-
-impl System for RunOnce {
-    type In = ();
-    type Out = ShouldRun;
-
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<RunOnce>())
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
-    }
-
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
-    fn is_send(&self) -> bool {
-        true
-    }
-
-    unsafe fn run_unsafe(&mut self, _input: (), _world: &World) -> ShouldRun {
-        if self.ran {
-            ShouldRun::No
-        } else {
-            self.ran = true;
-            ShouldRun::Yes
-        }
-    }
-
-    fn apply_buffers(&mut self, _world: &mut World) {}
-
-    fn initialize(&mut self, _world: &mut World) {}
-
-    fn update_archetype_component_access(&mut self, _world: &World) {}
-
-    fn check_change_tick(&mut self, _change_tick: u32) {}
 }
