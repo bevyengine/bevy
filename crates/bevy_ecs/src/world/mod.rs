@@ -13,11 +13,11 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{AllocAtWithoutReplacement, Entities, Entity},
-    ptr::{OwningPtr, UnsafeCellDeref},
     query::{QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
     system::Resource,
 };
+use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,

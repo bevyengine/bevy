@@ -4,7 +4,7 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::ptr::{OwningPtr, Ptr, PtrMut};
+use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 
 /// A flat, type-erased data storage type
 ///

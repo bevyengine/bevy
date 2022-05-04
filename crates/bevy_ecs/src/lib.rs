@@ -6,7 +6,6 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
-pub mod ptr;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -14,6 +13,8 @@ pub mod schedule;
 pub mod storage;
 pub mod system;
 pub mod world;
+
+pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
 pub mod prelude {

@@ -8,10 +8,10 @@ use crate::{
     archetype::{AddBundle, Archetype, ArchetypeId, Archetypes, ComponentStatus},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    ptr::OwningPtr,
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
 use bevy_ecs_macros::all_tuples;
+use bevy_ptr::OwningPtr;
 use std::{any::TypeId, collections::HashMap};
 
 /// An ordered collection of [`Component`]s.
