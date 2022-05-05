@@ -7,7 +7,6 @@ use glam::*;
 
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -20,7 +19,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -34,7 +32,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -50,7 +47,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -63,7 +59,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -77,7 +72,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -93,7 +87,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -106,7 +99,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -120,7 +112,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -134,7 +125,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -150,7 +140,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -163,7 +152,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -177,7 +165,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -193,7 +180,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -207,7 +193,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -223,7 +208,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
@@ -237,7 +221,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        path = "self::bevy_reflect",
         PartialEq,
         Serialize,
         Deserialize,
