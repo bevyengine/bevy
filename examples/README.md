@@ -115,6 +115,7 @@ Example | File | Description
 `spherical_area_lights` | [`3d/spherical_area_lights.rs`](./3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior.
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
+`vertex_colors` | [`3d/vertex_colors.rs`](./3d/vertex_colors.rs) | Shows the use of vertex colors
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
 `3d_shapes` | [`3d/shapes.rs`](./3d/shapes.rs) | A scene showcasing the built-in 3D shapes
 

@@ -74,7 +74,7 @@ impl Mesh {
 
     /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Uint32);
+        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
