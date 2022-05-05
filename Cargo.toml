@@ -543,6 +543,10 @@ name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 
 [[example]]
+name = "many_foxes"
+path = "examples/stress_tests/many_foxes.rs"
+
+[[example]]
 name = "many_lights"
 path = "examples/stress_tests/many_lights.rs"
 
