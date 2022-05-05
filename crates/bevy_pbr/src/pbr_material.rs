@@ -8,11 +8,13 @@ use bevy_render::{
     mesh::MeshVertexBufferLayout,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::*,
+    render_resource::{
+        encase::{ShaderType, Size},
+        *,
+    },
     renderer::RenderDevice,
     texture::Image,
 };
-use encase::ShaderType;
 
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here
@@ -295,7 +297,7 @@ impl RenderAsset for StandardMaterial {
             alpha_cutoff,
         };
 
-        let byte_buffer = [0u8; <StandardMaterialUniformData as encase::Size>::SIZE.get() as usize];
+        let byte_buffer = [0u8; StandardMaterialUniformData::SIZE.get() as usize];
         let mut buffer = encase::UniformBuffer::new(byte_buffer);
         buffer.write(&value).unwrap();
 

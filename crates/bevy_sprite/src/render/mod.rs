@@ -19,7 +19,7 @@ use bevy_render::{
         BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{encase::ShaderType, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
@@ -30,7 +30,6 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
-use encase::ShaderType;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,

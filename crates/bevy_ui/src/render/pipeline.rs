@@ -1,8 +1,10 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
+    render_resource::{encase::ShaderType, *},
+    renderer::RenderDevice,
+    texture::BevyDefault,
+    view::ViewUniform,
 };
-use encase::ShaderType;
 
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,

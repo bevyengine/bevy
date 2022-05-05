@@ -31,4 +31,3 @@ rectangle-pack = "0.4"
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2"
 copyless = "0.1.5"
-encase = { git = "https://github.com/teoxoy/encase", features = ["glam"] }

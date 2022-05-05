@@ -1,5 +1,8 @@
 use crate::{
-    render_resource::DynamicUniformBuffer,
+    render_resource::{
+        encase::{internal::WriteInto, ShaderType},
+        DynamicUniformBuffer,
+    },
     renderer::{RenderDevice, RenderQueue},
     view::ComputedVisibility,
     RenderApp, RenderStage,
@@ -12,7 +15,6 @@ use bevy_ecs::{
     query::{QueryItem, WorldQuery},
     system::{lifetimeless::Read, StaticSystemParam},
 };
-use encase::{internal::WriteInto, ShaderType};
 use std::{marker::PhantomData, ops::Deref};
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].

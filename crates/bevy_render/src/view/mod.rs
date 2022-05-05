@@ -1,7 +1,6 @@
 pub mod visibility;
 pub mod window;
 
-use encase::ShaderType;
 pub use visibility::*;
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
@@ -13,7 +12,7 @@ use crate::{
     camera::ExtractedCamera,
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{DynamicUniformBuffer, Texture, TextureView},
+    render_resource::{encase::ShaderType, DynamicUniformBuffer, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,

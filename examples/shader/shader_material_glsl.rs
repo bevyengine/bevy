@@ -6,11 +6,13 @@ use bevy::{
     render::{
         mesh::MeshVertexBufferLayout,
         render_asset::{PrepareAssetError, RenderAsset},
-        render_resource::*,
+        render_resource::{
+            encase::{self, ShaderType, Size},
+            *,
+        },
         renderer::RenderDevice,
     },
 };
-use encase::ShaderType;
 
 fn main() {
     App::new()
@@ -69,7 +71,7 @@ impl RenderAsset for CustomMaterial {
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let color = Vec4::from_slice(&extracted_asset.color.as_linear_rgba_f32());
 
-        let byte_buffer = [0u8; <Vec4 as encase::Size>::SIZE.get() as usize];
+        let byte_buffer = [0u8; Vec4::SIZE.get() as usize];
         let mut buffer = encase::UniformBuffer::new(byte_buffer);
         buffer.write(&color).unwrap();
 

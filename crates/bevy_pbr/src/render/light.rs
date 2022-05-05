@@ -21,7 +21,10 @@ use bevy_render::{
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{
+        encase::{ShaderType, Size},
+        *,
+    },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{
@@ -34,7 +37,6 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use encase::ShaderType;
 use std::num::{NonZeroU32, NonZeroU64};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
@@ -1036,7 +1038,7 @@ struct GpuClusterLightIndexListsUniform {
 
 // NOTE: Assert at compile time that GpuClusterLightIndexListsUniform
 // fits within the maximum uniform buffer binding size
-const _: () = assert!(<GpuClusterLightIndexListsUniform as encase::Size>::SIZE.get() <= 16384);
+const _: () = assert!(GpuClusterLightIndexListsUniform::SIZE.get() <= 16384);
 
 impl Default for GpuClusterLightIndexListsUniform {
     fn default() -> Self {

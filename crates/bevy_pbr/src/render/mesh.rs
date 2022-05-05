@@ -19,14 +19,16 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::*,
+    render_resource::{
+        encase::{ShaderType, Size},
+        *,
+    },
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-use encase::ShaderType;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -671,7 +673,7 @@ pub struct SkinnedMeshUniform {
 
 // NOTE: Assert at compile time that SkinnedMeshUniform
 // fits within the maximum uniform buffer binding size
-const _: () = assert!(<SkinnedMeshUniform as encase::Size>::SIZE.get() <= 16384);
+const _: () = assert!(SkinnedMeshUniform::SIZE.get() <= 16384);
 
 impl Default for SkinnedMeshUniform {
     fn default() -> Self {

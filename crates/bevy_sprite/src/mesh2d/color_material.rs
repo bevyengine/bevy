@@ -7,11 +7,13 @@ use bevy_render::{
     color::Color,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::*,
+    render_resource::{
+        encase::{ShaderType, Size},
+        *,
+    },
     renderer::RenderDevice,
     texture::Image,
 };
-use encase::ShaderType;
 
 use crate::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle};
 
@@ -144,7 +146,7 @@ impl RenderAsset for ColorMaterial {
             flags: flags.bits(),
         };
 
-        let byte_buffer = [0u8; <ColorMaterialUniformData as encase::Size>::SIZE.get() as usize];
+        let byte_buffer = [0u8; ColorMaterialUniformData::SIZE.get() as usize];
         let mut buffer = encase::UniformBuffer::new(byte_buffer);
         buffer.write(&value).unwrap();
 

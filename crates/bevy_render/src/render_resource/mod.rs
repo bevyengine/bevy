@@ -44,4 +44,9 @@ pub use wgpu::{
     VertexStepMode,
 };
 
+pub mod encase {
+    pub use encase::*;
+    pub use encase_derive::BevyShaderType as ShaderType;
+}
+
 pub use naga::ShaderStage;
