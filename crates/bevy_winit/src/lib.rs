@@ -2,38 +2,37 @@ mod converters;
 mod winit_config;
 mod winit_windows;
 
+pub use winit_config::*;
+pub use winit_windows::*;
+
+use bevy_app::{App, AppExit, CoreStage, Plugin};
+use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    event::{Events, ManualEventReader},
+    world::World,
+};
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
 };
-pub use winit_config::*;
-pub use winit_windows::*;
-
-use bevy_app::{App, AppExit, CoreStage, Plugin};
-use bevy_ecs::{
-    event::{EventWriter, Events, ManualEventReader},
-    schedule::ParallelSystemDescriptorCoercion,
-    system::{NonSend, ResMut},
-    world::World,
-};
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::{
-    tracing::{error, trace, warn},
+    tracing::{error, info, trace, warn},
     Instant,
 };
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
     ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
-    WindowCreated, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+    WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
+    WindowScaleFactorChanged, Windows,
 };
+
 use winit::{
-    dpi::PhysicalPosition,
+    dpi::{LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
-
-use winit::dpi::LogicalSize;
 
 #[derive(Default)]
 pub struct WinitPlugin;
@@ -51,10 +50,12 @@ impl Plugin for WinitPlugin {
 }
 
 fn change_window(
-    winit_windows: NonSend<WinitWindows>,
+    mut winit_windows: NonSendMut<WinitWindows>,
     mut windows: ResMut<Windows>,
     mut window_dpi_changed_events: EventWriter<WindowScaleFactorChanged>,
+    mut window_close_events: EventWriter<WindowClosed>,
 ) {
+    let mut removed_windows = vec![];
     for bevy_window in windows.iter_mut() {
         let id = bevy_window.id();
         for command in bevy_window.drain_commands() {
@@ -166,7 +167,23 @@ fn change_window(
                         window.set_max_inner_size(Some(max_inner_size));
                     }
                 }
+                bevy_window::WindowCommand::Close => {
+                    // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
+                    // Add the removal requests to a queue to solve this
+                    removed_windows.push(id);
+                    // No need to run any further commands - this drops the rest of the commands, although the `bevy_window::Window` will be dropped later anyway
+                    break;
+                }
             }
+        }
+    }
+    if !removed_windows.is_empty() {
+        for id in removed_windows {
+            // Close the OS window. (The `Drop` impl actually closes the window)
+            let _ = winit_windows.remove_window(id);
+            // Clean up our own data structures
+            windows.remove(id);
+            window_close_events.send(WindowClosed { id });
         }
     }
 }
@@ -316,7 +333,8 @@ pub fn winit_runner_with(mut app: App) {
                 let window = if let Some(window) = windows.get_mut(window_id) {
                     window
                 } else {
-                    warn!("Skipped event for unknown Window Id {:?}", winit_window_id);
+                    // If we're here, this window was previously opened
+                    info!("Skipped event for closed window: {:?}", window_id);
                     return;
                 };
                 winit_state.low_power_event = true;
