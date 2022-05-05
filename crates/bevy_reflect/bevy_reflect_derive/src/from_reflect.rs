@@ -66,7 +66,7 @@ pub fn impl_struct(
             let mut value: Self = #ctor;
             #(
                 value.#field_idents = {
-                    <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(ref_struct.field(#field_names)?)?
+                    <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(#bevy_reflect_path::Struct::field(ref_struct, #field_names)?)?
                 };
             )*
             Some(value)
@@ -76,7 +76,7 @@ pub fn impl_struct(
             Some(
                 Self {
                     #(#field_idents: {
-                        <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(ref_struct.field(#field_names)?)?
+                        <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(#bevy_reflect_path::Struct::field(ref_struct, #field_names)?)?
                     },)*
                     #(#ignored_field_idents: Default::default(),)*
                 }
@@ -88,7 +88,6 @@ pub fn impl_struct(
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
         {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
-                use #bevy_reflect_path::Struct;
                 if let #bevy_reflect_path::ReflectRef::Struct(ref_struct) = reflect.reflect_ref() {
                     #ctor
                 } else {

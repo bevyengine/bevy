@@ -287,8 +287,7 @@ fn impl_struct(
 
             #[inline]
             fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
-                use #bevy_reflect_path::Struct;
-                Box::new(self.clone_dynamic())
+                Box::new(#bevy_reflect_path::Struct::clone_dynamic(self))
             }
             #[inline]
             fn set(&mut self, value: Box<dyn #bevy_reflect_path::Reflect>) -> Result<(), Box<dyn #bevy_reflect_path::Reflect>> {
@@ -298,11 +297,10 @@ fn impl_struct(
 
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                use #bevy_reflect_path::Struct;
                 if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = value.reflect_ref() {
                     for (i, value) in struct_value.iter_fields().enumerate() {
                         let name = struct_value.name_at(i).unwrap();
-                        self.field_mut(name).map(|v| v.apply(value));
+                        #bevy_reflect_path::Struct::field_mut(self, name).map(|v| v.apply(value));
                     }
                 } else {
                     panic!("Attempted to apply non-struct type to struct type.");
@@ -628,8 +626,6 @@ struct ReflectStructDef {
     generics: Generics,
     attrs: ReflectAttrs,
     fields: Fields,
-    // ctor: Option<proc_macro2::TokenStream>,
-    bevy_reflect_path: Option<Path>,
 }
 
 impl Parse for ReflectStructDef {
@@ -654,9 +650,6 @@ impl Parse for ReflectStructDef {
             }
         };
 
-        // let mut ctor = None;
-        let mut bevy_reflect_path = None;
-
         let mut attrs = ReflectAttrs::default();
         for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
             let meta_list = if let Meta::List(meta_list) = attribute {
@@ -667,38 +660,6 @@ impl Parse for ReflectStructDef {
 
             if let Some(ident) = meta_list.path.get_ident() {
                 if ident == REFLECT_ATTRIBUTE_NAME || ident == REFLECT_VALUE_ATTRIBUTE_NAME {
-                    for name_val in meta_list.nested.iter().filter_map(|m| {
-                        if let NestedMeta::Meta(Meta::NameValue(name_val)) = m {
-                            Some(name_val)
-                        } else {
-                            None
-                        }
-                    }) {
-                        if let Some(syn::PathSegment {
-                            ident,
-                            arguments: _,
-                        }) = name_val.path.segments.first()
-                        {
-                            if &ident.to_string()[..] == "path" {
-                                let path_str = match &name_val.lit {
-                                    syn::Lit::Str(s) => Ok(s),
-                                    _ => {
-                                        Err(syn::Error::new_spanned(&name_val.lit, "Invalid path"))
-                                    }
-                                }?;
-                                bevy_reflect_path =
-                                    Some(path_str.parse::<Path>().map_err(|e| {
-                                        let mut err = syn::Error::new_spanned(
-                                            path_str,
-                                            "Failed to parse path:",
-                                        );
-                                        err.combine(e);
-                                        err
-                                    })?);
-                            }
-                        }
-                    }
-
                     attrs = ReflectAttrs::from_nested_metas(&meta_list.nested);
                 }
             }
@@ -709,8 +670,6 @@ impl Parse for ReflectStructDef {
             generics,
             attrs,
             fields,
-            // ctor,
-            bevy_reflect_path,
         })
     }
 }
@@ -744,15 +703,9 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
         generics,
         attrs,
         fields,
-        // ctor,
-        bevy_reflect_path,
     } = parse_macro_input!(input as ReflectStructDef);
 
-    let bevy_reflect_path = if let Some(path) = bevy_reflect_path {
-        path
-    } else {
-        BevyManifest::default().get_path("bevy_reflect")
-    };
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
 
     let fields_and_args = fields
         .iter()
