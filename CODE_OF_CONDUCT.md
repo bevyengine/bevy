@@ -25,14 +25,17 @@ And if someone takes issue with something you said or did, resist the urge to be
 ## Moderation
 
 These are the policies for upholding [our community’s standards of conduct](#our-standards). If you feel that a thread needs moderation, please contact the maintainers.
-
-1. Remarks that violate the community standards of conduct, including hateful, hurtful, oppressive, or exclusionary remarks, are not allowed.
-2. Remarks that maintainers find inappropriate, whether listed in the code of conduct or not, are also not allowed.
-3. Maintainers will first respond to such remarks with a warning.
-4. If the warning is unheeded, the user will be “kicked,” i.e., kicked out of the communication channel to cool off.
-5. If the user comes back and continues to make trouble, they will be banned, i.e., indefinitely excluded.
-6. Maintainers may choose at their discretion to un-ban the user if it was a first offense and they offer the offended party a genuine apology.
-7. If a maintainer bans someone and you think it was unjustified, please take it up with that maintainer, or with a different maintainer, in private. Complaints about bans in-channel are not allowed.
-8. Maintainers are held to a higher standard than other community members. If a maintainer creates an inappropriate situation, they should expect less leeway than others.
-
 The enforcement policies in the code of conduct apply to all official venues, including Discord channels, GitHub repositories, the Twitter community and all other forums.
+
+1. Hateful, hurtful, oppressive, or exclusionary remarks are not allowed.
+2. Remarks that maintainers find inappropriate, whether listed in the code of conduct or not, are also not allowed.
+
+When the standards are violated, maintainers will:
+
+1. Warn the offender.
+2. If a second warning would be needed (or the warning is not heeded), the offender is kicked, but may rejoin.
+3. If bad behavior persists after rejoining, the offender will be permanently banned.
+
+Maintainers are held to a higher standard than other community members. If a maintainer creates an inappropriate situation, they should expect less leeway than others.
+If you feel disciplinary action was unwarranted, please make a dedicated thread in #community on Discord to discuss it, or message the moderation team in private.
+
