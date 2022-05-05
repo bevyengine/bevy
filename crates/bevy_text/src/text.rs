@@ -16,7 +16,7 @@ pub struct Text {
 /// Corrected text data after applying the Unicode Bidirectional Algorithm
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component)]
-pub struct BidiCorrectedText {
+pub(crate) struct BidiCorrectedText {
     pub sections: Vec<TextSection>,
 }
 

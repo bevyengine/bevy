@@ -3,20 +3,27 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
-    system::{Local, ParamSet, Query, Res, ResMut},
+    system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_text::{
-    BidiCorrectedText, DefaultTextPipeline, Font, FontAtlasSet, Text, TextError, TextSection,
-};
+use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError, TextSection};
 use bevy_window::{WindowId, Windows};
 use unicode_bidi::BidiInfo;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
     entities: Vec<Entity>,
+}
+
+/// Corrected text data after applying the Unicode Bidirectional Algorithm
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component)]
+pub(crate) struct BidiCorrectedText {
+    pub sections: Vec<TextSection>,
 }
 
 fn scale_value(value: f32, factor: f64) -> f32 {
@@ -39,7 +46,8 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn text_system(
+pub(crate) fn text_system(
+    mut commands: Commands,
     mut queued_text: Local<QueuedText>,
     mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Image>>,
@@ -51,7 +59,12 @@ pub fn text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
-        Query<(&Text, &Style, &mut CalculatedSize, &mut BidiCorrectedText)>,
+        Query<(
+            &Text,
+            &Style,
+            &mut CalculatedSize,
+            Option<&mut BidiCorrectedText>,
+        )>,
     )>,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary());
@@ -80,7 +93,9 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size, mut bidi_corrected)) = query.get_mut(entity) {
+        if let Ok((text, style, mut calculated_size, bidi_corrected)) = query.get_mut(entity) {
+            let mut bidi_corrected_internal = BidiCorrectedText::default();
+
             let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
@@ -96,7 +111,6 @@ pub fn text_system(
                 ),
             );
 
-            bidi_corrected.sections.clear();
             for section in &text.sections {
                 let bidi_info = BidiInfo::new(&section.value, None);
                 for para in &bidi_info.paragraphs {
@@ -106,14 +120,14 @@ pub fn text_system(
                         value: display.into_owned(),
                         style: section.style.clone(),
                     };
-                    bidi_corrected.sections.push(section);
+                    bidi_corrected_internal.sections.push(section);
                 }
             }
 
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
-                &bidi_corrected.sections,
+                &bidi_corrected_internal.sections,
                 scale_factor,
                 text.alignment,
                 node_size,
@@ -138,6 +152,12 @@ pub fn text_system(
                         height: scale_value(text_layout_info.size.y, inv_scale_factor),
                     };
                 }
+            }
+
+            if let Some(mut bidi_corrected) = bidi_corrected {
+                *bidi_corrected = bidi_corrected_internal;
+            } else {
+                commands.entity(entity).insert(bidi_corrected_internal);
             }
         }
     }

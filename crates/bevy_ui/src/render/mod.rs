@@ -6,7 +6,7 @@ pub use camera::*;
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{CalculatedClip, Node, UiColor, UiImage};
+use crate::{widget::BidiCorrectedText, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_core::FloatOrd;
@@ -25,7 +25,7 @@ use bevy_render::{
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
-use bevy_text::{BidiCorrectedText, DefaultTextPipeline};
+use bevy_text::DefaultTextPipeline;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
@@ -163,7 +163,7 @@ pub fn extract_uinodes(
     }
 }
 
-pub fn extract_text_uinodes(
+pub(crate) fn extract_text_uinodes(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
