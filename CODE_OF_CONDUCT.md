@@ -1,7 +1,5 @@
 # Code of Conduct
 
-_This Code of Conduct is based on the [Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-conduct), which is adapted from the [Node.js Policy on Trolling](http://blog.izs.me/post/30036893703/policy-on-trolling) and the [Contributor Covenant](https://www.contributor-covenant.org)._
-
 ## Our Pledge
 
 We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
