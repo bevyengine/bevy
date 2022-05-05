@@ -496,13 +496,14 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 /// within your system.
 /// Using [`ParamSet`] in this case avoids [`SystemParam`] collisions.
 ///
+/// This type can be useful for making your own adapters to systems. For an example,
+/// see [`chain`].
+///
 /// # Example
 ///
-/// To create something like [`ChainSystem`], but in entirely safe code.
+/// Create the
 ///
 /// ```rust
-/// use std::num::ParseIntError;
-///
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{SystemParam, SystemParamItem};
 ///
@@ -510,48 +511,26 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 /// // parameters and marker type required for coherence. `B` is the second system, and
 /// // the other generics are for the input/output types of A and B.
 /// /// Chain creates a new system which calls `a`, then calls `b` with the output of `a`
-/// pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
-///     mut a: A,
-///     mut b: B,
-/// ) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
+/// pub fn identity<Sys, SysIn, SysOut, Param, Marker>(
+///     mut system: Sys,
+/// // Note that in this case, the `ParamSet` is not needed, since there's only one item
+/// ) -> impl FnMut(In<SysIn>, ParamSet<(SystemParamItem<Param>,)>) -> SysOut
 /// where
 ///     // We need A and B to be systems, add those bounds
-///     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,
-///     B: SystemParamFunction<Shared, BOut, BParam, BMarker>,
-///     AParam: SystemParam,
-///     BParam: SystemParam,
+///     Sys: SystemParamFunction<SysIn, SysOut, Param, Marker>,
+///     Param: SystemParam,
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
-///     move |In(a_in), mut params| {
-///         let shared = a.run(a_in, params.p0());
-///         b.run(shared, params.p1())
+///     move |In(input), mut params| {
+///         let shared = system.run(input, params.p0())
 ///     }
 /// }
 ///
-/// // Usage example for `chain`:
-/// fn main() {
-///     let mut world = World::default();
-///     world.insert_resource(Message("42".to_string()));
-///
-///     // chain the `parse_message_system`'s output into the `filter_system`s input
-///     let mut chained_system = IntoSystem::into_system(chain(parse_message, filter));
-///     chained_system.initialize(&mut world);
-///     assert_eq!(chained_system.run((), &mut world), Some(42));
-/// }
-///
-/// struct Message(String);
-///
-/// fn parse_message(message: Res<Message>) -> Result<usize, ParseIntError> {
-///     message.0.parse::<usize>()
-/// }
-///
-/// fn filter(In(result): In<Result<usize, ParseIntError>>) -> Option<usize> {
-///     result.ok().filter(|&n| n < 100)
-/// }
 /// ```
-/// [`ChainSystem`]: crate::system::ChainSystem
-/// [`ParamSet`]: crate::system::ParamSet
+///
+/// [`chain`]: crate::system::chain
 pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
+    /// Run the function with the system parameters of the function
     fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;
 }
 
@@ -589,7 +568,7 @@ macro_rules! impl_system_function {
                 FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out, Out: 'static
         {
             #[inline]
-            fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, input: Input, params: SystemParamItem<($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Input, Out, $($param,)*>(
                     mut f: impl FnMut(In<Input>, $($param,)*)->Out,
@@ -598,7 +577,7 @@ macro_rules! impl_system_function {
                 )->Out{
                     f(input, $($param,)*)
                 }
-                let ($($param,)*) = param_value;
+                let ($($param,)*) = params;
                 call_inner(self, In(input), $($param),*)
             }
         }
