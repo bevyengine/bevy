@@ -741,7 +741,7 @@ pub fn prepare_skinned_meshes(
     skinned_mesh_uniform
         .buffer
         .reserve(extracted_joints.buffer.len(), &render_device);
-    for joint in extracted_joints.buffer.iter() {
+    for joint in &extracted_joints.buffer {
         skinned_mesh_uniform.buffer.push(*joint);
     }
     skinned_mesh_uniform

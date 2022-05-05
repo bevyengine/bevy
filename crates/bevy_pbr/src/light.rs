@@ -879,7 +879,7 @@ pub(crate) fn assign_lights_to_clusters(
 
         let inverse_projection = camera.projection_matrix.inverse();
 
-        for lights in clusters.lights.iter_mut() {
+        for lights in &mut clusters.lights {
             lights.entities.clear();
         }
         clusters.lights.resize_with(

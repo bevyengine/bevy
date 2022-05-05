@@ -85,7 +85,7 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Rgb8 => {
                     let (mut original_width, mut original_height) = (width, height);
 
-                    for level_data in levels.iter() {
+                    for level_data in &levels {
                         let n_pixels = (original_width * original_height) as usize;
 
                         let mut rgba = vec![255u8; n_pixels * 4];
