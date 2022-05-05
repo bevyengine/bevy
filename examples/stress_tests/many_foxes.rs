@@ -199,6 +199,10 @@ fn update_fox_rings(
     foxes: Res<Foxes>,
     mut rings: Query<(&Ring, &RotationDirection, &mut Transform)>,
 ) {
+    if !foxes.moving {
+        return;
+    }
+
     let dt = time.delta_seconds();
     for (ring, rotation_direction, mut transform) in rings.iter_mut() {
         let angular_velocity = foxes.speed / ring.radius;
