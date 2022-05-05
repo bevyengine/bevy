@@ -26,7 +26,7 @@ And if someone takes issue with something you said or did, resist the urge to be
 
 These are the policies for upholding [our community’s standards of conduct](#our-standards). If you feel that a thread needs moderation, please contact the maintainers.
 
-1. Remarks that violate the community standards of conduct, including hateful, hurtful, oppressive, or exclusionary remarks, are not allowed. (Cursing is allowed, but never targeting another user, and never in a hateful manner).
+1. Remarks that violate the community standards of conduct, including hateful, hurtful, oppressive, or exclusionary remarks, are not allowed.
 2. Remarks that maintainers find inappropriate, whether listed in the code of conduct or not, are also not allowed.
 3. Maintainers will first respond to such remarks with a warning.
 4. If the warning is unheeded, the user will be “kicked,” i.e., kicked out of the communication channel to cool off.
