@@ -245,7 +245,7 @@ pub fn check_visibility(
             for entity in queue.iter().copied() {
                 computed_visibility.mark_visible(entity);
             }
-            visible_entities.entities.extend(queue.drain(..));
+            visible_entities.entities.append(queue);
         }
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
