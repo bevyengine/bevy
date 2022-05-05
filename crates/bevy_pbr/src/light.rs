@@ -328,8 +328,7 @@ impl ClusterConfig {
 
     fn first_slice_depth(&self) -> f32 {
         match self {
-            ClusterConfig::None => 0.0,
-            ClusterConfig::Single => 0.0,
+            ClusterConfig::None | ClusterConfig::Single => 0.0,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.first_slice_depth
             }
