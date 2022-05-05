@@ -16,6 +16,7 @@ bevy = ["glam", "smallvec"]
 # bevy
 bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.8.0-dev" }
 
 # other
 erased-serde = "0.3"
