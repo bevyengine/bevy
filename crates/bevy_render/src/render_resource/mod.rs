@@ -45,8 +45,8 @@ pub use wgpu::{
 };
 
 pub mod encase {
+    pub use bevy_encase_derive::ShaderType;
     pub use encase::*;
-    pub use encase_derive::BevyShaderType as ShaderType;
 }
 
 pub use naga::ShaderStage;
