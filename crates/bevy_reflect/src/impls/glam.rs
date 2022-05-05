@@ -1,13 +1,12 @@
 use crate as bevy_reflect;
+use crate::prelude::ReflectDefault;
 use crate::reflect::Reflect;
 use crate::ReflectDeserialize;
-use crate::prelude::ReflectDefault;
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_struct, impl_reflect_value};
 use glam::*;
 
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -21,7 +20,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -36,7 +34,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -53,7 +50,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -67,7 +63,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -82,7 +77,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -99,7 +93,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -113,7 +106,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -128,7 +120,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -143,7 +134,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -160,7 +150,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -174,7 +163,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -189,7 +177,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -206,7 +193,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -221,7 +207,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -238,7 +223,6 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,
@@ -253,7 +237,6 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(
-        ctor = "Default::default()",
         path = "self::bevy_reflect",
         PartialEq,
         Serialize,

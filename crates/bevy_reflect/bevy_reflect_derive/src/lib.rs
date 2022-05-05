@@ -628,7 +628,7 @@ struct ReflectStructDef {
     generics: Generics,
     attrs: ReflectAttrs,
     fields: Fields,
-    ctor: Option<proc_macro2::TokenStream>,
+    // ctor: Option<proc_macro2::TokenStream>,
     bevy_reflect_path: Option<Path>,
 }
 
@@ -654,7 +654,7 @@ impl Parse for ReflectStructDef {
             }
         };
 
-        let mut ctor = None;
+        // let mut ctor = None;
         let mut bevy_reflect_path = None;
 
         let mut attrs = ReflectAttrs::default();
@@ -698,27 +698,27 @@ impl Parse for ReflectStructDef {
                                             err
                                         })?);
                                 }
-                                "ctor" => {
-                                    let ctor_str = match &name_val.lit {
-                                        syn::Lit::Str(s) => Ok(s),
-                                        _ => Err(syn::Error::new_spanned(
-                                            &name_val.lit,
-                                            "Invalid ctor value",
-                                        )),
-                                    }?;
-                                    ctor = Some(
-                                        ctor_str.parse::<proc_macro2::TokenStream>().map_err(
-                                            |e| {
-                                                let mut err = syn::Error::new_spanned(
-                                                    ctor_str,
-                                                    "Failed to parse ctor:",
-                                                );
-                                                err.combine(e);
-                                                err
-                                            },
-                                        )?,
-                                    );
-                                }
+                                // "ctor" => {
+                                //     let ctor_str = match &name_val.lit {
+                                //         syn::Lit::Str(s) => Ok(s),
+                                //         _ => Err(syn::Error::new_spanned(
+                                //             &name_val.lit,
+                                //             "Invalid ctor value",
+                                //         )),
+                                //     }?;
+                                //     ctor = Some(
+                                //         ctor_str.parse::<proc_macro2::TokenStream>().map_err(
+                                //             |e| {
+                                //                 let mut err = syn::Error::new_spanned(
+                                //                     ctor_str,
+                                //                     "Failed to parse ctor:",
+                                //                 );
+                                //                 err.combine(e);
+                                //                 err
+                                //             },
+                                //         )?,
+                                //     );
+                                // }
                                 _ => (),
                             }
                         }
@@ -734,7 +734,7 @@ impl Parse for ReflectStructDef {
             generics,
             attrs,
             fields,
-            ctor,
+            // ctor,
             bevy_reflect_path,
         })
     }
@@ -769,7 +769,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
         generics,
         attrs,
         fields,
-        ctor,
+        // ctor,
         bevy_reflect_path,
     } = parse_macro_input!(input as ReflectStructDef);
 
@@ -827,6 +827,15 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
         })
         .map(|(f, _attr, i)| (*f, *i))
         .collect::<Vec<(&Field, usize)>>();
+
+    let ctor = if attrs
+        .data
+        .contains(&Ident::new("ReflectDefault", Span::call_site()))
+    {
+        Some(quote! { Default::default() })
+    } else {
+        None
+    };
 
     let registration_data = &attrs.data;
     let get_type_registration_impl =
