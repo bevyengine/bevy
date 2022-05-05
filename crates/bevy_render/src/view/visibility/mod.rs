@@ -12,6 +12,9 @@ use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 use fixedbitset::FixedBitSet;
+use bevy_tasks::ComputeTaskPool;
+use thread_local::ThreadLocal;
+use std::cell::Cell;
 
 use crate::{
     camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
@@ -158,6 +161,9 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 
 pub fn check_visibility(
     entities: &Entities,
+    task_pool: Res<ComputeTaskPool>,
+    mut thread_queues: Local<ThreadLocal<Cell<Option<Vec<Entity>>>>>,
+    mut queues: Local<Vec<Vec<Entity>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
     mut computed_visibility: ResMut<ComputedVisibility>,
     visible_entity_query: Query<(
@@ -173,26 +179,29 @@ pub fn check_visibility(
     computed_visibility.clear();
     computed_visibility.reserve(entities);
 
+    for queue in thread_queues.iter_mut() {
+        *queue.get_mut() = Some(queues.pop().unwrap_or_default());
+    }
+
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (
+        visible_entity_query.par_for_each(&*task_pool, 1024, |(
             entity,
             visibility,
             maybe_entity_mask,
             maybe_aabb,
             maybe_no_frustum_culling,
             maybe_transform,
-        ) in visible_entity_query.iter()
-        {
+        )| {
             if !visibility.is_visible {
-                continue;
+                return;
             }
 
             let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
             if !view_mask.intersects(&entity_mask) {
-                continue;
+                return;
             }
 
             // If we have an aabb and transform, do frustum culling
@@ -206,16 +215,29 @@ pub fn check_visibility(
                 };
                 // Do quick sphere-based frustum culling
                 if !frustum.intersects_sphere(&model_sphere, false) {
-                    continue;
+                    return;
                 }
                 // If we have an aabb, do aabb-based frustum culling
                 if !frustum.intersects_obb(model_aabb, &model, false) {
-                    continue;
+                    return;
                 }
             }
 
-            computed_visibility.mark_visible(entity);
-            visible_entities.entities.push(entity);
+            let cell = thread_queues.get_or_default();
+            let mut queue = cell.take().unwrap_or_default();
+            queue.push(entity);
+            cell.set(Some(queue));
+        });
+
+        queues.clear();
+        queues.extend(thread_queues.iter_mut().map(|cell| cell.get_mut().take().unwrap()));
+        let total_size = queues.iter().map(|queue| queue.len()).sum();
+        visible_entities.entities.reserve(total_size);
+        for queue in queues.iter_mut() {
+            for entity in queue.iter().copied() {
+                computed_visibility.mark_visible(entity);
+            }
+            visible_entities.entities.extend(queue.drain(..));
         }
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
