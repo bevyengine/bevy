@@ -51,7 +51,7 @@ fn main() {
     if what_to_run.contains(Check::CLIPPY) {
         // See if clippy has any complaints.
         // - Type complexity must be ignored because we use huge templates for queries
-        cmd!(sh, "cargo clippy --workspace --all-targets --all-features -- -A clippy::type_complexity -W clippy::doc_markdown -W clippy::option_if_let_else -D warnings")
+        cmd!(sh, "cargo clippy --workspace --all-targets --all-features -- -A clippy::type_complexity -W clippy::doc_markdown -W clippy::option_if_let_else -W clippy::redundant_else -D warnings")
         .run()
         .expect("Please fix clippy errors in output above.");
     }

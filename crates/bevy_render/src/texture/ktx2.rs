@@ -1287,9 +1287,8 @@ pub fn ktx2_format_to_texture_format(
                     "{:?}",
                     ktx2_format
                 )));
-            } else {
-                TextureFormat::R8Unorm
             }
+            TextureFormat::R8Unorm
         }
         ktx2::Format::R8_SNORM => TextureFormat::R8Snorm,
         ktx2::Format::R8_UINT => TextureFormat::R8Uint,
@@ -1300,9 +1299,8 @@ pub fn ktx2_format_to_texture_format(
                     "{:?}",
                     ktx2_format
                 )));
-            } else {
-                TextureFormat::R8Unorm
             }
+            TextureFormat::R8Unorm
         }
         ktx2::Format::R8G8_UNORM => {
             if is_srgb {
@@ -1310,9 +1308,8 @@ pub fn ktx2_format_to_texture_format(
                     "{:?}",
                     ktx2_format
                 )));
-            } else {
-                TextureFormat::Rg8Unorm
             }
+            TextureFormat::Rg8Unorm
         }
         ktx2::Format::R8G8_SNORM => TextureFormat::Rg8Snorm,
         ktx2::Format::R8G8_UINT => TextureFormat::Rg8Uint,
@@ -1323,9 +1320,8 @@ pub fn ktx2_format_to_texture_format(
                     "{:?}",
                     ktx2_format
                 )));
-            } else {
-                TextureFormat::Rg8Unorm
             }
+            TextureFormat::Rg8Unorm
         }
         ktx2::Format::R8G8B8A8_UNORM => {
             if is_srgb {
