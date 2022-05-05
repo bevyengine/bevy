@@ -14,14 +14,6 @@ In this community we strive to go the extra step to look out for each other. Don
 
 And if someone takes issue with something you said or did, resist the urge to be defensive. Just stop doing what it was they complained about and apologize. Even if you feel you were misinterpreted or unfairly accused, chances are good there was something you could’ve communicated better — remember that it’s your responsibility to make others in the community comfortable. Everyone wants to get along and we are all here first and foremost because we want to talk about cool technology. You will find that people will be eager to assume good intent and forgive as long as you earn their trust.
 
-* Please avoid using overtly sexual aliases or other nicknames that might detract from a friendly, safe and welcoming environment for all.
-* Please be kind and courteous. There’s no need to be mean or rude.
-* Respect that people have differences of opinion and that every design or implementation choice carries a trade-off and numerous costs. There is seldom a right answer.
-* Please keep unstructured critique to a minimum. If you have solid ideas you want to experiment with, make a fork and see how it works.
-* We will exclude you from interaction if you insult, demean or harass anyone. That is not welcome behavior. We interpret the term “harassment” as including the definition in the [Citizen Code of Conduct](https://github.com/stumpsyn/policies/blob/master/citizen_code_of_conduct.md); if you have any lack of clarity about what might be included in that concept, please read their definition. In particular, we don’t tolerate behavior that excludes people in socially marginalized groups.
-* Private harassment is also unacceptable. No matter who you are, if you feel you have been or are being harassed or made uncomfortable by a community member, please contact the maintainers immediately. Whether you’re a regular contributor or a newcomer, we care about making this community a safe place for you and we’ve got your back.
-* Likewise any spamming, trolling, flaming, baiting or other attention-stealing behavior is not welcome.
-
 ## Moderation
 
 These are the policies for upholding [our community’s standards of conduct](#our-standards). If you feel that a thread needs moderation, please contact the maintainers.
@@ -33,6 +25,10 @@ The enforcement policies in the code of conduct apply to all official venues, in
 4. Spamming, low-grade trolling and flame-baiting make the community worse and are not allowed.
 5. Bevy is an all-ages community. This is not the place for explicitly sexual or gorey materials.
 
+Maintainers are held to a higher standard than other community members.
+If a maintainer violates community standards, they should expect less leeway than others.
+These policies apply to private interactions between community members as well as those in public: if someone has been harassing you in private, let us know.
+
 When the standards are violated, maintainers will:
 
 1. Warn the offender.
@@ -41,5 +37,4 @@ When the standards are violated, maintainers will:
 4. Spam bots will be banned on sight.
    1. If this was done in error (or if your account was hacked), message the maintainers to reverse the ban.
 
-Maintainers are held to a higher standard than other community members. If a maintainer creates an inappropriate situation, they should expect less leeway than others.
 If you feel disciplinary action was unwarranted, please make a dedicated thread in #community on Discord to discuss it, or message the moderation team in private.
