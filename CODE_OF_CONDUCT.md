@@ -19,9 +19,10 @@ The enforcement policies in the code of conduct apply to all official venues, in
 
 1. Hateful, hurtful, oppressive, or exclusionary remarks are not allowed.
 2. Personal attacks are out-of-line: disagree with specific actions and decisions in a constructive way.
-3. Nicknames or aliases that are offensive or overtly sexual are not allowed. You will be asked to change these.
-4. Spamming, low-grade trolling and flame-baiting make the community worse and are not allowed.
-5. Bevy is an all-ages community. This is not the place for explicitly sexual or gorey materials.
+3. Avoid sweeping negative comments or jokes that could be construed as passive-aggressive complaints: these are genuinely unhelpful and make everyone feel worse. If you have feedback or concerns, bring it up directly.
+4. Nicknames or aliases that are offensive or overtly sexual are not allowed. You will be asked to change these.
+5. Spamming, low-grade trolling and flame-baiting make the community worse and are not allowed.
+6. Bevy is an all-ages community. This is not the place for explicitly sexual or gorey materials.
 
 Maintainers are held to a higher standard than other community members.
 If a maintainer violates community standards, they should expect less leeway than others.
