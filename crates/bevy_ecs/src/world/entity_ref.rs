@@ -711,11 +711,12 @@ pub(crate) unsafe fn get_ticks_with_type(
 }
 
 fn contains_component_with_type(world: &World, type_id: TypeId, location: EntityLocation) -> bool {
-    if let Some(component_id) = world.components.get_id(type_id) {
-        contains_component_with_id(world, component_id, location)
-    } else {
-        false
-    }
+    world
+        .components
+        .get_id(type_id)
+        .map_or(false, |component_id| {
+            contains_component_with_id(world, component_id, location)
+        })
 }
 
 fn contains_component_with_id(

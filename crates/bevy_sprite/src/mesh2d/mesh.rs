@@ -448,24 +448,25 @@ impl EntityRenderCommand for DrawMesh2d {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let mesh_handle = &mesh2d_query.get(item).unwrap().0;
-        if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
-            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            match &gpu_mesh.buffer_info {
-                GpuBufferInfo::Indexed {
-                    buffer,
-                    index_format,
-                    count,
-                } => {
-                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                    pass.draw_indexed(0..*count, 0, 0..1);
+        meshes
+            .into_inner()
+            .get(mesh_handle)
+            .map_or(RenderCommandResult::Failure, |gpu_mesh| {
+                pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+                match &gpu_mesh.buffer_info {
+                    GpuBufferInfo::Indexed {
+                        buffer,
+                        index_format,
+                        count,
+                    } => {
+                        pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                        pass.draw_indexed(0..*count, 0, 0..1);
+                    }
+                    GpuBufferInfo::NonIndexed { vertex_count } => {
+                        pass.draw(0..*vertex_count, 0..1);
+                    }
                 }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
-                }
-            }
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
-        }
+                RenderCommandResult::Success
+            })
     }
 }

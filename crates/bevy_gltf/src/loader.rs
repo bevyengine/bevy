@@ -613,55 +613,45 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     let pbr = material.pbr_metallic_roughness();
 
     let color = pbr.base_color_factor();
-    let base_color_texture = if let Some(info) = pbr.base_color_texture() {
+    let base_color_texture = pbr.base_color_texture().map(|info| {
         // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        Some(load_context.get_handle(path))
-    } else {
-        None
-    };
+        load_context.get_handle(path)
+    });
 
     let normal_map_texture: Option<Handle<Image>> =
-        if let Some(normal_texture) = material.normal_texture() {
+        material.normal_texture().map(|normal_texture| {
             // TODO: handle normal_texture.scale
             // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
             let label = texture_label(&normal_texture.texture());
             let path = AssetPath::new_ref(load_context.path(), Some(&label));
-            Some(load_context.get_handle(path))
-        } else {
-            None
-        };
+            load_context.get_handle(path)
+        });
 
-    let metallic_roughness_texture = if let Some(info) = pbr.metallic_roughness_texture() {
+    let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
         // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        Some(load_context.get_handle(path))
-    } else {
-        None
-    };
+        load_context.get_handle(path)
+    });
 
-    let occlusion_texture = if let Some(occlusion_texture) = material.occlusion_texture() {
+    let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
         // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
         // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
         let label = texture_label(&occlusion_texture.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        Some(load_context.get_handle(path))
-    } else {
-        None
-    };
+        load_context.get_handle(path)
+    });
 
     let emissive = material.emissive_factor();
-    let emissive_texture = if let Some(info) = material.emissive_texture() {
+    let emissive_texture = material.emissive_texture().map(|info| {
         // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
         // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        Some(load_context.get_handle(path))
-    } else {
-        None
-    };
+        load_context.get_handle(path)
+    });
 
     load_context.set_labeled_asset(
         &material_label,
@@ -876,11 +866,7 @@ fn load_node(
             }
         }
     });
-    if let Some(err) = gltf_error {
-        Err(err)
-    } else {
-        Ok(())
-    }
+    gltf_error.map_or(Ok(()), Err)
 }
 
 /// Returns the label for the `mesh`.
@@ -895,11 +881,10 @@ fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 
 /// Returns the label for the `material`.
 fn material_label(material: &gltf::Material) -> String {
-    if let Some(index) = material.index() {
-        format!("Material{}", index)
-    } else {
-        "MaterialDefault".to_string()
-    }
+    material.index().map_or_else(
+        || "MaterialDefault".to_string(),
+        |index| format!("Material{}", index),
+    )
 }
 
 /// Returns the label for the `texture`.
@@ -1050,12 +1035,17 @@ fn resolve_node_hierarchy(
         .enumerate()
         .map(|(i, (label, node, children))| {
             for child in &children {
-                if let Some(parent) = parents.get_mut(*child) {
-                    *parent = Some(i);
-                } else if !has_errored {
-                    has_errored = true;
-                    warn!("Unexpected child in GLTF Mesh {}", child);
-                }
+                parents.get_mut(*child).map_or_else(
+                    || {
+                        if !has_errored {
+                            has_errored = true;
+                            warn!("Unexpected child in GLTF Mesh {}", child);
+                        }
+                    },
+                    |parent| {
+                        *parent = Some(i);
+                    },
+                )
             }
             let children = children.into_iter().collect::<HashSet<_>>();
             if children.is_empty() {

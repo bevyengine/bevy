@@ -113,14 +113,10 @@ fn update_clipping(
                 min: node_center - node.size / 2.,
                 max: node_center + node.size / 2.,
             };
-            if let Some(clip) = clip {
-                Some(Rect {
-                    min: Vec2::max(clip.min, node_rect.min),
-                    max: Vec2::min(clip.max, node_rect.max),
-                })
-            } else {
-                Some(node_rect)
-            }
+            Some(clip.map_or(node_rect, |clip| Rect {
+                min: Vec2::max(clip.min, node_rect.min),
+                max: Vec2::min(clip.max, node_rect.max),
+            }))
         }
     };
 

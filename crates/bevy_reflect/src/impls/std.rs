@@ -464,11 +464,14 @@ unsafe impl Reflect for Cow<'static, str> {
 
     fn apply(&mut self, value: &dyn Reflect) {
         let value = value.any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
-        } else {
-            panic!("Value is not a {}.", std::any::type_name::<Self>());
-        }
+        value.downcast_ref::<Self>().map_or_else(
+            || {
+                panic!("Value is not a {}.", std::any::type_name::<Self>());
+            },
+            |value| {
+                *self = value.clone();
+            },
+        )
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -497,11 +500,11 @@ unsafe impl Reflect for Cow<'static, str> {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         let value = value.any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
-        } else {
-            Some(false)
-        }
+        Some(
+            value
+                .downcast_ref::<Self>()
+                .map_or(false, |value| std::cmp::PartialEq::eq(self, value)),
+        )
     }
 
     fn serializable(&self) -> Option<Serializable> {

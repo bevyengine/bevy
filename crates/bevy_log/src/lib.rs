@@ -144,15 +144,19 @@ impl Plugin for LogPlugin {
                 let (chrome_layer, guard) = layer
                     .name_fn(Box::new(|event_or_span| match event_or_span {
                         tracing_chrome::EventOrSpan::Event(event) => event.metadata().name().into(),
-                        tracing_chrome::EventOrSpan::Span(span) => {
-                            if let Some(fields) =
-                                span.extensions().get::<FormattedFields<DefaultFields>>()
-                            {
-                                format!("{}: {}", span.metadata().name(), fields.fields.as_str())
-                            } else {
-                                span.metadata().name().into()
-                            }
-                        }
+                        tracing_chrome::EventOrSpan::Span(span) => span
+                            .extensions()
+                            .get::<FormattedFields<DefaultFields>>()
+                            .map_or_else(
+                                || span.metadata().name().into(),
+                                |fields| {
+                                    format!(
+                                        "{}: {}",
+                                        span.metadata().name(),
+                                        fields.fields.as_str()
+                                    )
+                                },
+                            ),
                     }))
                     .build();
                 app.world.insert_non_send_resource(guard);

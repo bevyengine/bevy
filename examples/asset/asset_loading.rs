@@ -27,14 +27,15 @@ fn setup(
     let sphere_handle = asset_server.load("models/sphere/sphere.gltf#Mesh0/Primitive0");
 
     // All assets end up in their Assets<T> collection once they are done loading:
-    if let Some(sphere) = meshes.get(&sphere_handle) {
-        // You might notice that this doesn't run! This is because assets load in parallel without
-        // blocking. When an asset has loaded, it will appear in relevant Assets<T>
-        // collection.
-        info!("{:?}", sphere.primitive_topology());
-    } else {
-        info!("sphere hasn't loaded yet");
-    }
+    meshes.get(&sphere_handle).map_or_else(
+        || info!("sphere hasn't loaded yet"),
+        |sphere| {
+            // You might notice that this doesn't run! This is because assets load in parallel without
+            // blocking. When an asset has loaded, it will appear in relevant Assets<T>
+            // collection.
+            info!("{:?}", sphere.primitive_topology());
+        },
+    );
 
     // You can load all assets in a folder like this. They will be loaded in parallel without
     // blocking
