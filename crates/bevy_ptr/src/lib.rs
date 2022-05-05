@@ -55,7 +55,7 @@ macro_rules! impl_ptr {
             ///
             /// [ptr_offset]: https://doc.rust-lang.org/std/primitive.pointer.html#method.offset
             #[inline]
-            pub unsafe fn offset(self, count: isize) -> Self {
+            pub unsafe fn byte_offset(self, count: isize) -> Self {
                 Self(
                     NonNull::new_unchecked(self.as_ptr().offset(count)),
                     PhantomData,
@@ -73,7 +73,7 @@ macro_rules! impl_ptr {
             ///
             /// [ptr_add]: https://doc.rust-lang.org/std/primitive.pointer.html#method.add
             #[inline]
-            pub unsafe fn add(self, count: usize) -> Self {
+            pub unsafe fn byte_add(self, count: usize) -> Self {
                 Self(
                     NonNull::new_unchecked(self.as_ptr().add(count)),
                     PhantomData,
