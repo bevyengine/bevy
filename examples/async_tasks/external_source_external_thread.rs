@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let mut rng = rand::thread_rng();
         let start_time = Instant::now();
         let duration = Duration::from_secs_f32(rng.gen_range(0.0..0.2));
-        while Instant::now() - start_time < duration {
+        while start_time.elapsed() < duration {
             // Spinning for 'duration', simulating doing hard work!
         }
 

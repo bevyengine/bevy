@@ -89,7 +89,7 @@ Example | File | Description
 `move_sprite` | [`2d/move_sprite.rs`](./2d/move_sprite.rs) | Changes the transform of a sprite.
 `mesh2d` | [`2d/mesh2d.rs`](./2d/mesh2d.rs) | Renders a 2d mesh
 `mesh2d_manual` | [`2d/mesh2d_manual.rs`](./2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis.
-`rect` | [`2d/rect.rs`](./2d/rect.rs) | Renders a rectangle
+`shapes` | [`2d/shapes.rs`](./2d/shapes.rs) | Renders a rectangle, circle, and hexagon
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
@@ -115,7 +115,9 @@ Example | File | Description
 `spherical_area_lights` | [`3d/spherical_area_lights.rs`](./3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior.
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
+`vertex_colors` | [`3d/vertex_colors.rs`](./3d/vertex_colors.rs) | Shows the use of vertex colors
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
+`3d_shapes` | [`3d/shapes.rs`](./3d/shapes.rs) | A scene showcasing the built-in 3D shapes
 
 ## Animation
 
@@ -190,6 +192,7 @@ Example | File | Description
 `startup_system` | [`ecs/startup_system.rs`](./ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 `state` | [`ecs/state.rs`](./ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
 `system_chaining` | [`ecs/system_chaining.rs`](./ecs/system_chaining.rs) | Chain two systems together, specifying a return type in a system (such as `Result`)
+`system_closure` | [`ecs/system_closure.rs`](./ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 `system_param` | [`ecs/system_param.rs`](./ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 `system_sets` | [`ecs/system_sets.rs`](./ecs/system_sets.rs) | Shows `SystemSet` use along with run criterion
 `timers` | [`ecs/timers.rs`](./ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state

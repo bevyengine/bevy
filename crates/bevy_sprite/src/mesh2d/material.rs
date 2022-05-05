@@ -1,6 +1,5 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::{
     entity::Entity,
@@ -29,6 +28,7 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::FloatOrd;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -194,7 +194,7 @@ impl<M: SpecializedMaterial2d> Default for Material2dPlugin<M> {
 impl<M: SpecializedMaterial2d> Plugin for Material2dPlugin<M> {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::default())
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
             .add_plugin(RenderAssetPlugin::<M>::default());
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
