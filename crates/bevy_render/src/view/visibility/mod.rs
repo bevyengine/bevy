@@ -51,7 +51,7 @@ impl ComputedVisibility {
 
     #[inline]
     pub fn reserve(&mut self, entities: &Entities) {
-        self.entities.grow(entities.len() as usize);
+        self.entities.grow(entities.meta_len() as usize);
     }
 
     #[inline]
