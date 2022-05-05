@@ -483,7 +483,7 @@ pub fn winit_runner_with(mut app: App) {
                                     window.requested_width(),
                                     window.requested_height(),
                                 )
-                                .to_physical::<u32>(forced_factor)
+                                .to_physical::<u32>(forced_factor);
                             },
                         );
 

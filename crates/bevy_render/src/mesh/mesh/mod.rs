@@ -431,7 +431,7 @@ impl InnerMeshVertexBufferLayout {
                     format: layout_attribute.format,
                     offset: layout_attribute.offset,
                     shader_location: attribute_descriptor.shader_location,
-                })
+                });
             } else {
                 return Err(MissingVertexAttributeError {
                     id: attribute_descriptor.id,

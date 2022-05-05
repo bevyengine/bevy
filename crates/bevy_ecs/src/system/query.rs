@@ -561,7 +561,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
                     f,
                     self.last_change_tick,
                     self.change_tick,
-                )
+                );
         };
     }
 

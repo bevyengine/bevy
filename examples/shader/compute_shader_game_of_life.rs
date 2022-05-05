@@ -187,14 +187,14 @@ impl render_graph::Node for GameOfLifeNode {
                 if let CachedPipelineState::Ok(_) =
                     pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
                 {
-                    self.state = GameOfLifeState::Init
+                    self.state = GameOfLifeState::Init;
                 }
             }
             GameOfLifeState::Init => {
                 if let CachedPipelineState::Ok(_) =
                     pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
                 {
-                    self.state = GameOfLifeState::Update
+                    self.state = GameOfLifeState::Update;
                 }
             }
             GameOfLifeState::Update => {}

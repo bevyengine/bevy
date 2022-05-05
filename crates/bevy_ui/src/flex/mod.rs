@@ -122,7 +122,7 @@ impl FlexSurface {
                     warn!(
                         "Unstyled child in a UI entity hierarchy. You are using an entity \
 without UI components as a child of an entity with UI components, results may be unexpected."
-                    )
+                    );
                 },
                 |stretch_node| stretch_children.push(*stretch_node),
             );

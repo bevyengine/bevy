@@ -357,7 +357,7 @@ mod tests {
 
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>()
+        x.drop_as::<T>();
     }
 
     /// # Safety

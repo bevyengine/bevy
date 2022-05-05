@@ -62,7 +62,7 @@ impl LogDiagnosticsPlugin {
                         value = value,
                         suffix = diagnostic.suffix,
                         name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                    )
+                    );
                 },
                 |average| {
                     info!(
@@ -77,7 +77,7 @@ impl LogDiagnosticsPlugin {
                         suffix = diagnostic.suffix,
                         average = average,
                         name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                    )
+                    );
                 },
             );
         }
@@ -100,7 +100,7 @@ impl LogDiagnosticsPlugin {
                         Self::log_diagnostic(diagnostic);
                     }
                 },
-            )
+            );
         }
     }
 
@@ -121,7 +121,7 @@ impl LogDiagnosticsPlugin {
                         debug!("{:#?}\n", diagnostic);
                     }
                 },
-            )
+            );
         }
     }
 }
