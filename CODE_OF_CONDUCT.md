@@ -28,13 +28,18 @@ These are the policies for upholding [our community’s standards of conduct](#o
 The enforcement policies in the code of conduct apply to all official venues, including Discord channels, GitHub repositories, the Twitter community and all other forums.
 
 1. Hateful, hurtful, oppressive, or exclusionary remarks are not allowed.
+2. Personal attacks are out-of-line: disagree with specific actions and decisions in a constructive way.
+3. Nicknames or aliases that are offensive or overtly sexual are not allowed. You will be asked to change these.
+4. Spamming, low-grade trolling and flame-baiting make the community worse and are not allowed.
+5. Bevy is an all-ages community. This is not the place for explicitly sexual or gorey materials.
 
 When the standards are violated, maintainers will:
 
 1. Warn the offender.
-2. If a second warning would be needed (or the warning is not heeded), the offender is kicked, but may rejoin.
+2. If a second warning would be needed (or the warning is not heeded), the offender is kicked, but may rejoin after cooling off.
 3. If bad behavior persists after rejoining, the offender will be permanently banned.
+4. Spam bots will be banned on sight.
+   1. If this was done in error (or if your account was hacked), message the maintainers to reverse the ban.
 
 Maintainers are held to a higher standard than other community members. If a maintainer creates an inappropriate situation, they should expect less leeway than others.
 If you feel disciplinary action was unwarranted, please make a dedicated thread in #community on Discord to discuss it, or message the moderation team in private.
-
