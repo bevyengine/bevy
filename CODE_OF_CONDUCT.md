@@ -28,7 +28,6 @@ These are the policies for upholding [our community’s standards of conduct](#o
 The enforcement policies in the code of conduct apply to all official venues, including Discord channels, GitHub repositories, the Twitter community and all other forums.
 
 1. Hateful, hurtful, oppressive, or exclusionary remarks are not allowed.
-2. Remarks that maintainers find inappropriate, whether listed in the code of conduct or not, are also not allowed.
 
 When the standards are violated, maintainers will:
 
