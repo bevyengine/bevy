@@ -88,13 +88,14 @@ bitflags::bitflags! {
 }
 
 pub fn extract_mesh2d(
+    computed_visibility: Res<ComputedVisibility>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Query<(Entity, &ComputedVisibility, &GlobalTransform, &Mesh2dHandle)>,
+    query: Query<(Entity, &GlobalTransform, &Mesh2dHandle)>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, transform, handle) in query.iter() {
-        if !computed_visibility.is_visible {
+    for (entity, transform, handle) in query.iter() {
+        if !computed_visibility.is_visible(entity) {
             continue;
         }
         let transform = transform.compute_matrix();

@@ -5,11 +5,13 @@ pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
+use bevy_ecs::entity::Entities;
 use bevy_ecs::prelude::*;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
+use fixedbitset::FixedBitSet;
 
 use crate::{
     camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
@@ -31,15 +33,30 @@ impl Default for Visibility {
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-#[derive(Component, Clone, Reflect, Debug)]
-#[reflect(Component)]
+#[derive(Default, Debug)]
 pub struct ComputedVisibility {
-    pub is_visible: bool,
+    entities: FixedBitSet,
 }
 
-impl Default for ComputedVisibility {
-    fn default() -> Self {
-        Self { is_visible: true }
+impl ComputedVisibility {
+    #[inline]
+    pub fn mark_visible(&mut self, entity: Entity) {
+        self.entities.insert(entity.id() as usize);
+    }
+
+    #[inline]
+    pub fn is_visible(&self, entity: Entity) -> bool {
+        self.entities.contains(entity.id() as usize)
+    }
+
+    #[inline]
+    pub fn reserve(&mut self, entities: &Entities) {
+        self.entities.grow(entities.len() as usize);
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.entities.clear();
     }
 }
 
@@ -140,24 +157,21 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 }
 
 pub fn check_visibility(
+    entities: &Entities,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
-    mut visible_entity_query: ParamSet<(
-        Query<&mut ComputedVisibility>,
-        Query<(
-            Entity,
-            &Visibility,
-            &mut ComputedVisibility,
-            Option<&RenderLayers>,
-            Option<&Aabb>,
-            Option<&NoFrustumCulling>,
-            Option<&GlobalTransform>,
-        )>,
+    mut computed_visibility: ResMut<ComputedVisibility>,
+    visible_entity_query: Query<(
+        Entity,
+        &Visibility,
+        Option<&RenderLayers>,
+        Option<&Aabb>,
+        Option<&NoFrustumCulling>,
+        Option<&GlobalTransform>,
     )>,
 ) {
     // Reset the computed visibility to false
-    for mut computed_visibility in visible_entity_query.p0().iter_mut() {
-        computed_visibility.is_visible = false;
-    }
+    computed_visibility.clear();
+    computed_visibility.reserve(entities);
 
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         visible_entities.entities.clear();
@@ -166,12 +180,11 @@ pub fn check_visibility(
         for (
             entity,
             visibility,
-            mut computed_visibility,
             maybe_entity_mask,
             maybe_aabb,
             maybe_no_frustum_culling,
             maybe_transform,
-        ) in visible_entity_query.p1().iter_mut()
+        ) in visible_entity_query.iter()
         {
             if !visibility.is_visible {
                 continue;
@@ -201,7 +214,7 @@ pub fn check_visibility(
                 }
             }
 
-            computed_visibility.is_visible = true;
+            computed_visibility.mark_visible(entity);
             visible_entities.entities.push(entity);
         }
 

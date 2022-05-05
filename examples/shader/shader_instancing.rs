@@ -14,7 +14,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
-        view::{ComputedVisibility, ExtractedView, Msaa, NoFrustumCulling, Visibility},
+        view::{ExtractedView, Msaa, NoFrustumCulling, Visibility},
         RenderApp, RenderStage,
     },
 };
@@ -44,7 +44,6 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                 .collect(),
         ),
         Visibility::default(),
-        ComputedVisibility::default(),
         // NOTE: Frustum culling is done based on the Aabb of the Mesh and the GlobalTransform.
         // As the cube is at the origin, if its Aabb moves outside the view frustum, all the
         // instanced cubes will be culled.

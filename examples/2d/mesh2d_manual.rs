@@ -99,7 +99,6 @@ fn star(
         Transform::default(),
         GlobalTransform::default(),
         Visibility::default(),
-        ComputedVisibility::default(),
     ));
     commands
         // And use an orthographic projection
@@ -277,13 +276,14 @@ impl Plugin for ColoredMesh2dPlugin {
 
 /// Extract the [`ColoredMesh2d`] marker component into the render app
 pub fn extract_colored_mesh2d(
+    computed_visibility: Res<ComputedVisibility>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>,
+    query: Query<Entity, (With<Visibility>, With<ColoredMesh2d>)>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility) in query.iter() {
-        if !computed_visibility.is_visible {
+    for entity in query.iter() {
+        if !computed_visibility.is_visible(entity) {
             continue;
         }
         values.push((entity, (ColoredMesh2d,)));

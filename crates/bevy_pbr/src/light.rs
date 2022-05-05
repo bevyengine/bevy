@@ -1233,6 +1233,7 @@ pub fn update_point_light_frusta(
 
 pub fn check_light_mesh_visibility(
     visible_point_lights: Query<&VisiblePointLights>,
+    mut computed_visibility: ResMut<ComputedVisibility>,
     mut point_lights: Query<(
         &PointLight,
         &GlobalTransform,
@@ -1247,11 +1248,10 @@ pub fn check_light_mesh_visibility(
         Option<&RenderLayers>,
         &Visibility,
     )>,
-    mut visible_entity_query: Query<
+    visible_entity_query: Query<
         (
             Entity,
             &Visibility,
-            &mut ComputedVisibility,
             Option<&RenderLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
@@ -1272,14 +1272,8 @@ pub fn check_light_mesh_visibility(
 
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (
-            entity,
-            visibility,
-            mut computed_visibility,
-            maybe_entity_mask,
-            maybe_aabb,
-            maybe_transform,
-        ) in visible_entity_query.iter_mut()
+        for (entity, visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
+            visible_entity_query.iter()
         {
             if !visibility.is_visible {
                 continue;
@@ -1297,7 +1291,7 @@ pub fn check_light_mesh_visibility(
                 }
             }
 
-            computed_visibility.is_visible = true;
+            computed_visibility.mark_visible(entity);
             visible_entities.entities.push(entity);
         }
 
@@ -1331,14 +1325,8 @@ pub fn check_light_mesh_visibility(
                     radius: point_light.range,
                 };
 
-                for (
-                    entity,
-                    visibility,
-                    mut computed_visibility,
-                    maybe_entity_mask,
-                    maybe_aabb,
-                    maybe_transform,
-                ) in visible_entity_query.iter_mut()
+                for (entity, visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
+                    visible_entity_query.iter()
                 {
                     if !visibility.is_visible {
                         continue;
@@ -1361,12 +1349,12 @@ pub fn check_light_mesh_visibility(
                             .zip(cubemap_visible_entities.iter_mut())
                         {
                             if frustum.intersects_obb(aabb, &model_to_world, true) {
-                                computed_visibility.is_visible = true;
+                                computed_visibility.mark_visible(entity);
                                 visible_entities.entities.push(entity);
                             }
                         }
                     } else {
-                        computed_visibility.is_visible = true;
+                        computed_visibility.mark_visible(entity);
                         for visible_entities in cubemap_visible_entities.iter_mut() {
                             visible_entities.entities.push(entity);
                         }

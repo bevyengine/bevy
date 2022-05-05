@@ -22,7 +22,6 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera>()
             .register_type::<Visibility>()
-            .register_type::<ComputedVisibility>()
             .register_type::<OrthographicProjection>()
             .register_type::<PerspectiveProjection>()
             .register_type::<VisibleEntities>()
@@ -32,6 +31,7 @@ impl Plugin for CameraPlugin {
             .register_type::<Aabb>()
             .register_type::<Camera3d>()
             .register_type::<Camera2d>()
+            .init_resource::<ComputedVisibility>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<OrthographicProjection>.after(ModifiesWindows),
