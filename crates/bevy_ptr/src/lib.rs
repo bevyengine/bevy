@@ -156,7 +156,7 @@ impl<'a> PtrMut<'a> {
     /// associated lifetime.
     #[inline]
     #[allow(clippy::wrong_self_convention)]
-    pub unsafe fn as_ptr(self) -> *mut u8 {
+    pub unsafe fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
 }
@@ -198,7 +198,7 @@ impl<'a> OwningPtr<'a> {
     /// associated lifetime.
     #[inline]
     #[allow(clippy::wrong_self_convention)]
-    pub unsafe fn as_ptr(self) -> *mut u8 {
+    pub unsafe fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
 }
