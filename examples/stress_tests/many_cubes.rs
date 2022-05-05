@@ -144,15 +144,15 @@ fn print_mesh_count(
     computed_visibility: Res<ComputedVisibility>,
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
-    sprites: Query<(Entity, &Handle<Mesh>)>,
+    meshes: Query<(Entity, &Handle<Mesh>)>,
 ) {
     timer.tick(time.delta());
 
     if timer.just_finished() {
         info!(
             "Meshes: {} - Visible Meshes {}",
-            sprites.iter().len(),
-            sprites
+            meshes.iter().len(),
+            meshes
                 .iter()
                 .filter(|(entity, _)| computed_visibility.is_visible(*entity))
                 .count(),

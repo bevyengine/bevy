@@ -162,7 +162,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 pub fn check_visibility(
     entities: &Entities,
     task_pool: Res<ComputeTaskPool>,
-    mut thread_queues: Local<ThreadLocal<Cell<Option<Vec<Entity>>>>>,
+    mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
     mut queues: Local<Vec<Vec<Entity>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
     mut computed_visibility: ResMut<ComputedVisibility>,
@@ -180,7 +180,7 @@ pub fn check_visibility(
     computed_visibility.reserve(entities);
 
     for queue in thread_queues.iter_mut() {
-        *queue.get_mut() = Some(queues.pop().unwrap_or_default());
+        *queue.get_mut() = queues.pop().unwrap_or_default();
     }
 
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
@@ -227,28 +227,25 @@ pub fn check_visibility(
                 }
 
                 let cell = thread_queues.get_or_default();
-                let mut queue = cell.take().unwrap_or_default();
+                let mut queue = cell.take();
                 queue.push(entity);
-                cell.set(Some(queue));
+                cell.set(queue);
             },
         );
 
-        queues.clear();
-        queues.extend(
-            thread_queues
-                .iter_mut()
-                .map(|cell| cell.get_mut().take().unwrap_or_default()),
-        );
-        let total_size = queues.iter().map(|queue| queue.len()).sum();
-        visible_entities.entities.reserve(total_size);
-        for queue in queues.iter_mut() {
+        for cell in thread_queues.iter_mut() {
+            let mut queue = cell.take();
             for entity in queue.iter().copied() {
                 computed_visibility.mark_visible(entity);
             }
-            visible_entities.entities.append(queue);
+            visible_entities.entities.append(&mut queue);
+            cell.set(queue);
         }
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
         // to prevent holding unneeded memory
     }
+
+    queues.clear();
+    queues.extend(thread_queues.iter_mut().map(|cell| cell.take()));
 }
