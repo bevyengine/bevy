@@ -679,47 +679,22 @@ impl Parse for ReflectStructDef {
                             arguments: _,
                         }) = name_val.path.segments.first()
                         {
-                            match &ident.to_string()[..] {
-                                "path" => {
-                                    let path_str = match &name_val.lit {
-                                        syn::Lit::Str(s) => Ok(s),
-                                        _ => Err(syn::Error::new_spanned(
-                                            &name_val.lit,
-                                            "Invalid path",
-                                        )),
-                                    }?;
-                                    bevy_reflect_path =
-                                        Some(path_str.parse::<Path>().map_err(|e| {
-                                            let mut err = syn::Error::new_spanned(
-                                                path_str,
-                                                "Failed to parse path:",
-                                            );
-                                            err.combine(e);
-                                            err
-                                        })?);
-                                }
-                                // "ctor" => {
-                                //     let ctor_str = match &name_val.lit {
-                                //         syn::Lit::Str(s) => Ok(s),
-                                //         _ => Err(syn::Error::new_spanned(
-                                //             &name_val.lit,
-                                //             "Invalid ctor value",
-                                //         )),
-                                //     }?;
-                                //     ctor = Some(
-                                //         ctor_str.parse::<proc_macro2::TokenStream>().map_err(
-                                //             |e| {
-                                //                 let mut err = syn::Error::new_spanned(
-                                //                     ctor_str,
-                                //                     "Failed to parse ctor:",
-                                //                 );
-                                //                 err.combine(e);
-                                //                 err
-                                //             },
-                                //         )?,
-                                //     );
-                                // }
-                                _ => (),
+                            if &ident.to_string()[..] == "path" {
+                                let path_str = match &name_val.lit {
+                                    syn::Lit::Str(s) => Ok(s),
+                                    _ => {
+                                        Err(syn::Error::new_spanned(&name_val.lit, "Invalid path"))
+                                    }
+                                }?;
+                                bevy_reflect_path =
+                                    Some(path_str.parse::<Path>().map_err(|e| {
+                                        let mut err = syn::Error::new_spanned(
+                                            path_str,
+                                            "Failed to parse path:",
+                                        );
+                                        err.combine(e);
+                                        err
+                                    })?);
                             }
                         }
                     }
