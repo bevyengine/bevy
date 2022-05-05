@@ -9,12 +9,12 @@ use bevy_ecs::entity::Entities;
 use bevy_ecs::prelude::*;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_tasks::ComputeTaskPool;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 use fixedbitset::FixedBitSet;
-use bevy_tasks::ComputeTaskPool;
-use thread_local::ThreadLocal;
 use std::cell::Cell;
+use thread_local::ThreadLocal;
 
 use crate::{
     camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
@@ -187,50 +187,58 @@ pub fn check_visibility(
         visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        visible_entity_query.par_for_each(&*task_pool, 1024, |(
-            entity,
-            visibility,
-            maybe_entity_mask,
-            maybe_aabb,
-            maybe_no_frustum_culling,
-            maybe_transform,
-        )| {
-            if !visibility.is_visible {
-                return;
-            }
-
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
-                return;
-            }
-
-            // If we have an aabb and transform, do frustum culling
-            if let (Some(model_aabb), None, Some(transform)) =
-                (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
-            {
-                let model = transform.compute_matrix();
-                let model_sphere = Sphere {
-                    center: model.transform_point3a(model_aabb.center),
-                    radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
-                };
-                // Do quick sphere-based frustum culling
-                if !frustum.intersects_sphere(&model_sphere, false) {
+        visible_entity_query.par_for_each(
+            &*task_pool,
+            1024,
+            |(
+                entity,
+                visibility,
+                maybe_entity_mask,
+                maybe_aabb,
+                maybe_no_frustum_culling,
+                maybe_transform,
+            )| {
+                if !visibility.is_visible {
                     return;
                 }
-                // If we have an aabb, do aabb-based frustum culling
-                if !frustum.intersects_obb(model_aabb, &model, false) {
+
+                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                if !view_mask.intersects(&entity_mask) {
                     return;
                 }
-            }
 
-            let cell = thread_queues.get_or_default();
-            let mut queue = cell.take().unwrap_or_default();
-            queue.push(entity);
-            cell.set(Some(queue));
-        });
+                // If we have an aabb and transform, do frustum culling
+                if let (Some(model_aabb), None, Some(transform)) =
+                    (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
+                {
+                    let model = transform.compute_matrix();
+                    let model_sphere = Sphere {
+                        center: model.transform_point3a(model_aabb.center),
+                        radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
+                    };
+                    // Do quick sphere-based frustum culling
+                    if !frustum.intersects_sphere(&model_sphere, false) {
+                        return;
+                    }
+                    // If we have an aabb, do aabb-based frustum culling
+                    if !frustum.intersects_obb(model_aabb, &model, false) {
+                        return;
+                    }
+                }
+
+                let cell = thread_queues.get_or_default();
+                let mut queue = cell.take().unwrap_or_default();
+                queue.push(entity);
+                cell.set(Some(queue));
+            },
+        );
 
         queues.clear();
-        queues.extend(thread_queues.iter_mut().map(|cell| cell.get_mut().take().unwrap()));
+        queues.extend(
+            thread_queues
+                .iter_mut()
+                .map(|cell| cell.get_mut().take().unwrap_or_default()),
+        );
         let total_size = queues.iter().map(|queue| queue.len()).sum();
         visible_entities.entities.reserve(total_size);
         for queue in queues.iter_mut() {
