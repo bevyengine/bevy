@@ -20,6 +20,7 @@ crates=(
     bevy_hierarchy
     bevy_transform
     bevy_window
+    bevy_encase_derive
     bevy_render
     bevy_core_pipeline
     bevy_input
