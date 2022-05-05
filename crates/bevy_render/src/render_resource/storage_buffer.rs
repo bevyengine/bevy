@@ -30,8 +30,8 @@ impl<T: AsStd430, U: AsStd430 + Default> Default for StorageBuffer<T, U> {
 impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
     // NOTE: AsStd430::std430_size_static() uses size_of internally but trait functions cannot be
     // marked as const functions
-    const BODY_SIZE: usize = std::mem::size_of::<U>();
-    const ITEM_SIZE: usize = std::mem::size_of::<T>();
+    const BODY_SIZE: usize = std::mem::size_of::<U::Output>();
+    const ITEM_SIZE: usize = std::mem::size_of::<T::Output>();
 
     /// Gets the reference to the underlying buffer, if one has been allocated.
     #[inline]
@@ -137,5 +137,78 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
     #[inline]
     pub fn append(&mut self, values: &mut Vec<T>) {
         self.values.append(values);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StorageBuffer;
+    use bevy_crevice::std430;
+    use bevy_crevice::std430::AsStd430;
+    use bevy_crevice::std430::Std430;
+    use bevy_math::Vec3;
+    use bevy_math::Vec4;
+
+    //Note:
+    //A Vec3 has 12 bytes and needs to be padded to 16 bytes, when converted to std430
+    //https://www.w3.org/TR/WGSL/#alignment-and-size
+    #[derive(AsStd430, Default)]
+    struct NotInherentlyAligned {
+        data: Vec3,
+    }
+
+    //Note:
+    //A Vec4 has 16 bytes and does not need to be padded to fit in std430
+    //https://www.w3.org/TR/WGSL/#alignment-and-size
+    #[derive(AsStd430)]
+    struct InherentlyAligned {
+        data: Vec4,
+    }
+
+    #[test]
+    fn storage_buffer_correctly_sized_nonaligned() {
+        let mut buffer: StorageBuffer<NotInherentlyAligned> = StorageBuffer::default();
+        buffer.push(NotInherentlyAligned { data: Vec3::ONE });
+
+        let actual_size = buffer.size();
+
+        let data = [NotInherentlyAligned { data: Vec3::ONE }].as_std430();
+        let data_as_bytes = data.as_bytes();
+
+        assert_eq!(actual_size, data_as_bytes.len());
+    }
+
+    #[test]
+    fn storage_buffer_correctly_sized_aligned() {
+        let mut buffer: StorageBuffer<InherentlyAligned> = StorageBuffer::default();
+        buffer.push(InherentlyAligned { data: Vec4::ONE });
+
+        let actual_size = buffer.size();
+
+        let data = [InherentlyAligned { data: Vec4::ONE }].as_std430();
+        let data_as_bytes = data.as_bytes();
+
+        assert_eq!(actual_size, data_as_bytes.len());
+    }
+
+    #[test]
+    fn storage_buffer_correctly_sized_item_and_body() {
+        let mut buffer: StorageBuffer<NotInherentlyAligned, NotInherentlyAligned> =
+            StorageBuffer::default();
+        buffer.push(NotInherentlyAligned { data: Vec3::ONE });
+        buffer.set_body(NotInherentlyAligned { data: Vec3::ONE });
+
+        let calculated_size = buffer.size();
+
+        //Emulate Write
+        let mut scratch = Vec::<u8>::new();
+        scratch.resize(calculated_size, 0);
+        let mut writer = std430::Writer::new(&mut scratch[0..calculated_size]);
+        writer
+            .write(&buffer.body)
+            .expect("Buffer has enough space to write the body.");
+        writer
+            .write(buffer.values.as_slice())
+            .expect("Buffer has enough space to write the values.");
     }
 }
