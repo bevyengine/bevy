@@ -1,4 +1,4 @@
-use super::{In, SystemParam, SystemParamFunction, SystemParamItem};
+use super::{In, ParamSet, SystemParam, SystemParamFunction, SystemParamItem};
 
 /// A [`System`](crate::system::System) that chains two systems together, creating a new system that routes the output of
 /// the first system into the input of the second system, yielding the output of the second system.
@@ -41,15 +41,15 @@ use super::{In, SystemParam, SystemParamFunction, SystemParamItem};
 pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
     mut a: A,
     mut b: B,
-) -> impl FnMut(In<AIn>, SystemParamItem<AParam>, SystemParamItem<BParam>) -> BOut
+) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
 where
     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,
     B: SystemParamFunction<Shared, BOut, BParam, BMarker>,
     AParam: SystemParam,
     BParam: SystemParam,
 {
-    move |In(a_in), a_params, b_params| {
-        let shared = a.run(a_in, a_params);
-        b.run(shared, b_params)
+    move |In(a_in), mut params| {
+        let shared = a.run(a_in, params.p0());
+        b.run(shared, params.p1())
     }
 }
