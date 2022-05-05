@@ -23,10 +23,16 @@ These are the policies for upholding [our community’s standards of conduct](#o
 The enforcement policies in the code of conduct apply to all official venues, including Discord channels, GitHub repositories, the Twitter community and all other forums.
 
 1. Hateful, hurtful, oppressive, or exclusionary remarks are not allowed.
-2. Personal attacks are out-of-line: disagree with specific actions and decisions in a constructive way.
-3. Avoid sweeping negative comments or jokes that could be construed as passive-aggressive complaints: these are genuinely unhelpful and make everyone feel worse. If you have feedback or concerns, bring it up directly.
+2. Personal attacks are out-of-line.
+   1. Disagree with specific actions and decisions in a constructive way.
+3. Avoid sweeping negative comments or jokes that could be construed as passive-aggressive complaints.
+   1. These are genuinely unhelpful and make everyone feel worse.
+   2. High level concerns are fine, but they should be actionable and specific.
+   3. Feedback is essential to help the project improve: please bring it up directly and try your best to accept decisions made.
 4. Nicknames or aliases that are offensive or overtly sexual are not allowed. You will be asked to change these.
 5. Spamming, low-grade trolling and flame-baiting make the community worse and are not allowed.
+   1. If it's disruptive, oddly uncomfortable or intended to confuse or prank other users, it's probably not welcome here.
+   2. Thoughtful political discussion is permitted in off-topic channels, but political memes are banned.
 6. Bevy is an all-ages community. This is not the place for explicitly sexual or gorey materials.
 
 Maintainers are held to a higher standard than other community members.
