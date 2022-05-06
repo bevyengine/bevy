@@ -59,7 +59,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
-                    while Instant::now() - start_time < duration {
+                    while start_time.elapsed() < duration {
                         // Spinning for 'duration', simulating doing hard
                         // compute work generating translation coords!
                     }

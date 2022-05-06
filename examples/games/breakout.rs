@@ -68,7 +68,7 @@ fn main() {
                 .with_system(play_collision_sound.after(check_for_collisions)),
         )
         .add_system(update_scoreboard)
-        .add_system(bevy::input::system::exit_on_esc_system)
+        .add_system(bevy::window::close_on_esc)
         .run();
 }
 
@@ -241,7 +241,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         style: Style {
             position_type: PositionType::Absolute,
-            position: Rect {
+            position: UiRect {
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,
                 ..default()

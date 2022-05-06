@@ -8,9 +8,12 @@ struct Vertex {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] tangent: vec4<f32>;
 #endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] color: vec4<f32>;
+#endif
 #ifdef SKINNED
-    [[location(4)]] joint_indices: vec4<u32>;
-    [[location(5)]] joint_weights: vec4<f32>;
+    [[location(5)]] joint_indices: vec4<u32>;
+    [[location(6)]] joint_weights: vec4<f32>;
 #endif
 };
 
@@ -21,6 +24,9 @@ struct VertexOutput {
     [[location(2)]] uv: vec2<f32>;
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
+#endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] color: vec4<f32>;
 #endif
 };
 
@@ -60,6 +66,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     );
 #endif
 #endif
+#ifdef VERTEX_COLORS
+    out.color = vertex.color;
+#endif 
 
     out.uv = vertex.uv;
     out.clip_position = view.view_proj * out.world_position;
@@ -74,9 +83,16 @@ struct FragmentInput {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
 #endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] color: vec4<f32>;
+#endif
 };
 
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
+#ifdef VERTEX_COLORS
+    return in.color;
+#else
     return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+#endif
 }
