@@ -41,10 +41,12 @@ These policies apply to private interactions between community members as well a
 
 When the standards are violated, maintainers will:
 
-1. Warn the offender.
-2. If a second warning would be needed (or the warning is not heeded), the offender is kicked, but may rejoin after cooling off.
-3. If bad behavior persists after rejoining, the offender will be permanently banned.
+1. Explicitly warn the offender and delete any offending content.
+2. If repeated warnings are needed or the warning is ignored, the offender will be timed-out or kicked, but may rejoin after cooling off.
+3. If bad behavior persists, the offender will be permanently banned.
 4. Spam bots will be banned on sight.
    1. If this was done in error (or if your account was hacked), message the maintainers to reverse the ban.
+
+Particularly severe violations may result in accelerated punishment.
 
 If you feel disciplinary action was unwarranted, please make a dedicated thread in #community on Discord to discuss it, or message the moderation team in private.
