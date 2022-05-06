@@ -19,6 +19,7 @@ struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font_rtl = asset_server.load("fonts/Rubik-Light.otf");
     let text_style = TextStyle {
         font,
         font_size: 60.0,
@@ -85,6 +86,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             box_position.y + box_size.y / 2.0,
             1.0,
         ),
+        ..default()
+    });
+    commands.spawn_bundle(Text2dBundle {
+        text: Text::with_section(
+            // supports also RTL / Bidi
+            concat![
+                "s", "u", "p", "p", "o", "r", "t", "s", " ", "מ", "י", "א", "ו", " ", "R", "T", "L"
+            ],
+            TextStyle {
+                font: font_rtl,
+                font_size: 40.0,
+                color: Color::WHITE,
+            },
+            text_alignment_topleft,
+        ),
+        text_2d_bounds: Text2dBounds {
+            // Wrap text in the rectangle
+            size: box_size,
+        },
+        transform: Transform::from_xyz(box_position.x - box_size.x / 2.0, box_size.y, 1.0),
         ..default()
     });
 }

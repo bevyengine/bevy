@@ -193,8 +193,9 @@ pub fn extract_text_uinodes(
             let text_glyphs = &text_layout.glyphs;
             let alignment_offset = (uinode.size / -2.0).extend(0.0);
 
+            let bidi_corrected = text.bidi_corrected_sections();
             for text_glyph in text_glyphs {
-                let color = text.sections[text_glyph.section_index].style.color;
+                let color = bidi_corrected[text_glyph.section_index].style.color;
                 let atlas = texture_atlases
                     .get(text_glyph.atlas_info.texture_atlas.clone_weak())
                     .unwrap();

@@ -187,35 +187,31 @@ mod game {
                         margin: UiRect::all(Val::Px(50.0)),
                         ..default()
                     },
-                    text: Text {
-                        sections: vec![
-                            TextSection {
-                                value: format!("quality: {:?}", *display_quality),
-                                style: TextStyle {
-                                    font: font.clone(),
-                                    font_size: 60.0,
-                                    color: Color::BLUE,
-                                },
-                            },
-                            TextSection {
-                                value: " - ".to_string(),
-                                style: TextStyle {
-                                    font: font.clone(),
-                                    font_size: 60.0,
-                                    color: TEXT_COLOR,
-                                },
-                            },
-                            TextSection {
-                                value: format!("volume: {:?}", *volume),
-                                style: TextStyle {
-                                    font: font.clone(),
-                                    font_size: 60.0,
-                                    color: Color::GREEN,
-                                },
-                            },
-                        ],
-                        ..default()
-                    },
+                    text: Text::with_section(
+                        format!("quality: {:?}", *display_quality),
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 60.0,
+                            color: Color::BLUE,
+                        },
+                        Default::default(),
+                    )
+                    .add_section(
+                        " - ",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 60.0,
+                            color: TEXT_COLOR,
+                        },
+                    )
+                    .add_section(
+                        format!("volume: {:?}", *volume),
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 60.0,
+                            color: Color::GREEN,
+                        },
+                    ),
                     ..default()
                 });
             });

@@ -3,6 +3,7 @@ use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::*, FromReflect};
 use bevy_render::color::Color;
 use serde::{Deserialize, Serialize};
+use unicode_bidi::BidiInfo;
 
 use crate::Font;
 
@@ -11,6 +12,7 @@ use crate::Font;
 pub struct Text {
     pub sections: Vec<TextSection>,
     pub alignment: TextAlignment,
+    bidi_corrected: Vec<TextSection>,
 }
 
 impl Text {
@@ -59,8 +61,68 @@ impl Text {
                 value: value.into(),
                 style,
             }],
+            bidi_corrected: Default::default(),
             alignment,
         }
+    }
+
+    /// Add more sections to an existing [`Text`].
+    ///
+    /// ```
+    /// # use bevy_asset::{AssetServer, Handle};
+    /// # use bevy_render::color::Color;
+    /// # use bevy_text::{Font, Text, TextAlignment, TextStyle, HorizontalAlign, VerticalAlign};
+    /// #
+    /// # let font_handle: Handle<Font> = Default::default();
+    /// #
+    /// let hello_world = Text::with_section(
+    ///     "hello".to_string(),
+    ///     TextStyle {
+    ///         font: font_handle.clone(),
+    ///         font_size: 60.0,
+    ///         color: Color::WHITE,
+    ///     },
+    ///     TextAlignment {
+    ///         vertical: VerticalAlign::Center,
+    ///         horizontal: HorizontalAlign::Center,
+    ///     },
+    /// ).add_section(    
+    ///     " world!".to_string(),
+    ///     TextStyle {
+    ///         font: font_handle.clone(),
+    ///         font_size: 100.0,
+    ///         color: Color::WHITE,
+    ///     },
+    ///);
+    /// ```
+    pub fn add_section<S: Into<String>>(mut self, value: S, style: TextStyle) -> Self {
+        self.sections.push(TextSection {
+            value: value.into(),
+            style,
+        });
+        self
+    }
+
+    /// This will run the unicode bidirectional algorithm over all sections and create a bidi corrected copy for later use
+    pub fn bidi_correct(&mut self) {
+        self.bidi_corrected.clear();
+        for section in &self.sections {
+            let bidi_info = BidiInfo::new(&section.value, None);
+            for para in &bidi_info.paragraphs {
+                let line = para.range.clone();
+                let display = bidi_info.reorder_line(para, line);
+                let section = TextSection {
+                    value: display.into_owned(),
+                    style: section.style.clone(),
+                };
+                self.bidi_corrected.push(section);
+            }
+        }
+    }
+
+    /// Get the bidi corrected sections - needs to run [`Self::bidi_correct`] first to create bidi corrected sections!
+    pub fn bidi_corrected_sections(&self) -> &Vec<TextSection> {
+        &self.bidi_corrected
     }
 }
 

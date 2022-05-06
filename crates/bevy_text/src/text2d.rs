@@ -63,7 +63,13 @@ pub fn extract_text2d_sprite(
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,
-    text2d_query: Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>,
+    text2d_query: Query<(
+        Entity,
+        &Visibility,
+        &mut Text,
+        &GlobalTransform,
+        &Text2dSize,
+    )>,
 ) {
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
 
@@ -90,8 +96,10 @@ pub fn extract_text2d_sprite(
             let mut text_transform = *transform;
             text_transform.scale /= scale_factor;
 
+            let bidi_corrected = text.bidi_corrected_sections();
+
             for text_glyph in text_glyphs {
-                let color = text.sections[text_glyph.section_index]
+                let color = bidi_corrected[text_glyph.section_index]
                     .style
                     .color
                     .as_rgba_linear();
@@ -141,7 +149,7 @@ pub fn text2d_system(
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: ParamSet<(
         Query<Entity, (With<Text2dSize>, Changed<Text>)>,
-        Query<(&Text, Option<&Text2dBounds>, &mut Text2dSize), With<Text2dSize>>,
+        Query<(&mut Text, Option<&Text2dBounds>, &mut Text2dSize), With<Text2dSize>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
@@ -159,7 +167,7 @@ pub fn text2d_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p1();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, bounds, mut calculated_size)) = query.get_mut(entity) {
+        if let Ok((mut text, bounds, mut calculated_size)) = query.get_mut(entity) {
             let text_bounds = match bounds {
                 Some(bounds) => Vec2::new(
                     scale_value(bounds.size.x, scale_factor),
@@ -167,10 +175,13 @@ pub fn text2d_system(
                 ),
                 None => Vec2::new(f32::MAX, f32::MAX),
             };
+
+            text.bidi_correct();
+
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
-                &text.sections,
+                text.bidi_corrected_sections(),
                 scale_factor,
                 text.alignment,
                 text_bounds,

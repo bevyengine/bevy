@@ -28,10 +28,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn_bundle(UiCameraBundle::default());
     // Text with one section
+
     commands
         .spawn_bundle(TextBundle {
             style: Style {
-                align_self: AlignSelf::FlexEnd,
+                align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
                 position: UiRect {
                     bottom: Val::Px(5.0),
@@ -58,6 +59,39 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .insert(ColorText);
+
+    commands.spawn_bundle(TextBundle {
+        style: Style {
+            align_self: AlignSelf::FlexStart,
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                bottom: Val::Px(5.0),
+                right: Val::Px(500.0),
+                ..default()
+            },
+
+            ..default()
+        },
+        // Use the `Text::with_section` constructor
+        text: Text::with_section(
+            // also supports RTL / Bidi
+            concat![
+                "s", "u", "p", "p", "o", "r", "t", "s", " ", "מ", "י", "א", "ו", " ", "R", "T", "L"
+            ],
+            TextStyle {
+                font: asset_server.load("fonts/Rubik-Light.otf"),
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
+            // Note: You can use `Default::default()` in place of the `TextAlignment`
+            TextAlignment {
+                horizontal: HorizontalAlign::Center,
+                ..default()
+            },
+        ),
+        ..default()
+    });
+
     // Rich text with multiple sections
     commands
         .spawn_bundle(TextBundle {
@@ -65,29 +99,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_self: AlignSelf::FlexEnd,
                 ..default()
             },
-            // Use `Text` directly
-            text: Text {
-                // Construct a `Vec` of `TextSection`s
-                sections: vec![
-                    TextSection {
-                        value: "FPS: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 60.0,
-                            color: Color::WHITE,
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                            font_size: 60.0,
-                            color: Color::GOLD,
-                        },
-                    },
-                ],
-                ..default()
-            },
+            text: Text::with_section(
+                "FPS: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 60.0,
+                    color: Color::WHITE,
+                },
+                Default::default(),
+            )
+            .add_section(
+                "".to_string(),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: 60.0,
+                    color: Color::GOLD,
+                },
+            ),
             ..default()
         })
         .insert(FpsText);

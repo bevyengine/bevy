@@ -87,59 +87,55 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 ..default()
             },
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "This text changes in the bottom right".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::WHITE,
-                        },
-                    },
-                    TextSection {
-                        value: "\nThis text changes in the bottom right - ".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::RED,
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::ORANGE_RED,
-                        },
-                    },
-                    TextSection {
-                        value: " fps, ".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::YELLOW,
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::GREEN,
-                        },
-                    },
-                    TextSection {
-                        value: " ms/frame".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::BLUE,
-                        },
-                    },
-                ],
-                alignment: Default::default(),
-            },
+            text: Text::with_section(
+                "This text changes in the bottom right",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::WHITE,
+                },
+                Default::default(),
+            )
+            .add_section(
+                "\nThis text changes in the bottom right - ",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::RED,
+                },
+            )
+            .add_section(
+                "",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::ORANGE_RED,
+                },
+            )
+            .add_section(
+                " fps, ",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::YELLOW,
+                },
+            )
+            .add_section(
+                "",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::GREEN,
+                },
+            )
+            .add_section(
+                " ms/frame",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::BLUE,
+                },
+            ),
             ..default()
         })
         .insert(TextChanges);

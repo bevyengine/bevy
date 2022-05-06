@@ -48,7 +48,7 @@ pub fn text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
-        Query<(&Text, &Style, &mut CalculatedSize)>,
+        Query<(&mut Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary());
@@ -77,7 +77,7 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
+        if let Ok((mut text, style, mut calculated_size)) = query.get_mut(entity) {
             let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
@@ -93,10 +93,12 @@ pub fn text_system(
                 ),
             );
 
+            text.bidi_correct();
+
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
-                &text.sections,
+                text.bidi_corrected_sections(),
                 scale_factor,
                 text.alignment,
                 node_size,
