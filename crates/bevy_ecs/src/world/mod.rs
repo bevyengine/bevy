@@ -413,7 +413,7 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[inline]
-    pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
+    pub fn get<T: Component + Sync>(&self, entity: Entity) -> Option<&T> {
         self.get_entity(entity)?.get()
     }
 

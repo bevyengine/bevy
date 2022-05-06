@@ -64,7 +64,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn get<T: Component>(&self) -> Option<&'w T> {
+    pub fn get<T: Component + Sync>(&self) -> Option<&'w T> {
         // SAFE: entity location is valid and returned component is of type T
         unsafe {
             get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
@@ -166,7 +166,7 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
-    pub fn get<T: Component>(&self) -> Option<&'_ T> {
+    pub fn get<T: Component + Sync>(&self) -> Option<&'_ T> {
         // SAFE: lifetimes enforce correct usage of returned borrow
         unsafe {
             get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
