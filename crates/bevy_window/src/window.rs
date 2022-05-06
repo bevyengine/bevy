@@ -625,7 +625,8 @@ pub struct WindowDescriptor {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
-    #[cfg(target_arch = "wasm32")]
+    /// This field is only available in wasm. Can take a CSS selector to an HTML canvas
+    #[cfg(any(target_arch = "wasm32", doc))]
     pub canvas: Option<String>,
 }
 
