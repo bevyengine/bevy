@@ -285,7 +285,7 @@ impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
 impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for RenderCommandState<P, C>
 where
     <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
-SystemState<C::Param>: Sync
+    SystemState<C::Param>: Sync,
 {
     /// Prepares the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
     fn draw<'w>(
