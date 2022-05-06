@@ -32,6 +32,36 @@ jobs:
       - name: Build and install iOS app in iOS Simulator.
         run: cd examples/ios && make install
 
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
+      
+      - name: Uninstall android-31
+        run: $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --uninstall "platforms;android-31"
+      
+      - name: Install Android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi
+      
+      - name: Install Cargo APK
+        run: cargo install --force cargo-apk
+      
+      - name: Build APK
+        run: cargo apk build --example android
 
   run-examples-on-windows:
     runs-on: windows-latest
