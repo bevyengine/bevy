@@ -1,12 +1,11 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, pbr::NotShadowCaster};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(light_movement)
+        .add_system(light_sway)
         .add_system(movement)
-        .add_system(debug)
         .run();
 }
 
@@ -21,7 +20,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
@@ -45,28 +44,27 @@ fn setup(
 
     // ambient light
     commands.insert_resource(AmbientLight {
-        color: Color::ORANGE_RED,
-        brightness: 0.02,
+        color: Color::BLUE,
+        brightness: 0.04,
     });
 
     // red spotlight
     commands
         .spawn_bundle(PointLightBundle {
-            transform: Transform::from_xyz(1.0, 2.0, 0.0).looking_at(-Vec3::Y, Vec3::Z),
+            transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
-                intensity: 200.0, // lumens - roughly a 100W non-halogen incandescent bulb
-                color: Color::RED,
+                intensity: 200.0, // lumens
+                color: Color::WHITE,
                 shadows_enabled: true,
-                spotlight_angles: Some((std::f32::consts::PI / 4.0 * 0.8, std::f32::consts::PI / 4.0)),
+                spotlight_angles: Some((std::f32::consts::PI / 4.0 * 0.85, std::f32::consts::PI / 4.0)),
                 ..default()
             },
             ..default()
         })
         .with_children(|builder| {
             builder.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Torus {
-                    radius: 0.1,
-                    ring_radius: 0.05,
+                mesh: meshes.add(Mesh::from(shape::UVSphere {
+                    radius: 0.05,
                     ..default()
                 })),
                 material: materials.add(StandardMaterial {
@@ -77,10 +75,9 @@ fn setup(
                 ..default()
             });
             builder.spawn_bundle(PbrBundle {
-                transform: Transform::from_translation(Vec3::Z * -0.5),
-                mesh: meshes.add(Mesh::from(shape::Torus {
+                transform: Transform::from_translation(Vec3::Z * -0.1),
+                mesh: meshes.add(Mesh::from(shape::UVSphere {
                     radius: 0.1,
-                    ring_radius: 0.05,
                     ..default()
                 })),
                 material: materials.add(StandardMaterial {
@@ -89,40 +86,22 @@ fn setup(
                     ..default()
                 }),
                 ..default()
-            }).insert(DebugMe);
+            }).insert(NotShadowCaster);
         });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 }
 
-fn light_movement(
+fn light_sway(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<PointLight>>,
 ) {
     for mut transform in query.iter_mut() {
-        transform.look_at(-Vec3::Y + Vec3::X - Vec3::X * 1.33 * (1.5 * time.seconds_since_startup()).sin() as f32, Vec3::Z);
-    }
-}
-
-#[derive(Component)]
-struct DebugMe;
-
-fn debug(
-    q: Query<(Entity, &Transform, &GlobalTransform), With<DebugMe>>,
-    time: Res<Time>,
-    mut local: Local<usize>,
-) {
-    let secs = time.seconds_since_startup() as usize;
-    if secs > *local {
-        println!("---");
-        for (e, t, g) in q.iter() {
-            println!("e: {:?}, t: {:?}, g: {:?}", e, t.translation, g.translation);
-        }
-        *local = secs;
+        transform.rotation = Quat::from_euler(EulerRot::XYZ, -std::f32::consts::FRAC_PI_2, time.seconds_since_startup().sin() as f32 * 0.5, 0.0);
     }
 }
 
