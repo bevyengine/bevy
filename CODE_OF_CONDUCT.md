@@ -12,6 +12,8 @@ In this community we strive to go the extra step to look out for each other and 
 Don’t try to push the line of what's "technically allowed", instead, try to act with maturity, kindness and grace.
 In particular, avoid flirting with offensive or sensitive issues, particularly if they’re off-topic; this all too often leads to unnecessary fights, hurt feelings, and damaged trust; worse, it can drive people away from the community entirely.
 
+Be inclusive: avoid (or carefully signal) material that may be upsetting, be mindful of disabilities and try to avoid polarizing terms (like master/slave) when alternatives exist.
+
 If someone takes issue with something you said or did, resist the urge to be defensive. Just stop doing what it was they complained about and apologize. Even if you feel you were misinterpreted or unfairly accused, chances are good there was something you could’ve communicated better — remember that it’s your responsibility to make others in the community comfortable. Everyone wants to get along and we are all here first and foremost because we want to talk about cool technology. You will find that people will be eager to assume good intent and forgive as long as you earn their trust.
 
 Respect that people have differences of opinion and that every design or implementation choice carries a trade-off and numerous costs. There is seldom a right answer.
