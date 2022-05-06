@@ -21,7 +21,7 @@ note: required because it appears within the type `A`
    |        ^
    = note: required because of the requirements on the impl of `WorldQuery` for `&A`
 note: required by a bound in `bevy_ecs::query::QueryState`
-  --> /home/runner/work/bevy/bevy/crates/bevy_ecs/src/query/state.rs:20:26
+  --> C:/Users/James/Git/bevy/crates/bevy_ecs/src/query/state.rs:20:26
    |
 20 | pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
    |                          ^^^^^^^^^^ required by this bound in `bevy_ecs::query::QueryState`
@@ -39,7 +39,7 @@ note: required because it appears within the type `A`
 5   | struct A(Cell<usize>);
     |        ^
 note: required by a bound in `bevy_ecs::world::World::get`
-   --> /home/runner/work/bevy/bevy/crates/bevy_ecs/src/world/mod.rs:416:31
+   --> C:/Users/James/Git/bevy/crates/bevy_ecs/src/world/mod.rs:416:31
     |
 416 |     pub fn get<T: Component + Sync>(&self, entity: Entity) -> Option<&T> {
     |                               ^^^^ required by this bound in `bevy_ecs::world::World::get`
@@ -57,7 +57,7 @@ note: required because it appears within the type `A`
 5  | struct A(Cell<usize>);
    |        ^
 note: required by a bound in `EntityRef::<'w>::get`
-  --> /home/runner/work/bevy/bevy/crates/bevy_ecs/src/world/entity_ref.rs:67:31
+  --> C:/Users/James/Git/bevy/crates/bevy_ecs/src/world/entity_ref.rs:67:31
    |
 67 |     pub fn get<T: Component + Sync>(&self) -> Option<&'w T> {
    |                               ^^^^ required by this bound in `EntityRef::<'w>::get`
@@ -75,7 +75,7 @@ note: required because it appears within the type `A`
 5   | struct A(Cell<usize>);
     |        ^
 note: required by a bound in `EntityMut::<'w>::get`
-   --> /home/runner/work/bevy/bevy/crates/bevy_ecs/src/world/entity_ref.rs:169:31
+   --> C:/Users/James/Git/bevy/crates/bevy_ecs/src/world/entity_ref.rs:169:31
     |
 169 |     pub fn get<T: Component + Sync>(&self) -> Option<&'_ T> {
     |                               ^^^^ required by this bound in `EntityMut::<'w>::get`
