@@ -285,6 +285,7 @@ impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
 impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for RenderCommandState<P, C>
 where
     <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+SystemState<C::Param>: Sync
 {
     /// Prepares the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
     fn draw<'w>(
@@ -307,7 +308,8 @@ pub trait AddRenderCommand {
         &mut self,
     ) -> &mut Self
     where
-        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch;
+        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+        <<C as RenderCommand<P>>::Param as SystemParam>::Fetch: Sync;
 }
 
 impl AddRenderCommand for App {
@@ -316,6 +318,7 @@ impl AddRenderCommand for App {
     ) -> &mut Self
     where
         <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+        <<C as RenderCommand<P>>::Param as SystemParam>::Fetch: Sync,
     {
         let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
         let draw_functions = self

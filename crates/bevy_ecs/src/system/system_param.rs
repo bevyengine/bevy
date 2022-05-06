@@ -60,7 +60,7 @@ pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamF
 /// [`World`] access used by the [`SystemParamState`] (and associated [`SystemParamFetch`]).
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all [`SystemParam`]'s.
-pub unsafe trait SystemParamState: Send + Sync + 'static {
+pub unsafe trait SystemParamState: Send + 'static {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self;
     #[inline]
     fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
@@ -178,9 +178,9 @@ pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
 impl_param_set!();
 
-pub trait Resource: Send + Sync + 'static {}
+pub trait Resource: Send + 'static {}
 
-impl<T> Resource for T where T: Send + Sync + 'static {}
+impl<T> Resource for T where T: Send + 'static {}
 
 /// Shared borrow of a resource.
 ///
@@ -193,7 +193,7 @@ impl<T> Resource for T where T: Send + Sync + 'static {}
 /// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
 ///
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
-pub struct Res<'w, T: Resource> {
+pub struct Res<'w, T: Resource + Sync> {
     value: &'w T,
     ticks: &'w ComponentTicks,
     last_change_tick: u32,
@@ -201,9 +201,9 @@ pub struct Res<'w, T: Resource> {
 }
 
 // SAFE: Res only reads a single World resource
-unsafe impl<T: Resource> ReadOnlySystemParamFetch for ResState<T> {}
+unsafe impl<T: Resource + Sync> ReadOnlySystemParamFetch for ResState<T> {}
 
-impl<'w, T: Resource> Debug for Res<'w, T>
+impl<'w, T: Resource + Sync> Debug for Res<'w, T>
 where
     T: Debug,
 {
@@ -212,7 +212,7 @@ where
     }
 }
 
-impl<'w, T: Resource> Res<'w, T> {
+impl<'w, T: Resource + Sync> Res<'w, T> {
     /// Returns true if (and only if) this resource been added since the last execution of this
     /// system.
     pub fn is_added(&self) -> bool {
@@ -231,7 +231,7 @@ impl<'w, T: Resource> Res<'w, T> {
     }
 }
 
-impl<'w, T: Resource> Deref for Res<'w, T> {
+impl<'w, T: Resource + Sync> Deref for Res<'w, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -239,14 +239,14 @@ impl<'w, T: Resource> Deref for Res<'w, T> {
     }
 }
 
-impl<'w, T: Resource> AsRef<T> for Res<'w, T> {
+impl<'w, T: Resource + Sync> AsRef<T> for Res<'w, T> {
     #[inline]
     fn as_ref(&self) -> &T {
         self.deref()
     }
 }
 
-impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
+impl<'w, T: Resource + Sync> From<ResMut<'w, T>> for Res<'w, T> {
     fn from(res: ResMut<'w, T>) -> Self {
         Self {
             value: res.value,
@@ -264,13 +264,13 @@ pub struct ResState<T> {
     marker: PhantomData<T>,
 }
 
-impl<'a, T: Resource> SystemParam for Res<'a, T> {
+impl<'a, T: Resource + Sync> SystemParam for Res<'a, T> {
     type Fetch = ResState<T>;
 }
 
 // SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
-unsafe impl<T: Resource> SystemParamState for ResState<T> {
+unsafe impl<T: Resource + Sync> SystemParamState for ResState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let component_id = world.initialize_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
@@ -296,7 +296,7 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
     }
 }
 
-impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
+impl<'w, 's, T: Resource + Sync> SystemParamFetch<'w, 's> for ResState<T> {
     type Item = Res<'w, T>;
 
     #[inline]
@@ -329,20 +329,20 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
 #[doc(hidden)]
 pub struct OptionResState<T>(ResState<T>);
 
-impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
+impl<'a, T: Resource + Sync> SystemParam for Option<Res<'a, T>> {
     type Fetch = OptionResState<T>;
 }
 
 // SAFE: Only reads a single World resource
-unsafe impl<T: Resource> ReadOnlySystemParamFetch for OptionResState<T> {}
+unsafe impl<T: Resource + Sync> ReadOnlySystemParamFetch for OptionResState<T> {}
 
-unsafe impl<T: Resource> SystemParamState for OptionResState<T> {
+unsafe impl<T: Resource + Sync> SystemParamState for OptionResState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(ResState::init(world, system_meta))
     }
 }
 
-impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
+impl<'w, 's, T: Resource + Sync> SystemParamFetch<'w, 's> for OptionResState<T> {
     type Item = Option<Res<'w, T>>;
 
     #[inline]
@@ -373,6 +373,10 @@ pub struct ResMutState<T> {
 impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Fetch = ResMutState<T>;
 }
+
+// SAFETY: ResMutState only contains a ComponentId, should be safe to read
+// from multiple threads concurrently
+unsafe impl<T: Resource> Sync for ResMutState<T> {}
 
 // SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.

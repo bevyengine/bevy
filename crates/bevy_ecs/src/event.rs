@@ -159,7 +159,7 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-pub struct EventReader<'w, 's, T: Resource> {
+pub struct EventReader<'w, 's, T: Resource + Sync> {
     last_event_count: Local<'s, (usize, PhantomData<T>)>,
     events: Res<'w, Events<T>>,
 }
@@ -263,7 +263,7 @@ fn internal_event_reader<'a, T>(
         .inspect(move |(_, id)| *last_event_count = (id.id + 1).max(*last_event_count))
 }
 
-impl<'w, 's, T: Resource> EventReader<'w, 's, T> {
+impl<'w, 's, T: Resource + Sync> EventReader<'w, 's, T> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
