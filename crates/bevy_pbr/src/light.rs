@@ -687,6 +687,8 @@ fn compute_aabb_for_cluster(
 
     Aabb::from_min_max(cluster_min, cluster_max)
 }
+const NDC_MIN: Vec2 = const_vec2!([-1.0, -1.0]);
+const NDC_MAX: Vec2 = const_vec2!([1.0, 1.0]);
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
 // can be used to limit the number of point light shadows to render based on the device and
