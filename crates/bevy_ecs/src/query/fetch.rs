@@ -553,12 +553,8 @@ impl<T: Component + Sync> WorldQuery for &T {
 #[doc(hidden)]
 pub struct ReadState<T> {
     component_id: ComponentId,
-    marker: PhantomData<T>,
+    marker: PhantomData<fn() -> T>,
 }
-
-// SAFETY: ReadState only contains a ComponentId, should be safe to read
-// from multiple threads concurrently
-unsafe impl<T: Component + Sync> Sync for ReadState<T> {}
 
 // SAFETY: component access and archetype component access are properly updated to reflect that T is
 // read
@@ -794,12 +790,8 @@ impl<T> Clone for ReadOnlyWriteFetch<'_, T> {
 #[doc(hidden)]
 pub struct WriteState<T> {
     component_id: ComponentId,
-    marker: PhantomData<T>,
+    marker: PhantomData<fn() -> T>,
 }
-
-// SAFETY: WriteState only contains a ComponentId, should be safe to read
-// from multiple threads concurrently
-unsafe impl<T: Component> Sync for WriteState<T> {}
 
 // SAFETY: component access and archetype component access are properly updated to reflect that T is
 // written
@@ -1264,12 +1256,8 @@ impl<T: Component> WorldQuery for ChangeTrackers<T> {
 #[doc(hidden)]
 pub struct ChangeTrackersState<T> {
     component_id: ComponentId,
-    marker: PhantomData<T>,
+    marker: PhantomData<fn() -> T>,
 }
-
-// SAFETY: WriteState only contains a ComponentId, should be safe to read
-// from multiple threads concurrently
-unsafe impl<T: Component> Sync for ChangeTrackersState<T> {}
 
 // SAFETY: component access and archetype component access are properly updated to reflect that T is
 // read

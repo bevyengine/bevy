@@ -711,12 +711,8 @@ unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T>
 #[doc(hidden)]
 pub struct RemovedComponentsState<T> {
     component_id: ComponentId,
-    marker: PhantomData<T>,
+    marker: PhantomData<fn() -> T>,
 }
-
-// SAFETY: RemovedComponentState only contains a ComponentId, should be safe to read
-// from multiple threads concurrently
-unsafe impl<T: Component> Sync for RemovedComponentsState<T> {}
 
 impl<'a, T: Component> SystemParam for RemovedComponents<'a, T> {
     type Fetch = RemovedComponentsState<T>;

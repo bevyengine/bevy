@@ -64,12 +64,8 @@ pub struct WithFetch<T> {
 #[doc(hidden)]
 pub struct WithState<T> {
     component_id: ComponentId,
-    marker: PhantomData<T>,
+    marker: PhantomData<fn() -> T>,
 }
-
-// SAFETY: WithState only contains a ComponentId, should be safe to read
-// from multiple threads concurrently
-unsafe impl<T: Component> Sync for WithState<T> {}
 
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> FetchState for WithState<T> {
@@ -211,12 +207,8 @@ pub struct WithoutFetch<T> {
 #[doc(hidden)]
 pub struct WithoutState<T> {
     component_id: ComponentId,
-    marker: PhantomData<T>,
+    marker: PhantomData<fn() -> T>,
 }
-
-// SAFETY: WithoutState only contains a ComponentId, should be safe to read
-// from multiple threads concurrently
-unsafe impl<T: Component> Sync for WithoutState<T> {}
 
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> FetchState for WithoutState<T> {
@@ -505,7 +497,7 @@ macro_rules! impl_tick_filter {
         $(#[$state_meta])*
         pub struct $state_name<T> {
             component_id: ComponentId,
-            marker: PhantomData<T>,
+            marker: PhantomData<fn() -> T>,
         }
 
         impl<T: Component> WorldQuery for $name<T> {
@@ -515,10 +507,6 @@ macro_rules! impl_tick_filter {
                 item
             }
         }
-
-        // SAFETY: The state only contains a ComponentId, should be safe to read
-        // from multiple threads concurrently
-        unsafe impl<T: Component> Sync for $state_name<T> {}
 
         // SAFETY: this reads the T component. archetype component access and component access are updated to reflect that
         unsafe impl<T: Component> FetchState for $state_name<T> {
