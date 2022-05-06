@@ -541,7 +541,7 @@ impl<'w> Fetch<'w> for EntityFetch<'w> {
     }
 }
 
-impl<T: Component> WorldQuery for &T {
+impl<T: Component + Sync> WorldQuery for &T {
     type State = ReadState<T>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
@@ -556,9 +556,13 @@ pub struct ReadState<T> {
     marker: PhantomData<T>,
 }
 
+// SAFETY: ReadState only contains a ComponentId, should be safe to read
+// from multiple threads concurrently
+unsafe impl<T: Component + Sync> Sync for ReadState<T> {}
+
 // SAFETY: component access and archetype component access are properly updated to reflect that T is
 // read
-unsafe impl<T: Component> FetchState for ReadState<T> {
+unsafe impl<T: Component + Sync> FetchState for ReadState<T> {
     fn init(world: &mut World) -> Self {
         let component_id = world.init_component::<T>();
         ReadState {
@@ -620,15 +624,15 @@ impl<T> Clone for ReadFetch<'_, T> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<'w, T: Component> ReadOnlyFetch for ReadFetch<'w, T> {}
+unsafe impl<'w, T: Component + Sync> ReadOnlyFetch for ReadFetch<'w, T> {}
 
-impl<'w, T: Component> WorldQueryGats<'w> for &T {
+impl<'w, T: Component + Sync> WorldQueryGats<'w> for &T {
     type Fetch = ReadFetch<'w, T>;
     type ReadOnlyFetch = ReadFetch<'w, T>;
     type _State = ReadState<T>;
 }
 
-impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
+impl<'w, T: Component + Sync> Fetch<'w> for ReadFetch<'w, T> {
     type Item = &'w T;
     type State = ReadState<T>;
 
@@ -792,6 +796,10 @@ pub struct WriteState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
 }
+
+// SAFETY: WriteState only contains a ComponentId, should be safe to read
+// from multiple threads concurrently
+unsafe impl<T: Component> Sync for WriteState<T> {}
 
 // SAFETY: component access and archetype component access are properly updated to reflect that T is
 // written
@@ -1258,6 +1266,10 @@ pub struct ChangeTrackersState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
 }
+
+// SAFETY: WriteState only contains a ComponentId, should be safe to read
+// from multiple threads concurrently
+unsafe impl<T: Component> Sync for ChangeTrackersState<T> {}
 
 // SAFETY: component access and archetype component access are properly updated to reflect that T is
 // read

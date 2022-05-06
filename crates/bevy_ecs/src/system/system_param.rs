@@ -714,6 +714,10 @@ pub struct RemovedComponentsState<T> {
     marker: PhantomData<T>,
 }
 
+// SAFETY: RemovedComponentState only contains a ComponentId, should be safe to read
+// from multiple threads concurrently
+unsafe impl<T: Component> Sync for RemovedComponentsState<T> {}
+
 impl<'a, T: Component> SystemParam for RemovedComponents<'a, T> {
     type Fetch = RemovedComponentsState<T>;
 }

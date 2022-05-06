@@ -58,7 +58,7 @@ impl<C> Default for UniformComponentPlugin<C> {
     }
 }
 
-impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
+impl<C: Component + Sync + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -69,11 +69,11 @@ impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
 }
 
 /// Stores all uniforms of the component type.
-pub struct ComponentUniforms<C: Component + AsStd140> {
+pub struct ComponentUniforms<C: Component + Sync + AsStd140> {
     uniforms: DynamicUniformVec<C>,
 }
 
-impl<C: Component + AsStd140> Deref for ComponentUniforms<C> {
+impl<C: Component + Sync + AsStd140> Deref for ComponentUniforms<C> {
     type Target = DynamicUniformVec<C>;
 
     #[inline]
@@ -82,14 +82,14 @@ impl<C: Component + AsStd140> Deref for ComponentUniforms<C> {
     }
 }
 
-impl<C: Component + AsStd140> ComponentUniforms<C> {
+impl<C: Component + Sync + AsStd140> ComponentUniforms<C> {
     #[inline]
     pub fn uniforms(&self) -> &DynamicUniformVec<C> {
         &self.uniforms
     }
 }
 
-impl<C: Component + AsStd140> Default for ComponentUniforms<C> {
+impl<C: Component + Sync + AsStd140> Default for ComponentUniforms<C> {
     fn default() -> Self {
         Self {
             uniforms: Default::default(),
@@ -99,7 +99,7 @@ impl<C: Component + AsStd140> Default for ComponentUniforms<C> {
 
 /// This system prepares all components of the corresponding component type.
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
-fn prepare_uniform_components<C: Component>(
+fn prepare_uniform_components<C: Component + Sync>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,

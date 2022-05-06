@@ -67,6 +67,10 @@ pub struct WithState<T> {
     marker: PhantomData<T>,
 }
 
+// SAFETY: WithState only contains a ComponentId, should be safe to read
+// from multiple threads concurrently
+unsafe impl<T: Component> Sync for WithState<T> {}
+
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> FetchState for WithState<T> {
     fn init(world: &mut World) -> Self {
@@ -209,6 +213,10 @@ pub struct WithoutState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
 }
+
+// SAFETY: WithoutState only contains a ComponentId, should be safe to read
+// from multiple threads concurrently
+unsafe impl<T: Component> Sync for WithoutState<T> {}
 
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> FetchState for WithoutState<T> {
@@ -507,6 +515,10 @@ macro_rules! impl_tick_filter {
                 item
             }
         }
+
+        // SAFETY: The state only contains a ComponentId, should be safe to read
+        // from multiple threads concurrently
+        unsafe impl<T: Component> Sync for $state_name<T> {}
 
         // SAFETY: this reads the T component. archetype component access and component access are updated to reflect that
         unsafe impl<T: Component> FetchState for $state_name<T> {

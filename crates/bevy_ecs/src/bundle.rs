@@ -76,7 +76,7 @@ use std::{any::TypeId, collections::HashMap};
 /// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
 /// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 ///   [`Bundle::component_ids`].
-pub unsafe trait Bundle: Send + Sync + 'static {
+pub unsafe trait Bundle: Send + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
 

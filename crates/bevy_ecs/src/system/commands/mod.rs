@@ -13,7 +13,7 @@ use std::marker::PhantomData;
 use super::Resource;
 
 /// A [`World`] mutation.
-pub trait Command: Send + Sync + 'static {
+pub trait Command: Send + 'static {
     fn write(self, world: &mut World);
 }
 
@@ -261,7 +261,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// worked out to share an ID space (which doesn't happen by default).
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
-        I: IntoIterator + Send + Sync + 'static,
+        I: IntoIterator + Send + 'static,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
@@ -640,7 +640,7 @@ where
 
 pub struct InsertOrSpawnBatch<I, B>
 where
-    I: IntoIterator + Send + Sync + 'static,
+    I: IntoIterator + Send + 'static,
     B: Bundle,
     I::IntoIter: Iterator<Item = (Entity, B)>,
 {
@@ -649,7 +649,7 @@ where
 
 impl<I, B> Command for InsertOrSpawnBatch<I, B>
 where
-    I: IntoIterator + Send + Sync + 'static,
+    I: IntoIterator + Send + 'static,
     B: Bundle,
     I::IntoIter: Iterator<Item = (Entity, B)>,
 {
