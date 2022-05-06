@@ -22,7 +22,7 @@ Bevy welcomes experimentation and iteration: if you have an idea for how somethi
 ## Moderation
 
 These are the policies for upholding [our community’s standards of conduct](#our-standards). If you feel that a thread needs moderation, please contact the maintainers.
-The enforcement policies in the code of conduct apply to all official venues, including Discord channels, GitHub repositories, the Twitter community and all other forums.
+These policies will be enforced in all official Bevy forums (Discord, GitHub, Reddit, etc.), but rules apply broadly to anywhere members of the community interact, including but not limited to unofficial discussions of Bevy, Bevy ecosystem spaces, or in person meetings.
 
 1. Hateful, hurtful, oppressive, or exclusionary remarks are not allowed.
 2. Personal attacks are out-of-line.
