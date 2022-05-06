@@ -367,16 +367,12 @@ impl<'w, 's, T: Resource + Sync> SystemParamFetch<'w, 's> for OptionResState<T> 
 #[doc(hidden)]
 pub struct ResMutState<T> {
     component_id: ComponentId,
-    marker: PhantomData<T>,
+    marker: PhantomData<fn() -> T>,
 }
 
 impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Fetch = ResMutState<T>;
 }
-
-// SAFETY: ResMutState only contains a ComponentId, should be safe to read
-// from multiple threads concurrently
-unsafe impl<T: Resource> Sync for ResMutState<T> {}
 
 // SAFE: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
