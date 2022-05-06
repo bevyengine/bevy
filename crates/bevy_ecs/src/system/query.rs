@@ -827,7 +827,10 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
     #[inline]
-    pub fn get_component<T: Component + Sync>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
+    pub fn get_component<T: Component + Sync>(
+        &self,
+        entity: Entity,
+    ) -> Result<&T, QueryComponentError> {
         let world = self.world;
         let entity_ref = world
             .get_entity(entity)
