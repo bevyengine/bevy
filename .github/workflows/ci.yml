@@ -134,6 +134,7 @@ jobs:
         toolchain: [stable, nightly]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    needs: build
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
