@@ -4,7 +4,10 @@ use bevy::{
     core::FixedTimestep,
     math::{const_vec2, const_vec3},
     prelude::*,
-    sprite::collide_aabb::{collide, Collision},
+    sprite::{
+        collide_aabb::{collide, Collision},
+        MaterialMesh2dBundle,
+    },
 };
 
 // Defines the amount of time that should elapse between each physics step.
@@ -169,7 +172,12 @@ struct Scoreboard {
 }
 
 // Add the game's entities to our world
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
     // Cameras
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
@@ -202,14 +210,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn()
         .insert(Ball)
-        .insert_bundle(SpriteBundle {
+        .insert_bundle(MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::default().into()).into(),
+            material: materials.add(ColorMaterial::from(BALL_COLOR)),
             transform: Transform {
                 scale: BALL_SIZE,
                 translation: BALL_STARTING_POSITION,
-                ..default()
-            },
-            sprite: Sprite {
-                color: BALL_COLOR,
                 ..default()
             },
             ..default()
