@@ -608,10 +608,10 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// Represents the information needed to implement a type as a Reflect Struct.
 /// # Example
 /// ```ignore
-/// impl_reflect_struct_and_from_reflect_struct!(
-///    //               path override                ctor override                       attrs
-///    //        |-------------------------|  |-------------------------|  |-------------------------------|
-///    #[reflect(path = "self::bevy_reflect", ctor = "Default::default()", PartialEq, Serialize, Deserialize)]
+/// impl_reflect_struct!(
+///    //                          attrs
+///    //        |----------------------------------------|
+///    #[reflect(PartialEq, Serialize, Deserialize, Default)]
 ///    //            type_name       generics
 ///    //     |-------------------||----------|
 ///    struct ThingThatImReflecting<T1, T2, T3> {
@@ -674,7 +674,7 @@ impl Parse for ReflectStructDef {
     }
 }
 
-/// A replacement for #\[derive(Reflect)] to be used with foreign types which
+/// A replacement for `#[derive(Reflect)]` to be used with foreign types which
 /// the definitions of cannot be altered. It is an alternative to [`impl_reflect_value!`] and
 /// [`impl_from_reflect_value!`] which implement foreign types as Value types. Note that there
 /// is no `impl_from_reflect_struct`, this macro will do the job of both. This macro
@@ -687,8 +687,8 @@ impl Parse for ReflectStructDef {
 /// can be helpful in certain edge cases of invocations of the macro.
 /// # Example
 /// ```ignore
-/// impl_reflect_struct_and_from_reflect_struct!(
-///    #[reflect(ctor = "Default::default()", path = "self::bevy_reflect", PartialEq, Serialize, Deserialize)]
+/// impl_reflect_struct!(
+///    #[reflect(PartialEq, Serialize, Deserialize, Default)]
 ///    struct Vec3 {
 ///        x: f32,
 ///        y: f32,
