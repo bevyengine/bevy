@@ -365,6 +365,41 @@ impl<I: Iterator> ExactSizeIterator for ExactSize<I> {
     }
 }
 
+impl<'w, 's, E: Event> EventReader<'w, 's, E> {
+    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
+    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
+    /// that happened before now.
+    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
+        self.iter_with_id().map(|(event, _id)| event)
+    }
+
+    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    pub fn iter_with_id(
+        &mut self,
+    ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
+    {
+        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
+            trace!("EventReader::iter() -> {}", id);
+            (event, id)
+        })
+    }
+
+    /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
+    pub fn len(&self) -> usize {
+        internal_event_reader(&mut self.last_event_count.0.clone(), &self.events).len()
+    }
+
+    /// Determines if there are any events available to be read without consuming any.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Determines if there are any events available to be read and consumes all events.
+    pub fn any(&mut self) -> bool {
+        self.iter().last().is_some()
+    }
+}
+
 impl<E: Event> Events<E> {
     /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
     /// the event.
