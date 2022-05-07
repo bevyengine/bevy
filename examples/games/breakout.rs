@@ -213,6 +213,8 @@ fn setup(
         .insert_bundle(MaterialMesh2dBundle {
             // Meshes define the shape of your objects
             mesh: meshes.add(shape::Circle::default().into()).into(),
+            // Materials define the texture of your objects
+            // In this case, we're just using a flat color
             material: materials.add(ColorMaterial::from(BALL_COLOR)),
             transform: Transform {
                 scale: BALL_SIZE,
