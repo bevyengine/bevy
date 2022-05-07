@@ -129,8 +129,7 @@ pub fn extract_text2d_sprite(
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn update_text2d_layout(
-    // Text items which should be reprocessed again, generally when the
-    // font hasn't loaded yet
+    // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
