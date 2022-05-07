@@ -390,11 +390,14 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 
     /// Determines if there are any events available to be read without consuming any.
+    /// If you need to consume the iterator you can use [`EventReader::any`]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Determines if there are any events available to be read and consumes all events.
+    /// If you don't need to consume the iterator you can use [`EventReader::is_empty`]
+    /// WARNING: `events.any()` is not the same as doing `!events.is_empty()`
     pub fn any(&mut self) -> bool {
         self.iter().last().is_some()
     }
