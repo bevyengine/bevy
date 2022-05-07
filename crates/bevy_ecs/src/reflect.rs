@@ -8,6 +8,7 @@ use crate::{
 };
 use bevy_reflect::{
     impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
+    ReflectSerialize,
 };
 
 #[derive(Clone)]
