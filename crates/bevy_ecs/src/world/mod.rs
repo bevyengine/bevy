@@ -15,11 +15,11 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, StorageType,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
-    ptr::{OwningPtr, Ptr, UnsafeCellDeref},
     query::{QueryState, WorldQuery},
     storage::{Column, SparseSet, Storages},
     system::Resource,
 };
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
@@ -1187,8 +1187,8 @@ impl World {
         } else {
             let ptr = column.get_data_unchecked_mut(0);
             std::ptr::copy_nonoverlapping::<u8>(
-                value.inner().as_ptr(),
-                ptr.inner().as_ptr(),
+                value.as_ptr(),
+                ptr.as_ptr(),
                 column.data.layout().size(),
             );
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);

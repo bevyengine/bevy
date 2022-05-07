@@ -134,7 +134,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #ecs_path::ptr::OwningPtr::make(self.#field, &mut func);
             });
             field_from_components.push(quote! {
-                #field: func(ctx).inner().as_ptr().cast::<#field_type>().read(),
+                #field: func(ctx).read::<#field_type>(),
             });
         }
     }
@@ -249,6 +249,10 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     #(
                         #param.new_archetype(archetype, system_meta);
                     )*
+                }
+
+                fn apply(&mut self, world: &mut World) {
+                    self.0.apply(world)
                 }
             }
 

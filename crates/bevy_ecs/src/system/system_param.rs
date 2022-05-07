@@ -5,7 +5,6 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
-    ptr::UnsafeCellDeref,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryFetch, QueryState, ReadOnlyFetch,
         WorldQuery,
@@ -15,6 +14,7 @@ use crate::{
 };
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_param_set};
+use bevy_ptr::UnsafeCellDeref;
 use std::{
     fmt::Debug,
     marker::PhantomData,

@@ -295,6 +295,11 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
+        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push(String::from("VERTEX_COLORS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
+        }
+
         #[cfg(feature = "webgl")]
         shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
 

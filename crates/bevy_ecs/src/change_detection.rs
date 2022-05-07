@@ -263,7 +263,7 @@ impl DetectChanges for MutUntyped<'_> {
 impl std::fmt::Debug for MutUntyped<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("MutUntyped")
-            .field(&self.value.inner())
+            .field(&self.value.as_ptr())
             .finish()
     }
 }

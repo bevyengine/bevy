@@ -1,11 +1,11 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    ptr::OwningPtr,
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
+use bevy_ptr::OwningPtr;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -186,7 +186,7 @@ impl std::fmt::Debug for ComponentDescriptor {
 impl ComponentDescriptor {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.inner().cast::<T>().as_ptr().drop_in_place()
+        x.drop_as::<T>()
     }
 
     /// Create a new `ComponentDescriptor` for the type `T`.

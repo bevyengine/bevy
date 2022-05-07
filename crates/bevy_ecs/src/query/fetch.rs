@@ -3,13 +3,13 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
-    ptr::{ThinSlicePtr, UnsafeCellDeref},
     query::{debug_checked_unreachable, Access, FilteredAccess},
     storage::{ComponentSparseSet, Table, Tables},
     world::{Mut, World},
 };
 use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
+use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be queried from a [`World`].

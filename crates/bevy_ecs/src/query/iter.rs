@@ -252,8 +252,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
     #[inline]
     pub fn fetch_next(&mut self) -> Option<[QueryItem<'_, Q>; K]>
     where
-        QueryFetch<'w, Q>: Clone,
-        QueryFetch<'w, F>: Clone,
+        for<'a> QueryFetch<'a, Q>: Clone,
+        for<'a> QueryFetch<'a, F>: Clone,
     {
         // safety: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
