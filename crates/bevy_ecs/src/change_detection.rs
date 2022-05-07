@@ -42,6 +42,15 @@ pub trait DetectChanges {
     ///
     /// **Note**: This operation is irreversible.
     fn set_changed(&mut self);
+
+    /// Returns the change tick recording the previous time this component (or resource) was changed.
+    ///
+    /// Note that components and resources are also marked as changed upon insertion.
+    ///
+    /// For comparison, the previous change tick of a system can be read using the
+    /// [`SystemChangeTick`](crate::system::SystemChangeTick)
+    /// [`SystemParam`](crate::system::SystemParam).
+    fn last_changed(&self) -> u32;
 }
 
 macro_rules! change_detection_impl {
@@ -66,6 +75,11 @@ macro_rules! change_detection_impl {
                 self.ticks
                     .component_ticks
                     .set_changed(self.ticks.change_tick);
+            }
+
+            #[inline]
+            fn last_changed(&self) -> u32 {
+                self.ticks.last_change_tick
             }
         }
 

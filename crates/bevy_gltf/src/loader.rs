@@ -15,7 +15,8 @@ use bevy_pbr::{
 };
 use bevy_render::{
     camera::{
-        Camera, Camera2d, Camera3d, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        Camera, Camera3d, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        ScalingMode,
     },
     color::Color,
     mesh::{
@@ -268,12 +269,12 @@ async fn load_gltf<'a, 'b>(
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
-            // if let Some(vertex_attribute) = reader
-            //     .read_colors(0)
-            //     .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
-            // {
-            //     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
-            // }
+            if let Some(vertex_attribute) = reader
+                .read_colors(0)
+                .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
+            {
+                mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            }
 
             if let Some(iter) = reader.read_joints(0) {
                 let vertex_attribute = VertexAttributeValues::Uint16x4(iter.into_u16().collect());
@@ -703,6 +704,12 @@ fn load_node(
 
     node.insert(node_name(gltf_node));
 
+    if let Some(extras) = gltf_node.extras() {
+        node.insert(super::GltfExtras {
+            value: extras.get().to_string(),
+        });
+    }
+
     // create camera node
     if let Some(camera) = gltf_node.camera() {
         node.insert_bundle((
@@ -715,22 +722,22 @@ fn load_node(
         match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
                 let xmag = orthographic.xmag();
-                let ymag = orthographic.ymag();
                 let orthographic_projection: OrthographicProjection = OrthographicProjection {
-                    left: -xmag,
-                    right: xmag,
-                    top: ymag,
-                    bottom: -ymag,
                     far: orthographic.zfar(),
                     near: orthographic.znear(),
+                    scaling_mode: ScalingMode::FixedHorizontal,
+                    scale: xmag / 2.0,
                     ..Default::default()
                 };
 
                 node.insert(Camera {
                     projection_matrix: orthographic_projection.get_projection_matrix(),
+                    near: orthographic_projection.near,
+                    far: orthographic_projection.far,
                     ..Default::default()
                 });
-                node.insert(orthographic_projection).insert(Camera2d);
+                node.insert(orthographic_projection);
+                node.insert(Camera3d);
             }
             gltf::camera::Projection::Perspective(perspective) => {
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
@@ -780,21 +787,27 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                let node = parent
-                    .spawn_bundle(PbrBundle {
-                        mesh: load_context.get_handle(mesh_asset_path),
-                        material: load_context.get_handle(material_asset_path),
-                        ..Default::default()
-                    })
-                    .insert(Aabb::from_min_max(
-                        Vec3::from_slice(&bounds.min),
-                        Vec3::from_slice(&bounds.max),
-                    ))
-                    .id();
+                let mut mesh_entity = parent.spawn_bundle(PbrBundle {
+                    mesh: load_context.get_handle(mesh_asset_path),
+                    material: load_context.get_handle(material_asset_path),
+                    ..Default::default()
+                });
+                mesh_entity.insert(Aabb::from_min_max(
+                    Vec3::from_slice(&bounds.min),
+                    Vec3::from_slice(&bounds.max),
+                ));
 
+                if let Some(extras) = primitive.extras() {
+                    mesh_entity.insert(super::GltfExtras {
+                        value: extras.get().to_string(),
+                    });
+                }
+                if let Some(name) = mesh.name() {
+                    mesh_entity.insert(Name::new(name.to_string()));
+                }
                 // Mark for adding skinned mesh
                 if let Some(skin) = gltf_node.skin() {
-                    entity_to_skin_index_map.insert(node, skin.index());
+                    entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
                 }
             }
         }
@@ -815,6 +828,11 @@ fn load_node(
                     if let Some(name) = light.name() {
                         entity.insert(Name::new(name.to_string()));
                     }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
                     let mut entity = parent.spawn_bundle(PointLightBundle {
@@ -832,6 +850,11 @@ fn load_node(
                     });
                     if let Some(name) = light.name() {
                         entity.insert(Name::new(name.to_string()));
+                    }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {

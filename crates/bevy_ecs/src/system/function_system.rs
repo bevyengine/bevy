@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
@@ -249,33 +249,13 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// fn my_system_function(an_usize_resource: Res<usize>) {}
 ///
-/// let system = IntoSystem::system(my_system_function);
+/// let system = IntoSystem::into_system(my_system_function);
 /// ```
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
 pub trait IntoSystem<In, Out, Params>: Sized {
     type System: System<In = In, Out = Out>;
-    /// Turns this value into its corresponding [`System`].
-    ///
-    /// Use of this method was formerly required whenever adding a `system` to an `App`.
-    /// or other cases where a system is required.
-    /// However, since [#2398](https://github.com/bevyengine/bevy/pull/2398),
-    /// this is no longer required.
-    ///
-    /// In future, this method will be removed.
-    ///
-    /// One use of this method is to assert that a given function is a valid system.
-    /// For this case, use [`bevy_ecs::system::assert_is_system`] instead.
-    ///
-    /// [`bevy_ecs::system::assert_is_system`]: [`crate::system::assert_is_system`]:
-    #[deprecated(
-        since = "0.7.0",
-        note = "`.system()` is no longer needed, as methods which accept systems will convert functions into a system automatically"
-    )]
-    fn system(self) -> Self::System {
-        IntoSystem::into_system(self)
-    }
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 }
@@ -322,9 +302,11 @@ pub struct InputMarker;
 
 /// The [`System`] counter part of an ordinary function.
 ///
-/// You get this by calling [`IntoSystem::system`]  on a function that only accepts
+/// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+///
+/// [`FunctionSystem`] must be `.initialized` before they can be run.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
@@ -332,6 +314,8 @@ where
     func: F,
     param_state: Option<Param::Fetch>,
     system_meta: SystemMeta,
+    world_id: Option<WorldId>,
+    archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     #[allow(clippy::type_complexity)]
     marker: PhantomData<fn() -> (In, Out, Marker)>,
@@ -353,6 +337,8 @@ where
             func,
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
+            world_id: None,
+            archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
         }
     }
@@ -375,12 +361,6 @@ where
     }
 
     #[inline]
-    fn new_archetype(&mut self, archetype: &Archetype) {
-        let param_state = self.param_state.as_mut().unwrap();
-        param_state.new_archetype(archetype, &mut self.system_meta);
-    }
-
-    #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.system_meta.component_access_set.combined_access()
     }
@@ -400,7 +380,7 @@ where
         let change_tick = world.increment_change_tick();
         let out = self.func.run(
             input,
-            self.param_state.as_mut().unwrap(),
+            self.param_state.as_mut().expect("System's param_state was not found. Did you forget to initialize this system before running it?"),
             &self.system_meta,
             world,
             change_tick,
@@ -411,16 +391,32 @@ where
 
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
-        let param_state = self.param_state.as_mut().unwrap();
+        let param_state = self.param_state.as_mut().expect("System's param_state was not found. Did you forget to initialize this system before running it?");
         param_state.apply(world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
+        self.world_id = Some(world.id());
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,
         ));
+    }
+
+    fn update_archetype_component_access(&mut self, world: &World) {
+        assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+        let archetypes = world.archetypes();
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+
+        for archetype_index in archetype_index_range {
+            self.param_state.as_mut().unwrap().new_archetype(
+                &archetypes[ArchetypeId::new(archetype_index)],
+                &mut self.system_meta,
+            );
+        }
     }
 
     #[inline]

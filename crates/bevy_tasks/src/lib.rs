@@ -20,9 +20,6 @@ pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 mod usages;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
-mod countdown_event;
-pub use countdown_event::CountdownEvent;
-
 mod iter;
 pub use iter::ParallelIterator;
 

@@ -96,14 +96,14 @@ mod tests {
 
     use crate::{
         self as bevy_ecs,
-        archetype::Archetypes,
+        archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         component::{Component, Components},
         entity::{Entities, Entity},
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
+            Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
             RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
@@ -138,9 +138,6 @@ mod tests {
         world.spawn().insert(A);
 
         system.initialize(&mut world);
-        for archetype in world.archetypes.iter() {
-            system.new_archetype(archetype);
-        }
         system.run((), &mut world);
     }
 
@@ -834,5 +831,98 @@ mod tests {
                 "both components returned by iter of &mut"
             );
         }
+    }
+
+    #[test]
+    fn update_archetype_component_access_works() {
+        use std::collections::HashSet;
+
+        fn a_not_b_system(_query: Query<&A, Without<B>>) {}
+
+        let mut world = World::default();
+        let mut system = IntoSystem::into_system(a_not_b_system);
+        let mut expected_ids = HashSet::<ArchetypeComponentId>::new();
+        let a_id = world.init_component::<A>();
+
+        // set up system and verify its access is empty
+        system.initialize(&mut world);
+        system.update_archetype_component_access(&world);
+        assert_eq!(
+            system
+                .archetype_component_access()
+                .reads()
+                .collect::<HashSet<_>>(),
+            expected_ids
+        );
+
+        // add some entities with archetypes that should match and save their ids
+        expected_ids.insert(
+            world
+                .spawn()
+                .insert_bundle((A,))
+                .archetype()
+                .get_archetype_component_id(a_id)
+                .unwrap(),
+        );
+        expected_ids.insert(
+            world
+                .spawn()
+                .insert_bundle((A, C))
+                .archetype()
+                .get_archetype_component_id(a_id)
+                .unwrap(),
+        );
+
+        // add some entities with archetypes that should not match
+        world.spawn().insert_bundle((A, B));
+        world.spawn().insert_bundle((B, C));
+
+        // update system and verify its accesses are correct
+        system.update_archetype_component_access(&world);
+        assert_eq!(
+            system
+                .archetype_component_access()
+                .reads()
+                .collect::<HashSet<_>>(),
+            expected_ids
+        );
+
+        // one more round
+        expected_ids.insert(
+            world
+                .spawn()
+                .insert_bundle((A, D))
+                .archetype()
+                .get_archetype_component_id(a_id)
+                .unwrap(),
+        );
+        world.spawn().insert_bundle((A, B, D));
+        system.update_archetype_component_access(&world);
+        assert_eq!(
+            system
+                .archetype_component_access()
+                .reads()
+                .collect::<HashSet<_>>(),
+            expected_ids
+        );
+    }
+
+    #[test]
+    fn commands_param_set() {
+        // Regression test for #4676
+        let mut world = World::new();
+        let entity = world.spawn().id();
+
+        run_system(
+            &mut world,
+            move |mut commands_set: ParamSet<(Commands, Commands)>| {
+                commands_set.p0().entity(entity).insert(A);
+                commands_set.p1().entity(entity).insert(B);
+            },
+        );
+
+        let entity = world.entity(entity);
+        assert!(entity.contains::<A>());
+        assert!(entity.contains::<B>());
     }
 }

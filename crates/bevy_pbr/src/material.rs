@@ -204,7 +204,7 @@ impl<M: SpecializedMaterial> Default for MaterialPlugin<M> {
 impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::default())
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
             .add_plugin(RenderAssetPlugin::<M>::default());
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -220,8 +220,8 @@ impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
 
 #[derive(Eq, PartialEq, Clone, Hash)]
 pub struct MaterialPipelineKey<T> {
-    mesh_key: MeshPipelineKey,
-    material_key: T,
+    pub mesh_key: MeshPipelineKey,
+    pub material_key: T,
 }
 
 pub struct MaterialPipeline<M: SpecializedMaterial> {
