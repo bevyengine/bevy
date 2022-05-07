@@ -1,0 +1,25 @@
+error[E0277]: the trait bound `WriteFetch<'_, Foo>: ReadOnlyFetch` is not satisfied
+ --> tests/ui/world_query_derive.rs:7:10
+  |
+7 | #[derive(WorldQuery)]
+  |          ^^^^^^^^^^ the trait `ReadOnlyFetch` is not implemented for `WriteFetch<'_, Foo>`
+  |
+note: required by a bound in `_::assert_readonly`
+ --> tests/ui/world_query_derive.rs:7:10
+  |
+7 | #[derive(WorldQuery)]
+  |          ^^^^^^^^^^ required by this bound in `_::assert_readonly`
+  = note: this error originates in the derive macro `WorldQuery` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `MutableMarkedFetch<'_>: ReadOnlyFetch` is not satisfied
+  --> tests/ui/world_query_derive.rs:18:10
+   |
+18 | #[derive(WorldQuery)]
+   |          ^^^^^^^^^^ the trait `ReadOnlyFetch` is not implemented for `MutableMarkedFetch<'_>`
+   |
+note: required by a bound in `_::assert_readonly`
+  --> tests/ui/world_query_derive.rs:18:10
+   |
+18 | #[derive(WorldQuery)]
+   |          ^^^^^^^^^^ required by this bound in `_::assert_readonly`
+   = note: this error originates in the derive macro `WorldQuery` (in Nightly builds, run with -Z macro-backtrace for more info)

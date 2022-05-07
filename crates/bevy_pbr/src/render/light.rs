@@ -4,7 +4,6 @@ use crate::{
     PointLight, PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
-use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent3d;
 use bevy_ecs::{
     prelude::*,
@@ -30,6 +29,7 @@ use bevy_render::{
     },
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::FloatOrd;
 use bevy_utils::{
     tracing::{error, warn},
     HashMap,
@@ -1439,6 +1439,11 @@ impl Node for ShadowPassNode {
                     .view_light_query
                     .get_manual(world, view_light_entity)
                     .unwrap();
+
+                if shadow_phase.items.is_empty() {
+                    continue;
+                }
+
                 let pass_descriptor = RenderPassDescriptor {
                     label: Some(&view_light.pass_name),
                     color_attachments: &[],

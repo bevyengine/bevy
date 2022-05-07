@@ -17,4 +17,4 @@ bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.8.0-dev" }
 syn = { version = "1.0", features = ["full"] }
 proc-macro2 = "1.0"
 quote = "1.0"
-uuid = { version = "0.8", features = ["v4", "serde"] }
+uuid = { version = "0.8", features = ["v4"] }

@@ -9,10 +9,11 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_core::cast_slice;
+use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use bevy_utils::{EnumVariantMeta, Hashed};
+use bevy_utils::Hashed;
 use std::{collections::BTreeMap, hash::Hash};
 use thiserror::Error;
 use wgpu::{
@@ -73,7 +74,7 @@ impl Mesh {
 
     /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Uint32);
+        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =

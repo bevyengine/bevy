@@ -269,12 +269,12 @@ async fn load_gltf<'a, 'b>(
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
-            // if let Some(vertex_attribute) = reader
-            //     .read_colors(0)
-            //     .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
-            // {
-            //     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
-            // }
+            if let Some(vertex_attribute) = reader
+                .read_colors(0)
+                .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
+            {
+                mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            }
 
             if let Some(iter) = reader.read_joints(0) {
                 let vertex_attribute = VertexAttributeValues::Uint16x4(iter.into_u16().collect());

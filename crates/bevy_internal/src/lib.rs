@@ -47,6 +47,11 @@ pub mod math {
     pub use bevy_math::*;
 }
 
+pub mod ptr {
+    //! Utilities for working with untyped pointers in a more safe way.
+    pub use bevy_ptr::*;
+}
+
 pub mod reflect {
     // TODO: remove these renames once TypeRegistryArc is no longer required
     //! Type reflection used for dynamically interacting with rust types.

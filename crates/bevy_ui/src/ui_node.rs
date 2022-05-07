@@ -2,7 +2,7 @@ use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
@@ -12,7 +12,7 @@ use std::ops::{Add, AddAssign};
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in pixels
     pub size: Vec2,
@@ -68,7 +68,7 @@ impl AddAssign<f32> for Val {
 /// **Note:** Bevy's UI is upside down compared to how Flexbox normally works, to stay consistent with engine paradigms about layouting from
 /// the upper left corner of the display
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Component, PartialEq)]
+#[reflect(Component, Default, PartialEq)]
 pub struct Style {
     /// Whether to arrange this node and its children with flexbox layout
     pub display: Display,
@@ -359,7 +359,7 @@ pub struct CalculatedSize {
 
 /// The color of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct UiColor(pub Color);
 
 impl From<Color> for UiColor {
@@ -370,7 +370,7 @@ impl From<Color> for UiColor {
 
 /// The image of the node
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct UiImage(pub Handle<Image>);
 
 impl Default for UiImage {

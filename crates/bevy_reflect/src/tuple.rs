@@ -1,6 +1,9 @@
+use crate::{
+    serde::Serializable, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
+    ReflectMut, ReflectRef, TypeRegistration,
+};
+use serde::Deserialize;
 use std::any::Any;
-
-use crate::{serde::Serializable, FromReflect, Reflect, ReflectMut, ReflectRef};
 
 /// A reflected Rust tuple.
 ///
@@ -415,6 +418,14 @@ macro_rules! impl_reflect_tuple {
 
             fn serializable(&self) -> Option<Serializable> {
                 None
+            }
+        }
+
+        impl<$($name: Reflect + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+            fn get_type_registration() -> TypeRegistration {
+                let mut registration = TypeRegistration::of::<($($name,)*)>();
+                registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());
+                registration
             }
         }
 
