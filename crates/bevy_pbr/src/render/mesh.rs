@@ -19,21 +19,21 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{
-        encase::{ShaderType, Size},
-        *,
-    },
+    render_resource::{encase::ShaderType, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
+use std::num::NonZeroU64;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
 const MAX_JOINTS: usize = 256;
+const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
+pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
@@ -62,13 +62,14 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
-        app.add_plugin(UniformComponentPlugin::<SkinnedMeshUniform>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<MeshPipeline>()
+                .init_resource::<SkinnedMeshUniform>()
                 .add_system_to_stage(RenderStage::Extract, extract_meshes)
                 .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
+                .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
         }
@@ -169,47 +170,85 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(not_caster_values);
 }
 
+#[derive(Debug, Default)]
+pub struct ExtractedJoints {
+    pub buffer: Vec<Mat4>,
+}
+
+#[derive(Component)]
+pub struct SkinnedMeshJoints {
+    pub index: u32,
+}
+
+impl SkinnedMeshJoints {
+    #[inline]
+    pub fn build(
+        skin: &SkinnedMesh,
+        inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
+        joints: &Query<&GlobalTransform>,
+        buffer: &mut Vec<Mat4>,
+    ) -> Option<Self> {
+        let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
+        let bindposes = inverse_bindposes.iter();
+        let skin_joints = skin.joints.iter();
+        let start = buffer.len();
+        for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(MAX_JOINTS) {
+            if let Ok(joint) = joints.get(*joint) {
+                buffer.push(joint.compute_affine() * *inverse_bindpose);
+            } else {
+                buffer.truncate(start);
+                return None;
+            }
+        }
+
+        // Pad to 256 byte alignment
+        while buffer.len() % 4 != 0 {
+            buffer.push(Mat4::ZERO);
+        }
+        Some(Self {
+            index: start as u32,
+        })
+    }
+
+    pub fn to_buffer_index(mut self) -> Self {
+        self.index *= std::mem::size_of::<Mat4>() as u32;
+        self
+    }
+}
+
 pub fn extract_skinned_meshes(
     query: Query<(Entity, &ComputedVisibility, &SkinnedMesh)>,
     inverse_bindposes: Res<Assets<SkinnedMeshInverseBindposes>>,
     joint_query: Query<&GlobalTransform>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
+    mut previous_joint_len: Local<usize>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
+    let mut joints = Vec::with_capacity(*previous_joint_len);
+    let mut last_start = 0;
 
     for (entity, computed_visibility, skin) in query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?
-        if let Some(inverse_bindposes) = inverse_bindposes.get(&skin.inverse_bindposes) {
-            let bindposes = inverse_bindposes.iter();
-            let skin_joints = skin.joints.iter();
-            let entity_joints = bindposes
-                .zip(skin_joints)
-                .map(|(inverse_bindpose, joint)| {
-                    joint_query
-                        .get(*joint)
-                        .ok()
-                        .map(|joint| joint.compute_affine() * *inverse_bindpose)
-                })
-                .chain(std::iter::from_fn(|| Some(Some(Mat4::default()))))
-                .take(MAX_JOINTS)
-                .collect::<Option<Vec<Mat4>>>();
-
-            if let Some(entity_joints) = entity_joints {
-                values.push((
-                    entity,
-                    (SkinnedMeshUniform {
-                        joints: entity_joints.into_boxed_slice().try_into().unwrap(),
-                    },),
-                ));
-            }
+        if let Some(skinned_joints) =
+            SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut joints)
+        {
+            last_start = last_start.max(skinned_joints.index as usize);
+            values.push((entity, (skinned_joints.to_buffer_index(),)));
         }
     }
 
+    // Pad out the buffer to ensure that there's enough space for bindings
+    while joints.len() - last_start < MAX_JOINTS {
+        joints.push(Mat4::ZERO);
+    }
+
     *previous_len = values.len();
+    *previous_joint_len = joints.len();
+    commands.insert_resource(ExtractedJoints { buffer: joints });
     commands.insert_or_spawn_batch(values);
 }
 
@@ -368,7 +407,7 @@ impl FromWorld for MeshPipeline {
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: true,
-                            min_binding_size: Some(SkinnedMeshUniform::min_size()),
+                            min_binding_size: BufferSize::new(JOINT_BUFFER_SIZE as u64),
                         },
                         count: None,
                     },
@@ -631,7 +670,7 @@ pub fn queue_mesh_bind_group(
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
-    skinned_mesh_uniform: Res<ComponentUniforms<SkinnedMeshUniform>>,
+    skinned_mesh_uniform: Res<SkinnedMeshUniform>,
 ) {
     if let Some(mesh_binding) = mesh_uniforms.uniforms().binding() {
         let mut mesh_bind_group = MeshBindGroup {
@@ -646,7 +685,7 @@ pub fn queue_mesh_bind_group(
             skinned: None,
         };
 
-        if let Some(skinned_mesh_binding) = skinned_mesh_uniform.uniforms().binding() {
+        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.buffer() {
             mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -655,7 +694,11 @@ pub fn queue_mesh_bind_group(
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: skinned_mesh_binding,
+                        resource: BindingResource::Buffer(BufferBinding {
+                            buffer: skinned_joints_buffer,
+                            offset: 0,
+                            size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
+                        }),
                     },
                 ],
                 label: Some("skinned_mesh_bind_group"),
@@ -666,21 +709,37 @@ pub fn queue_mesh_bind_group(
     }
 }
 
-#[derive(Component, ShaderType, Clone)]
+// NOTE: This is using BufferVec because it is using a trick to allow a fixed-size array
+// in a uniform buffer to be used like a variable-sized array by only writing the valid data
+// into the buffer, knowing the number of valid items starting from the dynamic offset, and
+// ignoring the rest, whether they're valid for other dynamic offsets or not. This trick may
+// be supported later in encase, and then we should make use of it.
+
+#[derive(Default)]
 pub struct SkinnedMeshUniform {
-    joints: Box<[Mat4; MAX_JOINTS]>,
+    pub buffer: BufferVec<Mat4>,
 }
 
-// NOTE: Assert at compile time that SkinnedMeshUniform
-// fits within the maximum uniform buffer binding size
-const _: () = assert!(SkinnedMeshUniform::SIZE.get() <= 16384);
-
-impl Default for SkinnedMeshUniform {
-    fn default() -> Self {
-        Self {
-            joints: Box::new([Mat4::default(); MAX_JOINTS]),
-        }
+pub fn prepare_skinned_meshes(
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    extracted_joints: Res<ExtractedJoints>,
+    mut skinned_mesh_uniform: ResMut<SkinnedMeshUniform>,
+) {
+    if extracted_joints.buffer.is_empty() {
+        return;
     }
+
+    skinned_mesh_uniform.buffer.clear();
+    skinned_mesh_uniform
+        .buffer
+        .reserve(extracted_joints.buffer.len(), &render_device);
+    for joint in extracted_joints.buffer.iter() {
+        skinned_mesh_uniform.buffer.push(*joint);
+    }
+    skinned_mesh_uniform
+        .buffer
+        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Component)]
@@ -792,7 +851,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
         SRes<MeshBindGroup>,
         SQuery<(
             Read<DynamicUniformIndex<MeshUniform>>,
-            Option<Read<DynamicUniformIndex<SkinnedMeshUniform>>>,
+            Option<Read<SkinnedMeshJoints>>,
         )>,
     );
     #[inline]
@@ -807,7 +866,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshBindGroup<I> {
             pass.set_bind_group(
                 I,
                 mesh_bind_group.into_inner().skinned.as_ref().unwrap(),
-                &[mesh_index.index(), joints.index()],
+                &[mesh_index.index(), joints.index],
             );
         } else {
             pass.set_bind_group(
