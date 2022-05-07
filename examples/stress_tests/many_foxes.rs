@@ -1,3 +1,6 @@
+//! Loads animations from a skinned glTF, spawns many of them, and plays the
+//! animation to stress test skinned meshes.
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
