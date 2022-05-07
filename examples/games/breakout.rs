@@ -211,6 +211,7 @@ fn setup(
         .spawn()
         .insert(Ball)
         .insert_bundle(MaterialMesh2dBundle {
+            // Meshes define the shape of your objects
             mesh: meshes.add(shape::Circle::default().into()).into(),
             material: materials.add(ColorMaterial::from(BALL_COLOR)),
             transform: Transform {
