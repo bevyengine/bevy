@@ -125,16 +125,13 @@ pub fn extract_text2d_sprite(
     }
 }
 
-#[derive(Debug, Default)]
-pub struct QueuedText2d {
-    entities: HashSet<Entity>,
-}
-
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn text2d_system(
-    mut queue: Local<QueuedText2d>,
+pub fn update_text2d_layout(
+    // Text items which should be reprocessed again, generally when the
+    // font hasn't loaded yet
+    mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
@@ -155,7 +152,7 @@ pub fn text2d_system(
     let scale_factor = windows.scale_factor(WindowId::primary());
 
     for (entity, text_changed, text, maybe_bounds, mut calculated_size) in text_query.iter_mut() {
-        if factor_changed || text_changed || queue.entities.remove(&entity) {
+        if factor_changed || text_changed || queue.remove(&entity) {
             let text_bounds = match maybe_bounds {
                 Some(bounds) => Vec2::new(
                     scale_value(bounds.size.x, scale_factor),
@@ -177,7 +174,7 @@ pub fn text2d_system(
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
-                    queue.entities.insert(entity);
+                    queue.insert(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {}.", e);
