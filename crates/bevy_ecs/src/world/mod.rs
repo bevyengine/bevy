@@ -1625,14 +1625,13 @@ impl World {
     }
 
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_entities`](Self::clear_resources),
-    /// invalidating all [Entity] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
+    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
         self.clear_resources();
     }
 
-    /// Clears entities in this [World] including entities in [Archetypes].
-    /// All [Entity] will be invalidated.
+    /// Despawns all entities in this [`World`].
     pub fn clear_entities(&mut self) {
         self.storages.tables.clear();
         self.storages.sparse_sets.clear();
@@ -1640,7 +1639,8 @@ impl World {
         self.entities.clear();
     }
 
-    /// Clears all resources in this [World].
+    /// Clears all resources in this [`World`].
+    ///
     /// Any resource fetch to this [World] will fail unless they are re-initialized.
     pub fn clear_resources(&mut self) {
         let resource_archetype = self.archetypes.resource_mut();
