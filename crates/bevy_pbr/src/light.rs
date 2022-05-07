@@ -766,8 +766,15 @@ pub(crate) fn assign_lights_to_clusters(
         };
         let first_slice_depth = match (is_orthographic, requested_cluster_dimensions.z) {
             (true, _) => {
-                (camera.projection_matrix.w_axis.z - 1.0)
-                    / (camera.projection_matrix.z_axis.z * 2.0)
+                // NOTE: Based on glam's Mat4::orthographic_rh(), as used to calculate the orthographic projection
+                // matrix, we can calculate the projection's view-space near plane as follows:
+                // component 3,2 = r * near and 2,2 = r where r = 1.0 / (near - far)
+                // There is a caveat here that when calculating the projection matrix, near and far were swapped to give
+                // reversed z, consistent with the perspective projection. So,
+                // 3,2 = r * far and 2,2 = r where r = 1.0 / (far - near)
+                // rearranging r = 1.0 / (far - near), r * (far - near) = 1.0, r * far - 1.0 = r * near, near = (r * far - 1.0) / r
+                // = (3,2 - 1.0) / 2,2
+                (camera.projection_matrix.w_axis.z - 1.0) / camera.projection_matrix.z_axis.z
             }
             (false, 1) => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
