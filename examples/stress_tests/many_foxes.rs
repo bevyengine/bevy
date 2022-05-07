@@ -187,13 +187,11 @@ fn setup_scene_once_loaded(
     mut player: Query<&mut AnimationPlayer>,
     mut done: Local<bool>,
 ) {
-    if !*done {
+    if !*done && player.iter().len() == foxes.count {
         for mut player in player.iter_mut() {
             player.play(animations.0[0].clone_weak()).repeat();
         }
-        if player.iter().len() == foxes.count {
-            *done = true;
-        }
+        *done = true;
     }
 }
 
