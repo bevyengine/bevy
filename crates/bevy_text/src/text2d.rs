@@ -3,6 +3,7 @@ use bevy_ecs::{
     bundle::Bundle,
     component::Component,
     entity::Entity,
+    event::EventReader,
     query::{Changed, With},
     reflect::ReflectComponent,
     system::{Local, ParamSet, Query, Res, ResMut},
@@ -12,7 +13,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_window::{WindowId, Windows};
+use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
     DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, VerticalAlign,
@@ -136,17 +137,22 @@ pub fn text2d_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
+    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, (With<Text2dSize>, Changed<Text>)>,
+        Query<(Entity, Changed<Text>), With<Text2dSize>>,
         Query<(&Text, Option<&Text2dBounds>, &mut Text2dSize), With<Text2dSize>>,
     )>,
 ) {
+    // We need to consume the entire iterator, hence `last`
+    let changed = scale_factor_changed.iter().last().is_some();
     // Adds all entities where the text or the style has changed to the local queue
-    for entity in text_queries.p0().iter_mut() {
-        queued_text.entities.push(entity);
+    for (entity, text_changed) in text_queries.p0().iter_mut() {
+        if changed | text_changed {
+            queued_text.entities.push(entity);
+        }
     }
 
     if queued_text.entities.is_empty() {
