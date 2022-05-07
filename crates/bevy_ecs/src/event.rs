@@ -9,9 +9,9 @@ use std::{
     marker::PhantomData,
 };
 
-/// An `EventId` uniquely identifies an event.
+/// Uniquely identifies an event.
 ///
-/// An `EventId` can among other things be used to trace the flow of an event from the point it was
+/// Among other things, this can be used to trace the flow of an event from the point it was
 /// sent to the point it was processed.
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct EventId<T> {
