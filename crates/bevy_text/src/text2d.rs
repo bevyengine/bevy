@@ -4,15 +4,16 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::{Changed, With},
+    query::Changed,
     reflect::ReflectComponent,
-    system::{Local, ParamSet, Query, Res, ResMut},
+    system::{Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
@@ -126,14 +127,14 @@ pub fn extract_text2d_sprite(
 
 #[derive(Debug, Default)]
 pub struct QueuedText2d {
-    entities: Vec<Entity>,
+    entities: HashSet<Entity>,
 }
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn text2d_system(
-    mut queued_text: Local<QueuedText2d>,
+    mut queue: Local<QueuedText2d>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
@@ -141,32 +142,21 @@ pub fn text2d_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
-    mut text_queries: ParamSet<(
-        Query<(Entity, Changed<Text>), With<Text2dSize>>,
-        Query<(&Text, Option<&Text2dBounds>, &mut Text2dSize), With<Text2dSize>>,
+    mut text_query: Query<(
+        Entity,
+        Changed<Text>,
+        &Text,
+        Option<&Text2dBounds>,
+        &mut Text2dSize,
     )>,
 ) {
     // We need to consume the entire iterator, hence `last`
-    let changed = scale_factor_changed.iter().last().is_some();
-    // Adds all entities where the text or the style has changed to the local queue
-    for (entity, text_changed) in text_queries.p0().iter_mut() {
-        if changed | text_changed {
-            queued_text.entities.push(entity);
-        }
-    }
-
-    if queued_text.entities.is_empty() {
-        return;
-    }
-
+    let factor_changed = scale_factor_changed.iter().last().is_some();
     let scale_factor = windows.scale_factor(WindowId::primary());
 
-    // Computes all text in the local queue
-    let mut new_queue = Vec::new();
-    let mut query = text_queries.p1();
-    for entity in queued_text.entities.drain(..) {
-        if let Ok((text, bounds, mut calculated_size)) = query.get_mut(entity) {
-            let text_bounds = match bounds {
+    for (entity, text_changed, text, maybe_bounds, mut calculated_size) in text_query.iter_mut() {
+        if factor_changed || text_changed || queue.entities.remove(&entity) {
+            let text_bounds = match maybe_bounds {
                 Some(bounds) => Vec2::new(
                     scale_value(bounds.size.x, scale_factor),
                     scale_value(bounds.size.y, scale_factor),
@@ -187,7 +177,7 @@ pub fn text2d_system(
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
-                    new_queue.push(entity);
+                    queue.entities.insert(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {}.", e);
@@ -204,8 +194,6 @@ pub fn text2d_system(
             }
         }
     }
-
-    queued_text.entities = new_queue;
 }
 
 pub fn scale_value(value: f32, factor: f64) -> f32 {
