@@ -450,11 +450,10 @@ pub fn system_label(_attr: TokenStream, input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("SystemLabel").into());
-    (quote! {
+    TokenStream::from(quote! {
         #[derive(#trait_path, Clone, Hash, Eq, PartialEq, Debug)]
         #input
     })
-    .into()
 }
 
 #[proc_macro_derive(StageLabel)]
