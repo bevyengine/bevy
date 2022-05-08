@@ -100,7 +100,7 @@ mod tests {
         bundle::Bundles,
         component::{Component, Components},
         entity::{Entities, Entity},
-        query::{Added, Changed, Or, With, WithQueryExt, Without},
+        query::{Added, Changed, Or, With, Joinable, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
             Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
@@ -929,7 +929,7 @@ mod tests {
     #[test]
     fn join_with_query() {
         fn sys(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
-            assert_eq!(has_a.iter().with_query(&has_a_and_b).count(), 2);
+            assert_eq!(has_a.iter().join_with(&has_a_and_b).count(), 2);
         }
 
         let mut system = IntoSystem::into_system(sys);
@@ -946,7 +946,7 @@ mod tests {
     #[test]
     fn join_with_query_mut() {
         fn sys(has_a: Query<Entity, With<A>>, mut has_w: Query<&mut W<u64>>) {
-            has_a.iter().with_query_mut(&mut has_w, |mut w| {
+            has_a.iter().join_with_mut(&mut has_w, |mut w| {
                 w.0 = 999;
             });
         }

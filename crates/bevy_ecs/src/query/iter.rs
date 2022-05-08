@@ -512,8 +512,8 @@ where
     }
 }
 
-pub trait WithQueryExt {
-    fn with_query<'world, 'state, Q, F>(
+pub trait Joinable {
+    fn join_with<'world, 'state, Q, F>(
         self,
         query: &'world Query<'world, 'state, Q, F>,
     ) -> WithQuery<'world, 'state, Self, Q, F>
@@ -521,15 +521,16 @@ pub trait WithQueryExt {
         Self: Sized,
         Q: WorldQuery,
         F: WorldQuery;
-    fn with_query_mut<Q, F, CB>(self, query: &mut Query<Q, F>, cb: CB)
+
+    fn join_with_mut<Q, F, CB>(self, query: &mut Query<Q, F>, cb: CB)
     where
         Q: WorldQuery,
         F: WorldQuery,
         CB: FnMut(QueryItem<Q>);
 }
 
-impl<I: Iterator<Item = Entity>> WithQueryExt for I {
-    fn with_query<'w, 's, Q, F>(
+impl<I: Iterator<Item = Entity>> Joinable for I {
+    fn join_with<'w, 's, Q, F>(
         self,
         query: &'w Query<'w, 's, Q, F>,
     ) -> WithQuery<'w, 's, Self, Q, F>
@@ -540,7 +541,7 @@ impl<I: Iterator<Item = Entity>> WithQueryExt for I {
         WithQuery { iter: self, query }
     }
 
-    fn with_query_mut<Q, F, CB>(self, query: &mut Query<Q, F>, mut cb: CB)
+    fn join_with_mut<Q, F, CB>(self, query: &mut Query<Q, F>, mut cb: CB)
     where
         Q: WorldQuery,
         F: WorldQuery,
