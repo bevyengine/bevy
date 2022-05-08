@@ -690,8 +690,10 @@ impl Parse for ReflectStructDef {
 /// be possible to reflect without extending the macro.
 /// 
 /// # Example
-/// Implementing `Reflect` for `glam::Vec3` as a struct type:
+/// Implementing `Reflect` for `bevy::prelude::Vec3` as a struct type:
 /// ```ignore
+/// use bevy::prelude::Vec3;
+/// 
 /// impl_reflect_struct!(
 ///    #[reflect(PartialEq, Serialize, Deserialize, Default)]
 ///    struct Vec3 {
