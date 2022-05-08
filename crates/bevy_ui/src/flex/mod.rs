@@ -4,7 +4,7 @@ use crate::{CalculatedSize, Node, Style};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    query::{Changed, FilterFetch, With, Without, WorldQuery},
+    query::{Changed, With, Without, WorldQuery},
     system::{Query, Res, ResMut},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -235,9 +235,7 @@ pub fn flex_node_system(
         flex_surface: &mut FlexSurface,
         scaling_factor: f64,
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
-    ) where
-        F::Fetch: FilterFetch,
-    {
+    ) {
         // update changed nodes
         for (entity, style, calculated_size) in query.iter() {
             // TODO: remove node from old hierarchy if its root has changed

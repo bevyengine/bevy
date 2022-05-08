@@ -22,13 +22,6 @@ impl WinitWindows {
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
     ) -> Window {
-        #[cfg(target_os = "windows")]
-        let mut winit_window_builder = {
-            use winit::platform::windows::WindowBuilderExtWindows;
-            winit::window::WindowBuilder::new().with_drag_and_drop(false)
-        };
-
-        #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
         winit_window_builder = match window_descriptor.mode {
@@ -187,6 +180,12 @@ impl WinitWindows {
 
     pub fn get_window_id(&self, id: winit::window::WindowId) -> Option<WindowId> {
         self.winit_to_window_id.get(&id).cloned()
+    }
+
+    pub fn remove_window(&mut self, id: WindowId) -> Option<winit::window::Window> {
+        let winit_id = self.window_id_to_winit.remove(&id)?;
+        // Don't remove from winit_to_window_id, to track that we used to know about this winit window
+        self.windows.remove(&winit_id)
     }
 }
 

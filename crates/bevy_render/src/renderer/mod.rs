@@ -45,8 +45,7 @@ pub fn render_system(world: &mut World) {
     }
 
     {
-        let span = info_span!("present_frames");
-        let _guard = span.enter();
+        let _span = info_span!("present_frames").entered();
 
         // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
         // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
@@ -64,6 +63,13 @@ pub fn render_system(world: &mut World) {
                 if let Some(surface_texture) = texture_view.take_surface_texture() {
                     surface_texture.present();
                 }
+
+                #[cfg(feature = "tracing-tracy")]
+                bevy_utils::tracing::event!(
+                    bevy_utils::tracing::Level::INFO,
+                    message = "finished frame",
+                    tracy.frame_mark = true
+                );
             }
         }
     }

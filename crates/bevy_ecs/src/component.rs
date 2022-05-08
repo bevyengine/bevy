@@ -5,6 +5,7 @@ use crate::{
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
+use bevy_ptr::OwningPtr;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -53,14 +54,6 @@ mod sealed {
     pub trait Sealed {}
     impl Sealed for super::TableStorage {}
     impl Sealed for super::SparseStorage {}
-}
-
-// ECS dependencies cannot derive Component, so we must implement it manually for relevant structs.
-impl<T> Component for bevy_tasks::Task<T>
-where
-    Self: Send + Sync + 'static,
-{
-    type Storage = TableStorage;
 }
 
 /// The storage used for a specific component type.
@@ -117,7 +110,7 @@ impl ComponentInfo {
     }
 
     #[inline]
-    pub fn drop(&self) -> unsafe fn(*mut u8) {
+    pub fn drop(&self) -> unsafe fn(OwningPtr<'_>) {
         self.descriptor.drop
     }
 
@@ -162,7 +155,6 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
-#[derive(Debug)]
 pub struct ComponentDescriptor {
     name: String,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
@@ -173,13 +165,28 @@ pub struct ComponentDescriptor {
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
-    drop: unsafe fn(*mut u8),
+    // SAFETY: this function must be safe to call with pointers pointing to items of the type
+    // this descriptor describes.
+    drop: for<'a> unsafe fn(OwningPtr<'a>),
+}
+
+// We need to ignore the `drop` field in our `Debug` impl
+impl std::fmt::Debug for ComponentDescriptor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ComponentDescriptor")
+            .field("name", &self.name)
+            .field("storage_type", &self.storage_type)
+            .field("is_send_and_sync", &self.is_send_and_sync)
+            .field("type_id", &self.type_id)
+            .field("layout", &self.layout)
+            .finish()
+    }
 }
 
 impl ComponentDescriptor {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
-    unsafe fn drop_ptr<T>(x: *mut u8) {
-        x.cast::<T>().drop_in_place();
+    unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
+        x.drop_as::<T>()
     }
 
     pub fn new<T: Component>() -> Self {
@@ -338,7 +345,7 @@ impl Components {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,
     pub(crate) changed: u32,

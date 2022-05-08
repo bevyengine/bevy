@@ -137,7 +137,11 @@ impl Plugin for LogPlugin {
         {
             #[cfg(feature = "tracing-chrome")]
             let chrome_layer = {
-                let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new()
+                let mut layer = tracing_chrome::ChromeLayerBuilder::new();
+                if let Ok(path) = std::env::var("TRACE_CHROME") {
+                    layer = layer.file(path);
+                }
+                let (chrome_layer, guard) = layer
                     .name_fn(Box::new(|event_or_span| match event_or_span {
                         tracing_chrome::EventOrSpan::Event(event) => event.metadata().name().into(),
                         tracing_chrome::EventOrSpan::Span(span) => {
@@ -159,6 +163,11 @@ impl Plugin for LogPlugin {
             let tracy_layer = tracing_tracy::TracyLayer::new();
 
             let fmt_layer = tracing_subscriber::fmt::Layer::default();
+            #[cfg(feature = "tracing-tracy")]
+            let fmt_layer = fmt_layer.with_filter(
+                tracing_subscriber::filter::Targets::new().with_target("tracy", Level::ERROR),
+            );
+
             let subscriber = subscriber.with(fmt_layer);
 
             #[cfg(feature = "tracing-chrome")]

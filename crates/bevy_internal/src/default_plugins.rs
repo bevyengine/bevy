@@ -58,6 +58,8 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_pbr")]
         group.add(bevy_pbr::PbrPlugin::default());
 
+        // NOTE: Load this after renderer initialization so that it knows about the supported
+        // compressed texture formats
         #[cfg(feature = "bevy_gltf")]
         group.add(bevy_gltf::GltfPlugin::default());
 
@@ -66,6 +68,9 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_gilrs")]
         group.add(bevy_gilrs::GilrsPlugin::default());
+
+        #[cfg(feature = "bevy_animation")]
+        group.add(bevy_animation::AnimationPlugin::default());
     }
 }
 

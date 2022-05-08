@@ -27,7 +27,7 @@ pub use system_set::*;
 
 use std::fmt::Debug;
 
-use crate::{system::System, world::World};
+use crate::{system::IntoSystem, world::World};
 use bevy_utils::HashMap;
 
 /// A container of [`Stage`]s set to be run in a linear order.
@@ -76,7 +76,7 @@ impl Schedule {
     }
 
     #[must_use]
-    pub fn with_run_criteria<S: System<In = (), Out = ShouldRun>>(mut self, system: S) -> Self {
+    pub fn with_run_criteria<S: IntoSystem<(), ShouldRun, P>, P>(mut self, system: S) -> Self {
         self.set_run_criteria(system);
         self
     }
@@ -92,11 +92,9 @@ impl Schedule {
         self
     }
 
-    pub fn set_run_criteria<S: System<In = (), Out = ShouldRun>>(
-        &mut self,
-        system: S,
-    ) -> &mut Self {
-        self.run_criteria.set(Box::new(system));
+    pub fn set_run_criteria<S: IntoSystem<(), ShouldRun, P>, P>(&mut self, system: S) -> &mut Self {
+        self.run_criteria
+            .set(Box::new(IntoSystem::into_system(system)));
         self
     }
 
@@ -336,9 +334,7 @@ impl Schedule {
     pub fn run_once(&mut self, world: &mut World) {
         for label in &self.stage_order {
             #[cfg(feature = "trace")]
-            let stage_span = bevy_utils::tracing::info_span!("stage", name = ?label);
-            #[cfg(feature = "trace")]
-            let _stage_guard = stage_span.enter();
+            let _stage_span = bevy_utils::tracing::info_span!("stage", name = ?label).entered();
             let stage = self.stages.get_mut(label).unwrap();
             stage.run(world);
         }

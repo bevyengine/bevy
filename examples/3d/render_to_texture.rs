@@ -3,7 +3,6 @@ use bevy::{
         draw_3d_graph, node, AlphaMask3d, Opaque3d, RenderTargetClearColors, Transparent3d,
     },
     prelude::*,
-    reflect::TypeUuid,
     render::{
         camera::{ActiveCamera, Camera, CameraTypePlugin, RenderTarget},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
@@ -19,10 +18,6 @@ use bevy::{
 
 #[derive(Component, Default)]
 pub struct FirstPassCamera;
-
-// This handle will point at the texture to which we will render in the first pass.
-pub const RENDER_IMAGE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Image::TYPE_UUID, 13378939762009864029);
 
 // The name of the final node of the first pass.
 pub const FIRST_PASS_DRIVER: &str = "first_pass_driver";
@@ -145,7 +140,7 @@ fn setup(
     // fill image.data with zeroes
     image.resize(size);
 
-    let image_handle = images.set(RENDER_IMAGE_HANDLE, image);
+    let image_handle = images.add(image);
 
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 4.0 }));
     let cube_material_handle = materials.add(StandardMaterial {
@@ -177,7 +172,7 @@ fn setup(
     });
 
     // First pass camera
-    let render_target = RenderTarget::Image(image_handle);
+    let render_target = RenderTarget::Image(image_handle.clone());
     clear_colors.insert(render_target.clone(), Color::WHITE);
     commands
         .spawn_bundle(PerspectiveCameraBundle::<FirstPassCamera> {
@@ -209,7 +204,7 @@ fn setup(
 
     // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
-        base_color_texture: Some(RENDER_IMAGE_HANDLE.typed()),
+        base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,
         ..default()
