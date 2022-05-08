@@ -8,7 +8,7 @@ use crate::{
 };
 use std::{marker::PhantomData, mem::MaybeUninit};
 
-use super::{QueryFetch, QueryItem, WorldQueryGats};
+use super::{QueryFetch, QueryItem, ROQueryItem, WorldQueryGats};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -483,7 +483,7 @@ where
 pub struct WithQuery<'world, 'state, I, Q, F>
 where
     Q: WorldQuery,
-    F: WorldQuery
+    F: WorldQuery,
 {
     iter: I,
     query: &'world Query<'world, 'state, Q, F>,
@@ -493,9 +493,10 @@ impl<'world, 'state, I, Q, F> Iterator for WithQuery<'world, 'state, I, Q, F>
 where
     I: Iterator<Item = Entity>,
     Q: WorldQuery,
+    <Q as WorldQueryGats<'world>>::Fetch: ReadOnlyFetch,
     F: WorldQuery,
 {
-    type Item = <<Q as WorldQueryGats<'world>>::ReadOnlyFetch as Fetch<'world>>::Item;
+    type Item = ROQueryItem<'world, Q>;
 
     fn next(&mut self) -> Option<Self::Item> {
         // if the entity iterator is done, this iterator is done
@@ -520,12 +521,14 @@ pub trait WithQueryExt {
         Self: Sized,
         Q: WorldQuery,
         F: WorldQuery;
+    fn with_query_mut<Q, F, CB>(self, query: &mut Query<Q, F>, cb: CB)
+    where
+        Q: WorldQuery,
+        F: WorldQuery,
+        CB: FnMut(QueryItem<Q>);
 }
 
-impl<I> WithQueryExt for I
-where
-    I: Iterator<Item = Entity>,
-{
+impl<I: Iterator<Item = Entity>> WithQueryExt for I {
     fn with_query<'w, 's, Q, F>(
         self,
         query: &'w Query<'w, 's, Q, F>,
@@ -535,5 +538,18 @@ where
         F: WorldQuery,
     {
         WithQuery { iter: self, query }
+    }
+
+    fn with_query_mut<Q, F, CB>(self, query: &mut Query<Q, F>, mut cb: CB)
+    where
+        Q: WorldQuery,
+        F: WorldQuery,
+        CB: FnMut(QueryItem<Q>),
+    {
+        self.for_each(|entity| {
+            if let Ok(item) = query.get_mut(entity) {
+                cb(item);
+            }
+        });
     }
 }

@@ -100,7 +100,7 @@ mod tests {
         bundle::Bundles,
         component::{Component, Components},
         entity::{Entities, Entity},
-        query::{Added, Changed, Or, With, Without},
+        query::{Added, Changed, Or, With, WithQueryExt, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
             Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
@@ -924,5 +924,52 @@ mod tests {
         let entity = world.entity(entity);
         assert!(entity.contains::<A>());
         assert!(entity.contains::<B>());
+    }
+
+    #[test]
+    fn join_with_query() {
+        fn sys(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
+            assert_eq!(has_a.iter().with_query(&has_a_and_b).count(), 2);
+        }
+
+        let mut system = IntoSystem::into_system(sys);
+        let mut world = World::new();
+        world.spawn().insert_bundle((A, B));
+        world.spawn().insert_bundle((A,));
+        world.spawn().insert_bundle((A, B));
+        world.spawn().insert_bundle((B,));
+
+        system.initialize(&mut world);
+        system.run((), &mut world);
+    }
+
+    #[test]
+    fn join_with_query_mut() {
+        fn sys(has_a: Query<Entity, With<A>>, mut has_w: Query<&mut W<u64>>) {
+            has_a.iter().with_query_mut(&mut has_w, |mut w| {
+                w.0 = 999;
+            });
+        }
+
+        fn check_system(query: Query<(Option<&A>, &W<u64>)>) {
+            for (maybe_a, w) in query.iter() {
+                match maybe_a {
+                    Some(_) => assert_eq!(w.0, 999),
+                    None => assert_eq!(w.0, 0),
+                }
+            }
+        }
+
+        let mut system_sys = IntoSystem::into_system(sys);
+        let mut system_check = IntoSystem::into_system(check_system);
+        let mut world = World::new();
+        world.spawn().insert_bundle((A, W(0u64)));
+        world.spawn().insert_bundle((A, W(0u64)));
+        world.spawn().insert_bundle((W(0u64),));
+
+        system_sys.initialize(&mut world);
+        system_check.initialize(&mut world);
+        system_sys.run((), &mut world);
+        system_check.run((), &mut world);
     }
 }
