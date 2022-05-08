@@ -680,11 +680,11 @@ impl Parse for ReflectStructDef {
 /// is no `impl_from_reflect_struct`, this macro will do the job of both. This macro
 /// implements them as Struct types, which have greater functionality.
 ///
-/// The extra ctor tag allows overriding the default construction behavior, which is necessary
-/// for non-constructible foreign types, among other cases.
-///
-/// The extra path tag allows overriding the path used to access the `bevy_reflect` module, which
-/// can be helpful in certain edge cases of invocations of the macro.
+/// It may be necessary to add `#[reflect(Default)]` for some types, specifically non-constructible
+/// foreign types. Without Default reflected for such types, you will usually get an arcane
+/// error message and fail to compile. If the type does not implement Default, it may not
+/// be possible to reflect without extending the macro.
+/// 
 /// # Example
 /// ```ignore
 /// impl_reflect_struct!(
