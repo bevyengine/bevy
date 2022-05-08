@@ -606,6 +606,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 }
 
 /// Represents the information needed to implement a type as a Reflect Struct.
+/// 
 /// # Example
 /// ```ignore
 /// impl_reflect_struct!(
@@ -675,10 +676,12 @@ impl Parse for ReflectStructDef {
 }
 
 /// A replacement for `#[derive(Reflect)]` to be used with foreign types which
-/// the definitions of cannot be altered. It is an alternative to [`impl_reflect_value!`] and
-/// [`impl_from_reflect_value!`] which implement foreign types as Value types. Note that there
-/// is no `impl_from_reflect_struct`, this macro will do the job of both. This macro
-/// implements them as Struct types, which have greater functionality.
+/// the definitions of cannot be altered.
+///
+/// This macro is an alternative to [`impl_reflect_value!`] and [`impl_from_reflect_value!`]
+/// which implement foreign types as Value types. Note that there is no `impl_from_reflect_struct`,
+/// as this macro will do the job of both. This macro implements them as `Struct` types,
+/// which have greater functionality.
 ///
 /// It may be necessary to add `#[reflect(Default)]` for some types, specifically non-constructible
 /// foreign types. Without Default reflected for such types, you will usually get an arcane
