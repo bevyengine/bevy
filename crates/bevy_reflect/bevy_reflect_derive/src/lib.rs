@@ -606,6 +606,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 }
 
 /// Represents the information needed to implement a type as a Reflect Struct.
+/// 
 /// # Example
 /// ```ignore
 /// impl_reflect_struct!(
