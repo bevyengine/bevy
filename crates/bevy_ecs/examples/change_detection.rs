@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::*;
+use bevy_ecs_macros::system_label;
 use rand::Rng;
 use std::ops::Deref;
 
@@ -52,7 +53,7 @@ struct Age {
 }
 
 // System labels to enforce a run order of our systems
-#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
+#[system_label]
 enum SimulationSystem {
     Spawn,
     Age,

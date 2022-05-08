@@ -442,6 +442,21 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
     derive_label(input, &trait_path)
 }
 
+#[proc_macro_attribute]
+pub fn system_label(_attr: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::Item);
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path
+        .segments
+        .push(format_ident!("SystemLabel").into());
+    (quote! {
+        #[derive(#trait_path, Clone, Hash, Eq, PartialEq, Debug)]
+        #input
+    })
+    .into()
+}
+
 #[proc_macro_derive(StageLabel)]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
