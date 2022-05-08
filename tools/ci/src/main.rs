@@ -12,6 +12,7 @@ bitflags! {
         const DOC_CHECK = 0b00100000;
         const BENCH_CHECK = 0b01000000;
         const EXAMPLE_CHECK = 0b10000000;
+        const COMPILE_CHECK = 0b100000000;
     }
 }
 
@@ -32,7 +33,9 @@ fn main() {
         Some("example-check") => Check::EXAMPLE_CHECK,
         Some("lints") => Check::FORMAT | Check::CLIPPY,
         Some("doc") => Check::DOC_TEST | Check::DOC_CHECK,
-        Some("compile") => Check::COMPILE_FAIL | Check::BENCH_CHECK | Check::EXAMPLE_CHECK,
+        Some("compile") => {
+            Check::COMPILE_FAIL | Check::BENCH_CHECK | Check::EXAMPLE_CHECK | Check::COMPILE_CHECK
+        }
         _ => Check::all(),
     };
 
@@ -94,6 +97,13 @@ fn main() {
     if what_to_run.contains(Check::EXAMPLE_CHECK) {
         // Build examples and check they compile
         cmd!("cargo check --workspace --examples")
+            .run()
+            .expect("Please fix failing doc-tests in output above.");
+    }
+
+    if what_to_run.contains(Check::COMPILE_CHECK) {
+        // Build examples and check they compile
+        cmd!("cargo check --workspace")
             .run()
             .expect("Please fix failing doc-tests in output above.");
     }

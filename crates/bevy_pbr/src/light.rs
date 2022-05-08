@@ -2,7 +2,9 @@ use std::collections::HashSet;
 
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{
+    const_vec2, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
+};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
@@ -487,8 +489,7 @@ fn ndc_position_to_cluster(
     view_z: f32,
 ) -> UVec3 {
     let cluster_dimensions_f32 = cluster_dimensions.as_vec3();
-    let frag_coord =
-        (ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
+    let frag_coord = (ndc_p.xy() * VEC2_HALF_NEGATIVE_Y + VEC2_HALF).clamp(Vec2::ZERO, Vec2::ONE);
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
     let z_slice = view_z_to_z_slice(
         cluster_factors,
@@ -500,6 +501,9 @@ fn ndc_position_to_cluster(
         .extend(z_slice)
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
 }
+
+const VEC2_HALF: Vec2 = const_vec2!([0.5, 0.5]);
+const VEC2_HALF_NEGATIVE_Y: Vec2 = const_vec2!([0.5, -0.5]);
 
 // Calculate bounds for the light using a view space aabb.
 // Returns a (Vec3, Vec3) containing min and max with
@@ -575,23 +579,21 @@ fn cluster_space_light_aabb(
             .max(light_aabb_ndc_xymax_far),
     );
 
-    // pack unadjusted z depth into the vecs
-    let (aabb_min, aabb_max) = (
-        light_aabb_ndc_min.xy().extend(light_aabb_view_min.z),
-        light_aabb_ndc_max.xy().extend(light_aabb_view_max.z),
+    // clamp to ndc coords without depth
+    let (aabb_min_ndc, aabb_max_ndc) = (
+        light_aabb_ndc_min.xy().clamp(NDC_MIN, NDC_MAX),
+        light_aabb_ndc_max.xy().clamp(NDC_MIN, NDC_MAX),
     );
-    // clamp to ndc coords
+
+    // pack unadjusted z depth into the vecs
     (
-        aabb_min.clamp(
-            Vec3::new(-1.0, -1.0, f32::MIN),
-            Vec3::new(1.0, 1.0, f32::MAX),
-        ),
-        aabb_max.clamp(
-            Vec3::new(-1.0, -1.0, f32::MIN),
-            Vec3::new(1.0, 1.0, f32::MAX),
-        ),
+        aabb_min_ndc.extend(light_aabb_view_min.z),
+        aabb_max_ndc.extend(light_aabb_view_max.z),
     )
 }
+
+const NDC_MIN: Vec2 = const_vec2!([-1.0, -1.0]);
+const NDC_MAX: Vec2 = const_vec2!([1.0, 1.0]);
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
 // can be used to limit the number of point light shadows to render based on the device and
