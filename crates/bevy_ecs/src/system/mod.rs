@@ -100,7 +100,7 @@ mod tests {
         bundle::Bundles,
         component::{Component, Components},
         entity::{Entities, Entity},
-        query::{Added, Changed, Or, With, Joinable, Without},
+        query::{Added, Changed, Joinable, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
             Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
