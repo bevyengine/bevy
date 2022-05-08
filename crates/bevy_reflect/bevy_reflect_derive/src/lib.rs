@@ -792,12 +792,11 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
     )
     .into();
 
-    quote!(
+    TokenStream::from(quote! {
         #impl_struct
 
         #impl_from_struct
-    )
-    .into()
+    })
 }
 
 #[derive(Default)]
