@@ -606,7 +606,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 }
 
 /// Represents the information needed to implement a type as a Reflect Struct.
-/// 
+///
 /// # Example
 /// ```ignore
 /// impl_reflect_struct!(
@@ -688,12 +688,12 @@ impl Parse for ReflectStructDef {
 /// foreign types. Without `Default` reflected for such types, you will usually get an arcane
 /// error message and fail to compile. If the type does not implement `Default`, it may not
 /// be possible to reflect without extending the macro.
-/// 
+///
 /// # Example
 /// Implementing `Reflect` for `bevy::prelude::Vec3` as a struct type:
 /// ```ignore
 /// use bevy::prelude::Vec3;
-/// 
+///
 /// impl_reflect_struct!(
 ///    #[reflect(PartialEq, Serialize, Deserialize, Default)]
 ///    struct Vec3 {
