@@ -415,7 +415,7 @@ impl World {
     ///
     /// Attempting to use this on a component that is not [`Sync`] will fail to compile.
     ///
-    /// ```compile_fail
+    /// ```compile_fail,E0277
     /// # use bevy_ecs::{component::Component, world::World};
     /// # use std::cell::Cell;
     ///

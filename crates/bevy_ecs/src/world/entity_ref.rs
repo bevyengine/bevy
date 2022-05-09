@@ -70,7 +70,7 @@ impl<'w> EntityRef<'w> {
     /// fail to compile. To safely access a non-`Sync` component, use [`EntityMut::get_mut`]
     /// instead.
     ///
-    /// ```compile_fail
+    /// ```compile_fail,E0277
     /// # use bevy_ecs::{component::Component, world::World};
     /// # use std::cell::Cell;
     ///
@@ -194,7 +194,7 @@ impl<'w> EntityMut<'w> {
     /// fail to compile. To safely access a non-`Sync` component, use [`get_mut`](Self::get_mut)
     /// instead.
     ///
-    /// ```compile_fail
+    /// ```compile_fail,E0277
     /// # use bevy_ecs::{component::Component, world::World};
     /// # use std::cell::Cell;
     ///

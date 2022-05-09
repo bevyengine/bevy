@@ -300,7 +300,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// time. These components must be accessed via a `&mut T` to guarentee
 /// that the system has exclusive access to the components.
 ///
-/// ```compile_fail
+/// ```compile_fail,E0277
 /// # use bevy_ecs::prelude::*;
 /// # use std::cell::Cell;
 ///
@@ -313,7 +313,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 ///
 /// // This will compile!
-/// fn my_system(query: Query<&mut NotSync>) {
+/// fn my_system_mut(query: Query<&mut NotSync>) {
 ///     for _ in query.iter() {}
 /// }
 /// ```
