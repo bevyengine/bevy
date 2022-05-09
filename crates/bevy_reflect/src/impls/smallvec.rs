@@ -43,7 +43,7 @@ where
 {
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
-            <T as Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to push invalid value of type {}.",
                     value.type_name()
@@ -121,7 +121,7 @@ where
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
             let mut new_list = Self::with_capacity(ref_list.len());
             for field in ref_list.iter() {
-                new_list.push(<T as Array>::Item::from_reflect(field)?);
+                new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
             }
             Some(new_list)
         } else {
