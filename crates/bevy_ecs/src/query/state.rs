@@ -10,15 +10,16 @@ use crate::{
     storage::TableId,
     world::{World, WorldId},
 };
-use bevy_tasks::ComputeTaskPool;
+use bevy_tasks::{ComputeTaskPool, TaskPool};
 use fixedbitset::FixedBitSet;
-use std::fmt;
+use std::{fmt, ops::Deref};
 
 use super::{QueryFetch, QueryItem, ROQueryFetch, ROQueryItem};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
     world_id: WorldId,
+    task_pool: Option<TaskPool>,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
@@ -59,6 +60,9 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
         let mut state = Self {
             world_id: world.id(),
+            task_pool: world
+                .get_resource::<ComputeTaskPool>()
+                .map(|task_pool| task_pool.deref().clone()),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
             matched_archetype_ids: Vec::new(),
@@ -851,7 +855,10 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         last_change_tick: u32,
         change_tick: u32,
     ) {
-        let task_pool = world.resource::<ComputeTaskPool>().clone();
+        let task_pool = self
+            .task_pool
+            .clone()
+            .expect("Cannot iterate query in parallel. No ComputeTaskPool initialized.");
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
