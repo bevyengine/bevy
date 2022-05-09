@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod array;
 mod list;
 mod map;
 mod path;
@@ -35,6 +36,7 @@ pub mod prelude {
     };
 }
 
+pub use array::*;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
@@ -240,6 +242,7 @@ mod tests {
             e: Bar,
             f: (i32, Vec<isize>, Bar),
             g: Vec<(Baz, HashMap<usize, Bar>)>,
+            h: [u32; 2],
         }
 
         #[derive(Reflect, Eq, PartialEq, Clone, Debug, FromReflect)]
@@ -266,6 +269,7 @@ mod tests {
             e: Bar { x: 1 },
             f: (1, vec![1, 2], Bar { x: 1 }),
             g: vec![(Baz("string".to_string()), hash_map_baz)],
+            h: [2; 2],
         };
 
         let mut foo_patch = DynamicStruct::default();
@@ -313,6 +317,9 @@ mod tests {
         });
         foo_patch.insert("g", composite);
 
+        let array = DynamicArray::new(vec![Box::new(2u32), Box::new(2u32)]);
+        foo_patch.insert("h", array);
+
         foo.apply(&foo_patch);
 
         let mut hash_map = HashMap::default();
@@ -330,6 +337,7 @@ mod tests {
             e: Bar { x: 2 },
             f: (2, vec![3, 4, 5], Bar { x: 2 }),
             g: vec![(Baz("new_string".to_string()), hash_map_baz.clone())],
+            h: [2; 2],
         };
 
         assert_eq!(foo, expected_foo);
@@ -348,6 +356,7 @@ mod tests {
             e: Bar { x: 2 },
             f: (2, vec![3, 4, 5], Bar { x: 2 }),
             g: vec![(Baz("new_string".to_string()), hash_map_baz)],
+            h: [2; 2],
         };
 
         assert_eq!(new_foo, expected_new_foo);
@@ -365,6 +374,7 @@ mod tests {
             e: Bar,
             f: String,
             g: (i32, Vec<isize>, Bar),
+            h: [u32; 2],
         }
 
         #[derive(Reflect)]
@@ -383,6 +393,7 @@ mod tests {
             e: Bar { x: 1 },
             f: "hi".to_string(),
             g: (1, vec![1, 2], Bar { x: 1 }),
+            h: [2; 2],
         };
 
         let mut registry = TypeRegistry::default();
@@ -423,6 +434,10 @@ mod tests {
         let list = Vec::<usize>::new();
         let dyn_list = list.clone_dynamic();
         assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+
+        let array = [b'0'; 4];
+        let dyn_array = array.clone_dynamic();
+        assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
