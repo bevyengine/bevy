@@ -513,7 +513,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///* `f` - The function to run on each item in the query
     ///
     /// # Panics
-    /// [`ComputeTaskPool`] is not stored as a resource in `world`.
+    /// [`ComputeTaskPool`] was not stored in the world at initialzation. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     #[inline]
@@ -540,7 +541,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// See [`Self::par_for_each`] for more details.
     ///
     /// # Panics
-    /// [`ComputeTaskPool`] is not stored as a resource in `world`.
+    /// [`ComputeTaskPool`] was not stored in the world at initialzation. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     #[inline]
