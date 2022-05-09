@@ -14,6 +14,7 @@ tasks:
 
   - name: Setup rust-analyzer for wasm target
     init: |
+      mkdir .vscode
       echo "{\"rust-analyzer.cargo.target\":\"wasm32-unknown-unknown\"}" > .vscode/settings.json
 
   - name: Install wasm tooling
