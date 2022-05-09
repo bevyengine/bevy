@@ -169,10 +169,10 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 /// Trait defining how to build children
 pub trait BuildChildren<'w, 's, 'a> {
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
-    fn with_children<T>(
-        &'a mut self,
+    fn with_children<'b, T>(
+        &'b mut self,
         f: impl FnOnce(&mut ChildBuilder) -> T,
-    ) -> WithChildren<'w, 's, 'a, T>;
+    ) -> WithChildren<'w, 's, 'a, 'b, T>;
     /// Pushes children to the back of the builder's children
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index
@@ -185,13 +185,13 @@ pub trait BuildChildren<'w, 's, 'a> {
 
 /// Result of a [`BuildChildren::with_children`] call that provides access to the underlying commands
 /// and the closure's output.
-pub struct WithChildren<'w, 's, 'a, T> {
+pub struct WithChildren<'w, 's, 'a, 'b, T> {
     /// The output of the [`BuildChildren::with_children`] closure.
     pub out: T,
-    commands: &'a mut EntityCommands<'w, 's, 'a>,
+    commands: &'b mut EntityCommands<'w, 's, 'a>,
 }
 
-impl<'w, 's, 'a, T> Deref for WithChildren<'w, 's, 'a, T> {
+impl<'w, 's, 'a, 'b, T> Deref for WithChildren<'w, 's, 'a, 'b, T> {
     type Target = EntityCommands<'w, 's, 'a>;
 
     fn deref(&self) -> &Self::Target {
@@ -199,17 +199,17 @@ impl<'w, 's, 'a, T> Deref for WithChildren<'w, 's, 'a, T> {
     }
 }
 
-impl<'w, 's, 'a, T> DerefMut for WithChildren<'w, 's, 'a, T> {
+impl<'w, 's, 'a, 'b, T> DerefMut for WithChildren<'w, 's, 'a, 'b, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.commands
     }
 }
 
 impl<'w, 's, 'a> BuildChildren<'w, 's, 'a> for EntityCommands<'w, 's, 'a> {
-    fn with_children<T>(
-        &'a mut self,
+    fn with_children<'b, T>(
+        &'b mut self,
         spawn_children: impl FnOnce(&mut ChildBuilder) -> T,
-    ) -> WithChildren<'w, 's, 'a, T> {
+    ) -> WithChildren<'w, 's, 'a, 'b, T> {
         let parent = self.id();
         let (out, push_children) = {
             let mut builder = ChildBuilder {
