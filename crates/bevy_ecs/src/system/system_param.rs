@@ -154,7 +154,7 @@ fn assert_component_access_compatibility(
     current: &FilteredAccess<ComponentId>,
     world: &World,
 ) {
-    let mut conflicts = system_access.get_conflicts(current);
+    let mut conflicts = system_access.get_conflicts_single(current);
     if conflicts.is_empty() {
         return;
     }
@@ -531,7 +531,7 @@ unsafe impl<'w, 's> SystemParamState for WorldState {
         filtered_access.read_all();
         if !system_meta
             .component_access_set
-            .get_conflicts(&filtered_access)
+            .get_conflicts_single(&filtered_access)
             .is_empty()
         {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
