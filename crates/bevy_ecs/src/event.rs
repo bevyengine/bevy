@@ -396,9 +396,10 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # struct MyEvent;
+    /// struct MyEvent;
+    ///
     /// fn event_reader(events: EventReader<MyEvent>) {
-    ///      if !events.is_empty() {
+    ///     if !events.is_empty() {
     ///         events.clear();
     ///     }
     /// }
