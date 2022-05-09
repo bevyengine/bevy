@@ -186,7 +186,7 @@ pub trait BuildChildren<'w, 's, 'a> {
 /// Result of a [BuildChildren::with_children] call that provides access to the underlying commands
 /// and the closure's output.
 pub struct WithChildren<'w, 's, 'a, T> {
-    /// The output of the [BuildChildren::with_children] closure.
+    /// The output of the [`BuildChildren::with_children`] closure.
     pub out: T,
     commands: &'a mut EntityCommands<'w, 's, 'a>,
 }
