@@ -104,7 +104,7 @@ impl TypeRegistry {
             .and_then(move |id| self.get_mut(id))
     }
 
-    /// Returns a mutable reference to the [`TypeRegistration`] of the type with
+    /// Returns a reference to the [`TypeRegistration`] of the type with
     /// the given short name.
     ///
     /// If the short name is ambiguous, or if no type with the given short name
@@ -115,7 +115,21 @@ impl TypeRegistry {
             .and_then(|id| self.registrations.get(id))
     }
 
-    /// Returns the [`TypeData`] of type `T` associated with the given `TypeId`.
+    /// Returns a mutable reference to the [`TypeRegistration`] of the type with
+    /// the given short name.
+    ///
+    /// If the short name is ambiguous, or if no type with the given short name
+    /// has been registered, returns `None`.
+    pub fn get_with_short_name_mut(
+        &mut self,
+        short_type_name: &str,
+    ) -> Option<&mut TypeRegistration> {
+        self.short_name_to_id
+            .get(short_type_name)
+            .and_then(|id| self.registrations.get_mut(id))
+    }
+
+    /// Returns a reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
     ///
     /// The returned value may be used to downcast [`Reflect`] trait objects to
     /// trait objects of the trait used to generate `T`, provided that the
@@ -129,10 +143,25 @@ impl TypeRegistry {
             .and_then(|registration| registration.data::<T>())
     }
 
-    /// Returns an iterator overed the [`TypeRegistration`]s of the registered
+    /// Returns a mutable reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
+    ///
+    /// If the specified type has not been registered, or if `T` is not present
+    /// in its type registration, returns `None`.
+    pub fn get_type_data_mut<T: TypeData>(&mut self, type_id: TypeId) -> Option<&mut T> {
+        self.get_mut(type_id)
+            .and_then(|registration| registration.data_mut::<T>())
+    }
+
+    /// Returns an iterator over the [`TypeRegistration`]s of the registered
     /// types.
     pub fn iter(&self) -> impl Iterator<Item = &TypeRegistration> {
         self.registrations.values()
+    }
+
+    /// Returns a mutable iterator over the [`TypeRegistration`]s of the registered
+    /// types.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TypeRegistration> {
+        self.registrations.values_mut()
     }
 }
 
