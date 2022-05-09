@@ -777,13 +777,13 @@ mod tests {
                 events.clear();
                 return false;
             } else {
-                return true;
+                true
             }
         });
         reader.initialize(&mut world);
 
-        assert_eq!(reader.run((), &mut world), false);
-        assert_eq!(reader.run((), &mut world), true);
+        assert!(!reader.run((), &mut world));
+        assert!(reader.run((), &mut world));
     }
 
     #[derive(Clone, PartialEq, Debug, Default)]
