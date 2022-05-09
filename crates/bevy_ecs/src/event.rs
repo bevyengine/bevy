@@ -775,7 +775,7 @@ mod tests {
         let mut reader = IntoSystem::into_system(|events: EventReader<TestEvent>| -> bool {
             if !events.is_empty() {
                 events.clear();
-                return false;
+                false
             } else {
                 true
             }
