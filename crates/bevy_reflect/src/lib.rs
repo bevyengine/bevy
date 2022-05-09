@@ -82,7 +82,10 @@ pub mod __macro_exports {
 #[cfg(test)]
 #[allow(clippy::blacklisted_name, clippy::approx_constant)]
 mod tests {
+    #[cfg(feature = "glam")]
+    use ::glam::{vec3, Vec3};
     use ::serde::de::DeserializeSeed;
+    use ::serde::Serialize;
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
@@ -470,5 +473,93 @@ mod tests {
 
         // Should compile:
         let _ = trait_object.as_reflect();
+    }
+
+    #[cfg(feature = "glam")]
+    mod glam {
+        use super::*;
+
+        #[test]
+        fn vec3_serialization() {
+            let v = vec3(12.0, 3.0, -6.9);
+
+            let mut registry = TypeRegistry::default();
+            registry.add_registration(Vec3::get_type_registration());
+
+            let ser = ReflectSerializer::new(&v, &registry);
+
+            let mut dest = vec![];
+            let mut serializer = ron::ser::Serializer::new(&mut dest, None, false)
+                .expect("Failed to acquire serializer");
+
+            ser.serialize(&mut serializer).expect("Failed to serialize");
+
+            let result = String::from_utf8(dest).expect("Failed to convert to string");
+
+            assert_eq!(
+                result,
+                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#
+            );
+        }
+
+        #[test]
+        fn vec3_deserialization() {
+            let data = r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#;
+
+            let mut registry = TypeRegistry::default();
+            registry.add_registration(Vec3::get_type_registration());
+            registry.add_registration(f32::get_type_registration());
+
+            let de = ReflectDeserializer::new(&registry);
+
+            let mut deserializer =
+                ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");
+
+            let dynamic_struct = de
+                .deserialize(&mut deserializer)
+                .expect("Failed to deserialize");
+
+            let mut result = Vec3::default();
+
+            result.apply(&*dynamic_struct);
+
+            assert_eq!(result, vec3(12.0, 3.0, -6.9));
+        }
+
+        #[test]
+        fn vec3_field_access() {
+            let mut v = vec3(1.0, 2.0, 3.0);
+
+            assert_eq!(*v.get_field::<f32>("x").unwrap(), 1.0);
+
+            *v.get_field_mut::<f32>("y").unwrap() = 6.0;
+
+            assert_eq!(v.y, 6.0);
+        }
+
+        #[test]
+        fn vec3_path_access() {
+            let mut v = vec3(1.0, 2.0, 3.0);
+
+            assert_eq!(*v.path("x").unwrap().downcast_ref::<f32>().unwrap(), 1.0);
+
+            *v.path_mut("y").unwrap().downcast_mut::<f32>().unwrap() = 6.0;
+
+            assert_eq!(v.y, 6.0);
+        }
+
+        #[test]
+        fn vec3_apply_dynamic() {
+            let mut v = vec3(3.0, 3.0, 3.0);
+
+            let mut d = DynamicStruct::default();
+            d.insert("x", 4.0f32);
+            d.insert("y", 2.0f32);
+            d.insert("z", 1.0f32);
+
+            v.apply(&d);
+
+            assert_eq!(v, vec3(4.0, 2.0, 1.0));
+        }
     }
 }

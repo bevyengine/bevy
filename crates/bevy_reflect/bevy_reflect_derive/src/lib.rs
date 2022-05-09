@@ -287,8 +287,7 @@ fn impl_struct(
 
             #[inline]
             fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
-                use #bevy_reflect_path::Struct;
-                Box::new(self.clone_dynamic())
+                Box::new(#bevy_reflect_path::Struct::clone_dynamic(self))
             }
             #[inline]
             fn set(&mut self, value: Box<dyn #bevy_reflect_path::Reflect>) -> Result<(), Box<dyn #bevy_reflect_path::Reflect>> {
@@ -298,11 +297,10 @@ fn impl_struct(
 
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                use #bevy_reflect_path::Struct;
                 if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = value.reflect_ref() {
                     for (i, value) in struct_value.iter_fields().enumerate() {
                         let name = struct_value.name_at(i).unwrap();
-                        self.field_mut(name).map(|v| v.apply(value));
+                        #bevy_reflect_path::Struct::field_mut(self, name).map(|v| v.apply(value));
                     }
                 } else {
                     panic!("Attempted to apply non-struct type to struct type.");
@@ -607,6 +605,204 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     )
 }
 
+/// Represents the information needed to implement a type as a Reflect Struct.
+///
+/// # Example
+/// ```ignore
+/// impl_reflect_struct!(
+///    //                          attrs
+///    //        |----------------------------------------|
+///    #[reflect(PartialEq, Serialize, Deserialize, Default)]
+///    //            type_name       generics
+///    //     |-------------------||----------|
+///    struct ThingThatImReflecting<T1, T2, T3> {
+///        x: T1, // |
+///        y: T2, // |- fields
+///        z: T3  // |
+///    }
+/// );
+/// ```
+struct ReflectStructDef {
+    type_name: Ident,
+    generics: Generics,
+    attrs: ReflectAttrs,
+    fields: Fields,
+}
+
+impl Parse for ReflectStructDef {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let ast = input.parse::<DeriveInput>()?;
+
+        let type_name = ast.ident;
+        let generics = ast.generics;
+        let fields = match ast.data {
+            Data::Struct(data) => data.fields,
+            Data::Enum(data) => {
+                return Err(syn::Error::new_spanned(
+                    data.enum_token,
+                    "Enums are not currently supported for reflection",
+                ))
+            }
+            Data::Union(data) => {
+                return Err(syn::Error::new_spanned(
+                    data.union_token,
+                    "Unions are not supported for reflection",
+                ))
+            }
+        };
+
+        let mut attrs = ReflectAttrs::default();
+        for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+            let meta_list = if let Meta::List(meta_list) = attribute {
+                meta_list
+            } else {
+                continue;
+            };
+
+            if let Some(ident) = meta_list.path.get_ident() {
+                if ident == REFLECT_ATTRIBUTE_NAME || ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+                    attrs = ReflectAttrs::from_nested_metas(&meta_list.nested);
+                }
+            }
+        }
+
+        Ok(Self {
+            type_name,
+            generics,
+            attrs,
+            fields,
+        })
+    }
+}
+
+/// A replacement for `#[derive(Reflect)]` to be used with foreign types which
+/// the definitions of cannot be altered.
+///
+/// This macro is an alternative to [`impl_reflect_value!`] and [`impl_from_reflect_value!`]
+/// which implement foreign types as Value types. Note that there is no `impl_from_reflect_struct`,
+/// as this macro will do the job of both. This macro implements them as `Struct` types,
+/// which have greater functionality. The type being reflected must be in scope, as you cannot
+/// qualify it in the macro as e.g. `bevy::prelude::Vec3`.
+///
+/// It may be necessary to add `#[reflect(Default)]` for some types, specifically non-constructible
+/// foreign types. Without `Default` reflected for such types, you will usually get an arcane
+/// error message and fail to compile. If the type does not implement `Default`, it may not
+/// be possible to reflect without extending the macro.
+///
+/// # Example
+/// Implementing `Reflect` for `bevy::prelude::Vec3` as a struct type:
+/// ```ignore
+/// use bevy::prelude::Vec3;
+///
+/// impl_reflect_struct!(
+///    #[reflect(PartialEq, Serialize, Deserialize, Default)]
+///    struct Vec3 {
+///        x: f32,
+///        y: f32,
+///        z: f32
+///    }
+/// );
+/// ```
+#[proc_macro]
+pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
+    let ReflectStructDef {
+        type_name,
+        generics,
+        attrs,
+        fields,
+    } = parse_macro_input!(input as ReflectStructDef);
+
+    let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
+
+    let fields_and_args = fields
+        .iter()
+        .enumerate()
+        .map(|(i, f)| {
+            (
+                f,
+                f.attrs
+                    .iter()
+                    .find(|a| *a.path.get_ident().as_ref().unwrap() == REFLECT_ATTRIBUTE_NAME)
+                    .map(|a| {
+                        syn::custom_keyword!(ignore);
+                        let mut attribute_args = PropAttributeArgs { ignore: None };
+                        a.parse_args_with(|input: ParseStream| {
+                            if input.parse::<Option<ignore>>()?.is_some() {
+                                attribute_args.ignore = Some(true);
+                                return Ok(());
+                            }
+                            Ok(())
+                        })
+                        .expect("Invalid 'property' attribute format.");
+
+                        attribute_args
+                    }),
+                i,
+            )
+        })
+        .collect::<Vec<(&Field, Option<PropAttributeArgs>, usize)>>();
+    let active_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs, _i)| {
+            attrs.is_none()
+                || match attrs.as_ref().unwrap().ignore {
+                    Some(ignore) => !ignore,
+                    None => true,
+                }
+        })
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
+    let ignored_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs, _i)| {
+            attrs
+                .as_ref()
+                .map(|attrs| attrs.ignore.unwrap_or(false))
+                .unwrap_or(false)
+        })
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
+
+    let constructor = if attrs
+        .data
+        .contains(&Ident::new("ReflectDefault", Span::call_site()))
+    {
+        Some(quote! { Default::default() })
+    } else {
+        None
+    };
+
+    let registration_data = &attrs.data;
+    let get_type_registration_impl =
+        impl_get_type_registration(&type_name, &bevy_reflect_path, registration_data, &generics);
+
+    let impl_struct: proc_macro2::TokenStream = impl_struct(
+        &type_name,
+        &generics,
+        &get_type_registration_impl,
+        &bevy_reflect_path,
+        &attrs,
+        &active_fields,
+    )
+    .into();
+
+    let impl_from_struct: proc_macro2::TokenStream = from_reflect::impl_struct(
+        &type_name,
+        &generics,
+        &bevy_reflect_path,
+        &active_fields,
+        &ignored_fields,
+        constructor,
+    )
+    .into();
+
+    TokenStream::from(quote! {
+        #impl_struct
+
+        #impl_from_struct
+    })
+}
+
 #[derive(Default)]
 struct ReflectAttrs {
     reflect_hash: TraitImpl,
@@ -862,6 +1058,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
             &bevy_reflect_path,
             &active_fields,
             &ignored_fields,
+            None,
         ),
         DeriveType::TupleStruct => from_reflect::impl_tuple_struct(
             type_name,
