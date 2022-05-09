@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_tasks::TaskPool;
+use bevy_tasks::{ComputeTaskPool, TaskPool};
 use glam::*;
 
 #[derive(Component, Copy, Clone)]
