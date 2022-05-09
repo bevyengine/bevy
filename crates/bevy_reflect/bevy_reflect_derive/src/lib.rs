@@ -763,7 +763,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
         .map(|(f, _attr, i)| (*f, *i))
         .collect::<Vec<(&Field, usize)>>();
 
-    let ctor = if attrs
+    let constructor = if attrs
         .data
         .contains(&Ident::new("ReflectDefault", Span::call_site()))
     {
@@ -792,7 +792,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
         &bevy_reflect_path,
         &active_fields,
         &ignored_fields,
-        ctor,
+        constructor,
     )
     .into();
 
