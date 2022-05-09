@@ -122,6 +122,8 @@ impl<'w> EntityRef<'w> {
     /// which is only valid while the `'w` borrow of the lifetime is active.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+        self.world.components().get_info(component_id)?;
+        // SAFE: entity_location is valid, component_id is valid as checked by the line above
         unsafe { get_component(self.world, component_id, self.entity, self.location) }
     }
 }
@@ -514,6 +516,8 @@ impl<'w> EntityMut<'w> {
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+        self.world.components().get_info(component_id)?;
+        // SAFE: entity_location is valid, component_id is valid as checked by the line above
         unsafe { get_component(self.world, component_id, self.entity, self.location) }
     }
 
@@ -527,7 +531,8 @@ impl<'w> EntityMut<'w> {
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFE: entity location is valid
+        self.world.components().get_info(component_id)?;
+        // SAFE: entity_location is valid, component_id is valid as checked by the line above
         unsafe { get_mut_by_id(self.world, self.entity, self.location, component_id) }
     }
 }
@@ -885,6 +890,7 @@ pub(crate) unsafe fn get_mut_by_id(
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::component::ComponentId;
     use crate::prelude::*; // for the `#[derive(Component)]`
 
     #[test]
@@ -952,5 +958,25 @@ mod tests {
         let test_component = unsafe { test_component.deref::<TestComponent>() };
 
         assert_eq!(test_component.0, 43);
+    }
+
+    #[test]
+    fn entity_ref_get_by_id_invalid_component_id() {
+        let invalid_component_id = ComponentId::new(usize::MAX);
+
+        let mut world = World::new();
+        let entity = world.spawn().id();
+        let entity = world.entity(entity);
+        assert!(entity.get_by_id(invalid_component_id).is_none());
+    }
+
+    #[test]
+    fn entity_mut_get_by_id_invalid_component_id() {
+        let invalid_component_id = ComponentId::new(usize::MAX);
+
+        let mut world = World::new();
+        let mut entity = world.spawn();
+        assert!(entity.get_by_id(invalid_component_id).is_none());
+        assert!(entity.get_mut_by_id(invalid_component_id).is_none());
     }
 }

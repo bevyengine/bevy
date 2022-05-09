@@ -1173,13 +1173,20 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// The value referenced by `value` must be valid for the given [`ComponentId`]
+    /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
     pub unsafe fn insert_resource_by_id(
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
     ) {
         let change_tick = self.change_tick();
+
+        self.components().get_info(component_id).unwrap_or_else(|| {
+            panic!(
+                "insert_resource_by_id called with component id which doesn't exist in this world"
+            )
+        });
+        // SAFE: component_id is valid, checked by the lines above
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
             // SAFE: column is of type R and has been allocated above
@@ -1196,7 +1203,7 @@ impl World {
     }
 
     /// # Safety
-    /// `component_id` must be valid and correspond to a resource component of type `R`
+    /// `component_id` must be valid for this world
     #[inline]
     unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
         // SAFE: resource archetype always exists
@@ -1406,7 +1413,8 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
-        // SAFE: entity location is valid
+        self.components().get_info(component_id)?;
+        // SAFE: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
             get_component(
                 self,
@@ -1428,7 +1436,8 @@ impl World {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        // SAFE: entity location is valid
+        self.components().get_info(component_id)?;
+        // SAFE: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
             get_mut_by_id(
                 self,
@@ -1498,7 +1507,7 @@ mod tests {
     use super::World;
     use crate::{
         change_detection::DetectChanges,
-        component::{ComponentDescriptor, StorageType},
+        component::{ComponentDescriptor, ComponentId, StorageType},
         ptr::OwningPtr,
     };
     use bevy_ecs_macros::Component;
@@ -1705,5 +1714,17 @@ mod tests {
         assert!(world.remove_resource_by_id(component_id).is_some());
 
         assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    #[should_panic = "insert_resource_by_id called with component id which doesn't exist in this world"]
+    fn insert_resource_by_id_invalid_component_id() {
+        let invalid_component_id = ComponentId::new(usize::MAX);
+
+        let mut world = World::new();
+        OwningPtr::make((), |ptr| unsafe {
+            // SAFE: ptr must be valid for the component_id `invalid_component_id` which is invalid, but checked by `insert_resource_by_id`
+            world.insert_resource_by_id(invalid_component_id, ptr);
+        });
     }
 }
