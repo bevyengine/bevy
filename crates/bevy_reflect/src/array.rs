@@ -174,12 +174,14 @@ pub struct ArrayIter<'a> {
 impl<'a> Iterator for ArrayIter<'a> {
     type Item = &'a dyn Reflect;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.array.get(self.index);
         self.index += 1;
         value
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let size = self.array.len();
         (size, Some(size))
