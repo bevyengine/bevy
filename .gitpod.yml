@@ -12,9 +12,9 @@ tasks:
   - name: Start web server
     command: python3 -m http.server --directory examples/wasm
 
-  - name: Install linux dependencies
-    before: |
-      sudo apt-get install --no-install-recommends -yq libasound2-dev libudev-dev
+  - name: Setup rust-analyzer for wasm target
+    init: |
+      echo "{\"rust-analyzer.cargo.target\":\"wasm32-unknown-unknown\"}" > .vscode/settings.json
 
   - name: Install wasm tooling
     before: |
