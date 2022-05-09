@@ -10,7 +10,7 @@ use crate::{
     storage::TableId,
     world::{World, WorldId},
 };
-use bevy_tasks::TaskPool;
+use bevy_tasks::ComputeTaskPool;
 use fixedbitset::FixedBitSet;
 use std::fmt;
 
@@ -683,15 +683,17 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         );
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    /// Runs `func` on each query result in parallel.
     ///
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
+    ///
+    /// # Panics
+    /// [`ComputeTaskPool`] is not stored as a resource in `world`.
     #[inline]
     pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w World,
-        task_pool: &TaskPool,
         batch_size: usize,
         func: FN,
     ) {
@@ -700,7 +702,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             self.update_archetypes(world);
             self.par_for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
                 world,
-                task_pool,
                 batch_size,
                 func,
                 world.last_change_tick(),
@@ -709,12 +710,14 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    /// Runs `func` on each query result in parallel.
+    ///
+    /// # Panics
+    /// [`ComputeTaskPool`] is not stored as a resource in `world`.
     #[inline]
     pub fn par_for_each_mut<'w, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w mut World,
-        task_pool: &TaskPool,
         batch_size: usize,
         func: FN,
     ) {
@@ -723,7 +726,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             self.update_archetypes(world);
             self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                 world,
-                task_pool,
                 batch_size,
                 func,
                 world.last_change_tick(),
@@ -732,9 +734,12 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    /// Runs `func` on each query result in parallel.
     ///
     /// This can only be called for read-only queries.
+    ///
+    /// # Panics
+    /// [`ComputeTaskPool`] is not stored as a resource in `world`.
     ///
     /// # Safety
     ///
@@ -744,14 +749,12 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     pub unsafe fn par_for_each_unchecked<'w, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w World,
-        task_pool: &TaskPool,
         batch_size: usize,
         func: FN,
     ) {
         self.update_archetypes(world);
         self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
             world,
-            task_pool,
             batch_size,
             func,
             world.last_change_tick(),
@@ -827,6 +830,9 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// the current change tick are given. This is faster than the equivalent
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
+    /// # Panics
+    /// [`ComputeTaskPool`] is not stored as a resource in `world`.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -840,12 +846,12 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     >(
         &self,
         world: &'w World,
-        task_pool: &TaskPool,
         batch_size: usize,
         func: FN,
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        let task_pool = world.resource::<ComputeTaskPool>().clone();
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
