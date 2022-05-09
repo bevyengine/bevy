@@ -7,13 +7,19 @@ use std::{
 /// An ordered, static-sized, mutable array of [`Reflect`] items.
 /// This corresponds to types like `[T; N]` (arrays)
 pub trait Array: Reflect {
+    /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
+    /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+    /// Returns the number of elements in the collection.
     fn len(&self) -> usize;
+    /// Returns `true` if the collection contains no elements.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    /// Returns an iterator over the collection.
     fn iter(&self) -> ArrayIter;
+
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.type_name().to_string(),
@@ -23,16 +29,27 @@ pub trait Array: Reflect {
 }
 
 pub struct DynamicArray {
-    name: String,
-    values: Vec<Box<dyn Reflect>>,
+    pub(crate) name: String,
+    pub(crate) values: Box<[Box<dyn Reflect>]>,
 }
 
 impl DynamicArray {
     #[inline]
-    pub fn new(values: Vec<Box<dyn Reflect>>) -> Self {
+    pub fn new(values: Box<[Box<dyn Reflect>]>) -> Self {
         Self {
             name: String::default(),
             values,
+        }
+    }
+
+    pub fn from_vec<T: Reflect>(values: Vec<T>) -> Self {
+        Self {
+            name: String::default(),
+            values: values
+                .into_iter()
+                .map(|field| Box::new(field) as Box<dyn Reflect>)
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
         }
     }
 

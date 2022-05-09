@@ -330,7 +330,7 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
             vec.push(value);
         }
 
-        Ok(DynamicArray::new(vec))
+        Ok(DynamicArray::new(Box::from(vec)))
     }
 }
 
