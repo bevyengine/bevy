@@ -527,19 +527,8 @@ impl<'w> EntityMut<'w> {
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFE: world access is unique and entity location is valid
-        unsafe {
-            get_component_and_ticks(self.world, component_id, self.entity, self.location).map(
-                |(value, ticks)| MutUntyped {
-                    value: value.assert_unique(),
-                    ticks: Ticks {
-                        component_ticks: ticks.deref_mut(),
-                        last_change_tick: self.world.last_change_tick(),
-                        change_tick: self.world.read_change_tick(),
-                    },
-                },
-            )
-        }
+        // SAFE: entity location is valid
+        unsafe { get_mut_by_id(self.world, self.entity, self.location, component_id) }
     }
 }
 
@@ -547,10 +536,11 @@ impl<'w> EntityMut<'w> {
 /// Get a raw pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
-/// `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
 /// the archetype
+/// - `component_id` must be valid
 #[inline]
-unsafe fn get_component(
+pub(crate) unsafe fn get_component(
     world: &World,
     component_id: ComponentId,
     entity: Entity,
@@ -869,6 +859,27 @@ pub(crate) unsafe fn get_mut<T: Component>(
             },
         },
     )
+}
+
+// SAFETY: EntityLocation must be valid, component_id must be valid
+#[inline]
+pub(crate) unsafe fn get_mut_by_id(
+    world: &mut World,
+    entity: Entity,
+    location: EntityLocation,
+    component_id: ComponentId,
+) -> Option<MutUntyped> {
+    // SAFE: world access is unique and entity location is valid
+    get_component_and_ticks(world, component_id, entity, location).map(|(value, ticks)| {
+        MutUntyped {
+            value: value.assert_unique(),
+            ticks: Ticks {
+                component_ticks: ticks.deref_mut(),
+                last_change_tick: world.last_change_tick(),
+                change_tick: world.read_change_tick(),
+            },
+        }
+    })
 }
 
 #[cfg(test)]

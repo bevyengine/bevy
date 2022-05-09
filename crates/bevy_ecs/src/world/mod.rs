@@ -1398,6 +1398,46 @@ impl World {
 
         Some(())
     }
+
+    /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
+    /// Returns [None] if the `entity` does not have a [Component] of the given type.
+    ///
+    /// **You should prefer to use the typed API [`World::get_mut`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    #[inline]
+    pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
+        // SAFE: entity location is valid
+        unsafe {
+            get_component(
+                self,
+                component_id,
+                entity,
+                self.get_entity(entity)?.location(),
+            )
+        }
+    }
+
+    /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
+    /// Returns [None] if the `entity` does not have a [Component] of the given type.
+    ///
+    /// **You should prefer to use the typed API [`World::get_mut`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    #[inline]
+    pub fn get_mut_by_id(
+        &mut self,
+        entity: Entity,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'_>> {
+        // SAFE: entity location is valid
+        unsafe {
+            get_mut_by_id(
+                self,
+                entity,
+                self.get_entity(entity)?.location(),
+                component_id,
+            )
+        }
+    }
 }
 
 impl fmt::Debug for World {
