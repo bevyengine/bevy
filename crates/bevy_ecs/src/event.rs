@@ -758,7 +758,7 @@ mod tests {
 
     #[test]
     fn ensure_reader_readonly() {
-        fn read_for<E: Resource>() {
+        fn read_for<E: Event>() {
             let mut world = World::new();
             world.init_resource::<Events<E>>();
             let mut state = SystemState::<EventReader<E>>::new(&mut world);
