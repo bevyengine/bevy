@@ -232,6 +232,36 @@ mod tests {
     }
 
     #[test]
+    fn from_reflect_should_use_default_attributes() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        struct MyStruct {
+            // Use `Default::default()`
+            // Note that this isn't an ignored field
+            #[reflect(default)]
+            foo: String,
+
+            // Use `get_foo_default()`
+            #[reflect(default = "get_bar_default")]
+            #[reflect(ignore)]
+            bar: usize,
+        }
+
+        fn get_bar_default() -> usize {
+            123
+        }
+
+        let expected = MyStruct {
+            foo: String::default(),
+            bar: 123,
+        };
+
+        let dyn_struct = DynamicStruct::default();
+        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
+
+        assert_eq!(Some(expected), my_struct);
+    }
+
+    #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug, FromReflect)]
         #[reflect(PartialEq)]
