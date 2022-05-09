@@ -779,8 +779,10 @@ impl App {
     /// There are built-in [`PluginGroup`]s that provide core engine functionality.
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
-    /// # Examples
+    /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
+    /// before / after another plugin), see [`add_plugins_with`](Self::add_plugins_with).
     ///
+    /// ## Examples
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder};
     /// #
@@ -805,7 +807,7 @@ impl App {
     /// Can be used to add a group of [`Plugin`]s, where the group is modified
     /// before insertion into a Bevy application. For example, you can add
     /// additional [`Plugin`]s at a specific place in the [`PluginGroup`], or deactivate
-    /// specific [`Plugin`]s while keeping the rest.
+    /// specific [`Plugin`]s while keeping the rest using a [`PluginGroupBuilder`].
     ///
     /// # Examples
     ///
