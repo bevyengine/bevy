@@ -513,6 +513,8 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
 
 #[cfg(test)]
 mod tests {
+    use crate::{prelude::World, system::SystemState};
+
     use super::*;
 
     #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -752,5 +754,17 @@ mod tests {
             get_events(&events, &mut reader),
             vec![EmptyTestEvent::default()]
         );
+    }
+
+    #[test]
+    fn ensure_reader_readonly() {
+        fn read_for<E: Event>() {
+            let mut world = World::new();
+            world.init_resource::<Events<E>>();
+            let mut state = SystemState::<EventReader<E>>::new(&mut world);
+            // This can only work if EventReader only reads the world
+            let _reader = state.get(&world);
+        }
+        read_for::<EmptyTestEvent>();
     }
 }

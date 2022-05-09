@@ -324,7 +324,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                             }
                             Ok(())
                         })
-                        .expect("Invalid 'render_resources' attribute format.");
+                        .expect("Invalid 'system_param' attribute format.");
 
                         attributes
                     }),
@@ -420,6 +420,9 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     }
                 }
             }
+
+            // Safety: The `ParamState` is `ReadOnlySystemParamFetch`, so this can only read from the `World`
+            unsafe impl<TSystemParamState: #path::system::SystemParamState + #path::system::ReadOnlySystemParamFetch, #punctuated_generics> #path::system::ReadOnlySystemParamFetch for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {}
         };
     })
 }
