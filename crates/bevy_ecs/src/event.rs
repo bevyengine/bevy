@@ -394,13 +394,16 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::event::Events;
+    ///
+    /// struct MyEvent;
     ///
     /// let mut world = World::new();
-    /// let mut events = Events::<TestEvent>::default();
-    /// events.send(TestEvent { i: 0 });
+    /// let mut events = Events::<MyEvent>::default();
+    /// events.send(MyEvent);
     /// world.insert_resource(events);
     ///
-    /// let mut reader = IntoSystem::into_system(|events: EventReader<TestEvent>| -> bool {
+    /// let mut reader = IntoSystem::into_system(|events: EventReader<MyEvent>| -> bool {
     ///     if !events.is_empty() {
     ///         events.clear();
     ///         false
