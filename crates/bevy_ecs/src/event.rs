@@ -3,6 +3,7 @@
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, SystemParam};
 use bevy_utils::tracing::trace;
+use std::ops::{Deref, DerefMut};
 use std::{
     fmt::{self},
     hash::Hash,
@@ -54,12 +55,6 @@ impl<E: Event> fmt::Debug for EventId<E> {
 struct EventInstance<E: Event> {
     pub event_id: EventId<E>,
     pub event: E,
-}
-
-#[derive(Debug)]
-enum State {
-    A,
-    B,
 }
 
 /// An event collection that represents the events that occurred within the last two
@@ -135,24 +130,49 @@ enum State {
 ///
 #[derive(Debug)]
 pub struct Events<E: Event> {
-    events_a: Vec<EventInstance<E>>,
-    events_b: Vec<EventInstance<E>>,
-    a_start_event_count: usize,
-    b_start_event_count: usize,
+    events_a: EventSequence<E>,
+    events_b: EventSequence<E>,
     event_count: usize,
-    state: State,
 }
 
+// Derived Default impl would incorrectly require E: Default
 impl<E: Event> Default for Events<E> {
     fn default() -> Self {
-        Events {
-            a_start_event_count: 0,
-            b_start_event_count: 0,
-            event_count: 0,
-            events_a: Vec::new(),
-            events_b: Vec::new(),
-            state: State::A,
+        Self {
+            events_a: Default::default(),
+            events_b: Default::default(),
+            event_count: Default::default(),
         }
+    }
+}
+
+#[derive(Debug)]
+struct EventSequence<E: Event> {
+    events: Vec<EventInstance<E>>,
+    count: usize,
+}
+
+// Derived Default impl would incorrectly require E: Default
+impl<E: Event> Default for EventSequence<E> {
+    fn default() -> Self {
+        Self {
+            events: Default::default(),
+            count: Default::default(),
+        }
+    }
+}
+
+impl<E: Event> Deref for EventSequence<E> {
+    type Target = Vec<EventInstance<E>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.events
+    }
+}
+
+impl<E: Event> DerefMut for EventSequence<E> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.events
     }
 }
 
@@ -167,7 +187,7 @@ fn map_instance_event<E: Event>(event_instance: &EventInstance<E>) -> &E {
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
 pub struct EventReader<'w, 's, E: Event> {
-    last_event_count: Local<'s, (usize, PhantomData<E>)>,
+    reader: Local<'s, ManualEventReader<E>>,
     events: Res<'w, Events<E>>,
 }
 
@@ -252,24 +272,13 @@ fn internal_event_reader<'a, E: Event>(
 {
     // if the reader has seen some of the events in a buffer, find the proper index offset.
     // otherwise read all events in the buffer
-    let a_index = if *last_event_count > events.a_start_event_count {
-        *last_event_count - events.a_start_event_count
-    } else {
-        0
-    };
-    let b_index = if *last_event_count > events.b_start_event_count {
-        *last_event_count - events.b_start_event_count
-    } else {
-        0
-    };
+    let a_index = (*last_event_count).saturating_sub(events.events_a.count);
+    let b_index = (*last_event_count).saturating_sub(events.events_b.count);
     let a = events.events_a.get(a_index..).unwrap_or_default();
     let b = events.events_b.get(b_index..).unwrap_or_default();
     let unread_count = a.len() + b.len();
     *last_event_count = events.event_count - unread_count;
-    let iterator = match events.state {
-        State::A => b.iter().chain(a.iter()),
-        State::B => a.iter().chain(b.iter()),
-    };
+    let iterator = a.iter().chain(b.iter());
     iterator
         .map(map_instance_event_with_id)
         .with_exact_size(unread_count)
@@ -343,15 +352,15 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
     {
-        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
+        self.reader.iter_with_id(&self.events).map(|r @ (_, id)| {
             trace!("EventReader::iter() -> {}", id);
-            (event, id)
+            r
         })
     }
 
     /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
     pub fn len(&self) -> usize {
-        internal_event_reader(&mut self.last_event_count.0.clone(), &self.events).len()
+        self.reader.len(&self.events)
     }
 
     /// Determines if are any events available to be read without consuming any.
@@ -372,11 +381,7 @@ impl<E: Event> Events<E> {
 
         let event_instance = EventInstance { event_id, event };
 
-        match self.state {
-            State::A => self.events_a.push(event_instance),
-            State::B => self.events_b.push(event_instance),
-        }
-
+        self.events_b.push(event_instance);
         self.event_count += 1;
     }
 
@@ -390,10 +395,7 @@ impl<E: Event> Events<E> {
 
     /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
     pub fn get_reader(&self) -> ManualEventReader<E> {
-        ManualEventReader {
-            last_event_count: 0,
-            _marker: PhantomData,
-        }
+        ManualEventReader::default()
     }
 
     /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
@@ -401,25 +403,16 @@ impl<E: Event> Events<E> {
     pub fn get_reader_current(&self) -> ManualEventReader<E> {
         ManualEventReader {
             last_event_count: self.event_count,
-            _marker: PhantomData,
+            ..Default::default()
         }
     }
 
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
     pub fn update(&mut self) {
-        match self.state {
-            State::A => {
-                self.events_b.clear();
-                self.state = State::B;
-                self.b_start_event_count = self.event_count;
-            }
-            State::B => {
-                self.events_a.clear();
-                self.state = State::A;
-                self.a_start_event_count = self.event_count;
-            }
-        }
+        std::mem::swap(&mut self.events_a, &mut self.events_b);
+        self.events_b.clear();
+        self.events_b.count = self.event_count;
     }
 
     /// A system that calls [`Events::update`] once per frame.
@@ -429,8 +422,8 @@ impl<E: Event> Events<E> {
 
     #[inline]
     fn reset_start_event_count(&mut self) {
-        self.a_start_event_count = self.event_count;
-        self.b_start_event_count = self.event_count;
+        self.events_a.count = self.event_count;
+        self.events_b.count = self.event_count;
     }
 
     /// Removes all events.
@@ -452,18 +445,10 @@ impl<E: Event> Events<E> {
         self.reset_start_event_count();
 
         let map = |i: EventInstance<E>| i.event;
-        match self.state {
-            State::A => self
-                .events_b
-                .drain(..)
-                .map(map)
-                .chain(self.events_a.drain(..).map(map)),
-            State::B => self
-                .events_a
-                .drain(..)
-                .map(map)
-                .chain(self.events_b.drain(..).map(map)),
-        }
+        self.events_a
+            .drain(..)
+            .map(map)
+            .chain(self.events_b.drain(..).map(map))
     }
 
     /// Iterates over events that happened since the last "update" call.
@@ -475,10 +460,7 @@ impl<E: Event> Events<E> {
     pub fn iter_current_update_events(
         &self,
     ) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
-        match self.state {
-            State::A => self.events_a.iter().map(map_instance_event),
-            State::B => self.events_b.iter().map(map_instance_event),
-        }
+        self.events_b.iter().map(map_instance_event)
     }
 }
 
@@ -497,10 +479,7 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
             EventInstance { event_id, event }
         });
 
-        match self.state {
-            State::A => self.events_a.extend(events),
-            State::B => self.events_b.extend(events),
-        }
+        self.events_b.extend(events);
 
         trace!(
             "Events::extend() -> ids: ({}..{})",
