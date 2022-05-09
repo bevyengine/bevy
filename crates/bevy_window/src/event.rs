@@ -25,22 +25,37 @@ pub struct CreateWindow {
 #[derive(Debug, Clone)]
 pub struct RequestRedraw;
 
-/// An event that indicates a window should be closed.
-#[derive(Debug, Clone)]
-pub struct CloseWindow {
-    pub id: WindowId,
-}
-
 /// An event that is sent whenever a new window is created.
+///
+/// To create a new window, send a [`CreateWindow`] event - this
+/// event will be sent in the handler for that event.
 #[derive(Debug, Clone)]
 pub struct WindowCreated {
     pub id: WindowId,
 }
 
-/// An event that is sent whenever a close was requested for a window. For example: when the "close"
-/// button is pressed on a window.
+/// An event that is sent whenever the operating systems requests that a window
+/// be closed. This will be sent when the close button of the window is pressed.
+///
+/// If the default [`WindowPlugin`] is used, these events are handled
+/// by [closing] the corresponding [`Window`].  
+/// To disable this behaviour, set `close_when_requested` on the [`WindowPlugin`]
+/// to `false`.
+///
+/// [`WindowPlugin`]: crate::WindowPlugin
+/// [`Window`]: crate::Window
+/// [closing]: crate::Window::close
 #[derive(Debug, Clone)]
 pub struct WindowCloseRequested {
+    pub id: WindowId,
+}
+
+/// An event that is sent whenever a window is closed. This will be sent by the
+/// handler for [`Window::close`].
+///
+/// [`Window::close`]: crate::Window::close
+#[derive(Debug, Clone)]
+pub struct WindowClosed {
     pub id: WindowId,
 }
 

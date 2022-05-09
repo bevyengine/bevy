@@ -280,10 +280,13 @@ If you're new to Bevy, here's the workflow we use:
 1. Fork the `bevyengine/bevy` repository on GitHub. You'll need to create a GitHub account if you don't have one already.
 2. Make your changes in a local clone of your fork, typically in its own new branch.
    1. Try to split your work into separate commits, each with a distinct purpose. Be particularly mindful of this when responding to reviews so it's easy to see what's changed.
-3. To test CI validations locally, run the `cargo run -p ci` command. You can also run sub-commands manually:
-    1. `cargo fmt --all -- --check` (remove `--check` to let the command fix found problems)
-    2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity`
-    3. `cargo test --all-targets --workspace`
+3. To test CI validations locally, run the `cargo run -p ci` command. This will run most checks that happen in CI, but can take some time. You can also run sub-commands to iterate faster depending on what you're contributing:
+    * `cargo run -p ci -- lints` - to run formatting and clippy
+    * `cargo run -p ci -- test` - to run tests
+    * `cargo run -p ci -- doc` - to run doc tests and doc checks
+    * `cargo run -p ci -- compile` - to check that everything that must compile still does (examples and benches), and that some that shouldn't still don't ([`crates/bevy_ecs_compile_fail_tests`](./crates/bevy_ecs_compile_fail_tests))
+    * to get more informations on commands available and what is run, check the [tools/ci crate](./tools/ci)
+
 4. When working with Markdown (`.md`) files, Bevy's CI will check markdown files (like this one) using [markdownlint](https://github.com/DavidAnson/markdownlint).
 To locally lint your files using the same workflow as our CI:
    1. Install [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli).

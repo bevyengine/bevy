@@ -1439,6 +1439,11 @@ impl Node for ShadowPassNode {
                     .view_light_query
                     .get_manual(world, view_light_entity)
                     .unwrap();
+
+                if shadow_phase.items.is_empty() {
+                    continue;
+                }
+
                 let pass_descriptor = RenderPassDescriptor {
                     label: Some(&view_light.pass_name),
                     color_attachments: &[],

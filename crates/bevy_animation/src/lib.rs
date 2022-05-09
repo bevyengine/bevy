@@ -74,8 +74,9 @@ impl AnimationClip {
     }
 
     /// Duration of the clip, represented in seconds
-    pub fn duration(&self) -> &f32 {
-        &self.duration
+    #[inline]
+    pub fn duration(&self) -> f32 {
+        self.duration
     }
 
     /// Add a [`VariableCurve`] to an [`EntityPath`].

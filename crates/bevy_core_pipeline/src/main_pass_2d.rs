@@ -44,6 +44,10 @@ impl Node for MainPass2dNode {
             .get_manual(world, view_entity)
             .expect("view entity should exist");
 
+        if transparent_phase.items.is_empty() {
+            return Ok(());
+        }
+
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_2d"),
             color_attachments: &[target.get_color_attachment(Operations {

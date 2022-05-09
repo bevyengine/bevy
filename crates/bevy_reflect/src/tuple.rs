@@ -1,10 +1,11 @@
+use crate::{
+    serde::Serializable, DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect,
+    ReflectDeserialize, ReflectMut, ReflectRef, TypeIdentity, TypeInfo, TypeRegistration, Typed,
+    UnnamedField,
+};
+use serde::Deserialize;
 use std::any::Any;
 use std::slice::Iter;
-
-use crate::{
-    serde::Serializable, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef, TypeIdentity,
-    TypeInfo, Typed, UnnamedField,
-};
 
 /// A reflected Rust tuple.
 ///
@@ -477,6 +478,14 @@ macro_rules! impl_reflect_tuple {
                 ];
                 let info = TupleInfo::new::<Self>(&fields);
                 TypeInfo::Tuple(info)
+            }
+        }
+
+        impl<$($name: Reflect + Typed + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+            fn get_type_registration() -> TypeRegistration {
+                let mut registration = TypeRegistration::of::<($($name,)*)>();
+                registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());
+                registration
             }
         }
 

@@ -70,6 +70,11 @@ impl Node for UiPassNode {
             .query
             .get_manual(world, view_entity)
             .expect("view entity should exist");
+
+        if transparent_phase.items.is_empty() {
+            return Ok(());
+        }
+
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
             color_attachments: &[RenderPassColorAttachment {
