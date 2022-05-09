@@ -89,7 +89,7 @@ pub fn impl_struct(
         {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
                 if let #bevy_reflect_path::ReflectRef::Struct(ref_struct) = reflect.reflect_ref() {
-                    #ctor
+                    #constructor
                 } else {
                     None
                 }
