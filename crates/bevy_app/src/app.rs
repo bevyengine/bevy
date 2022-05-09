@@ -1,7 +1,7 @@
 use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::Events,
+    event::{Event, Events},
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
@@ -622,7 +622,7 @@ impl App {
     /// ```
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Resource,
+        T: Event,
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
