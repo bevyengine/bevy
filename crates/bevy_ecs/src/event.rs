@@ -390,17 +390,14 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 
     /// Determines if no events are available to be read without consuming any.
-    /// If you need to consume the iterator you can use [`EventReader::any`]
-    /// WARNING: `events.is_empty()` is not the same as doing `!events.any()`
+    /// If you need to consume the iterator you can use [`EventReader::clear`]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Determines if there are any events available to be read and consumes all events.
-    /// If you don't need to consume the iterator you can use [`EventReader::is_empty`]
-    /// WARNING: `events.any()` is not the same as doing `!events.is_empty()`
-    pub fn any(&mut self) -> bool {
-        self.iter().last().is_some()
+    /// Consumes the iterator. This means all currently available events will be removed before the next frame.
+    pub fn clear(mut self) {
+        self.iter().last();
     }
 }
 
@@ -764,6 +761,29 @@ mod tests {
         assert_eq!(reader.len(&events), 1);
         events.update();
         assert!(reader.is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_reader_clear() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        world.insert_resource(events);
+
+        let mut reader = IntoSystem::into_system(|events: EventReader<TestEvent>| -> bool {
+            if !events.is_empty() {
+                events.clear();
+                return false;
+            } else {
+                return true;
+            }
+        });
+        reader.initialize(&mut world);
+
+        assert_eq!(reader.run((), &mut world), false);
+        assert_eq!(reader.run((), &mut world), true);
     }
 
     #[derive(Clone, PartialEq, Debug, Default)]
