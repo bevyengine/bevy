@@ -13,6 +13,8 @@ tasks:
     command: python3 -m http.server --directory examples/wasm
 
   - name: Setup rust-analyzer for wasm target
+    before: |
+      sudo apt-get install --no-install-recommends -yq libasound2-dev libudev-dev
     init: |
       mkdir .vscode
       echo "{\"rust-analyzer.cargo.target\":\"wasm32-unknown-unknown\"}" > .vscode/settings.json
