@@ -53,7 +53,12 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     for child in children.iter() {
-        world.entity_mut(*child).remove::<Parent>();
+        let mut child = world.entity_mut(*child);
+        if let Some(child_parent) = child.get::<Parent>() {
+            if child_parent.0 == parent {
+                child.remove_bundle::<(Parent, PreviousParent)>();
+            }
+        }
     }
 
     let mut parent = world.entity_mut(parent);
@@ -564,14 +569,8 @@ mod tests {
         );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child4).is_none());
-        assert_eq!(
-            *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(parent)
-        );
-        assert_eq!(
-            *world.get::<PreviousParent>(child4).unwrap(),
-            PreviousParent(parent)
-        );
+        assert!(world.get::<PreviousParent>(child1).is_none());
+        assert!(world.get::<PreviousParent>(child4).is_none());
     }
 
     #[test]
@@ -633,14 +632,8 @@ mod tests {
         );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child4).is_none());
-        assert_eq!(
-            *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(parent)
-        );
-        assert_eq!(
-            *world.get::<PreviousParent>(child4).unwrap(),
-            PreviousParent(parent)
-        );
+        assert!(world.get::<PreviousParent>(child1).is_none());
+        assert!(world.get::<PreviousParent>(child4).is_none());
     }
 
     #[test]
