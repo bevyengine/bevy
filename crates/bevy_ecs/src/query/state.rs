@@ -855,79 +855,86 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         last_change_tick: u32,
         change_tick: u32,
     ) {
-        let task_pool = self
-            .task_pool
-            .clone()
-            .expect("Cannot iterate query in parallel. No ComputeTaskPool initialized.");
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        task_pool.scope(|scope| {
-            if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
-                let tables = &world.storages().tables;
-                for table_id in &self.matched_table_ids {
-                    let table = &tables[*table_id];
-                    let mut offset = 0;
-                    while offset < table.len() {
-                        let func = func.clone();
-                        scope.spawn(async move {
-                            let mut fetch =
-                                QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-                            let mut filter = <QueryFetch<F> as Fetch>::init(
-                                world,
-                                &self.filter_state,
-                                last_change_tick,
-                                change_tick,
-                            );
-                            let tables = &world.storages().tables;
-                            let table = &tables[*table_id];
-                            fetch.set_table(&self.fetch_state, table);
-                            filter.set_table(&self.filter_state, table);
-                            let len = batch_size.min(table.len() - offset);
-                            for table_index in offset..offset + len {
-                                if !filter.table_filter_fetch(table_index) {
-                                    continue;
+        self.task_pool
+            .as_ref()
+            .expect("Cannot iterate query in parallel. No ComputeTaskPool initialized.")
+            .scope(|scope| {
+                if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
+                    let tables = &world.storages().tables;
+                    for table_id in &self.matched_table_ids {
+                        let table = &tables[*table_id];
+                        let mut offset = 0;
+                        while offset < table.len() {
+                            let func = func.clone();
+                            scope.spawn(async move {
+                                let mut fetch = QF::init(
+                                    world,
+                                    &self.fetch_state,
+                                    last_change_tick,
+                                    change_tick,
+                                );
+                                let mut filter = <QueryFetch<F> as Fetch>::init(
+                                    world,
+                                    &self.filter_state,
+                                    last_change_tick,
+                                    change_tick,
+                                );
+                                let tables = &world.storages().tables;
+                                let table = &tables[*table_id];
+                                fetch.set_table(&self.fetch_state, table);
+                                filter.set_table(&self.filter_state, table);
+                                let len = batch_size.min(table.len() - offset);
+                                for table_index in offset..offset + len {
+                                    if !filter.table_filter_fetch(table_index) {
+                                        continue;
+                                    }
+                                    let item = fetch.table_fetch(table_index);
+                                    func(item);
                                 }
-                                let item = fetch.table_fetch(table_index);
-                                func(item);
-                            }
-                        });
-                        offset += batch_size;
+                            });
+                            offset += batch_size;
+                        }
                     }
-                }
-            } else {
-                let archetypes = &world.archetypes;
-                for archetype_id in &self.matched_archetype_ids {
-                    let mut offset = 0;
-                    let archetype = &archetypes[*archetype_id];
-                    while offset < archetype.len() {
-                        let func = func.clone();
-                        scope.spawn(async move {
-                            let mut fetch =
-                                QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-                            let mut filter = <QueryFetch<F> as Fetch>::init(
-                                world,
-                                &self.filter_state,
-                                last_change_tick,
-                                change_tick,
-                            );
-                            let tables = &world.storages().tables;
-                            let archetype = &world.archetypes[*archetype_id];
-                            fetch.set_archetype(&self.fetch_state, archetype, tables);
-                            filter.set_archetype(&self.filter_state, archetype, tables);
+                } else {
+                    let archetypes = &world.archetypes;
+                    for archetype_id in &self.matched_archetype_ids {
+                        let mut offset = 0;
+                        let archetype = &archetypes[*archetype_id];
+                        while offset < archetype.len() {
+                            let func = func.clone();
+                            scope.spawn(async move {
+                                let mut fetch = QF::init(
+                                    world,
+                                    &self.fetch_state,
+                                    last_change_tick,
+                                    change_tick,
+                                );
+                                let mut filter = <QueryFetch<F> as Fetch>::init(
+                                    world,
+                                    &self.filter_state,
+                                    last_change_tick,
+                                    change_tick,
+                                );
+                                let tables = &world.storages().tables;
+                                let archetype = &world.archetypes[*archetype_id];
+                                fetch.set_archetype(&self.fetch_state, archetype, tables);
+                                filter.set_archetype(&self.filter_state, archetype, tables);
 
-                            let len = batch_size.min(archetype.len() - offset);
-                            for archetype_index in offset..offset + len {
-                                if !filter.archetype_filter_fetch(archetype_index) {
-                                    continue;
+                                let len = batch_size.min(archetype.len() - offset);
+                                for archetype_index in offset..offset + len {
+                                    if !filter.archetype_filter_fetch(archetype_index) {
+                                        continue;
+                                    }
+                                    func(fetch.archetype_fetch(archetype_index));
                                 }
-                                func(fetch.archetype_fetch(archetype_index));
-                            }
-                        });
-                        offset += batch_size;
+                            });
+                            offset += batch_size;
+                        }
                     }
                 }
-            }
-        });
+            });
     }
 }
 
