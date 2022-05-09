@@ -241,8 +241,8 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
 
 #[cfg(test)]
 mod tests {
-    use std::assert_eq;
     use super::DynamicList;
+    use std::assert_eq;
 
     #[test]
     fn test_into_iter() {

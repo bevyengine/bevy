@@ -1,6 +1,6 @@
 use crate as bevy_reflect;
 use crate::{
-    map_partial_eq, serde::Serializable, Array, ArrayIter, DynamicMap, FromType, FromReflect,
+    map_partial_eq, serde::Serializable, Array, ArrayIter, DynamicMap, FromReflect, FromType,
     GetTypeRegistration, List, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
     TypeRegistration,
 };
@@ -425,8 +425,8 @@ struct SerializeArrayLike<'a>(&'a dyn Array);
 
 impl<'a> serde::Serialize for SerializeArrayLike<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
+    where
+        S: serde::Serializer,
     {
         crate::array_serialize(self.0, serializer)
     }
