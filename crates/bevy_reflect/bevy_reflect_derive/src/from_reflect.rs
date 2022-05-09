@@ -61,9 +61,9 @@ pub fn impl_struct(
         #(#field_types: #bevy_reflect_path::FromReflect,)*
     });
 
-    let constructor = if let Some(ctor) = custom_constructor {
+    let constructor = if let Some(constructor) = custom_constructor {
         quote!(
-            let mut value: Self = #ctor;
+            let mut value: Self = #constructor;
             #(
                 value.#field_idents = {
                     <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(#bevy_reflect_path::Struct::field(ref_struct, #field_names)?)?
