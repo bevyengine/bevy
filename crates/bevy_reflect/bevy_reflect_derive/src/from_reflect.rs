@@ -8,7 +8,7 @@ pub fn impl_struct(
     bevy_reflect_path: &Path,
     active_fields: &[(&Field, usize)],
     ignored_fields: &[(&Field, usize)],
-    custom_ctor: Option<proc_macro2::TokenStream>,
+    custom_constructor: Option<proc_macro2::TokenStream>,
 ) -> TokenStream {
     let field_names = active_fields
         .iter()
