@@ -63,6 +63,28 @@ impl<'w> EntityRef<'w> {
         contains_component_with_type(self.world, type_id, self.location)
     }
 
+    /// Gets the [`Component`] of a given type for the referenced entity, if available.
+    /// Returns `None` if not present.
+    ///
+    /// This component type must be [`Sync`]. Attempting to use a non-`Sync` type will
+    /// fail to compile. To safely access a non-`Sync` component, use [`EntityMut::get_mut`]
+    /// instead.
+    ///
+    /// ```compile_fail
+    /// # use bevy_ecs::{component::Component, world::World};
+    /// # use std::cell::Cell;
+    ///
+    /// #[derive(Component)]
+    /// struct NotSync(Cell<usize>);
+    ///
+    /// # fn main() {
+    /// # let world = World::new();
+    /// # let entity = todo!();
+    /// let entity_ref = world.entity(entity);
+    /// // Will fail to compile!
+    /// entity_ref.get::<NotSync>();
+    /// # }
+    /// ```
     #[inline]
     pub fn get<T: Component + Sync>(&self) -> Option<&'w T> {
         // SAFE: entity location is valid and returned component is of type T
@@ -165,6 +187,28 @@ impl<'w> EntityMut<'w> {
         contains_component_with_type(self.world, type_id, self.location)
     }
 
+    /// Gets the [`Component`] of a given type for the referenced entity, if available.
+    /// Returns `None` if not present.
+    ///
+    /// This component type must be [`Sync`]. Attempting to use a non-`Sync` type will
+    /// fail to compile. To safely access a non-`Sync` component, use [`get_mut`](Self::get_mut)
+    /// instead.
+    ///
+    /// ```compile_fail
+    /// # use bevy_ecs::{component::Component, world::World};
+    /// # use std::cell::Cell;
+    ///
+    /// #[derive(Component)]
+    /// struct NotSync(Cell<usize>);
+    ///
+    /// # fn main() {
+    /// # let world = World::new();
+    /// # let entity = todo!();
+    /// let entity_mut = world.entity_mut(entity);
+    /// // Will fail to compile!
+    /// entity_mut.get::<NotSync>();
+    /// # }
+    /// ```
     #[inline]
     pub fn get<T: Component + Sync>(&self) -> Option<&'_ T> {
         // SAFE: lifetimes enforce correct usage of returned borrow

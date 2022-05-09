@@ -412,6 +412,23 @@ impl World {
     /// let position = world.get::<Position>(entity).unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
+    ///
+    /// Attempting to use this on a component that is not [`Sync`] will fail to compile.
+    ///
+    /// ```compile_fail
+    /// # use bevy_ecs::{component::Component, world::World};
+    /// # use std::cell::Cell;
+    ///
+    /// #[derive(Component)]
+    /// struct NotSync(Cell<usize>);
+    ///
+    /// # fn main() {
+    /// # let world = World::new();
+    /// # let entity = todo!();
+    /// // Will fail to compile!
+    /// world.get::<NotSync>(entity);
+    /// # }
+    /// ```
     #[inline]
     pub fn get<T: Component + Sync>(&self, entity: Entity) -> Option<&T> {
         self.get_entity(entity)?.get()

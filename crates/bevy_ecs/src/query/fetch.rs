@@ -292,6 +292,31 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+///
+/// ## Non-Sync Queries
+///
+/// Non-`Sync` components are supported, but cannot be accessed as `&T`,
+/// as the type cannot be safely read from multiple threads at the same
+/// time. These components must be accessed via a `&mut T` to guarentee
+/// that the system has exclusive access to the components.
+///
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// # use std::cell::Cell;
+///
+/// #[derive(Component)]
+/// struct NotSync(Cell<usize>);
+///
+/// // This will not compile!
+/// fn my_system(query: Query<&NotSync>) {
+///     for _ in query.iter() {}
+/// }
+///
+/// // This will compile!
+/// fn my_system(query: Query<&mut NotSync>) {
+///     for _ in query.iter() {}
+/// }
+/// ```
 pub trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
     type State: FetchState;
 
