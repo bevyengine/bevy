@@ -56,9 +56,7 @@ pub struct ParallelExecutor {
 
 impl Default for ParallelExecutor {
     fn default() -> Self {
-        ComputeTaskPool::init(TaskPool::default())
-            .map(|pool| pool.clone())
-            .unwrap_or_else(|_| ComputeTaskPool::get().clone());
+        let _ = ComputeTaskPool::init(TaskPool::default());
         let (finish_sender, finish_receiver) = async_channel::unbounded();
         Self {
             system_metadata: Default::default(),

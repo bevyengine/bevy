@@ -24,7 +24,7 @@ static IO_TASK_POOL: OnceCell<IoTaskPool> = OnceCell::new();
 pub struct ComputeTaskPool(TaskPool);
 
 impl ComputeTaskPool {
-    /// Initializes the global ComputeTaskPool instance.
+    /// Initializes the global [`ComputeTaskPool`] instance.
     ///
     /// Returns the provided `[TaskPool]` if the global instance has already been initialized.
     pub fn init(task_pool: TaskPool) -> Result<&'static Self, TaskPool> {
@@ -34,7 +34,7 @@ impl ComputeTaskPool {
             .map_err(|pool| pool.0)
     }
 
-    /// Gets the global ComputeTaskPool instance.
+    /// Gets the global [`ComputeTaskPool`] instance.
     ///
     /// # Panics
     /// Panics if no pool has been initialized yet.
@@ -59,7 +59,7 @@ impl Deref for ComputeTaskPool {
 pub struct AsyncComputeTaskPool(TaskPool);
 
 impl AsyncComputeTaskPool {
-    /// Initializes the global AsyncComputeTaskPool instance.
+    /// Initializes the global [`AsyncComputeTaskPool`] instance.
     ///
     /// Returns the provided `[TaskPool]` if the global instance has already been initialized.
     pub fn init(task_pool: TaskPool) -> Result<&'static Self, TaskPool> {
@@ -69,7 +69,7 @@ impl AsyncComputeTaskPool {
             .map_err(|pool| pool.0)
     }
 
-    /// Gets the global AsyncComputeTaskPool instance.
+    /// Gets the global [`AsyncComputeTaskPool`] instance.
     ///
     /// # Panics
     /// Panics if no pool has been initialized yet.
@@ -95,7 +95,7 @@ impl Deref for AsyncComputeTaskPool {
 pub struct IoTaskPool(TaskPool);
 
 impl IoTaskPool {
-    /// Initializes the global IoTaskPool instance.
+    /// Initializes the global [`IoTaskPool`] instance.
     ///
     /// Returns the provided `[TaskPool]` if the global instance has already been initialized.
     pub fn init(task_pool: TaskPool) -> Result<&'static Self, TaskPool> {
@@ -105,7 +105,7 @@ impl IoTaskPool {
             .map_err(|pool| pool.0)
     }
 
-    /// Gets the global IoTaskPool instance.
+    /// Gets the global [`IoTaskPool`] instance.
     ///
     /// # Panics
     /// Panics if no pool has been initialized yet.

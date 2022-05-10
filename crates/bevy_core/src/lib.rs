@@ -44,7 +44,7 @@ impl Plugin for CorePlugin {
             .get_resource::<DefaultTaskPoolOptions>()
             .cloned()
             .unwrap_or_default()
-            .create_default_pools(&mut app.world);
+            .create_default_pools();
 
         app.init_resource::<Time>()
             .init_resource::<FixedTimesteps>()
