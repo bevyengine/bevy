@@ -139,7 +139,11 @@ impl GraphNode for RunCriteriaContainer {
     }
 
     fn labels(&self) -> &[BoxedRunCriteriaLabel] {
-        self.label.as_ref().map_or(&[], std::slice::from_ref)
+        if let Some(ref label) = self.label {
+            std::slice::from_ref(label)
+        } else {
+            &[]
+        }
     }
 
     fn before(&self) -> &[BoxedRunCriteriaLabel] {

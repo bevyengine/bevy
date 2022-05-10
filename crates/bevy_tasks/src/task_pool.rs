@@ -125,10 +125,11 @@ impl TaskPool {
                 // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
                 #[cfg(not(miri))]
                 let mut thread_builder = {
-                    let thread_name = thread_name.map_or_else(
-                        || format!("TaskPool ({})", i),
-                        |thread_name| format!("{} ({})", thread_name, i),
-                    );
+                    let thread_name = if let Some(thread_name) = thread_name {
+                        format!("{} ({})", thread_name, i)
+                    } else {
+                        format!("TaskPool ({})", i)
+                    };
                     thread::Builder::new().name(thread_name)
                 };
                 #[cfg(miri)]

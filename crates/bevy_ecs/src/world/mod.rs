@@ -585,10 +585,11 @@ impl World {
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
     pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
-        self.components.get_id(TypeId::of::<T>()).map_or_else(
-            || [].iter().cloned(),
-            |component_id| self.removed_with_id(component_id),
-        )
+        if let Some(component_id) = self.components.get_id(TypeId::of::<T>()) {
+            self.removed_with_id(component_id)
+        } else {
+            [].iter().cloned()
+        }
     }
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
@@ -597,10 +598,11 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
-        self.removed_components
-            .get(component_id)
-            .map_or_else(|| [].iter(), |removed| removed.iter())
-            .cloned()
+        if let Some(removed) = self.removed_components.get(component_id) {
+            removed.iter().cloned()
+        } else {
+            [].iter().cloned()
+        }
     }
 
     /// Inserts a new resource with standard starting values.

@@ -866,7 +866,11 @@ fn load_node(
             }
         }
     });
-    gltf_error.map_or(Ok(()), Err)
+    if let Some(err) = gltf_error {
+        Err(err)
+    } else {
+        Ok(())
+    }
 }
 
 /// Returns the label for the `mesh`.
@@ -881,10 +885,11 @@ fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 
 /// Returns the label for the `material`.
 fn material_label(material: &gltf::Material) -> String {
-    material.index().map_or_else(
-        || "MaterialDefault".to_string(),
-        |index| format!("Material{}", index),
-    )
+    if let Some(index) = material.index() {
+        format!("Material{}", index)
+    } else {
+        "MaterialDefault".to_string()
+    }
 }
 
 /// Returns the label for the `texture`.
@@ -1035,17 +1040,12 @@ fn resolve_node_hierarchy(
         .enumerate()
         .map(|(i, (label, node, children))| {
             for child in &children {
-                parents.get_mut(*child).map_or_else(
-                    || {
-                        if !has_errored {
-                            has_errored = true;
-                            warn!("Unexpected child in GLTF Mesh {}", child);
-                        }
-                    },
-                    |parent| {
-                        *parent = Some(i);
-                    },
-                );
+                if let Some(parent) = parents.get_mut(*child) {
+                    *parent = Some(i);
+                } else if !has_errored {
+                    has_errored = true;
+                    warn!("Unexpected child in GLTF Mesh {}", child);
+                }
             }
             let children = children.into_iter().collect::<HashSet<_>>();
             if children.is_empty() {

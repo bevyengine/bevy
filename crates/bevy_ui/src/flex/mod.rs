@@ -117,15 +117,14 @@ impl FlexSurface {
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
         let mut stretch_children = Vec::with_capacity(children.len());
         for child in children.iter() {
-            self.entity_to_stretch.get(child).map_or_else(
-                || {
-                    warn!(
-                        "Unstyled child in a UI entity hierarchy. You are using an entity \
+            if let Some(stretch_node) = self.entity_to_stretch.get(child) {
+                stretch_children.push(*stretch_node);
+            } else {
+                warn!(
+                    "Unstyled child in a UI entity hierarchy. You are using an entity \
 without UI components as a child of an entity with UI components, results may be unexpected."
-                    );
-                },
-                |stretch_node| stretch_children.push(*stretch_node),
-            );
+                );
+            }
         }
 
         let stretch_node = self.entity_to_stretch.get(&entity).unwrap();
@@ -179,20 +178,17 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     pub fn get_layout(&self, entity: Entity) -> Result<&stretch::result::Layout, FlexError> {
-        self.entity_to_stretch.get(&entity).map_or_else(
-            || {
-                warn!(
-                    "Styled child in a non-UI entity hierarchy. You are using an entity \
+        if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
+            self.stretch
+                .layout(*stretch_node)
+                .map_err(FlexError::StretchError)
+        } else {
+            warn!(
+                "Styled child in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, results may be unexpected."
-                );
-                Err(FlexError::InvalidHierarchy)
-            },
-            |stretch_node| {
-                self.stretch
-                    .layout(*stretch_node)
-                    .map_err(FlexError::StretchError)
-            },
-        )
+            );
+            Err(FlexError::InvalidHierarchy)
+        }
     }
 }
 

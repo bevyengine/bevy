@@ -465,27 +465,25 @@ pub fn winit_runner_with(mut app: App) {
                         let prior_factor = window.scale_factor();
                         window.update_scale_factor_from_backend(scale_factor);
                         let new_factor = window.scale_factor();
+                        if let Some(forced_factor) = window.scale_factor_override() {
+                            // If there is a scale factor override, then force that to be used
+                            // Otherwise, use the OS suggested size
+                            // We have already told the OS about our resize constraints, so
+                            // the new_inner_size should take those into account
+                            *new_inner_size = winit::dpi::LogicalSize::new(
+                                window.requested_width(),
+                                window.requested_height(),
+                            )
+                            .to_physical::<u32>(forced_factor);
+                        } else if approx::relative_ne!(new_factor, prior_factor) {
+                            let mut scale_factor_change_events =
+                                world.resource_mut::<Events<WindowScaleFactorChanged>>();
 
-                        window.scale_factor_override().map_or_else(
-                            || {
-                                if approx::relative_ne!(new_factor, prior_factor) {
-                                    let mut scale_factor_change_events =
-                                        world.resource_mut::<Events<WindowScaleFactorChanged>>();
-
-                                    scale_factor_change_events.send(WindowScaleFactorChanged {
-                                        id: window_id,
-                                        scale_factor,
-                                    });
-                                }
-                            },
-                            |forced_factor| {
-                                *new_inner_size = winit::dpi::LogicalSize::new(
-                                    window.requested_width(),
-                                    window.requested_height(),
-                                )
-                                .to_physical::<u32>(forced_factor);
-                            },
-                        );
+                            scale_factor_change_events.send(WindowScaleFactorChanged {
+                                id: window_id,
+                                scale_factor,
+                            });
+                        }
 
                         let new_logical_width = new_inner_size.width as f64 / new_factor;
                         let new_logical_height = new_inner_size.height as f64 / new_factor;

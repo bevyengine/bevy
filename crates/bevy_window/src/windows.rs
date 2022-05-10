@@ -54,7 +54,11 @@ impl Windows {
 
     /// Returns the scale factor for the [`Window`] of `id`, or `1.0` if the window does not exist.
     pub fn scale_factor(&self, id: WindowId) -> f64 {
-        self.get(id).map_or(1.0, |window| window.scale_factor())
+        if let Some(window) = self.get(id) {
+            window.scale_factor()
+        } else {
+            1.0
+        }
     }
 
     /// An iterator over all registered [`Window`]s

@@ -233,13 +233,15 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pipeline_cache
+        if let Some(pipeline) = pipeline_cache
             .into_inner()
             .get_render_pipeline(item.cached_pipeline())
-            .map_or(RenderCommandResult::Failure, |pipeline| {
-                pass.set_render_pipeline(pipeline);
-                RenderCommandResult::Success
-            })
+        {
+            pass.set_render_pipeline(pipeline);
+            RenderCommandResult::Success
+        } else {
+            RenderCommandResult::Failure
+        }
     }
 }
 

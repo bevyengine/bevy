@@ -53,33 +53,30 @@ impl LogDiagnosticsPlugin {
 
     fn log_diagnostic(diagnostic: &Diagnostic) {
         if let Some(value) = diagnostic.value() {
-            diagnostic.average().map_or_else(
-                || {
-                    info!(
-                        target: "bevy diagnostic",
-                        "{name:<name_width$}: {value:>.6}{suffix:}",
-                        name = diagnostic.name,
-                        value = value,
-                        suffix = diagnostic.suffix,
-                        name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                    );
-                },
-                |average| {
-                    info!(
-                        target: "bevy diagnostic",
-                        // Suffix is only used for 's' as in seconds currently,
-                        // so we reserve one column for it; however,
-                        // Do not reserve one column for the suffix in the average
-                        // The ) hugging the value is more aesthetically pleasing
-                        "{name:<name_width$}: {value:>11.6}{suffix:1} (avg {average:>.6}{suffix:})",
-                        name = diagnostic.name,
-                        value = value,
-                        suffix = diagnostic.suffix,
-                        average = average,
-                        name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                    );
-                },
-            );
+            if let Some(average) = diagnostic.average() {
+                info!(
+                    target: "bevy diagnostic",
+                    // Suffix is only used for 's' as in seconds currently,
+                    // so we reserve one column for it; however,
+                    // Do not reserve one column for the suffix in the average
+                    // The ) hugging the value is more aesthetically pleasing
+                    "{name:<name_width$}: {value:>11.6}{suffix:1} (avg {average:>.6}{suffix:})",
+                    name = diagnostic.name,
+                    value = value,
+                    suffix = diagnostic.suffix,
+                    average = average,
+                    name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+                );
+            } else {
+                info!(
+                    target: "bevy diagnostic",
+                    "{name:<name_width$}: {value:>.6}{suffix:}",
+                    name = diagnostic.name,
+                    value = value,
+                    suffix = diagnostic.suffix,
+                    name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+                );
+            }
         }
     }
 
@@ -89,18 +86,15 @@ impl LogDiagnosticsPlugin {
         diagnostics: Res<Diagnostics>,
     ) {
         if state.timer.tick(time.delta()).finished() {
-            state.filter.as_ref().map_or_else(
-                || {
-                    for diagnostic in diagnostics.iter() {
-                        Self::log_diagnostic(diagnostic);
-                    }
-                },
-                |filter| {
-                    for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
-                        Self::log_diagnostic(diagnostic);
-                    }
-                },
-            );
+            if let Some(ref filter) = state.filter {
+                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
+                    Self::log_diagnostic(diagnostic);
+                }
+            } else {
+                for diagnostic in diagnostics.iter() {
+                    Self::log_diagnostic(diagnostic);
+                }
+            }
         }
     }
 
@@ -110,18 +104,15 @@ impl LogDiagnosticsPlugin {
         diagnostics: Res<Diagnostics>,
     ) {
         if state.timer.tick(time.delta()).finished() {
-            state.filter.as_ref().map_or_else(
-                || {
-                    for diagnostic in diagnostics.iter() {
-                        debug!("{:#?}\n", diagnostic);
-                    }
-                },
-                |filter| {
-                    for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
-                        debug!("{:#?}\n", diagnostic);
-                    }
-                },
-            );
+            if let Some(ref filter) = state.filter {
+                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
+                    debug!("{:#?}\n", diagnostic);
+                }
+            } else {
+                for diagnostic in diagnostics.iter() {
+                    debug!("{:#?}\n", diagnostic);
+                }
+            }
         }
     }
 }

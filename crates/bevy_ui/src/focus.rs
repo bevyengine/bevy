@@ -115,10 +115,12 @@ pub fn ui_focus_system(
                 }
                 // if the current cursor position is within the bounds of the node, consider it for
                 // clicking
-                let contains_cursor = cursor_position.map_or(false, |cursor_position| {
+                let contains_cursor = if let Some(cursor_position) = cursor_position {
                     (min.x..max.x).contains(&cursor_position.x)
                         && (min.y..max.y).contains(&cursor_position.y)
-                });
+                } else {
+                    false
+                };
 
                 if contains_cursor {
                     Some((entity, focus_policy, interaction, FloatOrd(position.z)))
