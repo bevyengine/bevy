@@ -1,6 +1,4 @@
 use anyhow::Result;
-#[cfg(feature = "bevy_animation")]
-use bevy_animation::{AnimationClip, AnimationPlayer, EntityPath, Keyframes, VariableCurve};
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
@@ -8,7 +6,7 @@ use bevy_core::Name;
 use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
-use bevy_math::{Mat4, Quat, Vec3};
+use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     StandardMaterial,
@@ -40,6 +38,11 @@ use gltf::{
 };
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
+
+#[cfg(feature = "bevy_animation")]
+use bevy_animation::{AnimationClip, AnimationPlayer, EntityPath, Keyframes, VariableCurve};
+#[cfg(feature = "bevy_animation")]
+use bevy_math::Quat;
 
 use crate::{Gltf, GltfNode};
 
@@ -539,6 +542,7 @@ fn node_name(node: &Node) -> Name {
     Name::new(name)
 }
 
+#[cfg(feature = "bevy_animation")]
 fn paths_recur(
     node: Node,
     current_path: &[Name],
