@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{
-    const_vec2, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
+    const_vec2, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles, Quat
 };
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -15,7 +15,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::{components::GlobalTransform};
 use bevy_utils::tracing::warn;
 use bevy_window::Windows;
 
@@ -706,10 +706,10 @@ pub(crate) fn point_light_order(
 pub(crate) struct PointLightAssignmentData {
     entity: Entity,
     translation: Vec3,
-    spotlight_direction: Vec3,
+    rotation: Quat,
     range: f32,
     shadows_enabled: bool,
-    spotlight_angle_cos_sin: Option<(f32, f32)>,
+    spotlight_angle: Option<f32>,
 }
 
 #[derive(Default)]
@@ -767,10 +767,10 @@ pub(crate) fn assign_lights_to_clusters(
                 |(entity, transform, light, _visibility)| PointLightAssignmentData {
                     entity,
                     translation: transform.translation,
-                    spotlight_direction: (transform.rotation * Vec3::Z).normalize(),
+                    rotation: transform.rotation,
                     shadows_enabled: light.shadows_enabled,
                     range: light.range,
-                    spotlight_angle_cos_sin: light.spotlight_angles.map(|(_inner, outer)| (outer.cos(), outer.sin())),
+                    spotlight_angle: light.spotlight_angles.map(|(_inner, outer)| outer),
                 },
             ),
     );
@@ -1092,7 +1092,7 @@ pub(crate) fn assign_lights_to_clusters(
                     center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
                     radius: light_sphere.radius,
                 };
-                let view_light_direction = (inverse_view_transform * light.spotlight_direction.extend(0.0)).truncate();
+                let spotlight_dir_sin_cos = light.spotlight_angle.map(|angle| ((inverse_view_transform * (light.rotation * Vec3::Z).extend(0.0)).truncate(), angle.sin(), angle.cos()));
                 let light_center_clip =
                     camera.projection_matrix * view_light_sphere.center.extend(1.0);
                 let light_center_ndc = light_center_clip.xyz() / light_center_clip.w;
@@ -1187,9 +1187,9 @@ pub(crate) fn assign_lights_to_clusters(
                             * clusters.dimensions.z
                             + z) as usize;
 
-                        // Mark all clusters in the range as affected
                         for x in min_x..=max_x {
-                            if let Some((angle_cos, angle_sin)) = light.spotlight_angle_cos_sin {
+                            // further culling for spotlights
+                            if let Some((view_light_direction, angle_sin, angle_cos)) = spotlight_dir_sin_cos {
                                 // get or initialize cluster bounding sphere
                                 let cluster_aabb_sphere = &mut cluster_aabb_spheres[cluster_index];
                                 let cluster_aabb_sphere = if let Some(sphere) = cluster_aabb_sphere {
