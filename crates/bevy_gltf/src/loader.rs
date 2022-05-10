@@ -39,11 +39,6 @@ use gltf::{
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 
-#[cfg(feature = "bevy_animation")]
-use bevy_animation::{AnimationClip, AnimationPlayer, EntityPath, Keyframes, VariableCurve};
-#[cfg(feature = "bevy_animation")]
-use bevy_math::Quat;
-
 use crate::{Gltf, GltfNode};
 
 /// An error that occurs when loading a glTF file.
@@ -153,7 +148,7 @@ async fn load_gltf<'a, 'b>(
         let mut named_animations = HashMap::default();
         let mut animation_roots = HashSet::default();
         for animation in gltf.animations() {
-            let mut animation_clip = AnimationClip::default();
+            let mut animation_clip = bevy_animation::AnimationClip::default();
             for channel in animation.channels() {
                 match channel.sampler().interpolation() {
                     gltf::animation::Interpolation::Linear => (),
@@ -180,13 +175,15 @@ async fn load_gltf<'a, 'b>(
                 let keyframes = if let Some(outputs) = reader.read_outputs() {
                     match outputs {
                         gltf::animation::util::ReadOutputs::Translations(tr) => {
-                            Keyframes::Translation(tr.map(Vec3::from).collect())
+                            bevy_animation::Keyframes::Translation(tr.map(Vec3::from).collect())
                         }
                         gltf::animation::util::ReadOutputs::Rotations(rots) => {
-                            Keyframes::Rotation(rots.into_f32().map(Quat::from_array).collect())
+                            bevy_animation::Keyframes::Rotation(
+                                rots.into_f32().map(bevy_math::Quat::from_array).collect(),
+                            )
                         }
                         gltf::animation::util::ReadOutputs::Scales(scale) => {
-                            Keyframes::Scale(scale.map(Vec3::from).collect())
+                            bevy_animation::Keyframes::Scale(scale.map(Vec3::from).collect())
                         }
                         gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
                             warn!("Morph animation property not yet supported");
@@ -201,10 +198,10 @@ async fn load_gltf<'a, 'b>(
                 if let Some((root_index, path)) = paths.get(&node.index()) {
                     animation_roots.insert(root_index);
                     animation_clip.add_curve_to_path(
-                        EntityPath {
+                        bevy_animation::EntityPath {
                             parts: path.clone(),
                         },
-                        VariableCurve {
+                        bevy_animation::VariableCurve {
                             keyframe_timestamps,
                             keyframes,
                         },
@@ -484,7 +481,7 @@ async fn load_gltf<'a, 'b>(
                 if animation_roots.contains(&node.index()) {
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                        .insert(AnimationPlayer::default());
+                        .insert(bevy_animation::AnimationPlayer::default());
                 }
             }
         }
