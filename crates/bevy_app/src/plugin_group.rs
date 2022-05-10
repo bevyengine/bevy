@@ -173,7 +173,7 @@ mod tests {
                 std::any::TypeId::of::<PluginB>(),
                 std::any::TypeId::of::<PluginC>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -190,7 +190,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -207,7 +207,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -225,7 +225,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -243,7 +243,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -261,6 +261,6 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 }
