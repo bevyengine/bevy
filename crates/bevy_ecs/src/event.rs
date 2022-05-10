@@ -130,7 +130,9 @@ struct EventInstance<E: Event> {
 ///
 #[derive(Debug)]
 pub struct Events<E: Event> {
+    // Holds the oldest still active events
     events_a: EventSequence<E>,
+    // Holds the newer events
     events_b: EventSequence<E>,
     event_count: usize,
 }
@@ -149,7 +151,7 @@ impl<E: Event> Default for Events<E> {
 #[derive(Debug)]
 struct EventSequence<E: Event> {
     events: Vec<EventInstance<E>>,
-    count: usize,
+    start_event_count: usize,
 }
 
 // Derived Default impl would incorrectly require E: Default
@@ -157,7 +159,7 @@ impl<E: Event> Default for EventSequence<E> {
     fn default() -> Self {
         Self {
             events: Default::default(),
-            count: Default::default(),
+            start_event_count: Default::default(),
         }
     }
 }
@@ -219,6 +221,7 @@ impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
     }
 }
 
+#[derive(Debug)]
 pub struct ManualEventReader<E: Event> {
     last_event_count: usize,
     _marker: PhantomData<E>,
@@ -240,7 +243,7 @@ impl<E: Event> ManualEventReader<E> {
         &'a mut self,
         events: &'a Events<E>,
     ) -> impl DoubleEndedIterator<Item = &'a E> + ExactSizeIterator<Item = &'a E> {
-        internal_event_reader(&mut self.last_event_count, events).map(|(e, _)| e)
+        self.iter_with_id(events).map(|(e, _)| e)
     }
 
     /// See [`EventReader::iter_with_id`]
@@ -249,40 +252,40 @@ impl<E: Event> ManualEventReader<E> {
         events: &'a Events<E>,
     ) -> impl DoubleEndedIterator<Item = (&'a E, EventId<E>)>
            + ExactSizeIterator<Item = (&'a E, EventId<E>)> {
-        internal_event_reader(&mut self.last_event_count, events)
+        // if the reader has seen some of the events in a buffer, find the proper index offset.
+        // otherwise read all events in the buffer
+        let a_index = (self.last_event_count).saturating_sub(events.events_a.start_event_count);
+        let b_index = (self.last_event_count).saturating_sub(events.events_b.start_event_count);
+        let a = events.events_a.get(a_index..).unwrap_or_default();
+        let b = events.events_b.get(b_index..).unwrap_or_default();
+        let unread_count = a.len() + b.len();
+        // Ensure `len` is implemented correctly
+        debug_assert_eq!(unread_count, self.len(events));
+        self.last_event_count = events.event_count - unread_count;
+        // Iterate the oldest first, then the newer events
+        let iterator = a.iter().chain(b.iter());
+        iterator
+            .map(map_instance_event_with_id)
+            .with_exact_size(unread_count)
+            .inspect(move |(_, id)| self.last_event_count = (id.id + 1).max(self.last_event_count))
     }
 
     /// See [`EventReader::len`]
     pub fn len(&self, events: &Events<E>) -> usize {
-        internal_event_reader(&mut self.last_event_count.clone(), events).len()
+        // The number of events in this reader is the difference between the most recent event
+        // and the last event seen by it. This will be at most the number of events contained
+        // with the events (any others have already been dropped)
+        // TODO: Warn when there are dropped events, or return e.g. a `Result<usize, (usize, usize)>`
+        events
+            .event_count
+            .saturating_sub(self.last_event_count)
+            .min(events.len())
     }
 
     /// See [`EventReader::is_empty`]
     pub fn is_empty(&self, events: &Events<E>) -> bool {
         self.len(events) == 0
     }
-}
-
-/// Like [`iter_with_id`](EventReader::iter_with_id) except not emitting any traces for read
-/// messages.
-fn internal_event_reader<'a, E: Event>(
-    last_event_count: &'a mut usize,
-    events: &'a Events<E>,
-) -> impl DoubleEndedIterator<Item = (&'a E, EventId<E>)> + ExactSizeIterator<Item = (&'a E, EventId<E>)>
-{
-    // if the reader has seen some of the events in a buffer, find the proper index offset.
-    // otherwise read all events in the buffer
-    let a_index = (*last_event_count).saturating_sub(events.events_a.count);
-    let b_index = (*last_event_count).saturating_sub(events.events_b.count);
-    let a = events.events_a.get(a_index..).unwrap_or_default();
-    let b = events.events_b.get(b_index..).unwrap_or_default();
-    let unread_count = a.len() + b.len();
-    *last_event_count = events.event_count - unread_count;
-    let iterator = a.iter().chain(b.iter());
-    iterator
-        .map(map_instance_event_with_id)
-        .with_exact_size(unread_count)
-        .inspect(move |(_, id)| *last_event_count = (id.id + 1).max(*last_event_count))
 }
 
 trait IteratorExt {
@@ -412,7 +415,7 @@ impl<E: Event> Events<E> {
     pub fn update(&mut self) {
         std::mem::swap(&mut self.events_a, &mut self.events_b);
         self.events_b.clear();
-        self.events_b.count = self.event_count;
+        self.events_b.start_event_count = self.event_count;
     }
 
     /// A system that calls [`Events::update`] once per frame.
@@ -422,8 +425,8 @@ impl<E: Event> Events<E> {
 
     #[inline]
     fn reset_start_event_count(&mut self) {
-        self.events_a.count = self.event_count;
-        self.events_b.count = self.event_count;
+        self.events_a.start_event_count = self.event_count;
+        self.events_b.start_event_count = self.event_count;
     }
 
     /// Removes all events.
@@ -434,10 +437,15 @@ impl<E: Event> Events<E> {
         self.events_b.clear();
     }
 
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.events_a.len() + self.events_b.len()
+    }
+
     /// Returns true if there are no events in this collection.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.events_a.is_empty() && self.events_b.is_empty()
+        self.len() == 0
     }
 
     /// Creates a draining iterator that removes all events.
@@ -445,6 +453,7 @@ impl<E: Event> Events<E> {
         self.reset_start_event_count();
 
         let map = |i: EventInstance<E>| i.event;
+        // Drain the oldest events first, then the newest
         self.events_a
             .drain(..)
             .map(map)
@@ -698,6 +707,8 @@ mod tests {
         let mut events = Events::<TestEvent>::default();
         events.send(TestEvent { i: 0 });
         let reader = events.get_reader_current();
+        dbg!(&reader);
+        dbg!(&events);
         assert!(reader.is_empty(&events));
         events.send(TestEvent { i: 0 });
         assert_eq!(reader.len(&events), 1);
