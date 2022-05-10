@@ -847,7 +847,11 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         change_tick: u32,
     ) {
         #[cfg(feature = "trace")]
-        let span = bevy_utils::info_span!("par_for_each");
+        let span = bevy_utils::tracing::info_span!(
+            "par_for_each",
+            query = std::any::type_name::<Q>(),
+            filter = std::any::type_name::<F>(),
+        );
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
