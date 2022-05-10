@@ -16,6 +16,17 @@ bitflags! {
     }
 }
 
+const CLIPPY_FLAGS: [&str; 8] = [
+    "-Aclippy::type_complexity",
+    "-Wclippy::doc_markdown",
+    "-Wclippy::redundant_else",
+    "-Wclippy::match_same_arms",
+    "-Wclippy::semicolon_if_nothing_returned",
+    "-Wclippy::explicit_iter_loop",
+    "-Wclippy::map_flatten",
+    "-Dwarnings",
+];
+
 fn main() {
     // When run locally, results may differ from actual CI runs triggered by
     // .github/workflows/ci.yml
@@ -51,7 +62,7 @@ fn main() {
     if what_to_run.contains(Check::CLIPPY) {
         // See if clippy has any complaints.
         // - Type complexity must be ignored because we use huge templates for queries
-        cmd!(sh, "cargo clippy --workspace --all-targets --all-features -- -A clippy::type_complexity -W clippy::doc_markdown -W clippy::redundant_else -W clippy::match_same_arms -W clippy::semicolon_if_nothing_returned -W clippy::explicit_iter_loop -W clippy::map_flatten -D warnings")
+        cmd!(sh, "cargo clippy --workspace --all-targets --all-features -- {CLIPPY_FLAGS...}")
         .run()
         .expect("Please fix clippy errors in output above.");
     }
@@ -112,3 +123,4 @@ fn main() {
             .expect("Please fix failing doc-tests in output above.");
     }
 }
+
