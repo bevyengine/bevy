@@ -14,11 +14,11 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
-use stretch::{number::Number, Stretch};
+use stretch2::{number::Number, Stretch};
 
 pub struct FlexSurface {
-    entity_to_stretch: HashMap<Entity, stretch::node::Node>,
-    window_nodes: HashMap<WindowId, stretch::node::Node>,
+    entity_to_stretch: HashMap<Entity, stretch2::node::Node>,
+    window_nodes: HashMap<WindowId, stretch2::node::Node>,
     stretch: Stretch,
 }
 
@@ -30,8 +30,8 @@ unsafe impl Sync for FlexSurface {}
 
 fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<HashMap<Entity, stretch::node::Node>>();
-    _assert_send_sync::<HashMap<WindowId, stretch::node::Node>>();
+    _assert_send_sync::<HashMap<Entity, stretch2::node::Node>>();
+    _assert_send_sync::<HashMap<WindowId, stretch2::node::Node>>();
     // FIXME https://github.com/vislyhq/stretch/issues/69
     // _assert_send_sync::<Stretch>();
 }
@@ -62,7 +62,7 @@ impl FlexSurface {
         let stretch_style = convert::from_style(scale_factor, style);
         let stretch_node = self.entity_to_stretch.entry(entity).or_insert_with(|| {
             added = true;
-            stretch.new_node(stretch_style, Vec::new()).unwrap()
+            stretch.new_node(stretch_style, &Vec::new()).unwrap()
         });
 
         if !added {
@@ -81,25 +81,27 @@ impl FlexSurface {
     ) {
         let stretch = &mut self.stretch;
         let stretch_style = convert::from_style(scale_factor, style);
-        let measure = Box::new(move |constraints: stretch::geometry::Size<Number>| {
-            let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
-            match (constraints.width, constraints.height) {
-                (Number::Undefined, Number::Undefined) => {}
-                (Number::Defined(width), Number::Undefined) => {
-                    size.height = width * size.height / size.width;
-                    size.width = width;
+        let measure = stretch2::node::MeasureFunc::Boxed(Box::new(
+            move |constraints: stretch2::geometry::Size<Number>| {
+                let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
+                match (constraints.width, constraints.height) {
+                    (Number::Undefined, Number::Undefined) => {}
+                    (Number::Defined(width), Number::Undefined) => {
+                        size.height = width * size.height / size.width;
+                        size.width = width;
+                    }
+                    (Number::Undefined, Number::Defined(height)) => {
+                        size.width = height * size.width / size.height;
+                        size.height = height;
+                    }
+                    (Number::Defined(width), Number::Defined(height)) => {
+                        size.width = width;
+                        size.height = height;
+                    }
                 }
-                (Number::Undefined, Number::Defined(height)) => {
-                    size.width = height * size.width / size.height;
-                    size.height = height;
-                }
-                (Number::Defined(width), Number::Defined(height)) => {
-                    size.width = width;
-                    size.height = height;
-                }
-            }
-            Ok(size)
-        });
+                size
+            },
+        ));
 
         if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
             self.stretch
@@ -129,7 +131,7 @@ without UI components as a child of an entity with UI components, results may be
 
         let stretch_node = self.entity_to_stretch.get(&entity).unwrap();
         self.stretch
-            .set_children(*stretch_node, stretch_children)
+            .set_children(*stretch_node, &stretch_children)
             .unwrap();
     }
 
@@ -137,17 +139,17 @@ without UI components as a child of an entity with UI components, results may be
         let stretch = &mut self.stretch;
         let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
             stretch
-                .new_node(stretch::style::Style::default(), Vec::new())
+                .new_node(stretch2::style::Style::default(), &Vec::new())
                 .unwrap()
         });
 
         stretch
             .set_style(
                 *node,
-                stretch::style::Style {
-                    size: stretch::geometry::Size {
-                        width: stretch::style::Dimension::Points(window.physical_width() as f32),
-                        height: stretch::style::Dimension::Points(window.physical_height() as f32),
+                stretch2::style::Style {
+                    size: stretch2::geometry::Size {
+                        width: stretch2::style::Dimension::Points(window.physical_width() as f32),
+                        height: stretch2::style::Dimension::Points(window.physical_height() as f32),
                     },
                     ..Default::default()
                 },
@@ -163,21 +165,21 @@ without UI components as a child of an entity with UI components, results may be
         let stretch_node = self.window_nodes.get(&window_id).unwrap();
         let child_nodes = children
             .map(|e| *self.entity_to_stretch.get(&e).unwrap())
-            .collect::<Vec<stretch::node::Node>>();
+            .collect::<Vec<stretch2::node::Node>>();
         self.stretch
-            .set_children(*stretch_node, child_nodes)
+            .set_children(*stretch_node, &child_nodes)
             .unwrap();
     }
 
     pub fn compute_window_layouts(&mut self) {
         for window_node in self.window_nodes.values() {
             self.stretch
-                .compute_layout(*window_node, stretch::geometry::Size::undefined())
+                .compute_layout(*window_node, stretch2::geometry::Size::undefined())
                 .unwrap();
         }
     }
 
-    pub fn get_layout(&self, entity: Entity) -> Result<&stretch::result::Layout, FlexError> {
+    pub fn get_layout(&self, entity: Entity) -> Result<&stretch2::result::Layout, FlexError> {
         if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
             self.stretch
                 .layout(*stretch_node)
@@ -195,7 +197,7 @@ with UI components as a child of an entity without UI components, results may be
 #[derive(Debug)]
 pub enum FlexError {
     InvalidHierarchy,
-    StretchError(stretch::Error),
+    StretchError(stretch2::Error),
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
