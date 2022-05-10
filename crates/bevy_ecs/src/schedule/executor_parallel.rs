@@ -56,6 +56,9 @@ pub struct ParallelExecutor {
 
 impl Default for ParallelExecutor {
     fn default() -> Self {
+        ComputeTaskPool::init(TaskPool::default())
+            .map(|pool| pool.clone())
+            .unwrap_or_else(|_| ComputeTaskPool::get().clone());
         let (finish_sender, finish_receiver) = async_channel::unbounded();
         Self {
             system_metadata: Default::default(),
@@ -123,14 +126,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             }
         }
 
-        let compute_pool = world
-            .get_resource_or_insert_with(|| {
-                ComputeTaskPool::init(TaskPool::default())
-                    .map(|pool| pool.clone())
-                    .unwrap_or_else(|_| ComputeTaskPool::get().clone())
-            })
-            .clone();
-        compute_pool.scope(|scope| {
+        ComputeTaskPool::get().scope(|scope| {
             self.prepare_systems(scope, systems, world);
             let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.

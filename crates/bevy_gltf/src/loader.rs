@@ -30,8 +30,8 @@ use bevy_render::{
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
-use bevy_transform::{components::Transform, TransformBundle};
 use bevy_tasks::IoTaskPool;
+use bevy_transform::{components::Transform, TransformBundle};
 
 use bevy_utils::{HashMap, HashSet};
 use gltf::{

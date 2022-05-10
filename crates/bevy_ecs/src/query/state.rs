@@ -851,10 +851,9 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         last_change_tick: u32,
         change_tick: u32,
     ) {
-        let task_pool = world.resource::<ComputeTaskPool>().clone();
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        task_pool.scope(|scope| {
+        ComputeTaskPool::get().scope(|scope| {
             if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
                 let tables = &world.storages().tables;
                 for table_id in &self.matched_table_ids {

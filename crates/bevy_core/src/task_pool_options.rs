@@ -1,6 +1,6 @@
 use bevy_ecs::world::World;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
-use bevy_utils::tracing::trace;
+use bevy_utils::tracing::{trace, warn};
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
@@ -114,11 +114,9 @@ impl DefaultTaskPoolOptions {
                 .thread_name("IO Task Pool".to_string())
                 .build();
 
-            let io_task_pool = IoTaskPool::init(task_pool)
-                .map(|pool| pool.clone())
-                .unwrap_or_else(|_| IoTaskPool::get().clone());
-
-            world.insert_resource(io_task_pool);
+            if let Err(_) = IoTaskPool::init(task_pool) {
+                warn!("IoTaskPool already initialized.");
+            }
         }
 
         if !world.contains_resource::<AsyncComputeTaskPool>() {
@@ -135,11 +133,9 @@ impl DefaultTaskPoolOptions {
                 .thread_name("Async Compute Task Pool".to_string())
                 .build();
 
-            let async_task_pool = AsyncComputeTaskPool::init(task_pool)
-                .map(|pool| pool.clone())
-                .unwrap_or_else(|_| AsyncComputeTaskPool::get().clone());
-
-            world.insert_resource(async_task_pool);
+            if let Err(_) = AsyncComputeTaskPool::init(task_pool) {
+                warn!("AsynComputeTaskPool already initialized.");
+            }
         }
 
         if !world.contains_resource::<ComputeTaskPool>() {
@@ -156,11 +152,9 @@ impl DefaultTaskPoolOptions {
                 .thread_name("Compute Task Pool".to_string())
                 .build();
 
-            let compute_task_pool = ComputeTaskPool::init(task_pool)
-                .map(|pool| pool.clone())
-                .unwrap_or_else(|_| ComputeTaskPool::get().clone());
-
-            world.insert_resource(compute_task_pool);
+            if let Err(_) = ComputeTaskPool::init(task_pool) {
+                warn!("ComputeTaskPool already initialized.");
+            }
         }
     }
 }

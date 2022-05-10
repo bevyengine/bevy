@@ -3,10 +3,7 @@ use bevy::{
     prelude::*,
     utils::BoxedFuture,
 };
-use std::{
-    ops::Deref,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 /// A custom asset io implementation that simply defers to the platform default
 /// implementation.
@@ -50,10 +47,6 @@ struct CustomAssetIoPlugin;
 
 impl Plugin for CustomAssetIoPlugin {
     fn build(&self, app: &mut App) {
-        // must get a hold of the task pool in order to create the asset server
-
-        let task_pool = bevy::tasks::IoTaskPool::get().deref().clone();
-
         let asset_io = {
             // the platform default asset io requires a reference to the app
             // builder to find its configuration
@@ -67,7 +60,7 @@ impl Plugin for CustomAssetIoPlugin {
 
         // the asset server is constructed and added the resource manager
 
-        app.insert_resource(AssetServer::new(asset_io, task_pool));
+        app.insert_resource(AssetServer::new(asset_io));
     }
 }
 
