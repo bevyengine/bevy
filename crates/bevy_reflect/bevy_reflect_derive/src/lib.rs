@@ -9,14 +9,14 @@ mod reflect_trait;
 mod reflect_value;
 mod registration;
 mod type_uuid;
+mod utility;
 
 use crate::derive_data::ReflectDeriveData;
-use bevy_macro_utils::BevyManifest;
 use derive_data::DeriveType;
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
-use syn::{parse_macro_input, DeriveInput, Path};
+use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
@@ -44,7 +44,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let reflect_value_def = parse_macro_input!(input as ReflectValueDef);
 
-    let bevy_reflect_path = get_bevy_reflect_path();
+    let bevy_reflect_path = utility::get_bevy_reflect_path();
     let ty = &reflect_value_def.type_name;
     let reflect_attrs = reflect_value_def.attrs.unwrap_or_default();
     let registration_data = &reflect_attrs.data();
@@ -151,11 +151,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
 pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     let reflect_value_def = parse_macro_input!(input as ReflectValueDef);
 
-    let bevy_reflect_path = get_bevy_reflect_path();
+    let bevy_reflect_path = utility::get_bevy_reflect_path();
     let ty = &reflect_value_def.type_name;
     from_reflect::impl_value(ty, &reflect_value_def.generics, &bevy_reflect_path)
-}
-
-pub(crate) fn get_bevy_reflect_path() -> Path {
-    BevyManifest::default().get_path("bevy_reflect")
 }
