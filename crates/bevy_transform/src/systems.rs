@@ -68,7 +68,7 @@ fn propagate_recursive(
         // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
         assert_eq!(
             child_parent.0, expected_parent,
-            "Malformed hierarchy, cannot be used"
+            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
         changed |= transform_changed;
         if changed {
@@ -335,5 +335,37 @@ mod test {
                 },
             );
         }
+    }
+    #[test]
+    #[should_panic]
+    fn panic_when_hierarchy_cycle() {
+        let mut app = App::new();
+
+        app.add_system(parent_update_system);
+        app.add_system(transform_propagate_system);
+
+        let child = app
+            .world
+            .spawn()
+            .insert_bundle((Transform::identity(), GlobalTransform::default()))
+            .id();
+
+        let grandchild = app
+            .world
+            .spawn()
+            .insert_bundle((
+                Transform::identity(),
+                GlobalTransform::default(),
+                Parent(child),
+            ))
+            .id();
+        app.world.spawn().insert_bundle((
+            Transform::default(),
+            GlobalTransform::default(),
+            Children::with(&[child]),
+        ));
+        app.world.entity_mut(child).insert(Parent(grandchild));
+
+        app.update();
     }
 }
