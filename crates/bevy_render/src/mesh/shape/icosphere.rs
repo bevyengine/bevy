@@ -1,9 +1,6 @@
+use crate::mesh::{Indices, Mesh};
 use hexasphere::shapes::IcoSphere;
-
-use crate::{
-    mesh::{Indices, Mesh},
-    pipeline::PrimitiveTopology,
-};
+use wgpu::PrimitiveTopology;
 
 /// A sphere made from a subdivided Icosahedron.
 #[derive(Debug, Clone, Copy)]
@@ -98,9 +95,9 @@ impl From<Icosphere> for Mesh {
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, points);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, points);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
         mesh
     }
 }

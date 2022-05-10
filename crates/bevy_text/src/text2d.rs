@@ -1,99 +1,84 @@
 use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
+    component::Component,
     entity::Entity,
-    query::{Changed, With, Without},
-    system::{Local, Query, QuerySet, Res, ResMut},
+    event::EventReader,
+    query::Changed,
+    reflect::ReflectComponent,
+    system::{Local, Query, Res, ResMut},
 };
-use bevy_math::{Size, Vec3};
-use bevy_render::{
-    draw::{DrawContext, Drawable, OutsideFrustum},
-    mesh::Mesh,
-    prelude::{Draw, Msaa, Texture, Visible},
-    render_graph::base::MainPass,
-    renderer::RenderResourceBindings,
-};
-use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
+use bevy_math::{Vec2, Vec3};
+use bevy_reflect::Reflect;
+use bevy_render::{texture::Image, view::Visibility, RenderWorld};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_window::Windows;
-use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
+use bevy_utils::HashSet;
+use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
-use crate::{DefaultTextPipeline, DrawableText, Font, FontAtlasSet, Text, Text2dSize, TextError};
+use crate::{
+    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, VerticalAlign,
+};
 
-/// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
-/// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
-#[derive(Bundle, Clone, Debug)]
-pub struct Text2dBundle {
-    pub draw: Draw,
-    pub visible: Visible,
-    pub text: Text,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub main_pass: MainPass,
-    pub text_2d_size: Text2dSize,
+/// The calculated size of text drawn in 2D scene.
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Text2dSize {
+    pub size: Vec2,
 }
 
-impl Default for Text2dBundle {
+/// The maximum width and height of text. The text will wrap according to the specified size.
+/// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
+/// specified `TextAlignment`.
+///
+/// Note: only characters that are completely out of the bounds will be truncated, so this is not a
+/// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
+/// component is mainly useful for text wrapping only.
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Text2dBounds {
+    pub size: Vec2,
+}
+
+impl Default for Text2dBounds {
     fn default() -> Self {
         Self {
-            draw: Draw {
-                ..Default::default()
-            },
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
-            text: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            main_pass: MainPass {},
-            text_2d_size: Text2dSize {
-                size: Size::default(),
-            },
+            size: Vec2::new(f32::MAX, f32::MAX),
         }
     }
 }
 
-/// System for drawing text in a 2D scene via a 2D `OrthographicCameraBundle`. Included in the
-/// default `TextPlugin`. Position is determined by the `Transform`'s translation, though scale and
-/// rotation are ignored.
-#[allow(clippy::type_complexity)]
-pub fn draw_text2d_system(
-    mut context: DrawContext,
-    msaa: Res<Msaa>,
-    meshes: Res<Assets<Mesh>>,
-    windows: Res<Windows>,
-    mut render_resource_bindings: ResMut<RenderResourceBindings>,
+/// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
+/// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
+#[derive(Bundle, Clone, Debug, Default)]
+pub struct Text2dBundle {
+    pub text: Text,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub text_2d_size: Text2dSize,
+    pub text_2d_bounds: Text2dBounds,
+    pub visibility: Visibility,
+}
+
+pub fn extract_text2d_sprite(
+    mut render_world: ResMut<RenderWorld>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
-    mut query: Query<
-        (
-            Entity,
-            &mut Draw,
-            &Visible,
-            &Text,
-            &GlobalTransform,
-            &Text2dSize,
-        ),
-        (With<MainPass>, Without<OutsideFrustum>),
-    >,
+    windows: Res<Windows>,
+    text2d_query: Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>,
 ) {
-    let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-    let font_quad_vertex_layout = font_quad.get_vertex_buffer_layout();
+    let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
 
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() as f32
-    } else {
-        1.
-    };
+    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, mut draw, visible, text, global_transform, calculated_size) in query.iter_mut() {
-        if !visible.is_visible {
+    for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
+        if !visibility.is_visible {
             continue;
         }
+        let (width, height) = (calculated_size.size.x, calculated_size.size.y);
 
-        let (width, height) = (calculated_size.size.width, calculated_size.size.height);
-
-        if let Some(text_glyphs) = text_pipeline.get_glyphs(&entity) {
+        if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
+            let text_glyphs = &text_layout.glyphs;
             let alignment_offset = match text.alignment.vertical {
                 VerticalAlign::Top => Vec3::new(0.0, -height, 0.0),
                 VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
@@ -104,69 +89,83 @@ pub fn draw_text2d_system(
                 HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
             };
 
-            let mut drawable_text = DrawableText {
-                render_resource_bindings: &mut render_resource_bindings,
-                global_transform: *global_transform,
-                scale_factor,
-                msaa: &msaa,
-                text_glyphs: &text_glyphs.glyphs,
-                font_quad_vertex_layout: &font_quad_vertex_layout,
-                sections: &text.sections,
-                alignment_offset,
-            };
+            let mut text_transform = *transform;
+            text_transform.scale /= scale_factor;
 
-            drawable_text.draw(&mut draw, &mut context).unwrap();
+            for text_glyph in text_glyphs {
+                let color = text.sections[text_glyph.section_index]
+                    .style
+                    .color
+                    .as_rgba_linear();
+                let atlas = texture_atlases
+                    .get(text_glyph.atlas_info.texture_atlas.clone_weak())
+                    .unwrap();
+                let handle = atlas.texture.clone_weak();
+                let index = text_glyph.atlas_info.glyph_index as usize;
+                let rect = Some(atlas.textures[index]);
+
+                let glyph_transform = Transform::from_translation(
+                    alignment_offset * scale_factor + text_glyph.position.extend(0.),
+                );
+
+                let transform = text_transform.mul_transform(glyph_transform);
+
+                extracted_sprites.sprites.push(ExtractedSprite {
+                    transform,
+                    color,
+                    rect,
+                    custom_size: None,
+                    image_handle_id: handle.id,
+                    flip_x: false,
+                    flip_y: false,
+                    anchor: Anchor::Center.as_vec(),
+                });
+            }
         }
     }
 }
 
-#[derive(Debug, Default)]
-pub struct QueuedText2d {
-    entities: Vec<Entity>,
-}
-
-/// Updates the TextGlyphs with the new computed glyphs from the layout
+/// Updates the layout and size information whenever the text or style is changed.
+/// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn text2d_system(
-    mut queued_text: Local<QueuedText2d>,
-    mut textures: ResMut<Assets<Texture>>,
+pub fn update_text2d_layout(
+    // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
+    mut queue: Local<HashSet<Entity>>,
+    mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
+    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
-    mut text_queries: QuerySet<(
-        Query<Entity, (With<MainPass>, Changed<Text>)>,
-        Query<(&Text, &mut Text2dSize), With<MainPass>>,
+    mut text_query: Query<(
+        Entity,
+        Changed<Text>,
+        &Text,
+        Option<&Text2dBounds>,
+        &mut Text2dSize,
     )>,
 ) {
-    // Adds all entities where the text or the style has changed to the local queue
-    for entity in text_queries.q0_mut().iter_mut() {
-        queued_text.entities.push(entity);
-    }
+    // We need to consume the entire iterator, hence `last`
+    let factor_changed = scale_factor_changed.iter().last().is_some();
+    let scale_factor = windows.scale_factor(WindowId::primary());
 
-    if queued_text.entities.is_empty() {
-        return;
-    }
-
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor()
-    } else {
-        1.
-    };
-
-    // Computes all text in the local queue
-    let mut new_queue = Vec::new();
-    let query = text_queries.q1_mut();
-    for entity in queued_text.entities.drain(..) {
-        if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
+    for (entity, text_changed, text, maybe_bounds, mut calculated_size) in text_query.iter_mut() {
+        if factor_changed || text_changed || queue.remove(&entity) {
+            let text_bounds = match maybe_bounds {
+                Some(bounds) => Vec2::new(
+                    scale_value(bounds.size.x, scale_factor),
+                    scale_value(bounds.size.y, scale_factor),
+                ),
+                None => Vec2::new(f32::MAX, f32::MAX),
+            };
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
                 &text.sections,
                 scale_factor,
                 text.alignment,
-                Size::new(f32::MAX, f32::MAX),
+                text_bounds,
                 &mut *font_atlas_set_storage,
                 &mut *texture_atlases,
                 &mut *textures,
@@ -174,7 +173,7 @@ pub fn text2d_system(
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
-                    new_queue.push(entity);
+                    queue.insert(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {}.", e);
@@ -183,16 +182,14 @@ pub fn text2d_system(
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
-                    calculated_size.size = Size {
-                        width: scale_value(text_layout_info.size.width, 1. / scale_factor),
-                        height: scale_value(text_layout_info.size.height, 1. / scale_factor),
-                    };
+                    calculated_size.size = Vec2::new(
+                        scale_value(text_layout_info.size.x, 1. / scale_factor),
+                        scale_value(text_layout_info.size.y, 1. / scale_factor),
+                    );
                 }
             }
         }
     }
-
-    queued_text.entities = new_queue;
 }
 
 pub fn scale_value(value: f32, factor: f64) -> f32 {

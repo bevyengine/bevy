@@ -2,24 +2,24 @@ use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
 
 /// This example illustrates loading and saving scenes from files
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .add_startup_system(save_scene_system.exclusive_system())
-        .add_startup_system(load_scene_system.system())
-        .add_startup_system(infotext_system.system())
-        .add_system(log_system.system())
+        .add_startup_system(load_scene_system)
+        .add_startup_system(infotext_system)
+        .add_system(log_system)
         .run();
 }
 
-// Registered components must implement the `Reflect` and `FromResources` traits.
+// Registered components must implement the `Reflect` and `FromWorld` traits.
 // The `Reflect` trait enables serialization, deserialization, and dynamic property access.
 // `Reflect` enable a bunch of cool behaviors, so its worth checking out the dedicated `reflect.rs`
-// example. The `FromResources` trait determines how your component is constructed when it loads.
+// example. The `FromWorld` trait determines how your component is constructed when it loads.
 // For simple use cases you can just implement the `Default` trait (which automatically implements
 // FromResources). The simplest registered component just needs these two derives:
-#[derive(Reflect, Default)]
+#[derive(Component, Reflect, Default)]
 #[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {
     pub x: f32,
@@ -27,10 +27,10 @@ struct ComponentA {
 }
 
 // Some components have fields that cannot (or should not) be written to scene files. These can be
-// ignored with the #[reflect(ignore)] attribute. This is also generally where the `FromResources`
-// trait comes into play. `FromResources` gives you access to your App's current ECS `Resources`
+// ignored with the #[reflect(ignore)] attribute. This is also generally where the `FromWorld`
+// trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
 // when you construct your component.
-#[derive(Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component)]
 struct ComponentB {
     pub value: String,
@@ -40,7 +40,7 @@ struct ComponentB {
 
 impl FromWorld for ComponentB {
     fn from_world(world: &mut World) -> Self {
-        let time = world.get_resource::<Time>().unwrap();
+        let time = world.resource::<Time>();
         ComponentB {
             _time_since_startup: time.time_since_startup(),
             value: "Default Value".to_string(),
@@ -91,11 +91,11 @@ fn save_scene_system(world: &mut World) {
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
-    let type_registry = world.get_resource::<TypeRegistry>().unwrap();
-    let scene = DynamicScene::from_world(&scene_world, &type_registry);
+    let type_registry = world.resource::<TypeRegistry>();
+    let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     // Scenes can be serialized like this:
-    info!("{}", scene.serialize_ron(&type_registry).unwrap());
+    info!("{}", scene.serialize_ron(type_registry).unwrap());
 
     // TODO: save scene
 }
@@ -107,7 +107,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,
-            ..Default::default()
+            ..default()
         },
         text: Text::with_section(
             "Nothing to see in this window! Check the console output!",
@@ -118,6 +118,6 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             Default::default(),
         ),
-        ..Default::default()
+        ..default()
     });
 }

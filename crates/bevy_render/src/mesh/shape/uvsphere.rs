@@ -1,10 +1,9 @@
-use crate::{
-    mesh::{Indices, Mesh},
-    pipeline::PrimitiveTopology,
-};
+use wgpu::PrimitiveTopology;
+
+use crate::mesh::{Indices, Mesh};
 use std::f32::consts::PI;
 
-/// A sphere made of sectors and stacks
+/// A sphere made of sectors and stacks.
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy)]
 pub struct UVSphere {
@@ -83,9 +82,9 @@ impl From<UVSphere> for Mesh {
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(Indices::U32(indices)));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
         mesh
     }
 }

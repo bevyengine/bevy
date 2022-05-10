@@ -12,12 +12,12 @@ use std::{
 /// more gracefully and wait until it stops running, use the [`cancel()`][Task::cancel()] method.
 ///
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
-/// Wraps async_executor::Task
+/// Wraps `async_executor::Task`
 #[derive(Debug)]
 pub struct Task<T>(async_executor::Task<T>);
 
 impl<T> Task<T> {
-    /// Creates a new task from a given async_executor::Task
+    /// Creates a new task from a given `async_executor::Task`
     pub fn new(task: async_executor::Task<T>) -> Self {
         Self(task)
     }

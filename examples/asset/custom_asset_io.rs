@@ -1,5 +1,5 @@
 use bevy::{
-    asset::{AssetIo, AssetIoError},
+    asset::{AssetIo, AssetIoError, Metadata},
     prelude::*,
     utils::BoxedFuture,
 };
@@ -29,11 +29,6 @@ impl AssetIo for CustomAssetIo {
         self.0.read_directory(path)
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
-        info!("is_directory({:?})", path);
-        self.0.is_directory(path)
-    }
-
     fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
         info!("watch_path_for_changes({:?})", path);
         self.0.watch_path_for_changes(path)
@@ -43,13 +38,18 @@ impl AssetIo for CustomAssetIo {
         info!("watch_for_changes()");
         self.0.watch_for_changes()
     }
+
+    fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
+        info!("get_metadata({:?})", path);
+        self.0.get_metadata(path)
+    }
 }
 
 /// A plugin used to execute the override of the asset io
 struct CustomAssetIoPlugin;
 
 impl Plugin for CustomAssetIoPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         // must get a hold of the task pool in order to create the asset server
 
         let task_pool = bevy::tasks::IoTaskPool::get().deref().clone();
@@ -72,30 +72,25 @@ impl Plugin for CustomAssetIoPlugin {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins_with(DefaultPlugins, |group| {
             // the custom asset io plugin must be inserted in-between the
             // `CorePlugin' and `AssetPlugin`. It needs to be after the
             // CorePlugin, so that the IO task pool has already been constructed.
             // And it must be before the `AssetPlugin` so that the asset plugin
-            // doesn't create another instance of an assert server. In general,
+            // doesn't create another instance of an asset server. In general,
             // the AssetPlugin should still run so that other aspects of the
             // asset system are initialized correctly.
             group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
         })
-        .add_startup_system(setup.system())
+        .add_startup_system(setup)
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let texture_handle = asset_server.load("branding/icon.png");
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
-        material: materials.add(texture_handle.into()),
-        ..Default::default()
+        texture: asset_server.load("branding/icon.png"),
+        ..default()
     });
 }

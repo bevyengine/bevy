@@ -97,7 +97,7 @@ pub fn topological_order<Labels: Clone>(
         }
         current.push(*node);
         for dependency in graph.get(node).unwrap().keys() {
-            if check_if_cycles_and_visit(dependency, &graph, sorted, unvisited, current) {
+            if check_if_cycles_and_visit(dependency, graph, sorted, unvisited, current) {
                 return true;
             }
         }

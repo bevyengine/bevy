@@ -14,7 +14,7 @@ This crate enables you to dynamically interact with Rust types:
 
 ### Derive the Reflect traits
 
-```rust
+```rust ignore
 // this will automatically implement the Reflect trait and the Struct trait (because the type is a struct)
 #[derive(Reflect)]
 struct Foo {
@@ -44,7 +44,7 @@ let mut foo = Foo {
 
 ### Interact with fields using their names
 
-```rust
+```rust ignore
 assert_eq!(*foo.get_field::<u32>("a").unwrap(), 1);
 
 *foo.get_field_mut::<u32>("a").unwrap() = 2;
@@ -54,7 +54,7 @@ assert_eq!(foo.a, 2);
 
 ### "Patch" your types with new values
 
-```rust
+```rust ignore
 let mut dynamic_struct = DynamicStruct::default();
 dynamic_struct.insert("a", 42u32);
 dynamic_struct.insert("c", vec![3, 4, 5]);
@@ -67,14 +67,14 @@ assert_eq!(foo.c, vec![3, 4, 5]);
 
 ### Look up nested fields using "path strings"
 
-```rust
+```rust ignore
 let value = *foo.get_path::<f32>("d[0].value").unwrap();
 assert_eq!(value, 3.14);
 ```
 
 ### Iterate over struct fields
 
-```rust
+```rust ignore
 for (i, value: &Reflect) in foo.iter_fields().enumerate() {
     let field_name = foo.name_at(i).unwrap();
     if let Ok(value) = value.downcast_ref::<u32>() {
@@ -85,7 +85,7 @@ for (i, value: &Reflect) in foo.iter_fields().enumerate() {
 
 ### Automatically serialize and deserialize via Serde (without explicit serde impls)
 
-```rust
+```rust ignore
 let mut registry = TypeRegistry::default();
 registry.register::<u32>();
 registry.register::<i32>();
@@ -109,7 +109,7 @@ assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
 
 Call a trait on a given &dyn Reflect reference without knowing the underlying type!
 
-```rust
+```rust ignore
 #[derive(Reflect)]
 #[reflect(DoThing)]
 struct MyType {

@@ -1,13 +1,13 @@
 use bevy::{prelude::*, scene::InstanceId};
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .insert_resource(SceneInstance::default())
-        .add_startup_system(setup.system())
-        .add_system(scene_update.system())
-        .add_system(move_scene_entities.system())
+        .init_resource::<SceneInstance>()
+        .add_startup_system(setup)
+        .add_system(scene_update)
+        .add_system(move_scene_entities)
         .run();
 }
 
@@ -16,6 +16,7 @@ fn main() {
 struct SceneInstance(Option<InstanceId>);
 
 // Component that will be used to tag entities in the scene
+#[derive(Component)]
 struct EntityInMyScene;
 
 fn setup(
@@ -26,21 +27,18 @@ fn setup(
 ) {
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        ..Default::default()
+        ..default()
     });
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(1.05, 0.9, 1.5)
             .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // Spawn the scene as a child of another entity. This first scene will be translated backward
     // with its parent
     commands
-        .spawn_bundle((
-            Transform::from_xyz(0.0, 0.0, -1.0),
-            GlobalTransform::identity(),
-        ))
+        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -1.0)))
         .with_children(|parent| {
             parent.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
         });

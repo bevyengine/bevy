@@ -4,7 +4,7 @@ use bevy::{prelude::*, utils::Duration};
 /// that provide a specific piece of functionality (generally the smaller the scope, the better).
 /// This example illustrates how to create a simple plugin that prints out a message.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         // plugins are registered as part of the "app building" process
         .add_plugin(PrintMessagePlugin {
@@ -23,13 +23,12 @@ pub struct PrintMessagePlugin {
 
 impl Plugin for PrintMessagePlugin {
     // this is where we set up our plugin
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         let state = PrintMessageState {
             message: self.message.clone(),
             timer: Timer::new(self.wait_duration, true),
         };
-        app.insert_resource(state)
-            .add_system(print_message_system.system());
+        app.insert_resource(state).add_system(print_message_system);
     }
 }
 

@@ -2,6 +2,12 @@
   "ignorePatterns": [
     {
       "pattern": "^https?://github\\.com/"
+    },
+    {
+      "pattern": "^https?://docs\\.github\\.com/"
+    },
+    {
+      "pattern": "^https?://reddit\\.com/"
     }
   ],
   "replacementPatterns": [],
