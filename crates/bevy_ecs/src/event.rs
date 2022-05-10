@@ -186,6 +186,36 @@ pub struct EventReader<'w, 's, E: Event> {
     events: Res<'w, Events<E>>,
 }
 
+impl<'w, 's, E: Event> EventReader<'w, 's, E> {
+    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
+    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
+    /// that happened before now.
+    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
+        self.iter_with_id().map(|(event, _id)| event)
+    }
+
+    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    pub fn iter_with_id(
+        &mut self,
+    ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
+    {
+        self.reader.iter_with_id(&self.events).map(|r @ (_, id)| {
+            trace!("EventReader::iter() -> {}", id);
+            r
+        })
+    }
+
+    /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
+    pub fn len(&self) -> usize {
+        self.reader.len(&self.events)
+    }
+
+    /// Determines if are any events available to be read without consuming any.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 /// Sends events of type `T`.
 #[derive(SystemParam)]
 pub struct EventWriter<'w, 's, E: Event> {
@@ -332,36 +362,6 @@ impl<I: DoubleEndedIterator> DoubleEndedIterator for ExactSize<I> {
 impl<I: Iterator> ExactSizeIterator for ExactSize<I> {
     fn len(&self) -> usize {
         self.len
-    }
-}
-
-impl<'w, 's, E: Event> EventReader<'w, 's, E> {
-    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
-    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
-    /// that happened before now.
-    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
-        self.iter_with_id().map(|(event, _id)| event)
-    }
-
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    pub fn iter_with_id(
-        &mut self,
-    ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
-    {
-        self.reader.iter_with_id(&self.events).map(|r @ (_, id)| {
-            trace!("EventReader::iter() -> {}", id);
-            r
-        })
-    }
-
-    /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
-    pub fn len(&self) -> usize {
-        self.reader.len(&self.events)
-    }
-
-    /// Determines if are any events available to be read without consuming any.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
     }
 }
 
