@@ -131,6 +131,7 @@ struct EventInstance<E: Event> {
 #[derive(Debug)]
 pub struct Events<E: Event> {
     // Holds the oldest still active events
+    // Note that a.start_event_count + a.len() should always === events_b.start_event_count
     events_a: EventSequence<E>,
     // Holds the newer events
     events_b: EventSequence<E>,
@@ -416,6 +417,10 @@ impl<E: Event> Events<E> {
         std::mem::swap(&mut self.events_a, &mut self.events_b);
         self.events_b.clear();
         self.events_b.start_event_count = self.event_count;
+        debug_assert_eq!(
+            self.events_a.start_event_count + self.events_a.len(),
+            self.events_b.start_event_count
+        );
     }
 
     /// A system that calls [`Events::update`] once per frame.
