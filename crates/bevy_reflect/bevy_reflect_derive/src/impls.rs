@@ -11,22 +11,24 @@ pub fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
 
     let field_names = derive_data
         .active_fields()
-        .map(|(field, _attr, index)| {
+        .map(|field| {
             field
+                .data
                 .ident
                 .as_ref()
                 .map(|i| i.to_string())
-                .unwrap_or_else(|| index.to_string())
+                .unwrap_or_else(|| field.index.to_string())
         })
         .collect::<Vec<String>>();
     let field_idents = derive_data
         .active_fields()
-        .map(|(field, _attr, index)| {
+        .map(|field| {
             field
+                .data
                 .ident
                 .as_ref()
                 .map(|ident| Member::Named(ident.clone()))
-                .unwrap_or_else(|| Member::Unnamed(Index::from(*index)))
+                .unwrap_or_else(|| Member::Unnamed(Index::from(field.index)))
         })
         .collect::<Vec<_>>();
     let field_count = field_idents.len();
@@ -178,7 +180,7 @@ pub fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream {
 
     let field_idents = derive_data
         .active_fields()
-        .map(|(_field, _attr, index)| Member::Unnamed(Index::from(*index)))
+        .map(|field| Member::Unnamed(Index::from(field.index)))
         .collect::<Vec<_>>();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();

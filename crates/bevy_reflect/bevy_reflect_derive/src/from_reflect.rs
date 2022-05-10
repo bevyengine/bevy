@@ -28,9 +28,9 @@ pub fn impl_value(type_name: &Ident, generics: &Generics, bevy_reflect_path: &Pa
 
 /// Container for a struct's members (field name or index) and their
 /// corresponding values.
-struct StructFields(Vec<Member>, Vec<proc_macro2::TokenStream>);
+struct MemberValuePair(Vec<Member>, Vec<proc_macro2::TokenStream>);
 
-impl StructFields {
+impl MemberValuePair {
     pub fn new(items: (Vec<Member>, Vec<proc_macro2::TokenStream>)) -> Self {
         Self(items.0, items.1)
     }
@@ -49,8 +49,9 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
     };
 
     let field_types = derive_data.active_types();
-    let StructFields(ignored_members, ignored_values) = get_ignored_fields(derive_data, is_tuple);
-    let StructFields(active_members, active_values) =
+    let MemberValuePair(ignored_members, ignored_values) =
+        get_ignored_fields(derive_data, is_tuple);
+    let MemberValuePair(active_members, active_values) =
         get_active_fields(derive_data, &ref_struct, is_tuple);
 
     let default_ident = Ident::new("ReflectDefault", Span::call_site());
@@ -105,12 +106,12 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
 /// Get the collection of ignored field definitions
 ///
 /// Each item in the collection takes the form: `field_ident: field_value`.
-fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> StructFields {
-    StructFields::new(
+fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> MemberValuePair {
+    MemberValuePair::new(
         derive_data
             .ignored_fields()
-            .map(|(field, _attr, index)| {
-                let member = get_ident(field, *index, is_tuple);
+            .map(|field| {
+                let member = get_ident(field.data, field.index, is_tuple);
                 let value = quote! {
                     Default::default()
                 };
@@ -128,15 +129,16 @@ fn get_active_fields(
     derive_data: &ReflectDeriveData,
     dyn_struct_name: &Ident,
     is_tuple: bool,
-) -> StructFields {
+) -> MemberValuePair {
     let bevy_reflect_path = derive_data.bevy_reflect_path();
 
-    StructFields::new(
+    MemberValuePair::new(
         derive_data
             .active_fields()
-            .map(|(field, _attr, index)| {
-                let member = get_ident(field, *index, is_tuple);
-                let ty = field.ty.clone();
+            .map(|field| {
+                let index = field.index;
+                let member = get_ident(field.data, index, is_tuple);
+                let ty = field.data.ty.clone();
 
                 // Accesses the field on the given dynamic struct or tuple struct
                 let get_field = if is_tuple {
@@ -145,6 +147,7 @@ fn get_active_fields(
                     }
                 } else {
                     let name = field
+                        .data
                         .ident
                         .as_ref()
                         .map(|i| i.to_string())

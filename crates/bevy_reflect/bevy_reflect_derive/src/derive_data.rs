@@ -12,6 +12,16 @@ pub enum DeriveType {
     Value,
 }
 
+/// Represents a field on a struct or tuple struct.
+pub struct StructField<'a> {
+    /// The raw field.
+    pub data: &'a Field,
+    /// The reflection-based attributes on the field.
+    pub attrs: ReflectFieldAttr,
+    /// The index of this field within the struct.
+    pub index: usize,
+}
+
 /// Data used by derive macros for `Reflect` and `FromReflect`
 ///
 /// # Example
@@ -32,7 +42,7 @@ pub struct ReflectDeriveData<'a> {
     attrs: ReflectAttrs,
     type_name: &'a Ident,
     generics: &'a Generics,
-    fields: Vec<(&'a Field, ReflectFieldAttr, usize)>,
+    fields: Vec<StructField<'a>>,
     bevy_reflect_path: Path,
 }
 
@@ -104,8 +114,8 @@ impl<'a> ReflectDeriveData<'a> {
         output.fields = fields
             .iter()
             .enumerate()
-            .map(|(i, f)| {
-                let attr = parse_field_attrs(&f.attrs).unwrap_or_else(|err| {
+            .map(|(index, field)| {
+                let attrs = parse_field_attrs(&field.attrs).unwrap_or_else(|err| {
                     if let Some(ref mut errors) = errors {
                         errors.combine(err);
                     } else {
@@ -113,35 +123,39 @@ impl<'a> ReflectDeriveData<'a> {
                     }
                     ReflectFieldAttr::default()
                 });
-                (f, attr, i)
+
+                StructField {
+                    index,
+                    attrs,
+                    data: field,
+                }
             })
-            .collect::<Vec<(&Field, ReflectFieldAttr, usize)>>();
-        if let Some(errs) = errors{
+            .collect::<Vec<StructField>>();
+        if let Some(errs) = errors {
             return Err(errs);
         }
-
 
         Ok(output)
     }
 
     /// Get an iterator over the active fields
-    pub fn active_fields(&self) -> impl Iterator<Item = &(&Field, ReflectFieldAttr, usize)> {
+    pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
             .iter()
-            .filter(|(_field, attrs, _i)| !attrs.ignore.unwrap_or(false))
+            .filter(|field| !field.attrs.ignore.unwrap_or(false))
     }
 
     /// Get an iterator over the ignored fields
-    pub fn ignored_fields(&self) -> impl Iterator<Item = &(&Field, ReflectFieldAttr, usize)> {
+    pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
             .iter()
-            .filter(|(_field, attrs, _i)| attrs.ignore.unwrap_or(false))
+            .filter(|field| field.attrs.ignore.unwrap_or(false))
     }
 
     /// Get a collection of all active types
     pub fn active_types(&self) -> Vec<syn::Type> {
         self.active_fields()
-            .map(|(field, ..)| field.ty.clone())
+            .map(|field| field.data.ty.clone())
             .collect::<Vec<_>>()
     }
 
@@ -167,7 +181,7 @@ impl<'a> ReflectDeriveData<'a> {
 
     /// The complete set of fields in this struct.
     #[allow(dead_code)]
-    pub fn fields(&self) -> &Vec<(&'a Field, ReflectFieldAttr, usize)> {
+    pub fn fields(&self) -> &[StructField<'a>] {
         &self.fields
     }
 
