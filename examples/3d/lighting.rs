@@ -121,7 +121,8 @@ fn setup(
     // green spot light
     commands
         .spawn_bundle(PointLightBundle {
-            transform: Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+            transform: Transform::from_xyz(-1.0, 2.0, 0.0)
+                .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             point_light: PointLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::GREEN,
@@ -133,7 +134,9 @@ fn setup(
         })
         .with_children(|builder| {
             builder.spawn_bundle(PbrBundle {
-                transform: Transform::from_rotation(Quat::from_rotation_x(std::f32::consts::PI / 2.0)),
+                transform: Transform::from_rotation(Quat::from_rotation_x(
+                    std::f32::consts::PI / 2.0,
+                )),
                 mesh: meshes.add(Mesh::from(shape::Capsule {
                     depth: 0.125,
                     radius: 0.1,

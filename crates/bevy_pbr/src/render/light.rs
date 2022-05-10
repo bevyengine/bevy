@@ -475,7 +475,7 @@ pub fn extract_lights(
                         shadow_normal_bias: point_light.shadow_normal_bias
                             * point_light_texel_size
                             * std::f32::consts::SQRT_2,
-                        spotlight_angles: point_light.spotlight_angles
+                        spotlight_angles: point_light.spotlight_angles,
                     },
                     render_cubemap_visible_entities,
                 ),
@@ -734,9 +734,7 @@ pub fn prepare_lights(
         }
 
         let (spot_dir, spot_angle_inner, spot_angle_outer) = match light.spotlight_angles {
-            Some((inner, outer)) => {
-                (light.transform.rotation * Vec3::Z, inner, outer)
-            },
+            Some((inner, outer)) => (light.transform.rotation * Vec3::Z, inner, outer),
             None => (Vec3::ZERO, 0.0, 0.0),
         };
 

@@ -1,4 +1,4 @@
-use bevy::{prelude::*, pbr::NotShadowCaster};
+use bevy::{pbr::NotShadowCaster, prelude::*};
 
 fn main() {
     App::new()
@@ -56,7 +56,10 @@ fn setup(
                 intensity: 200.0, // lumens
                 color: Color::WHITE,
                 shadows_enabled: true,
-                spotlight_angles: Some((std::f32::consts::PI / 4.0 * 0.85, std::f32::consts::PI / 4.0)),
+                spotlight_angles: Some((
+                    std::f32::consts::PI / 4.0 * 0.85,
+                    std::f32::consts::PI / 4.0,
+                )),
                 ..default()
             },
             ..default()
@@ -74,19 +77,21 @@ fn setup(
                 }),
                 ..default()
             });
-            builder.spawn_bundle(PbrBundle {
-                transform: Transform::from_translation(Vec3::Z * -0.1),
-                mesh: meshes.add(Mesh::from(shape::UVSphere {
-                    radius: 0.1,
+            builder
+                .spawn_bundle(PbrBundle {
+                    transform: Transform::from_translation(Vec3::Z * -0.1),
+                    mesh: meshes.add(Mesh::from(shape::UVSphere {
+                        radius: 0.1,
+                        ..default()
+                    })),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::RED,
+                        emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
+                        ..default()
+                    }),
                     ..default()
-                })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::RED,
-                    emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
-                    ..default()
-                }),
-                ..default()
-            }).insert(NotShadowCaster);
+                })
+                .insert(NotShadowCaster);
         });
 
     // camera
@@ -96,13 +101,16 @@ fn setup(
     });
 }
 
-fn light_sway(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut PointLight)>,
-) {
+fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut PointLight)>) {
     for (mut transform, mut light) in query.iter_mut() {
-        transform.rotation = Quat::from_euler(EulerRot::XYZ, -std::f32::consts::FRAC_PI_2, time.seconds_since_startup().sin() as f32 * 0.75, 0.0);
-        let angle = ((time.seconds_since_startup() * 1.2).sin() as f32 + 1.0) * std::f32::consts::FRAC_PI_4;
+        transform.rotation = Quat::from_euler(
+            EulerRot::XYZ,
+            -std::f32::consts::FRAC_PI_2,
+            time.seconds_since_startup().sin() as f32 * 0.75,
+            0.0,
+        );
+        let angle =
+            ((time.seconds_since_startup() * 1.2).sin() as f32 + 1.0) * std::f32::consts::FRAC_PI_4;
         light.spotlight_angles = Some((angle * 0.8, angle));
         dbg!(angle);
     }

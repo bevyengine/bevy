@@ -15,7 +15,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
-use bevy_transform::{components::GlobalTransform};
+use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::warn;
 use bevy_window::Windows;
 
@@ -973,11 +973,11 @@ pub(crate) fn assign_lights_to_clusters(
         for lights in clusters.lights.iter_mut() {
             lights.entities.clear();
         }
-        let cluster_count = (clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z) as usize;
-        clusters.lights.resize_with(
-            cluster_count,
-            VisiblePointLights::default,
-        );
+        let cluster_count =
+            (clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z) as usize;
+        clusters
+            .lights
+            .resize_with(cluster_count, VisiblePointLights::default);
 
         // initialize empty cluster bounding spheres
         cluster_aabb_spheres.clear();
@@ -1092,7 +1092,14 @@ pub(crate) fn assign_lights_to_clusters(
                     center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
                     radius: light_sphere.radius,
                 };
-                let spotlight_dir_sin_cos = light.spotlight_angle.map(|angle| ((inverse_view_transform * (light.rotation * Vec3::Z).extend(0.0)).truncate(), angle.sin(), angle.cos()));
+                let spotlight_dir_sin_cos = light.spotlight_angle.map(|angle| {
+                    (
+                        (inverse_view_transform * (light.rotation * Vec3::Z).extend(0.0))
+                            .truncate(),
+                        angle.sin(),
+                        angle.cos(),
+                    )
+                });
                 let light_center_clip =
                     camera.projection_matrix * view_light_sphere.center.extend(1.0);
                 let light_center_ndc = light_center_clip.xyz() / light_center_clip.w;
@@ -1189,26 +1196,46 @@ pub(crate) fn assign_lights_to_clusters(
 
                         for x in min_x..=max_x {
                             // further culling for spotlights
-                            if let Some((view_light_direction, angle_sin, angle_cos)) = spotlight_dir_sin_cos {
+                            if let Some((view_light_direction, angle_sin, angle_cos)) =
+                                spotlight_dir_sin_cos
+                            {
                                 // get or initialize cluster bounding sphere
                                 let cluster_aabb_sphere = &mut cluster_aabb_spheres[cluster_index];
-                                let cluster_aabb_sphere = if let Some(sphere) = cluster_aabb_sphere {
+                                let cluster_aabb_sphere = if let Some(sphere) = cluster_aabb_sphere
+                                {
                                     &*sphere
                                 } else {
-                                    let aabb = compute_aabb_for_cluster(first_slice_depth, far_z, clusters.tile_size.as_vec2(), screen_size.as_vec2(), inverse_projection, is_orthographic, clusters.dimensions, UVec3::new(x, y, z));
-                                    let sphere = Sphere { center: aabb.center, radius: aabb.half_extents.length() };
+                                    let aabb = compute_aabb_for_cluster(
+                                        first_slice_depth,
+                                        far_z,
+                                        clusters.tile_size.as_vec2(),
+                                        screen_size.as_vec2(),
+                                        inverse_projection,
+                                        is_orthographic,
+                                        clusters.dimensions,
+                                        UVec3::new(x, y, z),
+                                    );
+                                    let sphere = Sphere {
+                                        center: aabb.center,
+                                        radius: aabb.half_extents.length(),
+                                    };
                                     *cluster_aabb_sphere = Some(sphere);
                                     cluster_aabb_sphere.as_ref().unwrap()
                                 };
-                                
+
                                 // test -- based on https://bartwronski.com/2017/04/13/cull-that-cone/
                                 // we omit the front_cull test as we have already used point light sphere / plane testing to bound the tested clusters
-                                let spotlight_offset = Vec3::from(view_light_sphere.center - cluster_aabb_sphere.center);
+                                let spotlight_offset = Vec3::from(
+                                    view_light_sphere.center - cluster_aabb_sphere.center,
+                                );
                                 let spotlight_dist_sq = spotlight_offset.length_squared();
                                 let v1_len = spotlight_offset.dot(view_light_direction);
 
-                                let distance_closest_point = (angle_cos * (spotlight_dist_sq - v1_len * v1_len).sqrt()) - v1_len * angle_sin;
-                                let angle_cull = distance_closest_point > cluster_aabb_sphere.radius;
+                                let distance_closest_point = (angle_cos
+                                    * (spotlight_dist_sq - v1_len * v1_len).sqrt())
+                                    - v1_len * angle_sin;
+                                let angle_cull =
+                                    distance_closest_point > cluster_aabb_sphere.radius;
 
                                 let back_cull = v1_len < -cluster_aabb_sphere.radius;
 
@@ -1220,7 +1247,7 @@ pub(crate) fn assign_lights_to_clusters(
                                 // all clusters within range are affected by point lights
                                 clusters.lights[cluster_index].entities.push(light.entity);
                             }
-    
+
                             cluster_index += clusters.dimensions.z as usize;
                         }
                     }
