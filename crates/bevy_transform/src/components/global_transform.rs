@@ -1,7 +1,7 @@
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{const_vec3, Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::Reflect;
+use bevy_math::{const_vec3, Affine3A, Mat3, Mat4, Quat, Vec3};
+use bevy_reflect::prelude::*;
 use std::ops::Mul;
 
 /// Describe the position of an entity relative to the reference frame.
@@ -25,7 +25,7 @@ use std::ops::Mul;
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
-#[reflect(Component, PartialEq)]
+#[reflect(Component, Default, PartialEq)]
 pub struct GlobalTransform {
     /// The position of the global transform
     pub translation: Vec3,
@@ -126,6 +126,13 @@ impl GlobalTransform {
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
+    }
+
+    /// Returns the 3d affine transformation from this transforms translation,
+    /// rotation, and scale.
+    #[inline]
+    pub fn compute_affine(&self) -> Affine3A {
+        Affine3A::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
     /// Get the unit vector in the local x direction

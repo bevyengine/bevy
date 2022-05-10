@@ -13,7 +13,8 @@ status = [
     "check-missing-examples-in-docs",
     "check-unused-dependencies",
     "ci",
-    "check-benches",
+    "miri",
+    "check-compiles",
 ]
 
 use_squash_merge = true

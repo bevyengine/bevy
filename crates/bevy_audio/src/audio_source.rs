@@ -46,7 +46,11 @@ impl AssetLoader for AudioLoader {
             #[cfg(feature = "wav")]
             "wav",
             #[cfg(feature = "vorbis")]
+            "oga",
+            #[cfg(feature = "vorbis")]
             "ogg",
+            #[cfg(feature = "vorbis")]
+            "spx",
         ]
     }
 }

@@ -7,6 +7,8 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 
 pub struct MainPass3dNode {
     query: QueryState<
@@ -53,9 +55,11 @@ impl Node for MainPass3dNode {
                 Err(_) => return Ok(()), // No window
             };
 
-        {
+        if !opaque_phase.items.is_empty() {
             // Run the opaque pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
+            #[cfg(feature = "trace")]
+            let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
@@ -88,9 +92,11 @@ impl Node for MainPass3dNode {
             }
         }
 
-        {
+        if !alpha_mask_phase.items.is_empty() {
             // Run the alpha mask pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
+            #[cfg(feature = "trace")]
+            let _main_alpha_mask_pass_3d_span = info_span!("main_alpha_mask_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
@@ -122,9 +128,11 @@ impl Node for MainPass3dNode {
             }
         }
 
-        {
+        if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front
             // NOTE: Scoped to drop the mutable borrow of render_context
+            #[cfg(feature = "trace")]
+            let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
@@ -134,12 +142,15 @@ impl Node for MainPass3dNode {
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
-                    // NOTE: For the transparent pass we load the depth buffer but do not write to it.
+                    // NOTE: For the transparent pass we load the depth buffer. There should be no
+                    // need to write to it, but store is set to `true` as a workaround for issue #3776,
+                    // https://github.com/bevyengine/bevy/issues/3776
+                    // so that wgpu does not clear the depth buffer.
                     // As the opaque and alpha mask passes run first, opaque meshes can occlude
                     // transparent ones.
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: false,
+                        store: true,
                     }),
                     stencil_ops: None,
                 }),
