@@ -105,24 +105,21 @@ impl<'a> ReflectDeriveData<'a> {
             .iter()
             .enumerate()
             .map(|(i, f)| {
-                (
-                    f,
-                    parse_field_attrs(&f.attrs).unwrap_or_else(|err| {
-                        if let Some(ref mut error) = errors {
-                            error.combine(err);
-                        } else {
-                            errors = Some(err);
-                        }
-                        ReflectFieldAttr::default()
-                    }),
-                    i,
-                )
+                let attr = parse_field_attrs(&f.attrs).unwrap_or_else(|err| {
+                    if let Some(ref mut errors) = errors {
+                        errors.combine(err);
+                    } else {
+                        errors = Some(err);
+                    }
+                    ReflectFieldAttr::default()
+                });
+                (f, attr, i)
             })
             .collect::<Vec<(&Field, ReflectFieldAttr, usize)>>();
-
-        if let Some(errs) = errors {
+        if let Some(errs) = errors{
             return Err(errs);
         }
+
 
         Ok(output)
     }
