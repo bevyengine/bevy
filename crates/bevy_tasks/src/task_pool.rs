@@ -60,29 +60,9 @@ impl TaskPoolBuilder {
     }
 }
 
-#[derive(Debug)]
-struct TaskPoolInner {
-    threads: Vec<JoinHandle<()>>,
-    shutdown_tx: async_channel::Sender<()>,
-}
-
-impl Drop for TaskPoolInner {
-    fn drop(&mut self) {
-        self.shutdown_tx.close();
-
-        let panicking = thread::panicking();
-        for join_handle in self.threads.drain(..) {
-            let res = join_handle.join();
-            if !panicking {
-                res.expect("Task thread panicked while executing.");
-            }
-        }
-    }
-}
-
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TaskPool {
     /// The executor for the pool
     ///
@@ -92,7 +72,8 @@ pub struct TaskPool {
     executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
-    inner: Arc<TaskPoolInner>,
+    threads: Vec<JoinHandle<()>>,
+    shutdown_tx: async_channel::Sender<()>,
 }
 
 impl TaskPool {
@@ -155,16 +136,14 @@ impl TaskPool {
 
         Self {
             executor,
-            inner: Arc::new(TaskPoolInner {
-                threads,
-                shutdown_tx,
-            }),
+            threads,
+            shutdown_tx,
         }
     }
 
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
-        self.inner.threads.len()
+        self.threads.len()
     }
 
     /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
@@ -265,6 +244,20 @@ impl TaskPool {
 impl Default for TaskPool {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Drop for TaskPool {
+    fn drop(&mut self) {
+        self.shutdown_tx.close();
+
+        let panicking = thread::panicking();
+        for join_handle in self.threads.drain(..) {
+            let res = join_handle.join();
+            if !panicking {
+                res.expect("Task thread panicked while executing.");
+            }
+        }
     }
 }
 

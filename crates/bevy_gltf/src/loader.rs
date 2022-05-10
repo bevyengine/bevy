@@ -31,6 +31,7 @@ use bevy_render::{
 };
 use bevy_scene::Scene;
 use bevy_transform::{components::Transform, TransformBundle};
+use bevy_tasks::IoTaskPool;
 
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
@@ -394,8 +395,7 @@ async fn load_gltf<'a, 'b>(
         }
     } else {
         #[cfg(not(target_arch = "wasm32"))]
-        load_context
-            .task_pool()
+        IoTaskPool::get()
             .scope(|scope| {
                 gltf.textures().for_each(|gltf_texture| {
                     let linear_textures = &linear_textures;

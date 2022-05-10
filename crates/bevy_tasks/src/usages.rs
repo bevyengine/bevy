@@ -20,7 +20,7 @@ static IO_TASK_POOL: OnceCell<IoTaskPool> = OnceCell::new();
 
 /// A newtype for a task pool for CPU-intensive work that must be completed to deliver the next
 /// frame
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ComputeTaskPool(TaskPool);
 
 impl ComputeTaskPool {
@@ -55,7 +55,7 @@ impl Deref for ComputeTaskPool {
 }
 
 /// A newtype for a task pool for CPU-intensive work that may span across multiple frames
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct AsyncComputeTaskPool(TaskPool);
 
 impl AsyncComputeTaskPool {
@@ -91,7 +91,7 @@ impl Deref for AsyncComputeTaskPool {
 
 /// A newtype for a task pool for IO-intensive work (i.e. tasks that spend very little time in a
 /// "woken" state)
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct IoTaskPool(TaskPool);
 
 impl IoTaskPool {

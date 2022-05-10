@@ -30,8 +30,6 @@ pub use path::*;
 
 use bevy_app::{prelude::Plugin, App};
 use bevy_ecs::schedule::{StageLabel, SystemStage};
-use bevy_tasks::IoTaskPool;
-use std::ops::Deref;
 
 /// The names of asset stages in an App Schedule
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -81,8 +79,6 @@ pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
 }
 
 impl Plugin for AssetPlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        if app.world().get_resource::<AssetServer>().is_none() {
     fn build(&self, app: &mut App) {
         if !app.world.contains_resource::<AssetServer>() {
             let source = create_platform_default_asset_io(app);
