@@ -98,10 +98,13 @@ fn setup(
 
 fn light_sway(
     time: Res<Time>,
-    mut query: Query<&mut Transform, With<PointLight>>,
+    mut query: Query<(&mut Transform, &mut PointLight)>,
 ) {
-    for mut transform in query.iter_mut() {
-        transform.rotation = Quat::from_euler(EulerRot::XYZ, -std::f32::consts::FRAC_PI_2, time.seconds_since_startup().sin() as f32 * 0.5, 0.0);
+    for (mut transform, mut light) in query.iter_mut() {
+        transform.rotation = Quat::from_euler(EulerRot::XYZ, -std::f32::consts::FRAC_PI_2, time.seconds_since_startup().sin() as f32 * 0.75, 0.0);
+        let angle = ((time.seconds_since_startup() * 1.2).sin() as f32 + 1.0) * std::f32::consts::FRAC_PI_4;
+        light.spotlight_angles = Some((angle * 0.8, angle));
+        dbg!(angle);
     }
 }
 
