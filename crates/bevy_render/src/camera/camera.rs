@@ -251,12 +251,12 @@ impl<T: Component + Sync + Default> Plugin for CameraTypePlugin<T> {
 
 /// The canonical source of the "active camera" of the given camera type `T`.
 #[derive(Debug)]
-pub struct ActiveCamera<T: Component + Sync> {
+pub struct ActiveCamera<T: Component> {
     camera: Option<Entity>,
-    marker: PhantomData<T>,
+    marker: PhantomData<fn() -> T>,
 }
 
-impl<T: Component + Sync> Default for ActiveCamera<T> {
+impl<T: Component> Default for ActiveCamera<T> {
     fn default() -> Self {
         Self {
             camera: Default::default(),
@@ -265,7 +265,7 @@ impl<T: Component + Sync> Default for ActiveCamera<T> {
     }
 }
 
-impl<T: Component + Sync> Clone for ActiveCamera<T> {
+impl<T: Component> Clone for ActiveCamera<T> {
     fn clone(&self) -> Self {
         Self {
             camera: self.camera,
@@ -274,7 +274,7 @@ impl<T: Component + Sync> Clone for ActiveCamera<T> {
     }
 }
 
-impl<T: Component + Sync> ActiveCamera<T> {
+impl<T: Component> ActiveCamera<T> {
     /// Sets the active camera to the given `camera` entity.
     pub fn set(&mut self, camera: Entity) {
         self.camera = Some(camera);
@@ -286,7 +286,7 @@ impl<T: Component + Sync> ActiveCamera<T> {
     }
 }
 
-pub fn set_active_camera<T: Component + Sync>(
+pub fn set_active_camera<T: Component>(
     mut active_camera: ResMut<ActiveCamera<T>>,
     cameras: Query<Entity, (With<Camera>, With<T>)>,
 ) {
