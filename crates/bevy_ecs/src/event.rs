@@ -179,14 +179,6 @@ impl<E: Event> DerefMut for EventSequence<E> {
     }
 }
 
-fn map_instance_event_with_id<E: Event>(event_instance: &EventInstance<E>) -> (&E, EventId<E>) {
-    (&event_instance.event, event_instance.event_id)
-}
-
-fn map_instance_event<E: Event>(event_instance: &EventInstance<E>) -> &E {
-    &event_instance.event
-}
-
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
 pub struct EventReader<'w, 's, E: Event> {
@@ -266,7 +258,7 @@ impl<E: Event> ManualEventReader<E> {
         // Iterate the oldest first, then the newer events
         let iterator = a.iter().chain(b.iter());
         iterator
-            .map(map_instance_event_with_id)
+            .map(|e| (&e.event, e.event_id))
             .with_exact_size(unread_count)
             .inspect(move |(_, id)| self.last_event_count = (id.id + 1).max(self.last_event_count))
     }
@@ -457,12 +449,11 @@ impl<E: Event> Events<E> {
     pub fn drain(&mut self) -> impl Iterator<Item = E> + '_ {
         self.reset_start_event_count();
 
-        let map = |i: EventInstance<E>| i.event;
         // Drain the oldest events first, then the newest
         self.events_a
             .drain(..)
-            .map(map)
-            .chain(self.events_b.drain(..).map(map))
+            .chain(self.events_b.drain(..))
+            .map(|i| i.event)
     }
 
     /// Iterates over events that happened since the last "update" call.
@@ -474,7 +465,7 @@ impl<E: Event> Events<E> {
     pub fn iter_current_update_events(
         &self,
     ) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
-        self.events_b.iter().map(map_instance_event)
+        self.events_b.iter().map(|i| &i.event)
     }
 }
 
