@@ -1,160 +1,20 @@
+use crate::ReflectDeriveData;
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::quote;
 use syn::{Field, Generics, Ident, Index, Member, Path};
 
-pub fn impl_struct(
-    struct_name: &Ident,
-    generics: &Generics,
-    bevy_reflect_path: &Path,
-    active_fields: &[(&Field, usize)],
-    ignored_fields: &[(&Field, usize)],
-    custom_constructor: Option<proc_macro2::TokenStream>,
-) -> TokenStream {
-    let field_names = active_fields
-        .iter()
-        .map(|(field, index)| {
-            field
-                .ident
-                .as_ref()
-                .map(|i| i.to_string())
-                .unwrap_or_else(|| index.to_string())
-        })
-        .collect::<Vec<String>>();
-    let field_idents = active_fields
-        .iter()
-        .map(|(field, index)| {
-            field
-                .ident
-                .as_ref()
-                .map(|ident| Member::Named(ident.clone()))
-                .unwrap_or_else(|| Member::Unnamed(Index::from(*index)))
-        })
-        .collect::<Vec<_>>();
-
-    let field_types = active_fields
-        .iter()
-        .map(|(field, _index)| field.ty.clone())
-        .collect::<Vec<_>>();
-    let field_count = active_fields.len();
-    let ignored_field_idents = ignored_fields
-        .iter()
-        .map(|(field, index)| {
-            field
-                .ident
-                .as_ref()
-                .map(|ident| Member::Named(ident.clone()))
-                .unwrap_or_else(|| Member::Unnamed(Index::from(*index)))
-        })
-        .collect::<Vec<_>>();
-
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    // Add FromReflect bound for each active field
-    let mut where_from_reflect_clause = if where_clause.is_some() {
-        quote! {#where_clause}
-    } else if field_count > 0 {
-        quote! {where}
-    } else {
-        quote! {}
-    };
-    where_from_reflect_clause.extend(quote! {
-        #(#field_types: #bevy_reflect_path::FromReflect,)*
-    });
-
-    let constructor = if let Some(constructor) = custom_constructor {
-        quote!(
-            let mut value: Self = #constructor;
-            #(
-                value.#field_idents = {
-                    <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(#bevy_reflect_path::Struct::field(ref_struct, #field_names)?)?
-                };
-            )*
-            Some(value)
-        )
-    } else {
-        quote!(
-            Some(
-                Self {
-                    #(#field_idents: {
-                        <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(#bevy_reflect_path::Struct::field(ref_struct, #field_names)?)?
-                    },)*
-                    #(#ignored_field_idents: Default::default(),)*
-                }
-            )
-        )
-    };
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
-        {
-            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
-                if let #bevy_reflect_path::ReflectRef::Struct(ref_struct) = reflect.reflect_ref() {
-                    #constructor
-                } else {
-                    None
-                }
-            }
-        }
-    })
+/// Implements `FromReflect` for the given struct
+pub fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
+    impl_struct_internal(derive_data, false)
 }
 
-pub fn impl_tuple_struct(
-    struct_name: &Ident,
-    generics: &Generics,
-    bevy_reflect_path: &Path,
-    active_fields: &[(&Field, usize)],
-    ignored_fields: &[(&Field, usize)],
-) -> TokenStream {
-    let field_idents = active_fields
-        .iter()
-        .map(|(_field, index)| Member::Unnamed(Index::from(*index)))
-        .collect::<Vec<_>>();
-    let field_types = active_fields
-        .iter()
-        .map(|(field, _index)| field.ty.clone())
-        .collect::<Vec<_>>();
-    let field_count = active_fields.len();
-    let field_indices = (0..field_count).collect::<Vec<usize>>();
-    let ignored_field_idents = ignored_fields
-        .iter()
-        .map(|(_field, index)| Member::Unnamed(Index::from(*index)))
-        .collect::<Vec<_>>();
-
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    // Add FromReflect bound for each active field
-    let mut where_from_reflect_clause = if where_clause.is_some() {
-        quote! {#where_clause}
-    } else if field_count > 0 {
-        quote! {where}
-    } else {
-        quote! {}
-    };
-    where_from_reflect_clause.extend(quote! {
-        #(#field_types: #bevy_reflect_path::FromReflect,)*
-    });
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
-        {
-            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
-                use #bevy_reflect_path::TupleStruct;
-                if let #bevy_reflect_path::ReflectRef::TupleStruct(ref_tuple_struct) = reflect.reflect_ref() {
-                    Some(
-                        Self{
-                            #(#field_idents:
-                                <#field_types as #bevy_reflect_path::FromReflect>::from_reflect(ref_tuple_struct.field(#field_indices)?)?
-                            ,)*
-                            #(#ignored_field_idents: Default::default(),)*
-                        }
-                    )
-                } else {
-                    None
-                }
-            }
-        }
-    })
+/// Implements `FromReflect` for the given tuple struct
+pub fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream {
+    impl_struct_internal(derive_data, true)
 }
 
+/// Implements `FromReflect` for the given value type
 pub fn impl_value(type_name: &Ident, generics: &Generics, bevy_reflect_path: &Path) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
@@ -164,4 +24,154 @@ pub fn impl_value(type_name: &Ident, generics: &Generics, bevy_reflect_path: &Pa
             }
         }
     })
+}
+
+/// Container for a struct's members (field name or index) and their
+/// corresponding values.
+struct StructFields(Vec<Member>, Vec<proc_macro2::TokenStream>);
+
+impl StructFields {
+    pub fn new(items: (Vec<Member>, Vec<proc_macro2::TokenStream>)) -> Self {
+        Self(items.0, items.1)
+    }
+}
+
+fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> TokenStream {
+    let struct_name = derive_data.type_name();
+    let generics = derive_data.generics();
+    let bevy_reflect_path = derive_data.bevy_reflect_path();
+
+    let ref_struct = Ident::new("__ref_struct", Span::call_site());
+    let ref_struct_type = if is_tuple {
+        Ident::new("TupleStruct", Span::call_site())
+    } else {
+        Ident::new("Struct", Span::call_site())
+    };
+
+    let field_types = derive_data.active_types();
+    let StructFields(ignored_members, ignored_values) = get_ignored_fields(derive_data, is_tuple);
+    let StructFields(active_members, active_values) =
+        get_active_fields(derive_data, &ref_struct, is_tuple);
+
+    let default_ident = Ident::new("ReflectDefault", Span::call_site());
+    let constructor = if derive_data.attrs().data().contains(&default_ident) {
+        quote!(
+            let mut __this = Self::default();
+            #(
+                __this.#active_members = #active_values;
+            )*
+            Some(__this)
+        )
+    } else {
+        quote!(
+            Some(
+                Self {
+                    #(#active_members: #active_values,)*
+                    #(#ignored_members: #ignored_values,)*
+                }
+            )
+        )
+    };
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    // Add FromReflect bound for each active field
+    let mut where_from_reflect_clause = if where_clause.is_some() {
+        quote! {#where_clause}
+    } else if !active_members.is_empty() {
+        quote! {where}
+    } else {
+        quote! {}
+    };
+    where_from_reflect_clause.extend(quote! {
+        #(#field_types: #bevy_reflect_path::FromReflect,)*
+    });
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
+        {
+            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
+                use #bevy_reflect_path::#ref_struct_type;
+                if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct) = reflect.reflect_ref() {
+                    #constructor
+                } else {
+                    None
+                }
+            }
+        }
+    })
+}
+
+/// Get the collection of ignored field definitions
+///
+/// Each item in the collection takes the form: `field_ident: field_value`.
+fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> StructFields {
+    StructFields::new(
+        derive_data
+            .ignored_fields()
+            .map(|(field, _attr, index)| {
+                let member = get_ident(field, *index, is_tuple);
+                let value = quote! {
+                    Default::default()
+                };
+
+                (member, value)
+            })
+            .unzip(),
+    )
+}
+
+/// Get the collection of active field definitions
+///
+/// Each item in the collection takes the form: `field_ident: field_value`.
+fn get_active_fields(
+    derive_data: &ReflectDeriveData,
+    dyn_struct_name: &Ident,
+    is_tuple: bool,
+) -> StructFields {
+    let bevy_reflect_path = derive_data.bevy_reflect_path();
+
+    StructFields::new(
+        derive_data
+            .active_fields()
+            .map(|(field, _attr, index)| {
+                let member = get_ident(field, *index, is_tuple);
+                let ty = field.ty.clone();
+
+                // Accesses the field on the given dynamic struct or tuple struct
+                let get_field = if is_tuple {
+                    quote! {
+                        #dyn_struct_name.field(#index)
+                    }
+                } else {
+                    let name = field
+                        .ident
+                        .as_ref()
+                        .map(|i| i.to_string())
+                        .unwrap_or_else(|| index.to_string());
+                    quote! {
+                        #dyn_struct_name.field(#name)
+                    }
+                };
+
+                let value = quote! { {
+                    <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?)?
+                }};
+
+                (member, value)
+            })
+            .unzip(),
+    )
+}
+
+fn get_ident(field: &Field, index: usize, is_tuple: bool) -> Member {
+    if is_tuple {
+        Member::Unnamed(Index::from(index))
+    } else {
+        field
+            .ident
+            .as_ref()
+            .map(|ident| Member::Named(ident.clone()))
+            .unwrap_or_else(|| Member::Unnamed(Index::from(index)))
+    }
 }
