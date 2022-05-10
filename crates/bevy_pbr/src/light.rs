@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{
-    const_vec2, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles, Quat
+    const_vec2, Mat4, Quat, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
 };
 use bevy_reflect::prelude::*;
 use bevy_render::{
