@@ -112,7 +112,6 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut PointLight
         let angle =
             ((time.seconds_since_startup() * 1.2).sin() as f32 + 1.0) * std::f32::consts::FRAC_PI_4;
         light.spotlight_angles = Some((angle * 0.8, angle));
-        dbg!(angle);
     }
 }
 
