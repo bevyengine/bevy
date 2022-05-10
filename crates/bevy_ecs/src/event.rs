@@ -396,14 +396,15 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// struct MyEvent;
+    /// struct CollisionEvent;
     ///
-    /// fn event_reader(events: EventReader<MyEvent>) {
+    /// fn play_collision_sound(events: EventReader<CollisionEvent>) {
     ///     if !events.is_empty() {
     ///         events.clear();
+    ///         // Play a sound
     ///     }
     /// }
-    /// # bevy_ecs::system::assert_is_system(event_reader);
+    /// # bevy_ecs::system::assert_is_system(play_collision_sound);
     /// ```
     pub fn is_empty(&self) -> bool {
         self.len() == 0
