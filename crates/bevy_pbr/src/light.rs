@@ -596,6 +596,97 @@ fn cluster_space_light_aabb(
 
 const NDC_MIN: Vec2 = const_vec2!([-1.0, -1.0]);
 const NDC_MAX: Vec2 = const_vec2!([1.0, 1.0]);
+fn screen_to_view(screen_size: Vec2, inverse_projection: Mat4, screen: Vec2, ndc_z: f32) -> Vec4 {
+    let tex_coord = screen / screen_size;
+    let clip = Vec4::new(
+        tex_coord.x * 2.0 - 1.0,
+        (1.0 - tex_coord.y) * 2.0 - 1.0,
+        ndc_z,
+        1.0,
+    );
+    clip_to_view(inverse_projection, clip)
+}
+
+// Calculate the intersection of a ray from the eye through the view space position to a z plane
+fn line_intersection_to_z_plane(origin: Vec3, p: Vec3, z: f32) -> Vec3 {
+    let v = p - origin;
+    let t = (z - Vec3::Z.dot(origin)) / Vec3::Z.dot(v);
+    origin + t * v
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compute_aabb_for_cluster(
+    z_near: f32,
+    z_far: f32,
+    tile_size: Vec2,
+    screen_size: Vec2,
+    inverse_projection: Mat4,
+    is_orthographic: bool,
+    cluster_dimensions: UVec3,
+    ijk: UVec3,
+) -> Aabb {
+    let ijk = ijk.as_vec3();
+
+    // Calculate the minimum and maximum points in screen space
+    let p_min = ijk.xy() * tile_size;
+    let p_max = p_min + tile_size;
+
+    let cluster_min;
+    let cluster_max;
+    if is_orthographic {
+        // Use linear depth slicing for orthographic
+
+        // Convert to view space at the cluster near and far planes
+        // NOTE: 1.0 is the near plane due to using reverse z projections
+        let p_min = screen_to_view(
+            screen_size,
+            inverse_projection,
+            p_min,
+            1.0 - (ijk.z / cluster_dimensions.z as f32),
+        )
+        .xyz();
+        let p_max = screen_to_view(
+            screen_size,
+            inverse_projection,
+            p_max,
+            1.0 - ((ijk.z + 1.0) / cluster_dimensions.z as f32),
+        )
+        .xyz();
+
+        cluster_min = p_min.min(p_max);
+        cluster_max = p_min.max(p_max);
+    } else {
+        // Convert to view space at the near plane
+        // NOTE: 1.0 is the near plane due to using reverse z projections
+        let p_min = screen_to_view(screen_size, inverse_projection, p_min, 1.0);
+        let p_max = screen_to_view(screen_size, inverse_projection, p_max, 1.0);
+
+        let z_far_over_z_near = -z_far / -z_near;
+        let cluster_near = if ijk.z == 0.0 {
+            0.0
+        } else {
+            -z_near * z_far_over_z_near.powf((ijk.z - 1.0) / (cluster_dimensions.z - 1) as f32)
+        };
+        // NOTE: This could be simplified to:
+        // cluster_far = cluster_near * z_far_over_z_near;
+        let cluster_far = if cluster_dimensions.z == 1 {
+            -z_far
+        } else {
+            -z_near * z_far_over_z_near.powf(ijk.z / (cluster_dimensions.z - 1) as f32)
+        };
+
+        // Calculate the four intersection points of the min and max points with the cluster near and far planes
+        let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
+        let p_min_far = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_far);
+        let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
+        let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
+
+        cluster_min = p_min_near.min(p_min_far).min(p_max_near.min(p_max_far));
+        cluster_max = p_min_near.max(p_min_far).max(p_max_near.max(p_max_far));
+    }
+
+    Aabb::from_min_max(cluster_min, cluster_max)
+}
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
 // can be used to limit the number of point light shadows to render based on the device and
@@ -615,8 +706,10 @@ pub(crate) fn point_light_order(
 pub(crate) struct PointLightAssignmentData {
     entity: Entity,
     translation: Vec3,
+    spotlight_direction: Vec3,
     range: f32,
     shadows_enabled: bool,
+    spotlight_angle_cos_sin: Option<(f32, f32)>,
 }
 
 #[derive(Default)]
@@ -654,6 +747,7 @@ pub(crate) fn assign_lights_to_clusters(
     )>,
     lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
+    mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_point_lights_warning_emitted: Local<bool>,
     render_device: Option<Res<RenderDevice>>,
 ) {
@@ -673,8 +767,10 @@ pub(crate) fn assign_lights_to_clusters(
                 |(entity, transform, light, _visibility)| PointLightAssignmentData {
                     entity,
                     translation: transform.translation,
+                    spotlight_direction: (transform.rotation * Vec3::Z).normalize(),
                     shadows_enabled: light.shadows_enabled,
                     range: light.range,
+                    spotlight_angle_cos_sin: light.spotlight_angles.map(|(_inner, outer)| (outer.cos(), outer.sin())),
                 },
             ),
     );
@@ -877,10 +973,15 @@ pub(crate) fn assign_lights_to_clusters(
         for lights in clusters.lights.iter_mut() {
             lights.entities.clear();
         }
+        let cluster_count = (clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z) as usize;
         clusters.lights.resize_with(
-            (clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z) as usize,
+            cluster_count,
             VisiblePointLights::default,
         );
+
+        // initialize empty cluster bounding spheres
+        cluster_aabb_spheres.clear();
+        cluster_aabb_spheres.extend(std::iter::repeat(None).take(cluster_count));
 
         // Calculate the x/y/z cluster frustum planes in view space
         let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
@@ -991,6 +1092,7 @@ pub(crate) fn assign_lights_to_clusters(
                     center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
                     radius: light_sphere.radius,
                 };
+                let view_light_direction = (inverse_view_transform * light.spotlight_direction.extend(0.0)).truncate();
                 let light_center_clip =
                     camera.projection_matrix * view_light_sphere.center.extend(1.0);
                 let light_center_ndc = light_center_clip.xyz() / light_center_clip.w;
@@ -1084,9 +1186,41 @@ pub(crate) fn assign_lights_to_clusters(
                         let mut cluster_index = ((y * clusters.dimensions.x + min_x)
                             * clusters.dimensions.z
                             + z) as usize;
-                        // Mark the clusters in the range as affected
-                        for _ in min_x..=max_x {
-                            clusters.lights[cluster_index].entities.push(light.entity);
+
+                        // Mark all clusters in the range as affected
+                        for x in min_x..=max_x {
+                            if let Some((angle_cos, angle_sin)) = light.spotlight_angle_cos_sin {
+                                // get or initialize cluster bounding sphere
+                                let cluster_aabb_sphere = &mut cluster_aabb_spheres[cluster_index];
+                                let cluster_aabb_sphere = if let Some(sphere) = cluster_aabb_sphere {
+                                    &*sphere
+                                } else {
+                                    let aabb = compute_aabb_for_cluster(first_slice_depth, far_z, clusters.tile_size.as_vec2(), screen_size.as_vec2(), inverse_projection, is_orthographic, clusters.dimensions, UVec3::new(x, y, z));
+                                    let sphere = Sphere { center: aabb.center, radius: aabb.half_extents.length() };
+                                    *cluster_aabb_sphere = Some(sphere);
+                                    cluster_aabb_sphere.as_ref().unwrap()
+                                };
+                                
+                                // test -- based on https://bartwronski.com/2017/04/13/cull-that-cone/
+                                // we omit the front_cull test as we have already used point light sphere / plane testing to bound the tested clusters
+                                let spotlight_offset = Vec3::from(view_light_sphere.center - cluster_aabb_sphere.center);
+                                let spotlight_dist_sq = spotlight_offset.length_squared();
+                                let v1_len = spotlight_offset.dot(view_light_direction);
+
+                                let distance_closest_point = (angle_cos * (spotlight_dist_sq - v1_len * v1_len).sqrt()) - v1_len * angle_sin;
+                                let angle_cull = distance_closest_point > cluster_aabb_sphere.radius;
+
+                                let back_cull = v1_len < -cluster_aabb_sphere.radius;
+
+                                if !angle_cull && !back_cull {
+                                    // this cluster is affected by the spotlight
+                                    clusters.lights[cluster_index].entities.push(light.entity);
+                                }
+                            } else {
+                                // all clusters within range are affected by point lights
+                                clusters.lights[cluster_index].entities.push(light.entity);
+                            }
+    
                             cluster_index += clusters.dimensions.z as usize;
                         }
                     }
