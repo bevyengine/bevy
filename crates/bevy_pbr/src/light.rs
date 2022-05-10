@@ -15,7 +15,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
-use bevy_transform::{components::GlobalTransform};
+use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::warn;
 use bevy_window::Windows;
 
@@ -1071,10 +1071,6 @@ pub(crate) fn assign_lights_to_clusters(
         clusters
             .lights
             .resize_with(cluster_count, VisiblePointLights::default);
-
-        // initialize empty cluster bounding spheres
-        cluster_aabb_spheres.clear();
-        cluster_aabb_spheres.extend(std::iter::repeat(None).take(cluster_count));
 
         // initialize empty cluster bounding spheres
         cluster_aabb_spheres.clear();
