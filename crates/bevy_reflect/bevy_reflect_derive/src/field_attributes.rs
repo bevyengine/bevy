@@ -10,7 +10,7 @@ pub(crate) static IGNORE: &str = "ignore";
 #[derive(Default)]
 pub struct ReflectFieldAttr {
     /// Determines if this field should be ignored.
-    pub ignore: Option<bool>,
+    pub ignore: bool,
 }
 
 /// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).
@@ -42,7 +42,7 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
 fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
     match meta {
         Meta::Path(path) if path.is_ident(IGNORE) => {
-            args.ignore = Some(true);
+            args.ignore = true;
             Ok(())
         }
         Meta::Path(path) => Err(syn::Error::new(
@@ -68,5 +68,4 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
             Ok(())
         }
     }
-
 }

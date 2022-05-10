@@ -140,16 +140,12 @@ impl<'a> ReflectDeriveData<'a> {
 
     /// Get an iterator over the active fields
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields
-            .iter()
-            .filter(|field| !field.attrs.ignore.unwrap_or(false))
+        self.fields.iter().filter(|field| !field.attrs.ignore)
     }
 
     /// Get an iterator over the ignored fields
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields
-            .iter()
-            .filter(|field| field.attrs.ignore.unwrap_or(false))
+        self.fields.iter().filter(|field| field.attrs.ignore)
     }
 
     /// Get a collection of all active types
