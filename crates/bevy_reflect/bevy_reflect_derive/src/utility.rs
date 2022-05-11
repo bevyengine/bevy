@@ -2,8 +2,9 @@ use bevy_macro_utils::BevyManifest;
 use proc_macro2::{Ident, Span};
 use syn::Path;
 
+/// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
-    BevyManifest::default().get_path("bevy_reflect")
+    BevyManifest::just_get_path("bevy_reflect")
 }
 
 /// Returns the "reflected" ident for a given string.
