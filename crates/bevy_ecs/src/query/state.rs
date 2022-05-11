@@ -864,6 +864,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                     if table.is_empty() {
                         continue;
                     }
+
                     let mut offset = 0;
                     while offset < table.len() {
                         let func = func.clone();
@@ -900,6 +901,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                     if archetype.is_empty() {
                         continue;
                     }
+
                     while offset < archetype.len() {
                         let func = func.clone();
                         scope.spawn(async move {

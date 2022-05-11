@@ -93,7 +93,6 @@ where
                         self.filter.set_table(&self.query_state.filter_state, table);
                         self.current_len = table.len();
                         self.current_index = 0;
-                        continue;
                     }
 
                     if !self.filter.table_filter_fetch(self.current_index) {
@@ -127,7 +126,6 @@ where
                         );
                         self.current_len = archetype.len();
                         self.current_index = 0;
-                        continue;
                     }
 
                     if !self.filter.archetype_filter_fetch(self.current_index) {
@@ -450,7 +448,6 @@ where
                     self.filter.set_table(&query_state.filter_state, table);
                     self.current_len = table.len();
                     self.current_index = 0;
-                    continue;
                 }
 
                 if !self.filter.table_filter_fetch(self.current_index) {
@@ -478,7 +475,6 @@ where
                         .set_archetype(&query_state.filter_state, archetype, tables);
                     self.current_len = archetype.len();
                     self.current_index = 0;
-                    continue;
                 }
 
                 if !self.filter.archetype_filter_fetch(self.current_index) {
