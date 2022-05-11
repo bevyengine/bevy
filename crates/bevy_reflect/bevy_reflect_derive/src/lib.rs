@@ -1,3 +1,17 @@
+//! This crate contains macros used by Bevy's `Reflect` API.
+//!
+//! The main export of this crate is the derive macro for [`Reflect`]. This allows
+//! types to easily implement `Reflect` along with other `bevy_reflect` traits,
+//! such as `Struct`, `GetTypeRegistration`, and more— all with a single derive!
+//!
+//! Some other noteworthy exports include the derive macros for [`FromReflect`] and
+//! [`TypeUuid`], as well as the [`reflect_trait`] attribute macro.
+//!
+//! [`Reflect`]: crate::derive_reflect
+//! [`FromReflect`]: crate::derive_from_reflect
+//! [`TypeUuid`]: crate::type_uuid_derive
+//! [`reflect_trait`]: crate::reflect_trait
+
 extern crate proc_macro;
 
 mod container_attributes;
