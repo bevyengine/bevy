@@ -10,6 +10,7 @@ use bevy_ptr::OwningPtr;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
+    borrow::Cow,
 };
 
 /// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
@@ -157,7 +158,7 @@ impl SparseSetIndex for ComponentId {
 }
 
 pub struct ComponentDescriptor {
-    name: String,
+    name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
     // associated rust component type if one exists.
     storage_type: StorageType,
@@ -175,7 +176,7 @@ pub struct ComponentDescriptor {
 impl std::fmt::Debug for ComponentDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ComponentDescriptor")
-            .field("name", &self.name)
+            .field("name", self.name.as_ref())
             .field("storage_type", &self.storage_type)
             .field("is_send_and_sync", &self.is_send_and_sync)
             .field("type_id", &self.type_id)
@@ -192,7 +193,7 @@ impl ComponentDescriptor {
 
     pub fn new<T: Component>() -> Self {
         Self {
-            name: std::any::type_name::<T>().to_string(),
+            name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type: T::Storage::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
@@ -206,7 +207,7 @@ impl ComponentDescriptor {
     /// The [`StorageType`] for resources is always [`TableStorage`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
-            name: std::any::type_name::<T>().to_string(),
+            name: Cow::Borrowed(std::any::type_name::<T>()),
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
@@ -219,7 +220,7 @@ impl ComponentDescriptor {
 
     fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            name: std::any::type_name::<T>().to_string(),
+            name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
@@ -240,7 +241,7 @@ impl ComponentDescriptor {
 
     #[inline]
     pub fn name(&self) -> &str {
-        &self.name
+        self.name.as_ref()
     }
 }
 
