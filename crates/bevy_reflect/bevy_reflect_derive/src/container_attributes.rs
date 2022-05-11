@@ -60,19 +60,11 @@ impl ReflectAttrs {
                         match list_nested {
                             NestedMeta::Meta(Meta::Path(path)) => {
                                 if let Some(segment) = path.segments.iter().next() {
+                                    let trait_impl = TraitImpl::Custom(segment.ident.clone());
                                     match ident.as_str() {
-                                        PARTIAL_EQ_ATTR => {
-                                            attrs.reflect_partial_eq =
-                                                TraitImpl::Custom(segment.ident.clone());
-                                        }
-                                        HASH_ATTR => {
-                                            attrs.reflect_hash =
-                                                TraitImpl::Custom(segment.ident.clone());
-                                        }
-                                        SERIALIZE_ATTR => {
-                                            attrs.serialize =
-                                                TraitImpl::Custom(segment.ident.clone());
-                                        }
+                                        PARTIAL_EQ_ATTR => attrs.reflect_partial_eq = trait_impl,
+                                        HASH_ATTR => attrs.reflect_hash = trait_impl,
+                                        SERIALIZE_ATTR => attrs.serialize = trait_impl,
                                         _ => {}
                                     }
                                 }
