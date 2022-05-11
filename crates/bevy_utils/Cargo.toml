@@ -13,7 +13,7 @@ ahash = "0.7.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 uuid = { version = "0.8", features = ["v4", "serde"] }
-hashbrown = { version = "0.11", features = ["serde"] }
+hashbrown = { version = "0.12", features = ["serde"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = {version = "0.2.0", features = ["js"]}
