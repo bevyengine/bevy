@@ -6,7 +6,15 @@ use std::{
 };
 
 /// A static-sized array of [`Reflect`] items.
-/// This corresponds to types like `[T; N]` (arrays)
+///
+/// This corresponds to types like `[T; N]` (arrays).
+///
+/// Currently, this only supports arrays of up to 32 items. It can technically
+/// contain more than 32, but the blanket [`GetTypeRegistration`] is only
+/// implemented up to the 32 item limit due to a [limitation] on `Deserialize`.
+///
+/// [`GetTypeRegistration`]: crate::GetTypeRegistration
+/// [limitation]: https://github.com/serde-rs/serde/issues/1937
 pub trait Array: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
@@ -29,6 +37,15 @@ pub trait Array: Reflect {
     }
 }
 
+/// A fixed-size list of reflected values.
+///
+/// This differs from [`DynamicList`] in that the size of the [`DynamicArray`]
+/// is constant, whereas a [`DynamicList`] can have items added and removed.
+///
+/// This isn't to say that a [`DynamicArray`] is immutable— its items
+/// can be mutated— just that the _number_ of items cannot change.
+///
+/// [`DynamicList`]: crate::DynamicList
 pub struct DynamicArray {
     pub(crate) name: String,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
@@ -168,6 +185,7 @@ impl Array for DynamicArray {
     }
 }
 
+/// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
     pub(crate) array: &'a dyn Array,
     pub(crate) index: usize,
@@ -210,6 +228,7 @@ impl serde::Serialize for DynamicArray {
     }
 }
 
+/// Serializes the given [array](Array).
 #[inline]
 pub fn array_serialize<A: Array + ?Sized, S>(array: &A, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -228,6 +247,7 @@ where
     seq.end()
 }
 
+/// Returns the `u64` hash of the given [array](Array).
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
     let mut hasher = crate::ReflectHasher::default();
@@ -239,6 +259,13 @@ pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
     Some(hasher.finish())
 }
 
+/// Applies the reflected [array](Array) data to the given [array](Array).
+///
+/// # Panics
+///
+/// * Panics if the two arrays have differing lengths.
+/// * Panics if the reflected value is not a [valid array](ReflectRef::Array).
+///
 #[inline]
 pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
     if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {
@@ -254,6 +281,8 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
     }
 }
 
+/// Compares two [arrays](Array) (one concrete and one reflected) to see if they
+/// are equal.
 #[inline]
 pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bool> {
     match reflect.reflect_ref() {
