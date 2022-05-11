@@ -85,6 +85,10 @@ where
                     if self.current_index == self.current_len {
                         let table_id = self.table_id_iter.next()?;
                         let table = &self.tables[*table_id];
+                        if table.is_empty() {
+                            continue;
+                        }
+
                         self.fetch.set_table(&self.query_state.fetch_state, table);
                         self.filter.set_table(&self.query_state.filter_state, table);
                         self.current_len = table.len();
@@ -107,6 +111,10 @@ where
                     if self.current_index == self.current_len {
                         let archetype_id = self.archetype_id_iter.next()?;
                         let archetype = &self.archetypes[*archetype_id];
+                        if archetype.is_empty() {
+                            continue;
+                        }
+
                         self.fetch.set_archetype(
                             &self.query_state.fetch_state,
                             archetype,
