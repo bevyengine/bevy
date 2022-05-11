@@ -9,10 +9,11 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_core::cast_slice;
+use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use bevy_utils::{EnumVariantMeta, Hashed};
+use bevy_utils::Hashed;
 use std::{collections::BTreeMap, hash::Hash};
 use thiserror::Error;
 use wgpu::{
@@ -73,7 +74,7 @@ impl Mesh {
 
     /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Uint32);
+        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
@@ -606,7 +607,7 @@ impl VertexAttributeValues {
     }
 
     /// Returns the values as float triples if possible.
-    fn as_float3(&self) -> Option<&[[f32; 3]]> {
+    pub fn as_float3(&self) -> Option<&[[f32; 3]]> {
         match self {
             VertexAttributeValues::Float32x3(values) => Some(values),
             _ => None,
@@ -695,7 +696,7 @@ pub enum Indices {
 
 impl Indices {
     /// Returns an iterator over the indices.
-    fn iter(&self) -> impl Iterator<Item = usize> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         match self {
             Indices::U16(vec) => IndicesIter::U16(vec.iter()),
             Indices::U32(vec) => IndicesIter::U32(vec.iter()),

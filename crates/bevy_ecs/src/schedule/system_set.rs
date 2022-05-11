@@ -1,9 +1,9 @@
 use crate::schedule::{
     AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
-    RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel,
+    IntoSystemDescriptor, RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor,
+    SystemLabel,
 };
-
-use super::IntoSystemDescriptor;
+use crate::system::AsSystemLabel;
 
 /// A builder for describing several systems at the same time.
 #[derive(Default)]
@@ -95,14 +95,14 @@ impl SystemSet {
     }
 
     #[must_use]
-    pub fn before(mut self, label: impl SystemLabel) -> Self {
-        self.before.push(Box::new(label));
+    pub fn before<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> Self {
+        self.before.push(Box::new(label.as_system_label()));
         self
     }
 
     #[must_use]
-    pub fn after(mut self, label: impl SystemLabel) -> Self {
-        self.after.push(Box::new(label));
+    pub fn after<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> Self {
+        self.after.push(Box::new(label.as_system_label()));
         self
     }
 

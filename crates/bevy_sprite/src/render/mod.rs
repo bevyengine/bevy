@@ -5,7 +5,6 @@ use crate::{
     Rect, Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core::FloatOrd;
 use bevy_core_pipeline::Transparent2d;
 use bevy_ecs::{
     prelude::*,
@@ -27,6 +26,7 @@ use bevy_render::{
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
@@ -39,7 +39,7 @@ pub struct SpritePipeline {
 impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -184,6 +184,7 @@ pub struct ExtractedSprite {
     pub image_handle_id: HandleId,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub anchor: Vec2,
 }
 
 #[derive(Default)]
@@ -248,6 +249,7 @@ pub fn extract_sprites(
             flip_x: sprite.flip_x,
             flip_y: sprite.flip_y,
             image_handle_id: handle.id,
+            anchor: sprite.anchor.as_vec(),
         });
     }
     for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
@@ -266,6 +268,7 @@ pub fn extract_sprites(
                 flip_x: atlas_sprite.flip_x,
                 flip_y: atlas_sprite.flip_y,
                 image_handle_id: texture_atlas.texture.id,
+                anchor: atlas_sprite.anchor.as_vec(),
             });
         }
     }
@@ -428,7 +431,7 @@ pub fn queue_sprites(
                         gpu_images.get(&Handle::weak(new_batch.image_handle_id))
                     {
                         current_batch = new_batch;
-                        current_image_size = Vec2::new(gpu_image.size.width, gpu_image.size.height);
+                        current_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
                         current_batch_entity = commands.spawn_bundle((current_batch,)).id();
 
                         image_bind_groups
@@ -489,7 +492,7 @@ pub fn queue_sprites(
                 let positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
                     extracted_sprite
                         .transform
-                        .mul_vec3((quad_pos * quad_size).extend(0.))
+                        .mul_vec3(((quad_pos - extracted_sprite.anchor) * quad_size).extend(0.))
                         .into()
                 });
 

@@ -1,6 +1,4 @@
 use anyhow::Result;
-#[cfg(feature = "bevy_animation")]
-use bevy_animation::{AnimationClip, AnimationPlayer, EntityPath, Keyframes, VariableCurve};
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
@@ -8,14 +6,15 @@ use bevy_core::Name;
 use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
-use bevy_math::{Mat4, Quat, Vec3};
+use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     StandardMaterial,
 };
 use bevy_render::{
     camera::{
-        Camera, Camera2d, Camera3d, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        Camera, Camera3d, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        ScalingMode,
     },
     color::Color,
     mesh::{
@@ -88,10 +87,13 @@ impl AssetLoader for GltfLoader {
 
 impl FromWorld for GltfLoader {
     fn from_world(world: &mut World) -> Self {
+        let supported_compressed_formats = match world.get_resource::<RenderDevice>() {
+            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+
+            None => CompressedImageFormats::all(),
+        };
         Self {
-            supported_compressed_formats: CompressedImageFormats::from_features(
-                world.resource::<RenderDevice>().features(),
-            ),
+            supported_compressed_formats,
         }
     }
 }
@@ -130,21 +132,23 @@ async fn load_gltf<'a, 'b>(
 
     #[cfg(feature = "bevy_animation")]
     let paths = {
-        let mut paths = HashMap::<usize, Vec<Name>>::new();
+        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::new();
         for scene in gltf.scenes() {
             for node in scene.nodes() {
-                paths_recur(node, &[], &mut paths);
+                let root_index = node.index();
+                paths_recur(node, &[], &mut paths, root_index);
             }
         }
         paths
     };
 
     #[cfg(feature = "bevy_animation")]
-    let (animations, named_animations) = {
+    let (animations, named_animations, animation_roots) = {
         let mut animations = vec![];
         let mut named_animations = HashMap::default();
+        let mut animation_roots = HashSet::default();
         for animation in gltf.animations() {
-            let mut animation_clip = AnimationClip::default();
+            let mut animation_clip = bevy_animation::AnimationClip::default();
             for channel in animation.channels() {
                 match channel.sampler().interpolation() {
                     gltf::animation::Interpolation::Linear => (),
@@ -171,13 +175,15 @@ async fn load_gltf<'a, 'b>(
                 let keyframes = if let Some(outputs) = reader.read_outputs() {
                     match outputs {
                         gltf::animation::util::ReadOutputs::Translations(tr) => {
-                            Keyframes::Translation(tr.map(Vec3::from).collect())
+                            bevy_animation::Keyframes::Translation(tr.map(Vec3::from).collect())
                         }
                         gltf::animation::util::ReadOutputs::Rotations(rots) => {
-                            Keyframes::Rotation(rots.into_f32().map(Quat::from_array).collect())
+                            bevy_animation::Keyframes::Rotation(
+                                rots.into_f32().map(bevy_math::Quat::from_array).collect(),
+                            )
                         }
                         gltf::animation::util::ReadOutputs::Scales(scale) => {
-                            Keyframes::Scale(scale.map(Vec3::from).collect())
+                            bevy_animation::Keyframes::Scale(scale.map(Vec3::from).collect())
                         }
                         gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
                             warn!("Morph animation property not yet supported");
@@ -189,12 +195,13 @@ async fn load_gltf<'a, 'b>(
                     return Err(GltfError::MissingAnimationSampler(animation.index()));
                 };
 
-                if let Some(path) = paths.get(&node.index()) {
+                if let Some((root_index, path)) = paths.get(&node.index()) {
+                    animation_roots.insert(root_index);
                     animation_clip.add_curve_to_path(
-                        EntityPath {
+                        bevy_animation::EntityPath {
                             parts: path.clone(),
                         },
-                        VariableCurve {
+                        bevy_animation::VariableCurve {
                             keyframe_timestamps,
                             keyframes,
                         },
@@ -215,7 +222,7 @@ async fn load_gltf<'a, 'b>(
             }
             animations.push(handle);
         }
-        (animations, named_animations)
+        (animations, named_animations, animation_roots)
     };
 
     let mut meshes = vec![];
@@ -262,12 +269,12 @@ async fn load_gltf<'a, 'b>(
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
-            // if let Some(vertex_attribute) = reader
-            //     .read_colors(0)
-            //     .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
-            // {
-            //     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
-            // }
+            if let Some(vertex_attribute) = reader
+                .read_colors(0)
+                .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
+            {
+                mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            }
 
             if let Some(iter) = reader.read_joints(0) {
                 let vertex_attribute = VertexAttributeValues::Uint16x4(iter.into_u16().collect());
@@ -467,10 +474,16 @@ async fn load_gltf<'a, 'b>(
         }
 
         #[cfg(feature = "bevy_animation")]
-        if !animations.is_empty() {
-            world
-                .entity_mut(*node_index_to_entity_map.get(&0).unwrap())
-                .insert(AnimationPlayer::default());
+        {
+            // for each node root in a scene, check if it's the root of an animation
+            // if it is, add the AnimationPlayer component
+            for node in scene.nodes() {
+                if animation_roots.contains(&node.index()) {
+                    world
+                        .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
+                        .insert(bevy_animation::AnimationPlayer::default());
+                }
+            }
         }
 
         for (&entity, &skin_index) in &entity_to_skin_index_map {
@@ -518,15 +531,27 @@ async fn load_gltf<'a, 'b>(
     Ok(())
 }
 
-fn paths_recur(node: Node, current_path: &[Name], paths: &mut HashMap<usize, Vec<Name>>) {
-    if let Some(name) = node.name() {
-        let mut path = current_path.to_owned();
-        path.push(Name::new(name.to_string()));
-        for child in node.children() {
-            paths_recur(child, &path, paths);
-        }
-        paths.insert(node.index(), path);
+fn node_name(node: &Node) -> Name {
+    let name = node
+        .name()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("GltfNode{}", node.index()));
+    Name::new(name)
+}
+
+#[cfg(feature = "bevy_animation")]
+fn paths_recur(
+    node: Node,
+    current_path: &[Name],
+    paths: &mut HashMap<usize, (usize, Vec<Name>)>,
+    root_index: usize,
+) {
+    let mut path = current_path.to_owned();
+    path.push(node_name(&node));
+    for child in node.children() {
+        paths_recur(child, &path, paths, root_index);
     }
+    paths.insert(node.index(), (root_index, path));
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
@@ -678,8 +703,12 @@ fn load_node(
         Mat4::from_cols_array_2d(&transform.matrix()),
     )));
 
-    if let Some(name) = gltf_node.name() {
-        node.insert(Name::new(name.to_string()));
+    node.insert(node_name(gltf_node));
+
+    if let Some(extras) = gltf_node.extras() {
+        node.insert(super::GltfExtras {
+            value: extras.get().to_string(),
+        });
     }
 
     // create camera node
@@ -694,22 +723,22 @@ fn load_node(
         match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
                 let xmag = orthographic.xmag();
-                let ymag = orthographic.ymag();
                 let orthographic_projection: OrthographicProjection = OrthographicProjection {
-                    left: -xmag,
-                    right: xmag,
-                    top: ymag,
-                    bottom: -ymag,
                     far: orthographic.zfar(),
                     near: orthographic.znear(),
+                    scaling_mode: ScalingMode::FixedHorizontal,
+                    scale: xmag / 2.0,
                     ..Default::default()
                 };
 
                 node.insert(Camera {
                     projection_matrix: orthographic_projection.get_projection_matrix(),
+                    near: orthographic_projection.near,
+                    far: orthographic_projection.far,
                     ..Default::default()
                 });
-                node.insert(orthographic_projection).insert(Camera2d);
+                node.insert(orthographic_projection);
+                node.insert(Camera3d);
             }
             gltf::camera::Projection::Perspective(perspective) => {
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
@@ -759,21 +788,27 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                let node = parent
-                    .spawn_bundle(PbrBundle {
-                        mesh: load_context.get_handle(mesh_asset_path),
-                        material: load_context.get_handle(material_asset_path),
-                        ..Default::default()
-                    })
-                    .insert(Aabb::from_min_max(
-                        Vec3::from_slice(&bounds.min),
-                        Vec3::from_slice(&bounds.max),
-                    ))
-                    .id();
+                let mut mesh_entity = parent.spawn_bundle(PbrBundle {
+                    mesh: load_context.get_handle(mesh_asset_path),
+                    material: load_context.get_handle(material_asset_path),
+                    ..Default::default()
+                });
+                mesh_entity.insert(Aabb::from_min_max(
+                    Vec3::from_slice(&bounds.min),
+                    Vec3::from_slice(&bounds.max),
+                ));
 
+                if let Some(extras) = primitive.extras() {
+                    mesh_entity.insert(super::GltfExtras {
+                        value: extras.get().to_string(),
+                    });
+                }
+                if let Some(name) = mesh.name() {
+                    mesh_entity.insert(Name::new(name.to_string()));
+                }
                 // Mark for adding skinned mesh
                 if let Some(skin) = gltf_node.skin() {
-                    entity_to_skin_index_map.insert(node, skin.index());
+                    entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
                 }
             }
         }
@@ -794,6 +829,11 @@ fn load_node(
                     if let Some(name) = light.name() {
                         entity.insert(Name::new(name.to_string()));
                     }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
                     let mut entity = parent.spawn_bundle(PointLightBundle {
@@ -811,6 +851,11 @@ fn load_node(
                     });
                     if let Some(name) = light.name() {
                         entity.insert(Name::new(name.to_string()));
+                    }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {

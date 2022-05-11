@@ -73,6 +73,12 @@ impl AnimationClip {
         &self.curves
     }
 
+    /// Duration of the clip, represented in seconds
+    #[inline]
+    pub fn duration(&self) -> f32 {
+        self.duration
+    }
+
     /// Add a [`VariableCurve`] to an [`EntityPath`].
     pub fn add_curve_to_path(&mut self, path: EntityPath, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
@@ -218,6 +224,18 @@ pub fn animation_player(
                 }
                 if let Ok(mut transform) = transforms.get_mut(current_entity) {
                     for curve in curves {
+                        // Some curves have only one keyframe used to set a transform
+                        if curve.keyframe_timestamps.len() == 1 {
+                            match &curve.keyframes {
+                                Keyframes::Rotation(keyframes) => transform.rotation = keyframes[0],
+                                Keyframes::Translation(keyframes) => {
+                                    transform.translation = keyframes[0]
+                                }
+                                Keyframes::Scale(keyframes) => transform.scale = keyframes[0],
+                            }
+                            continue;
+                        }
+
                         // Find the current keyframe
                         // PERF: finding the current keyframe can be optimised
                         let step_start = match curve

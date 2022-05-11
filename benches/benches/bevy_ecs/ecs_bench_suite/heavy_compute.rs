@@ -42,9 +42,7 @@ impl Benchmark {
         world.insert_resource(TaskPool::default());
         let mut system = IntoSystem::into_system(sys);
         system.initialize(&mut world);
-        for archetype in world.archetypes().iter() {
-            system.new_archetype(archetype);
-        }
+        system.update_archetype_component_access(&world);
 
         Self(world, Box::new(system))
     }

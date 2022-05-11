@@ -1,23 +1,6 @@
 use syn::DeriveInput;
 
-use crate::Symbol;
-
-pub fn get_attr_meta_items(
-    attr: &syn::Attribute,
-    attr_name: &'static str,
-) -> syn::Result<Vec<syn::NestedMeta>> {
-    if !attr.path.is_ident(attr_name) {
-        return Ok(Vec::new());
-    }
-
-    match attr.parse_meta()? {
-        syn::Meta::List(meta) => Ok(meta.nested.into_iter().collect()),
-        other => Err(syn::Error::new_spanned(
-            other,
-            format!("expected #[{}(...)]", attr_name),
-        )),
-    }
-}
+use crate::symbol::Symbol;
 
 pub fn parse_attrs(ast: &DeriveInput, attr_name: Symbol) -> syn::Result<Vec<syn::NestedMeta>> {
     let mut list = Vec::new();
