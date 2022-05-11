@@ -38,59 +38,50 @@ impl ReflectAttrs {
         let mut attrs = ReflectAttrs::default();
         for nested_meta in nested_metas.iter() {
             match nested_meta {
-                NestedMeta::Lit(_) => {}
-                NestedMeta::Meta(meta) => match meta {
-                    Meta::Path(path) => {
-                        if let Some(segment) = path.segments.iter().next() {
-                            let ident = segment.ident.to_string();
-                            match ident.as_str() {
-                                PARTIAL_EQ_ATTR => {
-                                    attrs.reflect_partial_eq = TraitImpl::Implemented
-                                }
-                                HASH_ATTR => attrs.reflect_hash = TraitImpl::Implemented,
-                                SERIALIZE_ATTR => attrs.serialize = TraitImpl::Implemented,
-                                _ => attrs.data.push(utility::get_reflect_ident(&ident)),
-                            }
+                NestedMeta::Meta(Meta::Path(path)) => {
+                    if let Some(segment) = path.segments.iter().next() {
+                        let ident = segment.ident.to_string();
+                        match ident.as_str() {
+                            PARTIAL_EQ_ATTR => attrs.reflect_partial_eq = TraitImpl::Implemented,
+                            HASH_ATTR => attrs.reflect_hash = TraitImpl::Implemented,
+                            SERIALIZE_ATTR => attrs.serialize = TraitImpl::Implemented,
+                            _ => attrs.data.push(utility::get_reflect_ident(&ident)),
                         }
                     }
-                    Meta::List(list) => {
-                        let ident = if let Some(segment) = list.path.segments.iter().next() {
-                            segment.ident.to_string()
-                        } else {
-                            continue;
-                        };
+                }
+                NestedMeta::Meta(Meta::List(list)) => {
+                    let ident = if let Some(segment) = list.path.segments.iter().next() {
+                        segment.ident.to_string()
+                    } else {
+                        continue;
+                    };
 
-                        if let Some(list_nested) = list.nested.iter().next() {
-                            match list_nested {
-                                NestedMeta::Meta(list_nested_meta) => match list_nested_meta {
-                                    Meta::Path(path) => {
-                                        if let Some(segment) = path.segments.iter().next() {
-                                            match ident.as_str() {
-                                                PARTIAL_EQ_ATTR => {
-                                                    attrs.reflect_partial_eq =
-                                                        TraitImpl::Custom(segment.ident.clone());
-                                                }
-                                                HASH_ATTR => {
-                                                    attrs.reflect_hash =
-                                                        TraitImpl::Custom(segment.ident.clone());
-                                                }
-                                                SERIALIZE_ATTR => {
-                                                    attrs.serialize =
-                                                        TraitImpl::Custom(segment.ident.clone());
-                                                }
-                                                _ => {}
-                                            }
+                    if let Some(list_nested) = list.nested.iter().next() {
+                        match list_nested {
+                            NestedMeta::Meta(Meta::Path(path)) => {
+                                if let Some(segment) = path.segments.iter().next() {
+                                    match ident.as_str() {
+                                        PARTIAL_EQ_ATTR => {
+                                            attrs.reflect_partial_eq =
+                                                TraitImpl::Custom(segment.ident.clone());
                                         }
+                                        HASH_ATTR => {
+                                            attrs.reflect_hash =
+                                                TraitImpl::Custom(segment.ident.clone());
+                                        }
+                                        SERIALIZE_ATTR => {
+                                            attrs.serialize =
+                                                TraitImpl::Custom(segment.ident.clone());
+                                        }
+                                        _ => {}
                                     }
-                                    Meta::List(_) => {}
-                                    Meta::NameValue(_) => {}
-                                },
-                                NestedMeta::Lit(_) => {}
+                                }
                             }
+                            _ => {}
                         }
                     }
-                    Meta::NameValue(_) => {}
-                },
+                }
+                _ => {}
             }
         }
 
