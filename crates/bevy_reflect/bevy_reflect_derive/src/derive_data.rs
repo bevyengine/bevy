@@ -1,10 +1,8 @@
-use crate::container_attributes::ReflectAttrs;
-use crate::field_attributes::{
-    parse_field_attrs, ReflectFieldAttr,
-};
+use crate::container_attributes::ReflectTraits;
+use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::utility::get_bevy_reflect_path;
-use syn::{Data, DataStruct, DeriveInput, Field, Fields, Generics, Ident, Meta, Path};
 use crate::{REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
+use syn::{Data, DataStruct, DeriveInput, Field, Fields, Generics, Ident, Meta, Path};
 
 pub(crate) enum DeriveType {
     Struct,
@@ -40,7 +38,7 @@ pub(crate) struct StructField<'a> {
 /// ```
 pub(crate) struct ReflectDeriveData<'a> {
     derive_type: DeriveType,
-    attrs: ReflectAttrs,
+    traits: ReflectTraits,
     type_name: &'a Ident,
     generics: &'a Generics,
     fields: Vec<StructField<'a>>,
@@ -54,7 +52,7 @@ impl<'a> ReflectDeriveData<'a> {
             derive_type: DeriveType::Value,
             generics: &input.generics,
             fields: Vec::new(),
-            attrs: ReflectAttrs::default(),
+            traits: ReflectTraits::default(),
             bevy_reflect_path: get_bevy_reflect_path(),
         };
 
@@ -70,10 +68,10 @@ impl<'a> ReflectDeriveData<'a> {
 
             if let Some(ident) = meta_list.path.get_ident() {
                 if ident == REFLECT_ATTRIBUTE_NAME {
-                    output.attrs = ReflectAttrs::from_nested_metas(&meta_list.nested);
+                    output.traits = ReflectTraits::from_nested_metas(&meta_list.nested);
                 } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
                     force_reflect_value = true;
-                    output.attrs = ReflectAttrs::from_nested_metas(&meta_list.nested);
+                    output.traits = ReflectTraits::from_nested_metas(&meta_list.nested);
                 }
             }
         }
@@ -161,9 +159,9 @@ impl<'a> ReflectDeriveData<'a> {
         &self.derive_type
     }
 
-    /// The list of reflect-related attributes on this struct.
-    pub fn attrs(&self) -> &ReflectAttrs {
-        &self.attrs
+    /// The registered reflect traits on this struct.
+    pub fn traits(&self) -> &ReflectTraits {
+        &self.traits
     }
 
     /// The name of this struct.
@@ -192,7 +190,7 @@ impl<'a> ReflectDeriveData<'a> {
         crate::registration::impl_get_type_registration(
             self.type_name,
             &self.bevy_reflect_path,
-            self.attrs.data(),
+            self.traits.idents(),
             self.generics,
         )
     }

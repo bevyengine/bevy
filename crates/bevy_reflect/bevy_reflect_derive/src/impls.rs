@@ -1,4 +1,4 @@
-use crate::container_attributes::{ReflectAttrs, TraitImpl};
+use crate::container_attributes::ReflectTraits;
 use crate::ReflectDeriveData;
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
@@ -34,15 +34,23 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = derive_data.attrs().get_hash_impl(bevy_reflect_path);
-    let serialize_fn = derive_data.attrs().get_serialize_impl(bevy_reflect_path);
-    let partial_eq_fn = match derive_data.attrs().reflect_partial_eq {
-        TraitImpl::NotImplemented => quote! {
-            use #bevy_reflect_path::Struct;
-            #bevy_reflect_path::struct_partial_eq(self, value)
-        },
-        TraitImpl::Implemented | TraitImpl::Custom(_) => derive_data.attrs().get_partial_eq_impl(),
-    };
+    let hash_fn = derive_data
+        .traits()
+        .get_hash_impl(bevy_reflect_path)
+        .unwrap_or_else(|| quote!(None));
+    let serialize_fn = derive_data
+        .traits()
+        .get_serialize_impl(bevy_reflect_path)
+        .unwrap_or_else(|| quote!(None));
+    let partial_eq_fn = derive_data
+        .traits()
+        .get_partial_eq_impl()
+        .unwrap_or_else(|| {
+            quote! {
+                use #bevy_reflect_path::Struct;
+                #bevy_reflect_path::struct_partial_eq(self, value)
+            }
+        });
 
     let get_type_registration_impl = derive_data.get_type_registration();
     let (impl_generics, ty_generics, where_clause) = derive_data.generics().split_for_impl();
@@ -185,15 +193,23 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = derive_data.attrs().get_hash_impl(bevy_reflect_path);
-    let serialize_fn = derive_data.attrs().get_serialize_impl(bevy_reflect_path);
-    let partial_eq_fn = match derive_data.attrs().reflect_partial_eq {
-        TraitImpl::NotImplemented => quote! {
-            use #bevy_reflect_path::TupleStruct;
-            #bevy_reflect_path::tuple_struct_partial_eq(self, value)
-        },
-        TraitImpl::Implemented | TraitImpl::Custom(_) => derive_data.attrs().get_partial_eq_impl(),
-    };
+    let hash_fn = derive_data
+        .traits()
+        .get_hash_impl(bevy_reflect_path)
+        .unwrap_or_else(|| quote!(None));
+    let serialize_fn = derive_data
+        .traits()
+        .get_serialize_impl(bevy_reflect_path)
+        .unwrap_or_else(|| quote!(None));
+    let partial_eq_fn = derive_data
+        .traits()
+        .get_partial_eq_impl()
+        .unwrap_or_else(|| {
+            quote! {
+                use #bevy_reflect_path::TupleStruct;
+                #bevy_reflect_path::tuple_struct_partial_eq(self, value)
+            }
+        });
 
     let (impl_generics, ty_generics, where_clause) = derive_data.generics().split_for_impl();
     TokenStream::from(quote! {
@@ -307,11 +323,17 @@ pub(crate) fn impl_value(
     generics: &Generics,
     get_type_registration_impl: proc_macro2::TokenStream,
     bevy_reflect_path: &Path,
-    reflect_attrs: &ReflectAttrs,
+    reflect_attrs: &ReflectTraits,
 ) -> TokenStream {
-    let hash_fn = reflect_attrs.get_hash_impl(bevy_reflect_path);
-    let partial_eq_fn = reflect_attrs.get_partial_eq_impl();
-    let serialize_fn = reflect_attrs.get_serialize_impl(bevy_reflect_path);
+    let hash_fn = reflect_attrs
+        .get_hash_impl(bevy_reflect_path)
+        .unwrap_or_else(|| quote!(None));
+    let partial_eq_fn = reflect_attrs
+        .get_partial_eq_impl()
+        .unwrap_or_else(|| quote!(None));
+    let serialize_fn = reflect_attrs
+        .get_serialize_impl(bevy_reflect_path)
+        .unwrap_or_else(|| quote!(None));
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {

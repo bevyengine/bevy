@@ -15,7 +15,11 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
 }
 
 /// Implements `FromReflect` for the given value type
-pub(crate) fn impl_value(type_name: &Ident, generics: &Generics, bevy_reflect_path: &Path) -> TokenStream {
+pub(crate) fn impl_value(
+    type_name: &Ident,
+    generics: &Generics,
+    bevy_reflect_path: &Path,
+) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
@@ -54,8 +58,7 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
     let MemberValuePair(active_members, active_values) =
         get_active_fields(derive_data, &ref_struct, is_tuple);
 
-    let default_ident = Ident::new("ReflectDefault", Span::call_site());
-    let constructor = if derive_data.attrs().data().contains(&default_ident) {
+    let constructor = if derive_data.traits().contains("ReflectDefault") {
         quote!(
             let mut __this = Self::default();
             #(

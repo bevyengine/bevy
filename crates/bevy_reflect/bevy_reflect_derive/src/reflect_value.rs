@@ -1,4 +1,4 @@
-use crate::container_attributes::ReflectAttrs;
+use crate::container_attributes::ReflectTraits;
 use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Paren, Where};
@@ -7,7 +7,7 @@ use syn::{parenthesized, Generics};
 pub(crate) struct ReflectValueDef {
     pub type_name: Ident,
     pub generics: Generics,
-    pub attrs: Option<ReflectAttrs>,
+    pub attrs: Option<ReflectTraits>,
 }
 
 impl Parse for ReflectValueDef {
@@ -25,7 +25,7 @@ impl Parse for ReflectValueDef {
         if lookahead.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            attrs = Some(content.parse::<ReflectAttrs>()?);
+            attrs = Some(content.parse::<ReflectTraits>()?);
         }
 
         Ok(ReflectValueDef {

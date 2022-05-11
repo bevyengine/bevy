@@ -38,7 +38,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
             derive_data.generics(),
             derive_data.get_type_registration(),
             derive_data.bevy_reflect_path(),
-            derive_data.attrs(),
+            derive_data.traits(),
         ),
     }
 }
@@ -50,7 +50,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let bevy_reflect_path = utility::get_bevy_reflect_path();
     let ty = &reflect_value_def.type_name;
     let reflect_attrs = reflect_value_def.attrs.unwrap_or_default();
-    let registration_data = &reflect_attrs.data();
+    let registration_data = &reflect_attrs.idents();
     let get_type_registration_impl = registration::impl_get_type_registration(
         ty,
         &bevy_reflect_path,
