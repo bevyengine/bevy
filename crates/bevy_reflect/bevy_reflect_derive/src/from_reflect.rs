@@ -5,17 +5,17 @@ use quote::quote;
 use syn::{Field, Generics, Ident, Index, Member, Path};
 
 /// Implements `FromReflect` for the given struct
-pub fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
+pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     impl_struct_internal(derive_data, false)
 }
 
 /// Implements `FromReflect` for the given tuple struct
-pub fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream {
+pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     impl_struct_internal(derive_data, true)
 }
 
 /// Implements `FromReflect` for the given value type
-pub fn impl_value(type_name: &Ident, generics: &Generics, bevy_reflect_path: &Path) -> TokenStream {
+pub(crate) fn impl_value(type_name: &Ident, generics: &Generics, bevy_reflect_path: &Path) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {

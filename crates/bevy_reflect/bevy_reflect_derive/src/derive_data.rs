@@ -6,7 +6,7 @@ use crate::utility::get_bevy_reflect_path;
 use syn::{Data, DataStruct, DeriveInput, Field, Fields, Generics, Ident, Meta, Path};
 use crate::{REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 
-pub enum DeriveType {
+pub(crate) enum DeriveType {
     Struct,
     TupleStruct,
     UnitStruct,
@@ -14,7 +14,7 @@ pub enum DeriveType {
 }
 
 /// Represents a field on a struct or tuple struct.
-pub struct StructField<'a> {
+pub(crate) struct StructField<'a> {
     /// The raw field.
     pub data: &'a Field,
     /// The reflection-based attributes on the field.
@@ -38,7 +38,7 @@ pub struct StructField<'a> {
 ///     z: T3  // |
 /// }
 /// ```
-pub struct ReflectDeriveData<'a> {
+pub(crate) struct ReflectDeriveData<'a> {
     derive_type: DeriveType,
     attrs: ReflectAttrs,
     type_name: &'a Ident,

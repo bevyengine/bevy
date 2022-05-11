@@ -5,7 +5,7 @@ use proc_macro2::Ident;
 use quote::quote;
 use syn::{Generics, Index, Member, Path};
 
-pub fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
+pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     let bevy_reflect_path = derive_data.bevy_reflect_path();
     let struct_name = derive_data.type_name();
 
@@ -173,7 +173,7 @@ pub fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     })
 }
 
-pub fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream {
+pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     let bevy_reflect_path = derive_data.bevy_reflect_path();
     let struct_name = derive_data.type_name();
     let get_type_registration_impl = derive_data.get_type_registration();
@@ -302,7 +302,7 @@ pub fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     })
 }
 
-pub fn impl_value(
+pub(crate) fn impl_value(
     type_name: &Ident,
     generics: &Generics,
     get_type_registration_impl: proc_macro2::TokenStream,

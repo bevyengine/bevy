@@ -4,7 +4,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::token::{Paren, Where};
 use syn::{parenthesized, Generics};
 
-pub struct ReflectValueDef {
+pub(crate) struct ReflectValueDef {
     pub type_name: Ident,
     pub generics: Generics,
     pub attrs: Option<ReflectAttrs>,

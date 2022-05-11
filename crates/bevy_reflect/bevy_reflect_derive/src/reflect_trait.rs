@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Parse, parse_macro_input, Attribute, ItemTrait, Token};
 
-pub struct TraitInfo {
+pub(crate) struct TraitInfo {
     item_trait: ItemTrait,
 }
 

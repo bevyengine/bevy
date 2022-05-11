@@ -7,7 +7,7 @@ pub(crate) static IGNORE: &str = "ignore";
 
 /// A container for reflection field configuration.
 #[derive(Default)]
-pub struct ReflectFieldAttr {
+pub(crate) struct ReflectFieldAttr {
     /// Determines if this field should be ignored.
     pub ignore: bool,
 }

@@ -13,7 +13,7 @@ const HASH_ATTR: &str = "Hash";
 const SERIALIZE_ATTR: &str = "Serialize";
 
 #[derive(Clone)]
-pub enum TraitImpl {
+pub(crate) enum TraitImpl {
     NotImplemented,
     Implemented,
     Custom(Ident),
@@ -26,7 +26,7 @@ impl Default for TraitImpl {
 }
 
 #[derive(Default)]
-pub struct ReflectAttrs {
+pub(crate) struct ReflectAttrs {
     reflect_hash: TraitImpl,
     pub(crate) reflect_partial_eq: TraitImpl,
     serialize: TraitImpl,
