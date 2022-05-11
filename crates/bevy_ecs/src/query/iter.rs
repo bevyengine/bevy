@@ -465,7 +465,7 @@ where
                 if self.current_index == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
                     let archetype = &archetypes[*archetype_id];
-                    if archetpe.is_empty() {
+                    if archetype.is_empty() {
                         continue;
                     }
 
