@@ -18,6 +18,9 @@ use quote::quote;
 use reflect_value::ReflectValueDef;
 use syn::{parse_macro_input, DeriveInput};
 
+pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
+pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
+
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

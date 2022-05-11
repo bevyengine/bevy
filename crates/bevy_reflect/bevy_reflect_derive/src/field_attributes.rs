@@ -1,9 +1,8 @@
+use crate::REFLECT_ATTRIBUTE_NAME;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Attribute, Meta, NestedMeta};
 
-pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
-pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 pub(crate) static IGNORE: &str = "ignore";
 
 /// A container for reflection field configuration.

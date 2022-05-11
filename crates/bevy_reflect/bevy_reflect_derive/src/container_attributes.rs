@@ -1,9 +1,16 @@
-use proc_macro2::{Ident, Span};
+use crate::utility;
+use proc_macro2::Ident;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
 use syn::{Meta, NestedMeta, Path};
+
+// Trait idents that are used internally for reflection.
+// Received via `#[reflect(PartialEq, Hash, ...)]`
+const PARTIAL_EQ_ATTR: &str = "PartialEq";
+const HASH_ATTR: &str = "Hash";
+const SERIALIZE_ATTR: &str = "Serialize";
 
 #[derive(Clone)]
 pub enum TraitImpl {
@@ -37,13 +44,12 @@ impl ReflectAttrs {
                         if let Some(segment) = path.segments.iter().next() {
                             let ident = segment.ident.to_string();
                             match ident.as_str() {
-                                "PartialEq" => attrs.reflect_partial_eq = TraitImpl::Implemented,
-                                "Hash" => attrs.reflect_hash = TraitImpl::Implemented,
-                                "Serialize" => attrs.serialize = TraitImpl::Implemented,
-                                _ => attrs.data.push(Ident::new(
-                                    &format!("Reflect{}", segment.ident),
-                                    Span::call_site(),
-                                )),
+                                PARTIAL_EQ_ATTR => {
+                                    attrs.reflect_partial_eq = TraitImpl::Implemented
+                                }
+                                HASH_ATTR => attrs.reflect_hash = TraitImpl::Implemented,
+                                SERIALIZE_ATTR => attrs.serialize = TraitImpl::Implemented,
+                                _ => attrs.data.push(utility::get_reflect_ident(&ident)),
                             }
                         }
                     }
@@ -60,15 +66,15 @@ impl ReflectAttrs {
                                     Meta::Path(path) => {
                                         if let Some(segment) = path.segments.iter().next() {
                                             match ident.as_str() {
-                                                "PartialEq" => {
+                                                PARTIAL_EQ_ATTR => {
                                                     attrs.reflect_partial_eq =
                                                         TraitImpl::Custom(segment.ident.clone());
                                                 }
-                                                "Hash" => {
+                                                HASH_ATTR => {
                                                     attrs.reflect_hash =
                                                         TraitImpl::Custom(segment.ident.clone());
                                                 }
-                                                "Serialize" => {
+                                                SERIALIZE_ATTR => {
                                                     attrs.serialize =
                                                         TraitImpl::Custom(segment.ident.clone());
                                                 }

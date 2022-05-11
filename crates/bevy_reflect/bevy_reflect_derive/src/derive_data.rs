@@ -1,9 +1,10 @@
 use crate::container_attributes::ReflectAttrs;
 use crate::field_attributes::{
-    parse_field_attrs, ReflectFieldAttr, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME,
+    parse_field_attrs, ReflectFieldAttr,
 };
 use crate::utility::get_bevy_reflect_path;
 use syn::{Data, DataStruct, DeriveInput, Field, Fields, Generics, Ident, Meta, Path};
+use crate::{REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 
 pub enum DeriveType {
     Struct,
