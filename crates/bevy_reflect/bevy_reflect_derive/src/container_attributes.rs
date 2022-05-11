@@ -139,20 +139,18 @@ impl ReflectTraits {
                         continue;
                     };
 
-                    match list.nested.iter().next() {
-                        Some(NestedMeta::Meta(Meta::Path(path))) => {
-                            if let Some(segment) = path.segments.iter().next() {
-                                // This should be the ident of the custom function
-                                let trait_func_ident = TraitImpl::Custom(segment.ident.clone());
-                                match ident.as_str() {
-                                    PARTIAL_EQ_ATTR => traits.partial_eq = trait_func_ident,
-                                    HASH_ATTR => traits.hash = trait_func_ident,
-                                    SERIALIZE_ATTR => traits.serialize = trait_func_ident,
-                                    _ => {}
-                                }
+                    let list_meta = list.nested.iter().next();
+                    if let Some(NestedMeta::Meta(Meta::Path(path))) = list_meta {
+                        if let Some(segment) = path.segments.iter().next() {
+                            // This should be the ident of the custom function
+                            let trait_func_ident = TraitImpl::Custom(segment.ident.clone());
+                            match ident.as_str() {
+                                PARTIAL_EQ_ATTR => traits.partial_eq = trait_func_ident,
+                                HASH_ATTR => traits.hash = trait_func_ident,
+                                SERIALIZE_ATTR => traits.serialize = trait_func_ident,
+                                _ => {}
                             }
                         }
-                        _ => {}
                     }
                 }
                 _ => {}
