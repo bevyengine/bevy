@@ -165,8 +165,8 @@ pub struct Window {
     raw_window_handle: RawWindowHandleWrapper,
     focused: bool,
     mode: WindowMode,
-    #[cfg(target_arch = "wasm32")]
-    pub canvas: Option<String>,
+    canvas: Option<String>,
+    fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
 }
 
@@ -266,8 +266,8 @@ impl Window {
             raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
             focused: true,
             mode: window_descriptor.mode,
-            #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
+            fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
         }
     }
@@ -584,6 +584,20 @@ impl Window {
     pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
         self.raw_window_handle.clone()
     }
+
+    /// The "html canvas" element selector, if it was configured for this window.
+    /// This value does not do anything on non-web platforms.
+    #[inline]
+    pub fn canvas(&self) -> Option<&str> {
+        self.canvas.as_deref()
+    }
+
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    /// This value does not do anything on non-web platforms.
+    #[inline]
+    pub fn fit_canvas_to_parent(&self) -> bool {
+        self.fit_canvas_to_parent
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -609,8 +623,13 @@ pub struct WindowDescriptor {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
-    #[cfg(target_arch = "wasm32")]
+    /// The "html canvas" element selector. If set, the given selector will be used to find a matching html canvas element,
+    /// rather than creating a new one.   
+    /// This value does not do anything on non-web platforms.
     pub canvas: Option<String>,
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    /// This value does not do anything on non-web platforms.
+    pub fit_canvas_to_parent: bool,
 }
 
 impl Default for WindowDescriptor {
@@ -629,8 +648,8 @@ impl Default for WindowDescriptor {
             cursor_visible: true,
             mode: WindowMode::Windowed,
             transparent: false,
-            #[cfg(target_arch = "wasm32")]
             canvas: None,
+            fit_canvas_to_parent: false,
         }
     }
 }
