@@ -607,7 +607,7 @@ impl VertexAttributeValues {
     }
 
     /// Returns the values as float triples if possible.
-    fn as_float3(&self) -> Option<&[[f32; 3]]> {
+    pub fn as_float3(&self) -> Option<&[[f32; 3]]> {
         match self {
             VertexAttributeValues::Float32x3(values) => Some(values),
             _ => None,
@@ -696,7 +696,7 @@ pub enum Indices {
 
 impl Indices {
     /// Returns an iterator over the indices.
-    fn iter(&self) -> impl Iterator<Item = usize> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         match self {
             Indices::U16(vec) => IndicesIter::U16(vec.iter()),
             Indices::U32(vec) => IndicesIter::U32(vec.iter()),
