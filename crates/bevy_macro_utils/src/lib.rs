@@ -90,7 +90,7 @@ impl BevyManifest {
     ///
     /// [`get_path`]: Self::get_path
     /// [manifest]: Self
-    pub fn just_get_path(name: &str) -> syn::Path {
+    pub fn get_path_direct(name: &str) -> syn::Path {
         Self::default().get_path(name)
     }
 
