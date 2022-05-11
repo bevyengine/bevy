@@ -1,3 +1,5 @@
+//! General-purpose utility functions for internal usage within this crate.
+
 use bevy_macro_utils::BevyManifest;
 use proc_macro2::{Ident, Span};
 use syn::Path;

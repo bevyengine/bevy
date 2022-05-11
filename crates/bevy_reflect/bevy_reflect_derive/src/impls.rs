@@ -5,6 +5,7 @@ use proc_macro2::Ident;
 use quote::quote;
 use syn::{Generics, Index, Member, Path};
 
+/// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     let bevy_reflect_path = derive_data.bevy_reflect_path();
     let struct_name = derive_data.type_name();
@@ -181,6 +182,7 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     })
 }
 
+/// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     let bevy_reflect_path = derive_data.bevy_reflect_path();
     let struct_name = derive_data.type_name();
@@ -318,6 +320,7 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
     })
 }
 
+/// Implements `GetTypeRegistration` and `Reflect` for the given type data.
 pub(crate) fn impl_value(
     type_name: &Ident,
     generics: &Generics,

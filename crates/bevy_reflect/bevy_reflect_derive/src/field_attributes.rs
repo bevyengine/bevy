@@ -1,11 +1,17 @@
+//! Contains code related to field attributes for reflected types.
+//!
+//! A field attribute is an attribute which applies to particular field or variant
+//! as opposed to an entire struct or enum. An example of such an attribute is
+//! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
+
 use crate::REFLECT_ATTRIBUTE_NAME;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Attribute, Meta, NestedMeta};
 
-pub(crate) static IGNORE: &str = "ignore";
+pub(crate) static IGNORE_ATTR: &str = "ignore";
 
-/// A container for reflection field configuration.
+/// A container for attributes defined on a field reflected type's field.
 #[derive(Default)]
 pub(crate) struct ReflectFieldAttr {
     /// Determines if this field should be ignored.
@@ -40,7 +46,7 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
 
 fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
     match meta {
-        Meta::Path(path) if path.is_ident(IGNORE) => {
+        Meta::Path(path) if path.is_ident(IGNORE_ATTR) => {
             args.ignore = true;
             Ok(())
         }
