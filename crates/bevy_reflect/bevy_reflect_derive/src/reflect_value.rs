@@ -4,10 +4,24 @@ use syn::parse::{Parse, ParseStream};
 use syn::token::{Paren, Where};
 use syn::{parenthesized, Generics};
 
+/// A struct used to define a simple reflected value type (such as primitives).
+///
+/// This takes the form:
+///
+/// ```ignore
+/// // Standard
+/// foo(TraitA, TraitB)
+///
+/// // With generics
+/// foo<T1: Bar, T2>(TraitA, TraitB)
+///
+/// // With generics and where clause
+/// foo<T1, T2> where T1: Bar (TraitA, TraitB)
+/// ```
 pub(crate) struct ReflectValueDef {
     pub type_name: Ident,
     pub generics: Generics,
-    pub attrs: Option<ReflectTraits>,
+    pub traits: Option<ReflectTraits>,
 }
 
 impl Parse for ReflectValueDef {
@@ -21,11 +35,11 @@ impl Parse for ReflectValueDef {
             lookahead = input.lookahead1();
         }
 
-        let mut attrs = None;
+        let mut traits = None;
         if lookahead.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            attrs = Some(content.parse::<ReflectTraits>()?);
+            traits = Some(content.parse::<ReflectTraits>()?);
         }
 
         Ok(ReflectValueDef {
@@ -34,7 +48,7 @@ impl Parse for ReflectValueDef {
                 where_clause,
                 ..generics
             },
-            attrs,
+            traits,
         })
     }
 }
