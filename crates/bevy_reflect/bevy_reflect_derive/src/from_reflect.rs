@@ -2,7 +2,7 @@ use crate::ReflectDeriveData;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
-use syn::{Field, Generics, Ident, Index, Member, Path};
+use syn::{Field, Generics, Ident, Index, Lit, LitInt, LitStr, Member, Path};
 
 /// Implements `FromReflect` for the given struct
 pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
@@ -56,7 +56,7 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
     let MemberValuePair(ignored_members, ignored_values) =
         get_ignored_fields(derive_data, is_tuple);
     let MemberValuePair(active_members, active_values) =
-        get_active_fields(derive_data, &ref_struct, is_tuple);
+        get_active_fields(derive_data, &ref_struct, &ref_struct_type, is_tuple);
 
     let constructor = if derive_data.traits().contains("ReflectDefault") {
         quote!(
@@ -95,7 +95,6 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
         {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
-                use #bevy_reflect_path::#ref_struct_type;
                 if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct) = reflect.reflect_ref() {
                     #constructor
                 } else {
@@ -107,8 +106,6 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
 }
 
 /// Get the collection of ignored field definitions
-///
-/// Each item in the collection takes the form: `field_ident: field_value`.
 fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> MemberValuePair {
     MemberValuePair::new(
         derive_data
@@ -126,11 +123,10 @@ fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> Member
 }
 
 /// Get the collection of active field definitions
-///
-/// Each item in the collection takes the form: `field_ident: field_value`.
 fn get_active_fields(
     derive_data: &ReflectDeriveData,
     dyn_struct_name: &Ident,
+    struct_type: &Ident,
     is_tuple: bool,
 ) -> MemberValuePair {
     let bevy_reflect_path = derive_data.bevy_reflect_path();
@@ -139,29 +135,15 @@ fn get_active_fields(
         derive_data
             .active_fields()
             .map(|field| {
-                let index = field.index;
-                let member = get_ident(field.data, index, is_tuple);
+                let member = get_ident(field.data, field.index, is_tuple);
+                let accessor = get_field_accessor(field.data, field.index, is_tuple);
                 let ty = field.data.ty.clone();
 
-                // Accesses the field on the given dynamic struct or tuple struct
-                let get_field = if is_tuple {
-                    quote! {
-                        #dyn_struct_name.field(#index)
-                    }
-                } else {
-                    let name = field
-                        .data
-                        .ident
-                        .as_ref()
-                        .map(|i| i.to_string())
-                        .unwrap_or_else(|| index.to_string());
-                    quote! {
-                        #dyn_struct_name.field(#name)
-                    }
-                };
-
                 let value = quote! { {
-                    <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?)?
+                    <#ty as #bevy_reflect_path::FromReflect>::from_reflect(
+                        // Accesses the field on the given dynamic struct or tuple struct
+                        #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor)?
+                    )?
                 }};
 
                 (member, value)
@@ -170,6 +152,7 @@ fn get_active_fields(
     )
 }
 
+/// Returns the member for a given field of a struct or tuple struct.
 fn get_ident(field: &Field, index: usize, is_tuple: bool) -> Member {
     if is_tuple {
         Member::Unnamed(Index::from(index))
@@ -179,5 +162,21 @@ fn get_ident(field: &Field, index: usize, is_tuple: bool) -> Member {
             .as_ref()
             .map(|ident| Member::Named(ident.clone()))
             .unwrap_or_else(|| Member::Unnamed(Index::from(index)))
+    }
+}
+
+/// Returns the accessor for a given field of a struct or tuple struct.
+///
+/// This differs from a member in that it needs to be a number for tuple structs
+/// and a string for standard structs.
+fn get_field_accessor(field: &Field, index: usize, is_tuple: bool) -> Lit {
+    if is_tuple {
+        Lit::Int(LitInt::new(&index.to_string(), Span::call_site()))
+    } else {
+        field
+            .ident
+            .as_ref()
+            .map(|ident| Lit::Str(LitStr::new(&ident.to_string(), Span::call_site())))
+            .unwrap_or_else(|| Lit::Str(LitStr::new(&index.to_string(), Span::call_site())))
     }
 }

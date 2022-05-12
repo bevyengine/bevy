@@ -48,7 +48,6 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
         .get_partial_eq_impl()
         .unwrap_or_else(|| {
             quote! {
-                use #bevy_reflect_path::Struct;
                 #bevy_reflect_path::struct_partial_eq(self, value)
             }
         });
@@ -208,7 +207,6 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
         .get_partial_eq_impl()
         .unwrap_or_else(|| {
             quote! {
-                use #bevy_reflect_path::TupleStruct;
                 #bevy_reflect_path::tuple_struct_partial_eq(self, value)
             }
         });
@@ -276,8 +274,7 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
 
             #[inline]
             fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
-                use #bevy_reflect_path::TupleStruct;
-                Box::new(self.clone_dynamic())
+                Box::new(#bevy_reflect_path::TupleStruct::clone_dynamic(self))
             }
             #[inline]
             fn set(&mut self, value: Box<dyn #bevy_reflect_path::Reflect>) -> Result<(), Box<dyn #bevy_reflect_path::Reflect>> {
@@ -287,10 +284,9 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
 
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                use #bevy_reflect_path::TupleStruct;
                 if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) = value.reflect_ref() {
                     for (i, value) in struct_value.iter_fields().enumerate() {
-                        self.field_mut(i).map(|v| v.apply(value));
+                        #bevy_reflect_path::TupleStruct::field_mut(self, i).map(|v| v.apply(value));
                     }
                 } else {
                     panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
