@@ -1224,7 +1224,6 @@ pub(crate) fn assign_lights_to_clusters(
                                 };
 
                                 // test -- based on https://bartwronski.com/2017/04/13/cull-that-cone/
-                                // we omit the front_cull test as we have already used point light sphere / plane testing to bound the tested clusters
                                 let spotlight_offset = Vec3::from(
                                     view_light_sphere.center - cluster_aabb_sphere.center,
                                 );
@@ -1237,9 +1236,10 @@ pub(crate) fn assign_lights_to_clusters(
                                 let angle_cull =
                                     distance_closest_point > cluster_aabb_sphere.radius;
 
+                                let front_cull = v1_len > cluster_aabb_sphere.radius + light.range;
                                 let back_cull = v1_len < -cluster_aabb_sphere.radius;
 
-                                if !angle_cull && !back_cull {
+                                if !angle_cull && !front_cull && !back_cull {
                                     // this cluster is affected by the spotlight
                                     clusters.lights[cluster_index].entities.push(light.entity);
                                 }
