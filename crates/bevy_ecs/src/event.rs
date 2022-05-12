@@ -392,7 +392,11 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// Determines if no events are available to be read without consuming any.
     /// If you need to consume the iterator you can use [`EventReader::clear`].
     ///
-    /// ## Example usage with .clear()
+    /// # Example
+    /// 
+    /// The following example shows a common pattern of this function in conjunction with `clear`
+    /// to avoid leaking events to the next schedule iteration while also checking if it was emitted.
+    /// 
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
