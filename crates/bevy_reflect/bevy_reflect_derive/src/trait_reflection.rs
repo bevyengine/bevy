@@ -1,10 +1,9 @@
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use quote::quote;
-use syn::{parse::Parse, parse_macro_input, Attribute, Ident, ItemTrait, Token};
+use syn::{parse::Parse, parse_macro_input, Attribute, ItemTrait, Token};
 
-pub struct TraitInfo {
+pub(crate) struct TraitInfo {
     item_trait: ItemTrait,
 }
 
@@ -22,13 +21,12 @@ impl Parse for TraitInfo {
     }
 }
 
-pub fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStream {
+pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStream {
     let trait_info = parse_macro_input!(input as TraitInfo);
     let item_trait = &trait_info.item_trait;
     let trait_ident = &item_trait.ident;
     let trait_vis = &item_trait.vis;
-    let reflect_trait_ident =
-        Ident::new(&format!("Reflect{}", item_trait.ident), Span::call_site());
+    let reflect_trait_ident = crate::utility::get_reflect_ident(&item_trait.ident.to_string());
     let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
     TokenStream::from(quote! {
         #item_trait

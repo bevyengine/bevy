@@ -85,7 +85,6 @@ mod tests {
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
     use ::serde::de::DeserializeSeed;
-    use ::serde::Serialize;
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
@@ -478,6 +477,7 @@ mod tests {
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
+        use ::serde::Serialize;
 
         #[test]
         fn vec3_serialization() {
