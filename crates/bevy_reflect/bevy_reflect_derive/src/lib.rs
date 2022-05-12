@@ -9,7 +9,7 @@
 //!
 //! [`Reflect`]: crate::derive_reflect
 //! [`FromReflect`]: crate::derive_from_reflect
-//! [`TypeUuid`]: crate::type_uuid_derive
+//! [`TypeUuid`]: crate::derive_type_uuid
 //! [`reflect_trait`]: crate::reflect_trait
 
 extern crate proc_macro;
@@ -128,7 +128,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 
 // From https://github.com/randomPoison/type-uuid
 #[proc_macro_derive(TypeUuid, attributes(uuid))]
-pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn derive_type_uuid(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     type_uuid::type_uuid_derive(input)
 }
 
