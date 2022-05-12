@@ -48,7 +48,7 @@ fn get_size(selector: &str) -> Option<LogicalSize<f32>> {
     ));
 }
 
-pub(crate) const WINIT_CANVAS_SELECTOR: &str = "canvas[data-raw-handle=\"1\"]";
+pub(crate) const WINIT_CANVAS_SELECTOR: &str = "canvas[data-raw-handle]";
 
 impl Default for CanvasParentResizeEventChannel {
     fn default() -> Self {
