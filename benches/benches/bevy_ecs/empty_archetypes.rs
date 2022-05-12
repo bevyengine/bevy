@@ -38,7 +38,6 @@ fn setup(parallel: bool, setup: impl FnOnce(&mut SystemStage)) -> (World, System
         world.insert_resource(ComputeTaskPool(TaskPool::default()));
     }
     setup(&mut stage);
-    stage.run(&mut world);
     (world, stage)
 }
 
@@ -46,9 +45,7 @@ fn setup(parallel: bool, setup: impl FnOnce(&mut SystemStage)) -> (World, System
 fn add_archetypes(world: &mut World, count: u16) {
     for i in 0..count {
         let mut e = world.spawn();
-        if i & 1 << 0 != 0 {
-            e.insert(A::<0>(1.0));
-        }
+        e.insert(A::<0>(1.0));
         if i & 1 << 1 != 0 {
             e.insert(A::<1>(1.0));
         }
@@ -107,6 +104,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
         world.clear_entities();
         let mut e = world.spawn();
         e.insert(A::<0>(1.0));
+        stage.run(&mut world);
         group.bench_with_input(
             BenchmarkId::new("iter", archetype_count),
             &archetype_count,
@@ -125,6 +123,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
         world.clear_entities();
         let mut e = world.spawn();
         e.insert(A::<0>(1.0));
+        stage.run(&mut world);
         group.bench_with_input(
             BenchmarkId::new("for_each", archetype_count),
             &archetype_count,
@@ -143,6 +142,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
         world.clear_entities();
         let mut e = world.spawn();
         e.insert(A::<0>(1.0));
+        stage.run(&mut world);
         group.bench_with_input(
             BenchmarkId::new("par_for_each", archetype_count),
             &archetype_count,
