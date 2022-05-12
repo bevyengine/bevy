@@ -210,9 +210,41 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.len(&self.events)
     }
 
-    /// Determines if are any events available to be read without consuming any.
+    /// Determines if no events are available to be read without consuming any.
+    /// If you need to consume the iterator you can use [`EventReader::clear`].
+    ///
+    /// # Example
+    ///
+    /// The following example shows a common pattern of this function in conjunction with `clear`
+    /// to avoid leaking events to the next schedule iteration while also checking if it was emitted.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct CollisionEvent;
+    ///
+    /// fn play_collision_sound(events: EventReader<CollisionEvent>) {
+    ///     if !events.is_empty() {
+    ///         events.clear();
+    ///         // Play a sound
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(play_collision_sound);
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Consumes the iterator.
+    ///
+    /// This means all currently available events will be removed before the next frame.
+    /// This is useful when multiple events are sent in a single frame and you want
+    /// to react to one or more events without needing to know how many were sent.
+    /// In those situations you generally want to consume those events to make sure they don't appear in the next frame.
+    ///
+    /// For more information see [`EventReader::is_empty()`].
+    pub fn clear(mut self) {
+        self.iter().last();
     }
 }
 
@@ -362,68 +394,6 @@ impl<I: DoubleEndedIterator> DoubleEndedIterator for ExactSize<I> {
 impl<I: Iterator> ExactSizeIterator for ExactSize<I> {
     fn len(&self) -> usize {
         self.len
-    }
-}
-
-impl<'w, 's, E: Event> EventReader<'w, 's, E> {
-    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
-    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
-    /// that happened before now.
-    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
-        self.iter_with_id().map(|(event, _id)| event)
-    }
-
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    pub fn iter_with_id(
-        &mut self,
-    ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
-    {
-        internal_event_reader(&mut self.last_event_count.0, &self.events).map(|(event, id)| {
-            trace!("EventReader::iter() -> {}", id);
-            (event, id)
-        })
-    }
-
-    /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
-    pub fn len(&self) -> usize {
-        internal_event_reader(&mut self.last_event_count.0.clone(), &self.events).len()
-    }
-
-    /// Determines if no events are available to be read without consuming any.
-    /// If you need to consume the iterator you can use [`EventReader::clear`].
-    ///
-    /// # Example
-    /// 
-    /// The following example shows a common pattern of this function in conjunction with `clear`
-    /// to avoid leaking events to the next schedule iteration while also checking if it was emitted.
-    /// 
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// struct CollisionEvent;
-    ///
-    /// fn play_collision_sound(events: EventReader<CollisionEvent>) {
-    ///     if !events.is_empty() {
-    ///         events.clear();
-    ///         // Play a sound
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(play_collision_sound);
-    /// ```
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Consumes the iterator.
-    ///
-    /// This means all currently available events will be removed before the next frame.
-    /// This is useful when multiple events are sent in a single frame and you want
-    /// to react to one or more events without needing to know how many were sent.
-    /// In those situations you generally want to consume those events to make sure they don't appear in the next frame.
-    ///
-    /// For more information see [`EventReader::is_empty()`].
-    pub fn clear(mut self) {
-        self.iter().last();
     }
 }
 
