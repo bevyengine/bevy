@@ -57,6 +57,42 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     }
 }
 
+/// Derives the `FromReflect` trait.
+///
+/// This macro supports the following field attributes:
+/// * `#[reflect(ignore)]`: Ignores the field. This requires the field to implement [`Default`].
+///
+#[proc_macro_derive(FromReflect, attributes(reflect))]
+pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let derive_data = match ReflectDeriveData::from_input(&ast) {
+        Ok(data) => data,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    match derive_data.derive_type() {
+        DeriveType::Struct | DeriveType::UnitStruct => from_reflect::impl_struct(&derive_data),
+        DeriveType::TupleStruct => from_reflect::impl_tuple_struct(&derive_data),
+        DeriveType::Value => from_reflect::impl_value(
+            derive_data.type_name(),
+            &ast.generics,
+            derive_data.bevy_reflect_path(),
+        ),
+    }
+}
+
+// From https://github.com/randomPoison/type-uuid
+#[proc_macro_derive(TypeUuid, attributes(uuid))]
+pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
+    type_uuid::type_uuid_derive(input)
+}
+
+#[proc_macro_attribute]
+pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
+    reflect_trait::reflect_trait(&args, input)
+}
+
 #[proc_macro]
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let reflect_value_def = parse_macro_input!(input as ReflectValueDef);
@@ -124,44 +160,6 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 
         #impl_from_struct
     })
-}
-
-// From https://github.com/randomPoison/type-uuid
-#[proc_macro_derive(TypeUuid, attributes(uuid))]
-pub fn derive_type_uuid(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    type_uuid::type_uuid_derive(input)
-}
-
-#[proc_macro_attribute]
-pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
-    reflect_trait::reflect_trait(&args, input)
-}
-
-/// Derives the `FromReflect` trait.
-///
-/// This macro supports the following field attributes:
-/// * `#[reflect(ignore)]`: Ignores the field. This requires the field to implement [`Default`].
-/// * `#[reflect(default)]`: If the field's value cannot be read, uses its [`Default`] implementation.
-/// * `#[reflect(default = "some_func")]`: If the field's value cannot be read, uses the function with the given name.
-///
-#[proc_macro_derive(FromReflect, attributes(reflect))]
-pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-
-    let derive_data = match ReflectDeriveData::from_input(&ast) {
-        Ok(data) => data,
-        Err(err) => return err.into_compile_error().into(),
-    };
-
-    match derive_data.derive_type() {
-        DeriveType::Struct | DeriveType::UnitStruct => from_reflect::impl_struct(&derive_data),
-        DeriveType::TupleStruct => from_reflect::impl_tuple_struct(&derive_data),
-        DeriveType::Value => from_reflect::impl_value(
-            derive_data.type_name(),
-            &ast.generics,
-            derive_data.bevy_reflect_path(),
-        ),
-    }
 }
 
 #[proc_macro]
