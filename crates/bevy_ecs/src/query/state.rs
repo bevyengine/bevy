@@ -896,11 +896,14 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                     let archetype = &archetypes[*archetype_id];
                     while offset < archetype.len() {
                         let func = func.clone();
-                        #[cfg(feature = "trace")]
-                        let subspan = span.clone();
                         scope.spawn(async move {
                             #[cfg(feature = "trace")]
-                            let _span_guard = subspan.enter();
+                            let _span_guard = bevy_utils::tracing::info_span!(
+                                "par_for_each",
+                                query = std::any::type_name::<Q>(),
+                                filter = std::any::type_name::<F>(),
+                                count = len,
+                            ).entered();
 
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
