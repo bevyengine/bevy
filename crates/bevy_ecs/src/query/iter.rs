@@ -316,8 +316,8 @@ where
         QueryIterationCursor {
             fetch,
             filter,
-            // SAFE: The associated IDs are exactly the same size and the iterator
-            // has identical layouts and lifetimes.
+            // SAFE: The associated IDs are exactly the same size and alignment and 
+            // the iterator has identical layouts and lifetimes.
             id_iter: if Self::IS_DENSE {
                 std::mem::transmute(query_state.matched_table_ids.iter())
             } else {
