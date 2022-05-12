@@ -2,7 +2,7 @@ use bevy::{
     ecs::{component::Component, query::WorldQuery},
     prelude::*,
 };
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
 /// This examples illustrates the usage of the `WorldQuery` derive macro, which allows
 /// defining custom query and filter types.
@@ -40,15 +40,15 @@ struct ComponentZ;
 
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct ReadOnlyCustomQuery<'w, T: Component + Debug, P: Component + Debug> {
+struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
-    a: &'w ComponentA,
-    b: Option<&'w ComponentB>,
-    nested: NestedQuery<'w>,
-    optional_nested: Option<NestedQuery<'w>>,
-    optional_tuple: Option<(&'w ComponentB, &'w ComponentZ)>,
-    generic: GenericQuery<'w, T, P>,
-    empty: EmptyQuery<'w>,
+    a: &'static ComponentA,
+    b: Option<&'static ComponentB>,
+    nested: NestedQuery,
+    optional_nested: Option<NestedQuery>,
+    optional_tuple: Option<(&'static ComponentB, &'static ComponentZ)>,
+    generic: GenericQuery<T, P>,
+    empty: EmptyQuery,
 }
 
 fn print_components_read_only(
@@ -74,49 +74,43 @@ fn print_components_read_only(
 // using the `derive` attribute.
 #[derive(WorldQuery)]
 #[world_query(mutable, derive(Debug))]
-struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
+struct CustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
-    a: &'w mut ComponentA,
-    b: Option<&'w mut ComponentB>,
-    nested: NestedQuery<'w>,
-    optional_nested: Option<NestedQuery<'w>>,
-    optional_tuple: Option<(NestedQuery<'w>, &'w mut ComponentZ)>,
-    generic: GenericQuery<'w, T, P>,
-    empty: EmptyQuery<'w>,
+    a: &'static mut ComponentA,
+    b: Option<&'static mut ComponentB>,
+    nested: NestedQuery,
+    optional_nested: Option<NestedQuery>,
+    optional_tuple: Option<(NestedQuery, &'static mut ComponentZ)>,
+    generic: GenericQuery<T, P>,
+    empty: EmptyQuery,
 }
 
 // This is a valid query as well, which would iterate over every entity.
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct EmptyQuery<'w> {
-    // The derive macro expect a lifetime. As Rust doesn't allow unused lifetimes, we need
-    // to use `PhantomData` as a work around.
-    #[world_query(ignore)]
-    _w: std::marker::PhantomData<&'w ()>,
+struct EmptyQuery {
+    empty: (),
 }
 
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct NestedQuery<'w> {
-    c: &'w ComponentC,
-    d: Option<&'w ComponentD>,
+struct NestedQuery {
+    c: &'static ComponentC,
+    d: Option<&'static ComponentD>,
 }
 
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct GenericQuery<'w, T: Component, P: Component> {
-    generic: (&'w T, &'w P),
+struct GenericQuery<T: Component, P: Component> {
+    generic: (&'static T, &'static P),
 }
 
 #[derive(WorldQuery)]
-#[world_query(filter)]
 struct QueryFilter<T: Component, P: Component> {
     _c: With<ComponentC>,
     _d: With<ComponentD>,
     _or: Or<(Added<ComponentC>, Changed<ComponentD>, Without<ComponentZ>)>,
     _generic_tuple: (With<T>, With<P>),
-    #[world_query(ignore)]
-    _tp: PhantomData<(T, P)>,
 }
 
 fn spawn(mut commands: Commands) {

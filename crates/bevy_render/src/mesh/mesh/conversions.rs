@@ -25,7 +25,6 @@
 //! ```
 
 use crate::mesh::VertexAttributeValues;
-use bevy_utils::EnumVariantMeta;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]

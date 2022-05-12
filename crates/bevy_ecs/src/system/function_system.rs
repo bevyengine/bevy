@@ -1,5 +1,6 @@
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
@@ -140,6 +141,7 @@ pub struct SystemState<Param: SystemParam> {
 impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
+        meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
         let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta);
         Self {
             meta,
@@ -305,6 +307,8 @@ pub struct InputMarker;
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
 /// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+///
+/// [`FunctionSystem`] must be `.initialized` before they can be run.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
     Param: SystemParam,
@@ -378,7 +382,7 @@ where
         let change_tick = world.increment_change_tick();
         let out = self.func.run(
             input,
-            self.param_state.as_mut().unwrap(),
+            self.param_state.as_mut().expect("System's param_state was not found. Did you forget to initialize this system before running it?"),
             &self.system_meta,
             world,
             change_tick,
@@ -389,13 +393,14 @@ where
 
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
-        let param_state = self.param_state.as_mut().unwrap();
+        let param_state = self.param_state.as_mut().expect("System's param_state was not found. Did you forget to initialize this system before running it?");
         param_state.apply(world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
+        self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,

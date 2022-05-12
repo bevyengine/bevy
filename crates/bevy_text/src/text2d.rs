@@ -3,16 +3,18 @@ use bevy_ecs::{
     bundle::Bundle,
     component::Component,
     entity::Entity,
-    query::{Changed, With},
+    event::EventReader,
+    query::Changed,
     reflect::ReflectComponent,
-    system::{Local, ParamSet, Query, Res, ResMut},
+    system::{Local, Query, Res, ResMut},
 };
-use bevy_math::{Size, Vec3};
+use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_window::{WindowId, Windows};
+use bevy_utils::HashSet;
+use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
     DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, VerticalAlign,
@@ -22,7 +24,7 @@ use crate::{
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Text2dSize {
-    pub size: Size,
+    pub size: Vec2,
 }
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
@@ -35,13 +37,13 @@ pub struct Text2dSize {
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Text2dBounds {
-    pub size: Size,
+    pub size: Vec2,
 }
 
 impl Default for Text2dBounds {
     fn default() -> Self {
         Self {
-            size: Size::new(f32::MAX, f32::MAX),
+            size: Vec2::new(f32::MAX, f32::MAX),
         }
     }
 }
@@ -73,7 +75,7 @@ pub fn extract_text2d_sprite(
         if !visibility.is_visible {
             continue;
         }
-        let (width, height) = (calculated_size.size.width, calculated_size.size.height);
+        let (width, height) = (calculated_size.size.x, calculated_size.size.y);
 
         if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
             let text_glyphs = &text_layout.glyphs;
@@ -123,49 +125,39 @@ pub fn extract_text2d_sprite(
     }
 }
 
-#[derive(Debug, Default)]
-pub struct QueuedText2d {
-    entities: Vec<Entity>,
-}
-
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn text2d_system(
-    mut queued_text: Local<QueuedText2d>,
+pub fn update_text2d_layout(
+    // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
+    mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
+    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
-    mut text_queries: ParamSet<(
-        Query<Entity, (With<Text2dSize>, Changed<Text>)>,
-        Query<(&Text, Option<&Text2dBounds>, &mut Text2dSize), With<Text2dSize>>,
+    mut text_query: Query<(
+        Entity,
+        Changed<Text>,
+        &Text,
+        Option<&Text2dBounds>,
+        &mut Text2dSize,
     )>,
 ) {
-    // Adds all entities where the text or the style has changed to the local queue
-    for entity in text_queries.p0().iter_mut() {
-        queued_text.entities.push(entity);
-    }
-
-    if queued_text.entities.is_empty() {
-        return;
-    }
-
+    // We need to consume the entire iterator, hence `last`
+    let factor_changed = scale_factor_changed.iter().last().is_some();
     let scale_factor = windows.scale_factor(WindowId::primary());
 
-    // Computes all text in the local queue
-    let mut new_queue = Vec::new();
-    let mut query = text_queries.p1();
-    for entity in queued_text.entities.drain(..) {
-        if let Ok((text, bounds, mut calculated_size)) = query.get_mut(entity) {
-            let text_bounds = match bounds {
-                Some(bounds) => Size {
-                    width: scale_value(bounds.size.width, scale_factor),
-                    height: scale_value(bounds.size.height, scale_factor),
-                },
-                None => Size::new(f32::MAX, f32::MAX),
+    for (entity, text_changed, text, maybe_bounds, mut calculated_size) in text_query.iter_mut() {
+        if factor_changed || text_changed || queue.remove(&entity) {
+            let text_bounds = match maybe_bounds {
+                Some(bounds) => Vec2::new(
+                    scale_value(bounds.size.x, scale_factor),
+                    scale_value(bounds.size.y, scale_factor),
+                ),
+                None => Vec2::new(f32::MAX, f32::MAX),
             };
             match text_pipeline.queue_text(
                 entity,
@@ -181,7 +173,7 @@ pub fn text2d_system(
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
-                    new_queue.push(entity);
+                    queue.insert(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {}.", e);
@@ -190,16 +182,14 @@ pub fn text2d_system(
                     let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
-                    calculated_size.size = Size {
-                        width: scale_value(text_layout_info.size.width, 1. / scale_factor),
-                        height: scale_value(text_layout_info.size.height, 1. / scale_factor),
-                    };
+                    calculated_size.size = Vec2::new(
+                        scale_value(text_layout_info.size.x, 1. / scale_factor),
+                        scale_value(text_layout_info.size.y, 1. / scale_factor),
+                    );
                 }
             }
         }
     }
-
-    queued_text.entities = new_queue;
 }
 
 pub fn scale_value(value: f32, factor: f64) -> f32 {

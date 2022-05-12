@@ -86,7 +86,7 @@ mod splash {
             .spawn_bundle(ImageBundle {
                 style: Style {
                     // This will center the logo
-                    margin: Rect::all(Val::Auto),
+                    margin: UiRect::all(Val::Auto),
                     // This will set the logo to be 200px wide, and auto adjust its height
                     size: Size::new(Val::Px(200.0), Val::Auto),
                     ..default()
@@ -150,7 +150,7 @@ mod game {
             .spawn_bundle(NodeBundle {
                 style: Style {
                     // This will center the current node
-                    margin: Rect::all(Val::Auto),
+                    margin: UiRect::all(Val::Auto),
                     // This will display its children in a column, from top to bottom. Unlike
                     // in Flexbox, Bevy origin is on bottom left, so the vertical axis is reversed
                     flex_direction: FlexDirection::ColumnReverse,
@@ -168,7 +168,7 @@ mod game {
                 // Display two lines of text, the second one with the current settings
                 parent.spawn_bundle(TextBundle {
                     style: Style {
-                        margin: Rect::all(Val::Px(50.0)),
+                        margin: UiRect::all(Val::Px(50.0)),
                         ..default()
                     },
                     text: Text::with_section(
@@ -184,7 +184,7 @@ mod game {
                 });
                 parent.spawn_bundle(TextBundle {
                     style: Style {
-                        margin: Rect::all(Val::Px(50.0)),
+                        margin: UiRect::all(Val::Px(50.0)),
                         ..default()
                     },
                     text: Text {
@@ -396,7 +396,7 @@ mod menu {
         // Common style for all buttons on the screen
         let button_style = Style {
             size: Size::new(Val::Px(250.0), Val::Px(65.0)),
-            margin: Rect::all(Val::Px(20.0)),
+            margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -406,7 +406,7 @@ mod menu {
             // This takes the icons out of the flexbox flow, to be positionned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
-            position: Rect {
+            position: UiRect {
                 left: Val::Px(10.0),
                 right: Val::Auto,
                 top: Val::Auto,
@@ -423,7 +423,7 @@ mod menu {
         commands
             .spawn_bundle(NodeBundle {
                 style: Style {
-                    margin: Rect::all(Val::Auto),
+                    margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
                     ..default()
@@ -436,7 +436,7 @@ mod menu {
                 // Display the game name
                 parent.spawn_bundle(TextBundle {
                     style: Style {
-                        margin: Rect::all(Val::Px(50.0)),
+                        margin: UiRect::all(Val::Px(50.0)),
                         ..default()
                     },
                     text: Text::with_section(
@@ -526,7 +526,7 @@ mod menu {
     fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: Rect::all(Val::Px(20.0)),
+            margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -540,7 +540,7 @@ mod menu {
         commands
             .spawn_bundle(NodeBundle {
                 style: Style {
-                    margin: Rect::all(Val::Auto),
+                    margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
                     ..default()
@@ -609,7 +609,7 @@ mod menu {
     ) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: Rect::all(Val::Px(20.0)),
+            margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -623,7 +623,7 @@ mod menu {
         commands
             .spawn_bundle(NodeBundle {
                 style: Style {
-                    margin: Rect::all(Val::Auto),
+                    margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
                     ..default()
@@ -707,7 +707,7 @@ mod menu {
     ) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: Rect::all(Val::Px(20.0)),
+            margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -721,7 +721,7 @@ mod menu {
         commands
             .spawn_bundle(NodeBundle {
                 style: Style {
-                    margin: Rect::all(Val::Auto),
+                    margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
                     ..default()

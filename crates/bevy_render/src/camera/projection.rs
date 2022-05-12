@@ -1,6 +1,7 @@
 use super::DepthCalculation;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Mat4;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +13,7 @@ pub trait CameraProjection {
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct PerspectiveProjection {
     pub fov: f32,
     pub aspect_ratio: f32,
@@ -72,7 +73,7 @@ pub enum ScalingMode {
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct OrthographicProjection {
     pub left: f32,
     pub right: f32,
