@@ -195,7 +195,7 @@ impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
                     return Ok(Box::new(list));
                 }
                 type_fields::ARRAY => {
-                    let _ = type_name
+                    let _type_name = type_name
                         .take()
                         .ok_or_else(|| de::Error::missing_field(type_fields::TYPE))?;
                     let array = map.next_value_seed(ArrayDeserializer {
