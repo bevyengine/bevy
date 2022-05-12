@@ -286,9 +286,7 @@ fn camera_spawn_check(
                     &transform.back(),
                     perspective_projection.far(),
                 );
-                let camera = Camera::default();
                 PerspectiveCameraBundle {
-                    camera,
                     perspective_projection,
                     frustum,
                     transform,
