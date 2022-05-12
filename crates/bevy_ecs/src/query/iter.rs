@@ -52,11 +52,8 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            self.cursor.next(
-                self.tables,
-                self.archetypes,
-                self.query_state
-            )
+            self.cursor
+                .next(self.tables, self.archetypes, self.query_state)
         }
     }
 
