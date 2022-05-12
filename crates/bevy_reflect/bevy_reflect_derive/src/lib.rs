@@ -10,7 +10,7 @@
 //! [`Reflect`]: crate::derive_reflect
 //! [`FromReflect`]: crate::derive_from_reflect
 //! [`TypeUuid`]: crate::derive_type_uuid
-//! [`reflect_trait`]: crate::reflect_trait
+//! [`reflect_trait`]: macro@reflect_trait
 
 extern crate proc_macro;
 
@@ -19,9 +19,9 @@ mod derive_data;
 mod field_attributes;
 mod from_reflect;
 mod impls;
-mod reflect_trait;
 mod reflect_value;
 mod registration;
+mod trait_reflection;
 mod type_uuid;
 mod utility;
 
@@ -90,7 +90,7 @@ pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
-    reflect_trait::reflect_trait(&args, input)
+    trait_reflection::reflect_trait(&args, input)
 }
 
 #[proc_macro]
