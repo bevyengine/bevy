@@ -16,13 +16,7 @@ pub struct QueryIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: 
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
-    world: &'w World,
-    table_id_iter: std::slice::Iter<'s, TableId>,
-    archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
-    fetch: QF,
-    filter: QueryFetch<'w, F>,
-    current_len: usize,
-    current_index: usize,
+    cursor: QueryIterationCursor<'w, 's, Q, QF, F>,
 }
 
 impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIter<'w, 's, Q, QF, F>
@@ -40,30 +34,11 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
-        let fetch = QF::init(
-            world,
-            &query_state.fetch_state,
-            last_change_tick,
-            change_tick,
-        );
-        let filter = QueryFetch::<F>::init(
-            world,
-            &query_state.filter_state,
-            last_change_tick,
-            change_tick,
-        );
-
         QueryIter {
-            world,
             query_state,
             tables: &world.storages().tables,
             archetypes: &world.archetypes,
-            fetch,
-            filter,
-            table_id_iter: query_state.matched_table_ids.iter(),
-            archetype_id_iter: query_state.matched_archetype_ids.iter(),
-            current_len: 0,
-            current_index: 0,
+            cursor: QueryIterationCursor::init(world, query_state, last_change_tick, change_tick),
         }
     }
 }
@@ -74,73 +49,23 @@ where
 {
     type Item = QF::Item;
 
-    // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-    // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-    // We can't currently reuse QueryIterationCursor in QueryIter for performance reasons. See #1763 for context.
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
-                loop {
-                    if self.current_index == self.current_len {
-                        let table_id = self.table_id_iter.next()?;
-                        let table = &self.tables[*table_id];
-                        self.fetch.set_table(&self.query_state.fetch_state, table);
-                        self.filter.set_table(&self.query_state.filter_state, table);
-                        self.current_len = table.len();
-                        self.current_index = 0;
-                        continue;
-                    }
-
-                    if !self.filter.table_filter_fetch(self.current_index) {
-                        self.current_index += 1;
-                        continue;
-                    }
-
-                    let item = self.fetch.table_fetch(self.current_index);
-
-                    self.current_index += 1;
-                    return Some(item);
-                }
-            } else {
-                loop {
-                    if self.current_index == self.current_len {
-                        let archetype_id = self.archetype_id_iter.next()?;
-                        let archetype = &self.archetypes[*archetype_id];
-                        self.fetch.set_archetype(
-                            &self.query_state.fetch_state,
-                            archetype,
-                            self.tables,
-                        );
-                        self.filter.set_archetype(
-                            &self.query_state.filter_state,
-                            archetype,
-                            self.tables,
-                        );
-                        self.current_len = archetype.len();
-                        self.current_index = 0;
-                        continue;
-                    }
-
-                    if !self.filter.archetype_filter_fetch(self.current_index) {
-                        self.current_index += 1;
-                        continue;
-                    }
-
-                    let item = self.fetch.archetype_fetch(self.current_index);
-                    self.current_index += 1;
-                    return Some(item);
-                }
-            }
+            self.cursor.next(
+                self.tables,
+                self.archetypes,
+                self.query_state
+            )
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let max_size = self
             .query_state
-            .matched_archetypes
-            .ones()
-            .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
+            .matched_archetype_ids
+            .iter()
+            .map(|id| self.archetypes[*id].len())
             .sum();
 
         let archetype_query = F::Fetch::IS_ARCHETYPAL && QF::IS_ARCHETYPAL;
@@ -153,7 +78,6 @@ pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: u
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
-    world: &'w World,
     cursors: [QueryIterationCursor<'w, 's, Q, QueryFetch<'w, Q>, F>; K],
 }
 
@@ -195,7 +119,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
         }
 
         QueryCombinationIter {
-            world,
             query_state,
             tables: &world.storages().tables,
             archetypes: &world.archetypes,
@@ -289,9 +212,9 @@ where
 
         let max_size: usize = self
             .query_state
-            .matched_archetypes
-            .ones()
-            .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
+            .matched_archetype_ids
+            .iter()
+            .map(|id| self.archetypes[*id].len())
             .sum();
 
         if max_size < K {
@@ -324,16 +247,15 @@ where
 {
     fn len(&self) -> usize {
         self.query_state
-            .matched_archetypes
-            .ones()
-            .map(|index| self.world.archetypes[ArchetypeId::new(index)].len())
+            .matched_archetype_ids
+            .iter()
+            .map(|id| self.archetypes[*id].len())
             .sum()
     }
 }
 
 struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
-    table_id_iter: std::slice::Iter<'s, TableId>,
-    archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
+    id_iter: std::slice::Iter<'s, usize>,
     fetch: QF,
     filter: QueryFetch<'w, F>,
     current_len: usize,
@@ -348,8 +270,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            table_id_iter: self.table_id_iter.clone(),
-            archetype_id_iter: self.archetype_id_iter.clone(),
+            id_iter: self.id_iter.clone(),
             fetch: self.fetch.clone(),
             filter: self.filter.clone(),
             current_len: self.current_len,
@@ -363,6 +284,8 @@ impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIterationCursor<'w, 's, Q, Q
 where
     QF: Fetch<'w, State = Q::State>,
 {
+    const IS_DENSE: bool = QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE;
+
     unsafe fn init_empty(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
@@ -370,8 +293,7 @@ where
         change_tick: u32,
     ) -> Self {
         QueryIterationCursor {
-            table_id_iter: [].iter(),
-            archetype_id_iter: [].iter(),
+            id_iter: [].iter(),
             ..Self::init(world, query_state, last_change_tick, change_tick)
         }
     }
@@ -397,8 +319,11 @@ where
         QueryIterationCursor {
             fetch,
             filter,
-            table_id_iter: query_state.matched_table_ids.iter(),
-            archetype_id_iter: query_state.matched_archetype_ids.iter(),
+            id_iter: if Self::IS_DENSE {
+                std::mem::transmute(query_state.matched_table_ids.iter())
+            } else {
+                std::mem::transmute(query_state.matched_archetype_ids.iter())
+            },
             current_len: 0,
             current_index: 0,
             phantom: PhantomData,
@@ -409,7 +334,7 @@ where
     #[inline]
     unsafe fn peek_last(&mut self) -> Option<QF::Item> {
         if self.current_index > 0 {
-            if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
+            if Self::IS_DENSE {
                 Some(self.fetch.table_fetch(self.current_index - 1))
             } else {
                 Some(self.fetch.archetype_fetch(self.current_index - 1))
@@ -420,8 +345,7 @@ where
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-    // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-    // We can't currently reuse QueryIterationCursor in QueryIter for performance reasons. See #1763 for context.
+    // QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
     #[inline(always)]
     unsafe fn next(
         &mut self,
@@ -429,11 +353,11 @@ where
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<Q, F>,
     ) -> Option<QF::Item> {
-        if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
+        if Self::IS_DENSE {
             loop {
                 if self.current_index == self.current_len {
-                    let table_id = self.table_id_iter.next()?;
-                    let table = &tables[*table_id];
+                    let table_id = TableId::new(*self.id_iter.next()?);
+                    let table = &tables[table_id];
                     self.fetch.set_table(&query_state.fetch_state, table);
                     self.filter.set_table(&query_state.filter_state, table);
                     self.current_len = table.len();
@@ -454,8 +378,8 @@ where
         } else {
             loop {
                 if self.current_index == self.current_len {
-                    let archetype_id = self.archetype_id_iter.next()?;
-                    let archetype = &archetypes[*archetype_id];
+                    let archetype_id = ArchetypeId::new(*self.id_iter.next()?);
+                    let archetype = &archetypes[archetype_id];
                     self.fetch
                         .set_archetype(&query_state.fetch_state, archetype, tables);
                     self.filter
