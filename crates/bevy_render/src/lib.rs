@@ -78,6 +78,12 @@ pub enum RenderStage {
 
     /// Cleanup render resources here.
     Cleanup,
+
+    /// Extract data from the "render world" and insert it into the "app world".
+    /// This should be used very sparingly and will be combined with the Extract stage
+    /// when pipelined rendering is implemented. You will only be able to access resources here
+    /// entities are cleared in the cleanup stage that runs before this.
+    ExtractToApp,
 }
 
 /// The Render App World. This is only available as a resource during the Extract step.
@@ -170,6 +176,7 @@ impl Plugin for RenderPlugin {
                         .with_system(render_system.exclusive_system().at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
+                .add_stage(RenderStage::ExtractToApp, SystemStage::parallel())
                 .insert_resource(instance)
                 .insert_resource(device)
                 .insert_resource(queue)
@@ -276,6 +283,15 @@ impl Plugin for RenderPlugin {
 
                     render_app.world.clear_entities();
                 }
+
+                {
+                    #[cfg(feature = "trace")]
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "extract to app").entered();
+
+                    // extract to app
+                    extract_to_app(app_world, render_app);
+                }
             });
         }
 
@@ -310,4 +326,27 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     app_world.insert_resource(ScratchRenderWorld(scratch_world));
 
     extract.apply_buffers(&mut render_app.world);
+}
+
+/// Executes the [`ExtractToApp`](RenderStage::Extract) stage of the renderer.
+/// This updates the render world with the extracted ECS data of the current frame.
+fn extract_to_app(app_world: &mut World, render_app: &mut App) {
+    let extract_to_app = render_app
+        .schedule
+        .get_stage_mut::<SystemStage>(&RenderStage::ExtractToApp)
+        .unwrap();
+
+    // temporarily add the render world to the app world as a resource
+    let scratch_world = app_world.remove_resource::<ScratchRenderWorld>().unwrap();
+    let render_world = std::mem::replace(&mut render_app.world, scratch_world.0);
+    app_world.insert_resource(RenderWorld(render_world));
+
+    extract_to_app.run(app_world);
+
+    // add the render world back to the render app
+    let render_world = app_world.remove_resource::<RenderWorld>().unwrap();
+    let scratch_world = std::mem::replace(&mut render_app.world, render_world.0);
+    app_world.insert_resource(ScratchRenderWorld(scratch_world));
+
+    extract_to_app.apply_buffers(&mut render_app.world);
 }

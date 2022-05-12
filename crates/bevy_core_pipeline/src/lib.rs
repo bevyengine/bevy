@@ -20,6 +20,7 @@ pub use main_pass_driver::*;
 use std::ops::Range;
 
 use bevy_app::{App, Plugin};
+use bevy_core::prelude::Time;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{ActiveCamera, Camera2d, Camera3d, ExtractedCamera, RenderTarget},
@@ -121,6 +122,7 @@ impl Plugin for CorePipelinePlugin {
         };
 
         render_app
+            .init_resource::<Time>()
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
@@ -140,7 +142,8 @@ impl Plugin for CorePipelinePlugin {
             )
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
+            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>)
+            .add_system_to_stage(RenderStage::ExtractToApp, extract_time_to_app);
 
         let clear_pass_node = ClearPassNode::new(&mut render_app.world);
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
@@ -381,6 +384,12 @@ pub fn extract_core_pipeline_camera_phases(
             RenderPhase::<AlphaMask3d>::default(),
             RenderPhase::<Transparent3d>::default(),
         ));
+    }
+}
+
+pub fn extract_time_to_app(mut time: ResMut<Time>, render_world: Res<RenderWorld>) {
+    if let Some(render_time) = render_world.get_resource::<Time>() {
+        std::mem::swap(&mut *time, &mut render_time.clone());
     }
 }
 

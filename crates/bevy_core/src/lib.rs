@@ -53,13 +53,14 @@ impl Plugin for CorePlugin {
             .register_type::<Entity>()
             .register_type::<Name>()
             .register_type::<Range<f32>>()
-            .register_type::<Timer>()
-            // time system is added as an "exclusive system" to ensure it runs before other systems
-            // in CoreStage::First
-            .add_system_to_stage(
-                CoreStage::First,
-                time_system.exclusive_system().label(CoreSystem::Time),
-            );
+            .register_type::<Timer>();
+        // TODO: figure out how to add this when we don't have a render sub app
+        // time system is added as an "exclusive system" to ensure it runs before other systems
+        // in CoreStage::First
+        // .add_system_to_stage(
+        //     CoreStage::First,
+        //     time_system.exclusive_system().label(CoreSystem::Time),
+        // );
 
         register_rust_types(app);
         register_math_types(app);

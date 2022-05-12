@@ -1,6 +1,7 @@
 mod graph_runner;
 mod render_device;
 
+use bevy_core::Time;
 use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
@@ -72,6 +73,11 @@ pub fn render_system(world: &mut World) {
             message = "finished frame",
             tracy.frame_mark = true
         );
+    }
+
+    // update time after presenting frames
+    if let Some(mut time) = world.get_resource_mut::<Time>() {
+        time.update();
     }
 }
 
