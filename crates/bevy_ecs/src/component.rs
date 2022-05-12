@@ -176,7 +176,7 @@ pub struct ComponentDescriptor {
 impl std::fmt::Debug for ComponentDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ComponentDescriptor")
-            .field("name", self.name.as_ref())
+            .field("name", &self.name)
             .field("storage_type", &self.storage_type)
             .field("is_send_and_sync", &self.is_send_and_sync)
             .field("type_id", &self.type_id)
