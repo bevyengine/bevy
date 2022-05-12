@@ -846,12 +846,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         last_change_tick: u32,
         change_tick: u32,
     ) {
-        #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!(
-            "par_for_each",
-            query = std::any::type_name::<Q>(),
-            filter = std::any::type_name::<F>(),
-        );
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
@@ -862,11 +856,14 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                     let mut offset = 0;
                     while offset < table.len() {
                         let func = func.clone();
-                        #[cfg(feature = "trace")]
-                        let subspan = span.clone();
                         scope.spawn(async move {
                             #[cfg(feature = "trace")]
-                            let _span_guard = subspan.enter();
+                            let _span_guard = bevy_utils::tracing::info_span!(
+                                "par_for_each",
+                                query = std::any::type_name::<Q>(),
+                                filter = std::any::type_name::<F>(),
+                                count = len,
+                            ).entered();
 
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
