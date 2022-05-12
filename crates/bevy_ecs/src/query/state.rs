@@ -863,7 +863,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                                 query = std::any::type_name::<Q>(),
                                 filter = std::any::type_name::<F>(),
                                 count = len,
-                            ).entered();
+                            )
+                            .entered();
 
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
@@ -903,7 +904,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                                 query = std::any::type_name::<Q>(),
                                 filter = std::any::type_name::<F>(),
                                 count = len,
-                            ).entered();
+                            )
+                            .entered();
 
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
