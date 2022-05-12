@@ -54,11 +54,12 @@ impl Plugin for CorePlugin {
             .register_type::<Name>()
             .register_type::<Range<f32>>()
             .register_type::<Timer>()
-            // time system is added as an "exclusive system" to ensure it runs before other systems
-            // in CoreStage::First
-            .add_system_to_stage(
-                CoreStage::First,
-                time_system.exclusive_system().label(CoreSystem::Time),
+            // time system is added as an "exclusive system at end" to ensure it runs after other systems
+            .add_system_to_final_stage(
+                time_system
+                    .exclusive_system()
+                    .at_end()
+                    .label(CoreSystem::Time),
             );
 
         register_rust_types(app);

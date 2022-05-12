@@ -56,6 +56,8 @@ pub struct App {
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
+    /// A stage run after main schedule and sub app schedules
+    pub final_stage: SystemStage,
     sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
 }
 
@@ -98,6 +100,7 @@ impl App {
         Self {
             world: Default::default(),
             schedule: Default::default(),
+            final_stage: SystemStage::single_threaded(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
         }
@@ -115,6 +118,7 @@ impl App {
         for sub_app in self.sub_apps.values_mut() {
             (sub_app.runner)(&mut self.world, &mut sub_app.app);
         }
+        self.final_stage.run(&mut self.world);
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
@@ -324,6 +328,15 @@ impl App {
     /// ```
     pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
         self.add_system_to_stage(CoreStage::Update, system)
+    }
+
+    /// Adds a system to the final stage that runs after the app and render schedules.
+    pub fn add_system_to_final_stage<Params>(
+        &mut self,
+        system: impl IntoSystemDescriptor<Params>,
+    ) -> &mut Self {
+        self.final_stage.add_system(system);
+        self
     }
 
     /// Adds a [`SystemSet`] to the [update stage](Self::add_default_stages).
