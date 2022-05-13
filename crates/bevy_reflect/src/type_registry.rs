@@ -151,6 +151,14 @@ impl TypeRegistry {
         self.get_mut(type_id)
             .and_then(|registration| registration.data_mut::<T>())
     }
+  
+    /// Returns the [`TypeInfo`] associated with the given `TypeId`.
+    ///
+    /// If the specified type has not been registered, returns `None`.
+    pub fn get_type_info(&self, type_id: TypeId) -> Option<&TypeInfo> {
+        self.get(type_id)
+            .map(|registration| registration.type_info())
+    }
 
     /// Returns the [`TypeInfo`] associated with the given `TypeId`.
     ///
