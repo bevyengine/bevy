@@ -55,7 +55,7 @@ macro_rules! impl_ptr {
             ///
             /// [ptr_offset]: https://doc.rust-lang.org/std/primitive.pointer.html#method.offset
             #[inline]
-            pub unsafe fn offset(self, count: isize) -> Self {
+            pub unsafe fn byte_offset(self, count: isize) -> Self {
                 Self(
                     NonNull::new_unchecked(self.as_ptr().offset(count)),
                     PhantomData,
@@ -73,7 +73,7 @@ macro_rules! impl_ptr {
             ///
             /// [ptr_add]: https://doc.rust-lang.org/std/primitive.pointer.html#method.add
             #[inline]
-            pub unsafe fn add(self, count: usize) -> Self {
+            pub unsafe fn byte_add(self, count: usize) -> Self {
                 Self(
                     NonNull::new_unchecked(self.as_ptr().add(count)),
                     PhantomData,
@@ -116,13 +116,9 @@ impl<'a> Ptr<'a> {
     ///
     /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
     /// as it retains the lifetime.
-    ///
-    /// # Safety
-    /// All subsequent operations to the returned pointer must be valid inside the
-    /// associated lifetime.
     #[inline]
     #[allow(clippy::wrong_self_convention)]
-    pub unsafe fn as_ptr(self) -> *mut u8 {
+    pub fn as_ptr(self) -> *mut u8 {
         self.0.as_ptr()
     }
 }
@@ -150,13 +146,9 @@ impl<'a> PtrMut<'a> {
     ///
     /// If possible, it is strongly encouraged to use [`deref_mut`](Self::deref_mut) over
     /// this function, as it retains the lifetime.
-    ///
-    /// # Safety
-    /// All subsequent operations to the returned pointer must be valid inside the
-    /// associated lifetime.
     #[inline]
     #[allow(clippy::wrong_self_convention)]
-    pub unsafe fn as_ptr(self) -> *mut u8 {
+    pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
 }
@@ -192,13 +184,9 @@ impl<'a> OwningPtr<'a> {
     ///
     /// If possible, it is strongly encouraged to use the other more type-safe functions
     /// over this function.
-    ///
-    /// # Safety
-    /// All subsequent operations to the returned pointer must be valid inside the
-    /// associated lifetime.
     #[inline]
     #[allow(clippy::wrong_self_convention)]
-    pub unsafe fn as_ptr(self) -> *mut u8 {
+    pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
 }

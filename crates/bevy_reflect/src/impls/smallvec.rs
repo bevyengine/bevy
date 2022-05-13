@@ -1,9 +1,11 @@
-use smallvec::{Array, SmallVec};
+use smallvec::SmallVec;
 use std::any::Any;
 
-use crate::{serde::Serializable, FromReflect, List, ListIter, Reflect, ReflectMut, ReflectRef};
+use crate::{
+    serde::Serializable, Array, ArrayIter, FromReflect, List, Reflect, ReflectMut, ReflectRef,
+};
 
-impl<T: Array + Send + Sync + 'static> List for SmallVec<T>
+impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
 where
     T::Item: FromReflect + Clone,
 {
@@ -27,9 +29,21 @@ where
         <SmallVec<T>>::len(self)
     }
 
+    fn iter(&self) -> ArrayIter {
+        ArrayIter {
+            array: self,
+            index: 0,
+        }
+    }
+}
+
+impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
+where
+    T::Item: FromReflect + Clone,
+{
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
-            <T as Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to push invalid value of type {}.",
                     value.type_name()
@@ -38,17 +52,10 @@ where
         });
         SmallVec::push(self, value);
     }
-
-    fn iter(&self) -> ListIter {
-        ListIter {
-            list: self,
-            index: 0,
-        }
-    }
 }
 
 // SAFE: any and any_mut both return self
-unsafe impl<T: Array + Send + Sync + 'static> Reflect for SmallVec<T>
+unsafe impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
 where
     T::Item: FromReflect + Clone,
 {
@@ -90,7 +97,7 @@ where
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+        Box::new(List::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -106,7 +113,7 @@ where
     }
 }
 
-impl<T: Array + Send + Sync + 'static> FromReflect for SmallVec<T>
+impl<T: smallvec::Array + Send + Sync + 'static> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect + Clone,
 {
@@ -114,7 +121,7 @@ where
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
             let mut new_list = Self::with_capacity(ref_list.len());
             for field in ref_list.iter() {
-                new_list.push(<T as Array>::Item::from_reflect(field)?);
+                new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
             }
             Some(new_list)
         } else {

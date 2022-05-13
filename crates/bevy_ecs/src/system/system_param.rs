@@ -154,7 +154,7 @@ fn assert_component_access_compatibility(
     current: &FilteredAccess<ComponentId>,
     world: &World,
 ) {
-    let mut conflicts = system_access.get_conflicts(current);
+    let mut conflicts = system_access.get_conflicts_single(current);
     if conflicts.is_empty() {
         return;
     }
@@ -213,14 +213,12 @@ where
 }
 
 impl<'w, T: Resource> Res<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this
-    /// system.
+    /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Returns true if (and only if) this resource been changed since the last execution of this
-    /// system.
+    /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
@@ -533,7 +531,7 @@ unsafe impl<'w, 's> SystemParamState for WorldState {
         filtered_access.read_all();
         if !system_meta
             .component_access_set
-            .get_conflicts(&filtered_access)
+            .get_conflicts_single(&filtered_access)
             .is_empty()
         {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
@@ -779,14 +777,12 @@ where
 }
 
 impl<'w, T: 'static> NonSend<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this
-    /// system.
+    /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Returns true if (and only if) this resource been changed since the last execution of this
-    /// system.
+    /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)

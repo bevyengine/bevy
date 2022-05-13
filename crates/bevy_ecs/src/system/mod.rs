@@ -103,7 +103,7 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
+            Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
             RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
@@ -905,5 +905,39 @@ mod tests {
                 .collect::<HashSet<_>>(),
             expected_ids
         );
+    }
+
+    #[test]
+    fn commands_param_set() {
+        // Regression test for #4676
+        let mut world = World::new();
+        let entity = world.spawn().id();
+
+        run_system(
+            &mut world,
+            move |mut commands_set: ParamSet<(Commands, Commands)>| {
+                commands_set.p0().entity(entity).insert(A);
+                commands_set.p1().entity(entity).insert(B);
+            },
+        );
+
+        let entity = world.entity(entity);
+        assert!(entity.contains::<A>());
+        assert!(entity.contains::<B>());
+    }
+
+    #[test]
+    fn into_iter_impl() {
+        let mut world = World::new();
+        world.spawn().insert(W(42u32));
+        run_system(&mut world, |mut q: Query<&mut W<u32>>| {
+            for mut a in &mut q {
+                assert_eq!(a.0, 42);
+                a.0 = 0;
+            }
+            for a in &q {
+                assert_eq!(a.0, 0);
+            }
+        });
     }
 }

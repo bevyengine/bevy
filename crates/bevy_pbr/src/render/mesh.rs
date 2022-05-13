@@ -560,6 +560,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
+        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push(String::from("VERTEX_COLORS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
+        }
+
         // TODO: consider exposing this in shaders in a more generally useful way, such as:
         // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
         // /* use storage buffers here */
@@ -577,8 +582,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
             shader_defs.push(String::from("SKINNED"));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(5));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(6));
             bind_group_layout.push(self.skinned_mesh_layout.clone());
         } else {
             bind_group_layout.push(self.mesh_layout.clone());
