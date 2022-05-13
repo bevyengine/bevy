@@ -1,6 +1,6 @@
 use bevy_tasks::TaskPoolBuilder;
 
-// This sample demonstrates creating a thread pool with 4 compute threads and spawning 40 tasks that 
+// This sample demonstrates creating a thread pool with 4 compute threads and spawning 40 tasks that
 // spin for 100ms. It's expected to take about a second to run (assuming the machine has >= 4 logical
 // cores)
 

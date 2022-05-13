@@ -21,7 +21,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // Move sprites according to their velocity
-fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &Velocity)>) {
+fn move_system(pool: Res<TaskPool>, mut sprites: Query<(&mut Transform, &Velocity)>) {
     // Compute the new location of each sprite in parallel on the
     // ComputeTaskPool using batches of 32 sprites
     //
@@ -37,7 +37,7 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
 
 // Bounce sprites outside the window
 fn bounce_system(
-    pool: Res<ComputeTaskPool>,
+    pool: Res<TaskPool>,
     windows: Res<Windows>,
     mut sprites: Query<(&Transform, &mut Velocity)>,
 ) {

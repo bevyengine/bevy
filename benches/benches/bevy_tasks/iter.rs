@@ -34,7 +34,7 @@ fn bench_overhead(c: &mut Criterion) {
     let mut v = (0..10000).collect::<Vec<usize>>();
     let mut group = c.benchmark_group("overhead_par_iter");
     for thread_count in &[1, 2, 4, 8, 16, 32] {
-        let pool = TaskPoolBuilder::new().num_threads(*thread_count).build();
+        let pool = TaskPoolBuilder::new().compute_threads(*thread_count).build();
         group.bench_with_input(
             BenchmarkId::new("threads", thread_count),
             thread_count,
@@ -69,7 +69,7 @@ fn bench_for_each(c: &mut Criterion) {
     let mut v = (0..10000).collect::<Vec<usize>>();
     let mut group = c.benchmark_group("for_each_par_iter");
     for thread_count in &[1, 2, 4, 8, 16, 32] {
-        let pool = TaskPoolBuilder::new().num_threads(*thread_count).build();
+        let pool = TaskPoolBuilder::new().compute_threads(*thread_count).build();
         group.bench_with_input(
             BenchmarkId::new("threads", thread_count),
             thread_count,
@@ -115,7 +115,7 @@ fn bench_many_maps(c: &mut Criterion) {
     let v = (0..10000).collect::<Vec<usize>>();
     let mut group = c.benchmark_group("many_maps_par_iter");
     for thread_count in &[1, 2, 4, 8, 16, 32] {
-        let pool = TaskPoolBuilder::new().num_threads(*thread_count).build();
+        let pool = TaskPoolBuilder::new().compute_threads(*thread_count).build();
         group.bench_with_input(
             BenchmarkId::new("threads", thread_count),
             thread_count,
