@@ -122,58 +122,73 @@ impl TaskPool {
         let async_compute_executor = Arc::new(async_executor::Executor::new());
         let io_executor = Arc::new(async_executor::Executor::new());
 
-        let num_threads = builder.compute_threads.unwrap_or_else(num_cpus::get);
+        let compute_threads = builder.compute_threads.unwrap_or(0);
+        let io_threads = builder.io_threads.unwrap_or(0);
+        let async_compute_threads = builder.async_compute_threads.unwrap_or_else(num_cpus::get);
 
-        let threads = (0..num_threads)
-            .map(|i| {
-                // miri does not support setting thread names
-                // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
-                #[cfg(not(miri))]
-                let mut thread_builder = {
-                    let thread_name = if let Some(ref thread_name) = builder.thread_name {
-                        format!("{} ({})", thread_name, i)
-                    } else {
-                        format!("TaskPool ({})", i)
-                    };
-                    thread::Builder::new().name(thread_name)
-                };
-                #[cfg(miri)]
-                let mut thread_builder = {
-                    let _ = i;
-                    let _ = thread_name;
-                    thread::Builder::new()
-                };
+        let mut threads = Vec::with_capacity(compute_threads + io_threads + async_compute_threads);
+        threads.extend((0..compute_threads).map(|i| {
+            let mut thread_builder = make_thread_builder(
+                builder.thread_name.as_deref(),
+                "Compute",
+                i,
+                builder.stack_size,
+            );
+            let compute = Arc::clone(&compute_executor);
+            let shutdown_rx = shutdown_rx.clone();
 
-                if let Some(stack_size) = builder.stack_size {
-                    thread_builder = thread_builder.stack_size(stack_size);
-                }
+            thread_builder
+                .spawn(move || {
+                    let future = run_forever(compute).or(async {
+                        // Use unwrap_err because we expect a Closed error
+                        shutdown_rx.recv().await.unwrap_err();
+                    });
+                    future::block_on(future);
+                })
+                .expect("Failed to spawn thread.")
+        }));
+        threads.extend((0..io_threads).map(|i| {
+            let mut thread_builder =
+                make_thread_builder(builder.thread_name.as_deref(), "IO", i, builder.stack_size);
+            let compute = Arc::clone(&compute_executor);
+            let io = Arc::clone(&io_executor);
+            let shutdown_rx = shutdown_rx.clone();
 
-                async fn run_forever(executor: Arc<async_executor::Executor<'static>>) {
-                    loop {
-                        while executor.try_tick() {}
-                        future::yield_now().await;
-                    }
-                }
+            thread_builder
+                .spawn(move || {
+                    let future = run_forever(io).or(run_forever(compute)).or(async {
+                        // Use unwrap_err because we expect a Closed error
+                        shutdown_rx.recv().await.unwrap_err();
+                    });
+                    future::block_on(future);
+                })
+                .expect("Failed to spawn thread.")
+        }));
+        threads.extend((0..compute_threads).map(|i| {
+            let mut thread_builder = make_thread_builder(
+                builder.thread_name.as_deref(),
+                "Aync Compute",
+                i,
+                builder.stack_size,
+            );
+            let compute = Arc::clone(&compute_executor);
+            let async_compute = Arc::clone(&compute_executor);
+            let io = Arc::clone(&io_executor);
+            let shutdown_rx = shutdown_rx.clone();
 
-                let compute = Arc::clone(&compute_executor);
-                let async_compute = Arc::clone(&compute_executor);
-                let io = Arc::clone(&io_executor);
-                let shutdown_rx = shutdown_rx.clone();
-
-                thread_builder
-                    .spawn(move || {
-                        let future = run_forever(compute)
-                            .or(run_forever(async_compute))
-                            .or(run_forever(io))
-                            .or(async {
-                                // Use unwrap_err because we expect a Closed error
-                                shutdown_rx.recv().await.unwrap_err();
-                            });
-                        future::block_on(future);
-                    })
-                    .expect("Failed to spawn thread.")
-            })
-            .collect();
+            thread_builder
+                .spawn(move || {
+                    let future = run_forever(async_compute)
+                        .or(run_forever(compute))
+                        .or(run_forever(io))
+                        .or(async {
+                            // Use unwrap_err because we expect a Closed error
+                            shutdown_rx.recv().await.unwrap_err();
+                        });
+                    future::block_on(future);
+                })
+                .expect("Failed to spawn thread.")
+        }));
 
         Self {
             compute_executor,
@@ -365,6 +380,45 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         let task = self.local_executor.spawn(f);
         self.spawned.push(task);
+    }
+}
+
+fn make_thread_builder(
+    thread_name: Option<&str>,
+    prefix: &'static str,
+    idx: usize,
+    stack_size: Option<usize>,
+) -> thread::Builder {
+    // miri does not support setting thread names
+    // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
+    #[cfg(not(miri))]
+    let mut thread_builder = {
+        let thread_name = if let Some(ref thread_name) = thread_name {
+            format!("{} ({}, {})", thread_name, prefix, idx)
+        } else {
+            format!("TaskPool ({}, {})", prefix, idx)
+        };
+        thread::Builder::new().name(thread_name)
+    };
+
+    #[cfg(miri)]
+    let mut thread_builder = {
+        let _ = i;
+        let _ = thread_name;
+        thread::Builder::new()
+    };
+
+    if let Some(stack_size) = stack_size {
+        thread_builder = thread_builder.stack_size(stack_size);
+    }
+
+    thread_builder
+}
+
+async fn run_forever(executor: Arc<async_executor::Executor<'static>>) {
+    loop {
+        while executor.try_tick() {}
+        future::yield_now().await;
     }
 }
 
