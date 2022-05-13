@@ -57,7 +57,6 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     }
 }
 
-
 /// Derives the `FromReflect` trait.
 ///
 /// This macro supports the following field attributes:

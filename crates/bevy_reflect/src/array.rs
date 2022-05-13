@@ -1,4 +1,7 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo, Typed, DynamicInfo};
+use crate::{
+    serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo,
+    Typed,
+};
 use serde::ser::SerializeSeq;
 use std::{
     any::Any,
