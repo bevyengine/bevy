@@ -306,7 +306,7 @@ pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bo
 /// ```
 /// use bevy_reflect::Reflect;
 ///
-/// let my_list: &dyn Reflect = &[1, 2, 3];
+/// let my_array: &dyn Reflect = &[1, 2, 3];
 /// println!("{:#?}", my_array);
 ///
 /// // Output:
