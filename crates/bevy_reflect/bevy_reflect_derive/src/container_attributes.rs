@@ -230,7 +230,7 @@ impl ReflectTraits {
         }
     }
 
-    /// Returns the logic for `Reflect::debug` as a `TokenStream`.
+    /// Returns the implementation of `Reflect::debug` as a `TokenStream`.
     ///
     /// If `Debug` was not registered, returns `None`.
     pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {
