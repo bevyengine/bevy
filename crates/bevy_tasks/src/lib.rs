@@ -28,6 +28,8 @@ pub mod prelude {
         slice::{ParallelSlice, ParallelSliceMut},
         task_pool::TaskPool,
     };
+    #[cfg(target_arch = "wasm32")]
+    pub use single_threaded_task_pool::TaskPool;
 }
 
 pub use num_cpus::get as logical_core_count;

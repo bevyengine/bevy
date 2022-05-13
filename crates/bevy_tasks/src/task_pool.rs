@@ -180,7 +180,7 @@ impl TaskPool {
                 })
                 .expect("Failed to spawn thread.")
         }));
-        threads.extend((0..compute_threads).map(|i| {
+        threads.extend((0..async_compute_threads).map(|i| {
             let thread_builder = make_thread_builder(
                 builder.thread_name.as_deref(),
                 "Aync Compute",
