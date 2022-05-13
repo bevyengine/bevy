@@ -282,7 +282,6 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
 /// ```
 /// # use bevy_utils::HashMap;
 /// use bevy_reflect::Reflect;
-/// use bevy_utils::HashMap;
 ///
 /// let mut my_map = HashMap::new();
 /// my_map.insert(123, String::from("Hello"));

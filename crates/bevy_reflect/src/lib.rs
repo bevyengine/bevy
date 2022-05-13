@@ -503,6 +503,7 @@ mod tests {
             custom: CustomDebug,
             unknown: Option<String>,
             #[reflect(ignore)]
+            #[allow(dead_code)]
             ignored: isize,
         }
 
