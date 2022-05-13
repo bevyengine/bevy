@@ -210,9 +210,41 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.len(&self.events)
     }
 
-    /// Determines if are any events available to be read without consuming any.
+    /// Determines if no events are available to be read without consuming any.
+    /// If you need to consume the iterator you can use [`EventReader::clear`].
+    ///
+    /// # Example
+    ///
+    /// The following example shows a common pattern of this function in conjunction with `clear`
+    /// to avoid leaking events to the next schedule iteration while also checking if it was emitted.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct CollisionEvent;
+    ///
+    /// fn play_collision_sound(events: EventReader<CollisionEvent>) {
+    ///     if !events.is_empty() {
+    ///         events.clear();
+    ///         // Play a sound
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(play_collision_sound);
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Consumes the iterator.
+    ///
+    /// This means all currently available events will be removed before the next frame.
+    /// This is useful when multiple events are sent in a single frame and you want
+    /// to react to one or more events without needing to know how many were sent.
+    /// In those situations you generally want to consume those events to make sure they don't appear in the next frame.
+    ///
+    /// For more information see [`EventReader::is_empty()`].
+    pub fn clear(mut self) {
+        self.iter().last();
     }
 }
 
@@ -725,6 +757,31 @@ mod tests {
         assert_eq!(reader.len(&events), 1);
         events.update();
         assert!(reader.is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_reader_clear() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        world.insert_resource(events);
+
+        let mut reader = IntoSystem::into_system(|events: EventReader<TestEvent>| -> bool {
+            if !events.is_empty() {
+                events.clear();
+                false
+            } else {
+                true
+            }
+        });
+        reader.initialize(&mut world);
+
+        let is_empty = reader.run((), &mut world);
+        assert!(!is_empty, "EventReader should not be empty");
+        let is_empty = reader.run((), &mut world);
+        assert!(is_empty, "EventReader should be empty");
     }
 
     #[derive(Clone, PartialEq, Debug, Default)]
