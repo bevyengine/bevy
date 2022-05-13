@@ -9,7 +9,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles, Mat3, Quat};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -219,12 +219,13 @@ pub struct GpuLights {
     // w is cluster_dimensions.z * log(near) / log(far / near)
     cluster_factors: Vec4,
     n_directional_lights: u32,
+    // offset from spotlight's light index to spotlight's shadow map index
+    spotlight_shadowmap_offset: i32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 204;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
-pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub struct ShadowPipeline {
@@ -668,6 +669,22 @@ pub fn calculate_cluster_factors(
     }
 }
 
+// this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
+// we will also construct it in the fragment shader and need our implementations to match,
+// so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
+pub(crate) fn spotlight_rotation_matrix(direction: Vec3) -> Mat3 {
+    let sign = 1f32.copysign(direction.z);
+    let a = -1.0 / (direction.z + sign);
+    let b = direction.x * direction.y * a;
+    let up_dir = Vec3::new(1.0 + sign * direction.x * direction.x * a, sign * b, -sign * direction.x);
+    let right_dir = Vec3::new(-b, -sign - direction.y * direction.y * a, direction.y);
+    Mat3::from_cols(right_dir, up_dir, direction)
+}
+
+pub(crate) fn spotlight_projection_matrix(angle: f32) -> Mat4 {
+    Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
     mut commands: Commands,
@@ -702,20 +719,39 @@ pub fn prepare_lights(
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
 
     #[cfg(not(feature = "webgl"))]
-    let max_point_light_shadow_maps = point_lights
-        .iter()
-        .filter(|light| light.1.shadows_enabled)
-        .count()
-        .min((render_device.limits().max_texture_array_layers / 6) as usize);
+    let max_texture_array_layers = render_device.limits().max_texture_array_layers as usize;
+    #[cfg(not(feature = "webgl"))]
+    let max_texture_cubes = max_texture_array_layers / 6;
     #[cfg(feature = "webgl")]
-    let max_point_light_shadow_maps = 1;
+    let max_texture_array_layers = 1;
+    #[cfg(feature = "webgl")]
+    let max_texture_cubes = 1;
 
-    // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
-    // to render at most `max_point_light_shadow_maps` point light shadows.
+    let point_light_shadow_maps_count = point_lights
+        .iter()
+        .filter(|light| light.1.shadows_enabled && light.1.spotlight_angles.is_none())
+        .count()
+        .min(max_texture_cubes);
+
+    let directional_shadow_maps_count = directional_lights
+        .iter()
+        .filter(|(_, light)| light.shadows_enabled)
+        .count()
+        .min(max_texture_array_layers);
+
+    let spot_shadow_maps_count = point_lights
+        .iter()
+        .filter(|(_, light)| light.shadows_enabled && light.spotlight_angles.is_some())
+        .count()
+        .min(max_texture_array_layers - directional_shadow_maps_count);
+
+    // Sort point lights with shadows enabled first, then by point-light vs spot-light, 
+    // then by a stable key so that the index can be used
+    // to render at most `max_point_light_shadow_maps` point light shadows and spot_shadow_maps spotlight shadow maps.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         point_light_order(
-            (entity_1, &light_1.shadows_enabled),
-            (entity_2, &light_2.shadows_enabled),
+            (entity_1, &light_1.shadows_enabled, &light_1.spotlight_angles.is_some()),
+            (entity_2, &light_2.shadows_enabled, &light_2.spotlight_angles.is_some()),
         )
     });
 
@@ -728,17 +764,21 @@ pub fn prepare_lights(
     let mut gpu_point_lights = Vec::new();
     for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
+
         // Lights are sorted, shadow enabled lights are first
-        if light.shadows_enabled && index < max_point_light_shadow_maps {
+        if light.shadows_enabled && (index < point_light_shadow_maps_count || (light.spotlight_angles.is_some() && index - point_light_shadow_maps_count < spot_shadow_maps_count)) {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
 
         let (spot_dir, spot_angle_inner, spot_angle_outer) = match light.spotlight_angles {
-            Some((inner, outer)) => (light.transform.rotation * Vec3::Z, inner, outer),
+            Some((inner, outer)) => (light.transform.forward(), inner, outer),
             None => (Vec3::ZERO, 0.0, 0.0),
         };
 
         gpu_point_lights.push(GpuPointLight {
+            // TODO 
+            // we don't need this for spotlights any more - we could overload it to hold the spot_dir_angle_inner data instead
+            // and get back to 64 bytes per light
             projection_lr: Vec4::new(
                 cube_face_projection.z_axis.z,
                 cube_face_projection.z_axis.w,
@@ -773,7 +813,7 @@ pub fn prepare_lights(
                 size: Extent3d {
                     width: point_light_shadow_map.size as u32,
                     height: point_light_shadow_map.size as u32,
-                    depth_or_array_layers: max_point_light_shadow_maps.max(1) as u32 * 6,
+                    depth_or_array_layers: point_light_shadow_maps_count.max(1) as u32 * 6,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -791,7 +831,7 @@ pub fn prepare_lights(
                         .min(render_device.limits().max_texture_dimension_2d),
                     height: (directional_light_shadow_map.size as u32)
                         .min(render_device.limits().max_texture_dimension_2d),
-                    depth_or_array_layers: DIRECTIONAL_SHADOW_LAYERS,
+                    depth_or_array_layers: (directional_shadow_maps_count + spot_shadow_maps_count).max(1) as u32,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -824,13 +864,14 @@ pub fn prepare_lights(
             ),
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
+            spotlight_shadowmap_offset: point_light_shadow_maps_count as i32 - directional_shadow_maps_count as i32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
         for &(light_entity, light) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
-            .take(max_point_light_shadow_maps)
+            .take(point_light_shadow_maps_count)
             .filter(|(_, light)| light.shadows_enabled)
         {
             let light_index = *global_light_meta
@@ -885,6 +926,61 @@ pub fn prepare_lights(
                     .id();
                 view_lights.push(view_light_entity);
             }
+        }
+
+        // spotlights
+        for (light_index, &(light_entity, light)) in point_lights.iter().skip(point_light_shadow_maps_count).take(spot_shadow_maps_count).enumerate() {
+            let angle = light.spotlight_angles.unwrap().1;
+            let direction = light.transform.back();
+            let spot_view_rotation = spotlight_rotation_matrix(direction);
+
+            let spot_view_rotation = GlobalTransform::from_rotation(Quat::from_mat3(&spot_view_rotation));
+            let spot_projection = spotlight_projection_matrix(angle);
+
+            let view_translation = GlobalTransform::from_translation(light.transform.translation);
+            let view_transform = view_translation * spot_view_rotation;
+
+            let depth_texture_view =
+                directional_light_depth_texture
+                    .texture
+                    .create_view(&TextureViewDescriptor {
+                        label: Some("spot_light_shadow_map_texture_view"),
+                        format: None,
+                        dimension: Some(TextureViewDimension::D2),
+                        aspect: TextureAspect::All,
+                        base_mip_level: 0,
+                        mip_level_count: None,
+                        base_array_layer: (directional_shadow_maps_count + light_index) as u32,
+                        array_layer_count: NonZeroU32::new(1),
+                    });
+
+            let view_light_entity = commands
+                .spawn()
+                .insert_bundle((
+                    ShadowView {
+                        depth_texture_view,
+                        pass_name: format!(
+                            "shadow pass spot light {}",
+                            light_index,
+                        ),
+                    },
+                    ExtractedView {
+                        width: directional_light_shadow_map.size as u32,
+                        height: directional_light_shadow_map.size as u32,
+                        transform: view_transform,
+                        projection: spot_projection,
+                        near: POINT_LIGHT_NEAR_Z,
+                        far: light.range,
+                    },
+                    RenderPhase::<Shadow>::default(),
+                    LightEntity::Point {
+                        light_entity,
+                        face_index: 0,
+                    },
+                ))
+                    .id();
+
+            view_lights.push(view_light_entity);
         }
 
         for (i, (light_entity, light)) in directional_lights

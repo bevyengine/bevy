@@ -306,7 +306,7 @@ fn point_light(
     var spot_attenuation = 1.0;
     let spot_dir = light.spot_dir_angle_inner.xyz;
     if (dot(spot_dir,spot_dir) > 0.0) {
-        let angle: f32 = acos(dot(spot_dir, light_to_frag) / (length(spot_dir) * length(light_to_frag)));
+        let angle: f32 = acos(dot(spot_dir, -light_to_frag) / length(light_to_frag));
         spot_attenuation = 1.0 - saturate((angle - light.spot_dir_angle_inner.w) / (light.spot_angle_outer - light.spot_dir_angle_inner.w));
     }
 
@@ -374,9 +374,52 @@ fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = point_lights.data[light_id];
 
+    let surface_to_light = light.position_radius.xyz - frag_position.xyz;
+
+    let fwd = light.spot_dir_angle_inner.xyz;
+    if (dot(fwd, fwd) > 0.0) {
+        let distance_to_light = sqrt(dot(fwd, -surface_to_light));
+        let offset_position = -surface_to_light + (light.shadow_depth_bias * normalize(surface_to_light)) + (surface_normal.xyz * light.shadow_normal_bias) * distance_to_light;
+
+        // construct relevant parts of light view matrix and projection matrix
+        // the construction of the up and right vectors needs to precisely mirror the code 
+        // in render/light.rs:spotlight_rotation_matrix
+        var sign = -1.0;
+        if (fwd.z > 0.0) {
+            sign = 1.0;
+        }
+        let a = -1.0 / (fwd.z + sign);
+        let b = fwd.x * fwd.y * a;
+        let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
+        // except this right dir is reversed ... i really don't know why
+        let right_dir = vec3<f32>(b, sign + fwd.y * fwd.y * a, -fwd.y);
+
+        let w_vec = fwd * offset_position;
+        let w = w_vec.x + w_vec.y + w_vec.z;
+
+        let x_vec = right_dir * offset_position;
+        let y_vec = up_dir * offset_position;
+
+        let f = 1.0 / tan(light.spot_angle_outer);
+        let x = (x_vec.x + x_vec.y + x_vec.z) * f / w;
+        let y = (y_vec.x + y_vec.y + y_vec.z) * f / w;
+        let shadow_xy = vec2<f32>(x,y);
+
+        // 0.1 must match POINT_LIGHT_NEAR_Z
+        let depth = 0.1 / w;
+
+        let flip_correction = vec2<f32>(0.5, -0.5);
+        let light_local = shadow_xy * flip_correction + vec2<f32>(0.5, 0.5);
+
+        #ifdef NO_ARRAY_TEXTURES_SUPPORT
+            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, depth);
+        #else
+            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id) + lights.spotlight_shadowmap_offset, depth);
+        #endif
+    }
+
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
-    let surface_to_light = light.position_radius.xyz - frag_position.xyz;
     let surface_to_light_abs = abs(surface_to_light);
     let distance_to_light = max(surface_to_light_abs.x, max(surface_to_light_abs.y, surface_to_light_abs.z));
 

@@ -57,6 +57,7 @@ struct Lights {
     // w is cluster_dimensions.z / (-far - -near)
     cluster_factors: vec4<f32>;
     n_directional_lights: u32;
+    spotlight_shadowmap_offset: i32;
 };
 
 #ifdef NO_STORAGE_BUFFERS_SUPPORT

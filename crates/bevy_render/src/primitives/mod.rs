@@ -123,6 +123,9 @@ impl Plane {
     }
 }
 
+/// A frustum defined by the 6 containing planes
+/// Planes are ordered left, right, top, bottom, near, far
+/// Normals point into the contained volume
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Frustum {

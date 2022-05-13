@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{
-    const_vec2, Mat4, Quat, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
+    const_vec2, Mat4, Quat, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles, 
 };
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -22,7 +22,7 @@ use bevy_window::Windows;
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS,
-    POINT_LIGHT_NEAR_Z,
+    POINT_LIGHT_NEAR_Z, spotlight_projection_matrix, spotlight_rotation_matrix, 
 };
 
 /// A light that emits light in all directions from a central point.
@@ -692,12 +692,13 @@ fn compute_aabb_for_cluster(
 // can be used to limit the number of point light shadows to render based on the device and
 // we keep a stable set of lights visible
 pub(crate) fn point_light_order(
-    (entity_1, shadows_enabled_1): (&Entity, &bool),
-    (entity_2, shadows_enabled_2): (&Entity, &bool),
+    (entity_1, shadows_enabled_1, is_spotlight_1): (&Entity, &bool, &bool),
+    (entity_2, shadows_enabled_2, is_spotlight_2): (&Entity, &bool, &bool),
 ) -> std::cmp::Ordering {
     shadows_enabled_1
         .cmp(shadows_enabled_2)
         .reverse()
+        .then_with(|| is_spotlight_1.cmp(is_spotlight_2))
         .then_with(|| entity_1.cmp(entity_2))
 }
 
@@ -784,8 +785,8 @@ pub(crate) fn assign_lights_to_clusters(
     if lights.len() > MAX_UNIFORM_BUFFER_POINT_LIGHTS && !supports_storage_buffers {
         lights.sort_by(|light_1, light_2| {
             point_light_order(
-                (&light_1.entity, &light_1.shadows_enabled),
-                (&light_2.entity, &light_2.shadows_enabled),
+                (&light_1.entity, &light_1.shadows_enabled, &light_1.spotlight_angle.is_some()),
+                (&light_2.entity, &light_2.shadows_enabled, &light_2.spotlight_angle.is_some()),
             )
         });
 
@@ -1381,16 +1382,28 @@ pub fn update_point_light_frusta(
         let view_translation = GlobalTransform::from_translation(transform.translation);
         let view_backward = transform.back();
 
-        for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
-            let view = view_translation * *view_rotation;
-            let view_projection = projection * view.compute_matrix().inverse();
+        if let Some((_inner_angle, angle)) = point_light.spotlight_angles {
+            let fwd = transform.forward();
+            let spot_view_rotation = spotlight_rotation_matrix(fwd);
+            let spot_view_rotation = GlobalTransform::from_rotation(Quat::from_mat3(&spot_view_rotation));
+            let view = view_translation * spot_view_rotation;
 
-            *frustum = Frustum::from_view_projection(
-                &view_projection,
-                &transform.translation,
-                &view_backward,
-                point_light.range,
-            );
+            let spot_projection = spotlight_projection_matrix(angle);
+            let view_projection = spot_projection * view.compute_matrix().inverse();
+
+            cubemap_frusta.frusta[0] = Frustum::from_view_projection(&view_projection, &view_translation.translation, &-fwd, point_light.range);
+        } else {
+            for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
+                let view = view_translation * *view_rotation;
+                let view_projection = projection * view.compute_matrix().inverse();
+    
+                *frustum = Frustum::from_view_projection(
+                    &view_projection,
+                    &transform.translation,
+                    &view_backward,
+                    point_light.range,
+                );
+            }
         }
     }
 }
@@ -1520,19 +1533,33 @@ pub fn check_light_mesh_visibility(
                         if !light_sphere.intersects_obb(aabb, &model_to_world) {
                             continue;
                         }
-                        for (frustum, visible_entities) in cubemap_frusta
-                            .iter()
-                            .zip(cubemap_visible_entities.iter_mut())
-                        {
-                            if frustum.intersects_obb(aabb, &model_to_world, true) {
+
+                        if point_light.spotlight_angles.is_some() {
+                            // spotlights only use the first array entry
+                            // if cubemap_frusta.frusta[0].intersects_obb(aabb, &model_to_world, true) {
                                 computed_visibility.is_visible = true;
-                                visible_entities.entities.push(entity);
+                                cubemap_visible_entities.get_mut(0).entities.push(entity);
+                            // }
+                        } else {
+                            for (frustum, visible_entities) in cubemap_frusta
+                                .iter()
+                                .zip(cubemap_visible_entities.iter_mut())
+                            {
+                                if frustum.intersects_obb(aabb, &model_to_world, true) {
+                                    computed_visibility.is_visible = true;
+                                    visible_entities.entities.push(entity);
+                                }
                             }
                         }
                     } else {
                         computed_visibility.is_visible = true;
-                        for visible_entities in cubemap_visible_entities.iter_mut() {
-                            visible_entities.entities.push(entity);
+                        if point_light.spotlight_angles.is_some() {
+                            // spotlights only use the first array entry
+                            cubemap_visible_entities.get_mut(0).entities.push(entity);
+                        } else {
+                            for visible_entities in cubemap_visible_entities.iter_mut() {
+                                visible_entities.entities.push(entity);
+                            }
                         }
                     }
                 }
