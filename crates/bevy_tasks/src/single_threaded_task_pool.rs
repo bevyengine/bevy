@@ -37,6 +37,20 @@ impl TaskPoolBuilder {
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool. In this case - main thread only.
+/// 
+/// # Scheduling Semantics
+/// Each thread in the pool is assigned to one of three priority groups: Compute, IO, and Async 
+/// Compute. Compute is higher priority than IO, which are both higher priority than async compute.
+/// Every task is assigned to a group upon being spawned. A lower priority thread will always prioritize
+/// its specific tasks (i.e. IO tasks on a IO thread), but will run higher priority tasks if it would
+/// otherwise be sitting idle.
+/// 
+/// For example, under heavy compute workloads, compute tasks will be scheduled to run on the IO and 
+/// async compute thread groups, but any IO task will take precedence over any compute task on the IO
+/// threads. Likewise, async compute tasks will never be scheduled on a compute or IO thread.
+/// 
+/// By default, all threads in the pool are dedicated to compute group. Thread counts can be altered
+/// via [`TaskPoolBuilder`] when constructing the pool.
 #[derive(Debug, Default, Clone)]
 pub struct TaskPool {}
 
@@ -106,6 +120,47 @@ impl TaskPool {
         FakeTask
     }
 
+    /// Spawns a static future onto the JS event loop. For now it is returning FakeTask
+    /// instance with no-op detach method. Returning real Task is possible here, but tricky:
+    /// future is running on JS event loop, Task is running on async_executor::LocalExecutor
+    /// so some proxy future is needed. Moreover currently we don't have long-living
+    /// LocalExecutor here (above `spawn` implementation creates temporary one)
+    /// But for typical use cases it seems that current implementation should be sufficient:
+    /// caller can spawn long-running future writing results to some channel / event queue
+    /// and simply call detach on returned Task (like AssetServer does) - spawned future
+    /// can write results to some channel / event queue.
+    pub fn spawn_async_compute<T>(
+        &self,
+        future: impl Future<Output = T> + Send + 'static,
+    ) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        wasm_bindgen_futures::spawn_local(async move {
+            future.await;
+        });
+        FakeTask
+    }
+
+    /// Spawns a static future onto the JS event loop. For now it is returning FakeTask
+    /// instance with no-op detach method. Returning real Task is possible here, but tricky:
+    /// future is running on JS event loop, Task is running on async_executor::LocalExecutor
+    /// so some proxy future is needed. Moreover currently we don't have long-living
+    /// LocalExecutor here (above `spawn` implementation creates temporary one)
+    /// But for typical use cases it seems that current implementation should be sufficient:
+    /// caller can spawn long-running future writing results to some channel / event queue
+    /// and simply call detach on returned Task (like AssetServer does) - spawned future
+    /// can write results to some channel / event queue.
+    pub fn spawn_io<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        wasm_bindgen_futures::spawn_local(async move {
+            future.await;
+        });
+        FakeTask
+    }
+
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskSpool::spawn`].
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
@@ -142,6 +197,28 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+        self.spawn_local(f);
+    }
+
+    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.
+    ///
+    /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn_async_compute<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+        self.spawn_local(f);
+    }
+
+    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.
+    ///
+    /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn_io<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
         self.spawn_local(f);
     }
 
