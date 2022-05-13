@@ -874,7 +874,7 @@ pub(crate) unsafe fn get_mut_by_id(
     location: EntityLocation,
     component_id: ComponentId,
 ) -> Option<MutUntyped> {
-    // SAFE: world access is unique and entity location is valid
+    // SAFE: world access is unique, entity location and component_id required to be valid 
     get_component_and_ticks(world, component_id, entity, location).map(|(value, ticks)| {
         MutUntyped {
             value: value.assert_unique(),
@@ -947,7 +947,7 @@ mod tests {
         let mut test_component = entity_mut.get_mut_by_id(component_id).unwrap();
         {
             test_component.set_changed();
-            // Safety: `test_component` has unique access of the `EntityMut` and is not used afterwards
+            // SAFE: `test_component` has unique access of the `EntityMut` and is not used afterwards
             let test_component =
                 unsafe { test_component.into_inner().deref_mut::<TestComponent>() };
             test_component.0 = 43;

@@ -243,8 +243,7 @@ pub struct MutUntyped<'a> {
 
 impl<'a> MutUntyped<'a> {
     /// Returns the pointer to the value, without marking it as changed.
-    /// The value is only valid for the lifetime `'a`, after which it must not be used anymore.
-    /// In order to mark the value as change, you need to call [`set_changed`](DetectChanges::set_changed) manually
+    /// In order to mark the value as change, you need to call [`set_changed`](DetectChanges::set_changed) manually.
     pub fn into_inner(self) -> PtrMut<'a> {
         self.value
     }
