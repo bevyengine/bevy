@@ -140,10 +140,7 @@ impl TaskPool {
     /// caller can spawn long-running future writing results to some channel / event queue
     /// and simply call detach on returned Task (like AssetServer does) - spawned future
     /// can write results to some channel / event queue.
-    pub fn spawn_async_compute<T>(
-        &self,
-        future: impl Future<Output = T> + 'static,
-    ) -> FakeTask
+    pub fn spawn_async_compute<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: Send + 'static,
     {
