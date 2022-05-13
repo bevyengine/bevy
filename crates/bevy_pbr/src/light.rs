@@ -1383,7 +1383,7 @@ pub fn update_point_light_frusta(
         let view_backward = transform.back();
 
         if let Some((_inner_angle, angle)) = point_light.spotlight_angles {
-            let fwd = transform.forward();
+            let fwd = transform.back();
             let spot_view_rotation = spotlight_rotation_matrix(fwd);
             let spot_view_rotation = GlobalTransform::from_rotation(Quat::from_mat3(&spot_view_rotation));
             let view = view_translation * spot_view_rotation;
@@ -1536,10 +1536,10 @@ pub fn check_light_mesh_visibility(
 
                         if point_light.spotlight_angles.is_some() {
                             // spotlights only use the first array entry
-                            // if cubemap_frusta.frusta[0].intersects_obb(aabb, &model_to_world, true) {
+                            if cubemap_frusta.frusta[0].intersects_obb(aabb, &model_to_world, true) {
                                 computed_visibility.is_visible = true;
                                 cubemap_visible_entities.get_mut(0).entities.push(entity);
-                            // }
+                            }
                         } else {
                             for (frustum, visible_entities) in cubemap_frusta
                                 .iter()
