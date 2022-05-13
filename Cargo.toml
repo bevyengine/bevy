@@ -131,17 +131,41 @@ path = "examples/hello_world.rs"
 name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
 
+[metadata.example.move_sprite]
+name = "Move Sprite"
+description = "Changes the transform of a sprite"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "rotation"
 path = "examples/2d/rotation.rs"
+
+[metadata.example.rotation]
+name = "2D Rotation"
+description = "Demonstrates rotating entities in 2D with quaternions"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "mesh2d"
 path = "examples/2d/mesh2d.rs"
 
+[metadata.example.mesh2d]
+name = "Mesh 2D"
+description = "Renders a 2d mesh"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
+
+[metadata.example.mesh2d_manual]
+name = "Manual Mesh 2D"
+description = "Renders a custom mesh \"manually\" with \"mid-level\" renderer apis"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "mesh2d_vertex_color_texture"
@@ -151,25 +175,61 @@ path = "examples/2d/mesh2d_vertex_color_texture.rs"
 name = "shapes"
 path = "examples/2d/shapes.rs"
 
+[metadata.example.shapes]
+name = "Shapes"
+description = "Renders a rectangle, circle, and hexagon"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
+
+[metadata.example.sprite]
+name = "Sprite"
+description = "Renders a sprite"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "sprite_flipping"
 path = "examples/2d/sprite_flipping.rs"
 
+[metadata.example.sprite_flipping]
+name = "Sprite Flipping"
+description = "Renders a sprite flipped along an axis"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "sprite_sheet"
 path = "examples/2d/sprite_sheet.rs"
+
+[metadata.example.sprite_sheet]
+name = "Sprite Sheet"
+description = "Renders an animated sprite"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 
+[metadata.example.text2d]
+name = "Text 2D"
+description = "Generates text in 2D"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
+
+[metadata.example.texture_atlas]
+name = "Texture Atlas"
+description = "Generates a texture atlas (sprite sheet) from individual sprites"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "transparency_2d"
@@ -179,6 +239,12 @@ path = "examples/2d/transparency_2d.rs"
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
+
+[metadata.example.3d_scene]
+name = "3D Scene"
+description = "Simple 3D scene with basic shapes and lighting"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "3d_shapes"
