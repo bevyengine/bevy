@@ -1,4 +1,4 @@
-use crate::{ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo};
+use crate::{ArrayInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo};
 use std::any::{Any, TypeId};
 
 /// A static accessor to compile-time type information
@@ -54,6 +54,7 @@ pub enum TypeInfo {
     TupleStruct(TupleStructInfo),
     Tuple(TupleInfo),
     List(ListInfo),
+    Array(ArrayInfo),
     Map(MapInfo),
     Value(ValueInfo),
     /// Type information for "dynamic" types whose metadata can't be known at compile-time
@@ -70,6 +71,7 @@ impl TypeInfo {
             Self::TupleStruct(info) => info.id(),
             Self::Tuple(info) => info.id(),
             Self::List(info) => info.id(),
+            Self::Array(info) => info.id(),
             Self::Map(info) => info.id(),
             Self::Value(info) => info.id(),
             Self::Dynamic(info) => info.id(),

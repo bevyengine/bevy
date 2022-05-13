@@ -925,4 +925,19 @@ mod tests {
         assert!(entity.contains::<A>());
         assert!(entity.contains::<B>());
     }
+
+    #[test]
+    fn into_iter_impl() {
+        let mut world = World::new();
+        world.spawn().insert(W(42u32));
+        run_system(&mut world, |mut q: Query<&mut W<u32>>| {
+            for mut a in &mut q {
+                assert_eq!(a.0, 42);
+                a.0 = 0;
+            }
+            for a in &q {
+                assert_eq!(a.0, 0);
+            }
+        });
+    }
 }

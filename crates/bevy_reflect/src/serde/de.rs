@@ -1,6 +1,6 @@
 use crate::{
-    serde::type_fields, DynamicList, DynamicMap, DynamicStruct, DynamicTuple, DynamicTupleStruct,
-    Reflect, ReflectDeserialize, TypeRegistry,
+    serde::type_fields, DynamicArray, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+    DynamicTupleStruct, Reflect, ReflectDeserialize, TypeRegistry,
 };
 use erased_serde::Deserializer;
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
@@ -194,6 +194,15 @@ impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
                     })?;
                     return Ok(Box::new(list));
                 }
+                type_fields::ARRAY => {
+                    let _type_name = type_name
+                        .take()
+                        .ok_or_else(|| de::Error::missing_field(type_fields::TYPE))?;
+                    let array = map.next_value_seed(ArrayDeserializer {
+                        registry: self.registry,
+                    })?;
+                    return Ok(Box::new(array));
+                }
                 type_fields::VALUE => {
                     let type_name = type_name
                         .take()
@@ -279,6 +288,49 @@ impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
             list.push_box(value);
         }
         Ok(list)
+    }
+}
+
+struct ArrayDeserializer<'a> {
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for ArrayDeserializer<'a> {
+    type Value = DynamicArray;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(ArrayVisitor {
+            registry: self.registry,
+        })
+    }
+}
+
+struct ArrayVisitor<'a> {
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
+    type Value = DynamicArray;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("array value")
+    }
+
+    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+    where
+        V: SeqAccess<'de>,
+    {
+        let mut vec = Vec::with_capacity(seq.size_hint().unwrap_or_default());
+        while let Some(value) = seq.next_element_seed(ReflectDeserializer {
+            registry: self.registry,
+        })? {
+            vec.push(value);
+        }
+
+        Ok(DynamicArray::new(Box::from(vec)))
     }
 }
 

@@ -3,15 +3,19 @@ use bevy_utils::HashSet;
 use fixedbitset::FixedBitSet;
 use std::marker::PhantomData;
 
-/// `Access` keeps track of read and write accesses to values within a collection.
+/// Tracks read and write access to specific elements in a collection.
 ///
-/// This is used for ensuring systems are executed soundly.
-#[derive(Debug, Eq, PartialEq, Clone)]
+/// Used internally to ensure soundness during system initialization and execution.
+/// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Access<T: SparseSetIndex> {
-    reads_all: bool,
-    /// A combined set of T read and write accesses.
+    /// All accessed elements.
     reads_and_writes: FixedBitSet,
+    /// The exclusively-accessed elements.
     writes: FixedBitSet,
+    /// Is `true` if this has access to all elements in the collection?
+    /// This field is a performance optimization for `&World` (also harder to mess up for soundness).
+    reads_all: bool,
     marker: PhantomData<T>,
 }
 
@@ -27,26 +31,29 @@ impl<T: SparseSetIndex> Default for Access<T> {
 }
 
 impl<T: SparseSetIndex> Access<T> {
-    pub fn grow(&mut self, bits: usize) {
-        self.reads_and_writes.grow(bits);
-        self.writes.grow(bits);
+    /// Increases the set capacity to the specified amount.
+    ///
+    /// Does nothing if `capacity` is less than or equal to the current value.
+    pub fn grow(&mut self, capacity: usize) {
+        self.reads_and_writes.grow(capacity);
+        self.writes.grow(capacity);
     }
 
-    /// Adds a read access for the given index.
+    /// Adds access to the element given by `index`.
     pub fn add_read(&mut self, index: T) {
         self.reads_and_writes.grow(index.sparse_set_index() + 1);
         self.reads_and_writes.insert(index.sparse_set_index());
     }
 
-    /// Adds a write access for the given index.
+    /// Adds exclusive access to the element given by `index`.
     pub fn add_write(&mut self, index: T) {
         self.reads_and_writes.grow(index.sparse_set_index() + 1);
-        self.writes.grow(index.sparse_set_index() + 1);
         self.reads_and_writes.insert(index.sparse_set_index());
+        self.writes.grow(index.sparse_set_index() + 1);
         self.writes.insert(index.sparse_set_index());
     }
 
-    /// Returns true if this `Access` contains a read access for the given index.
+    /// Returns `true` if this can access the element given by `index`.
     pub fn has_read(&self, index: T) -> bool {
         if self.reads_all {
             true
@@ -55,51 +62,54 @@ impl<T: SparseSetIndex> Access<T> {
         }
     }
 
-    /// Returns true if this `Access` contains a write access for the given index.
+    /// Returns `true` if this can exclusively access the element given by `index`.
     pub fn has_write(&self, index: T) -> bool {
         self.writes.contains(index.sparse_set_index())
     }
 
-    /// Sets this `Access` to having read access for all indices.
+    /// Sets this as having access to all indexed elements (i.e. `&World`).
     pub fn read_all(&mut self) {
         self.reads_all = true;
     }
 
-    /// Returns true if this `Access` has read access to all indices.
-    pub fn reads_all(&self) -> bool {
+    /// Returns `true` if this has access to all indexed elements (i.e. `&World`).
+    pub fn has_read_all(&self) -> bool {
         self.reads_all
     }
 
-    /// Clears all recorded accesses.
+    /// Removes all accesses.
     pub fn clear(&mut self) {
         self.reads_all = false;
         self.reads_and_writes.clear();
         self.writes.clear();
     }
 
-    /// Extends this `Access` with another, copying all accesses of `other` into this.
+    /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access<T>) {
         self.reads_all = self.reads_all || other.reads_all;
         self.reads_and_writes.union_with(&other.reads_and_writes);
         self.writes.union_with(&other.writes);
     }
 
-    /// Returns true if this `Access` is compatible with `other`.
+    /// Returns `true` if the access and `other` can be active at the same time.
     ///
-    /// Two `Access` instances are incompatible with each other if one `Access` has a write for
-    /// which the other also has a write or a read.
+    /// `Access` instances are incompatible if one can write
+    /// an element that the other can read or write.
     pub fn is_compatible(&self, other: &Access<T>) -> bool {
+        // Only systems that do not write data are compatible with systems that operate on `&World`.
         if self.reads_all {
-            0 == other.writes.count_ones(..)
-        } else if other.reads_all {
-            0 == self.writes.count_ones(..)
-        } else {
-            self.writes.is_disjoint(&other.reads_and_writes)
-                && self.reads_and_writes.is_disjoint(&other.writes)
+            return other.writes.count_ones(..) == 0;
         }
+
+        if other.reads_all {
+            return self.writes.count_ones(..) == 0;
+        }
+
+        self.writes.is_disjoint(&other.reads_and_writes)
+            && self.reads_and_writes.is_disjoint(&other.writes)
     }
 
-    /// Calculates conflicting accesses between this `Access` and `other`.
+    /// Returns a vector of elements that the access and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &Access<T>) -> Vec<T> {
         let mut conflicts = FixedBitSet::default();
         if self.reads_all {
@@ -117,20 +127,28 @@ impl<T: SparseSetIndex> Access<T> {
             .collect()
     }
 
-    /// Returns all read accesses.
+    /// Returns the indices of the elements this has access to.
+    pub fn reads_and_writes(&self) -> impl Iterator<Item = T> + '_ {
+        self.reads_and_writes.ones().map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the elements this has non-exclusive access to.
     pub fn reads(&self) -> impl Iterator<Item = T> + '_ {
         self.reads_and_writes
             .difference(&self.writes)
             .map(T::get_sparse_set_index)
     }
 
-    /// Returns all write accesses.
+    /// Returns the indices of the elements this has exclusive access to.
     pub fn writes(&self) -> impl Iterator<Item = T> + '_ {
         self.writes.ones().map(T::get_sparse_set_index)
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+/// An [`Access`] that has been filtered to include and exclude certain combinations of elements.
+///
+/// Used internally to statically check if queries are disjoint.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
     with: FixedBitSet,
@@ -156,31 +174,43 @@ impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
 }
 
 impl<T: SparseSetIndex> FilteredAccess<T> {
+    /// Returns a reference to the underlying unfiltered access.
     #[inline]
     pub fn access(&self) -> &Access<T> {
         &self.access
     }
 
+    /// Returns a mutable reference to the underlying unfiltered access.
+    #[inline]
+    pub fn access_mut(&mut self) -> &mut Access<T> {
+        &mut self.access
+    }
+
+    /// Adds access to the element given by `index`.
     pub fn add_read(&mut self, index: T) {
         self.access.add_read(index.clone());
         self.add_with(index);
     }
 
+    /// Adds exclusive access to the element given by `index`.
     pub fn add_write(&mut self, index: T) {
         self.access.add_write(index.clone());
         self.add_with(index);
     }
 
+    /// Retains only combinations where the element given by `index` is also present.
     pub fn add_with(&mut self, index: T) {
         self.with.grow(index.sparse_set_index() + 1);
         self.with.insert(index.sparse_set_index());
     }
 
+    /// Retains only combinations where the element given by `index` is not present.
     pub fn add_without(&mut self, index: T) {
         self.without.grow(index.sparse_set_index() + 1);
         self.without.insert(index.sparse_set_index());
     }
 
+    /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
         if self.access.is_compatible(&other.access) {
             true
@@ -190,56 +220,94 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         }
     }
 
+    /// Returns a vector of elements that this and `other` cannot access at the same time.
+    pub fn get_conflicts(&self, other: &FilteredAccess<T>) -> Vec<T> {
+        if !self.is_compatible(other) {
+            // filters are disjoint, so we can just look at the unfiltered intersection
+            return self.access.get_conflicts(&other.access);
+        }
+        Vec::new()
+    }
+
+    /// Adds all access and filters from `other`.
     pub fn extend(&mut self, access: &FilteredAccess<T>) {
         self.access.extend(&access.access);
         self.with.union_with(&access.with);
         self.without.union_with(&access.without);
     }
 
+    /// Sets the underlying unfiltered access as having access to all indexed elements.
     pub fn read_all(&mut self) {
         self.access.read_all();
     }
 }
-#[derive(Clone, Debug)]
+
+/// A collection of [`FilteredAccess`] instances.
+///
+/// Used internally to statically check if systems have conflicting access.
+#[derive(Debug, Clone)]
 pub struct FilteredAccessSet<T: SparseSetIndex> {
     combined_access: Access<T>,
     filtered_accesses: Vec<FilteredAccess<T>>,
 }
 
 impl<T: SparseSetIndex> FilteredAccessSet<T> {
+    /// Returns a reference to the unfiltered access of the entire set.
     #[inline]
     pub fn combined_access(&self) -> &Access<T> {
         &self.combined_access
     }
 
+    /// Returns a mutable reference to the unfiltered access of the entire set.
     #[inline]
     pub fn combined_access_mut(&mut self) -> &mut Access<T> {
         &mut self.combined_access
     }
 
-    pub fn get_conflicts(&self, filtered_access: &FilteredAccess<T>) -> Vec<T> {
-        // if combined unfiltered access is incompatible, check each filtered access for
-        // compatibility
-        let mut conflicts = HashSet::<usize>::default();
-        if !filtered_access.access.is_compatible(&self.combined_access) {
-            for current_filtered_access in &self.filtered_accesses {
-                if !current_filtered_access.is_compatible(filtered_access) {
-                    conflicts.extend(
-                        current_filtered_access
-                            .access
-                            .get_conflicts(&filtered_access.access)
-                            .iter()
-                            .map(|ind| ind.sparse_set_index()),
-                    );
+    /// Returns `true` if this and `other` can be active at the same time.
+    pub fn is_compatible(&self, other: &FilteredAccessSet<T>) -> bool {
+        if self.combined_access.is_compatible(other.combined_access()) {
+            return true;
+        } else {
+            for filtered in self.filtered_accesses.iter() {
+                for other_filtered in other.filtered_accesses.iter() {
+                    if !filtered.is_compatible(other_filtered) {
+                        return false;
+                    }
                 }
             }
         }
-        conflicts
-            .iter()
-            .map(|ind| T::get_sparse_set_index(*ind))
-            .collect()
+
+        true
     }
 
+    /// Returns a vector of elements that this set and `other` cannot access at the same time.
+    pub fn get_conflicts(&self, other: &FilteredAccessSet<T>) -> Vec<T> {
+        // if the unfiltered access is incompatible, must check each pair
+        let mut conflicts = HashSet::new();
+        if !self.combined_access.is_compatible(other.combined_access()) {
+            for filtered in self.filtered_accesses.iter() {
+                for other_filtered in other.filtered_accesses.iter() {
+                    conflicts.extend(filtered.get_conflicts(other_filtered).into_iter());
+                }
+            }
+        }
+        conflicts.into_iter().collect()
+    }
+
+    /// Returns a vector of elements that this set and `other` cannot access at the same time.
+    pub fn get_conflicts_single(&self, filtered_access: &FilteredAccess<T>) -> Vec<T> {
+        // if the unfiltered access is incompatible, must check each pair
+        let mut conflicts = HashSet::new();
+        if !self.combined_access.is_compatible(filtered_access.access()) {
+            for filtered in self.filtered_accesses.iter() {
+                conflicts.extend(filtered.get_conflicts(filtered_access).into_iter());
+            }
+        }
+        conflicts.into_iter().collect()
+    }
+
+    /// Adds the filtered access to the set.
     pub fn add(&mut self, filtered_access: FilteredAccess<T>) {
         self.combined_access.extend(&filtered_access.access);
         self.filtered_accesses.push(filtered_access);

@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod array;
 mod fields;
 mod list;
 mod map;
@@ -37,6 +38,7 @@ pub mod prelude {
     };
 }
 
+pub use array::*;
 pub use fields::*;
 pub use impls::*;
 pub use list::*;
@@ -86,6 +88,8 @@ pub mod __macro_exports {
 #[cfg(test)]
 #[allow(clippy::blacklisted_name, clippy::approx_constant)]
 mod tests {
+    #[cfg(feature = "glam")]
+    use ::glam::{vec3, Vec3};
     use ::serde::de::DeserializeSeed;
     use bevy_utils::HashMap;
     use ron::{
@@ -244,6 +248,7 @@ mod tests {
             e: Bar,
             f: (i32, Vec<isize>, Bar),
             g: Vec<(Baz, HashMap<usize, Bar>)>,
+            h: [u32; 2],
         }
 
         #[derive(Reflect, Eq, PartialEq, Clone, Debug, FromReflect)]
@@ -270,6 +275,7 @@ mod tests {
             e: Bar { x: 1 },
             f: (1, vec![1, 2], Bar { x: 1 }),
             g: vec![(Baz("string".to_string()), hash_map_baz)],
+            h: [2; 2],
         };
 
         let mut foo_patch = DynamicStruct::default();
@@ -280,7 +286,7 @@ mod tests {
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", list.clone_dynamic());
+        foo_patch.insert("c", List::clone_dynamic(&list));
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
@@ -317,6 +323,9 @@ mod tests {
         });
         foo_patch.insert("g", composite);
 
+        let array = DynamicArray::from_vec(vec![2u32, 2u32]);
+        foo_patch.insert("h", array);
+
         foo.apply(&foo_patch);
 
         let mut hash_map = HashMap::default();
@@ -334,6 +343,7 @@ mod tests {
             e: Bar { x: 2 },
             f: (2, vec![3, 4, 5], Bar { x: 2 }),
             g: vec![(Baz("new_string".to_string()), hash_map_baz.clone())],
+            h: [2; 2],
         };
 
         assert_eq!(foo, expected_foo);
@@ -352,6 +362,7 @@ mod tests {
             e: Bar { x: 2 },
             f: (2, vec![3, 4, 5], Bar { x: 2 }),
             g: vec![(Baz("new_string".to_string()), hash_map_baz)],
+            h: [2; 2],
         };
 
         assert_eq!(new_foo, expected_new_foo);
@@ -369,6 +380,7 @@ mod tests {
             e: Bar,
             f: String,
             g: (i32, Vec<isize>, Bar),
+            h: [u32; 2],
         }
 
         #[derive(Reflect)]
@@ -387,6 +399,7 @@ mod tests {
             e: Bar { x: 1 },
             f: "hi".to_string(),
             g: (1, vec![1, 2], Bar { x: 1 }),
+            h: [2; 2],
         };
 
         let mut registry = TypeRegistry::default();
@@ -425,8 +438,12 @@ mod tests {
     #[test]
     fn dynamic_names() {
         let list = Vec::<usize>::new();
-        let dyn_list = list.clone_dynamic();
+        let dyn_list = List::clone_dynamic(&list);
         assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+
+        let array = [b'0'; 4];
+        let dyn_array = Array::clone_dynamic(&array);
+        assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
@@ -599,6 +616,20 @@ mod tests {
             }
         }
 
+        // Array
+        type MyArray = [usize; 3];
+
+        let info = MyArray::type_info();
+        if let TypeInfo::Array(info) = info {
+            assert!(info.id().is::<MyArray>());
+            assert!(info.item().is::<usize>());
+            assert_eq!(std::any::type_name::<MyArray>(), info.id().type_name());
+            assert_eq!(std::any::type_name::<usize>(), info.item().type_name());
+            assert_eq!(3, info.capacity());
+        } else {
+            panic!("Expected `TypeInfo::Array`");
+        }
+
         // Map
         type MyMap = HashMap<usize, f32>;
 
@@ -650,5 +681,94 @@ mod tests {
 
         // Should compile:
         let _ = trait_object.as_reflect();
+    }
+
+    #[cfg(feature = "glam")]
+    mod glam {
+        use super::*;
+        use ::serde::Serialize;
+
+        #[test]
+        fn vec3_serialization() {
+            let v = vec3(12.0, 3.0, -6.9);
+
+            let mut registry = TypeRegistry::default();
+            registry.add_registration(Vec3::get_type_registration());
+
+            let ser = ReflectSerializer::new(&v, &registry);
+
+            let mut dest = vec![];
+            let mut serializer = ron::ser::Serializer::new(&mut dest, None, false)
+                .expect("Failed to acquire serializer");
+
+            ser.serialize(&mut serializer).expect("Failed to serialize");
+
+            let result = String::from_utf8(dest).expect("Failed to convert to string");
+
+            assert_eq!(
+                result,
+                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#
+            );
+        }
+
+        #[test]
+        fn vec3_deserialization() {
+            let data = r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#;
+
+            let mut registry = TypeRegistry::default();
+            registry.add_registration(Vec3::get_type_registration());
+            registry.add_registration(f32::get_type_registration());
+
+            let de = ReflectDeserializer::new(&registry);
+
+            let mut deserializer =
+                ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");
+
+            let dynamic_struct = de
+                .deserialize(&mut deserializer)
+                .expect("Failed to deserialize");
+
+            let mut result = Vec3::default();
+
+            result.apply(&*dynamic_struct);
+
+            assert_eq!(result, vec3(12.0, 3.0, -6.9));
+        }
+
+        #[test]
+        fn vec3_field_access() {
+            let mut v = vec3(1.0, 2.0, 3.0);
+
+            assert_eq!(*v.get_field::<f32>("x").unwrap(), 1.0);
+
+            *v.get_field_mut::<f32>("y").unwrap() = 6.0;
+
+            assert_eq!(v.y, 6.0);
+        }
+
+        #[test]
+        fn vec3_path_access() {
+            let mut v = vec3(1.0, 2.0, 3.0);
+
+            assert_eq!(*v.path("x").unwrap().downcast_ref::<f32>().unwrap(), 1.0);
+
+            *v.path_mut("y").unwrap().downcast_mut::<f32>().unwrap() = 6.0;
+
+            assert_eq!(v.y, 6.0);
+        }
+
+        #[test]
+        fn vec3_apply_dynamic() {
+            let mut v = vec3(3.0, 3.0, 3.0);
+
+            let mut d = DynamicStruct::default();
+            d.insert("x", 4.0f32);
+            d.insert("y", 2.0f32);
+            d.insert("z", 1.0f32);
+
+            v.apply(&d);
+
+            assert_eq!(v, vec3(4.0, 2.0, 1.0));
+        }
     }
 }

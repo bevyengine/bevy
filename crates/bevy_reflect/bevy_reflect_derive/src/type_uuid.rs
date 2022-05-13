@@ -5,7 +5,7 @@ use quote::quote;
 use syn::*;
 use uuid::Uuid;
 
-pub fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
     let mut ast: DeriveInput = syn::parse(input).unwrap();

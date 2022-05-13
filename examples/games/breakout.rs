@@ -411,13 +411,14 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
-    mut collision_events: EventReader<CollisionEvent>,
+    collision_events: EventReader<CollisionEvent>,
     audio: Res<Audio>,
     sound: Res<CollisionSound>,
 ) {
-    // Play a sound once per frame if a collision occurred. `count` consumes the
-    // events, preventing them from triggering a sound on the next frame.
-    if collision_events.iter().count() > 0 {
+    // Play a sound once per frame if a collision occurred.
+    if !collision_events.is_empty() {
+        // This prevents events staying active on the next frame.
+        collision_events.clear();
         audio.play(sound.0.clone());
     }
 }
