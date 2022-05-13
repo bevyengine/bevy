@@ -68,7 +68,7 @@ impl ArrayInfo {
         &self.item_id
     }
 
-    /// The compile-time capacity of this array, if any
+    /// The compile-time capacity of this array
     pub fn capacity(&self) -> usize {
         self.capacity
     }
