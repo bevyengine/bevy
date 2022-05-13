@@ -281,9 +281,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut std::fmt::Formatter<'_>) -> std::
 #[cfg(test)]
 mod tests {
     use super::DynamicList;
-    use crate::List;
     use std::assert_eq;
-    use std::fmt::Debug;
 
     #[test]
     fn test_into_iter() {

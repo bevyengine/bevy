@@ -306,8 +306,6 @@ pub fn map_debug(dyn_map: &dyn Map, f: &mut std::fmt::Formatter<'_>) -> std::fmt
 #[cfg(test)]
 mod tests {
     use super::DynamicMap;
-    use crate::Map;
-    use std::fmt::Debug;
 
     #[test]
     fn test_into_iter() {

@@ -84,7 +84,6 @@ pub mod __macro_exports {
 #[cfg(test)]
 #[allow(clippy::blacklisted_name, clippy::approx_constant)]
 mod tests {
-    use std::fmt::{Debug, Formatter};
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
     use ::serde::de::DeserializeSeed;
@@ -93,6 +92,7 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use std::fmt::{Debug, Formatter};
 
     use super::*;
     use crate as bevy_reflect;
@@ -503,7 +503,7 @@ mod tests {
             custom: CustomDebug,
             unknown: Option<String>,
             #[reflect(ignore)]
-            ignored: isize
+            ignored: isize,
         }
 
         #[derive(Reflect)]
@@ -537,7 +537,7 @@ mod tests {
             a_tuple_struct: SomeTupleStruct(String::from("A Tuple Struct!")),
             custom: CustomDebug,
             unknown: Some(String::from("Enums aren't supported yet :(")),
-            ignored: 321
+            ignored: 321,
         };
 
         let reflected: &dyn Reflect = &test;

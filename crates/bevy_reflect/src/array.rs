@@ -1,10 +1,10 @@
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 use serde::ser::SerializeSeq;
+use std::fmt::Debug;
 use std::{
     any::Any,
     hash::{Hash, Hasher},
 };
-use std::fmt::Debug;
 
 /// A static-sized array of [`Reflect`] items.
 ///
