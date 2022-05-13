@@ -445,7 +445,7 @@ fn make_thread_builder(
 
     #[cfg(miri)]
     let mut thread_builder = {
-        let _ = i;
+        let _ = idx;
         let _ = thread_name;
         thread::Builder::new()
     };
