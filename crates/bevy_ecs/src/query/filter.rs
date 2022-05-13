@@ -650,17 +650,12 @@ macro_rules! impl_tick_filter {
 }
 
 impl_tick_filter!(
-    /// Filter that retrieves components of type `T` that have been added since the last execution
-    /// of this system.
+    /// A filter on a component that only retains results added after the system last ran.
     ///
-    /// This filter is useful to do one-time post-processing on components.
+    /// A common use for this filter is one-time initialization.
     ///
-    /// Because the ordering of systems can change and this filter is only effective on changes
-    /// before the query executes you need to use explicit dependency ordering or ordered stages to
-    /// avoid frame delays.
-    ///
-    /// If instead behavior is meant to change on whether the component changed or not
-    /// [`ChangeTrackers`](crate::query::ChangeTrackers) may be used.
+    /// To retain all results without filtering but still check whether they were added after the
+    /// system last ran, use [`ChangeTrackers<T>`](crate::query::ChangeTrackers).
     ///
     /// # Examples
     ///
@@ -690,18 +685,15 @@ impl_tick_filter!(
 );
 
 impl_tick_filter!(
-    /// Filter that retrieves components of type `T` that have been changed since the last
-    /// execution of this system.
+    /// A filter on a component that only retains results added or mutably dereferenced after the system last ran.
+    ///  
+    /// A common use for this filter is avoiding redundant work when values have not changed.
     ///
-    /// This filter is useful for synchronizing components, and as a performance optimization as it
-    /// means that the query contains fewer items for a system to iterate over.
+    /// **Note** that simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare components to their previous values.
     ///
-    /// Because the ordering of systems can change and this filter is only effective on changes
-    /// before the query executes you need to use explicit dependency ordering or ordered
-    /// stages to avoid frame delays.
-    ///
-    /// If instead behavior is meant to change on whether the component changed or not
-    /// [`ChangeTrackers`](crate::query::ChangeTrackers) may be used.
+    /// To retain all results without filtering but still check whether they were changed after the
+    /// system last ran, use [`ChangeTrackers<T>`](crate::query::ChangeTrackers).
     ///
     /// # Examples
     ///

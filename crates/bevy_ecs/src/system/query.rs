@@ -1129,6 +1129,24 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     }
 }
 
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> IntoIterator for &'w Query<'_, 's, Q, F> {
+    type Item = ROQueryItem<'w, Q>;
+    type IntoIter = QueryIter<'w, 's, Q, ROQueryFetch<'w, Q>, F>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'w, Q: WorldQuery, F: WorldQuery> IntoIterator for &'w mut Query<'_, '_, Q, F> {
+    type Item = QueryItem<'w, Q>;
+    type IntoIter = QueryIter<'w, 'w, Q, QueryFetch<'w, Q>, F>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
 /// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`]
 #[derive(Debug)]
 pub enum QueryComponentError {

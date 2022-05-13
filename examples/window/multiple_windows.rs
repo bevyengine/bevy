@@ -18,6 +18,7 @@ fn main() {
         .add_plugin(SecondWindowCameraPlugin)
         .add_startup_system(setup)
         .add_startup_system(create_new_window)
+        .add_system(bevy::window::close_on_esc)
         .run();
 }
 

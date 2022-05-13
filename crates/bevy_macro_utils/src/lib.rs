@@ -78,6 +78,22 @@ impl BevyManifest {
         deps.and_then(find_in_deps)
             .or_else(|| deps_dev.and_then(find_in_deps))
     }
+
+    /// Returns the path for the crate with the given name.
+    ///
+    /// This is a convenience method for constructing a [manifest] and
+    /// calling the [`get_path`] method.
+    ///
+    /// This method should only be used where you just need the path and can't
+    /// cache the [manifest]. If caching is possible, it's recommended to create
+    /// the [manifest] yourself and use the [`get_path`] method.
+    ///
+    /// [`get_path`]: Self::get_path
+    /// [manifest]: Self
+    pub fn get_path_direct(name: &str) -> syn::Path {
+        Self::default().get_path(name)
+    }
+
     pub fn get_path(&self, name: &str) -> syn::Path {
         self.maybe_get_path(name)
             .unwrap_or_else(|| Self::parse_str(name))

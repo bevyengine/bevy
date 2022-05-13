@@ -1,4 +1,5 @@
 use crate::{
+    change_detection::MAX_CHANGE_AGE,
     system::{check_system_change_tick, BoxedSystem, IntoSystem},
     world::World,
 };
@@ -43,7 +44,9 @@ where
         world.last_change_tick = saved_last_tick;
     }
 
-    fn initialize(&mut self, _: &mut World) {}
+    fn initialize(&mut self, world: &mut World) {
+        self.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+    }
 
     fn check_change_tick(&mut self, change_tick: u32) {
         check_system_change_tick(&mut self.last_change_tick, change_tick, self.name.as_ref());

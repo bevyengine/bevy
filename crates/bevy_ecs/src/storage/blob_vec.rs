@@ -212,7 +212,7 @@ impl BlobVec {
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
         debug_assert!(index < self.len());
-        self.get_ptr().add(index * self.item_layout.size())
+        self.get_ptr().byte_add(index * self.item_layout.size())
     }
 
     /// # Safety
@@ -221,7 +221,7 @@ impl BlobVec {
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
         debug_assert!(index < self.len());
         let layout_size = self.item_layout.size();
-        self.get_ptr_mut().add(index * layout_size)
+        self.get_ptr_mut().byte_add(index * layout_size)
     }
 
     /// Gets a [`Ptr`] to the start of the vec
@@ -258,7 +258,7 @@ impl BlobVec {
             unsafe {
                 // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
                 // will panic here due to self.len being set to 0
-                let ptr = self.get_ptr_mut().add(i * layout_size).promote();
+                let ptr = self.get_ptr_mut().byte_add(i * layout_size).promote();
                 (drop)(ptr);
             }
         }
