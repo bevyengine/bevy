@@ -14,8 +14,19 @@ impl TaskPoolBuilder {
         Self::default()
     }
 
-    /// No op on the single threaded task pool
-    pub fn num_threads(self, _num_threads: usize) -> Self {
+    /// Override the number of compute-priority threads created for the pool. If unset, this default to the number
+    /// of logical cores of the system
+    pub fn compute_threads(mut self, num_threads: usize) -> Self {
+        self
+    }
+
+    /// Override the number of async-compute priority threads created for the pool. If unset, this defaults to 0.
+    pub fn async_compute_threads(mut self, num_threads: usize) -> Self {
+        self
+    }
+
+    /// Override the number of IO-priority threads created for the pool. If unset, this defaults to 0.
+    pub fn io_threads(mut self, num_threads: usize) -> Self {
         self
     }
 
