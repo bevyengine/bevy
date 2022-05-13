@@ -416,16 +416,23 @@ pub struct ReflectFromPtr {
 }
 
 impl ReflectFromPtr {
+    /// Returns the [`TypeId`] that the [`ReflectFromPtr`] was constructed for
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
     /// # Safety
     ///
-    /// - `val` must be a pointer to a valid value of the type that the [`ReflectFromPtr`] was constructed for
+    /// `val` must be a pointer to a valid value of the type that the [`ReflectFromPtr`] was constructed for.
+    /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect_ptr<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
         (self.to_reflect)(val)
     }
 
     /// # Safety
     ///
-    /// - `val` must be a pointer to a valid and unaliased value of the type that the [`ReflectFromPtr`] was constructed for
+    /// `val` must be a pointer to a valid and unaliased value of the type that the [`ReflectFromPtr`] was constructed for
+    /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect_ptr_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
         (self.to_reflect_mut)(val)
     }
