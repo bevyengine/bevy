@@ -16,17 +16,17 @@ impl TaskPoolBuilder {
 
     /// Override the number of compute-priority threads created for the pool. If unset, this default to the number
     /// of logical cores of the system
-    pub fn compute_threads(mut self, num_threads: usize) -> Self {
+    pub fn compute_threads(self, num_threads: usize) -> Self {
         self
     }
 
     /// Override the number of async-compute priority threads created for the pool. If unset, this defaults to 0.
-    pub fn async_compute_threads(mut self, num_threads: usize) -> Self {
+    pub fn async_compute_threads(self, num_threads: usize) -> Self {
         self
     }
 
     /// Override the number of IO-priority threads created for the pool. If unset, this defaults to 0.
-    pub fn io_threads(mut self, num_threads: usize) -> Self {
+    pub fn io_threads(self, num_threads: usize) -> Self {
         self
     }
 
@@ -142,7 +142,7 @@ impl TaskPool {
     /// can write results to some channel / event queue.
     pub fn spawn_async_compute<T>(
         &self,
-        future: impl Future<Output = T> + Send + 'static,
+        future: impl Future<Output = T> + 'static,
     ) -> FakeTask
     where
         T: Send + 'static,
@@ -162,7 +162,7 @@ impl TaskPool {
     /// caller can spawn long-running future writing results to some channel / event queue
     /// and simply call detach on returned Task (like AssetServer does) - spawned future
     /// can write results to some channel / event queue.
-    pub fn spawn_io<T>(&self, future: impl Future<Output = T> + Send + 'static) -> FakeTask
+    pub fn spawn_io<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: Send + 'static,
     {
