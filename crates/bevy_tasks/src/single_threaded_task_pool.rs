@@ -207,7 +207,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         self.spawn_local(f);
     }
 
@@ -218,7 +218,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_async_compute<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+    pub fn spawn_async_compute<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         self.spawn_local(f);
     }
 
@@ -229,7 +229,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_io<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+    pub fn spawn_io<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         self.spawn_local(f);
     }
 
