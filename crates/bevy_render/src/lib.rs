@@ -282,7 +282,7 @@ impl Plugin for RenderPlugin {
                     render_app
                         .world
                         .resource_mut::<NumberOfRenderingEntitiesToReserve>()
-                        .0 = render_app.world.entities().meta.len() as u32;
+                        .0 = render_app.world.entities().meta_len() as u32;
 
                     render_app.world.clear_entities();
                 }
