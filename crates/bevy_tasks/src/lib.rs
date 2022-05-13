@@ -26,8 +26,9 @@ pub mod prelude {
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
-        task_pool::TaskPool,
     };
+    #[cfg(not(target_arch = "wasm32"))]
+    pub use task_pool::TaskPool;
     #[cfg(target_arch = "wasm32")]
     pub use single_threaded_task_pool::TaskPool;
 }
