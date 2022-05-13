@@ -92,18 +92,18 @@ impl Drop for TaskPoolInner {
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool.
-/// 
+///
 /// # Scheduling Semantics
-/// Each thread in the pool is assigned to one of three priority groups: Compute, IO, and Async 
+/// Each thread in the pool is assigned to one of three priority groups: Compute, IO, and Async
 /// Compute. Compute is higher priority than IO, which are both higher priority than async compute.
 /// Every task is assigned to a group upon being spawned. A lower priority thread will always prioritize
 /// its specific tasks (i.e. IO tasks on a IO thread), but will run higher priority tasks if it would
 /// otherwise be sitting idle.
-/// 
-/// For example, under heavy compute workloads, compute tasks will be scheduled to run on the IO and 
+///
+/// For example, under heavy compute workloads, compute tasks will be scheduled to run on the IO and
 /// async compute thread groups, but any IO task will take precedence over any compute task on the IO
 /// threads. Likewise, async compute tasks will never be scheduled on a compute or IO thread.
-/// 
+///
 /// By default, all threads in the pool are dedicated to compute group. Thread counts can be altered
 /// via [`TaskPoolBuilder`] when constructing the pool.
 #[derive(Debug, Clone)]
@@ -303,8 +303,8 @@ impl TaskPool {
         })
     }
 
-    /// Spawns a static future onto the thread pool with "compute" priority. The returned Task is a future. 
-    /// It can also be cancelled and "detached" allowing it to continue running without having to be polled 
+    /// Spawns a static future onto the thread pool with "compute" priority. The returned Task is a future.
+    /// It can also be cancelled and "detached" allowing it to continue running without having to be polled
     /// by the end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
@@ -315,8 +315,8 @@ impl TaskPool {
         Task::new(self.compute_executor.spawn(future))
     }
 
-    /// Spawns a static future onto the thread pool with "async compute" priority. The returned Task is a future. 
-    /// It can also be cancelled and "detached" allowing it to continue running without having to be polled 
+    /// Spawns a static future onto the thread pool with "async compute" priority. The returned Task is a future.
+    /// It can also be cancelled and "detached" allowing it to continue running without having to be polled
     /// by the end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
@@ -330,8 +330,8 @@ impl TaskPool {
         Task::new(self.async_compute_executor.spawn(future))
     }
 
-    /// Spawns a static future onto the thread pool with "IO" priority. The returned Task is a future. 
-    /// It can also be cancelled and "detached" allowing it to continue running without having to be polled 
+    /// Spawns a static future onto the thread pool with "IO" priority. The returned Task is a future.
+    /// It can also be cancelled and "detached" allowing it to continue running without having to be polled
     /// by the end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
@@ -374,8 +374,8 @@ pub struct Scope<'scope, T> {
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
-    /// Spawns a scoped future onto the thread pool with "compute" priority. The scope 
-    /// *must* outlive the provided future. The results of the future will be returned 
+    /// Spawns a scoped future onto the thread pool with "compute" priority. The scope
+    /// *must* outlive the provided future. The results of the future will be returned
     /// as a part of [`TaskPool::scope`]'s return value.
     ///
     /// If the provided future is non-`Send`, [`Scope::spawn_local`] should be used
@@ -387,8 +387,8 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
         self.spawned.push(task);
     }
 
-    /// Spawns a scoped future onto the thread pool with "async compute" priority. The scope 
-    /// *must* outlive the provided future. The results of the future will be returned as a 
+    /// Spawns a scoped future onto the thread pool with "async compute" priority. The scope
+    /// *must* outlive the provided future. The results of the future will be returned as a
     /// part of [`TaskPool::scope`]'s return value.
     ///
     /// If the provided future is non-`Send`, [`Scope::spawn_local`] should be used
@@ -400,8 +400,8 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
         self.spawned.push(task);
     }
 
-    /// Spawns a scoped future onto the thread pool with "IO" priority. The scope 
-    /// *must* outlive the provided future. The results of the future will be returned as a 
+    /// Spawns a scoped future onto the thread pool with "IO" priority. The scope
+    /// *must* outlive the provided future. The results of the future will be returned as a
     /// part of [`TaskPool::scope`]'s return value.
     ///
     /// If the provided future is non-`Send`, [`Scope::spawn_local`] should be used

@@ -37,18 +37,18 @@ impl TaskPoolBuilder {
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool. In this case - main thread only.
-/// 
+///
 /// # Scheduling Semantics
-/// Each thread in the pool is assigned to one of three priority groups: Compute, IO, and Async 
+/// Each thread in the pool is assigned to one of three priority groups: Compute, IO, and Async
 /// Compute. Compute is higher priority than IO, which are both higher priority than async compute.
 /// Every task is assigned to a group upon being spawned. A lower priority thread will always prioritize
 /// its specific tasks (i.e. IO tasks on a IO thread), but will run higher priority tasks if it would
 /// otherwise be sitting idle.
-/// 
-/// For example, under heavy compute workloads, compute tasks will be scheduled to run on the IO and 
+///
+/// For example, under heavy compute workloads, compute tasks will be scheduled to run on the IO and
 /// async compute thread groups, but any IO task will take precedence over any compute task on the IO
 /// threads. Likewise, async compute tasks will never be scheduled on a compute or IO thread.
-/// 
+///
 /// By default, all threads in the pool are dedicated to compute group. Thread counts can be altered
 /// via [`TaskPoolBuilder`] when constructing the pool.
 #[derive(Debug, Default, Clone)]
