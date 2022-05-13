@@ -406,7 +406,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
 /// let value = unsafe { reflect_from_ptr.as_reflect(&value) };
 ///
-/// println!("{:?}", value);
+/// assert!(value.reflect_partial_eq(&Reflected("Hello world!".to_string())).unwrap());
 /// ```
 #[derive(Clone)]
 pub struct ReflectFromPtr {
