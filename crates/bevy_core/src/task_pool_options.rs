@@ -1,5 +1,5 @@
 use bevy_ecs::world::World;
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
+use bevy_tasks::{TaskPool, TaskPoolBuilder};
 use bevy_utils::tracing::trace;
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
@@ -100,54 +100,38 @@ impl DefaultTaskPoolOptions {
 
         let mut remaining_threads = total_threads;
 
-        if !world.contains_resource::<IoTaskPool>() {
-            // Determine the number of IO threads we will use
-            let io_threads = self
-                .io
-                .get_number_of_threads(remaining_threads, total_threads);
-
-            trace!("IO Threads: {}", io_threads);
-            remaining_threads = remaining_threads.saturating_sub(io_threads);
-
-            world.insert_resource(IoTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(io_threads)
-                    .thread_name("IO Task Pool".to_string())
-                    .build(),
-            ));
+        if world.contains_resource::<TaskPool>() {
+            return;
         }
+        // Determine the number of IO threads we will use
+        let io_threads = self
+            .io
+            .get_number_of_threads(remaining_threads, total_threads);
 
-        if !world.contains_resource::<AsyncComputeTaskPool>() {
-            // Determine the number of async compute threads we will use
-            let async_compute_threads = self
-                .async_compute
-                .get_number_of_threads(remaining_threads, total_threads);
+        trace!("IO Threads: {}", io_threads);
+        remaining_threads = remaining_threads.saturating_sub(io_threads);
 
-            trace!("Async Compute Threads: {}", async_compute_threads);
-            remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
+        // Determine the number of async compute threads we will use
+        let async_compute_threads = self
+            .async_compute
+            .get_number_of_threads(remaining_threads, total_threads);
 
-            world.insert_resource(AsyncComputeTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(async_compute_threads)
-                    .thread_name("Async Compute Task Pool".to_string())
-                    .build(),
-            ));
-        }
+        trace!("Async Compute Threads: {}", async_compute_threads);
+        remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
-        if !world.contains_resource::<ComputeTaskPool>() {
-            // Determine the number of compute threads we will use
-            // This is intentionally last so that an end user can specify 1.0 as the percent
-            let compute_threads = self
-                .compute
-                .get_number_of_threads(remaining_threads, total_threads);
+        // Determine the number of compute threads we will use
+        // This is intentionally last so that an end user can specify 1.0 as the percent
+        let compute_threads = self
+            .compute
+            .get_number_of_threads(remaining_threads, total_threads);
 
-            trace!("Compute Threads: {}", compute_threads);
-            world.insert_resource(ComputeTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(compute_threads)
-                    .thread_name("Compute Task Pool".to_string())
-                    .build(),
-            ));
-        }
+        world.insert_resource(
+            TaskPoolBuilder::default()
+                .compute_threads(compute_threads)
+                .async_compute_threads(async_compute_threads)
+                .io_threads(io_threads)
+                .thread_name("Task Pool".to_string())
+                .build(),
+        );
     }
 }

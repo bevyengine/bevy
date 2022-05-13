@@ -6,7 +6,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use futures_lite::{future, pin};
+use futures_lite::{future, pin, FutureExt};
 
 use crate::Task;
 
@@ -16,7 +16,9 @@ use crate::Task;
 pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most n threads. Otherwise use
     /// the logical core count of the system
-    num_threads: Option<usize>,
+    compute_threads: Option<usize>,
+    async_compute_threads: Option<usize>,
+    io_threads: Option<usize>,
     /// If set, we'll use the given stack size rather than the system default
     stack_size: Option<usize>,
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
@@ -32,8 +34,18 @@ impl TaskPoolBuilder {
 
     /// Override the number of threads created for the pool. If unset, we default to the number
     /// of logical cores of the system
-    pub fn num_threads(mut self, num_threads: usize) -> Self {
-        self.num_threads = Some(num_threads);
+    pub fn compute_threads(mut self, num_threads: usize) -> Self {
+        self.compute_threads = Some(num_threads);
+        self
+    }
+
+    pub fn async_compute_threads(mut self, num_threads: usize) -> Self {
+        self.async_compute_threads = Some(num_threads);
+        self
+    }
+
+    pub fn io_threads(mut self, num_threads: usize) -> Self {
+        self.io_threads = Some(num_threads);
         self
     }
 
@@ -52,11 +64,7 @@ impl TaskPoolBuilder {
 
     /// Creates a new [`TaskPool`] based on the current options.
     pub fn build(self) -> TaskPool {
-        TaskPool::new_internal(
-            self.num_threads,
-            self.stack_size,
-            self.thread_name.as_deref(),
-        )
+        TaskPool::new_internal(self)
     }
 }
 
@@ -89,7 +97,9 @@ pub struct TaskPool {
     /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
     /// pass into the worker threads, and we must create the worker threads before we can create
     /// the Vec<Task<T>> contained within TaskPoolInner
-    executor: Arc<async_executor::Executor<'static>>,
+    compute_executor: Arc<async_executor::Executor<'static>>,
+    async_compute_executor: Arc<async_executor::Executor<'static>>,
+    io_executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
     inner: Arc<TaskPoolInner>,
@@ -105,27 +115,22 @@ impl TaskPool {
         TaskPoolBuilder::new().build()
     }
 
-    fn new_internal(
-        num_threads: Option<usize>,
-        stack_size: Option<usize>,
-        thread_name: Option<&str>,
-    ) -> Self {
+    fn new_internal(builder: TaskPoolBuilder) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
-        let executor = Arc::new(async_executor::Executor::new());
+        let compute_executor = Arc::new(async_executor::Executor::new());
+        let async_compute_executor = Arc::new(async_executor::Executor::new());
+        let io_executor = Arc::new(async_executor::Executor::new());
 
-        let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+        let num_threads = builder.compute_threads.unwrap_or_else(num_cpus::get);
 
         let threads = (0..num_threads)
             .map(|i| {
-                let ex = Arc::clone(&executor);
-                let shutdown_rx = shutdown_rx.clone();
-
                 // miri does not support setting thread names
                 // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
                 #[cfg(not(miri))]
                 let mut thread_builder = {
-                    let thread_name = if let Some(thread_name) = thread_name {
+                    let thread_name = if let Some(ref thread_name) = builder.thread_name {
                         format!("{} ({})", thread_name, i)
                     } else {
                         format!("TaskPool ({})", i)
@@ -139,22 +144,41 @@ impl TaskPool {
                     thread::Builder::new()
                 };
 
-                if let Some(stack_size) = stack_size {
+                if let Some(stack_size) = builder.stack_size {
                     thread_builder = thread_builder.stack_size(stack_size);
                 }
 
+                async fn run_forever(executor: Arc<async_executor::Executor<'static>>) {
+                    loop {
+                        while executor.try_tick() {}
+                        future::yield_now().await;
+                    }
+                }
+
+                let compute = Arc::clone(&compute_executor);
+                let async_compute = Arc::clone(&compute_executor);
+                let io = Arc::clone(&io_executor);
+                let shutdown_rx = shutdown_rx.clone();
+
                 thread_builder
                     .spawn(move || {
-                        let shutdown_future = ex.run(shutdown_rx.recv());
-                        // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_future).unwrap_err();
+                        let future = run_forever(compute)
+                            .or(run_forever(async_compute))
+                            .or(run_forever(io))
+                            .or(async {
+                                // Use unwrap_err because we expect a Closed error
+                                shutdown_rx.recv().await.unwrap_err();
+                            });
+                        future::block_on(future);
                     })
                     .expect("Failed to spawn thread.")
             })
             .collect();
 
         Self {
-            executor,
+            compute_executor,
+            async_compute_executor,
+            io_executor,
             inner: Arc::new(TaskPoolInner {
                 threads,
                 shutdown_tx,
@@ -182,12 +206,21 @@ impl TaskPool {
             // before this function returns. However, rust has no way of knowing
             // this so we must convert to 'static here to appease the compiler as it is unable to
             // validate safety.
-            let executor: &async_executor::Executor = &*self.executor;
-            let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
+            let compute_executor: &async_executor::Executor = &*self.compute_executor;
+            let compute_executor: &'scope async_executor::Executor =
+                unsafe { mem::transmute(compute_executor) };
+            let async_compute_executor: &async_executor::Executor = &*self.async_compute_executor;
+            let async_compute_executor: &'scope async_executor::Executor =
+                unsafe { mem::transmute(async_compute_executor) };
+            let io_executor: &async_executor::Executor = &*self.io_executor;
+            let io_executor: &'scope async_executor::Executor =
+                unsafe { mem::transmute(io_executor) };
             let local_executor: &'scope async_executor::LocalExecutor =
                 unsafe { mem::transmute(local_executor) };
             let mut scope = Scope {
-                executor,
+                compute_executor,
+                async_compute_executor,
+                io_executor,
                 local_executor,
                 spawned: Vec::new(),
             };
@@ -230,7 +263,9 @@ impl TaskPool {
                         break result;
                     };
 
-                    self.executor.try_tick();
+                    self.compute_executor.try_tick();
+                    self.async_compute_executor.try_tick();
+                    self.io_executor.try_tick();
                     local_executor.try_tick();
                 }
             }
@@ -246,7 +281,24 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        Task::new(self.executor.spawn(future))
+        Task::new(self.compute_executor.spawn(future))
+    }
+
+    pub fn spawn_async_compute<T>(
+        &self,
+        future: impl Future<Output = T> + Send + 'static,
+    ) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        Task::new(self.async_compute_executor.spawn(future))
+    }
+
+    pub fn spawn_io<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        Task::new(self.io_executor.spawn(future))
     }
 
     /// Spawns a static future on the thread-local async executor for the current thread. The task
@@ -273,7 +325,9 @@ impl Default for TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::Executor<'scope>,
+    compute_executor: &'scope async_executor::Executor<'scope>,
+    async_compute_executor: &'scope async_executor::Executor<'scope>,
+    io_executor: &'scope async_executor::Executor<'scope>,
     local_executor: &'scope async_executor::LocalExecutor<'scope>,
     spawned: Vec<async_executor::Task<T>>,
 }
@@ -288,7 +342,17 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        let task = self.executor.spawn(f);
+        let task = self.compute_executor.spawn(f);
+        self.spawned.push(task);
+    }
+
+    pub fn spawn_async_compute<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+        let task = self.async_compute_executor.spawn(f);
+        self.spawned.push(task);
+    }
+
+    pub fn spawn_io<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+        let task = self.io_executor.spawn(f);
         self.spawned.push(task);
     }
 
