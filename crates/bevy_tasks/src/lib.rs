@@ -22,15 +22,15 @@ pub use iter::ParallelIterator;
 
 #[allow(missing_docs)]
 pub mod prelude {
+    #[cfg(target_arch = "wasm32")]
+    pub use crate::single_threaded_task_pool::TaskPool;
+    #[cfg(not(target_arch = "wasm32"))]
+    pub use crate::task_pool::TaskPool;
     #[doc(hidden)]
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
     };
-    #[cfg(not(target_arch = "wasm32"))]
-    pub use crate::task_pool::TaskPool;
-    #[cfg(target_arch = "wasm32")]
-    pub use crate::single_threaded_task_pool::TaskPool;
 }
 
 pub use num_cpus::get as logical_core_count;
