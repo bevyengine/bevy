@@ -1,12 +1,16 @@
-use crate::{Reflect, ReflectRef, Struct, Tuple, VariantInfo};
+use crate::{Reflect, ReflectRef, Struct, Tuple, VariantInfo, VariantMut, VariantRef};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
 use std::slice::Iter;
 
 pub trait Enum: Reflect {
-    fn variant(&self) -> EnumVariant<'_>;
-    fn variant_mut(&mut self) -> EnumVariantMut<'_>;
+    /// Returns an immutable reference to the current variant.
+    fn variant(&self) -> VariantRef;
+    /// Returns a mutable reference to the current variant.
+    fn variant_mut(&mut self) -> VariantMut;
+    /// The name of the current variant.
+    fn variant_name(&self) -> &str;
 }
 
 /// A container for compile-time enum info.
@@ -86,19 +90,6 @@ impl EnumInfo {
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
-}
-
-pub enum EnumVariant<'a> {
-    Unit,
-    NewType(&'a dyn Reflect),
-    Tuple(&'a dyn Tuple),
-    Struct(&'a dyn Struct),
-}
-pub enum EnumVariantMut<'a> {
-    Unit,
-    NewType(&'a mut dyn Reflect),
-    Tuple(&'a mut dyn Tuple),
-    Struct(&'a mut dyn Struct),
 }
 
 #[inline]

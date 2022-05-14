@@ -209,6 +209,31 @@ mod tests {
     }
 
     #[test]
+    fn reflect_enum() {
+        // TODO: Uncomment when derive Reflect is re-enabled for enums
+        // #[derive(Reflect)]
+        // enum Foo {
+        //     A,
+        //     B(usize),
+        //     C { value: f32 },
+        // }
+
+        // Option (Tuple)
+        let mut value = Some(123usize);
+        let reflected_value = &mut value;
+        assert_eq!("Some", reflected_value.variant_name());
+
+        if let VariantMut::Tuple(mut variant) = reflected_value.variant_mut() {
+            variant
+                .field_mut(0)
+                .and_then(|field| field.downcast_mut::<usize>())
+                .map(|field| *field = 321);
+        }
+
+        assert_eq!(Some(321), value);
+    }
+
+    #[test]
     #[should_panic(expected = "the given key does not support hashing")]
     fn reflect_map_no_hash() {
         #[derive(Reflect)]
