@@ -84,6 +84,30 @@ pub struct StructVariantInfo {
 }
 
 impl StructVariantInfo {
+    /// Create a new [`StructVariantInfo`].
+    pub fn new(name: &str, fields: &[NamedField]) -> Self {
+        let field_indices = Self::collect_field_indices(fields);
+
+        Self {
+            name: Cow::Owned(name.into()),
+            fields: fields.to_vec().into_boxed_slice(),
+            field_indices,
+        }
+    }
+
+    /// Create a new [`StructVariantInfo`] using a static string.
+    ///
+    /// This helps save an allocation when the string has a static lifetime, such
+    /// as when using defined sa a literal.
+    pub fn new_static(name: &'static str, fields: &[NamedField]) -> Self {
+        let field_indices = Self::collect_field_indices(fields);
+        Self {
+            name: Cow::Borrowed(name),
+            fields: fields.to_vec().into_boxed_slice(),
+            field_indices,
+        }
+    }
+
     /// The name of this variant.
     pub fn name(&self) -> &Cow<'static, str> {
         &self.name
@@ -115,6 +139,17 @@ impl StructVariantInfo {
     pub fn field_len(&self) -> usize {
         self.fields.len()
     }
+
+    fn collect_field_indices(fields: &[NamedField]) -> HashMap<Cow<'static, str>, usize> {
+        fields
+            .iter()
+            .enumerate()
+            .map(|(index, field)| {
+                let name = field.name().clone();
+                (name, index)
+            })
+            .collect()
+    }
 }
 
 /// Type info for tuple variants.
@@ -125,6 +160,25 @@ pub struct TupleVariantInfo {
 }
 
 impl TupleVariantInfo {
+    /// Create a new [`TupleVariantInfo`].
+    pub fn new(name: &str, fields: &[UnnamedField]) -> Self {
+        Self {
+            name: Cow::Owned(name.into()),
+            fields: fields.to_vec().into_boxed_slice(),
+        }
+    }
+
+    /// Create a new [`TupleVariantInfo`] using a static string.
+    ///
+    /// This helps save an allocation when the string has a static lifetime, such
+    /// as when using defined sa a literal.
+    pub fn new_static(name: &'static str, fields: &[UnnamedField]) -> Self {
+        Self {
+            name: Cow::Borrowed(name),
+            fields: fields.to_vec().into_boxed_slice(),
+        }
+    }
+
     /// The name of this variant.
     pub fn name(&self) -> &Cow<'static, str> {
         &self.name
@@ -153,6 +207,23 @@ pub struct UnitVariantInfo {
 }
 
 impl UnitVariantInfo {
+    /// Create a new [`UnitVariantInfo`].
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: Cow::Owned(name.into()),
+        }
+    }
+
+    /// Create a new [`UnitVariantInfo`] using a static string.
+    ///
+    /// This helps save an allocation when the string has a static lifetime, such
+    /// as when using defined sa a literal.
+    pub fn new_static(name: &'static str) -> Self {
+        Self {
+            name: Cow::Borrowed(name),
+        }
+    }
+
     /// The name of this variant.
     pub fn name(&self) -> &Cow<'static, str> {
         &self.name
