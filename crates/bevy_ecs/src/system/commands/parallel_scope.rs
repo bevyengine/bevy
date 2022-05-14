@@ -20,6 +20,7 @@ pub struct ParallelCommandsState {
 /// Example:
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_tasks::ComputeTaskPool;
 /// #
 /// # #[derive(Component)]
 /// # struct Velocity;
@@ -31,7 +32,7 @@ pub struct ParallelCommandsState {
 /// ) {
 ///     query.par_for_each(&pool, 32, |(entity, velocity)| {
 ///         if velocity.magnitude() > 10.0 {
-///             par_commands.command_scope(|commands| {
+///             par_commands.command_scope(|mut commands| {
 ///                 commands.entity(entity).despawn();
 ///             });
 ///         }
