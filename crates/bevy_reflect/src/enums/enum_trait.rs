@@ -118,9 +118,10 @@ impl EnumInfo {
     }
 }
 
+/// An iterator over the fields in the current enum variant.
 pub struct VariantFieldIter<'a> {
-    pub(crate) container: &'a dyn Enum,
-    pub(crate) index: usize,
+    container: &'a dyn Enum,
+    index: usize,
 }
 
 impl<'a> VariantFieldIter<'a> {
