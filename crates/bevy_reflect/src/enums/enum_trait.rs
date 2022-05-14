@@ -15,6 +15,8 @@ pub trait Enum: Reflect {
     fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
     /// Returns the index of the field (in the current variant) with the given name.
     fn index_of(&self, name: &str) -> Option<usize>;
+    /// Returns the name of the field (in the current variant) with the given index.
+    fn name_at(&self, index: usize) -> Option<&str>;
     /// Returns an iterator over the values of the current variant's fields.
     fn iter_fields(&self) -> VariantFieldIter;
     /// Returns the number of fields in the current variant.
@@ -139,54 +141,65 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 
+/// Compares an [`Enum`] with a [`Reflect`] value.
+///
+/// Returns true if and only if all of the following are true:
+/// - `b` is an enum;
+/// - `b` is the same variant as `a`;
+/// - For each field in `a`, `b` contains a field with the same name and
+///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
+///   values.
 #[inline]
-pub fn enum_partial_eq<E: Enum>(enum_a: &E, reflect_b: &dyn Reflect) -> Option<bool> {
-    // TODO: Uncomment and update once we figure out how we want to represent variants
-    // let enum_b = if let ReflectRef::Enum(e) = reflect_b.reflect_ref() {
-    //     e
-    // } else {
-    //     return Some(false);
-    // };
-    //
-    // if enum_a.variant_info() != enum_b.variant_info() {
-    //     return Some(false);
-    // }
-    //
-    // let variant_b = enum_b.variant();
-    // match enum_a.variant() {
-    //     EnumVariant::Unit => {
-    //         if let EnumVariant::Unit = variant_b {
-    //         } else {
-    //             return Some(false);
-    //         }
-    //     }
-    //     EnumVariant::NewType(t_a) => {
-    //         if let EnumVariant::NewType(t_b) = variant_b {
-    //             if let Some(false) | None = t_b.reflect_partial_eq(t_a) {
-    //                 return Some(false);
-    //             }
-    //         } else {
-    //             return Some(false);
-    //         }
-    //     }
-    //     EnumVariant::Tuple(t_a) => {
-    //         if let EnumVariant::Tuple(t_b) = variant_b {
-    //             if let Some(false) | None = t_b.reflect_partial_eq(t_a.as_reflect()) {
-    //                 return Some(false);
-    //             }
-    //         } else {
-    //             return Some(false);
-    //         }
-    //     }
-    //     EnumVariant::Struct(s_a) => {
-    //         if let EnumVariant::Struct(s_b) = variant_b {
-    //             if let Some(false) | None = s_b.reflect_partial_eq(s_a.as_reflect()) {
-    //                 return Some(false);
-    //             }
-    //         } else {
-    //             return Some(false);
-    //         }
-    //     }
-    // }
-    Some(true)
+pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> {
+    // Both enums?
+    let enum_b = if let ReflectRef::Enum(e) = b.reflect_ref() {
+        e
+    } else {
+        return Some(false);
+    };
+
+    // Same variant name?
+    if a.variant_name() != enum_b.variant_name() {
+        return Some(false);
+    }
+
+    // Same variant type?
+    if !a.is_variant(enum_b.variant_type()) {
+        return Some(false);
+    }
+
+    match a.variant_type() {
+        VariantType::Struct => {
+            // Same struct fields?
+            for (i, value) in a.iter_fields().enumerate() {
+                let field_name = a.name_at(i).unwrap();
+                if let Some(field_value) = enum_b.field(field_name) {
+                    if let Some(false) | None = field_value.reflect_partial_eq(value) {
+                        // Fields failed comparison
+                        return Some(false);
+                    }
+                } else {
+                    // Field does not exist
+                    return Some(false);
+                }
+            }
+            Some(true)
+        }
+        VariantType::Tuple => {
+            // Same tuple fields?
+            for (i, value) in a.iter_fields().enumerate() {
+                if let Some(field_value) = enum_b.field_at(i) {
+                    if let Some(false) | None = field_value.reflect_partial_eq(value) {
+                        // Fields failed comparison
+                        return Some(false);
+                    }
+                } else {
+                    // Field does not exist
+                    return Some(false);
+                }
+            }
+            Some(true)
+        }
+        _ => Some(false),
+    }
 }

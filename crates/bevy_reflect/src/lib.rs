@@ -221,6 +221,10 @@ mod tests {
         // Option (Tuple)
         let mut value = Some(123usize);
         let reflected_value = &mut value;
+
+        assert!(reflected_value.reflect_partial_eq(&Some(123usize)).unwrap_or_default());
+        assert!(!reflected_value.reflect_partial_eq(&Some(321usize)).unwrap_or_default());
+
         assert_eq!("Some", reflected_value.variant_name());
 
         if reflected_value.is_variant(VariantType::Tuple) {
