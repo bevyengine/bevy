@@ -14,10 +14,10 @@ fn main() {
         });
     let mut context = Context::new();
     context.insert("all_examples", &examples_by_category);
-    Tera::new("examples/*.tpl.md")
+    Tera::new("examples/*.md.tpl")
         .expect("error parsing template")
         .render_to(
-            "README.tpl.md",
+            "README.md.tpl",
             &context,
             File::create("examples/README_NEW.md").expect("error creating file"),
         )
