@@ -9,7 +9,9 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles, Mat3, Quat};
+use bevy_math::{
+    const_vec3, Mat3, Mat4, Quat, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles,
+};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -676,7 +678,11 @@ pub(crate) fn spotlight_rotation_matrix(direction: Vec3) -> Mat3 {
     let sign = 1f32.copysign(direction.z);
     let a = -1.0 / (direction.z + sign);
     let b = direction.x * direction.y * a;
-    let up_dir = Vec3::new(1.0 + sign * direction.x * direction.x * a, sign * b, -sign * direction.x);
+    let up_dir = Vec3::new(
+        1.0 + sign * direction.x * direction.x * a,
+        sign * b,
+        -sign * direction.x,
+    );
     let right_dir = Vec3::new(-b, -sign - direction.y * direction.y * a, direction.y);
     Mat3::from_cols(right_dir, up_dir, direction)
 }
@@ -745,13 +751,21 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_array_layers - directional_shadow_maps_count);
 
-    // Sort point lights with shadows enabled first, then by point-light vs spot-light, 
+    // Sort point lights with shadows enabled first, then by point-light vs spot-light,
     // then by a stable key so that the index can be used
     // to render at most `max_point_light_shadow_maps` point light shadows and spot_shadow_maps spotlight shadow maps.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         point_light_order(
-            (entity_1, &light_1.shadows_enabled, &light_1.spotlight_angles.is_some()),
-            (entity_2, &light_2.shadows_enabled, &light_2.spotlight_angles.is_some()),
+            (
+                entity_1,
+                &light_1.shadows_enabled,
+                &light_1.spotlight_angles.is_some(),
+            ),
+            (
+                entity_2,
+                &light_2.shadows_enabled,
+                &light_2.spotlight_angles.is_some(),
+            ),
         )
     });
 
@@ -766,7 +780,11 @@ pub fn prepare_lights(
         let mut flags = PointLightFlags::NONE;
 
         // Lights are sorted, shadow enabled lights are first
-        if light.shadows_enabled && (index < point_light_shadow_maps_count || (light.spotlight_angles.is_some() && index - point_light_shadow_maps_count < spot_shadow_maps_count)) {
+        if light.shadows_enabled
+            && (index < point_light_shadow_maps_count
+                || (light.spotlight_angles.is_some()
+                    && index - point_light_shadow_maps_count < spot_shadow_maps_count))
+        {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
 
@@ -776,7 +794,7 @@ pub fn prepare_lights(
         };
 
         gpu_point_lights.push(GpuPointLight {
-            // TODO 
+            // TODO
             // we don't need this for spotlights any more - we could overload it to hold the spot_dir_angle_inner data instead
             // and get back to 64 bytes per light
             projection_lr: Vec4::new(
@@ -831,7 +849,8 @@ pub fn prepare_lights(
                         .min(render_device.limits().max_texture_dimension_2d),
                     height: (directional_light_shadow_map.size as u32)
                         .min(render_device.limits().max_texture_dimension_2d),
-                    depth_or_array_layers: (directional_shadow_maps_count + spot_shadow_maps_count).max(1) as u32,
+                    depth_or_array_layers: (directional_shadow_maps_count + spot_shadow_maps_count)
+                        .max(1) as u32,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -864,7 +883,8 @@ pub fn prepare_lights(
             ),
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
-            spotlight_shadowmap_offset: directional_shadow_maps_count as i32 - point_light_shadow_maps_count as i32,
+            spotlight_shadowmap_offset: directional_shadow_maps_count as i32
+                - point_light_shadow_maps_count as i32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
@@ -929,12 +949,18 @@ pub fn prepare_lights(
         }
 
         // spotlights
-        for (light_index, &(light_entity, light)) in point_lights.iter().skip(point_light_shadow_maps_count).take(spot_shadow_maps_count).enumerate() {
+        for (light_index, &(light_entity, light)) in point_lights
+            .iter()
+            .skip(point_light_shadow_maps_count)
+            .take(spot_shadow_maps_count)
+            .enumerate()
+        {
             let angle = light.spotlight_angles.unwrap().1;
             let direction = light.transform.back();
             let spot_view_rotation = spotlight_rotation_matrix(direction);
 
-            let spot_view_rotation = GlobalTransform::from_rotation(Quat::from_mat3(&spot_view_rotation));
+            let spot_view_rotation =
+                GlobalTransform::from_rotation(Quat::from_mat3(&spot_view_rotation));
             let spot_projection = spotlight_projection_matrix(angle);
 
             let view_translation = GlobalTransform::from_translation(light.transform.translation);
@@ -959,10 +985,7 @@ pub fn prepare_lights(
                 .insert_bundle((
                     ShadowView {
                         depth_texture_view,
-                        pass_name: format!(
-                            "shadow pass spot light {}",
-                            light_index,
-                        ),
+                        pass_name: format!("shadow pass spot light {}", light_index,),
                     },
                     ExtractedView {
                         width: directional_light_shadow_map.size as u32,
@@ -978,7 +1001,7 @@ pub fn prepare_lights(
                         face_index: 0,
                     },
                 ))
-                    .id();
+                .id();
 
             view_lights.push(view_light_entity);
         }

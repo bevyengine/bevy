@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{
-    const_vec2, Mat4, Quat, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles, 
+    const_vec2, Mat4, Quat, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
 };
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -20,9 +20,9 @@ use bevy_utils::tracing::warn;
 use bevy_window::Windows;
 
 use crate::{
-    calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS,
-    POINT_LIGHT_NEAR_Z, spotlight_projection_matrix, spotlight_rotation_matrix, 
+    calculate_cluster_factors, spotlight_projection_matrix, spotlight_rotation_matrix, CubeMapFace,
+    CubemapVisibleEntities, ViewClusterBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS, POINT_LIGHT_NEAR_Z,
 };
 
 /// A light that emits light in all directions from a central point.
@@ -785,8 +785,16 @@ pub(crate) fn assign_lights_to_clusters(
     if lights.len() > MAX_UNIFORM_BUFFER_POINT_LIGHTS && !supports_storage_buffers {
         lights.sort_by(|light_1, light_2| {
             point_light_order(
-                (&light_1.entity, &light_1.shadows_enabled, &light_1.spotlight_angle.is_some()),
-                (&light_2.entity, &light_2.shadows_enabled, &light_2.spotlight_angle.is_some()),
+                (
+                    &light_1.entity,
+                    &light_1.shadows_enabled,
+                    &light_1.spotlight_angle.is_some(),
+                ),
+                (
+                    &light_2.entity,
+                    &light_2.shadows_enabled,
+                    &light_2.spotlight_angle.is_some(),
+                ),
             )
         });
 
@@ -1385,18 +1393,24 @@ pub fn update_point_light_frusta(
         if let Some((_inner_angle, angle)) = point_light.spotlight_angles {
             let fwd = transform.back();
             let spot_view_rotation = spotlight_rotation_matrix(fwd);
-            let spot_view_rotation = GlobalTransform::from_rotation(Quat::from_mat3(&spot_view_rotation));
+            let spot_view_rotation =
+                GlobalTransform::from_rotation(Quat::from_mat3(&spot_view_rotation));
             let view = view_translation * spot_view_rotation;
 
             let spot_projection = spotlight_projection_matrix(angle);
             let view_projection = spot_projection * view.compute_matrix().inverse();
 
-            cubemap_frusta.frusta[0] = Frustum::from_view_projection(&view_projection, &view_translation.translation, &-fwd, point_light.range);
+            cubemap_frusta.frusta[0] = Frustum::from_view_projection(
+                &view_projection,
+                &view_translation.translation,
+                &-fwd,
+                point_light.range,
+            );
         } else {
             for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
                 let view = view_translation * *view_rotation;
                 let view_projection = projection * view.compute_matrix().inverse();
-    
+
                 *frustum = Frustum::from_view_projection(
                     &view_projection,
                     &transform.translation,
@@ -1536,7 +1550,8 @@ pub fn check_light_mesh_visibility(
 
                         if point_light.spotlight_angles.is_some() {
                             // spotlights only use the first array entry
-                            if cubemap_frusta.frusta[0].intersects_obb(aabb, &model_to_world, true) {
+                            if cubemap_frusta.frusta[0].intersects_obb(aabb, &model_to_world, true)
+                            {
                                 computed_visibility.is_visible = true;
                                 cubemap_visible_entities.get_mut(0).entities.push(entity);
                             }

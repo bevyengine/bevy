@@ -1,4 +1,8 @@
-use bevy::{pbr::NotShadowCaster, prelude::*, diagnostic::{DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin}};
+use bevy::{
+    diagnostic::{DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    pbr::NotShadowCaster,
+    prelude::*,
+};
 use rand::{thread_rng, Rng};
 
 fn main() {
@@ -39,16 +43,16 @@ fn setup(
         let y = rng.gen_range(-5.0..5.0);
         let z = rng.gen_range(-5.0..5.0);
         commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-            material: materials.add(StandardMaterial {
-                base_color: Color::BLUE,
+            .spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::BLUE,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(x, y, z),
                 ..default()
-            }),
-            transform: Transform::from_xyz(x,y,z),
-            ..default()
-        })
-        .insert(Movable);
+            })
+            .insert(Movable);
     }
 
     // ambient light
@@ -121,12 +125,13 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut PointLight
     for (mut transform, mut light) in query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
-            -std::f32::consts::FRAC_PI_2 + (time.seconds_since_startup()*0.67*3.0).sin() as f32 * 0.5,
-            (time.seconds_since_startup()*3.0).sin() as f32 * 0.5,
+            -std::f32::consts::FRAC_PI_2
+                + (time.seconds_since_startup() * 0.67 * 3.0).sin() as f32 * 0.5,
+            (time.seconds_since_startup() * 3.0).sin() as f32 * 0.5,
             0.0,
         );
-        let angle =
-            ((time.seconds_since_startup() * 1.2).sin() as f32 + 1.0) * (std::f32::consts::FRAC_PI_4 - 0.1);
+        let angle = ((time.seconds_since_startup() * 1.2).sin() as f32 + 1.0)
+            * (std::f32::consts::FRAC_PI_4 - 0.1);
         light.spotlight_angles = Some((angle * 0.8, angle));
     }
 }
