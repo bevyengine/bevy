@@ -1247,6 +1247,16 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "time_smoothness"
+path = "examples/stress_tests/time_smoothness.rs"
+
+[package.metadata.example.time_smoothness]
+name = "Time Smoothness"
+description = "Renders a scrolling background behind an animated sprite. Used for performance consistency testing."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "transform_hierarchy"
 path = "examples/stress_tests/transform_hierarchy.rs"
 
