@@ -13,9 +13,6 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-// If changing the underlying representation of this ID,
-// the representation of ArchetypeId must be changed as well, or
-// QueryIterationCursor must be updated to match.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeId(usize);
 

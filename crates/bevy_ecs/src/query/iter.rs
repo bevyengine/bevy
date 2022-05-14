@@ -252,7 +252,8 @@ where
 }
 
 struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
-    id_iter: std::slice::Iter<'s, usize>,
+    table_id_iter: std::slice::Iter<'s, TableId>,
+    archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
     fetch: QF,
     filter: QueryFetch<'w, F>,
     current_len: usize,
@@ -267,7 +268,8 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            id_iter: self.id_iter.clone(),
+            table_id_iter: self.table_id_iter.clone(),
+            archetype_id_iter: self.archetype_id_iter.clone(),
             fetch: self.fetch.clone(),
             filter: self.filter.clone(),
             current_len: self.current_len,
@@ -290,7 +292,8 @@ where
         change_tick: u32,
     ) -> Self {
         QueryIterationCursor {
-            id_iter: [].iter(),
+            table_id_iter: [].iter(),
+            archetype_id_iter: [].iter(),
             ..Self::init(world, query_state, last_change_tick, change_tick)
         }
     }
@@ -316,13 +319,8 @@ where
         QueryIterationCursor {
             fetch,
             filter,
-            // SAFE: The associated IDs are exactly the same size and alignment and
-            // the iterator has identical layouts and lifetimes.
-            id_iter: if Self::IS_DENSE {
-                std::mem::transmute(query_state.matched_table_ids.iter())
-            } else {
-                std::mem::transmute(query_state.matched_archetype_ids.iter())
-            },
+            table_id_iter: query_state.matched_table_ids.iter(),
+            archetype_id_iter: query_state.matched_archetype_ids.iter(),
             current_len: 0,
             current_index: 0,
             phantom: PhantomData,
@@ -355,8 +353,8 @@ where
         if Self::IS_DENSE {
             loop {
                 if self.current_index == self.current_len {
-                    let table_id = TableId::new(*self.id_iter.next()?);
-                    let table = &tables[table_id];
+                    let table_id = self.table_id_iter.next()?;
+                    let table = &tables[*table_id];
                     self.fetch.set_table(&query_state.fetch_state, table);
                     self.filter.set_table(&query_state.filter_state, table);
                     self.current_len = table.len();
@@ -377,8 +375,8 @@ where
         } else {
             loop {
                 if self.current_index == self.current_len {
-                    let archetype_id = ArchetypeId::new(*self.id_iter.next()?);
-                    let archetype = &archetypes[archetype_id];
+                    let archetype_id = self.archetype_id_iter.next()?;
+                    let archetype = &archetypes[*archetype_id];
                     self.fetch
                         .set_archetype(&query_state.fetch_state, archetype, tables);
                     self.filter
