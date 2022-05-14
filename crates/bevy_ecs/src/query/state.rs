@@ -28,6 +28,8 @@ pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
     pub(crate) matched_table_ids: Vec<TableId>,
     // NOTE: we maintain both a ArchetypeId bitset and a vec because iterating the vec is faster
     pub(crate) matched_archetype_ids: Vec<ArchetypeId>,
+    pub(super) valid_table_ids: Vec<TableId>,
+    pub(super) valid_archetype_ids: Vec<ArchetypeId>,
     pub(crate) fetch_state: Q::State,
     pub(crate) filter_state: F::State,
 }
@@ -62,6 +64,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
             matched_archetype_ids: Vec::new(),
+            valid_table_ids: Vec::new(),
+            valid_archetype_ids: Vec::new(),
             fetch_state,
             filter_state,
             component_access,
@@ -100,6 +104,24 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         for archetype_index in archetype_index_range {
             self.new_archetype(&archetypes[ArchetypeId::new(archetype_index)]);
         }
+
+        let archetypes = &world.archetypes;
+        let tables = &world.storages().tables;
+
+        self.valid_archetype_ids.clear();
+        self.valid_archetype_ids.extend(
+            self.matched_archetype_ids
+                .iter()
+                .copied()
+                .filter(|id| !archetypes[*id].is_empty()),
+        );
+        self.valid_table_ids.clear();
+        self.valid_table_ids.extend(
+            self.matched_table_ids
+                .iter()
+                .copied()
+                .filter(|id| !tables[*id].is_empty()),
+        );
     }
 
     #[inline]
@@ -792,12 +814,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
         if <QueryFetch<'static, Q>>::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
             let tables = &world.storages().tables;
-            for table_id in &self.matched_table_ids {
+            for table_id in &self.valid_table_ids {
                 let table = &tables[*table_id];
-                if table.is_empty() {
-                    continue;
-                }
-
                 fetch.set_table(&self.fetch_state, table);
                 filter.set_table(&self.filter_state, table);
 
@@ -812,12 +830,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         } else {
             let archetypes = &world.archetypes;
             let tables = &world.storages().tables;
-            for archetype_id in &self.matched_archetype_ids {
+            for archetype_id in &self.valid_archetype_ids {
                 let archetype = &archetypes[*archetype_id];
-                if archetype.is_empty() {
-                    continue;
-                }
-
                 fetch.set_archetype(&self.fetch_state, archetype, tables);
                 filter.set_archetype(&self.filter_state, archetype, tables);
 
@@ -859,12 +873,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         task_pool.scope(|scope| {
             if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
                 let tables = &world.storages().tables;
-                for table_id in &self.matched_table_ids {
+                for table_id in &self.valid_table_ids {
                     let table = &tables[*table_id];
-                    if table.is_empty() {
-                        continue;
-                    }
-
                     let mut offset = 0;
                     while offset < table.len() {
                         let func = func.clone();
@@ -895,13 +905,9 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                 }
             } else {
                 let archetypes = &world.archetypes;
-                for archetype_id in &self.matched_archetype_ids {
+                for archetype_id in &self.valid_archetype_ids {
                     let mut offset = 0;
                     let archetype = &archetypes[*archetype_id];
-                    if archetype.is_empty() {
-                        continue;
-                    }
-
                     while offset < archetype.len() {
                         let func = func.clone();
                         scope.spawn(async move {
