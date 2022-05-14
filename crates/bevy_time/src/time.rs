@@ -1,4 +1,17 @@
+use async_channel::{Receiver, Sender};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{Duration, Instant};
+
+/// channel resource used to receive time from render world
+pub struct TimeReceiver(pub Receiver<Time>);
+/// channel resource used to send time from render world
+pub struct TimeSender(pub Sender<Time>);
+
+/// create channels used for sending time between render world and app world
+pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
+    let (s, r) = async_channel::bounded::<Time>(1);
+    (TimeSender(s), TimeReceiver(r))
+}
 
 /// Tracks elapsed time since the last update and since the App has started
 #[derive(Debug, Clone)]
@@ -139,6 +152,16 @@ impl Time {
     #[inline]
     pub fn time_since_startup(&self) -> Duration {
         self.time_since_startup
+    }
+}
+
+pub(crate) fn time_system(mut time: ResMut<Time>, time_recv: Option<Res<TimeReceiver>>) {
+    if let Some(time_recv) = time_recv {
+        if let Ok(mut new_time) = time_recv.0.try_recv() {
+            std::mem::swap(&mut *time, &mut new_time);
+        }
+    } else {
+        time.update();
     }
 }
 

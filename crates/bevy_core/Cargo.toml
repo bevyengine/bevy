@@ -19,4 +19,5 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 
 # other
+async-channel = "1.4"
 bytemuck = "1.5"

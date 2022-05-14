@@ -10,6 +10,7 @@ use crate::{
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
+use bevy_core::{Time, TimeSender};
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
 use wgpu::{AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
@@ -73,6 +74,15 @@ pub fn render_system(world: &mut World) {
             tracy.frame_mark = true
         );
     }
+
+    // update the time and send it to the app world
+    world.resource_scope(|world, mut time: Mut<Time>| {
+        let time_sender = world.resource::<TimeSender>();
+        time.update();
+        time_sender.0.try_send(time.clone()).expect(
+            "The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",
+        );
+    });
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
