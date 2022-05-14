@@ -864,7 +864,7 @@ pub fn prepare_lights(
             ),
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
-            spotlight_shadowmap_offset: point_light_shadow_maps_count as i32 - directional_shadow_maps_count as i32,
+            spotlight_shadowmap_offset: directional_shadow_maps_count as i32 - point_light_shadow_maps_count as i32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
