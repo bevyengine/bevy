@@ -681,6 +681,51 @@ mod tests {
         let info = value.get_type_info();
         assert!(info.is::<MyTupleStruct>());
 
+        // TODO: Uncomment this section when deriving Reflect for enum is re-enabled
+        // Enum
+        // #[derive(Reflect)]
+        // enum MyEnum {
+        //     A,
+        //     B(usize, isize),
+        //     C { foo: String },
+        // }
+        //
+        // let info = MyEnum::type_info();
+        // if let TypeInfo::Enum(info) = info {
+        //     assert!(info.id().is::<MyEnum>());
+        //     assert_eq!(std::any::type_name::<MyEnum>(), info.id().type_name());
+        //     // MyEnum::A
+        //     assert_eq!("A", info.variant_at(0).unwrap().name());
+        //     assert_eq!("A", info.variant("A").unwrap().name());
+        //     if let VariantInfo::Unit(variant) = info.variant("A").unwrap() {
+        //         assert_eq!("A", variant.name());
+        //     } else {
+        //         panic!("Expected `VariantInfo::Unit`");
+        //     }
+        //
+        //     // MyEnum::B
+        //     assert_eq!("B", info.variant_at(1).unwrap().name());
+        //     assert_eq!("B", info.variant("B").unwrap().name());
+        //     if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
+        //         assert!(variant.field_at(0).unwrap().id().is::<usize>());
+        //         assert!(variant.field_at(1).unwrap().id().is::<isize>());
+        //     } else {
+        //         panic!("Expected `VariantInfo::Tuple`");
+        //     }
+        //
+        //     // MyEnum::C
+        //     assert_eq!("C", info.variant_at(2).unwrap().name());
+        //     assert_eq!("C", info.variant("C").unwrap().name());
+        //     if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
+        //         assert!(variant.field_at(0).unwrap().id().is::<usize>());
+        //         assert!(variant.field("foo").unwrap().id().is::<String>());
+        //     } else {
+        //         panic!("Expected `VariantInfo::Struct`");
+        //     }
+        // } else {
+        //     panic!("Expected `TypeInfo::Enum`");
+        // }
+
         // Tuple
         type MyTuple = (u32, f32, String);
 

@@ -3,7 +3,7 @@ use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap, Enum, EnumVariant,
     EnumVariantMut, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo,
     MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TypeInfo,
-    TypeRegistration, Typed, ValueInfo, VariantInfo, VariantInfoIter,
+    TypeRegistration, Typed, ValueInfo,
 };
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
@@ -575,37 +575,6 @@ impl<T: Reflect + Clone + Send + Sync + 'static> Enum for Option<T> {
         match self {
             Option::Some(new_type) => EnumVariantMut::NewType(new_type as &mut dyn Reflect),
             Option::None => EnumVariantMut::Unit,
-        }
-    }
-
-    fn variant_info(&self) -> VariantInfo<'_> {
-        let index = match self {
-            Option::Some(_) => 0usize,
-            Option::None => 1usize,
-        };
-        VariantInfo {
-            index,
-            name: self.get_index_name(index).unwrap(),
-        }
-    }
-
-    fn iter_variants_info(&self) -> VariantInfoIter<'_> {
-        VariantInfoIter::new(self)
-    }
-
-    fn get_index_name(&self, index: usize) -> Option<&'_ str> {
-        match index {
-            0usize => Some("Option::Some"),
-            1usize => Some("Option::None"),
-            _ => None,
-        }
-    }
-
-    fn get_index_from_name(&self, name: &str) -> Option<usize> {
-        match name {
-            "Option::Some" => Some(0usize),
-            "Option::None" => Some(1usize),
-            _ => None,
         }
     }
 }
