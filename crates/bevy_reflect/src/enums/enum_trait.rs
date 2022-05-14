@@ -6,16 +6,24 @@ use std::slice::Iter;
 
 pub trait Enum: Reflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
+    ///
+    /// For non-[`VariantType::Struct`] variants, this should return `None`.
     fn field(&self, name: &str) -> Option<&dyn Reflect>;
     /// Returns a reference to the value of the field (in the current variant) at the given index.
     fn field_at(&self, index: usize) -> Option<&dyn Reflect>;
     /// Returns a mutable reference to the value of the field (in the current variant) with the given name.
+    ///
+    /// For non-[`VariantType::Struct`] variants, this should return `None`.
     fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
     /// Returns a mutable reference to the value of the field (in the current variant) at the given index.
     fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
     /// Returns the index of the field (in the current variant) with the given name.
+    ///
+    /// For non-[`VariantType::Struct`] variants, this should return `None`.
     fn index_of(&self, name: &str) -> Option<usize>;
     /// Returns the name of the field (in the current variant) with the given index.
+    ///
+    /// For non-[`VariantType::Struct`] variants, this should return `None`.
     fn name_at(&self, index: usize) -> Option<&str>;
     /// Returns an iterator over the values of the current variant's fields.
     fn iter_fields(&self) -> VariantFieldIter;
