@@ -148,8 +148,8 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
             ast.span(),
             "impl_reflect_struct is only supported for standard structs",
         )
-            .into_compile_error()
-            .into(),
+        .into_compile_error()
+        .into(),
     }
 }
 
