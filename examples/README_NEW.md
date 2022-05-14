@@ -70,22 +70,22 @@ Example | File | Description
 
 Example | Description
 --- | ---
-[`Move Sprite`](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
-[`2D Rotation`](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
-[`Mesh 2D`](../examples/2d/mesh2d.rs) | Renders a 2d mesh
-[`Manual Mesh 2D`](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
-[`Shapes`](../examples/2d/shapes.rs) | Renders a rectangle, circle, and hexagon
-[`Sprite`](../examples/2d/sprite.rs) | Renders a sprite
-[`Sprite Flipping`](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
-[`Sprite Sheet`](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
-[`Text 2D`](../examples/2d/text2d.rs) | Generates text in 2D
-[`Texture Atlas`](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
+[Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
+[2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
+[Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
+[Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
+[Shapes](../examples/2d/shapes.rs) | Renders a rectangle, circle, and hexagon
+[Sprite](../examples/2d/sprite.rs) | Renders a sprite
+[Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
+[Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
+[Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
+[Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 
 ## 3D Rendering
 
 Example | Description
 --- | ---
-[`3D Scene`](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
+[3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 
 # Platform-Specific Examples
 
