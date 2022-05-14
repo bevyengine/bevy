@@ -60,8 +60,8 @@ where
             archetypes: &world.archetypes,
             fetch,
             filter,
-            table_id_iter: query_state.valid_table_ids.iter(),
-            archetype_id_iter: query_state.valid_archetype_ids.iter(),
+            table_id_iter: query_state.matched_table_ids.iter(),
+            archetype_id_iter: query_state.matched_archetype_ids.iter(),
             current_len: 0,
             current_index: 0,
         }
@@ -85,7 +85,10 @@ where
                     if self.current_index == self.current_len {
                         let table_id = self.table_id_iter.next()?;
                         let table = &self.tables[*table_id];
-                        // table_id_iter always produces non-empty tables
+                        if table.is_empty() {
+                            continue;
+                        }
+
                         self.fetch.set_table(&self.query_state.fetch_state, table);
                         self.filter.set_table(&self.query_state.filter_state, table);
                         self.current_len = table.len();
@@ -107,7 +110,10 @@ where
                     if self.current_index == self.current_len {
                         let archetype_id = self.archetype_id_iter.next()?;
                         let archetype = &self.archetypes[*archetype_id];
-                        // archetype_id_iter always produces non-empty archetypes
+                        if archetype.is_empty() {
+                            continue;
+                        }
+
                         self.fetch.set_archetype(
                             &self.query_state.fetch_state,
                             archetype,
@@ -434,7 +440,10 @@ where
                 if self.current_index == self.current_len {
                     let table_id = self.table_id_iter.next()?;
                     let table = &tables[*table_id];
-                    // table_id_iter always produces non-empty tables
+                    if table.is_empty() {
+                        continue;
+                    }
+
                     self.fetch.set_table(&query_state.fetch_state, table);
                     self.filter.set_table(&query_state.filter_state, table);
                     self.current_len = table.len();
@@ -456,7 +465,10 @@ where
                 if self.current_index == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
                     let archetype = &archetypes[*archetype_id];
-                    // archetype_id_iter always produces non-empty tables
+                    if archetype.is_empty() {
+                        continue;
+                    }
+
                     self.fetch
                         .set_archetype(&query_state.fetch_state, archetype, tables);
                     self.filter
