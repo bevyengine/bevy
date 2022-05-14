@@ -96,7 +96,7 @@ pub(crate) fn impl_enum(
                 Fields::Named(_struct_fields) => {
                     quote!({
                         let wrapper_ref = unsafe { std::mem::transmute::< &Self, &#wrapper_ident >(self) };
-                        #bevy_reflect_path::EnumVariant::Struct(wrapper_ref as &dyn Struct)
+                        #bevy_reflect_path::EnumVariant::Struct(wrapper_ref as &dyn #bevy_reflect_path::Struct)
                     })
                 }
                 Fields::Unnamed(tuple_fields) => {
@@ -105,7 +105,7 @@ pub(crate) fn impl_enum(
                     } else {
                         quote!({
                             let wrapper_ref = unsafe { std::mem::transmute::< &Self, &#wrapper_ident >(self) };
-                            #bevy_reflect_path::EnumVariant::Tuple(wrapper_ref as &dyn Tuple)
+                            #bevy_reflect_path::EnumVariant::Tuple(wrapper_ref as &dyn #bevy_reflect_path::Tuple)
                         })
                     }
                 }
@@ -119,7 +119,7 @@ pub(crate) fn impl_enum(
                 Fields::Named(_struct_fields) => {
                     quote!({
                         let wrapper_ref = unsafe { std::mem::transmute::< &mut Self, &mut #wrapper_ident >(self) };
-                        #bevy_reflect_path::EnumVariantMut::Struct(wrapper_ref as &mut dyn Struct)
+                        #bevy_reflect_path::EnumVariantMut::Struct(wrapper_ref as &mut dyn #bevy_reflect_path::Struct)
                     })
                 }
                 Fields::Unnamed(tuple) => {
@@ -129,7 +129,7 @@ pub(crate) fn impl_enum(
                     } else {
                         quote!({
                             let wrapper_ref = unsafe { std::mem::transmute::< &mut Self, &mut #wrapper_ident >(self) };
-                            #bevy_reflect_path::EnumVariantMut::Tuple(wrapper_ref as &mut dyn Tuple)
+                            #bevy_reflect_path::EnumVariantMut::Tuple(wrapper_ref as &mut dyn #bevy_reflect_path::Tuple)
                         })
                     }
                 }
@@ -410,11 +410,11 @@ pub(crate) fn impl_enum(
                     #fields_len
                 }
 
-                fn iter_fields(&self) -> bevy::reflect::FieldIter {
-                    FieldIter::new(self)
+                fn iter_fields(&self) -> #bevy_reflect_path::FieldIter {
+                    #bevy_reflect_path::FieldIter::new(self)
                 }
 
-                fn clone_dynamic(&self) -> bevy::reflect::DynamicStruct {
+                fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
                     #match_fields
                     let mut dynamic = #bevy_reflect_path::DynamicStruct::default();
                     dynamic.set_name(self.type_name().to_string());
@@ -534,11 +534,11 @@ pub(crate) fn impl_enum(
                     #fields_len
                 }
 
-                fn iter_fields(&self) -> bevy::reflect::TupleFieldIter {
-                    TupleFieldIter::new(self)
+                fn iter_fields(&self) -> #bevy_reflect_path::TupleFieldIter {
+                    #bevy_reflect_path::TupleFieldIter::new(self)
                 }
 
-                fn clone_dynamic(&self) -> bevy::reflect::DynamicTuple {
+                fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTuple {
                     #match_fields
                     let mut dynamic = #bevy_reflect_path::DynamicTuple::default();
                     #(dynamic.insert_boxed(#field_idents.clone_value());)*
