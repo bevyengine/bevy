@@ -1,3 +1,4 @@
+use crate::Size;
 use crate::{CalculatedSize, UiImage};
 use bevy_asset::Assets;
 use bevy_ecs::{
@@ -6,7 +7,6 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Query, Res},
 };
-use bevy_math::Size;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::texture::Image;
 use serde::{Deserialize, Serialize};

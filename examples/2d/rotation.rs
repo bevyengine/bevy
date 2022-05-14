@@ -18,7 +18,7 @@ fn main() {
                 .with_system(snap_to_player_system)
                 .with_system(rotate_to_player_system),
         )
-        .add_system(bevy::input::system::exit_on_esc_system)
+        .add_system(bevy::window::close_on_esc)
         .run();
 }
 

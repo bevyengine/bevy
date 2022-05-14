@@ -147,6 +147,10 @@ impl<'a> LoadContext<'a> {
     pub fn task_pool(&self) -> &TaskPool {
         self.task_pool
     }
+
+    pub fn asset_io(&self) -> &dyn AssetIo {
+        self.asset_io
+    }
 }
 
 /// The result of loading an asset of type `T`

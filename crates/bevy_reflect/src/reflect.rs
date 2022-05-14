@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, List, Map, Struct, Tuple, TupleStruct};
+use crate::{serde::Serializable, Array, List, Map, Struct, Tuple, TupleStruct};
 use std::{any::Any, fmt::Debug};
 
 pub use bevy_utils::AHasher as ReflectHasher;
@@ -14,6 +14,7 @@ pub enum ReflectRef<'a> {
     TupleStruct(&'a dyn TupleStruct),
     Tuple(&'a dyn Tuple),
     List(&'a dyn List),
+    Array(&'a dyn Array),
     Map(&'a dyn Map),
     Value(&'a dyn Reflect),
 }
@@ -29,6 +30,7 @@ pub enum ReflectMut<'a> {
     TupleStruct(&'a mut dyn TupleStruct),
     Tuple(&'a mut dyn Tuple),
     List(&'a mut dyn List),
+    Array(&'a mut dyn Array),
     Map(&'a mut dyn Map),
     Value(&'a mut dyn Reflect),
 }
@@ -56,6 +58,12 @@ pub unsafe trait Reflect: Any + Send + Sync {
 
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
     fn any_mut(&mut self) -> &mut dyn Any;
+
+    /// Casts this type to a reflected value
+    fn as_reflect(&self) -> &dyn Reflect;
+
+    /// Casts this type to a mutable reflected value
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
 
     /// Applies a reflected value to this value.
     ///

@@ -11,8 +11,6 @@ fn main() {
         // Adds a system that prints diagnostics to the console
         .add_plugin(LogDiagnosticsPlugin::default())
         // Any plugin can register diagnostics
-        // Uncomment this to add some render resource diagnostics:
-        // .add_plugin(bevy::wgpu::diagnostic::WgpuResourceDiagnosticsPlugin::default())
         // Uncomment this to add an entity count diagnostics:
         // .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin::default())
         // Uncomment this to add an asset count diagnostics:

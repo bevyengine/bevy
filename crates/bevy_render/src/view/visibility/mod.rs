@@ -6,6 +6,7 @@ pub use render_layers::*;
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
@@ -18,7 +19,7 @@ use crate::{
 
 /// User indication of whether an entity is visible
 #[derive(Component, Clone, Reflect, Debug)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Visibility {
     pub is_visible: bool,
 }

@@ -31,7 +31,7 @@ fn main() {
                 .with_run_criteria(FixedTimestep::step(5.0))
                 .with_system(spawn_bonus),
         )
-        .add_system(bevy::input::system::exit_on_esc_system)
+        .add_system(bevy::window::close_on_esc)
         .run();
 }
 
@@ -165,7 +165,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         ),
         style: Style {
             position_type: PositionType::Absolute,
-            position: Rect {
+            position: UiRect {
                 top: Val::Px(5.0),
                 left: Val::Px(5.0),
                 ..default()
@@ -374,7 +374,7 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
     commands
         .spawn_bundle(NodeBundle {
             style: Style {
-                margin: Rect::all(Val::Auto),
+                margin: UiRect::all(Val::Auto),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()

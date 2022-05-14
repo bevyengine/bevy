@@ -219,6 +219,7 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
+    Close,
 }
 
 /// Defines the way a window is displayed
@@ -569,6 +570,21 @@ impl Window {
             mode,
             resolution: (self.physical_width, self.physical_height),
         });
+    }
+
+    /// Close the operating system window corresponding to this [`Window`].  
+    /// This will also lead to this [`Window`] being removed from the
+    /// [`Windows`] resource.
+    ///
+    /// If the default [`WindowPlugin`] is used, when no windows are
+    /// open, the [app will exit](bevy_app::AppExit).  
+    /// To disable this behaviour, set `exit_on_all_closed` on the [`WindowPlugin`]
+    /// to `false`
+    ///
+    /// [`Windows`]: crate::Windows
+    /// [`WindowPlugin`]: crate::WindowPlugin
+    pub fn close(&mut self) {
+        self.command_queue.push(WindowCommand::Close);
     }
 
     #[inline]

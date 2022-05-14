@@ -21,15 +21,15 @@ use bevy_ecs::{
     system::{Commands, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
 use wgpu::Extent3d;
 
-#[derive(Component, Default, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Default, Debug, Reflect, Clone)]
+#[reflect(Component, Default)]
 pub struct Camera {
     pub projection_matrix: Mat4,
     #[reflect(ignore)]
@@ -79,6 +79,7 @@ impl RenderTarget {
                 UVec2::new(width, height)
             }),
         }
+        .filter(|size| size.x > 0 && size.y > 0)
     }
     pub fn get_logical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<Vec2> {
         match self {
@@ -121,6 +122,9 @@ impl Default for DepthCalculation {
 
 impl Camera {
     /// Given a position in world space, use the camera to compute the screen space coordinates.
+    ///
+    /// To get the coordinates in Normalized Device Coordinates, you should use
+    /// [`world_to_ndc`](Self::world_to_ndc).
     pub fn world_to_screen(
         &self,
         windows: &Windows,
@@ -129,18 +133,33 @@ impl Camera {
         world_position: Vec3,
     ) -> Option<Vec2> {
         let window_size = self.target.get_logical_size(windows, images)?;
-        // Build a transform to convert from world to NDC using camera data
-        let world_to_ndc: Mat4 =
-            self.projection_matrix * camera_transform.compute_matrix().inverse();
-        let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
+        let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
         // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
+
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        let screen_space_coords = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size;
-        if !screen_space_coords.is_nan() {
-            Some(screen_space_coords)
+        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size)
+    }
+
+    /// Given a position in world space, use the camera to compute the Normalized Device Coordinates.
+    ///
+    /// Values returned will be between -1.0 and 1.0 when the position is in screen space.
+    /// To get the coordinates in the render target dimensions, you should use
+    /// [`world_to_screen`](Self::world_to_screen).
+    pub fn world_to_ndc(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Option<Vec3> {
+        // Build a transform to convert from world to NDC using camera data
+        let world_to_ndc: Mat4 =
+            self.projection_matrix * camera_transform.compute_matrix().inverse();
+        let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
+
+        if !ndc_space_coords.is_nan() {
+            Some(ndc_space_coords)
         } else {
             None
         }
@@ -269,14 +288,22 @@ impl<T: Component> ActiveCamera<T> {
 
 pub fn set_active_camera<T: Component>(
     mut active_camera: ResMut<ActiveCamera<T>>,
-    cameras: Query<Entity, With<T>>,
+    cameras: Query<Entity, (With<Camera>, With<T>)>,
 ) {
-    if active_camera.get().is_some() {
-        return;
+    // Check if there is already an active camera set and
+    // that it has not been deleted on the previous frame
+    if let Some(camera) = active_camera.get() {
+        if cameras.contains(camera) {
+            return;
+        }
     }
 
+    // If the previous active camera ceased to exist
+    // fallback to another camera of the same type T
     if let Some(camera) = cameras.iter().next() {
         active_camera.camera = Some(camera);
+    } else {
+        active_camera.camera = None;
     }
 }
 
@@ -304,8 +331,8 @@ pub fn extract_cameras<M: Component + Default>(
                     ExtractedView {
                         projection: camera.projection_matrix,
                         transform: *transform,
-                        width: size.x.max(1),
-                        height: size.y.max(1),
+                        width: size.x,
+                        height: size.y,
                         near: camera.near,
                         far: camera.far,
                     },
