@@ -1,21 +1,20 @@
-use crate::container_attributes::ReflectTraits;
 use crate::impls::impl_typed;
+use crate::ReflectMeta;
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
 use quote::quote;
-use syn::{Generics, Path};
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
-pub(crate) fn impl_value(
-    type_name: &Ident,
-    generics: &Generics,
-    get_type_registration_impl: proc_macro2::TokenStream,
-    bevy_reflect_path: &Path,
-    reflect_attrs: &ReflectTraits,
-) -> TokenStream {
-    let hash_fn = reflect_attrs.get_hash_impl(bevy_reflect_path);
-    let partial_eq_fn = reflect_attrs.get_partial_eq_impl(bevy_reflect_path);
-    let debug_fn = reflect_attrs.get_debug_impl();
+pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
+    let ReflectMeta {
+        traits,
+        type_name,
+        generics,
+        bevy_reflect_path,
+    } = meta;
+
+    let hash_fn = traits.get_hash_impl(bevy_reflect_path);
+    let partial_eq_fn = traits.get_partial_eq_impl(bevy_reflect_path);
+    let debug_fn = traits.get_debug_impl();
 
     let typed_impl = impl_typed(
         type_name,
@@ -28,6 +27,7 @@ pub(crate) fn impl_value(
     );
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let get_type_registration_impl = meta.get_type_registration();
 
     TokenStream::from(quote! {
         #get_type_registration_impl

@@ -1,15 +1,15 @@
 use crate::impls::impl_typed;
-use crate::ReflectDeriveData;
+use crate::ReflectStruct;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Index, Member};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
-pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
-    let bevy_reflect_path = derive_data.bevy_reflect_path();
-    let struct_name = derive_data.type_name();
+pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
+    let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
+    let struct_name = reflect_struct.meta().type_name();
 
-    let field_names = derive_data
+    let field_names = reflect_struct
         .active_fields()
         .map(|field| {
             field
@@ -20,7 +20,7 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
                 .unwrap_or_else(|| field.index.to_string())
         })
         .collect::<Vec<String>>();
-    let field_idents = derive_data
+    let field_idents = reflect_struct
         .active_fields()
         .map(|field| {
             field
@@ -31,16 +31,19 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
                 .unwrap_or_else(|| Member::Unnamed(Index::from(field.index)))
         })
         .collect::<Vec<_>>();
-    let field_types = derive_data
+    let field_types = reflect_struct
         .active_fields()
         .map(|field| field.data.ty.clone())
         .collect::<Vec<_>>();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = derive_data.traits().get_hash_impl(bevy_reflect_path);
-    let debug_fn = derive_data.traits().get_debug_impl();
-    let partial_eq_fn = derive_data
+    let hash_fn = reflect_struct
+        .meta()
+        .traits()
+        .get_hash_impl(bevy_reflect_path);
+    let debug_fn = reflect_struct.meta().traits().get_debug_impl();
+    let partial_eq_fn = reflect_struct.meta()
         .traits()
         .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
@@ -53,7 +56,7 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
 
     let typed_impl = impl_typed(
         struct_name,
-        derive_data.generics(),
+        reflect_struct.meta().generics(),
         quote! {
            let fields = [
                 #(#bevy_reflect_path::NamedField::new::<#field_types, _>(#field_names),)*
@@ -64,8 +67,9 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let get_type_registration_impl = derive_data.get_type_registration();
-    let (impl_generics, ty_generics, where_clause) = derive_data.generics().split_for_impl();
+    let get_type_registration_impl = reflect_struct.meta().get_type_registration();
+    let (impl_generics, ty_generics, where_clause) =
+        reflect_struct.meta().generics().split_for_impl();
 
     TokenStream::from(quote! {
         #get_type_registration_impl

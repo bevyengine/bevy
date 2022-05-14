@@ -685,9 +685,11 @@ impl<T: Reflect + Clone + Send + Sync + 'static> Reflect for Option<T> {
 
 impl<T: Reflect + Clone + Send + Sync + 'static> Typed for Option<T> {
     fn type_info() -> &'static TypeInfo {
-        // TODO: Replace with EnumInfo
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        CELL.get_or_insert::<Self, _>(|| {
+            // TODO: Replace with EnumInfo
+            TypeInfo::Value(ValueInfo::new::<Self>())
+        })
     }
 }
 

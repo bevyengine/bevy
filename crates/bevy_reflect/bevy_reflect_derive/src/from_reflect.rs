@@ -1,27 +1,29 @@
 use crate::container_attributes::REFLECT_DEFAULT;
 use crate::field_attributes::DefaultBehavior;
-use crate::ReflectDeriveData;
+use crate::{ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
-use syn::{Field, Generics, Ident, Index, Lit, LitInt, LitStr, Member, Path};
+use syn::{Field, Ident, Index, Lit, LitInt, LitStr, Member};
 
 /// Implements `FromReflect` for the given struct
-pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
-    impl_struct_internal(derive_data, false)
+pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
+    impl_struct_internal(reflect_struct, false)
 }
 
 /// Implements `FromReflect` for the given tuple struct
-pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream {
-    impl_struct_internal(derive_data, true)
+pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
+    impl_struct_internal(reflect_struct, true)
 }
 
 /// Implements `FromReflect` for the given value type
-pub(crate) fn impl_value(
-    type_name: &Ident,
-    generics: &Generics,
-    bevy_reflect_path: &Path,
-) -> TokenStream {
+pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
+    let ReflectMeta {
+        type_name,
+        generics,
+        bevy_reflect_path,
+        ..
+    } = meta;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
@@ -42,10 +44,10 @@ impl MemberValuePair {
     }
 }
 
-fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> TokenStream {
-    let struct_name = derive_data.type_name();
-    let generics = derive_data.generics();
-    let bevy_reflect_path = derive_data.bevy_reflect_path();
+fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> TokenStream {
+    let struct_name = reflect_struct.meta().type_name();
+    let generics = reflect_struct.meta().generics();
+    let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
     let ref_struct = Ident::new("__ref_struct", Span::call_site());
     let ref_struct_type = if is_tuple {
@@ -54,11 +56,11 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
         Ident::new("Struct", Span::call_site())
     };
 
-    let field_types = derive_data.active_types();
+    let field_types = reflect_struct.active_types();
     let MemberValuePair(active_members, active_values) =
-        get_active_fields(derive_data, &ref_struct, &ref_struct_type, is_tuple);
+        get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
 
-    let constructor = if derive_data.traits().contains(REFLECT_DEFAULT) {
+    let constructor = if reflect_struct.meta().traits().contains(REFLECT_DEFAULT) {
         quote!(
             let mut __this = Self::default();
             #(
@@ -71,7 +73,7 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
         )
     } else {
         let MemberValuePair(ignored_members, ignored_values) =
-            get_ignored_fields(derive_data, is_tuple);
+            get_ignored_fields(reflect_struct, is_tuple);
 
         quote!(
             Some(
@@ -115,9 +117,9 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
 ///
 /// Each value of the `MemberValuePair` is a token stream that generates a
 /// a default value for the ignored field.
-fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> MemberValuePair {
+fn get_ignored_fields(reflect_struct: &ReflectStruct, is_tuple: bool) -> MemberValuePair {
     MemberValuePair::new(
-        derive_data
+        reflect_struct
             .ignored_fields()
             .map(|field| {
                 let member = get_ident(field.data, field.index, is_tuple);
@@ -138,15 +140,15 @@ fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> Member
 /// Each value of the `MemberValuePair` is a token stream that generates a
 /// closure of type `fn() -> Option<T>` where `T` is that field's type.
 fn get_active_fields(
-    derive_data: &ReflectDeriveData,
+    reflect_struct: &ReflectStruct,
     dyn_struct_name: &Ident,
     struct_type: &Ident,
     is_tuple: bool,
 ) -> MemberValuePair {
-    let bevy_reflect_path = derive_data.bevy_reflect_path();
+    let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
     MemberValuePair::new(
-        derive_data
+        reflect_struct
             .active_fields()
             .map(|field| {
                 let member = get_ident(field.data, field.index, is_tuple);
