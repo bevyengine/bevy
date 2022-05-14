@@ -10,7 +10,7 @@ status = [
     "run-examples",
     "run-examples-on-wasm",
     "check-doc",
-    "check-missing-examples-in-docs",
+    "update-examples-readme",
     "check-unused-dependencies",
     "ci",
     "miri",
