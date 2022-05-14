@@ -155,11 +155,9 @@ impl TaskPool {
 
             thread_builder
                 .spawn(move || {
-                    let future = run_forever(compute).or(async {
-                        // Use unwrap_err because we expect a Closed error
-                        shutdown_rx.recv().await.unwrap_err();
-                    });
-                    future::block_on(future);
+                    let future = compute.run(shutdown_rx.recv()).or(shutdown_rx.recv());
+                    // Use unwrap_err because we expect a Closed error
+                    future::block_on(future).unwrap_err();
                 })
                 .expect("Failed to spawn thread.")
         }));
@@ -172,11 +170,12 @@ impl TaskPool {
 
             thread_builder
                 .spawn(move || {
-                    let future = run_forever(io).or(run_forever(compute)).or(async {
-                        // Use unwrap_err because we expect a Closed error
-                        shutdown_rx.recv().await.unwrap_err();
-                    });
-                    future::block_on(future);
+                    let future = io
+                        .run(shutdown_rx.recv())
+                        .or(compute.run(shutdown_rx.recv()))
+                        .or(shutdown_rx.recv());
+                    // Use unwrap_err because we expect a Closed error
+                    future::block_on(future).unwrap_err();
                 })
                 .expect("Failed to spawn thread.")
         }));
@@ -194,14 +193,13 @@ impl TaskPool {
 
             thread_builder
                 .spawn(move || {
-                    let future = run_forever(async_compute)
-                        .or(run_forever(compute))
-                        .or(run_forever(io))
-                        .or(async {
-                            // Use unwrap_err because we expect a Closed error
-                            shutdown_rx.recv().await.unwrap_err();
-                        });
-                    future::block_on(future);
+                    let future = async_compute
+                        .run(shutdown_rx.recv())
+                        .or(compute.run(shutdown_rx.recv()))
+                        .or(io.run(shutdown_rx.recv()))
+                        .or(shutdown_rx.recv());
+                    // Use unwrap_err because we expect a Closed error
+                    future::block_on(future).unwrap_err();
                 })
                 .expect("Failed to spawn thread.")
         }));
@@ -455,13 +453,6 @@ fn make_thread_builder(
     }
 
     thread_builder
-}
-
-async fn run_forever(executor: Arc<async_executor::Executor<'static>>) {
-    loop {
-        while executor.try_tick() {}
-        future::yield_now().await;
-    }
 }
 
 #[cfg(test)]
