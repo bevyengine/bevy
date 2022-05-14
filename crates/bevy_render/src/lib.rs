@@ -185,9 +185,7 @@ impl Plugin for RenderPlugin {
 
             let (sender, receiver) = bevy_core::create_time_channels();
             app.insert_resource(receiver);
-            render_app
-                .init_resource::<bevy_core::Time>()
-                .insert_resource(sender);
+            render_app.insert_resource(sender);
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]

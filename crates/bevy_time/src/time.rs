@@ -3,13 +3,13 @@ use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{Duration, Instant};
 
 /// channel resource used to receive time from render world
-pub struct TimeReceiver(pub Receiver<Time>);
+pub struct TimeReceiver(pub Receiver<Instant>);
 /// channel resource used to send time from render world
-pub struct TimeSender(pub Sender<Time>);
+pub struct TimeSender(pub Sender<Instant>);
 
 /// create channels used for sending time between render world and app world
 pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
-    let (s, r) = async_channel::bounded::<Time>(1);
+    let (s, r) = async_channel::bounded::<Instant>(1);
     (TimeSender(s), TimeReceiver(r))
 }
 
@@ -155,10 +155,12 @@ impl Time {
     }
 }
 
+/// The system used to update the time. If there is a render world the time is sent from
+/// there to this system through channels. Otherwise the time is updated in this system.
 pub(crate) fn time_system(mut time: ResMut<Time>, time_recv: Option<Res<TimeReceiver>>) {
     if let Some(time_recv) = time_recv {
-        if let Ok(mut new_time) = time_recv.0.try_recv() {
-            std::mem::swap(&mut *time, &mut new_time);
+        if let Ok(new_time) = time_recv.0.try_recv() {
+            time.update_with_instant(new_time);
         }
     } else {
         time.update();
