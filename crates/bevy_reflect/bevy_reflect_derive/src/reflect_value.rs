@@ -27,12 +27,11 @@ pub(crate) struct ReflectValueDef {
 
 impl ReflectValueDef {
     pub fn as_meta(&self) -> ReflectMeta {
-        ReflectMeta {
-            traits: self.traits.clone().unwrap_or_default(),
-            type_name: &self.type_name,
-            generics: &self.generics,
-            bevy_reflect_path: utility::get_bevy_reflect_path(),
-        }
+        ReflectMeta::new(
+            &self.type_name,
+            &self.generics,
+            self.traits.clone().unwrap_or_default(),
+        )
     }
 }
 

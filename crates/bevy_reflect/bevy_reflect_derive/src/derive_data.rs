@@ -29,13 +29,13 @@ pub(crate) enum ReflectDerive<'a> {
 /// ```
 pub(crate) struct ReflectMeta<'a> {
     /// The registered traits for this type.
-    pub traits: ReflectTraits,
+    traits: ReflectTraits,
     /// The name of this type.
-    pub type_name: &'a Ident,
+    type_name: &'a Ident,
     /// The generics defined on this type.
-    pub generics: &'a Generics,
+    generics: &'a Generics,
     /// A cached instance of the path to the `bevy_reflect` crate.
-    pub bevy_reflect_path: Path,
+    bevy_reflect_path: Path,
 }
 
 /// Struct data used by derive macros for `Reflect` and `FromReflect`.
@@ -125,12 +125,7 @@ impl<'a> ReflectDerive<'a> {
             }
         }
 
-        let meta = ReflectMeta {
-            type_name: &input.ident,
-            generics: &input.generics,
-            traits,
-            bevy_reflect_path: utility::get_bevy_reflect_path(),
-        };
+        let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
 
         if force_reflect_value {
             return Ok(Self::Value(meta));
@@ -224,6 +219,15 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
+    pub fn new(type_name: &'a Ident, generics: &'a Generics, traits: ReflectTraits) -> Self {
+        Self {
+            traits,
+            type_name,
+            generics,
+            bevy_reflect_path: utility::get_bevy_reflect_path(),
+        }
+    }
+
     /// The registered reflect traits on this struct.
     pub fn traits(&self) -> &ReflectTraits {
         &self.traits

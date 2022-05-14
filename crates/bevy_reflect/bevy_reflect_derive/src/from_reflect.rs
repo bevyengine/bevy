@@ -18,13 +18,9 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
 /// Implements `FromReflect` for the given value type
 pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
-    let ReflectMeta {
-        type_name,
-        generics,
-        bevy_reflect_path,
-        ..
-    } = meta;
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let type_name = meta.type_name();
+    let bevy_reflect_path = meta.bevy_reflect_path();
+    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
