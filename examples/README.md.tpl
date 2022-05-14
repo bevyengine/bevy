@@ -69,7 +69,7 @@ Example | File | Description
 
 Example | Description
 --- | ---
-{% for example in examples %}[`{{ example.name }}`](../{{ example.path }}) | {{ example.description }}
+{% for example in examples %}[{{ example.name }}](../{{ example.path }}) | {{ example.description }}
 {% endfor %}{% endfor %}
 # Platform-Specific Examples
 
