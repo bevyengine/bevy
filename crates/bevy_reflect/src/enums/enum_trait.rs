@@ -1,16 +1,32 @@
-use crate::{Reflect, ReflectRef, Struct, Tuple, VariantInfo, VariantMut, VariantRef};
+use crate::{Reflect, ReflectRef, Struct, Tuple, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
 use std::slice::Iter;
 
 pub trait Enum: Reflect {
-    /// Returns an immutable reference to the current variant.
-    fn variant(&self) -> VariantRef;
-    /// Returns a mutable reference to the current variant.
-    fn variant_mut(&mut self) -> VariantMut;
+    /// Returns a reference to the value of the field (in the current variant) with the given name.
+    fn field(&self, name: &str) -> Option<&dyn Reflect>;
+    /// Returns a reference to the value of the field (in the current variant) at the given index.
+    fn field_at(&self, index: usize) -> Option<&dyn Reflect>;
+    /// Returns a mutable reference to the value of the field (in the current variant) with the given name.
+    fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
+    /// Returns a mutable reference to the value of the field (in the current variant) at the given index.
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+    /// Returns the index of the field (in the current variant) with the given name.
+    fn index_of(&self, name: &str) -> Option<usize>;
+    /// Returns an iterator over the values of the current variant's fields.
+    fn iter_fields(&self) -> VariantFieldIter;
+    /// Returns the number of fields in the current variant.
+    fn field_len(&self) -> usize;
     /// The name of the current variant.
     fn variant_name(&self) -> &str;
+    /// The type of the current variant.
+    fn variant_type(&self) -> VariantType;
+    /// Returns true if the current variant's type matches the given one.
+    fn is_variant(&self, variant_type: VariantType) -> bool {
+        self.variant_type() == variant_type
+    }
 }
 
 /// A container for compile-time enum info.
@@ -91,6 +107,37 @@ impl EnumInfo {
         TypeId::of::<T>() == self.type_id
     }
 }
+
+pub struct VariantFieldIter<'a> {
+    pub(crate) container: &'a dyn Enum,
+    pub(crate) index: usize,
+}
+
+impl<'a> VariantFieldIter<'a> {
+    pub fn new(container: &'a dyn Enum) -> Self {
+        Self {
+            container,
+            index: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for VariantFieldIter<'a> {
+    type Item = &'a dyn Reflect;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let value = self.container.field_at(self.index);
+        self.index += 1;
+        value
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.container.field_len();
+        (size, Some(size))
+    }
+}
+
+impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 
 #[inline]
 pub fn enum_partial_eq<E: Enum>(enum_a: &E, reflect_b: &dyn Reflect) -> Option<bool> {
