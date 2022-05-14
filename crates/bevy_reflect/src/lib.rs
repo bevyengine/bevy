@@ -1,7 +1,6 @@
 #![doc = include_str!("../README.md")]
 
 mod array;
-mod enum_trait;
 mod fields;
 mod list;
 mod map;
@@ -27,6 +26,7 @@ mod impls {
     pub use self::std::*;
 }
 
+mod enums;
 pub mod serde;
 pub mod std_traits;
 pub mod utility;
@@ -41,7 +41,7 @@ pub mod prelude {
 }
 
 pub use array::*;
-pub use enum_trait::*;
+pub use enums::*;
 pub use fields::*;
 pub use impls::*;
 pub use list::*;
