@@ -21,7 +21,7 @@ struct VertexOutput {
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
     let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
-    let world_position = mesh.model * vec4<f32>(position, 1.0);
+    let world_position = vec4<f32>(position, 1.0);
 
     var out: VertexOutput;
     out.clip_position = view.view_proj * world_position;
