@@ -601,7 +601,10 @@ impl<T: Reflect + Clone> Enum for Option<T> {
 
     #[inline]
     fn field_len(&self) -> usize {
-        1
+        match self {
+            Some(..) => 1,
+            None => 0,
+        }
     }
 
     #[inline]
@@ -614,7 +617,10 @@ impl<T: Reflect + Clone> Enum for Option<T> {
 
     #[inline]
     fn variant_type(&self) -> VariantType {
-        VariantType::Tuple
+        match self {
+            Some(..) => VariantType::Tuple,
+            None => VariantType::Unit,
+        }
     }
 
     fn clone_dynamic(&self) -> DynamicEnum {
