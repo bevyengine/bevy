@@ -144,16 +144,9 @@ impl TaskPool {
 
         let mut threads = Vec::with_capacity(compute_threads + io_threads + async_compute_threads);
         threads.extend((0..compute_threads).map(|i| {
-            let thread_builder = make_thread_builder(
-                builder.thread_name.as_deref(),
-                "Compute",
-                i,
-                builder.stack_size,
-            );
             let compute = Arc::clone(&compute_executor);
             let shutdown_rx = shutdown_rx.clone();
-
-            thread_builder
+            make_thread_builder(&builder, "Compute", i)
                 .spawn(move || {
                     // Use unwrap_err because we expect a Closed error
                     future::block_on(compute.run(shutdown_rx.recv())).unwrap_err();
@@ -161,13 +154,10 @@ impl TaskPool {
                 .expect("Failed to spawn thread.")
         }));
         threads.extend((0..io_threads).map(|i| {
-            let thread_builder =
-                make_thread_builder(builder.thread_name.as_deref(), "IO", i, builder.stack_size);
             let compute = Arc::clone(&compute_executor);
             let io = Arc::clone(&io_executor);
             let shutdown_rx = shutdown_rx.clone();
-
-            thread_builder
+            make_thread_builder(&builder, "IO", i)
                 .spawn(move || {
                     let future = io
                         .run(shutdown_rx.recv())
@@ -178,18 +168,11 @@ impl TaskPool {
                 .expect("Failed to spawn thread.")
         }));
         threads.extend((0..async_compute_threads).map(|i| {
-            let thread_builder = make_thread_builder(
-                builder.thread_name.as_deref(),
-                "Aync Compute",
-                i,
-                builder.stack_size,
-            );
             let compute = Arc::clone(&compute_executor);
             let async_compute = Arc::clone(&compute_executor);
             let io = Arc::clone(&io_executor);
             let shutdown_rx = shutdown_rx.clone();
-
-            thread_builder
+            make_thread_builder(&builder, "Aync Compute", i)
                 .spawn(move || {
                     let future = async_compute
                         .run(shutdown_rx.recv())
@@ -407,16 +390,15 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 }
 
 fn make_thread_builder(
-    thread_name: Option<&str>,
+    builder: &TaskPoolBuilder,
     prefix: &'static str,
     idx: usize,
-    stack_size: Option<usize>,
 ) -> thread::Builder {
     // miri does not support setting thread names
     // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
     #[cfg(not(miri))]
     let mut thread_builder = {
-        let thread_name = if let Some(ref thread_name) = thread_name {
+        let thread_name = if let Some(ref thread_name) = builder.thread_name {
             format!("{} ({}, {})", thread_name, prefix, idx)
         } else {
             format!("TaskPool ({}, {})", prefix, idx)
@@ -431,7 +413,7 @@ fn make_thread_builder(
         thread::Builder::new()
     };
 
-    if let Some(stack_size) = stack_size {
+    if let Some(stack_size) = builder.stack_size {
         thread_builder = thread_builder.stack_size(stack_size);
     }
 
