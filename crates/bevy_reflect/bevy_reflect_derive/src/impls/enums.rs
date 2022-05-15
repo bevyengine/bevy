@@ -188,9 +188,19 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #ref_value.reflect_ref() {
                     if #bevy_reflect_path::Enum::variant_name(self) == #ref_value.variant_name() {
                         // Same variant -> just update fields
-                        for (index, field) in #ref_value.iter_fields().enumerate() {
-                            let name = #ref_value.name_at(index).unwrap();
-                            #bevy_reflect_path::Enum::field_mut(self, name).map(|v| v.apply(field));
+                        match #ref_value.variant_type() {
+                            #bevy_reflect_path::VariantType::Struct => {
+                                for (index, field) in #ref_value.iter_fields().enumerate() {
+                                    let name = #ref_value.name_at(index).unwrap();
+                                    #bevy_reflect_path::Enum::field_mut(self, name).map(|v| v.apply(field));
+                                }
+                            }
+                            #bevy_reflect_path::VariantType::Tuple => {
+                                for (index, field) in #ref_value.iter_fields().enumerate() {
+                                    #bevy_reflect_path::Enum::field_at_mut(self, index).map(|v| v.apply(field));
+                                }
+                            }
+                            _ => {}
                         }
                     } else {
                         // New variant -> perform a switch

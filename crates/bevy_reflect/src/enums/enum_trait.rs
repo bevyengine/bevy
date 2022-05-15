@@ -155,7 +155,14 @@ impl<'a> Iterator for VariantFieldIter<'a> {
     type Item = &'a dyn Reflect;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let value = self.container.field_at(self.index);
+        let value = match self.container.variant_type() {
+            VariantType::Unit => None,
+            VariantType::Tuple => self.container.field_at(self.index),
+            VariantType::Struct => {
+                let name = self.container.name_at(self.index)?;
+                self.container.field(name)
+            }
+        };
         self.index += 1;
         value
     }
