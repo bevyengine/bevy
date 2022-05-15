@@ -1,3 +1,4 @@
+use quote::quote;
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 
@@ -301,8 +302,17 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// Get an iterator over the ignored variants.
+    #[allow(dead_code)]
     pub fn ignored_variants(&self) -> impl Iterator<Item = &EnumVariant<'a>> {
         self.variants.iter().filter(|variant| variant.attrs.ignore)
+    }
+
+    /// Returns the given ident as a qualified unit variant of this enum.
+    pub fn get_unit(&self, variant: &Ident) -> proc_macro2::TokenStream {
+        let name = self.meta.type_name;
+        quote! {
+            #name::#variant
+        }
     }
 
     /// The complete set of variants in this enum.

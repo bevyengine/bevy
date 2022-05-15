@@ -209,33 +209,56 @@ mod tests {
     }
 
     #[test]
+    #[allow(unused_variables)]
     fn reflect_enum() {
-        // TODO: Uncomment when derive Reflect is re-enabled for enums
-        // #[derive(Reflect)]
-        // enum Foo {
-        //     A,
-        //     B(usize),
-        //     C { value: f32 },
-        // }
+        #[derive(Reflect, Debug, PartialEq)]
+        enum Foo {
+            A,
+            B(usize),
+            C { value: f32 },
+        }
 
-        // Option (Tuple)
+        // === Foo === //
+        let mut foo = Foo::B(123);
+        assert_eq!("B", foo.variant_name());
+        assert_eq!(1, foo.field_len());
+
+        if foo.is_variant(VariantType::Tuple) {
+            foo.field_at_mut(0)
+                .and_then(|field| field.downcast_mut::<usize>())
+                .map(|field| *field = 321);
+        } else {
+            panic!("expected `VariantType::Tuple`")
+        }
+
+        assert_eq!(Foo::B(321), foo);
+
+        let mut new_value = DynamicEnum::from(Foo::C { value: 1.23 });
+        foo.apply(&new_value);
+        assert_eq!(Foo::C { value: 1.23 }, foo);
+
+        new_value.set_variant("A", DynamicVariant::Unit);
+        foo.apply(&new_value);
+        assert_eq!(Foo::A, foo);
+
+        // === Option === //
         let mut value = Some(123usize);
-        let reflected_value = &mut value;
-
-        assert!(reflected_value
+        assert!(value
             .reflect_partial_eq(&Some(123usize))
             .unwrap_or_default());
-        assert!(!reflected_value
+        assert!(!value
             .reflect_partial_eq(&Some(321usize))
             .unwrap_or_default());
 
-        assert_eq!("Some", reflected_value.variant_name());
+        assert_eq!("Some", value.variant_name());
 
-        if reflected_value.is_variant(VariantType::Tuple) {
-            reflected_value
+        if value.is_variant(VariantType::Tuple) {
+            value
                 .field_at_mut(0)
                 .and_then(|field| field.downcast_mut::<usize>())
                 .map(|field| *field = 321);
+        } else {
+            panic!("expected `VariantType::Tuple`")
         }
 
         assert_eq!(Some(321), value);

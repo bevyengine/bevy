@@ -1,5 +1,5 @@
 use crate::container_attributes::ReflectTraits;
-use crate::{utility, ReflectMeta};
+use crate::ReflectMeta;
 use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Paren, Where};

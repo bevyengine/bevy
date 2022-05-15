@@ -48,8 +48,8 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         ReflectDerive::Struct(struct_data) => impls::impl_struct(&struct_data),
         ReflectDerive::UnitStruct(struct_data) => impls::impl_struct(&struct_data),
         ReflectDerive::TupleStruct(struct_data) => impls::impl_tuple_struct(&struct_data),
+        ReflectDerive::Enum(meta) => impls::impl_enum(&meta),
         ReflectDerive::Value(meta) => impls::impl_value(&meta),
-        _ => todo!(),
     }
 }
 
