@@ -9,8 +9,14 @@ struct Vertex {
 #endif
 };
 
+struct Wireframe {
+    color: vec4<f32>;
+};
+
 [[group(1), binding(0)]]
 var<uniform> mesh: Mesh;
+[[group(2), binding(0)]]
+var<uniform> wireframe: Wireframe;
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
@@ -39,5 +45,5 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 [[stage(fragment)]]
 fn fragment() -> [[location(0)]] vec4<f32> {
-    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    return wireframe.color;
 }
