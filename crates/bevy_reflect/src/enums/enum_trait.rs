@@ -1,4 +1,4 @@
-use crate::{Reflect, ReflectRef, Struct, Tuple, VariantInfo, VariantType};
+use crate::{DynamicEnum, Reflect, ReflectRef, Struct, Tuple, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
@@ -33,6 +33,8 @@ pub trait Enum: Reflect {
     fn variant_name(&self) -> &str;
     /// The type of the current variant.
     fn variant_type(&self) -> VariantType;
+    // Clones the enum into a [`DynamicEnum`].
+    fn clone_dynamic(&self) -> DynamicEnum;
     /// Returns true if the current variant's type matches the given one.
     fn is_variant(&self, variant_type: VariantType) -> bool {
         self.variant_type() == variant_type
@@ -149,66 +151,3 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 }
 
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
-
-/// Compares an [`Enum`] with a [`Reflect`] value.
-///
-/// Returns true if and only if all of the following are true:
-/// - `b` is an enum;
-/// - `b` is the same variant as `a`;
-/// - For each field in `a`, `b` contains a field with the same name and
-///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
-///   values.
-#[inline]
-pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> {
-    // Both enums?
-    let enum_b = if let ReflectRef::Enum(e) = b.reflect_ref() {
-        e
-    } else {
-        return Some(false);
-    };
-
-    // Same variant name?
-    if a.variant_name() != enum_b.variant_name() {
-        return Some(false);
-    }
-
-    // Same variant type?
-    if !a.is_variant(enum_b.variant_type()) {
-        return Some(false);
-    }
-
-    match a.variant_type() {
-        VariantType::Struct => {
-            // Same struct fields?
-            for (i, value) in a.iter_fields().enumerate() {
-                let field_name = a.name_at(i).unwrap();
-                if let Some(field_value) = enum_b.field(field_name) {
-                    if let Some(false) | None = field_value.reflect_partial_eq(value) {
-                        // Fields failed comparison
-                        return Some(false);
-                    }
-                } else {
-                    // Field does not exist
-                    return Some(false);
-                }
-            }
-            Some(true)
-        }
-        VariantType::Tuple => {
-            // Same tuple fields?
-            for (i, value) in a.iter_fields().enumerate() {
-                if let Some(field_value) = enum_b.field_at(i) {
-                    if let Some(false) | None = field_value.reflect_partial_eq(value) {
-                        // Fields failed comparison
-                        return Some(false);
-                    }
-                } else {
-                    // Field does not exist
-                    return Some(false);
-                }
-            }
-            Some(true)
-        }
-        _ => Some(false),
-    }
-}

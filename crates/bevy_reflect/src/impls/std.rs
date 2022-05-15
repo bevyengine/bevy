@@ -1,9 +1,9 @@
 use crate::{self as bevy_reflect, ReflectFromPtr};
 use crate::{
-    map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap, Enum, EnumInfo,
-    FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter, Reflect,
-    ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TupleVariantInfo, TypeInfo,
-    TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter,
+    map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
+    EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
+    Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TupleVariantInfo,
+    TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter,
     VariantInfo, VariantType,
 };
 
@@ -616,6 +616,10 @@ impl<T: Reflect + Clone> Enum for Option<T> {
     fn variant_type(&self) -> VariantType {
         VariantType::Tuple
     }
+
+    fn clone_dynamic(&self) -> DynamicEnum {
+        DynamicEnum::from_ref::<Self>(self)
+    }
 }
 
 impl<T: Reflect + Clone> Reflect for Option<T> {
@@ -654,13 +658,35 @@ impl<T: Reflect + Clone> Reflect for Option<T> {
 
     #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
-        } else {
-            {
-                panic!("Enum is not a {}.", std::any::type_name::<Self>());
-            };
+        if let ReflectRef::Enum(value) = value.reflect_ref() {
+            if self.variant_name() == value.variant_name() {
+                // Same variant -> just update fields
+                for (index, field) in value.iter_fields().enumerate() {
+                    let name = value.name_at(index).unwrap();
+                    self.field_mut(name).map(|v| v.apply(field));
+                }
+            } else {
+                // New variant -> perform a switch
+                match value.variant_name() {
+                    "Some" => {
+                        let field = value
+                            .field_at(0)
+                            .expect("Field at index 0 should exist")
+                            .clone_value();
+                        let field = field.take::<T>().unwrap_or_else(|_| {
+                            panic!(
+                                "Field at index 0 should be of type {}",
+                                std::any::type_name::<T>()
+                            )
+                        });
+                        *self = Some(field);
+                    }
+                    "None" => {
+                        *self = None;
+                    }
+                    _ => panic!("Enum is not a {}.", std::any::type_name::<Self>()),
+                }
+            }
         }
     }
 
@@ -684,7 +710,7 @@ impl<T: Reflect + Clone> Reflect for Option<T> {
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        None
+        crate::enum_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

@@ -242,6 +242,21 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_enum() {
+        // Some(usize) -> None
+        let mut value = Some(123usize);
+        let mut dyn_enum = DynamicEnum::from::<Option<usize>>(None);
+        value.apply(&dyn_enum);
+        assert_eq!(None, value);
+
+        // None -> Some(usize)
+        let data = (321usize,).clone_dynamic();
+        dyn_enum.set_variant("Some".to_string(), DynamicVariant::Tuple(data));
+        value.apply(&dyn_enum);
+        assert_eq!(Some(321), value);
+    }
+
+    #[test]
     #[should_panic(expected = "the given key does not support hashing")]
     fn reflect_map_no_hash() {
         #[derive(Reflect)]
