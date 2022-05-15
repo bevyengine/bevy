@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    tasks::{Task, TaskPool},
+    tasks::{Task, TaskGroup, TaskPool},
 };
 use futures_lite::future;
 use rand::Rng;
@@ -55,7 +55,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<TaskPool>) {
         for y in 0..NUM_CUBES {
             for z in 0..NUM_CUBES {
                 // Spawn new task on the TaskPool
-                let task = thread_pool.spawn_async_compute(async move {
+                let task = thread_pool.spawn_as(TaskGroup::AsyncCompute, async move {
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));

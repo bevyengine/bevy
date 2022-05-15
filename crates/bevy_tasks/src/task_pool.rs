@@ -8,7 +8,7 @@ use std::{
 
 use futures_lite::{future, pin, FutureExt};
 
-use crate::Task;
+use crate::{Task, TaskGroup};
 
 /// Used to create a [`TaskPool`]
 #[derive(Debug, Default, Clone)]
@@ -229,26 +229,42 @@ impl TaskPool {
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
+        self.scope_as(TaskGroup::Compute, f)
+    }
+
+    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
+    /// passing a scope object into it. The scope object provided to the callback can be used
+    /// to spawn tasks. This function will await the completion of all tasks before returning.
+    ///
+    /// This is similar to `rayon::scope` and `crossbeam::scope`
+    pub fn scope_as<'scope, F, T>(&self, group: TaskGroup, f: F) -> Vec<T>
+    where
+        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        T: Send + 'static,
+    {
+        // SAFETY: This function blocks until all futures complete, so this future must return
+        // before this function returns. However, rust has no way of knowing
+        // this so we must convert to 'static here to appease the compiler as it is unable to
+        // validate safety.
+        let executor: &'scope async_executor::Executor = match group {
+            TaskGroup::Compute => {
+                let executor: &async_executor::Executor = &*self.compute_executor;
+                unsafe { mem::transmute(executor) }
+            }
+            TaskGroup::AsyncCompute => {
+                let executor: &async_executor::Executor = &*self.async_compute_executor;
+                unsafe { mem::transmute(executor) }
+            }
+            TaskGroup::IO => {
+                let executor: &async_executor::Executor = &*self.io_executor;
+                unsafe { mem::transmute(executor) }
+            }
+        };
         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-            // SAFETY: This function blocks until all futures complete, so this future must return
-            // before this function returns. However, rust has no way of knowing
-            // this so we must convert to 'static here to appease the compiler as it is unable to
-            // validate safety.
-            let compute_executor: &async_executor::Executor = &*self.compute_executor;
-            let compute_executor: &'scope async_executor::Executor =
-                unsafe { mem::transmute(compute_executor) };
-            let async_compute_executor: &async_executor::Executor = &*self.async_compute_executor;
-            let async_compute_executor: &'scope async_executor::Executor =
-                unsafe { mem::transmute(async_compute_executor) };
-            let io_executor: &async_executor::Executor = &*self.io_executor;
-            let io_executor: &'scope async_executor::Executor =
-                unsafe { mem::transmute(io_executor) };
             let local_executor: &'scope async_executor::LocalExecutor =
                 unsafe { mem::transmute(local_executor) };
             let mut scope = Scope {
-                compute_executor,
-                async_compute_executor,
-                io_executor,
+                executor: <&'scope async_executor::Executor>::clone(&executor),
                 local_executor,
                 spawned: Vec::new(),
             };
@@ -291,9 +307,7 @@ impl TaskPool {
                         break result;
                     };
 
-                    self.compute_executor.try_tick();
-                    self.async_compute_executor.try_tick();
-                    self.io_executor.try_tick();
+                    executor.try_tick();
                     local_executor.try_tick();
                 }
             }
@@ -309,7 +323,7 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        Task::new(self.compute_executor.spawn(future))
+        self.spawn_as(TaskGroup::Compute, future)
     }
 
     /// Spawns a static future onto the thread pool with "async compute" priority. The returned Task is a future.
@@ -317,26 +331,20 @@ impl TaskPool {
     /// by the end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
-    pub fn spawn_async_compute<T>(
+    #[inline]
+    pub fn spawn_as<T>(
         &self,
+        group: TaskGroup,
         future: impl Future<Output = T> + Send + 'static,
     ) -> Task<T>
     where
         T: Send + 'static,
     {
-        Task::new(self.async_compute_executor.spawn(future))
-    }
-
-    /// Spawns a static future onto the thread pool with "IO" priority. The returned Task is a future.
-    /// It can also be cancelled and "detached" allowing it to continue running without having to be polled
-    /// by the end-user.
-    ///
-    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
-    pub fn spawn_io<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
-    where
-        T: Send + 'static,
-    {
-        Task::new(self.io_executor.spawn(future))
+        Task::new(match group {
+            TaskGroup::Compute => self.compute_executor.spawn(future),
+            TaskGroup::AsyncCompute => self.async_compute_executor.spawn(future),
+            TaskGroup::IO => self.io_executor.spawn(future),
+        })
     }
 
     /// Spawns a static future on the thread-local async executor for the current thread. The task
@@ -363,9 +371,7 @@ impl Default for TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
-    compute_executor: &'scope async_executor::Executor<'scope>,
-    async_compute_executor: &'scope async_executor::Executor<'scope>,
-    io_executor: &'scope async_executor::Executor<'scope>,
+    executor: &'scope async_executor::Executor<'scope>,
     local_executor: &'scope async_executor::LocalExecutor<'scope>,
     spawned: Vec<async_executor::Task<T>>,
 }
@@ -380,33 +386,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        let task = self.compute_executor.spawn(f);
-        self.spawned.push(task);
-    }
-
-    /// Spawns a scoped future onto the thread pool with "async compute" priority. The scope
-    /// *must* outlive the provided future. The results of the future will be returned as a
-    /// part of [`TaskPool::scope`]'s return value.
-    ///
-    /// If the provided future is non-`Send`, [`Scope::spawn_local`] should be used
-    /// instead.
-    ///
-    /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_async_compute<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        let task = self.async_compute_executor.spawn(f);
-        self.spawned.push(task);
-    }
-
-    /// Spawns a scoped future onto the thread pool with "IO" priority. The scope
-    /// *must* outlive the provided future. The results of the future will be returned as a
-    /// part of [`TaskPool::scope`]'s return value.
-    ///
-    /// If the provided future is non-`Send`, [`Scope::spawn_local`] should be used
-    /// instead.
-    ///
-    /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_io<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        let task = self.io_executor.spawn(f);
+        let task = self.executor.spawn(f);
         self.spawned.push(task);
     }
 

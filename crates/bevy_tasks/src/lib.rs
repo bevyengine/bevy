@@ -5,7 +5,7 @@ mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
 mod task;
-pub use task::Task;
+pub use task::{Task, TaskGroup};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod task_pool;
@@ -30,6 +30,7 @@ pub mod prelude {
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
+        TaskGroup,
     };
 }
 

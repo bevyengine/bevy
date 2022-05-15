@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_log::warn;
-use bevy_tasks::TaskPool;
+use bevy_tasks::{TaskGroup, TaskPool};
 use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
@@ -379,7 +379,7 @@ impl AssetServer {
         let owned_path = asset_path.to_owned();
         self.server
             .task_pool
-            .spawn_io(async move {
+            .spawn_as(TaskGroup::IO, async move {
                 if let Err(err) = server.load_async(owned_path, force).await {
                     warn!("{}", err);
                 }

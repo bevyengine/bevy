@@ -4,6 +4,25 @@ use std::{
     task::{Context, Poll},
 };
 
+/// A group a task is assigned to upon being spawned.
+///
+/// By default, `Compute` is used for [`TaskPool::spawn`].
+///
+/// [`TaskPool::spawn`]: crate::TaskPool::spawn
+#[derive(Clone, Copy, Debug)]
+pub enum TaskGroup {
+    /// CPU-bound, short-lived tasks. Usually used for tasks
+    /// within the scope of a single frame of a game.
+    Compute,
+    /// IO-bound, potentially long lasting tasks that readily
+    /// yield. Usually used for loading assets or doing network
+    /// communication.
+    IO,
+    /// CPU-bound, long-lived takss. Usually used for tasks
+    /// that last longer than a single frame.
+    AsyncCompute,
+}
+
 /// Wraps `async_executor::Task`, a spawned future.
 ///
 /// Tasks are also futures themselves and yield the output of the spawned future.
