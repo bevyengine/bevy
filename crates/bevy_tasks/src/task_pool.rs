@@ -219,11 +219,14 @@ impl TaskPool {
         self.inner.threads.len()
     }
 
-    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
-    /// passing a scope object into it. The scope object provided to the callback can be used
-    /// to spawn tasks. This function will await the completion of all tasks before returning.
+    /// Allows spawning non-`'static` futures on the thread pool under the [`Compute`] task group.
+    /// The function takes a callback, passing a scope object into it. The scope object provided to
+    /// the callback can be used to spawn tasks. This function will await the completion of all
+    /// tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
+    ///
+    /// [`Compute`]: crate::TaskGroup::Compute
     pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
     where
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
@@ -232,9 +235,10 @@ impl TaskPool {
         self.scope_as(TaskGroup::Compute, f)
     }
 
-    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
-    /// passing a scope object into it. The scope object provided to the callback can be used
-    /// to spawn tasks. This function will await the completion of all tasks before returning.
+    /// Allows spawning non-`'static` futures on the thread pool in a specific task group. The
+    /// function takes a callback, passing a scope object into it. The scope object provided
+    /// to the callback can be used to spawn tasks. This function will await the completion of
+    /// all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope_as<'scope, F, T>(&self, group: TaskGroup, f: F) -> Vec<T>
@@ -314,11 +318,13 @@ impl TaskPool {
         })
     }
 
-    /// Spawns a static future onto the thread pool with "compute" priority. The returned Task is a future.
+    /// Spawns a static future onto the thread pool in the [`Compute`] group. The returned Task is a future.
     /// It can also be cancelled and "detached" allowing it to continue running without having to be polled
     /// by the end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
+    ///
+    /// [`Compute`]: crate::TaskGroup::Compute
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,

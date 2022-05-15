@@ -1,3 +1,4 @@
+use crate::TaskGroup;
 use std::{
     future::Future,
     mem,
@@ -91,6 +92,20 @@ impl TaskPool {
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
+        self.scope_as(TaskGroup::Compute, f)
+    }
+
+    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// passing a scope object into it. The scope object provided to the callback can be used
+    /// to spawn tasks. This function will await the completion of all tasks before returning.
+    ///
+    /// This is similar to `rayon::scope` and `crossbeam::scope`
+    #[inline]
+    pub fn scope_as<'scope, F, T>(&self, _: TaskGroup, f: F) -> Vec<T>
+    where
+        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        T: Send + 'static,
+    {
         let executor = &async_executor::LocalExecutor::new();
         let executor: &'scope async_executor::LocalExecutor<'scope> =
             unsafe { mem::transmute(executor) };
@@ -125,10 +140,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        wasm_bindgen_futures::spawn_local(async move {
-            future.await;
-        });
-        FakeTask
+        self.spawn_as(TaskGroup::Compute, future)
     }
 
     /// Spawns a static future onto the JS event loop. For now it is returning FakeTask
@@ -140,26 +152,12 @@ impl TaskPool {
     /// caller can spawn long-running future writing results to some channel / event queue
     /// and simply call detach on returned Task (like AssetServer does) - spawned future
     /// can write results to some channel / event queue.
-    pub fn spawn_async_compute<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
-    where
-        T: Send + 'static,
-    {
-        wasm_bindgen_futures::spawn_local(async move {
-            future.await;
-        });
-        FakeTask
-    }
-
-    /// Spawns a static future onto the JS event loop. For now it is returning FakeTask
-    /// instance with no-op detach method. Returning real Task is possible here, but tricky:
-    /// future is running on JS event loop, Task is running on async_executor::LocalExecutor
-    /// so some proxy future is needed. Moreover currently we don't have long-living
-    /// LocalExecutor here (above `spawn` implementation creates temporary one)
-    /// But for typical use cases it seems that current implementation should be sufficient:
-    /// caller can spawn long-running future writing results to some channel / event queue
-    /// and simply call detach on returned Task (like AssetServer does) - spawned future
-    /// can write results to some channel / event queue.
-    pub fn spawn_io<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
+    #[inline]
+    pub fn spawn_as<T>(
+        &self,
+        group: TaskGroup,
+        future: impl Future<Output = T> + 'static,
+    ) -> FakeTask
     where
         T: Send + 'static,
     {
