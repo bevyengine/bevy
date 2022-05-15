@@ -39,11 +39,10 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (transparent_phase, target) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(query) => query,
-                Err(_) => return Ok(()), // No window
-            };
+        let (transparent_phase, target) = match self.query.get_manual(world, view_entity) {
+            Ok(query) => query,
+            Err(_) => return Ok(()), // No window
+        };
 
         if transparent_phase.items.is_empty() {
             return Ok(());
