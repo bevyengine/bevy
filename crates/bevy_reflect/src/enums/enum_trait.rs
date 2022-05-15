@@ -39,6 +39,10 @@ pub trait Enum: Reflect {
     fn is_variant(&self, variant_type: VariantType) -> bool {
         self.variant_type() == variant_type
     }
+    /// Returns the full path to the current variant.
+    fn variant_path(&self) -> String {
+        format!("{}::{}", self.type_name(), self.variant_name())
+    }
 }
 
 /// A container for compile-time enum info.
@@ -90,6 +94,18 @@ impl EnumInfo {
     /// Get the index of the variant with the given name.
     pub fn index_of(&self, name: &str) -> Option<usize> {
         self.variant_indices.get(name).copied()
+    }
+
+    /// Returns the full path to the given variant.
+    ///
+    /// This does _not_ check if the given variant exists.
+    pub fn variant_path(&self, name: &str) -> String {
+        format!("{}::{}", self.id().type_name(), name)
+    }
+
+    /// Checks if a variant with the given name exists within this enum.
+    pub fn contains_variant(&self, name: &str) -> bool {
+        self.variant_indices.contains_key(name)
     }
 
     /// Iterate over the variants of this enum.

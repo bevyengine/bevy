@@ -251,6 +251,7 @@ mod tests {
             .unwrap_or_default());
 
         assert_eq!("Some", value.variant_name());
+        assert_eq!("core::option::Option<usize>::Some", value.variant_path());
 
         if value.is_variant(VariantType::Tuple) {
             value
