@@ -155,9 +155,8 @@ impl TaskPool {
 
             thread_builder
                 .spawn(move || {
-                    let future = compute.run(shutdown_rx.recv()).or(shutdown_rx.recv());
                     // Use unwrap_err because we expect a Closed error
-                    future::block_on(future).unwrap_err();
+                    future::block_on(compute.run(shutdown_rx.recv())).unwrap_err();
                 })
                 .expect("Failed to spawn thread.")
         }));
