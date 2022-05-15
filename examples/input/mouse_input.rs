@@ -1,4 +1,4 @@
-//! Prints out all mouse events (buttons, movement, etc.).
+//! Prints mouse button events.
 
 use bevy::prelude::*;
 

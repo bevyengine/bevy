@@ -1,4 +1,4 @@
-//! Illustrates ticking `Timer` resources inside systems and handling their state.
+//! Illustrates how `Timer`s can be used both as resources and components.
 
 use bevy::{log::info, prelude::*};
 

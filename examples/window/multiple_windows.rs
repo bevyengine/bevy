@@ -1,4 +1,4 @@
-//! This example creates a second window and draws a mesh from two different cameras, one in each window.
+//! Uses two windows to visualize a 3D model from different angles.
 
 use bevy::{
     core_pipeline::{self, AlphaMask3d, Opaque3d, Transparent3d},

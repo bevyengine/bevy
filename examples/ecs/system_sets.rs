@@ -1,4 +1,4 @@
-//! This example realizes the following scheme:
+//! Shows how systems with a similar purpose can be grouped into sets.
 //!
 //! ```none
 //! Physics                     (Criteria: App has run < 1.0 seconds)
@@ -19,7 +19,7 @@
 //! The two systems here (collision, sfx) are not specified to run in any order, and the actual
 //! ordering can then change between invocations.
 //!
-//! Lastly a system with run criterion _done_ is used to exit the app.
+//! Lastly a system with run criteria  _done_ is used to exit the app.
 
 use bevy::{app::AppExit, ecs::schedule::ShouldRun, prelude::*};
 

@@ -1,4 +1,4 @@
-//! This example is for debugging text layout.
+//! Shows various text layout options.
 
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},

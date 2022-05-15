@@ -1,4 +1,4 @@
-//! Demonstrates how point light radius values affect light behavior.
+//! Demonstrates how lighting is affected by different radius of point lights.
 
 use bevy::prelude::*;
 

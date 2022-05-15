@@ -1,5 +1,5 @@
-//! Demonstrates the creation and registration of a custom plugin group
-//! [`PluginGroups`] are a way to group sets of plugins that should be registered together.
+//! Demonstrates the creation and registration of a custom plugin group.
+//! [`PluginGroup`]s are a way to group sets of plugins that should be registered together.
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 

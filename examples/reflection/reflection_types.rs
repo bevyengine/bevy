@@ -1,4 +1,5 @@
-//! This example illustrates the various reflection types available.
+//! This example illustrates how reflection works for simple data structures, like
+//! structs, tuples and vectors.
 
 use bevy::{
     prelude::*,

@@ -1,4 +1,5 @@
 //! This example illustrates how to run a winit window in a reactive, low power mode.
+//!
 //! This is useful for making desktop applications, or any other program that doesn't need to be
 //! running the event loop non-stop.
 

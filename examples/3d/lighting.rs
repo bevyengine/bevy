@@ -1,4 +1,5 @@
-//! Illustrates various lighting options in a simple scene.
+//! Illustrates different lights of various types and colors, some static, some moving over
+//! a simple scene.
 
 use bevy::prelude::*;
 

@@ -1,4 +1,4 @@
-//! Demonstrates how to grab the mouse, locking the cursor to the app's screen.
+//! Prints all mouse events to the console.
 
 use bevy::{
     input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},

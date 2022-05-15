@@ -1,4 +1,4 @@
-//! Illustrates how to create parent->child relationships between entities how parent transforms
+//! Illustrates how to create parent-child relationships between entities and how parent transforms
 //! are propagated to their descendants.
 
 use bevy::prelude::*;

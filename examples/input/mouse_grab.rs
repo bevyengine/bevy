@@ -1,4 +1,4 @@
-//! Demonstrates handling a mouse button press/release.
+//! Demonstrates how to grab and hide the mouse cursor.
 
 use bevy::prelude::*;
 

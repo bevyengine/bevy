@@ -1,4 +1,5 @@
-//! This example illustrates how to customize the default window settings.
+//! This example illustrates how to override the window scale factor imposed by the
+//! operating system.
 
 use bevy::prelude::*;
 

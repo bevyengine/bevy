@@ -1,4 +1,5 @@
-//! This example illustrates how to customize the default window settings.
+//! Illustrates how to change window settings and shows how to affect
+//! the mouse pointer in various ways.
 
 use bevy::{prelude::*, window::PresentMode};
 

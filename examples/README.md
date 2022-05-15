@@ -248,7 +248,7 @@ Example | File | Description
 `shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A custom shader showing off rendering a mesh multiple times in one draw call.
 `shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
 `shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A custom shader using the GLSL shading language.
-`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A custom shader sampling a texture with view-independent UV coordinates
+`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A custom shader sampling a texture with view-independent UV coordinates.
 
 ## Stress Tests
 
@@ -286,7 +286,7 @@ Example | File | Description
 Example | File | Description
 --- | --- | ---
 `3d_rotation` | [`transforms/3d_rotation.rs`](./transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
-`global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
+`global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform.
 `scale` | [`transforms/scale.rs`](./transforms/scale.rs) | Illustrates how to scale an object in each direction
 `transform` | [`transforms/transfrom.rs`](./transforms/transform.rs) | Shows multiple transformations of objects
 `translation` | [`transforms/translation.rs`](./transforms/translation.rs) | Illustrates how to move an object along an axis

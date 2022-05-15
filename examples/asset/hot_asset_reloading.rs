@@ -1,6 +1,6 @@
-//! Hot reloading allows you to modify assets on disk and they will be "live reloaded" while your
-//! game is running. This lets you immediately see the results of your changes without restarting
-//! the game. This example illustrates hot reloading mesh changes.
+//! Hot reloading allows you to modify assets files to be immediately reloaded while your game is
+//! running. This lets you immediately see the results of your changes without restarting the game.
+//! This example illustrates hot reloading mesh changes.
 
 use bevy::{asset::AssetServerSettings, prelude::*};
 

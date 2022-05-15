@@ -1,4 +1,4 @@
-//! A custom shader sampling a texture with view-independent UV coordinates.
+//! Illustrates creating a custom material and a shader that uses it.
 
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},

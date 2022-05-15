@@ -3,7 +3,7 @@
 //! To measure performance realistically, be sure to run this in release mode.
 //! `cargo run --example many_cubes --release`
 //!
-//! Per default this arranges the meshes in a cubical pattern, where the number of visible meshes
+//! By default, this arranges the meshes in a cubical pattern, where the number of visible meshes
 //! varies with the viewing angle. You can choose to run the demo with a spherical pattern that
 //! distributes the meshes evenly.
 //!

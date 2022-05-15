@@ -1,4 +1,5 @@
-//! Illustrates how to use States to control transitioning from a Menu state to an `InGame` state.
+//! Illustrates how to make a single system from multiple functions running in sequence and sharing
+//! their inputs and outputs.
 
 use anyhow::Result;
 use bevy::prelude::*;
