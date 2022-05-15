@@ -159,7 +159,7 @@ impl TaskPool {
         future: impl Future<Output = T> + 'static,
     ) -> FakeTask
     where
-        T: Send + 'static,
+        T: 'static,
     {
         wasm_bindgen_futures::spawn_local(async move {
             future.await;
