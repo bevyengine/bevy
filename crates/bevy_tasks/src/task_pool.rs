@@ -394,9 +394,6 @@ fn make_thread_builder(
     prefix: &'static str,
     idx: usize,
 ) -> thread::Builder {
-    // miri does not support setting thread names
-    // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
-    #[cfg(not(miri))]
     let mut thread_builder = {
         let thread_name = if let Some(ref thread_name) = builder.thread_name {
             format!("{} ({}, {})", thread_name, prefix, idx)
@@ -404,13 +401,6 @@ fn make_thread_builder(
             format!("TaskPool ({}, {})", prefix, idx)
         };
         thread::Builder::new().name(thread_name)
-    };
-
-    #[cfg(miri)]
-    let mut thread_builder = {
-        let _ = idx;
-        let _ = thread_name;
-        thread::Builder::new()
     };
 
     if let Some(stack_size) = builder.stack_size {
