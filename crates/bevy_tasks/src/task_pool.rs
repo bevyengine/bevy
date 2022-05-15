@@ -171,8 +171,7 @@ impl TaskPool {
                 .spawn(move || {
                     let future = io
                         .run(shutdown_rx.recv())
-                        .or(compute.run(shutdown_rx.recv()))
-                        .or(shutdown_rx.recv());
+                        .or(compute.run(shutdown_rx.recv()));
                     // Use unwrap_err because we expect a Closed error
                     future::block_on(future).unwrap_err();
                 })
@@ -195,8 +194,7 @@ impl TaskPool {
                     let future = async_compute
                         .run(shutdown_rx.recv())
                         .or(compute.run(shutdown_rx.recv()))
-                        .or(io.run(shutdown_rx.recv()))
-                        .or(shutdown_rx.recv());
+                        .or(io.run(shutdown_rx.recv()));
                     // Use unwrap_err because we expect a Closed error
                     future::block_on(future).unwrap_err();
                 })
