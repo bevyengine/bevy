@@ -61,10 +61,11 @@ impl Plugin for DebugAssetServerPlugin {
         let mut debug_asset_app = App::new();
         debug_asset_app
             .insert_resource(
-                TaskPoolBuilder::default()
-                    .io_threads(2)
-                    .thread_name("Debug Asset Server IO Task Pool".to_string())
-                    .build(),
+                TaskPoolBuilder {
+                    thread_name: Some("Debug Asset Server IO Task Pool".to_string()),
+                    ..Default::default()
+                }
+                .build(),
             )
             .insert_resource(AssetServerSettings {
                 asset_folder: "crates".to_string(),

@@ -5,9 +5,11 @@ use bevy_tasks::TaskPoolBuilder;
 // for small workloads.
 
 fn main() {
-    let pool = TaskPoolBuilder::new()
-        .thread_name("Idle Behavior ThreadPool".to_string())
-        .build();
+    let pool = TaskPoolBuilder {
+        thread_name: Some("Idle Behavior ThreadPool".to_string()),
+        ..Default::default()
+    }
+    .build();
 
     pool.scope(|s| {
         for i in 0..1 {

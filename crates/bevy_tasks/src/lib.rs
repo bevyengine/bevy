@@ -23,9 +23,9 @@ pub use iter::ParallelIterator;
 #[allow(missing_docs)]
 pub mod prelude {
     #[cfg(target_arch = "wasm32")]
-    pub use crate::single_threaded_task_pool::TaskPool;
+    pub use crate::single_threaded_task_pool::{TaskPool, TaskPoolBuilder};
     #[cfg(not(target_arch = "wasm32"))]
-    pub use crate::task_pool::TaskPool;
+    pub use crate::task_pool::{TaskPool, TaskPoolBuilder, TaskPoolThreadAssignmentPolicy};
     #[doc(hidden)]
     pub use crate::{
         iter::ParallelIterator,
