@@ -1272,6 +1272,8 @@ mod tests {
         // It's best to test get_many_unchecked_manual directly,
         // as it is shared and unsafe
         // We don't care about aliased mutabilty for the read-only equivalent
+
+        // SAFETY: mutable access is not checked, but we own the world and don't use the query results
         assert!(unsafe {
             query_state
                 .get_many_unchecked_manual::<10>(
@@ -1284,6 +1286,7 @@ mod tests {
         });
 
         assert_eq!(
+            // SAFETY: mutable access is not checked, but we own the world and don't use the query results
             unsafe {
                 query_state
                     .get_many_unchecked_manual(
@@ -1298,6 +1301,7 @@ mod tests {
         );
 
         assert_eq!(
+            // SAFETY: mutable access is not checked, but we own the world and don't use the query results
             unsafe {
                 query_state
                     .get_many_unchecked_manual(
@@ -1312,6 +1316,7 @@ mod tests {
         );
 
         assert_eq!(
+            // SAFETY: mutable access is not checked, but we own the world and don't use the query results
             unsafe {
                 query_state
                     .get_many_unchecked_manual(

@@ -110,14 +110,18 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .get::<C>()
                     .map(|c| c as &dyn Reflect)
             },
-            reflect_component_mut: |world, entity| unsafe {
-                world
-                    .get_entity(entity)?
-                    .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
-                    .map(|c| ReflectMut {
-                        value: c.value as &mut dyn Reflect,
-                        ticks: c.ticks,
-                    })
+            reflect_component_mut: |world, entity| {
+                // SAFETY: reflect_component_mut is an unsafe function pointer used by `reflect_component_unchecked_mut` which promises to never
+                // produce aliasing mutable references, and reflect_component_mut, which has mutable world access
+                unsafe {
+                    world
+                        .get_entity(entity)?
+                        .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
+                        .map(|c| ReflectMut {
+                            value: c.value as &mut dyn Reflect,
+                            ticks: c.ticks,
+                        })
+                }
             },
         }
     }
