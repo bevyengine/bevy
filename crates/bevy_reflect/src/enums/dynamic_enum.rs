@@ -87,11 +87,11 @@ impl DynamicEnum {
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
     ///
-    pub fn new<I: Into<String>>(name: I, variant_name: I, variant: DynamicVariant) -> Self {
+    pub fn new<I: Into<String>, V: Into<DynamicVariant>>(name: I, variant_name: I, variant: V) -> Self {
         Self {
             name: name.into(),
             variant_name: variant_name.into(),
-            variant,
+            variant: variant.into(),
         }
     }
 
