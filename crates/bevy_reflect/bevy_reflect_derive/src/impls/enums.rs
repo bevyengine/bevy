@@ -1,5 +1,6 @@
-use crate::derive_data::{EnumVariantFields, ReflectEnum, StructField};
+use crate::derive_data::{EnumVariantFields, ReflectEnum};
 use crate::impls::impl_typed;
+use crate::utility;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
@@ -241,20 +242,6 @@ struct EnumImpls {
     enum_apply: Vec<proc_macro2::TokenStream>,
 }
 
-fn filter_active(field: &&StructField) -> bool {
-    !field.attrs.ignore
-}
-
-fn underscores(count: usize) -> proc_macro2::TokenStream {
-    let mut output = quote! {};
-    for _ in 0..count {
-        output = quote! {
-            #output _,
-        }
-    }
-    output
-}
-
 fn generate_impls(
     reflect_enum: &ReflectEnum,
     ref_index: &Ident,
@@ -301,7 +288,7 @@ fn generate_impls(
                 let mut field_info = Vec::new();
                 let mut variant_apply = Vec::new();
                 let mut field_idx: usize = 0;
-                for field in fields.iter().filter(filter_active) {
+                for field in fields.iter() {
                     if field.attrs.ignore {
                         // Ignored field -> use default value
                         variant_apply.push(quote! {
@@ -310,7 +297,7 @@ fn generate_impls(
                         continue;
                     }
 
-                    let empties = underscores(field_idx);
+                    let empties = utility::underscores(field_idx);
                     enum_field_at.push(quote! {
                         #unit( #empties value, .. ) if #ref_index == #field_idx => Some(value)
                     });

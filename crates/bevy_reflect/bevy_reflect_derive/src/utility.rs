@@ -2,6 +2,7 @@
 
 use bevy_macro_utils::BevyManifest;
 use proc_macro2::{Ident, Span};
+use quote::quote;
 use syn::Path;
 
 /// Returns the correct path for `bevy_reflect`.
@@ -20,6 +21,30 @@ pub(crate) fn get_bevy_reflect_path() -> Path {
 pub(crate) fn get_reflect_ident(name: &str) -> Ident {
     let reflected = format!("Reflect{}", name);
     Ident::new(&reflected, Span::call_site())
+}
+
+/// Returns a token stream of comma-separated underscores for the given count.
+///
+/// This is useful for creating tuple field accessors:
+///
+/// ```ignore
+/// let empties = underscores(2);
+/// quote! {
+///   let (#empties value, ..) = (10, 20, 30);
+///   assert_eq!(30, value);
+/// }
+/// ```
+///
+/// > Note: This automatically handles the trailing comma.
+///
+pub(crate) fn underscores(count: usize) -> proc_macro2::TokenStream {
+    let mut output = proc_macro2::TokenStream::new();
+    for _ in 0..count {
+        output = quote! {
+            #output _,
+        }
+    }
+    output
 }
 
 /// Helper struct used to process an iterator of `Result<Vec<T>, syn::Error>`,

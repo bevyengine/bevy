@@ -269,7 +269,11 @@ mod tests {
         }
 
         if let TypeInfo::Enum(info) = TestEnum::type_info() {
-            assert_eq!(2, info.variant_len(), "expected one of the variants to be ignored");
+            assert_eq!(
+                2,
+                info.variant_len(),
+                "expected one of the variants to be ignored"
+            );
             assert_eq!("A", info.variant_at(0).unwrap().name());
             assert_eq!("C", info.variant_at(1).unwrap().name());
         } else {
@@ -293,8 +297,12 @@ mod tests {
         if let TypeInfo::Enum(info) = TestEnum::type_info() {
             assert_eq!(3, info.variant_len());
             if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
-                assert_eq!(1, variant.field_len(), "expected one of the fields to be ignored");
-                assert!(variant.field_at(0).unwrap().id().is::<bool>());
+                assert_eq!(
+                    1,
+                    variant.field_len(),
+                    "expected one of the fields to be ignored"
+                );
+                assert!(variant.field_at(0).unwrap().is::<bool>());
             } else {
                 panic!("expected `VariantInfo::Struct`");
             }
