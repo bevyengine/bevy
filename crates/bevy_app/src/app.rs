@@ -74,7 +74,6 @@ pub struct App {
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
     /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
-    /// <https://github.com/bevyengine/bevy/issues/4231>
     is_building_plugin: bool,
 }
 
