@@ -1,5 +1,5 @@
 use bevy::{
-    diagnostic::{DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::NotShadowCaster,
     prelude::*,
 };
