@@ -428,7 +428,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///         // Despawn the bullet
     ///         commands_tx.try_send(Despawn{ entity }.box_command()).unwrap();
     ///         // Spawn the explosion
-    ///         commands_tx.try_send(Spawn{bundle: ExplosionBundle::default()}.box_command()).unwrap();
+    ///         commands_tx.try_send(Spawn{ bundle: ExplosionBundle::default() }.box_command()).unwrap();
     ///         // send commands to main thread
     ///     });
     ///     
