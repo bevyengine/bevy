@@ -10,6 +10,7 @@ use crate::{
 
 use super::{CommandQueue, Commands};
 
+#[doc(hidden)]
 #[derive(Default)]
 /// The internal [`SystemParamState`] of the [`ParallelCommands`] type
 pub struct ParallelCommandsState {
