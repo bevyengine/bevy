@@ -323,6 +323,12 @@ impl ComponentSparseSet {
         }
     }
 
+    pub fn shrink_to_fit(&mut self) {
+        self.dense.shrink_to_fit();
+        self.entities.shrink_to_fit();
+        self.sparse.values.shrink_to_fit();
+    }
+
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         self.dense.check_change_ticks(change_tick);
     }
@@ -607,6 +613,12 @@ impl SparseSets {
     pub(crate) fn clear_entities(&mut self) {
         for set in self.sets.values_mut() {
             set.clear();
+        }
+    }
+
+    pub(crate) fn shrink_to_fit(&mut self) {
+        for sparse_set in self.sets.values_mut() {
+            sparse_set.shrink_to_fit();
         }
     }
 

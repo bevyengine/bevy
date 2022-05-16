@@ -532,6 +532,13 @@ impl Archetype {
             .map(|info| info.archetype_component_id)
     }
 
+    pub(crate) fn shrink_to_fit(&mut self) {
+        self.entities.shrink_to_fit();
+        for component in self.components.values_mut() {
+            component.shrink_to_fit();
+        }
+    }
+
     /// Clears all entities from the archetype.
     pub(crate) fn clear_entities(&mut self) {
         self.entities.clear();
@@ -738,6 +745,13 @@ impl Archetypes {
                 ));
                 id
             })
+    }
+
+    pub(crate) fn shrink_to_fit(&mut self) {
+        self.archetypes.shrink_to_fit();
+        for archetype in self.archetypes.iter_mut() {
+            archetype.shrink_to_fit();
+        }
     }
 
     /// Returns the number of components that are stored in archetypes.

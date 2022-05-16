@@ -400,6 +400,45 @@ impl BlobVec {
         std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
     }
 
+    /// Shrinks the backing storage for the [`BlobVec`] such that the `len == capacity`.
+    ///
+    /// This runs in `O(n)` time and may require reallocating backing buffer.
+    pub fn shrink_to_fit(&mut self) {
+        if self.item_layout.size() == 0 || self.len == self.capacity {
+            return;
+        }
+
+        let current_layout =
+            array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
+        self.data = if self.len == 0 {
+            // SAFETY:
+            // - layout has non-zero size as per safety requirement
+            unsafe {
+                std::alloc::dealloc(self.get_ptr_mut().as_ptr(), current_layout);
+            }
+            NonNull::dangling()
+        } else {
+            // SAFETY:
+            // - ptr was be allocated via this allocator
+            // - the layout of the ptr was `array_layout(self.item_layout, self.len)`
+            // - `item_layout.size() > 0` and `new_capacity > 0`, so the layout size is non-zero
+            // - "new_size, when rounded up to the nearest multiple of layout.align(), must not underflow (i.e., the rounded value must be more than usize::MIN)",
+            // since the item size is always a multiple of its align, the rounding cannot happen
+            // here and the underflow is handled in `array_layout`
+            let new_layout =
+                array_layout(&self.item_layout, self.len).expect("array layout should be valid");
+            let new_data = unsafe {
+                std::alloc::realloc(
+                    self.get_ptr_mut().as_ptr(),
+                    current_layout,
+                    new_layout.size(),
+                )
+            };
+            NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout))
+        };
+        self.capacity = self.len;
+    }
+
     /// Clears the vector, removing (and dropping) all values.
     ///
     /// Note that this method has no effect on the allocated capacity of the vector.

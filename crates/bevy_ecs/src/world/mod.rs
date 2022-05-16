@@ -1889,6 +1889,18 @@ impl World {
         self.entities.clear();
     }
 
+    /// Shrinks the backing storage for the [`World`].
+    ///
+    /// This can be a very expensive operation on large worlds. Runs in `O(n)` time in both
+    /// the number of archetypes, tables, and entities stored in the world.
+    pub fn shrink_to_fit(&mut self) {
+        self.archetypes.shrink_to_fit();
+        self.storages.shrink_to_fit();
+        for components in self.removed_components {
+            components.shrink_to_fit();
+        }
+    }
+
     /// Clears all resources in this [`World`].
     ///
     /// **Note:** Any resource fetch to this [`World`] will fail unless they are re-initialized,

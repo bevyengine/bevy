@@ -492,6 +492,15 @@ impl Column {
         self.changed_ticks.clear();
     }
 
+    /// Shrinks the backing storage for the [`Column`] such that the `len == capacity`.
+    ///
+    /// This runs in `O(n)` time and may require reallocating the backing buffers.
+    pub fn shrink_to_fit(&mut self) {
+        self.data.shrink_to_fit();
+        self.added_ticks.shrink_to_fit();
+        self.changed_ticks.shrink_to_fit();
+    }
+
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for component_ticks in &mut self.added_ticks {
@@ -782,6 +791,16 @@ impl Table {
         self.columns.values()
     }
 
+    /// Shrinks the backing storage for the [`Table`] such that the `len == capacity`.
+    ///
+    /// This runs in `O(n)` time and may require reallocating the backing buffers.
+    pub fn shrink_to_fit(&mut self) {
+        self.entities.shrink_to_fit();
+        for column in self.columns.values_mut() {
+            column.shrink_to_fit();
+        }
+    }
+
     /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
         self.entities.clear();
@@ -890,6 +909,13 @@ impl Tables {
     pub(crate) fn clear(&mut self) {
         for table in &mut self.tables {
             table.clear();
+        }
+    }
+
+    pub(crate) fn shrink_to_fit(&mut self) {
+        self.tables.shrink_to_fit();
+        for table in &mut self.tables {
+            table.shrink_to_fit();
         }
     }
 
