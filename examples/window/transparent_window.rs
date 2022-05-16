@@ -1,5 +1,9 @@
-/// An example of how to display a window in transparent mode
-/// [Documentation & Platform support.](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
+//! Shows how to display a window in transparent mode.
+//!
+//! This feature works as expected depending on the platform. Please check the
+//! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
+//! for more details.
+
 use bevy::{prelude::*, window::WindowDescriptor};
 
 fn main() {

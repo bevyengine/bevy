@@ -1,3 +1,8 @@
+//! This example shows how to manually render 2d items using "mid level render apis" with a custom
+//! pipeline for 2d meshes.
+//! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
+//! Check out the "mesh2d" example for simpler / higher level 2d meshes.
+
 use bevy::{
     core_pipeline::Transparent2d,
     prelude::*,
@@ -23,9 +28,6 @@ use bevy::{
     utils::FloatOrd,
 };
 
-/// This example shows how to manually render 2d items using "mid level render apis" with a custom pipeline for 2d meshes
-/// It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color
-/// Check out the "mesh2d" example for simpler / higher level 2d meshes
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

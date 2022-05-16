@@ -1,3 +1,5 @@
+//! Illustrates how to scale an object in each direction.
+
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use std::f32::consts::PI;

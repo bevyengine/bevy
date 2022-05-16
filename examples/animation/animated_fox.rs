@@ -1,3 +1,5 @@
+//! Plays animations from a skinned glTF.
+
 use bevy::prelude::*;
 
 fn main() {
