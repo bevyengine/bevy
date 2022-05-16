@@ -10,58 +10,96 @@ use futures_lite::{future, pin, FutureExt};
 
 use crate::{Task, TaskGroup};
 
+/// Defines a simple way to determine how many threads to use given the number of remaining cores
+/// and number of total cores
+#[derive(Debug, Clone)]
+pub struct TaskPoolThreadAssignmentPolicy {
+    /// Force using at least this many threads
+    pub min_threads: usize,
+    /// Under no circumstance use more than this many threads for this pool
+    pub max_threads: usize,
+    /// Target using this percentage of total cores, clamped by min_threads and max_threads. It is
+    /// permitted to use 1.0 to try to use all remaining threads
+    pub percent: f32,
+}
+
+impl TaskPoolThreadAssignmentPolicy {
+    /// Determine the number of threads to use for this task pool
+    fn get_number_of_threads(&self, remaining_threads: usize, total_threads: usize) -> usize {
+        assert!(self.percent >= 0.0);
+        let mut desired = (total_threads as f32 * self.percent).round() as usize;
+
+        // Limit ourselves to the number of cores available
+        desired = desired.min(remaining_threads);
+
+        // Clamp by min_threads, max_threads. (This may result in us using more threads than are
+        // available, this is intended. An example case where this might happen is a device with
+        // <= 2 threads.
+        desired.clamp(self.min_threads, self.max_threads)
+    }
+}
+
 /// Used to create a [`TaskPool`]
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 #[must_use]
 pub struct TaskPoolBuilder {
-    /// If set, we'll set up the thread pool to use at most n threads. Otherwise use
-    /// the logical core count of the system
-    compute_threads: Option<usize>,
-    async_compute_threads: Option<usize>,
-    io_threads: Option<usize>,
+    /// If the number of physical cores is less than min_total_threads, force using
+    /// min_total_threads
+    pub min_total_threads: usize,
+    /// If the number of physical cores is grater than max_total_threads, force using
+    /// max_total_threads
+    pub max_total_threads: usize,
+
+    /// Used to determine number of IO threads to allocate
+    pub io: TaskPoolThreadAssignmentPolicy,
+    /// Used to determine number of async compute threads to allocate
+    pub async_compute: TaskPoolThreadAssignmentPolicy,
+    /// Used to determine number of compute threads to allocate
+    pub compute: TaskPoolThreadAssignmentPolicy,
     /// If set, we'll use the given stack size rather than the system default
-    stack_size: Option<usize>,
+    pub stack_size: Option<usize>,
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
     /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
-    thread_name: Option<String>,
+    pub thread_name: Option<String>,
+}
+
+impl Default for TaskPoolBuilder {
+    fn default() -> Self {
+        Self {
+            // By default, use however many cores are available on the system
+            min_total_threads: 1,
+            max_total_threads: std::usize::MAX,
+
+            stack_size: None,
+            thread_name: None,
+
+            // Use 25% of cores for IO, at least 1, no more than 4
+            io: TaskPoolThreadAssignmentPolicy {
+                min_threads: 1,
+                max_threads: 4,
+                percent: 0.25,
+            },
+
+            // Use 25% of cores for async compute, at least 1, no more than 4
+            async_compute: TaskPoolThreadAssignmentPolicy {
+                min_threads: 1,
+                max_threads: 4,
+                percent: 0.25,
+            },
+
+            // Use all remaining cores for compute (at least 1)
+            compute: TaskPoolThreadAssignmentPolicy {
+                min_threads: 1,
+                max_threads: std::usize::MAX,
+                percent: 1.0, // This 1.0 here means "whatever is left over"
+            },
+        }
+    }
 }
 
 impl TaskPoolBuilder {
-    /// Creates a new [`TaskPoolBuilder`] instance
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Override the number of compute-priority threads created for the pool. If unset, this default to the number
-    /// of logical cores of the system
-    pub fn compute_threads(mut self, num_threads: usize) -> Self {
-        self.compute_threads = Some(num_threads);
-        self
-    }
-
-    /// Override the number of async-compute priority threads created for the pool. If unset, this defaults to 0.
-    pub fn async_compute_threads(mut self, num_threads: usize) -> Self {
-        self.async_compute_threads = Some(num_threads);
-        self
-    }
-
-    /// Override the number of IO-priority threads created for the pool. If unset, this defaults to 0.
-    pub fn io_threads(mut self, num_threads: usize) -> Self {
-        self.io_threads = Some(num_threads);
-        self
-    }
-
-    /// Override the stack size of the threads created for the pool
-    pub fn stack_size(mut self, stack_size: usize) -> Self {
-        self.stack_size = Some(stack_size);
-        self
-    }
-
-    /// Override the name of the threads created for the pool. If set, threads will
-    /// be named `<thread_name> (<thread_index>)`, i.e. `MyThreadPool (2)`
-    pub fn thread_name(mut self, thread_name: String) -> Self {
-        self.thread_name = Some(thread_name);
-        self
     }
 
     /// Creates a new [`TaskPool`] based on the current options.
@@ -152,9 +190,33 @@ impl TaskPool {
         let async_compute_executor = Arc::new(async_executor::Executor::new());
         let io_executor = Arc::new(async_executor::Executor::new());
 
-        let compute_threads = builder.compute_threads.unwrap_or_else(num_cpus::get);
-        let io_threads = builder.io_threads.unwrap_or(0);
-        let async_compute_threads = builder.async_compute_threads.unwrap_or(0);
+        let total_threads =
+            crate::logical_core_count().clamp(builder.min_total_threads, builder.max_total_threads);
+        tracing::trace!("Assigning {} cores to default task pools", total_threads);
+
+        let mut remaining_threads = total_threads;
+
+        // Determine the number of IO threads we will use
+        let io_threads = builder
+            .io
+            .get_number_of_threads(remaining_threads, total_threads);
+
+        tracing::trace!("IO Threads: {}", io_threads);
+        remaining_threads = remaining_threads.saturating_sub(io_threads);
+
+        // Determine the number of async compute threads we will use
+        let async_compute_threads = builder
+            .async_compute
+            .get_number_of_threads(remaining_threads, total_threads);
+
+        tracing::trace!("Async Compute Threads: {}", async_compute_threads);
+        remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
+
+        // Determine the number of compute threads we will use
+        // This is intentionally last so that an end user can specify 1.0 as the percent
+        let compute_threads = builder
+            .compute
+            .get_number_of_threads(remaining_threads, total_threads);
 
         let compute_threads = (0..compute_threads)
             .map(|i| {

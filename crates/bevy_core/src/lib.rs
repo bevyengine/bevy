@@ -2,18 +2,16 @@
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
-mod task_pool_options;
 mod time;
 
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
-pub use task_pool_options::*;
 pub use time::*;
 
 pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, Name, Time, Timer};
+    pub use crate::{Name, Time, Timer};
 }
 
 use bevy_app::prelude::*;
@@ -22,6 +20,7 @@ use bevy_ecs::{
     schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
     system::IntoExclusiveSystem,
 };
+use bevy_tasks::TaskPool;
 use bevy_utils::HashSet;
 use std::ops::Range;
 
@@ -39,12 +38,8 @@ pub enum CoreSystem {
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
-        // Setup the default bevy task pools
-        app.world
-            .get_resource::<DefaultTaskPoolOptions>()
-            .cloned()
-            .unwrap_or_default()
-            .create_default_pools(&mut app.world);
+        // Setup the default bevy task pool if not already set up
+        app.world.get_resource_or_insert_with(TaskPool::new);
 
         app.init_resource::<Time>()
             .init_resource::<FixedTimesteps>()
