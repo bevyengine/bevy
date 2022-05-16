@@ -1,6 +1,6 @@
 use std::{iter, time::Duration};
 
-use bevy::reflect::{DynamicList, List};
+use bevy_reflect::{DynamicList, List};
 use criterion::{
     black_box, criterion_group, criterion_main, measurement::Measurement, BatchSize,
     BenchmarkGroup, BenchmarkId, Criterion, Throughput,

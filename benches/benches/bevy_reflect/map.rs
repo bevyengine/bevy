@@ -1,9 +1,7 @@
 use std::{fmt::Write, iter, time::Duration};
 
-use bevy::{
-    reflect::{DynamicMap, Map},
-    utils::HashMap,
-};
+use bevy_reflect::{DynamicMap, Map};
+use bevy_utils::HashMap;
 use criterion::{
     black_box, criterion_group, criterion_main, measurement::Measurement, BatchSize,
     BenchmarkGroup, BenchmarkId, Criterion, Throughput,
