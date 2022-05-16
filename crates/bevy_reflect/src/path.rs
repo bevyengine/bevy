@@ -54,7 +54,8 @@ pub enum ReflectPathError<'a> {
 /// - Field indexes within [`Struct`] can also be optionally used instead: `#0` for
 ///   the first field. This can speed up fetches at runtime (no string matching)
 ///   but can be much more fragile as code and string paths must be kept in sync since
-///   the order of fields could be easily changed. Storing these paths in persistent ///   storage (i.e. game assets) is strongly discouraged.
+///   the order of fields could be easily changed. Storing these paths in persistent
+///   storage (i.e. game assets) is strongly discouraged.
 ///
 /// If the initial path element is a field of a struct, tuple struct, or tuple,
 /// the initial '.' may be omitted.
