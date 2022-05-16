@@ -10,6 +10,7 @@ use bevy_ptr::OwningPtr;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
+    mem::needs_drop,
 };
 
 /// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
@@ -111,7 +112,7 @@ impl ComponentInfo {
     }
 
     #[inline]
-    pub fn drop(&self) -> unsafe fn(OwningPtr<'_>) {
+    pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.descriptor.drop
     }
 
@@ -168,7 +169,7 @@ pub struct ComponentDescriptor {
     layout: Layout,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
     // this descriptor describes.
-    drop: for<'a> unsafe fn(OwningPtr<'a>),
+    drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -197,7 +198,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: Self::drop_ptr::<T>,
+            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
         }
     }
 
@@ -213,7 +214,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: Self::drop_ptr::<T>,
+            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
         }
     }
 
@@ -224,7 +225,7 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: Self::drop_ptr::<T>,
+            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
         }
     }
 

@@ -169,7 +169,7 @@ impl Plugin for RenderPlugin {
                         .with_system(PipelineCache::process_pipeline_queue_system)
                         .with_system(render_system.exclusive_system().at_end()),
                 )
-                .add_stage(RenderStage::Cleanup, SystemStage::parallel())
+                .add_stage(RenderStage::Cleanup, SystemStage::single_threaded())
                 .insert_resource(instance)
                 .insert_resource(device)
                 .insert_resource(queue)
@@ -273,6 +273,11 @@ impl Plugin for RenderPlugin {
                         .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
                         .unwrap();
                     cleanup.run(&mut render_app.world);
+                }
+                {
+                    #[cfg(feature = "trace")]
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "clear_entities").entered();
 
                     render_app.world.clear_entities();
                 }
