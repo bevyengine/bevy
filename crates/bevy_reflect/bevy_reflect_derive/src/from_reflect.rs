@@ -1,4 +1,6 @@
 use crate::container_attributes::REFLECT_DEFAULT;
+use crate::derive_data::ReflectEnum;
+use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
 use crate::{ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
@@ -25,6 +27,35 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
                 Some(reflect.as_any().downcast_ref::<#type_name #ty_generics>()?.clone())
+            }
+        }
+    })
+}
+
+/// Implements `FromReflect` for the given enum type
+pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
+    let type_name = reflect_enum.meta().type_name();
+    let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
+
+    let ref_value = Ident::new("__param0", Span::call_site());
+    let EnumVariantConstructors {
+        variant_names,
+        variant_constructors,
+    } = get_variant_constructors(reflect_enum, &ref_value, false);
+
+    let (impl_generics, ty_generics, where_clause) =
+        reflect_enum.meta().generics().split_for_impl();
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
+            fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
+                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #ref_value.reflect_ref() {
+                    match #ref_value.variant_name() {
+                        #(#variant_names => Some(#variant_constructors),)*
+                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, std::any::type_name::<Self>()),
+                    }
+                } else {
+                    None
+                }
             }
         }
     })

@@ -1,9 +1,10 @@
 use crate::derive_data::{EnumVariantFields, ReflectEnum};
+use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::impls::impl_typed;
 use crate::utility;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{quote, ToTokens};
+use quote::quote;
 
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
@@ -22,8 +23,12 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         enum_field_len,
         enum_variant_name,
         enum_variant_type,
-        enum_apply,
-    } = generate_impls(reflect_enum, &ref_index, &ref_name, &ref_value);
+    } = generate_impls(reflect_enum, &ref_index, &ref_name);
+
+    let EnumVariantConstructors {
+        variant_names,
+        variant_constructors,
+    } = get_variant_constructors(reflect_enum, &ref_value, true);
 
     let hash_fn = reflect_enum
         .meta()
@@ -213,8 +218,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                     } else {
                         // New variant -> perform a switch
                         match #ref_value.variant_name() {
-                            #(#enum_apply,)*
-                            x => panic!("Variant named `{}` does not exist on enum `{}`", x, std::any::type_name::<Self>()),
+                            #(#variant_names => {
+                                *self = #variant_constructors
+                            })*
+                            name => panic!("variant with name `{}` does not exist on enum `{}`", name, std::any::type_name::<Self>()),
                         }
                     }
                 } else {
@@ -246,15 +253,9 @@ struct EnumImpls {
     enum_field_len: Vec<proc_macro2::TokenStream>,
     enum_variant_name: Vec<proc_macro2::TokenStream>,
     enum_variant_type: Vec<proc_macro2::TokenStream>,
-    enum_apply: Vec<proc_macro2::TokenStream>,
 }
 
-fn generate_impls(
-    reflect_enum: &ReflectEnum,
-    ref_index: &Ident,
-    ref_name: &Ident,
-    ref_value: &Ident,
-) -> EnumImpls {
+fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Ident) -> EnumImpls {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
 
     let mut variant_info: Vec<proc_macro2::TokenStream> = Vec::new();
@@ -265,7 +266,6 @@ fn generate_impls(
     let mut enum_field_len: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut enum_variant_name: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut enum_variant_type: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut enum_apply: Vec<proc_macro2::TokenStream> = Vec::new();
 
     for variant in reflect_enum.active_variants() {
         let ident = &variant.data.ident;
@@ -285,22 +285,13 @@ fn generate_impls(
                 enum_variant_type.push(quote! {
                     #unit => #bevy_reflect_path::VariantType::Unit
                 });
-                enum_apply.push(quote! {
-                    #name => {
-                        *self = #unit;
-                    }
-                });
             }
             EnumVariantFields::Unnamed(fields) => {
                 let mut field_info = Vec::new();
-                let mut variant_apply = Vec::new();
                 let mut field_idx: usize = 0;
                 for field in fields.iter() {
                     if field.attrs.ignore {
-                        // Ignored field -> use default value
-                        variant_apply.push(quote! {
-                            Default::default()
-                        });
+                        // Ignored field
                         continue;
                     }
 
@@ -312,21 +303,6 @@ fn generate_impls(
                     let field_ty = &field.data.ty;
                     field_info.push(quote! {
                         #bevy_reflect_path::UnnamedField::new::<#field_ty>(#field_idx)
-                    });
-
-                    let expect_field = format!("field at index `{}` should exist", field_idx);
-                    let expect_type = format!(
-                        "field at index `{}` should be of type `{}`",
-                        field_idx,
-                        field_ty.to_token_stream().to_string()
-                    );
-                    variant_apply.push(quote! {
-                        #bevy_reflect_path::FromReflect::from_reflect(
-                            #ref_value
-                                .field_at(#field_idx)
-                                .expect(#expect_field)
-                        )
-                        .expect(#expect_type)
                     });
 
                     field_idx += 1;
@@ -342,11 +318,6 @@ fn generate_impls(
                 enum_variant_type.push(quote! {
                     #unit(..) => #bevy_reflect_path::VariantType::Tuple
                 });
-                enum_apply.push(quote! {
-                    #name => {
-                        *self = #unit( #(#variant_apply),* );
-                    }
-                });
                 variant_info.push(quote! {
                     #bevy_reflect_path::VariantInfo::Tuple(
                         #bevy_reflect_path::TupleVariantInfo::new(#name, &[
@@ -357,16 +328,12 @@ fn generate_impls(
             }
             EnumVariantFields::Named(fields) => {
                 let mut field_info = Vec::new();
-                let mut variant_apply = Vec::new();
                 let mut field_idx: usize = 0;
                 for field in fields.iter() {
                     let field_ident = field.data.ident.as_ref().unwrap();
 
                     if field.attrs.ignore {
-                        // Ignored field -> use default value
-                        variant_apply.push(quote! {
-                            #field_ident: Default::default()
-                        });
+                        // Ignored field
                         continue;
                     }
 
@@ -389,21 +356,6 @@ fn generate_impls(
                         #bevy_reflect_path::NamedField::new::<#field_ty, _>(#field_name)
                     });
 
-                    let expect_field = format!("field with name `{}` should exist", field_name);
-                    let expect_type = format!(
-                        "field with name `{}` should be of type `{}`",
-                        field_name,
-                        field_ty.to_token_stream().to_string()
-                    );
-                    variant_apply.push(quote! {
-                        #field_ident: #bevy_reflect_path::FromReflect::from_reflect(
-                            #ref_value
-                                .field(#field_name)
-                                .expect(#expect_field)
-                            )
-                            .expect(#expect_type)
-                    });
-
                     field_idx += 1;
                 }
 
@@ -416,11 +368,6 @@ fn generate_impls(
                 });
                 enum_variant_type.push(quote! {
                     #unit{..} => #bevy_reflect_path::VariantType::Struct
-                });
-                enum_apply.push(quote! {
-                    #name => {
-                        *self = #unit{ #(#variant_apply),* };
-                    }
                 });
                 variant_info.push(quote! {
                     #bevy_reflect_path::VariantInfo::Struct(
@@ -441,7 +388,6 @@ fn generate_impls(
         enum_name_at,
         enum_field_len,
         enum_variant_name,
-        enum_apply,
         enum_variant_type,
     }
 }

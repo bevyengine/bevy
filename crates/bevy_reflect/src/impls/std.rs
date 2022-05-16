@@ -57,7 +57,6 @@ impl_from_reflect_value!(isize);
 impl_from_reflect_value!(f32);
 impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
-impl_from_reflect_value!(Option<T: Clone + Reflect + 'static>);
 impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Range<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Duration);
@@ -721,6 +720,36 @@ impl<T: Reflect + Clone> Reflect for Option<T> {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::enum_partial_eq(self, value)
+    }
+}
+
+impl<T: Reflect + Clone> FromReflect for Option<T> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::Enum(dyn_enum) = reflect.reflect_ref() {
+            match dyn_enum.variant_name() {
+                "Some" => {
+                    let field = dyn_enum
+                        .field_at(0)
+                        .expect("Field at index 0 should exist")
+                        .clone_value();
+                    let field = field.take::<T>().unwrap_or_else(|_| {
+                        panic!(
+                            "Field at index 0 should be of type {}",
+                            std::any::type_name::<T>()
+                        )
+                    });
+                    Some(Some(field))
+                }
+                "None" => Some(None),
+                name => panic!(
+                    "variant with name `{}` does not exist on enum `{}`",
+                    name,
+                    std::any::type_name::<Self>()
+                ),
+            }
+        } else {
+            None
+        }
     }
 }
 

@@ -16,6 +16,7 @@ extern crate proc_macro;
 
 mod container_attributes;
 mod derive_data;
+mod enum_utility;
 mod field_attributes;
 mod from_reflect;
 mod impls;
@@ -73,8 +74,8 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
         ReflectDerive::Struct(struct_data) => from_reflect::impl_struct(&struct_data),
         ReflectDerive::UnitStruct(struct_data) => from_reflect::impl_struct(&struct_data),
         ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(&struct_data),
+        ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
         ReflectDerive::Value(meta) => from_reflect::impl_value(&meta),
-        _ => todo!(),
     }
 }
 

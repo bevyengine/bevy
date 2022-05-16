@@ -400,4 +400,57 @@ mod tests {
             value
         );
     }
+
+    #[test]
+    fn enum_should_allow_nesting_enums() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum TestEnum {
+            A,
+            B(OtherEnum),
+            C { value: OtherEnum },
+        }
+
+        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        enum OtherEnum {
+            A,
+            B(usize),
+            C { value: f32 },
+        }
+
+        if let TypeInfo::Enum(info) = TestEnum::type_info() {
+            if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
+                assert!(variant.field_at(0).unwrap().is::<OtherEnum>());
+            } else {
+                panic!("expected `VariantInfo::Struct`");
+            }
+            if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
+                assert!(variant.field("value").unwrap().is::<OtherEnum>());
+            } else {
+                panic!("expected `VariantInfo::Struct`");
+            }
+        } else {
+            panic!("expected `TypeInfo::Enum`");
+        }
+
+        let mut value = TestEnum::A;
+
+        // === Tuple === //
+        let mut data = DynamicTuple::default();
+        data.insert(OtherEnum::B(123));
+        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "B", data);
+        value.apply(&dyn_enum);
+        assert_eq!(TestEnum::B(OtherEnum::B(123)), value);
+
+        // === Struct === //
+        let mut data = DynamicStruct::default();
+        data.insert("value", OtherEnum::C { value: 1.23 });
+        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "C", data);
+        value.apply(&dyn_enum);
+        assert_eq!(
+            TestEnum::C {
+                value: OtherEnum::C { value: 1.23 }
+            },
+            value
+        );
+    }
 }
