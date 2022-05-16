@@ -287,6 +287,9 @@ fn generate_impls(
                 enum_variant_name.push(quote! {
                     #unit => #name
                 });
+                enum_variant_type.push(quote! {
+                    #unit => #bevy_reflect_path::VariantType::Unit
+                });
                 enum_apply.push(quote! {
                     #name => {
                         *self = #unit;
