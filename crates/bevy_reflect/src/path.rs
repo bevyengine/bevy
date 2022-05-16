@@ -66,10 +66,7 @@ pub trait GetPath {
     ) -> Result<&'r mut dyn Reflect, ReflectPathError>;
 
     /// Returns a statically typed reference to the value specified by `path`.
-    fn get_path<'r, 'p, T: Reflect>(
-        &'r self,
-        path: &'p str,
-    ) -> Result<&'r T, ReflectPathError> {
+    fn get_path<'r, 'p, T: Reflect>(&'r self, path: &'p str) -> Result<&'r T, ReflectPathError> {
         self.path(path).and_then(|p| {
             p.downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
@@ -244,7 +241,7 @@ fn read_field<'r, 'p>(
                 .field(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
-                    field:field.to_owned(),
+                    field: field.to_owned(),
                 })?)
         }
         ReflectRef::TupleStruct(reflect_struct) => {
@@ -273,7 +270,7 @@ fn read_field_mut<'r, 'p>(
                 .field_mut(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
-                    field:field.to_owned(),
+                    field: field.to_owned(),
                 })?)
         }
         ReflectMut::TupleStruct(reflect_struct) => {
