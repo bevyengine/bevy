@@ -768,7 +768,9 @@ impl FromReflect for Cow<'static, str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Reflect, ReflectSerialize, TypeRegistry};
+    use crate::{
+        Enum, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
+    };
     use bevy_utils::HashMap;
     use std::f32::consts::{PI, TAU};
 
@@ -848,5 +850,64 @@ mod tests {
         let a: &dyn Reflect = &Some(123);
         let b: &dyn Reflect = &Some(123);
         assert_eq!(Some(true), a.reflect_partial_eq(b));
+    }
+
+    #[test]
+    fn option_should_impl_enum() {
+        let mut value = Some(123usize);
+
+        assert!(value
+            .reflect_partial_eq(&Some(123usize))
+            .unwrap_or_default());
+        assert!(!value
+            .reflect_partial_eq(&Some(321usize))
+            .unwrap_or_default());
+
+        assert_eq!("Some", value.variant_name());
+        assert_eq!("core::option::Option<usize>::Some", value.variant_path());
+
+        if value.is_variant(VariantType::Tuple) {
+            value
+                .field_at_mut(0)
+                .and_then(|field| field.downcast_mut::<usize>())
+                .map(|field| *field = 321);
+        } else {
+            panic!("expected `VariantType::Tuple`")
+        }
+
+        assert_eq!(Some(321), value);
+    }
+
+    #[test]
+    fn option_should_impl_typed() {
+        type MyOption = Option<i32>;
+        let info = MyOption::type_info();
+        if let TypeInfo::Enum(info) = info {
+            assert_eq!(
+                "None",
+                info.variant_at(0).unwrap().name(),
+                "Expected `None` to be variant at index `0`"
+            );
+            assert_eq!(
+                "Some",
+                info.variant_at(1).unwrap().name(),
+                "Expected `Some` to be variant at index `1`"
+            );
+            assert_eq!("Some", info.variant("Some").unwrap().name());
+            if let VariantInfo::Tuple(variant) = info.variant("Some").unwrap() {
+                assert!(
+                    variant.field_at(0).unwrap().is::<i32>(),
+                    "Expected `Some` variant to contain `i32`"
+                );
+                assert!(
+                    variant.field_at(1).is_none(),
+                    "Expected `Some` variant to only contain 1 field"
+                );
+            } else {
+                panic!("Expected `VariantInfo::Tuple`");
+            }
+        } else {
+            panic!("Expected `TypeInfo::Enum`");
+        }
     }
 }

@@ -28,6 +28,24 @@ impl Default for DynamicVariant {
     }
 }
 
+impl From<DynamicTuple> for DynamicVariant {
+    fn from(dyn_tuple: DynamicTuple) -> Self {
+        Self::Tuple(dyn_tuple)
+    }
+}
+
+impl From<DynamicStruct> for DynamicVariant {
+    fn from(dyn_struct: DynamicStruct) -> Self {
+        Self::Struct(dyn_struct)
+    }
+}
+
+impl From<()> for DynamicVariant {
+    fn from(_: ()) -> Self {
+        Self::Unit
+    }
+}
+
 /// A dynamic representation of an enum.
 ///
 /// This allows for enums to be configured at runtime.
@@ -88,9 +106,9 @@ impl DynamicEnum {
     }
 
     /// Set the current enum variant represented by this struct.
-    pub fn set_variant<I: Into<String>>(&mut self, name: I, variant: DynamicVariant) {
+    pub fn set_variant<I: Into<String>, V: Into<DynamicVariant>>(&mut self, name: I, variant: V) {
         self.variant_name = name.into();
-        self.variant = variant;
+        self.variant = variant.into();
     }
 
     /// Create a [`DynamicEnum`] from an existing one.
