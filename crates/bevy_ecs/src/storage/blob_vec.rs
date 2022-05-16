@@ -247,6 +247,36 @@ impl BlobVec {
         std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
     }
 
+    /// Shrinks the backing storage for the [`BlobVec`] such that the `len == capacity`.
+    ///
+    /// This runs in `O(n)` time and may require reallocating backing buffer.
+    pub fn shrink_to_fit(&mut self) {
+        if self.item_layout.size() == 0 || self.len == self.capacity {
+            return;
+        }
+
+        let current_layout =
+            array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
+        self.data = if self.len == 0 {
+            unsafe {
+                std::alloc::dealloc(self.get_ptr_mut().as_ptr(), current_layout);
+            }
+            NonNull::dangling()
+        } else {
+            let new_layout =
+                array_layout(&self.item_layout, self.len).expect("array layout should be valid");
+            let new_data = unsafe {
+                std::alloc::realloc(
+                    self.get_ptr_mut().as_ptr(),
+                    current_layout,
+                    new_layout.size(),
+                )
+            };
+            NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout))
+        };
+        self.capacity = self.len;
+    }
+
     pub fn clear(&mut self) {
         let len = self.len;
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't

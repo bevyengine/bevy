@@ -14,3 +14,10 @@ pub struct Storages {
     pub sparse_sets: SparseSets,
     pub tables: Tables,
 }
+
+impl Storages {
+    pub fn shrink_to_fit(&mut self) {
+        self.tables.shrink_to_fit();
+        self.sparse_sets.shrink_to_fit();
+    }
+}
