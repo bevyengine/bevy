@@ -89,7 +89,7 @@ use std::{
 ///     }
 /// }
 /// #
-/// # bevy_ecs::system::assert_is_system(trash_expired_food);
+/// # bevy_ecs::system::assert_is_system(dispose_expired_food);
 /// ```
 ///
 /// [learn more]: crate::system::Query#entity-id-access
