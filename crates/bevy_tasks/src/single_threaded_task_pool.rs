@@ -15,18 +15,17 @@ impl TaskPoolBuilder {
         Self::default()
     }
 
-    /// Override the number of compute-priority threads created for the pool. If unset, this default to the number
-    /// of logical cores of the system
+    /// No op on the single threaded task pool
     pub fn compute_threads(self, num_threads: usize) -> Self {
         self
     }
 
-    /// Override the number of async-compute priority threads created for the pool. If unset, this defaults to 0.
+    /// No op on the single threaded task pool
     pub fn async_compute_threads(self, num_threads: usize) -> Self {
         self
     }
 
-    /// Override the number of IO-priority threads created for the pool. If unset, this defaults to 0.
+    /// No op on the single threaded task pool
     pub fn io_threads(self, num_threads: usize) -> Self {
         self
     }
@@ -203,28 +202,6 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
-        self.spawn_local(f);
-    }
-
-    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
-    /// the provided future. The results of the future will be returned as a part of
-    /// [`TaskPool::scope`]'s return value.
-    ///
-    /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
-    ///
-    /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_async_compute<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
-        self.spawn_local(f);
-    }
-
-    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
-    /// the provided future. The results of the future will be returned as a part of
-    /// [`TaskPool::scope`]'s return value.
-    ///
-    /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
-    ///
-    /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_io<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
         self.spawn_local(f);
     }
 
