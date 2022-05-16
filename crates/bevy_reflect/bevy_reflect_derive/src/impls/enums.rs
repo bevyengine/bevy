@@ -321,12 +321,12 @@ fn generate_impls(
                         field_ty.to_token_stream().to_string()
                     );
                     variant_apply.push(quote! {
-                        #ref_value
-                            .field_at(#field_idx)
-                            .expect(#expect_field)
-                            .clone_value()
-                            .take::<#field_ty>()
-                            .expect(#expect_type)
+                        #bevy_reflect_path::FromReflect::from_reflect(
+                            #ref_value
+                                .field_at(#field_idx)
+                                .expect(#expect_field)
+                        )
+                        .expect(#expect_type)
                     });
 
                     field_idx += 1;
@@ -396,11 +396,11 @@ fn generate_impls(
                         field_ty.to_token_stream().to_string()
                     );
                     variant_apply.push(quote! {
-                        #field_ident: #ref_value
-                            .field(#field_name)
-                            .expect(#expect_field)
-                            .clone_value()
-                            .take::<#field_ty>()
+                        #field_ident: #bevy_reflect_path::FromReflect::from_reflect(
+                            #ref_value
+                                .field(#field_name)
+                                .expect(#expect_field)
+                            )
                             .expect(#expect_type)
                     });
 
