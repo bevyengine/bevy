@@ -14,26 +14,85 @@ use std::{
     mem::needs_drop,
 };
 
-/// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
-/// multiple different types of components, but only one of them per type.
+// TODO: The content in the section “Implementing the trait for foreign types” may be more appropriate
+// for the Bevy book. However, until the change gets published, it's better to keep it there. Once the
+// book includes usage of the pattern, the section can be replaced with a link to the appropriate
+// section of the book.
+
+/// A data type that can be associated to an [entity].
 ///
-/// Any type that is `Send + Sync + 'static` can implement `Component` using `#[derive(Component)]`.
+/// `Component` is a [derivable trait]:
+/// this means that a data type can implement it by simply prepending a `#[derive(Component)]` attribute
+/// to it. It is necessary though that it satisfies the `Send + Sync + 'static` bounds.
 ///
-/// In order to use foreign types as components, wrap them using a newtype pattern.
+/// In the context of a [`World`], a component instance must belong to a single entity.
+///
+/// [entity]: crate::entity
+/// [derivable trait]: https://doc.rust-lang.org/book/appendix-03-derivable-traits.html
+/// [`World`]: crate::world::World
+///
+/// # Examples
+///
+/// Components can take many forms: they are usually structs, but can also be of every other kind of data type, like enums or zero sized types. The following examples show how components are laid out in code.
+///
 /// ```
 /// # use bevy_ecs::component::Component;
+/// # struct Color;
+/// #
+/// // A component can contain data...
+/// #[derive(Component)]
+/// struct LicensePlate(String);
+///
+/// // ... but it can also be a zero-sized marker.
+/// #[derive(Component)]
+/// struct Car;
+///
+/// // Most commonly, components are structs with a small number of fields.
+/// #[derive(Component)]
+/// struct VehicleProperties {
+///     wheel_number: usize,
+///     color: Color,
+/// }
+/// ```
+///
+/// # Component and data access
+///
+/// See the [`entity`] module level documentation to learn how to add or remove components from an entity.
+///
+/// See the documentation for [`Query`] to learn how to access component data
+/// from a system.
+///
+/// [`entity`]: crate::entity#usage
+/// [`Query`]: crate::system::Query
+///
+/// # Implementing the trait for foreign types
+///
+/// As a consequence of the
+/// [orphan rule],
+/// it is not possible to separate into two different crates the implementation of `Component` from
+/// the definition of a type. This means that it is not possible to directly have a type defined in
+/// a third party library as a component. This important limitation can be easily worked around using the
+/// [newtype pattern]:
+/// this makes possible to locally define and implement `Component` for a tuple struct that wraps the
+/// foreign type. The following example gives a demonstration of this pattern.
+///
+/// ```
+/// // `Component` is defined in the `bevy_ecs` crate.
+/// use bevy_ecs::component::Component;
+///
+/// // `Duration` is defined in the `std` crate.
 /// use std::time::Duration;
+///
+/// // It is not possible to implement `Component` for `Duration` from this position, as they are
+/// // both foreign items, defined on an external crate. However, nothing prevents to define a new
+/// // `Cooldown` type that wraps `Duration`. As `Cooldown` is defined in a local crate, it is
+/// // possible to implement `Component` for it.
 /// #[derive(Component)]
 /// struct Cooldown(Duration);
 /// ```
-/// Components are added with new entities using [`Commands::spawn`](crate::system::Commands::spawn),
-/// or to existing entities with [`EntityCommands::insert`](crate::system::EntityCommands::insert),
-/// or their [`World`](crate::world::World) equivalents.
 ///
-/// Components can be accessed in systems by using a [`Query`](crate::system::Query)
-/// as one of the arguments.
-///
-/// Components can be grouped together into a [`Bundle`](crate::bundle::Bundle).
+/// [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type
+/// [newtype pattern]: https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-the-newtype-pattern-to-implement-external-traits-on-external-types
 pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
 }
