@@ -1,15 +1,15 @@
-use std::num::ParseIntError;
+use std::{num::ParseIntError,borrow::Cow};
 
 use crate::{Reflect, ReflectMut, ReflectRef};
 use thiserror::Error;
 
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
-pub enum ReflectPathError {
+pub enum ReflectPathError<'a> {
     #[error("expected an identifier at the given index")]
     ExpectedIdent { index: usize },
     #[error("the current struct doesn't have a field with the given name")]
-    InvalidField { index: usize, field: String },
+    InvalidField { index: usize, field: Cow<'a,str> },
     #[error("the current tuple struct doesn't have a field with the given index")]
     InvalidTupleStructIndex {
         index: usize,
@@ -18,9 +18,9 @@ pub enum ReflectPathError {
     #[error("the current list doesn't have a value at the given index")]
     InvalidListIndex { index: usize, list_index: usize },
     #[error("encountered an unexpected token")]
-    UnexpectedToken { index: usize, token: String },
+    UnexpectedToken { index: usize, token: Cow<'a,str> },
     #[error("expected a token, but it wasn't there.")]
-    ExpectedToken { index: usize, token: String },
+    ExpectedToken { index: usize, token: Cow<'a,str> },
     #[error("expected a struct, but found a different reflect value")]
     ExpectedStruct { index: usize },
     #[error("expected a list, but found a different reflect value")]
@@ -54,7 +54,7 @@ pub trait GetPath {
     ///
     /// To retrieve a statically typed reference, use
     /// [`get_path`][GetPath::get_path].
-    fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError>;
+    fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>>;
 
     /// Returns a mutable reference to the value specified by `path`.
     ///
@@ -63,10 +63,10 @@ pub trait GetPath {
     fn path_mut<'r, 'p>(
         &'r mut self,
         path: &'p str,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError>;
+    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>;
 
     /// Returns a statically typed reference to the value specified by `path`.
-    fn get_path<'r, 'p, T: Reflect>(&'r self, path: &'p str) -> Result<&'r T, ReflectPathError> {
+    fn get_path<'r, 'p, T: Reflect>(&'r self, path: &'p str) -> Result<&'r T, ReflectPathError<'p>> {
         self.path(path).and_then(|p| {
             p.downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
@@ -78,7 +78,7 @@ pub trait GetPath {
     fn get_path_mut<'r, 'p, T: Reflect>(
         &'r mut self,
         path: &'p str,
-    ) -> Result<&'r mut T, ReflectPathError> {
+    ) -> Result<&'r mut T, ReflectPathError<'p>> {
         self.path_mut(path).and_then(|p| {
             p.downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
@@ -87,20 +87,20 @@ pub trait GetPath {
 }
 
 impl<T: Reflect> GetPath for T {
-    fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError> {
+    fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
         (self as &dyn Reflect).path(path)
     }
 
     fn path_mut<'r, 'p>(
         &'r mut self,
         path: &'p str,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError> {
+    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
         (self as &mut dyn Reflect).path_mut(path)
     }
 }
 
 impl GetPath for dyn Reflect {
-    fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError> {
+    fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
         let mut index = 0;
         let mut current: &dyn Reflect = self;
         while let Some(token) = next_token(path, &mut index) {
@@ -144,14 +144,14 @@ impl GetPath for dyn Reflect {
                     } else {
                         return Err(ReflectPathError::ExpectedToken {
                             index: current_index,
-                            token: "]".to_owned(),
+                            token: "]".into(),
                         });
                     }
                 }
                 Token::CloseBracket => {
                     return Err(ReflectPathError::UnexpectedToken {
                         index: current_index,
-                        token: "]".to_owned(),
+                        token: "]".into(),
                     })
                 }
                 Token::Ident(value) => {
@@ -166,7 +166,7 @@ impl GetPath for dyn Reflect {
     fn path_mut<'r, 'p>(
         &'r mut self,
         path: &'p str,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError> {
+    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
         let mut index = 0;
         let mut current: &mut dyn Reflect = self;
         while let Some(token) = next_token(path, &mut index) {
@@ -210,14 +210,14 @@ impl GetPath for dyn Reflect {
                     } else {
                         return Err(ReflectPathError::ExpectedToken {
                             index: current_index,
-                            token: "]".to_owned(),
+                            token: "]".into(),
                         });
                     }
                 }
                 Token::CloseBracket => {
                     return Err(ReflectPathError::UnexpectedToken {
                         index: current_index,
-                        token: "]".to_owned(),
+                        token: "]".into(),
                     })
                 }
                 Token::Ident(value) => {
@@ -234,14 +234,14 @@ fn read_field<'r, 'p>(
     current: &'r dyn Reflect,
     field: &'p str,
     current_index: usize,
-) -> Result<&'r dyn Reflect, ReflectPathError> {
+) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
     match current.reflect_ref() {
         ReflectRef::Struct(reflect_struct) => {
             Ok(reflect_struct
                 .field(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
-                    field: field.to_owned(),
+                    field: field.into(),
                 })?)
         }
         ReflectRef::TupleStruct(reflect_struct) => {
@@ -263,14 +263,14 @@ fn read_field_mut<'r, 'p>(
     current: &'r mut dyn Reflect,
     field: &'p str,
     current_index: usize,
-) -> Result<&'r mut dyn Reflect, ReflectPathError> {
+) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
     match current.reflect_mut() {
         ReflectMut::Struct(reflect_struct) => {
             Ok(reflect_struct
                 .field_mut(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
-                    field: field.to_owned(),
+                    field: field.into(),
                 })?)
         }
         ReflectMut::TupleStruct(reflect_struct) => {
@@ -388,7 +388,7 @@ mod tests {
             a.path("x.notreal").err().unwrap(),
             ReflectPathError::InvalidField {
                 index: 2,
-                field: "notreal".to_owned()
+                field: "notreal".into()
             }
         );
 
