@@ -28,7 +28,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let hash_fn = reflect_enum
         .meta()
         .traits()
-        .get_hash_impl(bevy_reflect_path);
+        .get_hash_impl(bevy_reflect_path)
+        .unwrap_or_else(|| {
+            quote! {
+                fn reflect_hash(&self) -> Option<u64> {
+                    #bevy_reflect_path::enum_hash(self)
+                }
+            }
+        });
     let partial_eq_fn = reflect_enum
         .meta()
         .traits()
