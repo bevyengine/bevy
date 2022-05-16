@@ -94,6 +94,7 @@ pub(crate) struct EnumVariant<'a> {
     /// The reflection-based attributes on the variant.
     pub attrs: ReflectFieldAttr,
     /// The index of this variant within the enum.
+    #[allow(dead_code)]
     pub index: usize,
 }
 
