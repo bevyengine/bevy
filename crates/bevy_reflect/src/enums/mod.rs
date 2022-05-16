@@ -364,21 +364,6 @@ mod tests {
         #[derive(Reflect, FromReflect, Debug, PartialEq)]
         struct TestStruct(usize);
 
-        if let TypeInfo::Enum(info) = TestEnum::type_info() {
-            if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
-                assert!(variant.field_at(0).unwrap().is::<TestStruct>());
-            } else {
-                panic!("expected `VariantInfo::Struct`");
-            }
-            if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
-                assert!(variant.field("value").unwrap().is::<TestStruct>());
-            } else {
-                panic!("expected `VariantInfo::Struct`");
-            }
-        } else {
-            panic!("expected `TypeInfo::Enum`");
-        }
-
         let mut value = TestEnum::A;
 
         // === Tuple === //
@@ -415,21 +400,6 @@ mod tests {
             A,
             B(usize),
             C { value: f32 },
-        }
-
-        if let TypeInfo::Enum(info) = TestEnum::type_info() {
-            if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
-                assert!(variant.field_at(0).unwrap().is::<OtherEnum>());
-            } else {
-                panic!("expected `VariantInfo::Struct`");
-            }
-            if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
-                assert!(variant.field("value").unwrap().is::<OtherEnum>());
-            } else {
-                panic!("expected `VariantInfo::Struct`");
-            }
-        } else {
-            panic!("expected `TypeInfo::Enum`");
         }
 
         let mut value = TestEnum::A;
