@@ -1,7 +1,8 @@
+//! This example shows various ways to configure texture materials in 3D.
+
 use bevy::prelude::*;
 use examples_utils::camera::{CameraController, CameraControllerPlugin};
 
-/// This example shows various ways to configure texture materials in 3D
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

@@ -1,3 +1,5 @@
+//! Loads and renders a glTF file as a scene.
+
 use bevy::prelude::*;
 use examples_utils::camera::{CameraController, CameraControllerPlugin};
 

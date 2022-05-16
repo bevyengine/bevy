@@ -1,3 +1,5 @@
+//! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
+
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,

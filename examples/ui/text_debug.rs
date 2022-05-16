@@ -1,10 +1,11 @@
+//! Shows various text layout options.
+
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::PresentMode,
 };
 
-/// This example is for debugging text layout
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
