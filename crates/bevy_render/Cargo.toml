@@ -41,7 +41,7 @@ bevy_window = { path = "../bevy_window", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 
 # rendering
-image = { version = "0.23.12", default-features = false }
+image = { version = "0.24.2", default-features = false }
 
 # misc
 wgpu = { version = "0.12.0", features = ["spirv"] }
