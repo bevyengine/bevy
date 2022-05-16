@@ -293,13 +293,7 @@ fn camera_spawn_check(
                     &transform.back(),
                     perspective_projection.far(),
                 );
-                let camera = Camera {
-                    near: perspective_projection.near,
-                    far: perspective_projection.far,
-                    ..default()
-                };
                 PerspectiveCameraBundle {
-                    camera,
                     perspective_projection,
                     frustum,
                     transform,

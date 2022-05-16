@@ -81,8 +81,6 @@ pub struct ExtractedView {
     pub transform: GlobalTransform,
     pub width: u32,
     pub height: u32,
-    pub near: f32,
-    pub far: f32,
 }
 
 #[derive(Clone, AsStd140)]
@@ -92,8 +90,6 @@ pub struct ViewUniform {
     inverse_view: Mat4,
     projection: Mat4,
     world_position: Vec3,
-    near: f32,
-    far: f32,
     width: f32,
     height: f32,
 }
@@ -157,8 +153,6 @@ fn prepare_view_uniforms(
                 inverse_view,
                 projection,
                 world_position: camera.transform.translation,
-                near: camera.near,
-                far: camera.far,
                 width: camera.width as f32,
                 height: camera.height as f32,
             }),
