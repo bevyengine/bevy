@@ -161,7 +161,8 @@ impl FieldPath {
         Ok(Self(parts.into_boxed_slice()))
     }
 
-    /// Gets a read-only reference of given field.
+    /// Gets a read-only reference to a given field.
+    ///
     /// Returns an error if the path is invalid for the provided type.
     pub fn field<'r, 'p>(
         &'p self,
