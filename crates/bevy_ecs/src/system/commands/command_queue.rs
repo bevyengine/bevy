@@ -96,7 +96,7 @@ impl CommandQueue {
             // original commands memory.
             unsafe {
                 std::ptr::copy_nonoverlapping(
-                    command_ptr.clone(),
+                    command_ptr,
                     self.bytes.as_mut_ptr().add(old_len),
                     size,
                 );
