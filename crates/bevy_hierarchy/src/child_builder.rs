@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use smallvec::SmallVec;
 
 use bevy_ecs::{
@@ -167,12 +165,11 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 }
 
 /// Trait defining how to build children
-pub trait BuildChildren<'w, 's, 'a> {
+pub trait BuildChildren {
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
-    fn with_children<'b, T>(
-        &'b mut self,
-        f: impl FnOnce(&mut ChildBuilder) -> T,
-    ) -> WithChildren<'w, 's, 'a, 'b, T>;
+    fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
+    /// Creates a [`ChildBuilder`] with the given children built in the given closure
+    fn add_children<T>(&mut self, f: impl FnOnce(&mut ChildBuilder) -> T) -> T;
     /// Pushes children to the back of the builder's children
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index
@@ -183,33 +180,26 @@ pub trait BuildChildren<'w, 's, 'a> {
     fn add_child(&mut self, child: Entity) -> &mut Self;
 }
 
-/// Result of a [`BuildChildren::with_children`] call that provides access to the underlying commands
-/// and the closure's output.
-pub struct WithChildren<'w, 's, 'a, 'b, T> {
-    /// The output of the [`BuildChildren::with_children`] closure.
-    pub out: T,
-    commands: &'b mut EntityCommands<'w, 's, 'a>,
-}
+impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
+    fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
+        let parent = self.id();
+        let push_children = {
+            let mut builder = ChildBuilder {
+                commands: self.commands(),
+                push_children: PushChildren {
+                    children: SmallVec::default(),
+                    parent,
+                },
+            };
+            spawn_children(&mut builder);
+            builder.push_children
+        };
 
-impl<'w, 's, 'a, 'b, T> Deref for WithChildren<'w, 's, 'a, 'b, T> {
-    type Target = EntityCommands<'w, 's, 'a>;
-
-    fn deref(&self) -> &Self::Target {
-        self.commands
+        self.commands().add(push_children);
+        self
     }
-}
 
-impl<'w, 's, 'a, 'b, T> DerefMut for WithChildren<'w, 's, 'a, 'b, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.commands
-    }
-}
-
-impl<'w, 's, 'a> BuildChildren<'w, 's, 'a> for EntityCommands<'w, 's, 'a> {
-    fn with_children<'b, T>(
-        &'b mut self,
-        spawn_children: impl FnOnce(&mut ChildBuilder) -> T,
-    ) -> WithChildren<'w, 's, 'a, 'b, T> {
+    fn add_children<T>(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder) -> T) -> T {
         let parent = self.id();
         let (out, push_children) = {
             let mut builder = ChildBuilder {
@@ -223,10 +213,7 @@ impl<'w, 's, 'a> BuildChildren<'w, 's, 'a> for EntityCommands<'w, 's, 'a> {
         };
 
         self.commands().add(push_children);
-        WithChildren {
-            out,
-            commands: self,
-        }
+        out
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
@@ -517,16 +504,13 @@ mod tests {
         let mut commands = Commands::new(&mut queue, &world);
 
         let parent = commands.spawn().insert(C(1)).id();
-        let children = commands
-            .entity(parent)
-            .with_children(|parent| {
-                [
-                    parent.spawn().insert(C(2)).id(),
-                    parent.spawn().insert(C(3)).id(),
-                    parent.spawn().insert(C(4)).id(),
-                ]
-            })
-            .out;
+        let children = commands.entity(parent).add_children(|parent| {
+            [
+                parent.spawn().insert(C(2)).id(),
+                parent.spawn().insert(C(3)).id(),
+                parent.spawn().insert(C(4)).id(),
+            ]
+        });
 
         queue.apply(&mut world);
         assert_eq!(
