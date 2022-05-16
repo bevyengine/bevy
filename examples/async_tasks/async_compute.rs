@@ -95,8 +95,8 @@ fn handle_tasks(
                 ..default()
             });
 
-            // Task is complete, so remove task component from entity
-            commands.entity(entity).remove::<ComputeTransform>();
+            // Task is complete, so remove the entity
+            commands.entity(entity).despawn();
         }
     }
 }
