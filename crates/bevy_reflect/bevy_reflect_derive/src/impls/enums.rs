@@ -241,7 +241,7 @@ struct EnumImpls {
     enum_apply: Vec<proc_macro2::TokenStream>,
 }
 
-fn filter_active(field: &StructField) -> bool {
+fn filter_active(field: &&StructField) -> bool {
     !field.attrs.ignore
 }
 
@@ -278,7 +278,6 @@ fn generate_impls(
         let name = ident.to_string();
         let unit = reflect_enum.get_unit(ident);
 
-        // TODO: Filter by active fields
         match &variant.fields {
             EnumVariantFields::Unit => {
                 variant_info.push(quote! {
@@ -301,7 +300,16 @@ fn generate_impls(
             EnumVariantFields::Unnamed(fields) => {
                 let mut field_info = Vec::new();
                 let mut variant_apply = Vec::new();
-                for (field_idx, field) in fields.iter().enumerate() {
+                let mut field_idx: usize = 0;
+                for field in fields.iter().filter(filter_active) {
+                    if field.attrs.ignore {
+                        // Ignored field -> use default value
+                        variant_apply.push(quote! {
+                            Default::default()
+                        });
+                        continue;
+                    }
+
                     let empties = underscores(field_idx);
                     enum_field_at.push(quote! {
                         #unit( #empties value, .. ) if #ref_index == #field_idx => Some(value)
@@ -326,9 +334,11 @@ fn generate_impls(
                             .take::<#field_ty>()
                             .expect(#expect_type)
                     });
+
+                    field_idx += 1;
                 }
 
-                let field_len = fields.len();
+                let field_len = field_idx;
                 enum_field_len.push(quote! {
                     #unit(..) => #field_len
                 });
@@ -354,8 +364,18 @@ fn generate_impls(
             EnumVariantFields::Named(fields) => {
                 let mut field_info = Vec::new();
                 let mut variant_apply = Vec::new();
-                for (field_idx, field) in fields.iter().enumerate() {
+                let mut field_idx: usize = 0;
+                for field in fields.iter() {
                     let field_ident = field.data.ident.as_ref().unwrap();
+
+                    if field.attrs.ignore {
+                        // Ignored field -> use default value
+                        variant_apply.push(quote! {
+                            #field_ident: Default::default()
+                        });
+                        continue;
+                    }
+
                     let field_name = field_ident.to_string();
                     enum_field.push(quote! {
                         #unit{ #field_ident, .. } if #ref_name == #field_name => Some(#field_ident)
@@ -389,9 +409,11 @@ fn generate_impls(
                             .take::<#field_ty>()
                             .expect(#expect_type)
                     });
+
+                    field_idx += 1;
                 }
 
-                let field_len = fields.len();
+                let field_len = field_idx;
                 enum_field_len.push(quote! {
                     #unit{..} => #field_len
                 });

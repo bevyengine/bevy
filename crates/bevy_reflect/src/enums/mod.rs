@@ -256,4 +256,50 @@ mod tests {
         dyn_tuple.insert((123_usize, 321_i32));
         value.apply(&dyn_tuple);
     }
+
+    #[test]
+    #[allow(dead_code)]
+    fn should_skip_ignored_variants() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum TestEnum {
+            A,
+            #[reflect(ignore)]
+            B,
+            C,
+        }
+
+        if let TypeInfo::Enum(info) = TestEnum::type_info() {
+            assert_eq!(2, info.variant_len(), "expected one of the variants to be ignored");
+            assert_eq!("A", info.variant_at(0).unwrap().name());
+            assert_eq!("C", info.variant_at(1).unwrap().name());
+        } else {
+            panic!("expected `TypeInfo::Enum`");
+        }
+    }
+
+    #[test]
+    fn should_skip_ignored_fields() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum TestEnum {
+            A,
+            B,
+            C {
+                #[reflect(ignore)]
+                foo: f32,
+                bar: bool,
+            },
+        }
+
+        if let TypeInfo::Enum(info) = TestEnum::type_info() {
+            assert_eq!(3, info.variant_len());
+            if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
+                assert_eq!(1, variant.field_len(), "expected one of the fields to be ignored");
+                assert!(variant.field_at(0).unwrap().id().is::<bool>());
+            } else {
+                panic!("expected `VariantInfo::Struct`");
+            }
+        } else {
+            panic!("expected `TypeInfo::Enum`");
+        }
+    }
 }
