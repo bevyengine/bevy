@@ -312,20 +312,17 @@ mod tests {
     }
 
     #[test]
-    fn enum_should_respect_complex_fields() {
+    fn enum_should_allow_generics() {
         #[derive(Reflect, Debug, PartialEq)]
         enum TestEnum<T: FromReflect> {
             A,
-            B(TestStruct),
+            B(T),
             C { value: T },
         }
 
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
-        struct TestStruct(usize);
-
         if let TypeInfo::Enum(info) = TestEnum::<f32>::type_info() {
             if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
-                assert!(variant.field_at(0).unwrap().is::<TestStruct>());
+                assert!(variant.field_at(0).unwrap().is::<f32>());
             } else {
                 panic!("expected `VariantInfo::Struct`");
             }
@@ -340,18 +337,67 @@ mod tests {
 
         let mut value = TestEnum::<f32>::A;
 
-        // === Struct Value === //
+        // === Tuple === //
         let mut data = DynamicTuple::default();
-        data.insert(TestStruct(123));
+        data.insert(1.23_f32);
         let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum<f32>>(), "B", data);
         value.apply(&dyn_enum);
-        assert_eq!(TestEnum::B(TestStruct(123)), value);
+        assert_eq!(TestEnum::B(1.23), value);
 
-        // === Generic Value === //
+        // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", 1.23_f32);
         let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum<f32>>(), "C", data);
         value.apply(&dyn_enum);
         assert_eq!(TestEnum::C { value: 1.23 }, value);
+    }
+
+    #[test]
+    fn enum_should_allow_struct_fields() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum TestEnum {
+            A,
+            B(TestStruct),
+            C { value: TestStruct },
+        }
+
+        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        struct TestStruct(usize);
+
+        if let TypeInfo::Enum(info) = TestEnum::type_info() {
+            if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
+                assert!(variant.field_at(0).unwrap().is::<TestStruct>());
+            } else {
+                panic!("expected `VariantInfo::Struct`");
+            }
+            if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
+                assert!(variant.field("value").unwrap().is::<TestStruct>());
+            } else {
+                panic!("expected `VariantInfo::Struct`");
+            }
+        } else {
+            panic!("expected `TypeInfo::Enum`");
+        }
+
+        let mut value = TestEnum::A;
+
+        // === Tuple === //
+        let mut data = DynamicTuple::default();
+        data.insert(TestStruct(123));
+        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "B", data);
+        value.apply(&dyn_enum);
+        assert_eq!(TestEnum::B(TestStruct(123)), value);
+
+        // === Struct === //
+        let mut data = DynamicStruct::default();
+        data.insert("value", TestStruct(123));
+        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "C", data);
+        value.apply(&dyn_enum);
+        assert_eq!(
+            TestEnum::C {
+                value: TestStruct(123)
+            },
+            value
+        );
     }
 }
