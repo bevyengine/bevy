@@ -190,7 +190,10 @@ impl ParallelExecutor {
                         .unwrap_or_else(|error| unreachable!("{}", error));
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
-                    unsafe { system.run_unsafe((), world) };
+                    #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
+                    unsafe {
+                        system.run_unsafe((), world)
+                    };
                     #[cfg(feature = "trace")]
                     drop(system_guard);
                     finish_sender
