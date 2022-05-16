@@ -112,11 +112,12 @@ impl ComponentInfo {
     }
 
     #[inline]
-    /// Get the function which should be called to clean up values, i.e.
-    /// [`Drop`] them.
+    /// Get the function which should be called to clean up values of
+    /// the underlying component type. This maps to the
+    /// [`Drop`] implementation for 'normal' Rust components
     ///
-    /// Returns `None` if the underlying type doesn't need to be dropped,
-    /// as reported by [`needs_drop`].
+    /// Returns `None` if values of the underlying component type don't
+    /// need to be dropped, e.g. as reported by [`needs_drop`].
     pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.descriptor.drop
     }
