@@ -1,6 +1,7 @@
+//! This example shows how to configure Physically Based Rendering (PBR) parameters.
+
 use bevy::prelude::*;
 
-/// This example shows how to configure Physically Based Rendering (PBR) parameters.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

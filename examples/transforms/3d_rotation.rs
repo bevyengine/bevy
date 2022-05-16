@@ -1,3 +1,5 @@
+//! Illustrates how to (constantly) rotate an object around an axis.
+
 use bevy::prelude::*;
 
 use std::f32::consts::PI;

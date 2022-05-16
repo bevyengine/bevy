@@ -1,8 +1,8 @@
+//! This example illustrates how `FontAtlas`'s are populated.
+//! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
+
 use bevy::{prelude::*, text::FontAtlasSet};
 
-// TODO: This is now broken. See #1243
-/// This example illustrates how `FontAtlas`'s are populated. Bevy uses `FontAtlas`'s under the hood
-/// to optimize text rendering.
 fn main() {
     App::new()
         .init_resource::<State>()

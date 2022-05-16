@@ -1,3 +1,5 @@
+//! Illustrates the use of vertex colors.
+
 use bevy::{prelude::*, render::mesh::VertexAttributeValues};
 
 fn main() {
