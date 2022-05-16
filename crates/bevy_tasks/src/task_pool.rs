@@ -98,6 +98,7 @@ impl Default for TaskPoolBuilder {
 }
 
 impl TaskPoolBuilder {
+    /// Creates a new [`TaskPoolBuilder`] instance
     pub fn new() -> Self {
         Self::default()
     }
