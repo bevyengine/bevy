@@ -602,17 +602,31 @@ impl Window {
     }
 }
 
+/// Describes the information needed for a window creation.
+///
+/// This should be set up before adding the [`WindowPlugin`](crate::WindowPlugin). Most of these settings can also later
+/// be configured through the [`Window`](crate::Window) resource.
+///
+/// See [`examples/window/window_settings.rs`](https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs) for usage.
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
+    /// The requested logical width of the window's client area.
+    /// May vary from the physical width due to different pixel density on different monitors.
     pub width: f32,
+    /// The requested logical height of the window's client area.
+    /// May vary from the physical height due to different pixel density on different monitors.
     pub height: f32,
+    /// The position on the screen that the window will be centered at.
+    /// If set to `None`, some platform-specific position will be chosen.
     pub position: Option<Vec2>,
     pub resize_constraints: WindowResizeConstraints,
+    /// Overrides the [`Window`](crate::Window)'s ratio of physical pixels to logical pixels.
     pub scale_factor_override: Option<f64>,
     pub title: String,
     #[doc(alias = "vsync")]
     pub present_mode: PresentMode,
     pub resizable: bool,
+    /// Sets whether the window should have borders and bars.
     pub decorations: bool,
     pub cursor_visible: bool,
     pub cursor_locked: bool,
@@ -625,6 +639,8 @@ pub struct WindowDescriptor {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
+    /// A string that represents a DOM query selector for the target canvas element.
+    /// Use this in case you want to create the canvas element yourself.
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
 }
