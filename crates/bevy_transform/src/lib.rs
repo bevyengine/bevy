@@ -95,7 +95,19 @@ impl Plugin for TransformPlugin {
             // Adding these to startup ensures the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
+                systems::transform_propagate_system_flat
+                    .label(TransformSystem::TransformPropagate)
+                    .after(HierarchySystem::ParentUpdate),
+            )
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
                 systems::transform_propagate_system
+                    .label(TransformSystem::TransformPropagate)
+                    .after(HierarchySystem::ParentUpdate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                systems::transform_propagate_system_flat
                     .label(TransformSystem::TransformPropagate)
                     .after(HierarchySystem::ParentUpdate),
             )

@@ -1,7 +1,19 @@
 use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::prelude::{Changed, Entity, Query, With, Without, Res};
-use bevy_tasks::prelude::ComputeTaskPool;
+use bevy_ecs::prelude::{Changed, Entity, Or, Query, Res, With, Without};
 use bevy_hierarchy::{Children, Parent};
+use bevy_tasks::prelude::ComputeTaskPool;
+
+/// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
+pub fn transform_propagate_system_flat(
+    mut query: Query<
+        (&Transform, &mut GlobalTransform),
+        (Changed<Transform>, Without<Parent>, Without<Children>),
+    >,
+) {
+    for (transform, mut global_transform) in query.iter_mut() {
+        *global_transform = GlobalTransform::from(*transform);
+    }
+}
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
@@ -10,44 +22,35 @@ pub fn transform_propagate_system(
     mut root_query: Query<
         (
             Entity,
-            Option<(&Children, Changed<Children>)>,
+            &Children,
             &Transform,
-            Changed<Transform>,
+            Or<(Changed<Children>, Changed<Transform>)>,
             &mut GlobalTransform,
-            Entity,
         ),
         Without<Parent>,
     >,
-    transform_query: Query<
-        (&Transform, Changed<Transform>, &mut GlobalTransform),
-        With<Parent>,
-    >,
+    transform_query: Query<(&Transform, Changed<Transform>, &mut GlobalTransform), With<Parent>>,
     parent_query: Query<&Parent>,
     children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
 ) {
     root_query.par_for_each_mut(
         &*task_pool,
         64,
-        |(entity, children, transform, transform_changed, mut global_transform)| {
-            let mut changed = transform_changed;
-            if transform_changed {
+        |(entity, children, transform, changed, mut global_transform)| {
+            if changed {
                 *global_transform = GlobalTransform::from(*transform);
             }
 
-            if let Some((children, changed_children)) = children {
-                // If our `Children` has changed, we need to recalculate everything below us
-                changed |= changed_children;
-                for child in children.iter() {
-                    let _ = propagate_recursive(
-                        &global_transform,
-                        &transform_query,
-                        &parent_query,
-                        &children_query,
-                        entity,
-                        *child,
-                        changed,
-                    );
-                }
+            for child in children.iter() {
+                let _ = propagate_recursive(
+                    &global_transform,
+                    &transform_query,
+                    &parent_query,
+                    &children_query,
+                    entity,
+                    *child,
+                    changed,
+                );
             }
         },
     );
@@ -55,15 +58,11 @@ pub fn transform_propagate_system(
 
 fn propagate_recursive(
     parent: &GlobalTransform,
-    transform_query: &Query<
-        (&Transform, Changed<Transform>, &mut GlobalTransform),
-        With<Parent>,
-    >,
+    transform_query: &Query<(&Transform, Changed<Transform>, &mut GlobalTransform), With<Parent>>,
     parent_query: &Query<&Parent>,
     children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
     expected_parent: Entity,
     entity: Entity,
-    expected_parent: Entity,
     mut changed: bool,
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
@@ -76,7 +75,7 @@ fn propagate_recursive(
         panic!("Propagated child for {:?} has no Parent component!", entity);
     }
 
-    // SAFE: With the check that each child has one and only one parent, each child must be globally unique within the 
+    // SAFE: With the check that each child has one and only one parent, each child must be globally unique within the
     // hierarchy. Because of this, it is impossible for this query to have aliased mutable access to the same GlobalTransform.
     // Any malformed hierarchy will cause a panic due to the above check.
     let global_matrix = unsafe {
@@ -96,12 +95,11 @@ fn propagate_recursive(
     for child in children.iter() {
         let _ = propagate_recursive(
             &global_matrix,
-            &transform_query,
-            &parent_query,
-            &children_query,
+            transform_query,
+            parent_query,
+            children_query,
             entity,
             *child,
-            entity,
             changed,
         );
     }
@@ -116,7 +114,7 @@ mod test {
     use bevy_math::vec3;
 
     use crate::components::{GlobalTransform, Transform};
-    use crate::systems::transform_propagate_system;
+    use crate::systems::*;
     use crate::TransformBundle;
     use bevy_hierarchy::{
         parent_update_system, BuildChildren, BuildWorldChildren, Children, Parent,
@@ -128,6 +126,7 @@ mod test {
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system);
+        update_stage.add_system(transform_propagate_system_flat);
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
@@ -173,6 +172,7 @@ mod test {
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system);
+        update_stage.add_system(transform_propagate_system_flat);
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
@@ -216,6 +216,7 @@ mod test {
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system);
+        update_stage.add_system(transform_propagate_system_flat);
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
@@ -301,6 +302,7 @@ mod test {
         let mut app = App::new();
 
         app.add_system(parent_update_system);
+        app.add_system(transform_propagate_system_flat);
         app.add_system(transform_propagate_system);
 
         let translation = vec3(1.0, 0.0, 0.0);
@@ -357,6 +359,7 @@ mod test {
         let mut app = App::new();
 
         app.add_system(parent_update_system);
+        app.add_system(transform_propagate_system_flat);
         app.add_system(transform_propagate_system);
 
         let child = app
