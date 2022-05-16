@@ -161,6 +161,7 @@ impl<'a> OwningPtr<'a> {
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
         let mut temp = MaybeUninit::new(val);
+        // SAFETY: `temp.as_mut_ptr()` is a reference to a local value on the stack, so it cannot be null
         let ptr = unsafe { NonNull::new_unchecked(temp.as_mut_ptr().cast::<u8>()) };
         f(Self(ptr, PhantomData))
     }
@@ -233,6 +234,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
         Self {
+            // SAFETY: a reference can never be null
             ptr: unsafe { NonNull::new_unchecked(slice.as_ptr() as *mut T) },
             #[cfg(debug_assertions)]
             len: slice.len(),
