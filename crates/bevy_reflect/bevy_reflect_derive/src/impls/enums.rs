@@ -206,9 +206,11 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                         // New variant -> perform a switch
                         match #ref_value.variant_name() {
                             #(#enum_apply,)*
-                            _ => panic!("Enum is not a {}.", std::any::type_name::<Self>()),
+                            x => panic!("Variant named `{}` does not exist on enum `{}`", x, std::any::type_name::<Self>()),
                         }
                     }
+                } else {
+                    panic!("`{}` is not an enum", #ref_value.type_name());
                 }
             }
 
