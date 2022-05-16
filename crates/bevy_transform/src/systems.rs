@@ -1,12 +1,15 @@
 use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::prelude::{Changed, Entity, Query, With, Without};
+use bevy_ecs::prelude::{Changed, Entity, Query, With, Without, Res};
+use bevy_tasks::prelude::ComputeTaskPool;
 use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
 pub fn transform_propagate_system(
+    task_pool: Res<ComputeTaskPool>,
     mut root_query: Query<
         (
+            Entity,
             Option<(&Children, Changed<Children>)>,
             &Transform,
             Changed<Transform>,
@@ -15,61 +18,71 @@ pub fn transform_propagate_system(
         ),
         Without<Parent>,
     >,
-    mut transform_query: Query<(
-        &Transform,
-        Changed<Transform>,
-        &mut GlobalTransform,
-        &Parent,
-    )>,
+    transform_query: Query<
+        (&Transform, Changed<Transform>, &mut GlobalTransform),
+        With<Parent>,
+    >,
+    parent_query: Query<&Parent>,
     children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
 ) {
-    for (children, transform, transform_changed, mut global_transform, entity) in
-        root_query.iter_mut()
-    {
-        let mut changed = transform_changed;
-        if transform_changed {
-            *global_transform = GlobalTransform::from(*transform);
-        }
-
-        if let Some((children, changed_children)) = children {
-            // If our `Children` has changed, we need to recalculate everything below us
-            changed |= changed_children;
-            for child in children.iter() {
-                let _ = propagate_recursive(
-                    &global_transform,
-                    &mut transform_query,
-                    &children_query,
-                    *child,
-                    entity,
-                    changed,
-                );
+    root_query.par_for_each_mut(
+        &*task_pool,
+        64,
+        |(entity, children, transform, transform_changed, mut global_transform)| {
+            let mut changed = transform_changed;
+            if transform_changed {
+                *global_transform = GlobalTransform::from(*transform);
             }
-        }
-    }
+
+            if let Some((children, changed_children)) = children {
+                // If our `Children` has changed, we need to recalculate everything below us
+                changed |= changed_children;
+                for child in children.iter() {
+                    let _ = propagate_recursive(
+                        &global_transform,
+                        &transform_query,
+                        &parent_query,
+                        &children_query,
+                        entity,
+                        *child,
+                        changed,
+                    );
+                }
+            }
+        },
+    );
 }
 
 fn propagate_recursive(
     parent: &GlobalTransform,
-    transform_query: &mut Query<(
-        &Transform,
-        Changed<Transform>,
-        &mut GlobalTransform,
-        &Parent,
-    )>,
+    transform_query: &Query<
+        (&Transform, Changed<Transform>, &mut GlobalTransform),
+        With<Parent>,
+    >,
+    parent_query: &Query<&Parent>,
     children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
+    expected_parent: Entity,
     entity: Entity,
     expected_parent: Entity,
     mut changed: bool,
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
-    let global_matrix = {
-        let (transform, transform_changed, mut global_transform, child_parent) =
-            transform_query.get_mut(entity).map_err(drop)?;
-        // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
+    if let Ok(actual_parent) = parent_query.get(entity) {
         assert_eq!(
-            child_parent.0, expected_parent,
+            actual_parent.0, expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
+    } else {
+        panic!("Propagated child for {:?} has no Parent component!", entity);
+    }
+
+    // SAFE: With the check that each child has one and only one parent, each child must be globally unique within the 
+    // hierarchy. Because of this, it is impossible for this query to have aliased mutable access to the same GlobalTransform.
+    // Any malformed hierarchy will cause a panic due to the above check.
+    let global_matrix = unsafe {
+        let (transform, transform_changed, mut global_transform) =
+            transform_query.get_unchecked(entity).map_err(drop)?;
+
         changed |= transform_changed;
         if changed {
             *global_transform = parent.mul_transform(*transform);
@@ -83,8 +96,10 @@ fn propagate_recursive(
     for child in children.iter() {
         let _ = propagate_recursive(
             &global_matrix,
-            transform_query,
-            children_query,
+            &transform_query,
+            &parent_query,
+            &children_query,
+            entity,
             *child,
             entity,
             changed,
