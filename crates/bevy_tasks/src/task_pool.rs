@@ -411,7 +411,7 @@ impl TaskPool {
         self.spawn_as(TaskGroup::Compute, future)
     }
 
-    /// Spawns a static future onto the thread pool with "async compute" priority. The returned Task is a future.
+    /// Spawns a static future onto the thread pool in a group. The returned Task is a future.
     /// It can also be cancelled and "detached" allowing it to continue running without having to be polled
     /// by the end-user.
     ///
