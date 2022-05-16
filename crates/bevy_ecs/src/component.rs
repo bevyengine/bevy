@@ -112,6 +112,10 @@ impl ComponentInfo {
     }
 
     #[inline]
+    /// Get the function which should be called to clean up values, i.e.
+    /// [`Drop`] them.
+    /// Returns `None` if the underlying type doesn't need to be dropped,
+    /// as reported by [`needs_drop`].
     pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.descriptor.drop
     }
@@ -169,6 +173,7 @@ pub struct ComponentDescriptor {
     layout: Layout,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
     // this descriptor describes.
+    // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
 }
 
