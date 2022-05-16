@@ -1,3 +1,7 @@
+//! Shows how to set the solid color that is used to paint the window before the frame gets drawn.
+//!
+//! Acts as background color, since pixels that are not drawn in a frame remain unchanged.
+
 use bevy::prelude::*;
 
 fn main() {

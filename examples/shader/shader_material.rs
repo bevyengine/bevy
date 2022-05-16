@@ -1,3 +1,5 @@
+//! Illustrates creating a custom material and a shader that uses it.
+
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     pbr::MaterialPipeline,

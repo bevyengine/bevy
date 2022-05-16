@@ -74,8 +74,6 @@ pub struct ExtractedDirectionalLight {
     shadows_enabled: bool,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
-    near: f32,
-    far: f32,
 }
 
 pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
@@ -513,8 +511,6 @@ pub fn extract_lights(
                 shadow_normal_bias: directional_light.shadow_normal_bias
                     * directional_light_texel_size
                     * std::f32::consts::SQRT_2,
-                near: directional_light.shadow_projection.near,
-                far: directional_light.shadow_projection.far,
             },
             render_visible_entities,
         ));
@@ -861,8 +857,6 @@ pub fn prepare_lights(
                             height: point_light_shadow_map.size as u32,
                             transform: view_translation * *view_rotation,
                             projection: cube_face_projection,
-                            near: POINT_LIGHT_NEAR_Z,
-                            far: light.range,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
@@ -946,8 +940,6 @@ pub fn prepare_lights(
                             height: directional_light_shadow_map.size as u32,
                             transform: GlobalTransform::from_matrix(view.inverse()),
                             projection,
-                            near: light.near,
-                            far: light.far,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional { light_entity },

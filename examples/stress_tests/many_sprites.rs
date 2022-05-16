@@ -1,3 +1,9 @@
+//! Renders a lot of sprites to allow performance testing.
+//! See <https://github.com/bevyengine/bevy/pull/1492>
+//!
+//! It sets up many sprites in different sizes and rotations, and at different scales in the world,
+//! and moves the camera over them to see how well frustum culling works.
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Quat,
@@ -9,10 +15,9 @@ use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
-/// This example is for performance testing purposes.
-/// See <https://github.com/bevyengine/bevy/pull/1492>
 fn main() {
     App::new()
+        // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins)
