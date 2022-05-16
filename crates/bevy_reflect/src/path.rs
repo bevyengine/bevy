@@ -175,7 +175,8 @@ impl FieldPath {
         Ok(current)
     }
 
-    /// Gets a mutable reference of given field.
+    /// Gets a mutable reference to a given field.
+    ///
     /// Returns an error if the path is invalid for the provided type.
     pub fn field_mut<'r, 'p>(
         &'p mut self,
