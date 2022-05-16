@@ -5,14 +5,7 @@ use bevy::tasks::TaskPoolBuilder;
 /// certain number of threads).
 fn main() {
     App::new()
-        .insert_resource(
-            TaskPoolBuilder {
-                min_total_threads: 4,
-                max_total_threads: 16,
-                ..Default::default()
-            }
-            .build(),
-        )
+        .insert_resource(TaskPoolBuilder::new().threads(4).build())
         .add_plugins(DefaultPlugins)
         .run();
 }

@@ -4,7 +4,7 @@ use bevy_ecs::{
     schedule::SystemLabel,
     system::{NonSendMut, Res, ResMut, SystemState},
 };
-use bevy_tasks::TaskPoolBuilder;
+use bevy_tasks::TaskPool;
 use bevy_utils::HashMap;
 use std::{
     ops::{Deref, DerefMut},
@@ -61,11 +61,9 @@ impl Plugin for DebugAssetServerPlugin {
         let mut debug_asset_app = App::new();
         debug_asset_app
             .insert_resource(
-                TaskPoolBuilder {
-                    thread_name: Some("Debug Asset Server IO Task Pool".to_string()),
-                    ..Default::default()
-                }
-                .build(),
+                TaskPool::build()
+                    .thread_name("Debug Asset Server IO Task Pool")
+                    .build(),
             )
             .insert_resource(AssetServerSettings {
                 asset_folder: "crates".to_string(),
