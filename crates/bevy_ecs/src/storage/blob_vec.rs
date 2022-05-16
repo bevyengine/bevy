@@ -83,33 +83,32 @@ impl BlobVec {
 
     pub fn reserve_exact(&mut self, additional: usize) {
         let available_space = self.capacity - self.len;
-        if available_space < additional {
-            self.grow_exact(additional - available_space);
+        if available_space < additional && self.item_layout.size() > 0 {
+            // SAFETY: this is never executed if the item layout's size is zero
+            unsafe { self.grow_exact(additional - available_space) };
         }
     }
 
-    // FIXME: this should probably be an unsafe fn as it shouldn't be called if the layout
-    // is for a ZST
-    fn grow_exact(&mut self, increment: usize) {
+    // # Safety
+    // Must not be called on a [`BlobVec`] with a zero-sized item layout
+    unsafe fn grow_exact(&mut self, increment: usize) {
         debug_assert!(self.item_layout.size() != 0);
 
         let new_capacity = self.capacity + increment;
         let new_layout =
             array_layout(&self.item_layout, new_capacity).expect("array layout should be valid");
-        unsafe {
-            let new_data = if self.capacity == 0 {
-                std::alloc::alloc(new_layout)
-            } else {
-                std::alloc::realloc(
-                    self.get_ptr_mut().as_ptr(),
-                    array_layout(&self.item_layout, self.capacity)
-                        .expect("array layout should be valid"),
-                    new_layout.size(),
-                )
-            };
+        let new_data = if self.capacity == 0 {
+            std::alloc::alloc(new_layout)
+        } else {
+            std::alloc::realloc(
+                self.get_ptr_mut().as_ptr(),
+                array_layout(&self.item_layout, self.capacity)
+                    .expect("array layout should be valid"),
+                new_layout.size(),
+            )
+        };
 
-            self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
-        }
+        self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
         self.capacity = new_capacity;
     }
 
@@ -467,5 +466,18 @@ mod tests {
         let item_layout = Layout::new::<Foo>();
         let drop = drop_ptr::<Foo>;
         let _ = unsafe { BlobVec::new(item_layout, drop, 0) };
+    }
+
+    #[test]
+    fn blob_vec_zst_reserve() {
+        let item_layout = Layout::new::<()>();
+        let drop = drop_ptr::<()>;
+        // SAFETY: `drop` can drop items of layout `item_layout`
+        let mut vec = unsafe { BlobVec::new(item_layout, drop, 0) };
+        OwningPtr::make((), |ptr| {
+            // SAFETY: `ptr` is of correct layout
+            unsafe { vec.push(ptr) };
+        });
+        vec.reserve_exact(usize::MAX);
     }
 }
