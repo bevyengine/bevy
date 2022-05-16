@@ -304,10 +304,10 @@ fn point_light(
         getDistanceAttenuation(distance_square, light.color_inverse_square_range.w);
 
     var spot_attenuation = 1.0;
-    let spot_dir = light.spot_dir_angle_inner.xyz;
-    if (dot(spot_dir,spot_dir) > 0.0) {
+    if ((light.flags & POINT_LIGHT_FLAGS_IS_SPOTLIGHT_BIT) != 0u) {
+        let spot_dir = light.light_custom_data.xyz;
         let angle: f32 = acos(dot(spot_dir, -light_to_frag) / length(light_to_frag));
-        spot_attenuation = 1.0 - saturate((angle - light.spot_dir_angle_inner.w) / (light.spot_angle_outer - light.spot_dir_angle_inner.w));
+        spot_attenuation = 1.0 - saturate((angle - light.light_custom_data.w) / (light.spot_angle_outer - light.light_custom_data.w));
     }
 
     // Specular.
@@ -376,8 +376,8 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
 
     let surface_to_light = light.position_radius.xyz - frag_position.xyz;
 
-    let fwd = light.spot_dir_angle_inner.xyz;
-    if (dot(fwd, fwd) > 0.0) {
+    if ((light.flags & POINT_LIGHT_FLAGS_IS_SPOTLIGHT_BIT) != 0u) {
+        let fwd = light.light_custom_data.xyz;
         let distance_to_light = sqrt(dot(fwd, -surface_to_light));
         let offset_position = -surface_to_light + (light.shadow_depth_bias * normalize(surface_to_light)) + (surface_normal.xyz * light.shadow_normal_bias) * distance_to_light;
 
@@ -439,7 +439,7 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     // projection * vec4(0, 0, -major_axis_magnitude, 1.0)
     // and keeping only the terms that have any impact on the depth.
     // Projection-agnostic approach:
-    let zw = -major_axis_magnitude * light.projection_lr.xy + light.projection_lr.zw;
+    let zw = -major_axis_magnitude * light.light_custom_data.xy + light.light_custom_data.zw;
     let depth = zw.x / zw.y;
 
     // do the lookup, using HW PCF and comparison

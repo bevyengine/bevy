@@ -86,11 +86,11 @@ pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 #[repr(C)]
 #[derive(Copy, Clone, AsStd140, AsStd430, Default, Debug)]
 pub struct GpuPointLight {
-    // The lower-right 2x2 values of the projection matrix 22 23 32 33
-    projection_lr: Vec4,
+    // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
+    // For spotlights: the direction and inner angle
+    light_custom_data: Vec4,
     color_inverse_square_range: Vec4,
     position_radius: Vec4,
-    spot_dir_angle_inner: Vec4,
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
@@ -182,6 +182,7 @@ bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
         const SHADOWS_ENABLED            = (1 << 0);
+        const IS_SPOTLIGHT               = (1 << 1);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -226,7 +227,7 @@ pub struct GpuLights {
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
-pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 204;
+pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -788,21 +789,31 @@ pub fn prepare_lights(
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
 
-        let (spot_dir, spot_angle_inner, spot_angle_outer) = match light.spotlight_angles {
-            Some((inner, outer)) => (light.transform.forward(), inner, outer),
-            None => (Vec3::ZERO, 0.0, 0.0),
+        let (light_data, spot_angle_outer) = match light.spotlight_angles {
+            Some((inner, outer)) => {
+                flags |= PointLightFlags::IS_SPOTLIGHT;
+                (
+                    // For spotlights: the direction and inner angle
+                    light.transform.forward().extend(inner),
+                    outer,
+                )
+            }
+            None => {
+                (
+                    // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
+                    Vec4::new(
+                        cube_face_projection.z_axis.z,
+                        cube_face_projection.z_axis.w,
+                        cube_face_projection.w_axis.z,
+                        cube_face_projection.w_axis.w,
+                    ),
+                    0.0,
+                )
+            }
         };
 
         gpu_point_lights.push(GpuPointLight {
-            // TODO
-            // we don't need this for spotlights any more - we could overload it to hold the spot_dir_angle_inner data instead
-            // and get back to 64 bytes per light
-            projection_lr: Vec4::new(
-                cube_face_projection.z_axis.z,
-                cube_face_projection.z_axis.w,
-                cube_face_projection.w_axis.z,
-                cube_face_projection.w_axis.w,
-            ),
+            light_custom_data: light_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
             color_inverse_square_range: (Vec4::from_slice(&light.color.as_linear_rgba_f32())
@@ -810,7 +821,6 @@ pub fn prepare_lights(
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation.extend(light.radius),
-            spot_dir_angle_inner: spot_dir.extend(spot_angle_inner),
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
