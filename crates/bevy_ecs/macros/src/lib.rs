@@ -144,7 +144,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        /// SAFETY: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
@@ -192,7 +192,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
         let index = Index::from(i);
         param_fn_muts.push(quote! {
             pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
-                // SAFE: systems run without conflicts with other systems.
+                // SAFETY: systems run without conflicts with other systems.
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
@@ -213,13 +213,13 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type Fetch = ParamSetState<(#(#param::Fetch,)*)>;
             }
 
-            // SAFE: All parameters are constrained to ReadOnlyFetch, so World is only read
+            // SAFETY: All parameters are constrained to ReadOnlyFetch, so World is only read
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_fetch,)*)>
             where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
 
-            // SAFE: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+            // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamState for ParamSetState<(#(#param_fetch,)*)>

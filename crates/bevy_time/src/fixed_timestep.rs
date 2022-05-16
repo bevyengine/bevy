@@ -190,7 +190,7 @@ impl System for FixedTimestep {
     }
 
     unsafe fn run_unsafe(&mut self, _input: (), world: &World) -> ShouldRun {
-        // SAFE: this system inherits the internal system's component access and archetype component
+        // SAFETY: this system inherits the internal system's component access and archetype component
         // access, which means the caller has ensured running the internal system is safe
         self.internal_system.run_unsafe((), world)
     }

@@ -289,7 +289,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
         for<'a> QueryFetch<'a, Q>: Clone,
         for<'a> QueryFetch<'a, F>: Clone,
     {
-        // safety: we are limiting the returned reference to self,
+        // SAFETY: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
         unsafe {

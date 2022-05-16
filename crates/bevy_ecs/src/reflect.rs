@@ -47,7 +47,7 @@ impl ReflectComponent {
         world: &'a mut World,
         entity: Entity,
     ) -> Option<ReflectMut<'a>> {
-        // SAFE: unique world access
+        // SAFETY: unique world access
         unsafe { (self.reflect_component_mut)(world, entity) }
     }
 
