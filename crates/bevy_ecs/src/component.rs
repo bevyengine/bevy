@@ -58,7 +58,6 @@ use std::{
 ///     Three,
 ///     Four,
 /// }
-///
 /// ```
 ///
 /// # Component and data access
