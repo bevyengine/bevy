@@ -21,7 +21,7 @@ use super::{QueryFetch, QueryItem, ROQueryFetch, ROQueryItem};
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
     world_id: WorldId,
-    task_pool: Option<TaskPool>,
+    pub(super) task_pool: Option<TaskPool>,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,

@@ -1,5 +1,4 @@
 use crate::world::World;
-use bevy_tasks::TaskPool;
 
 use super::{Fetch, QueryFetch, QueryItem, QueryState, ROQueryFetch, ROQueryItem, WorldQuery};
 
@@ -27,6 +26,8 @@ where
     /// # Panics
     /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
     /// that is being initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each<FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
         let batch_size = match self.batch_size.or_else(|| self.get_default_batch_size()) {
@@ -38,7 +39,6 @@ where
             self.state
                 .par_for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
                     self.world,
-                    &self.task_pool,
                     batch_size,
                     func,
                     self.world.last_change_tick(),
@@ -47,11 +47,13 @@ where
         }
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
     /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
     /// that is being initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
         let batch_size = match self.batch_size.or_else(|| self.get_default_batch_size()) {
@@ -63,7 +65,6 @@ where
             self.state
                 .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                     self.world,
-                    &self.task_pool,
                     batch_size,
                     func,
                     self.world.last_change_tick(),
@@ -72,14 +73,18 @@ where
         }
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    /// Runs `func` on each query result in parallel.
     ///
-    /// This can only be called for read-only queries.
+    /// # Panics
+    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub unsafe fn for_each_unchecked<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
         self,
@@ -92,7 +97,6 @@ where
         self.state
             .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                 self.world,
-                &self.task_pool,
                 batch_size,
                 func,
                 self.world.last_change_tick(),
@@ -101,7 +105,12 @@ where
     }
 
     fn get_default_batch_size(&self) -> Option<usize> {
-        let thread_count = self.task_pool.thread_num();
+        let thread_count = self
+            .state
+            .task_pool
+            .as_ref()
+            .map(|pool| pool.thread_num())
+            .unwrap_or(0);
         assert!(
             thread_count > 0,
             "Attempted to run parallel iteration over a query with an empty TaskPool"

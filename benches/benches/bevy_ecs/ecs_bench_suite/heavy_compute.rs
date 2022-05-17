@@ -29,13 +29,8 @@ impl Benchmark {
             )
         }));
 
-<<<<<<< HEAD
-        fn sys(task_pool: Res<TaskPool>, mut query: Query<(&mut Position, &mut Transform)>) {
-            query.par_iter_mut(&task_pool).for_each_mut(|(mut pos, mut mat)| {
-=======
         fn sys(mut query: Query<(&mut Position, &mut Transform)>) {
-            query.par_for_each_mut(128, |(mut pos, mut mat)| {
->>>>>>> parallel-ergonomics
+            query.par_iter_mut().for_each_mut(|(mut pos, mut mat)| {
                 for _ in 0..100 {
                     mat.0 = mat.0.inverse();
                 }

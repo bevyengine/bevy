@@ -33,7 +33,7 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
     // See the ParallelIterator documentation for more information on when
     // to use or not use ParallelIterator over a normal Iterator.
     sprites
-        .par_iter_mut(&pool)
+        .par_iter_mut()
         .for_each_mut(|(mut transform, velocity)| {
             transform.translation += velocity.extend(0.0);
         });
@@ -51,7 +51,7 @@ fn bounce_system(windows: Res<Windows>, mut sprites: Query<(&Transform, &mut Vel
     // Batch size of 32 is chosen to limit the overhead of
     // ParallelIterator, since negating a vector is very inexpensive.
     sprites
-        .par_iter_mut(&pool)
+        .par_iter_mut()
         .batch_size(32)
         .for_each_mut(|(transform, mut v)| {
             if !(left < transform.translation.x
