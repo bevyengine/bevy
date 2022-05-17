@@ -4,7 +4,7 @@ use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
-use std::{any::TypeId, fmt::Debug, ptr::NonNull, sync::Arc};
+use std::{any::TypeId, fmt::Debug, sync::Arc};
 
 /// A registry of reflected types.
 #[derive(Default)]
@@ -400,12 +400,13 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// let mut type_registry = TypeRegistry::default();
 /// type_registry.register::<Reflected>();
 ///
-/// let value = Reflected("Hello world!".to_string());
+/// let mut value = Reflected("Hello world!".to_string());
+/// let value = unsafe { Ptr::new(NonNull::from(&mut value).cast()) };
 ///
 /// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
 /// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
 /// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
-/// let value = unsafe { reflect_from_ptr.as_reflect(&value) };
+/// let value = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
 ///
 /// assert_eq!(value.downcast_ref::<Reflected>().unwrap().0, "Hello world!");
 /// ```
@@ -437,18 +438,6 @@ impl ReflectFromPtr {
     pub unsafe fn as_reflect_ptr_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
         (self.to_reflect_mut)(val)
     }
-
-    pub fn as_reflect<'a, T: Reflect>(&self, val: &'a T) -> &'a dyn Reflect {
-        assert_eq!(self.type_id, std::any::TypeId::of::<T>());
-        // SAFE: `val` is of type `T`
-        unsafe { &*self.as_reflect_ptr(Ptr::new(NonNull::from(val).cast())) }
-    }
-
-    pub fn as_reflect_mut<'a, T: Reflect>(&self, val: &'a mut T) -> &'a mut dyn Reflect {
-        assert_eq!(self.type_id, std::any::TypeId::of::<T>());
-        // SAFE: `val` is of type `T`
-        unsafe { &mut *self.as_reflect_ptr_mut(PtrMut::new(NonNull::from(val).cast())) }
-    }
 }
 
 impl<T: Reflect> FromType<T> for ReflectFromPtr {
@@ -471,7 +460,10 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 
 #[cfg(test)]
 mod test {
+    use std::ptr::NonNull;
+
     use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
+    use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
@@ -487,23 +479,37 @@ mod test {
         let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
         let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
 
-        let mut value = Foo { a: 1.0 };
+        // not required in this situation because we no nobody messed with the TypeRegistry,
+        // but in the general case somebody could have replaced the ReflectFromPtr with an
+        // instance for another type, so then we'd need to check that the type is the expected one
+        assert_eq!(reflect_from_ptr.type_id(), std::any::TypeId::of::<Foo>());
 
-        let dyn_reflect = reflect_from_ptr.as_reflect_mut(&mut value);
-        match dyn_reflect.reflect_mut() {
-            bevy_reflect::ReflectMut::Struct(strukt) => {
-                strukt.field_mut("a").unwrap().apply(&2.0f32)
+        let mut value = Foo { a: 1.0 };
+        {
+            // SAFETY: lifetime doesn't outlive original value, access is unique
+            let value = unsafe { PtrMut::new(NonNull::from(&mut value).cast()) };
+            // SAFETY: reflect_from_ptr was constructed for the correct type
+            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr_mut(value) };
+            match dyn_reflect.reflect_mut() {
+                bevy_reflect::ReflectMut::Struct(strukt) => {
+                    strukt.field_mut("a").unwrap().apply(&2.0f32)
+                }
+                _ => panic!("invalid reflection"),
             }
-            _ => panic!("invalid reflection"),
         }
 
-        let dyn_reflect = reflect_from_ptr.as_reflect(&value);
-        match dyn_reflect.reflect_ref() {
-            bevy_reflect::ReflectRef::Struct(strukt) => {
-                let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
-                assert_eq!(*a, 2.0);
+        {
+            // SAFETY: lifetime doesn't outlive original value
+            let value = unsafe { Ptr::new(NonNull::from(&mut value).cast()) };
+            // SAFETY: reflect_from_ptr was constructed for the correct type
+            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
+            match dyn_reflect.reflect_ref() {
+                bevy_reflect::ReflectRef::Struct(strukt) => {
+                    let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
+                    assert_eq!(*a, 2.0);
+                }
+                _ => panic!("invalid reflection"),
             }
-            _ => panic!("invalid reflection"),
         }
     }
 
