@@ -250,7 +250,7 @@ fn read_field<'r, 'p>(
                 .field(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
-                    field: field.to_owned().into(), // possibly removable to_owned() ?
+                    field: field.to_owned().into(),
                 })?)
         }
         ReflectRef::TupleStruct(reflect_struct) => {
