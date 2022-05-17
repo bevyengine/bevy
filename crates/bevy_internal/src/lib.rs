@@ -102,6 +102,12 @@ pub mod audio {
     pub use bevy_audio::*;
 }
 
+#[cfg(feature = "bevy_camera")]
+pub mod camera {
+    //! Provides types and plugins for audio playback.
+    pub use bevy_camera::*;
+}
+
 #[cfg(feature = "bevy_core_pipeline")]
 pub mod core_pipeline {
     //! Core render pipeline.

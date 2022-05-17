@@ -19,6 +19,7 @@ members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "errors"]
 default = [
   "animation",
   "bevy_audio",
+  "bevy_camera",
   "bevy_gilrs",
   "bevy_winit",
   "render",
@@ -46,6 +47,7 @@ render = [
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
 bevy_audio = ["bevy_internal/bevy_audio"]
+bevy_camera = ["bevy_internal/bevy_camera"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
@@ -121,9 +123,6 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
-
-# Example crates
-examples_utils = { path = "examples_utils", version = "0.8.0-dev" }
 
 [[example]]
 name = "hello_world"

@@ -1,15 +1,9 @@
-use bevy::input::mouse::MouseMotion;
-use bevy::prelude::*;
-
-/// Simple flying camera plugin.
-/// In order to function, the [`CameraController`] component should be attached to the camera entity.
-pub struct CameraControllerPlugin;
-
-impl Plugin for CameraControllerPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_system(camera_controller).add_system(print_controls);
-    }
-}
+use bevy_core::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_input::{mouse::MouseMotion, prelude::*};
+use bevy_math::prelude::*;
+use bevy_render::prelude::*;
+use bevy_transform::prelude::*;
 
 /// Provides basic movement functionality to the attached camera
 #[derive(Component)]
