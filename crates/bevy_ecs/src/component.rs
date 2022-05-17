@@ -18,7 +18,7 @@ use std::{
 ///
 /// `Component` is a [derivable trait]:
 /// this means that a data type can implement it by simply prepending a `#[derive(Component)]` attribute
-/// to it. It is necessary though that it satisfies the `Send + Sync + 'static` bounds.
+/// to it. However, components must always satisfy the `Send + Sync + 'static` trait bounds.
 ///
 /// In the context of a [`World`], a component instance must belong to a single entity.
 ///
