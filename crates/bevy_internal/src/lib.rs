@@ -104,7 +104,7 @@ pub mod audio {
 
 #[cfg(feature = "bevy_camera")]
 pub mod camera {
-    //! Provides types and plugins for audio playback.
+    //! Provides types and plugins for camera.
     pub use bevy_camera::*;
 }
 
