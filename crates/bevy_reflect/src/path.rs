@@ -279,7 +279,7 @@ fn read_field_mut<'r, 'p>(
                 .field_mut(field)
                 .ok_or(ReflectPathError::InvalidField {
                     index: current_index,
-                    field: field.to_owned().into(), // possibly removable to_owned() ?
+                    field: field.to_owned().into(),
                 })?)
         }
         ReflectMut::TupleStruct(reflect_struct) => {
