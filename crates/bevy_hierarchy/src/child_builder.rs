@@ -167,6 +167,9 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 /// Trait defining how to build children
 pub trait BuildChildren {
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
+    ///
+    /// Compared to [`add_children`][BuildChildren::add_children], this method returns self
+    /// to allow chaining.
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
     ///
