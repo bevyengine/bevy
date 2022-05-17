@@ -25,8 +25,27 @@ use std::{
 ///
 /// # Derive
 ///
-/// This trait can be derived with the [`derive@super::SystemParam`] macro. The only requirement
-/// is that every struct field must also implement `SystemParam`.
+/// This trait can be derived with the [`derive@super::SystemParam`] macro.
+/// This macro only works if each field on the derived struct implements [`SystemParam`].
+/// Note: There are additional requirements on the field types.
+/// See the *Generic `SystemParam`s* section for details and workarounds of the probable
+/// cause if this derive causes an error to be emitted.
+///
+///
+/// The struct for which `SystemParam` is derived must (currently) have exactly
+/// two lifetime parameters.
+/// The first is the lifetime of the world, and the second the lifetime
+/// of the parameter's state.
+///
+/// ## Attributes
+///
+/// `#[system_param(ignore)]`:
+/// Can be added to any field in the struct. Fields decorated with this attribute
+/// will created with the default value upon realisation.
+/// This is most useful for `PhantomData` fields, to ensure that the required lifetimes are
+/// used, as shown in the example.
+///
+/// # Example
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -46,6 +65,30 @@ use std::{
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+///
+/// # Generic `SystemParam`s
+///
+/// When using the derive macro, you may see an error in the form of:
+///
+/// ```text
+/// expected ... [ParamType]
+/// found associated type `<<[ParamType] as SystemParam>::Fetch as SystemParamFetch<'_, '_>>::Item`
+/// ```
+/// where `[ParamType]` is the type of one of your fields.
+/// To solve this error, you can wrap the field of type `[ParamType]` with [`StaticSystemParam`]
+/// (i.e. `StaticSystemParam<[ParamType]>`).
+///
+/// ## Details
+///
+/// The derive macro requires that the [`SystemParam`] implementation of
+/// each field `F`'s [`Fetch`](`SystemParam::Fetch`)'s [`Item`](`SystemParamFetch::Item`) is itself `F`
+/// (ignoring lifetimes for simplicity).
+/// This assumption is due to type inference reasons, so that the derived [`SystemParam`] can be
+/// used as an argument to a function system.
+/// If the compiler cannot validate this property for `[ParamType]`, it will error in the form shown above.
+///
+/// This will most commonly occur when working with `SystemParam`s generically, as the requirement
+/// has not been proven to the compiler.
 pub trait SystemParam: Sized {
     type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
 }
