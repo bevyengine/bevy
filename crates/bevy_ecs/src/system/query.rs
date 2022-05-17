@@ -494,9 +494,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
 
     /// Runs `func` on each query result in parallel.
     #[inline]
-    pub fn par_iter(
-        &mut self,
-    ) -> QueryParIter<'_, '_, Q, ROQueryFetch<'_, Q>, F> {
+    pub fn par_iter(&mut self) -> QueryParIter<'_, '_, Q, ROQueryFetch<'_, Q>, F> {
         QueryParIter {
             world: self.world,
             state: self.state,
@@ -507,9 +505,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
 
     /// Runs `func` on each query result in parallel.
     #[inline]
-    pub fn par_iter_mut(
-        &mut self,
-    ) -> QueryParIter<'_, '_, Q, QueryFetch<'_, Q>, F> {
+    pub fn par_iter_mut(&mut self) -> QueryParIter<'_, '_, Q, QueryFetch<'_, Q>, F> {
         QueryParIter {
             world: self.world,
             state: self.state,

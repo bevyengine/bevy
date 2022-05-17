@@ -5,7 +5,6 @@ use super::{Fetch, QueryFetch, QueryItem, QueryState, ROQueryFetch, ROQueryItem,
 
 pub struct QueryParIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
     pub(crate) world: &'w World,
-    pub(crate) task_pool: TaskPool,
     pub(crate) state: &'s QueryState<Q, F>,
     pub(crate) batch_size: Option<usize>,
     pub(crate) marker_: std::marker::PhantomData<fn() -> QF>,
@@ -20,10 +19,14 @@ where
         self
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    /// Runs `func` on each query result in parallel.
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for
     /// write-queries.
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
     #[inline]
     pub fn for_each<FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
         let batch_size = match self.batch_size.or_else(|| self.get_default_batch_size()) {
@@ -45,6 +48,10 @@ where
     }
 
     /// Runs `func` on each query result in parallel using the given `task_pool`.
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
     #[inline]
     pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
         let batch_size = match self.batch_size.or_else(|| self.get_default_batch_size()) {

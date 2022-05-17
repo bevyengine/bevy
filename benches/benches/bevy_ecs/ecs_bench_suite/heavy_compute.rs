@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_tasks::TaskPool;
+use bevy_tasks::{ComputeTaskPool, TaskPool};
 use glam::*;
 
 #[derive(Component, Copy, Clone)]
@@ -29,8 +29,13 @@ impl Benchmark {
             )
         }));
 
+<<<<<<< HEAD
         fn sys(task_pool: Res<TaskPool>, mut query: Query<(&mut Position, &mut Transform)>) {
             query.par_iter_mut(&task_pool).for_each_mut(|(mut pos, mut mat)| {
+=======
+        fn sys(mut query: Query<(&mut Position, &mut Transform)>) {
+            query.par_for_each_mut(128, |(mut pos, mut mat)| {
+>>>>>>> parallel-ergonomics
                 for _ in 0..100 {
                     mat.0 = mat.0.inverse();
                 }
@@ -39,7 +44,7 @@ impl Benchmark {
             });
         }
 
-        world.insert_resource(TaskPool::default());
+        world.insert_resource(ComputeTaskPool(TaskPool::default()));
         let mut system = IntoSystem::into_system(sys);
         system.initialize(&mut world);
         system.update_archetype_component_access(&world);

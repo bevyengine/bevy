@@ -1,6 +1,6 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
-use bevy::{prelude::*, tasks::prelude::*};
+use bevy::prelude::*;
 use rand::random;
 
 #[derive(Component, Deref)]
@@ -23,11 +23,11 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // Move sprites according to their velocity
-fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &Velocity)>) {
+fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
     // Compute the new location of each sprite in parallel on the
     // ComputeTaskPool
     //
-    // This example is only for demonstrative purposes.  Using a
+    // This example is only for demonstrative purposes. Using a
     // ParallelIterator for an inexpensive operation like addition on only 128
     // elements will not typically be faster than just using a normal Iterator.
     // See the ParallelIterator documentation for more information on when
@@ -40,11 +40,7 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
 }
 
 // Bounce sprites outside the window
-fn bounce_system(
-    pool: Res<ComputeTaskPool>,
-    windows: Res<Windows>,
-    mut sprites: Query<(&Transform, &mut Velocity)>,
-) {
+fn bounce_system(windows: Res<Windows>, mut sprites: Query<(&Transform, &mut Velocity)>) {
     let window = windows.primary();
     let width = window.width();
     let height = window.height();
