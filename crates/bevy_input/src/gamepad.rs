@@ -213,7 +213,7 @@ impl ButtonSettings {
 /// Values that are higher than `positive_high` will be rounded to 1.0.
 /// Values that are in-between `negative_low` and `positive_low` will be rounded to 0.0.
 /// Otherwise, values will be linearly rescaled to fit into the sensitivity range.
-/// For example, a value that is one fourth of the way from positive_low to positive_high will be scaled to 0.25.
+/// For example, a value that is one fourth of the way from `positive_low` to `positive_high` will be scaled to 0.25.
 ///
 /// The valid range is from -1.0 to 1.0, inclusive.
 #[derive(Debug, Clone)]
@@ -253,8 +253,7 @@ impl AxisSettings {
         };
 
         if let Some(old_value) = old_value {
-            if self.delta_bellow_threshold(new_value, old_value)
-            {
+            if self.delta_bellow_threshold(new_value, old_value) {
                 return None;
             }
         }
@@ -263,19 +262,22 @@ impl AxisSettings {
     }
 
     fn delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
-        self.positive_delta_bellow_threshold(new_value, old_value) || self.negative_delta_bellow_threshold(new_value, old_value)
+        self.positive_delta_bellow_threshold(new_value, old_value)
+            || self.negative_delta_bellow_threshold(new_value, old_value)
     }
 
     fn positive_delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
         new_value >= 0.0
-        && old_value >= 0.0
-        && delta(new_value, old_value, self.positive_low, self.positive_high).abs() <= self.threshold
+            && old_value >= 0.0
+            && delta(new_value, old_value, self.positive_low, self.positive_high).abs()
+                <= self.threshold
     }
 
     fn negative_delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
         new_value < 0.0
-        && old_value < 0.0
-        && delta(new_value, old_value, self.negative_low, self.negative_high).abs() <= self.threshold
+            && old_value < 0.0
+            && delta(new_value, old_value, self.negative_low, self.negative_high).abs()
+                <= self.threshold
     }
 }
 
