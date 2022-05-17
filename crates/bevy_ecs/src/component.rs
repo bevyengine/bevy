@@ -14,7 +14,7 @@ use std::{
     mem::needs_drop,
 };
 
-/// A data type that can be associated to an [entity].
+/// A data type that can be used to store data for an [entity].
 ///
 /// `Component` is a [derivable trait]:
 /// this means that a data type can implement it by simply prepending a `#[derive(Component)]` attribute
