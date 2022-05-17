@@ -253,24 +253,29 @@ impl AxisSettings {
         };
 
         if let Some(old_value) = old_value {
-            if (new_value >= 0.0
-                && old_value >= 0.0
-                && (unscale(new_value, self.positive_low, self.positive_high)
-                    - unscale(old_value, self.positive_low, self.positive_high))
-                .abs()
-                    <= self.threshold)
-                || (new_value < 0.0
-                    && old_value < 0.0
-                    && (unscale(new_value, self.negative_low, self.negative_high)
-                        - unscale(old_value, self.negative_low, self.negative_high))
-                    .abs()
-                        <= self.threshold)
+            if self.delta_bellow_threshold(new_value, old_value)
             {
                 return None;
             }
         }
 
         Some(new_value)
+    }
+
+    fn delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
+        self.positive_delta_bellow_threshold(new_value, old_value) || self.negative_delta_bellow_threshold(new_value, old_value)
+    }
+
+    fn positive_delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
+        new_value >= 0.0
+        && old_value >= 0.0
+        && delta(new_value, old_value, self.positive_low, self.positive_high).abs() <= self.threshold
+    }
+
+    fn negative_delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
+        new_value < 0.0
+        && old_value < 0.0
+        && delta(new_value, old_value, self.negative_low, self.negative_high).abs() <= self.threshold
     }
 }
 
@@ -302,15 +307,16 @@ impl ButtonAxisSettings {
         };
 
         if let Some(old_value) = old_value {
-            if (unscale(new_value, self.low, self.high) - unscale(old_value, self.low, self.high))
-                .abs()
-                <= self.threshold
-            {
+            if self.delta_bellow_threshold(new_value, old_value) {
                 return None;
             }
         }
 
         Some(new_value)
+    }
+
+    fn delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
+        delta(new_value, old_value, self.low, self.high).abs() <= self.threshold
     }
 }
 
@@ -322,6 +328,11 @@ fn scale(value: f32, low: f32, high: f32) -> f32 {
 #[inline(always)]
 fn unscale(value: f32, low: f32, high: f32) -> f32 {
     value * (high - low) + low
+}
+
+#[inline(always)]
+fn delta(new_value: f32, old_value: f32, low: f32, high: f32) -> f32 {
+    unscale(new_value, low, high) - unscale(old_value, low, high)
 }
 
 /// Monitors gamepad connection and disconnection events, updating the [`Gamepads`] resource accordingly
