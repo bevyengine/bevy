@@ -170,8 +170,10 @@ pub trait BuildChildren {
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
     ///
-    /// Compared to [`with_children`][BuildChildren::with_children], this method lets you
-    /// return data out of the closure like so:
+    /// Compared to [`with_children`][BuildChildren::with_children], this method returns the
+    /// the value returned from the closure, but doesn't  allow chaining.
+    /// 
+    /// ## Example
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
