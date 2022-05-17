@@ -1000,8 +1000,6 @@ pub fn prepare_lights(
                         height: directional_light_shadow_map.size as u32,
                         transform: spot_view_transform,
                         projection: spot_projection,
-                        near: POINT_LIGHT_NEAR_Z,
-                        far: light.range,
                     },
                     RenderPhase::<Shadow>::default(),
                     LightEntity::Point {
