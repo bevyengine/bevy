@@ -1,14 +1,14 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::{Events, ManualEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
+    event::{Events, ManualEventReader},
     reflect::{ReflectComponent, ReflectMapEntities},
     system::Command,
     world::{Mut, World},
 };
+use bevy_hierarchy::{AddChild, Parent};
 use bevy_reflect::TypeRegistryArc;
-use bevy_transform::{hierarchy::AddChild, prelude::Parent};
 use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
@@ -144,7 +144,7 @@ impl SceneSpawner {
         let mut instance_info = InstanceInfo {
             entity_map: EntityMap::default(),
         };
-        let type_registry = world.get_resource::<TypeRegistryArc>().unwrap().clone();
+        let type_registry = world.resource::<TypeRegistryArc>().clone();
         let type_registry = type_registry.read();
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene =
@@ -242,7 +242,7 @@ impl SceneSpawner {
             match self.spawn_dynamic_sync(world, &scene_handle) {
                 Ok(_) => {}
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
-                    self.dynamic_scenes_to_spawn.push(scene_handle)
+                    self.dynamic_scenes_to_spawn.push(scene_handle);
                 }
                 Err(err) => return Err(err),
             }
@@ -254,7 +254,7 @@ impl SceneSpawner {
             match self.spawn_sync_internal(world, scene_handle, instance_id) {
                 Ok(_) => {}
                 Err(SceneSpawnError::NonExistentRealScene { handle }) => {
-                    self.scenes_to_spawn.push((handle, instance_id))
+                    self.scenes_to_spawn.push((handle, instance_id));
                 }
                 Err(err) => return Err(err),
             }
@@ -311,11 +311,10 @@ impl SceneSpawner {
 
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
-        let scene_asset_events = world
-            .get_resource::<Events<AssetEvent<DynamicScene>>>()
-            .unwrap();
+        let scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
 
         let mut updated_spawned_scenes = Vec::new();
+        let scene_spawner = &mut *scene_spawner;
         for event in scene_spawner
             .scene_asset_event_reader
             .iter(scene_asset_events)

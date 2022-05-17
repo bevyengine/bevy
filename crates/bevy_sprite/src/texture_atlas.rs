@@ -1,4 +1,4 @@
-use crate::Rect;
+use crate::{Anchor, Rect};
 use bevy_asset::Handle;
 use bevy_ecs::component::Component;
 use bevy_math::Vec2;
@@ -21,13 +21,16 @@ pub struct TextureAtlas {
     pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
-#[derive(Component, Debug, Clone, TypeUuid, Reflect)]
-#[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
+#[derive(Component, Debug, Clone, Reflect)]
 pub struct TextureAtlasSprite {
     pub color: Color,
     pub index: usize,
     pub flip_x: bool,
     pub flip_y: bool,
+    /// An optional custom size for the sprite that will be used when rendering, instead of the size
+    /// of the sprite's image in the atlas
+    pub custom_size: Option<Vec2>,
+    pub anchor: Anchor,
 }
 
 impl Default for TextureAtlasSprite {
@@ -37,6 +40,8 @@ impl Default for TextureAtlasSprite {
             color: Color::WHITE,
             flip_x: false,
             flip_y: false,
+            custom_size: None,
+            anchor: Anchor::default(),
         }
     }
 }
@@ -104,7 +109,7 @@ impl TextureAtlas {
                 sprites.push(Rect {
                     min: rect_min,
                     max: Vec2::new(rect_min.x + tile_size.x, rect_min.y + tile_size.y),
-                })
+                });
             }
         }
 

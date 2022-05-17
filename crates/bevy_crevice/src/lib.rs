@@ -3,7 +3,8 @@
     clippy::needless_update,
     clippy::len_without_is_empty,
     clippy::needless_range_loop,
-    clippy::all
+    clippy::all,
+    clippy::doc_markdown
 )]
 /*!
 [![GitHub CI Status](https://github.com/LPGhatguy/crevice/workflows/CI/badge.svg)](https://github.com/LPGhatguy/crevice/actions)

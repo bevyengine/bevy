@@ -13,7 +13,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let storage = storage_path(bevy_ecs_path.clone(), attrs.storage);
+    let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
     ast.generics
         .make_where_clause()
@@ -43,6 +43,10 @@ enum StorageTy {
     SparseSet,
 }
 
+// values for `storage` attribute
+const TABLE: &str = "Table";
+const SPARSE_SET: &str = "SparseSet";
+
 fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let meta_items = bevy_macro_utils::parse_attrs(ast, COMPONENT)?;
 
@@ -58,14 +62,14 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         match meta {
             Meta(NameValue(m)) if m.path == STORAGE => {
                 attrs.storage = match get_lit_str(STORAGE, &m.lit)?.value().as_str() {
-                    "Table" => StorageTy::Table,
-                    "SparseSet" => StorageTy::SparseSet,
+                    TABLE => StorageTy::Table,
+                    SPARSE_SET => StorageTy::SparseSet,
                     s => {
                         return Err(Error::new_spanned(
                             m.lit,
                             format!(
-                                "Invalid storage type `{}`, expected 'table' or 'sparse'.",
-                                s
+                                "Invalid storage type `{}`, expected '{}' or '{}'.",
+                                s, TABLE, SPARSE_SET
                             ),
                         ))
                     }
@@ -92,7 +96,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     Ok(attrs)
 }
 
-fn storage_path(bevy_ecs_path: Path, ty: StorageTy) -> TokenStream2 {
+fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
     let typename = match ty {
         StorageTy::Table => Ident::new("TableStorage", Span::call_site()),
         StorageTy::SparseSet => Ident::new("SparseStorage", Span::call_site()),

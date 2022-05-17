@@ -1,12 +1,12 @@
 use crate as bevy_reflect;
 use crate::{
-    map_partial_eq, serde::Serializable, DynamicMap, FromReflect, FromType, GetTypeRegistration,
-    List, ListIter, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
+    map_partial_eq, serde::Serializable, Array, ArrayIter, DynamicMap, FromReflect, FromType,
+    GetTypeRegistration, List, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
     TypeRegistration,
 };
 
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
-use bevy_utils::{AHashExt, Duration, HashMap, HashSet};
+use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
@@ -28,13 +28,13 @@ impl_reflect_value!(i32(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(i64(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(i128(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(isize(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f32(Serialize, Deserialize));
-impl_reflect_value!(f64(Serialize, Deserialize));
+impl_reflect_value!(f32(PartialEq, Serialize, Deserialize));
+impl_reflect_value!(f64(PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
-impl_reflect_value!(Duration);
+impl_reflect_value!(Duration(Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(u8);
@@ -63,26 +63,32 @@ impl_from_reflect_value!(
 );
 impl_from_reflect_value!(Duration);
 
-impl<T: FromReflect> List for Vec<T> {
+impl<T: FromReflect> Array for Vec<T> {
+    #[inline]
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         <[T]>::get(self, index).map(|value| value as &dyn Reflect)
     }
 
+    #[inline]
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
         <[T]>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
     }
 
+    #[inline]
     fn len(&self) -> usize {
         <[T]>::len(self)
     }
 
-    fn iter(&self) -> ListIter {
-        ListIter {
-            list: self,
+    #[inline]
+    fn iter(&self) -> ArrayIter {
+        ArrayIter {
+            array: self,
             index: 0,
         }
     }
+}
 
+impl<T: FromReflect> List for Vec<T> {
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T>().unwrap_or_else(|value| {
             T::from_reflect(&*value).unwrap_or_else(|| {
@@ -110,6 +116,14 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
         self
     }
 
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         crate::list_apply(self, value);
     }
@@ -128,11 +142,11 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+        Box::new(List::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        None
+        crate::array_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -140,7 +154,7 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
     }
 
     fn serializable(&self) -> Option<Serializable> {
-        None
+        Some(Serializable::Owned(Box::new(SerializeArrayLike(self))))
     }
 }
 
@@ -186,7 +200,7 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     }
 
     fn len(&self) -> usize {
-        HashMap::len(self)
+        Self::len(self)
     }
 
     fn iter(&self) -> MapIter {
@@ -199,7 +213,7 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     fn clone_dynamic(&self) -> DynamicMap {
         let mut dynamic_map = DynamicMap::default();
         dynamic_map.set_name(self.type_name().to_string());
-        for (k, v) in HashMap::iter(self) {
+        for (k, v) in self {
             dynamic_map.insert_boxed(k.clone_value(), v.clone_value());
         }
         dynamic_map
@@ -217,6 +231,14 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
     }
 
     fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
         self
     }
 
@@ -268,8 +290,8 @@ where
     V: Reflect + Clone + for<'de> Deserialize<'de>,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<HashMap<K, V>>();
-        registration.insert::<ReflectDeserialize>(FromType::<HashMap<K, V>>::from_type());
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -290,6 +312,152 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> FromReflect for HashMap<K, V> {
     }
 }
 
+impl<T: Reflect, const N: usize> Array for [T; N] {
+    #[inline]
+    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        <[T]>::get(self, index).map(|value| value as &dyn Reflect)
+    }
+
+    #[inline]
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        <[T]>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        N
+    }
+
+    #[inline]
+    fn iter(&self) -> ArrayIter {
+        ArrayIter {
+            array: self,
+            index: 0,
+        }
+    }
+}
+
+// SAFE: any and any_mut both return self
+unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
+    #[inline]
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Reflect) {
+        crate::array_apply(self, value);
+    }
+
+    #[inline]
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    #[inline]
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Array(self)
+    }
+
+    #[inline]
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Array(self)
+    }
+
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn reflect_hash(&self) -> Option<u64> {
+        crate::array_hash(self)
+    }
+
+    #[inline]
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::array_partial_eq(self, value)
+    }
+
+    #[inline]
+    fn serializable(&self) -> Option<Serializable> {
+        Some(Serializable::Owned(Box::new(SerializeArrayLike(self))))
+    }
+}
+
+impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::Array(ref_array) = reflect.reflect_ref() {
+            let mut temp_vec = Vec::with_capacity(ref_array.len());
+            for field in ref_array.iter() {
+                temp_vec.push(T::from_reflect(field)?);
+            }
+            temp_vec.try_into().ok()
+        } else {
+            None
+        }
+    }
+}
+
+// Supports dynamic serialization for types that implement `Array`.
+struct SerializeArrayLike<'a>(&'a dyn Array);
+
+impl<'a> serde::Serialize for SerializeArrayLike<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        crate::array_serialize(self.0, serializer)
+    }
+}
+
+// TODO:
+// `FromType::from_type` requires `Deserialize<'de>` to be implemented for `T`.
+// Currently serde only supports `Deserialize<'de>` for arrays up to size 32.
+// This can be changed to use const generics once serde utilizes const generics for arrays.
+// Tracking issue: https://github.com/serde-rs/serde/issues/1937
+macro_rules! impl_array_get_type_registration {
+    ($($N:expr)+) => {
+        $(
+            impl<T: Reflect + for<'de> Deserialize<'de>> GetTypeRegistration for [T; $N] {
+                fn get_type_registration() -> TypeRegistration {
+                    let mut registration = TypeRegistration::of::<[T; $N]>();
+                    registration.insert::<ReflectDeserialize>(FromType::<[T; $N]>::from_type());
+                    registration
+                }
+            }
+        )+
+    };
+}
+
+impl_array_get_type_registration! {
+     0  1  2  3  4  5  6  7  8  9
+    10 11 12 13 14 15 16 17 18 19
+    20 21 22 23 24 25 26 27 28 29
+    30 31 32
+}
+
 // SAFE: any and any_mut both return self
 unsafe impl Reflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
@@ -301,6 +469,14 @@ unsafe impl Reflect for Cow<'static, str> {
     }
 
     fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
         self
     }
 
@@ -362,5 +538,76 @@ impl GetTypeRegistration for Cow<'static, str> {
 impl FromReflect for Cow<'static, str> {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
         Some(reflect.any().downcast_ref::<Cow<'static, str>>()?.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Reflect;
+    use bevy_utils::HashMap;
+    use std::f32::consts::{PI, TAU};
+
+    #[test]
+    fn can_serialize_duration() {
+        assert!(std::time::Duration::ZERO.serializable().is_some());
+    }
+
+    #[test]
+    fn should_partial_eq_i32() {
+        let a: &dyn Reflect = &123_i32;
+        let b: &dyn Reflect = &123_i32;
+        let c: &dyn Reflect = &321_i32;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_f32() {
+        let a: &dyn Reflect = &PI;
+        let b: &dyn Reflect = &PI;
+        let c: &dyn Reflect = &TAU;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_string() {
+        let a: &dyn Reflect = &String::from("Hello");
+        let b: &dyn Reflect = &String::from("Hello");
+        let c: &dyn Reflect = &String::from("World");
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_vec() {
+        let a: &dyn Reflect = &vec![1, 2, 3];
+        let b: &dyn Reflect = &vec![1, 2, 3];
+        let c: &dyn Reflect = &vec![3, 2, 1];
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_hash_map() {
+        let mut a = HashMap::new();
+        a.insert(0usize, 1.23_f64);
+        let b = a.clone();
+        let mut c = HashMap::new();
+        c.insert(0usize, 3.21_f64);
+
+        let a: &dyn Reflect = &a;
+        let b: &dyn Reflect = &b;
+        let c: &dyn Reflect = &c;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_not_partial_eq_option() {
+        // Option<T> does not contain a `PartialEq` implementation, so it should return `None`
+        let a: &dyn Reflect = &Some(123);
+        let b: &dyn Reflect = &Some(123);
+        assert_eq!(None, a.reflect_partial_eq(b));
     }
 }

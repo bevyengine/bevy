@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::{Component, ReflectComponent};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 
 type LayerMask = u32;
@@ -20,7 +21,7 @@ pub type Layer = u8;
 ///
 /// Entities without this component belong to layer `0`.
 #[derive(Component, Copy, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
-#[reflect(Component, PartialEq)]
+#[reflect(Component, Default, PartialEq)]
 pub struct RenderLayers(LayerMask);
 
 impl std::fmt::Debug for RenderLayers {
@@ -49,17 +50,17 @@ impl RenderLayers {
     pub const TOTAL_LAYERS: usize = std::mem::size_of::<LayerMask>() * 8;
 
     /// Create a new `RenderLayers` belonging to the given layer.
-    pub fn layer(n: Layer) -> Self {
+    pub const fn layer(n: Layer) -> Self {
         RenderLayers(0).with(n)
     }
 
     /// Create a new `RenderLayers` that belongs to all layers.
-    pub fn all() -> Self {
+    pub const fn all() -> Self {
         RenderLayers(u32::MAX)
     }
 
     /// Create a new `RenderLayers` that belongs to no layers.
-    pub fn none() -> Self {
+    pub const fn none() -> Self {
         RenderLayers(0)
     }
 
@@ -75,8 +76,9 @@ impl RenderLayers {
     ///
     /// # Panics
     /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
-    pub fn with(mut self, layer: Layer) -> Self {
-        assert!(usize::from(layer) < Self::TOTAL_LAYERS);
+    #[must_use]
+    pub const fn with(mut self, layer: Layer) -> Self {
+        assert!((layer as usize) < Self::TOTAL_LAYERS);
         self.0 |= 1 << layer;
         self
     }
@@ -85,8 +87,9 @@ impl RenderLayers {
     ///
     /// # Panics
     /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
-    pub fn without(mut self, layer: Layer) -> Self {
-        assert!(usize::from(layer) < Self::TOTAL_LAYERS);
+    #[must_use]
+    pub const fn without(mut self, layer: Layer) -> Self {
+        assert!((layer as usize) < Self::TOTAL_LAYERS);
         self.0 &= !(1 << layer);
         self
     }
@@ -173,6 +176,6 @@ mod rendering_mask_tests {
             RenderLayers::from_layers(&[0, 1, 2]),
             <RenderLayers as std::iter::FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
             "from_layers and from_iter are equivalent"
-        )
+        );
     }
 }

@@ -5,6 +5,39 @@ use raw_window_handle::RawWindowHandle;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
 
+/// Presentation mode for a window.
+///
+/// The presentation mode specifies when a frame is presented to the window. The `Fifo`
+/// option corresponds to a traditional `VSync`, where the framerate is capped by the
+/// display refresh rate. Both `Immediate` and `Mailbox` are low-latency and are not
+/// capped by the refresh rate, but may not be available on all platforms. Tearing
+/// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
+/// `Fifo`.
+///
+/// `Immediate` or `Mailbox` will gracefully fallback to `Fifo` when unavailable.
+///
+/// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor::present_mode)
+/// or updated on a [`Window`](Window::set_present_mode).
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[doc(alias = "vsync")]
+pub enum PresentMode {
+    /// The presentation engine does **not** wait for a vertical blanking period and
+    /// the request is presented immediately. This is a low-latency presentation mode,
+    /// but visible tearing may be observed. Will fallback to `Fifo` if unavailable on the
+    /// selected platform and backend. Not optimal for mobile.
+    Immediate = 0,
+    /// The presentation engine waits for the next vertical blanking period to update
+    /// the current image, but frames may be submitted without delay. This is a low-latency
+    /// presentation mode and visible tearing will **not** be observed. Will fallback to `Fifo`
+    /// if unavailable on the selected platform and backend. Not optimal for mobile.
+    Mailbox = 1,
+    /// The presentation engine waits for the next vertical blanking period to update
+    /// the current image. The framerate will be capped at the display refresh rate,
+    /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
+    Fifo = 2, // NOTE: The explicit ordinal values mirror wgpu and the vulkan spec.
+}
+
 impl WindowId {
     pub fn new() -> Self {
         WindowId(Uuid::new_v4())
@@ -62,7 +95,8 @@ impl Default for WindowResizeConstraints {
 }
 
 impl WindowResizeConstraints {
-    pub fn check_constraints(&self) -> WindowResizeConstraints {
+    #[must_use]
+    pub fn check_constraints(&self) -> Self {
         let WindowResizeConstraints {
             mut min_width,
             mut min_height,
@@ -121,7 +155,7 @@ pub struct Window {
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
     title: String,
-    vsync: bool,
+    present_mode: PresentMode,
     resizable: bool,
     decorations: bool,
     cursor_icon: CursorIcon,
@@ -152,8 +186,8 @@ pub enum WindowCommand {
         logical_resolution: (f32, f32),
         scale_factor: f64,
     },
-    SetVsync {
-        vsync: bool,
+    SetPresentMode {
+        present_mode: PresentMode,
     },
     SetResizable {
         resizable: bool,
@@ -185,6 +219,7 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
+    Close,
 }
 
 /// Defines the way a window is displayed
@@ -222,7 +257,7 @@ impl Window {
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
-            vsync: window_descriptor.vsync,
+            present_mode: window_descriptor.present_mode,
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
@@ -256,7 +291,7 @@ impl Window {
     }
 
     /// The requested window client area width in logical pixels from window
-    /// creation or the last call to [set_resolution](Window::set_resolution).
+    /// creation or the last call to [`set_resolution`](Window::set_resolution).
     ///
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
@@ -266,7 +301,7 @@ impl Window {
     }
 
     /// The requested window client area height in logical pixels from window
-    /// creation or the last call to [set_resolution](Window::set_resolution).
+    /// creation or the last call to [`set_resolution`](Window::set_resolution).
     ///
     /// This may differ from the actual width depending on OS size limits and
     /// the scaling factor for high DPI monitors.
@@ -332,7 +367,7 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, position: IVec2) {
         self.command_queue
-            .push(WindowCommand::SetPosition { position })
+            .push(WindowCommand::SetPosition { position });
     }
 
     /// Modifies the minimum and maximum window bounds for resizing in logical pixels.
@@ -403,7 +438,7 @@ impl Window {
     }
 
     /// The window scale factor as reported by the window backend.
-    /// This value is unaffected by scale_factor_override.
+    /// This value is unaffected by [`scale_factor_override`](Window::scale_factor_override).
     #[inline]
     pub fn backend_scale_factor(&self) -> f64 {
         self.backend_scale_factor
@@ -425,14 +460,17 @@ impl Window {
     }
 
     #[inline]
-    pub fn vsync(&self) -> bool {
-        self.vsync
+    #[doc(alias = "vsync")]
+    pub fn present_mode(&self) -> PresentMode {
+        self.present_mode
     }
 
     #[inline]
-    pub fn set_vsync(&mut self, vsync: bool) {
-        self.vsync = vsync;
-        self.command_queue.push(WindowCommand::SetVsync { vsync });
+    #[doc(alias = "set_vsync")]
+    pub fn set_present_mode(&mut self, present_mode: PresentMode) {
+        self.present_mode = present_mode;
+        self.command_queue
+            .push(WindowCommand::SetPresentMode { present_mode });
     }
 
     #[inline]
@@ -534,6 +572,21 @@ impl Window {
         });
     }
 
+    /// Close the operating system window corresponding to this [`Window`].  
+    /// This will also lead to this [`Window`] being removed from the
+    /// [`Windows`] resource.
+    ///
+    /// If the default [`WindowPlugin`] is used, when no windows are
+    /// open, the [app will exit](bevy_app::AppExit).  
+    /// To disable this behaviour, set `exit_on_all_closed` on the [`WindowPlugin`]
+    /// to `false`
+    ///
+    /// [`Windows`]: crate::Windows
+    /// [`WindowPlugin`]: crate::WindowPlugin
+    pub fn close(&mut self) {
+        self.command_queue.push(WindowCommand::Close);
+    }
+
     #[inline]
     pub fn drain_commands(&mut self) -> impl Iterator<Item = WindowCommand> + '_ {
         self.command_queue.drain(..)
@@ -557,7 +610,8 @@ pub struct WindowDescriptor {
     pub resize_constraints: WindowResizeConstraints,
     pub scale_factor_override: Option<f64>,
     pub title: String,
-    pub vsync: bool,
+    #[doc(alias = "vsync")]
+    pub present_mode: PresentMode,
     pub resizable: bool,
     pub decorations: bool,
     pub cursor_visible: bool,
@@ -578,13 +632,13 @@ pub struct WindowDescriptor {
 impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
-            title: "bevy".to_string(),
+            title: "app".to_string(),
             width: 1280.,
             height: 720.,
             position: None,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
-            vsync: true,
+            present_mode: PresentMode::Fifo,
             resizable: true,
             decorations: true,
             cursor_locked: false,

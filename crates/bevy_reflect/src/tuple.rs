@@ -1,15 +1,48 @@
+use crate::{
+    serde::Serializable, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
+    ReflectMut, ReflectRef, TypeRegistration,
+};
+use serde::Deserialize;
 use std::any::Any;
 
-use crate::{serde::Serializable, FromReflect, Reflect, ReflectMut, ReflectRef};
-
+/// A reflected Rust tuple.
+///
+/// This trait is automatically implemented for arbitrary tuples of up to 12
+/// elements, provided that each element implements [`Reflect`].
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::Tuple;
+///
+/// # fn main() {
+/// let foo = ("blue".to_string(), 42_i32);
+/// assert_eq!(foo.field_len(), 2);
+///
+/// let first = foo.field(0).unwrap();
+/// assert_eq!(first.downcast_ref::<String>(), Some(&"blue".to_string()));
+/// # }
+/// ```
 pub trait Tuple: Reflect {
+    /// Returns a reference to the value of the field with index `index` as a
+    /// `&dyn Reflect`.
     fn field(&self, index: usize) -> Option<&dyn Reflect>;
+
+    /// Returns a mutable reference to the value of the field with index `index`
+    /// as a `&mut dyn Reflect`.
     fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+
+    /// Returns the number of fields in the tuple.
     fn field_len(&self) -> usize;
+
+    /// Returns an iterator over the values of the tuple's fields.
     fn iter_fields(&self) -> TupleFieldIter;
+
+    /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
 }
 
+/// An iterator over the field values of a tuple.
 pub struct TupleFieldIter<'a> {
     pub(crate) tuple: &'a dyn Tuple,
     pub(crate) index: usize,
@@ -41,8 +74,28 @@ impl<'a> Iterator for TupleFieldIter<'a> {
 
 impl<'a> ExactSizeIterator for TupleFieldIter<'a> {}
 
+/// A convenience trait which combines fetching and downcasting of tuple
+/// fields.
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::GetTupleField;
+///
+/// # fn main() {
+/// let foo = ("blue".to_string(), 42_i32);
+///
+/// assert_eq!(foo.get_field::<String>(0), Some(&"blue".to_string()));
+/// assert_eq!(foo.get_field::<i32>(1), Some(&42));
+/// # }
+/// ```
 pub trait GetTupleField {
+    /// Returns a reference to the value of the field with index `index`,
+    /// downcast to `T`.
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T>;
+
+    /// Returns a mutable reference to the value of the field with index
+    /// `index`, downcast to `T`.
     fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T>;
 }
 
@@ -70,6 +123,7 @@ impl GetTupleField for dyn Tuple {
     }
 }
 
+/// A tuple which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicTuple {
     name: String,
@@ -77,19 +131,27 @@ pub struct DynamicTuple {
 }
 
 impl DynamicTuple {
+    /// Returns the type name of the tuple.
+    ///
+    /// The tuple's name is automatically generated from its element types.
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Manually sets the type name of the tuple.
+    ///
+    /// Note that the tuple name will be overwritten when elements are added.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
 
+    /// Appends an element with value `value` to the tuple.
     pub fn insert_boxed(&mut self, value: Box<dyn Reflect>) {
         self.fields.push(value);
         self.generate_name();
     }
 
+    /// Appends a typed element with value `value` to the tuple.
     pub fn insert<T: Reflect>(&mut self, value: T) {
         self.insert_boxed(Box::new(value));
         self.generate_name();
@@ -164,6 +226,16 @@ unsafe impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -200,12 +272,17 @@ unsafe impl Reflect for DynamicTuple {
     }
 }
 
+/// Applies the elements of `b` to the corresponding elements of `a`.
+///
+/// # Panics
+///
+/// This function panics if `b` is not a tuple.
 #[inline]
 pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
         for (i, value) in tuple.iter_fields().enumerate() {
             if let Some(v) = a.field_mut(i) {
-                v.apply(value)
+                v.apply(value);
             }
         }
     } else {
@@ -213,6 +290,12 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     }
 }
 
+/// Compares a [`Tuple`] with a [`Reflect`] value.
+///
+/// Returns true if and only if all of the following are true:
+/// - `b` is a tuple;
+/// - `b` has the same number of elements as `a`;
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     let b = if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
@@ -296,6 +379,14 @@ macro_rules! impl_reflect_tuple {
                 self
             }
 
+            fn as_reflect(&self) -> &dyn Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+                self
+            }
+
             fn apply(&mut self, value: &dyn Reflect) {
                 crate::tuple_apply(self, value);
             }
@@ -327,6 +418,14 @@ macro_rules! impl_reflect_tuple {
 
             fn serializable(&self) -> Option<Serializable> {
                 None
+            }
+        }
+
+        impl<$($name: Reflect + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+            fn get_type_registration() -> TypeRegistration {
+                let mut registration = TypeRegistration::of::<($($name,)*)>();
+                registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());
+                registration
             }
         }
 

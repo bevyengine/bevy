@@ -2,7 +2,7 @@ use libloading::{Library, Symbol};
 
 use bevy_app::{App, CreatePlugin, Plugin};
 
-/// Dynamically links a plugin a the given path. The plugin must export a function with the
+/// Dynamically links a plugin at the given path. The plugin must export a function with the
 /// [`CreatePlugin`] signature named `_bevy_create_plugin`.
 ///
 /// # Safety

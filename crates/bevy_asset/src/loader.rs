@@ -47,11 +47,13 @@ impl<T: Asset> LoadedAsset<T> {
         self.dependencies.push(asset_path.to_owned());
     }
 
+    #[must_use]
     pub fn with_dependency(mut self, asset_path: AssetPath) -> Self {
         self.add_dependency(asset_path);
         self
     }
 
+    #[must_use]
     pub fn with_dependencies(mut self, mut asset_paths: Vec<AssetPath<'static>>) -> Self {
         for asset_path in asset_paths.drain(..) {
             self.add_dependency(asset_path);
@@ -132,7 +134,7 @@ impl<'a> LoadContext<'a> {
 
     pub fn get_asset_metas(&self) -> Vec<AssetMeta> {
         let mut asset_metas = Vec::new();
-        for (label, asset) in self.labeled_assets.iter() {
+        for (label, asset) in &self.labeled_assets {
             asset_metas.push(AssetMeta {
                 dependencies: asset.dependencies.clone(),
                 label: label.clone(),
@@ -145,6 +147,10 @@ impl<'a> LoadContext<'a> {
     pub fn task_pool(&self) -> &TaskPool {
         self.task_pool
     }
+
+    pub fn asset_io(&self) -> &dyn AssetIo {
+        self.asset_io
+    }
 }
 
 /// The result of loading an asset of type `T`
@@ -155,7 +161,7 @@ pub struct AssetResult<T> {
     pub version: usize,
 }
 
-/// A channel to send and receive [AssetResult]s
+/// A channel to send and receive [`AssetResult`]s
 #[derive(Debug)]
 pub struct AssetLifecycleChannel<T> {
     pub sender: Sender<AssetLifecycleEvent<T>>,
@@ -182,7 +188,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                     id,
                     version,
                 }))
-                .unwrap()
+                .unwrap();
         } else {
             panic!(
                 "Failed to downcast asset to {}.",
@@ -203,7 +209,7 @@ impl<T> Default for AssetLifecycleChannel<T> {
     }
 }
 
-/// Updates the [Assets] collection according to the changes queued up by [AssetServer].
+/// Updates the [`Assets`] collection according to the changes queued up by [`AssetServer`].
 pub fn update_asset_storage_system<T: Asset + AssetDynamic>(
     asset_server: Res<AssetServer>,
     assets: ResMut<Assets<T>>,
