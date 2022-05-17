@@ -16,11 +16,10 @@ use std::{
 
 /// A data type that can be used to store data for an [entity].
 ///
-/// `Component` is a [derivable trait]:
-/// this means that a data type can implement it by simply prepending a `#[derive(Component)]` attribute
-/// to it. However, components must always satisfy the `Send + Sync + 'static` trait bounds.
+/// Each component instance is owned by exactly one entity; data is not deduplicated in any fashion.
 ///
-/// In the context of a [`World`], a component instance must belong to a single entity.
+/// `Component` is a [derivable trait]: this means that a data type can implement it by simply prepending a `#[derive(Component)]` attribute to it.
+/// However, components must always satisfy the `Send + Sync + 'static` trait bounds.
 ///
 /// [entity]: crate::entity
 /// [derivable trait]: https://doc.rust-lang.org/book/appendix-03-derivable-traits.html
