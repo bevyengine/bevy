@@ -169,6 +169,32 @@ pub trait BuildChildren {
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
+    ///
+    /// Compared to [`with_children`][BuildChildren::with_children], this method lets you
+    /// return data out of the closure like so:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_hierarchy::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct SomethingElse;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct MoreStuff;
+    /// #
+    /// # fn foo(mut commands: Commands) {
+    ///     let mut parent_commands = commands.spawn();
+    ///     let child_id = parent_commands.add_children(|parent| {
+    ///         parent.spawn().id()
+    ///     });
+    ///
+    ///     parent_commands.insert(SomethingElse);
+    ///     commands.entity(child_id).with_children(|parent| {
+    ///         parent.spawn().insert(MoreStuff);
+    ///     });
+    /// # }
+    /// ```
     fn add_children<T>(&mut self, f: impl FnOnce(&mut ChildBuilder) -> T) -> T;
     /// Pushes children to the back of the builder's children
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
