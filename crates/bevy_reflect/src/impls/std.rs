@@ -159,10 +159,6 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
     }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
-    }
 }
 
 impl<T: FromReflect> Typed for Vec<T> {
