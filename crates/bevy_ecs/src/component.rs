@@ -27,9 +27,8 @@ use std::{
 ///
 /// # Examples
 ///
-/// Components can take many forms: they are usually structs, but can also be of every other kind of
-/// data type, like enums or zero sized types. The following examples show how components are laid out
-/// in code.
+/// Components can take many forms: they are usually structs, but can also be of every other kind of data type, like enums or zero sized types.
+/// The following examples show how components are laid out in code.
 ///
 /// ```
 /// # use bevy_ecs::component::Component;
@@ -64,8 +63,7 @@ use std::{
 ///
 /// See the [`entity`] module level documentation to learn how to add or remove components from an entity.
 ///
-/// See the documentation for [`Query`] to learn how to access component data
-/// from a system.
+/// See the documentation for [`Query`] to learn how to access component data from a system.
 ///
 /// [`entity`]: crate::entity#usage
 /// [`Query`]: crate::system::Query
@@ -74,7 +72,8 @@ use std::{
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
 /// This means that it is not possible to directly have a type defined in a third party library as a component.
-/// This important limitation can be easily worked around using the [newtype pattern]: this makes possible to locally define and implement `Component` for a tuple struct that wraps the foreign type.
+/// This important limitation can be easily worked around using the [newtype pattern]:
+/// this makes possible to locally define and implement `Component` for a tuple struct that wraps the foreign type.
 /// The following example gives a demonstration of this pattern.
 ///
 /// ```

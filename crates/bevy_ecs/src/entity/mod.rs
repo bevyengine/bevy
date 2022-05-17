@@ -1,7 +1,6 @@
 //! Entity handling types.
 //!
-//! An **entity** exclusively owns zero or more [component] instances, all of different
-//! types, and can dynamically acquire or lose them over its lifetime.
+//! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
 //!
 //! See [`Entity`] to learn more.
 //!
@@ -9,7 +8,8 @@
 //!
 //! # Usage
 //!
-//! Operations involving entities and their components are performed either from a system by submitting commands, or from the outside (or from an exclusive system), by directly using [`World`] methods:
+//! Operations involving entities and their components are performed either from a system by submitting commands,
+//! or from the outside (or from an exclusive system) by directly using [`World`] methods:
 //!
 //! |Operation|Command|Method|
 //! |:---:|:---:|:---:|
@@ -48,9 +48,8 @@ use std::{
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
-/// The identifier is implemented using a [generational index]: a combination of an ID and a
-/// generation. This allows fast insertion after data removal in an array while minimizing loss of
-/// spatial locality.
+/// The identifier is implemented using a [generational index]: a combination of an ID and a generation.
+/// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
 ///
@@ -78,8 +77,7 @@ use std::{
 /// # bevy_ecs::system::IntoExclusiveSystem::exclusive_system(exclusive_system);
 /// ```
 ///
-/// It can be used to refer to a specific entity to apply [`EntityCommands`], and to call
-/// [`Query::get`] (or similar methods) to access its components.
+/// It can be used to refer to a specific entity to apply [`EntityCommands`], and to call [`Query::get`] (or similar methods) to access its components.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
