@@ -60,6 +60,8 @@ use std::{
 /// This data type is returned by iterating a `Query` with an `Entity` [`WorldQuery`] parameter ([learn more]).
 /// It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
 ///
+/// [`WorldQuery`]: crate::query::WorldQuery
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
