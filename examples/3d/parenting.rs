@@ -1,8 +1,7 @@
 //! Illustrates how to create parent-child relationships between entities and how parent transforms
 //! are propagated to their descendants.
 
-use bevy::prelude::*;
-use examples_utils::camera::{CameraController, CameraControllerPlugin};
+use bevy::{camera::CameraControllerPlugin, prelude::*};
 
 fn main() {
     App::new()

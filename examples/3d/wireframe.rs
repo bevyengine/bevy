@@ -1,11 +1,11 @@
 //! Showcases wireframe rendering.
 
 use bevy::{
+    camera::CameraControllerPlugin,
     pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{render_resource::WgpuFeatures, settings::WgpuSettings},
 };
-use examples_utils::camera::{CameraController, CameraControllerPlugin};
 
 fn main() {
     App::new()

@@ -1,7 +1,6 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
-use bevy::prelude::*;
-use examples_utils::camera::{CameraController, CameraControllerPlugin};
+use bevy::{camera::CameraControllerPlugin, prelude::*};
 
 fn main() {
     App::new()

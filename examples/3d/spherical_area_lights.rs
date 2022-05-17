@@ -1,7 +1,6 @@
 //! Demonstrates how lighting is affected by different radius of point lights.
 
-use bevy::prelude::*;
-use examples_utils::camera::{CameraController, CameraControllerPlugin};
+use bevy::{camera::CameraControllerPlugin, prelude::*};
 
 fn main() {
     App::new()

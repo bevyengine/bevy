@@ -1,10 +1,10 @@
 //! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
 
 use bevy::{
+    camera::CameraControllerPlugin,
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
-use examples_utils::camera::{CameraController, CameraControllerPlugin};
 
 fn main() {
     println!(

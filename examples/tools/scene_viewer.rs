@@ -6,6 +6,7 @@
 
 use bevy::{
     asset::{AssetServerSettings, LoadState},
+    camera::CameraControllerPlugin,
     gltf::Gltf,
     math::Vec3A,
     prelude::*,
@@ -15,7 +16,6 @@ use bevy::{
     },
     scene::InstanceId,
 };
-use examples_utils::camera::{CameraController, CameraControllerPlugin};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 struct CameraControllerCheckSystem;

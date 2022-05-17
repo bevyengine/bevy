@@ -1,7 +1,6 @@
 //! Demonstrates how shadow biases affect shadows in a 3d scene.
 
-use bevy::prelude::*;
-use examples_utils::camera::{CameraController, CameraControllerPlugin};
+use bevy::{camera::CameraControllerPlugin, prelude::*};
 
 fn main() {
     println!(

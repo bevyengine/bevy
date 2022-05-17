@@ -6,8 +6,7 @@
 //! Ultimately we plan on supporting whatever is natively supported on a given device.
 //! Check out [this issue](https://github.com/gfx-rs/wgpu/issues/1832) for more info.
 
-use bevy::prelude::*;
-use examples_utils::camera::{CameraController, CameraControllerPlugin};
+use bevy::{camera::CameraControllerPlugin, prelude::*};
 
 fn main() {
     App::new()
