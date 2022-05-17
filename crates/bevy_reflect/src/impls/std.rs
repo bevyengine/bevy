@@ -291,9 +291,9 @@ where
     V: Reflect + Clone + for<'de> Deserialize<'de>,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        let mut registration = TypeRegistration::of::<HashMap<K, V>>();
+        registration.insert::<ReflectDeserialize>(FromType::<HashMap<K, V>>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<HashMap<K, V>>::from_type());
         registration
     }
 }
