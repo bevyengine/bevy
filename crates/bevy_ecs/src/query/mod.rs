@@ -2,12 +2,14 @@ mod access;
 mod fetch;
 mod filter;
 mod iter;
+mod par_iter;
 mod state;
 
 pub use access::*;
 pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
+pub use par_iter::*;
 pub use state::*;
 
 #[allow(unreachable_code)]

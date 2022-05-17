@@ -3,11 +3,10 @@ use crate::{
     entity::Entity,
     query::{
         NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
-        QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
+        QueryParIter, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
-use bevy_tasks::TaskPool;
 use std::{any::TypeId, fmt::Debug};
 
 /// Provides scoped access to components in a [`World`].
@@ -493,66 +492,30 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each query result in parallel using the given [`TaskPool`].
-    ///
-    /// This can only be called for immutable data, see [`Self::par_for_each_mut`] for
-    /// mutable access.
-    ///
-    /// # Tasks and batch size
-    ///
-    /// The items in the query get sorted into batches.
-    /// Internally, this function spawns a group of futures that each take on a `batch_size` sized section of the items (or less if the division is not perfect).
-    /// Then, the tasks in the [`TaskPool`] work through these futures.
-    ///
-    /// You can use this value to tune between maximum multithreading ability (many small batches) and minimum parallelization overhead (few big batches).
-    /// Rule of thumb: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
-    /// If the body is computationally cheap and you have many items, a large batch size (=fewer batches) avoids spawning additional futures that don't help to even out the load.
-    ///
-    /// # Arguments
-    ///
-    ///* `task_pool` - The [`TaskPool`] to use
-    ///* `batch_size` - The number of batches to spawn
-    ///* `f` - The function to run on each item in the query
+    /// Runs `func` on each query result in parallel.
     #[inline]
-    pub fn par_for_each<'this>(
-        &'this self,
-        task_pool: &TaskPool,
-        f: impl Fn(ROQueryItem<'this, Q>) + Send + Sync + Clone,
-    ) {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime
-        // borrow checks when they conflict
-        unsafe {
-            self.state
-                .par_for_each_unchecked_manual::<ROQueryFetch<Q>, _>(
-                    self.world,
-                    task_pool,
-                    f,
-                    self.last_change_tick,
-                    self.change_tick,
-                );
-        };
+    pub fn par_iter(
+        &mut self,
+    ) -> QueryParIter<'_, '_, Q, ROQueryFetch<'_, Q>, F> {
+        QueryParIter {
+            world: self.world,
+            state: self.state,
+            batch_size: None,
+            marker_: std::marker::PhantomData,
+        }
     }
 
-    /// Runs `f` on each query result in parallel using the given [`TaskPool`].
-    /// See [`Self::par_for_each`] for more details.
+    /// Runs `func` on each query result in parallel.
     #[inline]
-    pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, Q>) + Send + Sync + Clone>(
-        &'a mut self,
-        task_pool: &TaskPool,
-        f: FN,
-    ) {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime
-        // borrow checks when they conflict
-        unsafe {
-            self.state
-                .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
-                    self.world,
-                    task_pool,
-                    f,
-                    self.last_change_tick,
-                    self.change_tick,
-                )
-        };
+    pub fn par_iter_mut(
+        &mut self,
+    ) -> QueryParIter<'_, '_, Q, QueryFetch<'_, Q>, F> {
+        QueryParIter {
+            world: self.world,
+            state: self.state,
+            batch_size: None,
+            marker_: std::marker::PhantomData,
+        }
     }
 
     /// Returns the query result for the given [`Entity`].

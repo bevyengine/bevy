@@ -5,12 +5,11 @@ use crate::{
     prelude::FromWorld,
     query::{
         Access, Fetch, FetchState, FilteredAccess, NopFetch, QueryCombinationIter, QueryIter,
-        WorldQuery,
+        QueryParIter, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
 };
-use bevy_tasks::TaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
@@ -685,74 +684,34 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         );
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
-    ///
-    /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
-    /// write-queries.
+    /// Runs `func` on each query result in parallel.
     #[inline]
-    pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
-        &mut self,
+    pub fn par_iter<'w, 's>(
+        &'s mut self,
         world: &'w World,
-        task_pool: &TaskPool,
-        func: FN,
-    ) {
-        // SAFETY: query is read only
-        unsafe {
-            self.update_archetypes(world);
-            self.par_for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
-                world,
-                task_pool,
-                func,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            );
-        }
-    }
-
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
-    #[inline]
-    pub fn par_for_each_mut<'w, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
-        &mut self,
-        world: &'w mut World,
-        task_pool: &TaskPool,
-        func: FN,
-    ) {
-        // SAFETY: query has unique world access
-        unsafe {
-            self.update_archetypes(world);
-            self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
-                world,
-                task_pool,
-                func,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            );
-        }
-    }
-
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
-    ///
-    /// This can only be called for read-only queries.
-    ///
-    /// # Safety
-    ///
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    #[inline]
-    pub unsafe fn par_for_each_unchecked<'w, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
-        &mut self,
-        world: &'w World,
-        task_pool: &TaskPool,
-        func: FN,
-    ) {
+    ) -> QueryParIter<'w, 's, Q, ROQueryFetch<'w, Q>, F> {
         self.update_archetypes(world);
-        self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
+        QueryParIter {
             world,
-            task_pool,
-            func,
-            world.last_change_tick(),
-            world.read_change_tick(),
-        );
+            state: self,
+            batch_size: None,
+            marker_: std::marker::PhantomData,
+        }
+    }
+
+    /// Runs `func` on each query result in parallel.
+    #[inline]
+    pub fn par_iter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> QueryParIter<'w, 's, Q, QueryFetch<'w, Q>, F> {
+        self.update_archetypes(world);
+        QueryParIter {
+            world,
+            state: self,
+            batch_size: None,
+            marker_: std::marker::PhantomData,
+        }
     }
 
     /// Runs `func` on each query result for the given [`World`], where the last change and
@@ -837,33 +796,11 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         task_pool: &TaskPool,
+        batch_size: usize,
         func: FN,
         last_change_tick: u32,
         change_tick: u32,
     ) {
-        let thread_count = task_pool.thread_num();
-        assert!(
-            thread_count > 0,
-            "Attempted to run parallel iteration over a query with an empty TaskPool"
-        );
-        let max_size = if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
-            let tables = &world.storages().tables;
-            self.matched_table_ids
-                .iter()
-                .map(|id| tables[*id].len())
-                .max()
-        } else {
-            let archetypes = &world.archetypes();
-            self.matched_archetype_ids
-                .iter()
-                .map(|id| archetypes[*id].len())
-                .max()
-        };
-        let batch_size = match max_size {
-            Some(max) => max / thread_count,
-            None => return,
-        };
-        let batch_size = batch_size.max(1);
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {
