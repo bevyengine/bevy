@@ -381,11 +381,11 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 }
 
 /// [`Reflect`] values are commonly used in situations where the actual types of values
-/// are not known at runtime. In such situations you might have access to a `*const ()`
+/// are not known at runtime. In such situations you might have access to a `*const ()` pointer
 /// that you know implements [`Reflect`], but have no way of turning it into a `&dyn Reflect`.
 ///
-/// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`,
-/// it internally saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
+/// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`.
+/// Internally, this saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
 /// from a pointer.
 ///
 /// # Example
