@@ -14,11 +14,6 @@ use std::{
     mem::needs_drop,
 };
 
-// TODO: The content in the section “Implementing the trait for foreign types” may be more appropriate
-// for the Bevy book. However, until the change gets published, it's better to keep it there. Once the
-// book includes usage of the pattern, the section can be replaced with a link to the appropriate
-// section of the book.
-
 /// A data type that can be associated to an [entity].
 ///
 /// `Component` is a [derivable trait]:
