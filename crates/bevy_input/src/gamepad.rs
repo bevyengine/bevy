@@ -261,10 +261,12 @@ impl ButtonAxisSettings {
     }
 }
 
+#[inline(always)]
 fn scale(value: f32, low: f32, high: f32) -> f32 {
     (value - low) / (high - low)
 }
 
+#[inline(always)]
 fn unscale(value: f32, low: f32, high: f32) -> f32 {
     value * (high - low) + low
 }
