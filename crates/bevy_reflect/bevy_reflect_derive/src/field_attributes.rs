@@ -12,7 +12,7 @@ use syn::{Attribute, Lit, Meta, NestedMeta};
 pub(crate) static IGNORE_ATTR: &str = "ignore";
 pub(crate) static DEFAULT_ATTR: &str = "default";
 
-/// A container for attributes defined on a field reflected type's field.
+/// A container for attributes defined on a reflected type's field.
 #[derive(Default)]
 pub(crate) struct ReflectFieldAttr {
     /// Determines if this field should be ignored.
@@ -66,6 +66,7 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
     }
 }
 
+/// Recursively parses attribute metadata for things like `#[reflect(ignore)]` and `#[reflect(default = "foo")]`
 fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
     match meta {
         Meta::Path(path) if path.is_ident(IGNORE_ATTR) => {
