@@ -16,6 +16,7 @@ use std::{
 };
 
 impl_reflect_value!(bool(Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(char(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(u8(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(u16(Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(u32(Hash, PartialEq, Serialize, Deserialize));
@@ -37,6 +38,7 @@ impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Sen
 impl_reflect_value!(Duration(Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
+impl_from_reflect_value!(char);
 impl_from_reflect_value!(u8);
 impl_from_reflect_value!(u16);
 impl_from_reflect_value!(u32);
@@ -550,6 +552,15 @@ mod tests {
     #[test]
     fn can_serialize_duration() {
         assert!(std::time::Duration::ZERO.serializable().is_some());
+    }
+
+    #[test]
+    fn should_partial_eq_char() {
+        let a: &dyn Reflect = &'x';
+        let b: &dyn Reflect = &'x';
+        let c: &dyn Reflect = &'o';
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]
