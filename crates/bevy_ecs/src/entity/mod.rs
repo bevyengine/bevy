@@ -49,9 +49,11 @@ use std::{
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
-/// The identifier is implemented using a generational index: a combination of an ID and a
+/// The identifier is implemented using a [generational index]: a combination of an ID and a
 /// generation. This allows fast insertion after data removal in an array while minimizing loss of
 /// spatial locality.
+///
+/// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
 ///
 /// # Usage
 ///
