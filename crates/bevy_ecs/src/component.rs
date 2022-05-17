@@ -64,12 +64,10 @@ use std::{
 ///
 /// # Implementing the trait for foreign types
 ///
-/// As a consequence of the [orphan rule], it is not possible to separate into two different crates
-/// the implementation of `Component` from the definition of a type. This means that it is not
-/// possible to directly have a type defined in a third party library as a component. This important
-/// limitation can be easily worked around using the [newtype pattern]: this makes possible to locally
-/// define and implement `Component` for a tuple struct that wraps the foreign type. The following
-/// example gives a demonstration of this pattern.
+/// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
+/// This means that it is not possible to directly have a type defined in a third party library as a component.
+/// This important limitation can be easily worked around using the [newtype pattern]: this makes possible to locally define and implement `Component` for a tuple struct that wraps the foreign type.
+/// The following example gives a demonstration of this pattern.
 ///
 /// ```
 /// // `Component` is defined in the `bevy_ecs` crate.
