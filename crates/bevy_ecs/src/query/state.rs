@@ -863,6 +863,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             Some(max) => max / thread_count,
             None => return,
         };
+        let batch_size = batch_size.max(1);
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {

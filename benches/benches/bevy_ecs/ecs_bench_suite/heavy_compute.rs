@@ -30,7 +30,7 @@ impl Benchmark {
         }));
 
         fn sys(task_pool: Res<TaskPool>, mut query: Query<(&mut Position, &mut Transform)>) {
-            query.par_for_each_mut(&task_pool, 128, |(mut pos, mut mat)| {
+            query.par_for_each_mut(&task_pool, |(mut pos, mut mat)| {
                 for _ in 0..100 {
                     mat.0 = mat.0.inverse();
                 }

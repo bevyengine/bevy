@@ -385,7 +385,7 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         world
             .query::<(Entity, &A)>()
-            .par_for_each(&world, &task_pool, 2, |(e, &A(i))| {
+            .par_for_each(&world, &task_pool, |(e, &A(i))| {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
@@ -409,7 +409,6 @@ mod tests {
         world.query::<(Entity, &SparseStored)>().par_for_each(
             &world,
             &task_pool,
-            2,
             |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
         );
         results.lock().unwrap().sort();
