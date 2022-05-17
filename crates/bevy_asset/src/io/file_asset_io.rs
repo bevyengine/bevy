@@ -1,6 +1,6 @@
 #[cfg(feature = "filesystem_watcher")]
 use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
-use crate::{AssetIo, AssetIoError};
+use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 #[cfg(feature = "filesystem_watcher")]
 use bevy_ecs::system::Res;
@@ -15,6 +15,7 @@ use parking_lot::RwLock;
 #[cfg(feature = "filesystem_watcher")]
 use std::sync::Arc;
 use std::{
+    convert::TryFrom,
     env, fs,
     io::Read,
     path::{Path, PathBuf},
@@ -27,12 +28,26 @@ pub struct FileAssetIo {
 }
 
 impl FileAssetIo {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        FileAssetIo {
+    pub fn new<P: AsRef<Path>>(path: P, watch_for_changes: bool) -> Self {
+        let file_asset_io = FileAssetIo {
             #[cfg(feature = "filesystem_watcher")]
             filesystem_watcher: Default::default(),
             root_path: Self::get_root_path().join(path.as_ref()),
+        };
+        if watch_for_changes {
+            #[cfg(any(
+                not(feature = "filesystem_watcher"),
+                target_arch = "wasm32",
+                target_os = "android"
+            ))]
+            panic!(
+                "Watch for changes requires the filesystem_watcher feature and cannot be used on \
+                wasm32 / android targets"
+            );
+            #[cfg(feature = "filesystem_watcher")]
+            file_asset_io.watch_for_changes().unwrap();
         }
+        file_asset_io
     }
 
     pub fn get_root_path() -> PathBuf {
@@ -47,6 +62,10 @@ impl FileAssetIo {
                 })
                 .unwrap()
         }
+    }
+
+    pub fn root_path(&self) -> &PathBuf {
+        &self.root_path
     }
 }
 
@@ -104,12 +123,24 @@ impl AssetIo for FileAssetIo {
         {
             *self.filesystem_watcher.write() = Some(FilesystemWatcher::default());
         }
+        #[cfg(not(feature = "filesystem_watcher"))]
+        bevy_log::warn!("Watching for changes is not supported when the `filesystem_watcher` feature is disabled");
 
         Ok(())
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
-        self.root_path.join(path).is_dir()
+    fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
+        let full_path = self.root_path.join(path);
+        full_path
+            .metadata()
+            .and_then(Metadata::try_from)
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetIoError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
     }
 }
 
@@ -139,7 +170,7 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
                 ..
             } = event
             {
-                for path in paths.iter() {
+                for path in &paths {
                     if !changed.contains(path) {
                         let relative_path = path.strip_prefix(&asset_io.root_path).unwrap();
                         let _ = asset_server.load_untracked(relative_path.into(), true);

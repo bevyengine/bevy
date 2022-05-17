@@ -1,3 +1,5 @@
+//! Creates a hierarchy of parents and children entities.
+
 use bevy::prelude::*;
 
 fn main() {
@@ -17,7 +19,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn_bundle(SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(0.75)),
             texture: texture.clone(),
-            ..Default::default()
+            ..default()
         })
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
@@ -26,14 +28,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 transform: Transform {
                     translation: Vec3::new(250.0, 0.0, 0.0),
                     scale: Vec3::splat(0.75),
-                    ..Default::default()
+                    ..default()
                 },
                 texture: texture.clone(),
                 sprite: Sprite {
                     color: Color::BLUE,
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             });
         })
         // Store parent entity for next sections
@@ -48,14 +50,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform {
                 translation: Vec3::new(-250.0, 0.0, 0.0),
                 scale: Vec3::splat(0.75),
-                ..Default::default()
+                ..default()
             },
             texture: texture.clone(),
             sprite: Sprite {
                 color: Color::RED,
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         // Using the entity from the previous section as the parent:
         .insert(Parent(parent));
@@ -67,14 +69,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform {
                 translation: Vec3::new(0.0, 250.0, 0.0),
                 scale: Vec3::splat(0.75),
-                ..Default::default()
+                ..default()
             },
             texture,
             sprite: Sprite {
                 color: Color::GREEN,
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         })
         .id();
 
@@ -107,7 +109,7 @@ fn rotate(
         // seconds
         if time.seconds_since_startup() >= 2.0 && children.len() == 3 {
             let child = children.last().copied().unwrap();
-            commands.entity(child).despawn();
+            commands.entity(child).despawn_recursive();
         }
 
         if time.seconds_since_startup() >= 4.0 {

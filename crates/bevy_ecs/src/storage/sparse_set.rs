@@ -3,7 +3,8 @@ use crate::{
     entity::Entity,
     storage::BlobVec,
 };
-use std::{cell::UnsafeCell, marker::PhantomData};
+use bevy_ptr::{OwningPtr, Ptr};
+use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
 #[derive(Debug)]
 pub struct SparseArray<I, V = I> {
@@ -88,6 +89,9 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 }
 
+/// A sparse data structure of [Components](crate::component::Component)
+///
+/// Designed for relatively fast insertions and deletions.
 #[derive(Debug)]
 pub struct ComponentSparseSet {
     dense: BlobVec,
@@ -99,7 +103,10 @@ pub struct ComponentSparseSet {
 impl ComponentSparseSet {
     pub fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
-            dense: BlobVec::new(component_info.layout(), component_info.drop(), capacity),
+            // SAFE: component_info.drop() is compatible with the items that will be inserted.
+            dense: unsafe {
+                BlobVec::new(component_info.layout(), component_info.drop(), capacity)
+            },
             ticks: Vec::with_capacity(capacity),
             entities: Vec::with_capacity(capacity),
             sparse: Default::default(),
@@ -123,21 +130,20 @@ impl ComponentSparseSet {
         self.dense.len() == 0
     }
 
-    /// Inserts the `entity` key and component `value` pair into this sparse set.
-    /// The caller is responsible for ensuring the value is not dropped. This collection will drop
-    /// the value when needed.
+    /// Inserts the `entity` key and component `value` pair into this sparse
+    /// set.
     ///
     /// # Safety
-    /// The `value` pointer must point to a valid address that matches the `Layout`
-    ///  inside the `ComponentInfo` given when constructing this sparse set.
-    pub unsafe fn insert(&mut self, entity: Entity, value: *mut u8, change_tick: u32) {
+    /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
+    /// inside the [`ComponentInfo`] given when constructing this sparse set.
+    pub unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity) {
             self.dense.replace_unchecked(dense_index, value);
             *self.ticks.get_unchecked_mut(dense_index) =
                 UnsafeCell::new(ComponentTicks::new(change_tick));
         } else {
-            let dense_index = self.dense.push_uninit();
-            self.dense.initialize_unchecked(dense_index, value);
+            let dense_index = self.dense.len();
+            self.dense.push(value);
             self.sparse.insert(entity, dense_index);
             debug_assert_eq!(self.ticks.len(), dense_index);
             debug_assert_eq!(self.entities.len(), dense_index);
@@ -152,39 +158,37 @@ impl ComponentSparseSet {
         self.sparse.contains(entity)
     }
 
-    /// # Safety
-    /// ensure the same entity is not accessed twice at the same time
     #[inline]
-    pub fn get(&self, entity: Entity) -> Option<*mut u8> {
+    pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {
         self.sparse.get(entity).map(|dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
             unsafe { self.dense.get_unchecked(*dense_index) }
         })
     }
 
-    /// # Safety
-    /// ensure the same entity is not accessed twice at the same time
     #[inline]
-    pub unsafe fn get_with_ticks(&self, entity: Entity) -> Option<(*mut u8, *mut ComponentTicks)> {
+    pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
         let dense_index = *self.sparse.get(entity)?;
         // SAFE: if the sparse index points to something in the dense vec, it exists
-        Some((
-            self.dense.get_unchecked(dense_index),
-            self.ticks.get_unchecked(dense_index).get(),
-        ))
+        unsafe {
+            Some((
+                self.dense.get_unchecked(dense_index),
+                self.ticks.get_unchecked(dense_index),
+            ))
+        }
     }
 
     #[inline]
-    pub fn get_ticks(&self, entity: Entity) -> Option<&ComponentTicks> {
+    pub fn get_ticks(&self, entity: Entity) -> Option<&UnsafeCell<ComponentTicks>> {
         let dense_index = *self.sparse.get(entity)?;
         // SAFE: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(&*self.ticks.get_unchecked(dense_index).get()) }
+        unsafe { Some(self.ticks.get_unchecked(dense_index)) }
     }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
-    /// it exists). It is the caller's responsibility to drop the returned ptr (if Some is
-    /// returned).
-    pub fn remove_and_forget(&mut self, entity: Entity) -> Option<*mut u8> {
+    /// it exists).
+    #[must_use = "The returned pointer must be used to drop the removed component."]
+    pub fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
         self.sparse.remove(entity).map(|dense_index| {
             self.ticks.swap_remove(dense_index);
             self.entities.swap_remove(dense_index);
@@ -223,6 +227,9 @@ impl ComponentSparseSet {
     }
 }
 
+/// A data structure that blends dense and sparse storage
+///
+/// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
 #[derive(Debug)]
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
@@ -365,7 +372,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 }
 
-pub trait SparseSetIndex: Clone {
+pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
     fn sparse_set_index(&self) -> usize;
     fn get_sparse_set_index(value: usize) -> Self;
 }
@@ -386,6 +393,9 @@ macro_rules! impl_sparse_set_index {
 
 impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
+/// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
+///
+/// Can be accessed via [`Storages`](crate::storage::Storages)
 #[derive(Default)]
 pub struct SparseSets {
     sets: SparseSet<ComponentId, ComponentSparseSet>,
@@ -434,11 +444,11 @@ mod tests {
     #[test]
     fn sparse_set() {
         let mut set = SparseSet::<Entity, Foo>::default();
-        let e0 = Entity::new(0);
-        let e1 = Entity::new(1);
-        let e2 = Entity::new(2);
-        let e3 = Entity::new(3);
-        let e4 = Entity::new(4);
+        let e0 = Entity::from_raw(0);
+        let e1 = Entity::from_raw(1);
+        let e2 = Entity::from_raw(2);
+        let e3 = Entity::from_raw(3);
+        let e4 = Entity::from_raw(4);
 
         set.insert(e1, Foo(1));
         set.insert(e2, Foo(2));
@@ -452,7 +462,7 @@ mod tests {
 
         {
             let iter_results = set.values().collect::<Vec<_>>();
-            assert_eq!(iter_results, vec![&Foo(1), &Foo(2), &Foo(3)])
+            assert_eq!(iter_results, vec![&Foo(1), &Foo(2), &Foo(3)]);
         }
 
         assert_eq!(set.remove(e2), Some(Foo(2)));

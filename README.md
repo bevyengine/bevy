@@ -15,6 +15,9 @@ Bevy is a refreshingly simple data-driven game engine built in Rust. It is free 
 
 Bevy is still in the _very_ early stages of development. APIs can and will change (now is the time to make suggestions!). Important features are missing. Documentation is sparse. Please don't build any serious projects in Bevy unless you are prepared to be broken by API changes constantly.
 
+**MSRV:** Bevy relies heavily on improvements in the Rust language and compiler.
+As a result, the Minimum Supported Rust Version (MSRV) is "the latest stable release" of Rust.
+
 ## Design Goals
 
 * **Capable**: Offer a complete 2D and 3D feature set
@@ -27,24 +30,28 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 ## About
 
 * **[Features](https://bevyengine.org):** A quick overview of Bevy's features.
-* **[Roadmap](https://github.com/bevyengine/bevy/projects/1):** The Bevy team's development plan.
-* **[Introducing Bevy](https://bevyengine.org/news/introducing-bevy/)**: A blog post covering some of Bevy's features
+* **[News](https://bevyengine.org/news/)**: A development blog that covers our progress, plans and shiny new features.
 
 ## Docs
 
 * **[The Bevy Book](https://bevyengine.org/learn/book/introduction):** Bevy's official documentation. The best place to start learning Bevy.
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
-* **[Community-Made Learning Resources](https://github.com/bevyengine/awesome-bevy#learning)**: Tutorials, documentation, and examples made by the Bevy community.
+* **[Official Examples](https://github.com/bevyengine/bevy/tree/latest/examples):** Bevy's dedicated, runnable examples, which are great for digging into specific concepts.
+* **[Community-Made Learning Resources](https://bevyengine.org/assets/#learning)**: More tutorials, documentation, and examples made by the Bevy community.
 
 ## Community
 
-Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](./CODE_OF_CONDUCT.md)** and
-**[How to Contribute](https://bevyengine.org/learn/book/contributing/code/)**
+Before contributing or participating in discussions with the community, you should familiarize yourself with our [**Code of Conduct**](./CODE_OF_CONDUCT.md).
 
 * **[Discord](https://discord.gg/bevy):** Bevy's official discord server.
 * **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
-* **[Stack Overflow](https://stackoverflow.com/questions/tagged/bevy):** Questions tagged Bevy on Stack Overflow.
-* **[Awesome Bevy](https://github.com/bevyengine/awesome-bevy):** A collection of awesome Bevy projects.
+* **[GitHub Discussions](https://github.com/bevyengine/bevy/discussions):** The best place for questions about Bevy, answered right here!
+* **[Bevy Assets](https://bevyengine.org/assets/):** A collection of awesome Bevy projects, tools, plugins and learning materials.
+
+If you'd like to help build Bevy, check out the **[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**.
+For simple problems, feel free to open an issue or PR and tackle it yourself!
+
+For more complex architecture decisions and experimental mad science, please open an [RFC](https://github.com/bevyengine/rfcs) (Request For Comments) so we can brainstorm together effectively!
 
 ## Getting Started
 
@@ -63,16 +70,6 @@ cargo run --example breakout
 ### Fast Compiles
 
 Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
-
-## Focus Areas
-
-Bevy has the following [Focus Areas](https://github.com/bevyengine/bevy/labels/focus-area). We are currently focusing our development efforts in these areas, and they will receive priority for Bevy developers' time. If you would like to contribute to Bevy, you are heavily encouraged to join in on these efforts:
-
-### [Editor-Ready UI](https://github.com/bevyengine/bevy/issues/254)
-
-### [PBR / Clustered Forward Rendering](https://github.com/bevyengine/bevy/issues/179)
-
-### [Scenes](https://github.com/bevyengine/bevy/issues/255)
 
 ## Libraries Used
 
@@ -97,7 +94,7 @@ Plugins are very welcome to extend Bevy's features. [Guidelines][plugin_guidelin
 
 ## Thanks and Alternatives
 
-Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [rg3d](https://github.com/mrDIMAS/rg3d), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals, and some will likely resonate with you more than others.
+Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [Fyrox](https://github.com/FyroxEngine/Fyrox), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals, and some will likely resonate with you more than others.
 
 ## License
 

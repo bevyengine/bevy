@@ -1,6 +1,7 @@
+//! This example illustrates how to load and play an audio file.
+
 use bevy::prelude::*;
 
-/// This example illustrates how to load and play an audio file
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -9,6 +10,6 @@ fn main() {
 }
 
 fn setup(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.mp3");
+    let music = asset_server.load("sounds/Windless Slopes.ogg");
     audio.play(music);
 }

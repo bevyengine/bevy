@@ -1,5 +1,5 @@
 use crate::{
-    archetype::ArchetypeGeneration,
+    change_detection::MAX_CHANGE_AGE,
     system::{check_system_change_tick, BoxedSystem, IntoSystem},
     world::World,
 };
@@ -44,7 +44,9 @@ where
         world.last_change_tick = saved_last_tick;
     }
 
-    fn initialize(&mut self, _: &mut World) {}
+    fn initialize(&mut self, world: &mut World) {
+        self.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+    }
 
     fn check_change_tick(&mut self, change_tick: u32) {
         check_system_change_tick(&mut self.last_change_tick, change_tick, self.name.as_ref());
@@ -70,7 +72,6 @@ where
 
 pub struct ExclusiveSystemCoerced {
     system: BoxedSystem<(), ()>,
-    archetype_generation: ArchetypeGeneration,
 }
 
 impl ExclusiveSystem for ExclusiveSystemCoerced {
@@ -79,15 +80,6 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
     }
 
     fn run(&mut self, world: &mut World) {
-        let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
-
-        for archetype in archetypes.archetypes[archetype_index_range].iter() {
-            self.system.new_archetype(archetype);
-        }
-
         self.system.run((), world);
         self.system.apply_buffers(world);
     }
@@ -107,8 +99,7 @@ where
 {
     fn exclusive_system(self) -> ExclusiveSystemCoerced {
         ExclusiveSystemCoerced {
-            system: Box::new(self.system()),
-            archetype_generation: ArchetypeGeneration::initial(),
+            system: Box::new(IntoSystem::into_system(self)),
         }
     }
 }
@@ -148,14 +139,14 @@ mod tests {
         world.insert_resource(0usize);
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+        assert_eq!(*world.resource::<usize>(), 1);
 
         let mut stage = SystemStage::parallel().with_system(removal.exclusive_system());
         world.spawn().insert(Foo(0.0f32));
         world.insert_resource(0usize);
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<usize>().unwrap(), 1);
+        assert_eq!(*world.resource::<usize>(), 1);
     }
 
     #[test]
@@ -175,6 +166,6 @@ mod tests {
             .with_system(count_entities.exclusive_system());
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.get_resource::<Vec<usize>>().unwrap(), vec![0, 1]);
+        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1]);
     }
 }

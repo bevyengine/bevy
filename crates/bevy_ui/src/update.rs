@@ -1,13 +1,22 @@
+//! This module contains systems that update the UI when something changes
+
+use crate::{CalculatedClip, Overflow, Style};
+
 use super::Node;
 use bevy_ecs::{
     entity::Entity,
     query::{With, Without},
-    system::Query,
+    system::{Commands, Query},
 };
-use bevy_transform::prelude::{Children, Parent, Transform};
+use bevy_hierarchy::{Children, Parent};
+use bevy_math::Vec2;
+use bevy_sprite::Rect;
+use bevy_transform::components::{GlobalTransform, Transform};
 
+/// The resolution of Z values for UI
 pub const UI_Z_STEP: f32 = 0.001;
 
+/// Updates transforms of nodes to fit with the z system
 pub fn ui_z_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     mut node_query: Query<&mut Transform, With<Node>>,
@@ -34,7 +43,11 @@ fn update_hierarchy(
 ) -> f32 {
     current_global_z += UI_Z_STEP;
     if let Ok(mut transform) = node_query.get_mut(entity) {
-        transform.translation.z = current_global_z - parent_global_z;
+        let new_z = current_global_z - parent_global_z;
+        // only trigger change detection when the new value is different
+        if transform.translation.z != new_z {
+            transform.translation.z = new_z;
+        }
     }
     if let Ok(children) = children_query.get(entity) {
         let current_parent_global_z = current_global_z;
@@ -50,6 +63,74 @@ fn update_hierarchy(
     }
     current_global_z
 }
+
+/// Updates clipping for all nodes
+pub fn update_clipping_system(
+    mut commands: Commands,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    mut node_query: Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
+    children_query: Query<&Children>,
+) {
+    for root_node in root_node_query.iter() {
+        update_clipping(
+            &mut commands,
+            &children_query,
+            &mut node_query,
+            root_node,
+            None,
+        );
+    }
+}
+
+fn update_clipping(
+    commands: &mut Commands,
+    children_query: &Query<&Children>,
+    node_query: &mut Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
+    entity: Entity,
+    clip: Option<Rect>,
+) {
+    let (node, global_transform, style, calculated_clip) = node_query.get_mut(entity).unwrap();
+    // Update this node's CalculatedClip component
+    match (clip, calculated_clip) {
+        (None, None) => {}
+        (None, Some(_)) => {
+            commands.entity(entity).remove::<CalculatedClip>();
+        }
+        (Some(clip), None) => {
+            commands.entity(entity).insert(CalculatedClip { clip });
+        }
+        (Some(clip), Some(mut old_clip)) => {
+            *old_clip = CalculatedClip { clip };
+        }
+    }
+
+    // Calculate new clip for its children
+    let children_clip = match style.overflow {
+        Overflow::Visible => clip,
+        Overflow::Hidden => {
+            let node_center = global_transform.translation.truncate();
+            let node_rect = Rect {
+                min: node_center - node.size / 2.,
+                max: node_center + node.size / 2.,
+            };
+            if let Some(clip) = clip {
+                Some(Rect {
+                    min: Vec2::max(clip.min, node_rect.min),
+                    max: Vec2::min(clip.max, node_rect.max),
+                })
+            } else {
+                Some(node_rect)
+            }
+        }
+    };
+
+    if let Ok(children) = children_query.get(entity) {
+        for child in children.iter().cloned() {
+            update_clipping(commands, children_query, node_query, child, children_clip);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
@@ -58,7 +139,8 @@ mod tests {
         system::{CommandQueue, Commands},
         world::World,
     };
-    use bevy_transform::{components::Transform, hierarchy::BuildChildren};
+    use bevy_hierarchy::BuildChildren;
+    use bevy_transform::components::Transform;
 
     use crate::Node;
 

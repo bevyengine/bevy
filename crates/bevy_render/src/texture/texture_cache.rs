@@ -3,7 +3,7 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_ecs::prelude::ResMut;
-use bevy_utils::HashMap;
+use bevy_utils::{Entry, HashMap};
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
 
 /// The internal representation of a [`CachedTexture`] used to track whether it was recently used
@@ -18,6 +18,7 @@ struct CachedTextureMeta {
 /// A cached GPU [`Texture`] with corresponding [`TextureView`].
 /// This is useful for textures that are created repeatedly (each frame) in the rendering process
 /// to reduce the amount of GPU memory allocations.
+#[derive(Clone)]
 pub struct CachedTexture {
     pub texture: Texture,
     pub default_view: TextureView,
@@ -39,7 +40,7 @@ impl TextureCache {
         descriptor: TextureDescriptor<'static>,
     ) -> CachedTexture {
         match self.textures.entry(descriptor) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
+            Entry::Occupied(mut entry) => {
                 for texture in entry.get_mut().iter_mut() {
                     if !texture.taken {
                         texture.frames_since_last_use = 0;
@@ -64,7 +65,7 @@ impl TextureCache {
                     default_view,
                 }
             }
-            std::collections::hash_map::Entry::Vacant(entry) => {
+            Entry::Vacant(entry) => {
                 let texture = render_device.create_texture(entry.key());
                 let default_view = texture.create_view(&TextureViewDescriptor::default());
                 entry.insert(vec![CachedTextureMeta {

@@ -1,6 +1,7 @@
-use crate::{DirectionalLight, PointLight, StandardMaterial};
+use crate::{DirectionalLight, PointLight, SpecializedMaterial, StandardMaterial};
 use bevy_asset::Handle;
-use bevy_ecs::{bundle::Bundle, component::Component};
+use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
+use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CubemapFrusta, Frustum},
@@ -9,10 +10,13 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
-#[derive(Bundle, Clone, Default)]
-pub struct PbrBundle {
+pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
+
+/// A component bundle for entities with a [`Mesh`] and a [`SpecializedMaterial`].
+#[derive(Bundle, Clone)]
+pub struct MaterialMeshBundle<M: SpecializedMaterial> {
     pub mesh: Handle<Mesh>,
-    pub material: Handle<StandardMaterial>,
+    pub material: Handle<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
@@ -21,8 +25,23 @@ pub struct PbrBundle {
     pub computed_visibility: ComputedVisibility,
 }
 
-#[derive(Component, Clone, Debug, Default)]
+impl<M: SpecializedMaterial> Default for MaterialMeshBundle<M> {
+    fn default() -> Self {
+        Self {
+            mesh: Default::default(),
+            material: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+        }
+    }
+}
+
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
 pub struct CubemapVisibleEntities {
+    #[reflect(ignore)]
     data: [VisibleEntities; 6],
 }
 
@@ -52,6 +71,8 @@ pub struct PointLightBundle {
     pub cubemap_frusta: CubemapFrusta,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    /// Enables or disables the light
+    pub visibility: Visibility,
 }
 
 /// A component bundle for [`DirectionalLight`] entities.
@@ -62,4 +83,6 @@ pub struct DirectionalLightBundle {
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    /// Enables or disables the light
+    pub visibility: Visibility,
 }

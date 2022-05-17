@@ -1,4 +1,4 @@
-use bevy::tasks::{ParallelIterator, TaskPoolBuilder};
+use bevy_tasks::{ParallelIterator, TaskPoolBuilder};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 struct ParChunks<'a, T>(std::slice::Chunks<'a, T>);
@@ -6,8 +6,6 @@ impl<'a, T> ParallelIterator<std::slice::Iter<'a, T>> for ParChunks<'a, T>
 where
     T: 'a + Send + Sync,
 {
-    type Item = &'a T;
-
     fn next_batch(&mut self) -> Option<std::slice::Iter<'a, T>> {
         self.0.next().map(|s| s.iter())
     }
@@ -18,8 +16,6 @@ impl<'a, T> ParallelIterator<std::slice::IterMut<'a, T>> for ParChunksMut<'a, T>
 where
     T: 'a + Send + Sync,
 {
-    type Item = &'a mut T;
-
     fn next_batch(&mut self) -> Option<std::slice::IterMut<'a, T>> {
         self.0.next().map(|s| s.iter_mut())
     }
