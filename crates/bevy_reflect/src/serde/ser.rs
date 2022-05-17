@@ -107,7 +107,7 @@ impl<'a> Serialize for ReflectValueSerializer<'a> {
         state.serialize_entry(type_fields::TYPE, self.value.type_name())?;
         state.serialize_entry(
             type_fields::VALUE,
-            get_serializable::<S::Error>(self.value, &self.registry)?.borrow(),
+            get_serializable::<S::Error>(self.value, self.registry)?.borrow(),
         )?;
         state.end()
     }
