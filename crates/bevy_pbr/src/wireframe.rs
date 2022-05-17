@@ -187,8 +187,8 @@ pub struct WireframeConfig {
     /// The default color for wireframes.
     ///
     /// If [`Self::on_all_meshes`] is set, any [`Entity`] that does not have a [`Wireframe`] component attached to it will have
-    /// wireframes in this color. Otherwise, this will be the fallback color for any [`Wireframe`]s that does have a `None`
-    /// [`Wireframe::color`].
+    /// wireframes in this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe`],
+    /// but no [`WireframeColor`].
     pub default_color: Color,
 }
 
