@@ -10,7 +10,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::{
-    const_vec3, Mat3, Mat4, Quat, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles,
+    const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles,
 };
 use bevy_render::{
     camera::{Camera, CameraProjection},
@@ -675,17 +675,28 @@ pub fn calculate_cluster_factors(
 // this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
 // we will also construct it in the fragment shader and need our implementations to match,
 // so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
-pub(crate) fn spotlight_rotation_matrix(direction: Vec3) -> Mat3 {
-    let sign = 1f32.copysign(direction.z);
-    let a = -1.0 / (direction.z + sign);
-    let b = direction.x * direction.y * a;
-    let up_dir = Vec3::new(
-        1.0 + sign * direction.x * direction.x * a,
+// could move this onto transform but it's pretty niche
+pub(crate) fn spotlight_view_matrix(transform: &GlobalTransform) -> Mat4 {
+    // the matrix z_local (opposite of transform.forward())
+    let fwd_dir = transform.local_z().extend(0.0);
+
+    let sign = 1f32.copysign(fwd_dir.z);
+    let a = -1.0 / (fwd_dir.z + sign);
+    let b = fwd_dir.x * fwd_dir.y * a;
+    let up_dir = Vec4::new(
+        1.0 + sign * fwd_dir.x * fwd_dir.x * a,
         sign * b,
-        -sign * direction.x,
+        -sign * fwd_dir.x,
+        0.0,
     );
-    let right_dir = Vec3::new(-b, -sign - direction.y * direction.y * a, direction.y);
-    Mat3::from_cols(right_dir, up_dir, direction)
+    let right_dir = Vec4::new(-b, -sign - fwd_dir.y * fwd_dir.y * a, fwd_dir.y, 0.0);
+
+    Mat4::from_cols(
+        right_dir,
+        up_dir,
+        fwd_dir,
+        transform.translation.extend(1.0),
+    )
 }
 
 pub(crate) fn spotlight_projection_matrix(angle: f32) -> Mat4 {
@@ -965,16 +976,11 @@ pub fn prepare_lights(
             .take(spot_shadow_maps_count)
             .enumerate()
         {
-            let angle = light.spotlight_angles.unwrap().1;
-            let direction = light.transform.back();
-            let spot_view_rotation = spotlight_rotation_matrix(direction);
+            let spot_view_matrix = spotlight_view_matrix(&light.transform);
+            let spot_view_transform = GlobalTransform::from_matrix(spot_view_matrix);
 
-            let spot_view_rotation =
-                GlobalTransform::from_rotation(Quat::from_mat3(&spot_view_rotation));
+            let angle = light.spotlight_angles.expect("lights should be sorted so that [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_shadow_maps_count] are spotlights").1;
             let spot_projection = spotlight_projection_matrix(angle);
-
-            let view_translation = GlobalTransform::from_translation(light.transform.translation);
-            let view_transform = view_translation * spot_view_rotation;
 
             let depth_texture_view =
                 directional_light_depth_texture
@@ -1000,7 +1006,7 @@ pub fn prepare_lights(
                     ExtractedView {
                         width: directional_light_shadow_map.size as u32,
                         height: directional_light_shadow_map.size as u32,
-                        transform: view_transform,
+                        transform: spot_view_transform,
                         projection: spot_projection,
                         near: POINT_LIGHT_NEAR_Z,
                         far: light.range,

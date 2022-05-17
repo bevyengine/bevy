@@ -377,44 +377,39 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     let surface_to_light = light.position_radius.xyz - frag_position.xyz;
 
     if ((light.flags & POINT_LIGHT_FLAGS_IS_SPOTLIGHT_BIT) != 0u) {
-        let fwd = light.light_custom_data.xyz;
-        let distance_to_light = sqrt(dot(fwd, -surface_to_light));
+        // construct the light view matrix
+        // view matrix z_axis is the reverse of transform.forward()
+        let fwd = -light.light_custom_data.xyz;
+        let distance_to_light = dot(fwd, surface_to_light);
         let offset_position = -surface_to_light + (light.shadow_depth_bias * normalize(surface_to_light)) + (surface_normal.xyz * light.shadow_normal_bias) * distance_to_light;
 
-        // construct relevant parts of light view matrix and projection matrix
         // the construction of the up and right vectors needs to precisely mirror the code 
-        // in render/light.rs:spotlight_rotation_matrix
+        // in render/light.rs:spotlight_view_matrix
         var sign = -1.0;
-        if (fwd.z > 0.0) {
+        if (fwd.z >= 0.0) {
             sign = 1.0;
         }
         let a = -1.0 / (fwd.z + sign);
         let b = fwd.x * fwd.y * a;
         let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
-        // except this right dir is reversed ... i really don't know why
-        let right_dir = vec3<f32>(b, sign + fwd.y * fwd.y * a, -fwd.y);
+        let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
+        let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+        let projected_position = offset_position * light_inv_rot;
 
-        let w_vec = fwd * offset_position;
-        let w = w_vec.x + w_vec.y + w_vec.z;
-
-        let x_vec = right_dir * offset_position;
-        let y_vec = up_dir * offset_position;
-
-        let f = 1.0 / tan(light.spot_angle_outer);
-        let x = (x_vec.x + x_vec.y + x_vec.z) * f / w;
-        let y = (y_vec.x + y_vec.y + y_vec.z) * f / w;
-        let shadow_xy = vec2<f32>(x,y);
+        // divide xy by perspective matrix "f" and by -projected.z (projected.z is -projection matrix's w)
+        // to get ndc coordinates
+        let f_div_minus_z = 1.0 / (tan(light.spot_angle_outer) * -projected_position.z);
+        let shadow_xy_ndc = projected_position.xy * f_div_minus_z;
+        // convert to uv coordinates
+        let shadow_uv = shadow_xy_ndc * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);
 
         // 0.1 must match POINT_LIGHT_NEAR_Z
-        let depth = 0.1 / w;
-
-        let flip_correction = vec2<f32>(0.5, -0.5);
-        let light_local = shadow_xy * flip_correction + vec2<f32>(0.5, 0.5);
+        let depth = 0.1 / -projected_position.z;
 
         #ifdef NO_ARRAY_TEXTURES_SUPPORT
-            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, depth);
+            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, shadow_uv, depth);
         #else
-            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id) + lights.spotlight_shadowmap_offset, depth);
+            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, shadow_uv, i32(light_id) + lights.spotlight_shadowmap_offset, depth);
         #endif
     }
 

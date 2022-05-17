@@ -20,7 +20,7 @@ use bevy_utils::tracing::warn;
 use bevy_window::Windows;
 
 use crate::{
-    calculate_cluster_factors, spotlight_projection_matrix, spotlight_rotation_matrix, CubeMapFace,
+    calculate_cluster_factors, spotlight_projection_matrix, spotlight_view_matrix, CubeMapFace,
     CubemapVisibleEntities, ViewClusterBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
     CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS, POINT_LIGHT_NEAR_Z,
 };
@@ -1391,19 +1391,14 @@ pub fn update_point_light_frusta(
         let view_backward = transform.back();
 
         if let Some((_inner_angle, angle)) = point_light.spotlight_angles {
-            let fwd = transform.back();
-            let spot_view_rotation = spotlight_rotation_matrix(fwd);
-            let spot_view_rotation =
-                GlobalTransform::from_rotation(Quat::from_mat3(&spot_view_rotation));
-            let view = view_translation * spot_view_rotation;
-
+            let spot_view = spotlight_view_matrix(transform);
             let spot_projection = spotlight_projection_matrix(angle);
-            let view_projection = spot_projection * view.compute_matrix().inverse();
+            let view_projection = spot_projection * spot_view.inverse();
 
             cubemap_frusta.frusta[0] = Frustum::from_view_projection(
                 &view_projection,
                 &view_translation.translation,
-                &-fwd,
+                &view_backward,
                 point_light.range,
             );
         } else {
