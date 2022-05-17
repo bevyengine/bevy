@@ -121,7 +121,7 @@ impl<'w> EntityRef<'w> {
     /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
     /// which is only valid while the `'w` borrow of the lifetime is active.
     #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.world.components().get_info(component_id)?;
         // SAFE: entity_location is valid, component_id is valid as checked by the line above
         unsafe { get_component(self.world, component_id, self.entity, self.location) }
