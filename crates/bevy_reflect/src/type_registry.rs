@@ -402,7 +402,8 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 ///
 /// let value = Reflected("Hello world!".to_string());
 ///
-/// let reflect_from_ptr = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap().data::<ReflectFromPtr>().unwrap();
+/// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
+/// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
 /// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
 /// let value = unsafe { reflect_from_ptr.as_reflect(&value) };
 ///
