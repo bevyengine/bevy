@@ -1,4 +1,4 @@
-use std::{num::ParseIntError,borrow::Cow};
+use std::{borrow::Cow, num::ParseIntError};
 
 use crate::{Reflect, ReflectMut, ReflectRef};
 use thiserror::Error;
@@ -9,7 +9,7 @@ pub enum ReflectPathError<'a> {
     #[error("expected an identifier at the given index")]
     ExpectedIdent { index: usize },
     #[error("the current struct doesn't have a field with the given name")]
-    InvalidField { index: usize, field: Cow<'a,str> },
+    InvalidField { index: usize, field: Cow<'a, str> },
     #[error("the current tuple struct doesn't have a field with the given index")]
     InvalidTupleStructIndex {
         index: usize,
@@ -18,9 +18,9 @@ pub enum ReflectPathError<'a> {
     #[error("the current list doesn't have a value at the given index")]
     InvalidListIndex { index: usize, list_index: usize },
     #[error("encountered an unexpected token")]
-    UnexpectedToken { index: usize, token: Cow<'a,str> },
+    UnexpectedToken { index: usize, token: Cow<'a, str> },
     #[error("expected a token, but it wasn't there.")]
-    ExpectedToken { index: usize, token: Cow<'a,str> },
+    ExpectedToken { index: usize, token: Cow<'a, str> },
     #[error("expected a struct, but found a different reflect value")]
     ExpectedStruct { index: usize },
     #[error("expected a list, but found a different reflect value")]
@@ -66,7 +66,10 @@ pub trait GetPath {
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>;
 
     /// Returns a statically typed reference to the value specified by `path`.
-    fn get_path<'r, 'p, T: Reflect>(&'r self, path: &'p str) -> Result<&'r T, ReflectPathError<'p>> {
+    fn get_path<'r, 'p, T: Reflect>(
+        &'r self,
+        path: &'p str,
+    ) -> Result<&'r T, ReflectPathError<'p>> {
         self.path(path).and_then(|p| {
             p.downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
