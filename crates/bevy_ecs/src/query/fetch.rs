@@ -840,7 +840,7 @@ impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
     type _State = WriteState<T>;
 }
 
-impl<'w, 's, T: Component> Fetch<'w> for WriteFetch<'w, T> {
+impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     type Item = Mut<'w, T>;
     type State = WriteState<T>;
 
