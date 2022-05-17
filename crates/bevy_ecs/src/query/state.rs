@@ -694,7 +694,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         &mut self,
         world: &'w World,
         task_pool: &TaskPool,
-        batch_size: usize,
         func: FN,
     ) {
         // SAFETY: query is read only
@@ -703,7 +702,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             self.par_for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
                 world,
                 task_pool,
-                batch_size,
                 func,
                 world.last_change_tick(),
                 world.read_change_tick(),
@@ -717,7 +715,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         &mut self,
         world: &'w mut World,
         task_pool: &TaskPool,
-        batch_size: usize,
         func: FN,
     ) {
         // SAFETY: query has unique world access
@@ -726,7 +723,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                 world,
                 task_pool,
-                batch_size,
                 func,
                 world.last_change_tick(),
                 world.read_change_tick(),
@@ -747,14 +743,12 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         &mut self,
         world: &'w World,
         task_pool: &TaskPool,
-        batch_size: usize,
         func: FN,
     ) {
         self.update_archetypes(world);
         self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
             world,
             task_pool,
-            batch_size,
             func,
             world.last_change_tick(),
             world.read_change_tick(),
@@ -843,11 +837,32 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         task_pool: &TaskPool,
-        batch_size: usize,
         func: FN,
         last_change_tick: u32,
         change_tick: u32,
     ) {
+        let thread_count = task_pool.thread_num();
+        assert!(
+            thread_count > 0,
+            "Attempted to run parallel iteration over a query with an empty TaskPool"
+        );
+        let max_size = if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
+            let tables = &world.storages().tables;
+            self.matched_table_ids
+                .iter()
+                .map(|id| tables[*id].len())
+                .max()
+        } else {
+            let archetypes = &world.archetypes();
+            self.matched_archetype_ids
+                .iter()
+                .map(|id| archetypes[*id].len())
+                .max()
+        };
+        let batch_size = match max_size {
+            Some(max) => max / thread_count,
+            None => return,
+        };
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         task_pool.scope(|scope| {

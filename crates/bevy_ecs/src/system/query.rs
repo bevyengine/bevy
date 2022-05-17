@@ -517,7 +517,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     pub fn par_for_each<'this>(
         &'this self,
         task_pool: &TaskPool,
-        batch_size: usize,
         f: impl Fn(ROQueryItem<'this, Q>) + Send + Sync + Clone,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
@@ -527,7 +526,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
                 .par_for_each_unchecked_manual::<ROQueryFetch<Q>, _>(
                     self.world,
                     task_pool,
-                    batch_size,
                     f,
                     self.last_change_tick,
                     self.change_tick,
@@ -541,7 +539,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, Q>) + Send + Sync + Clone>(
         &'a mut self,
         task_pool: &TaskPool,
-        batch_size: usize,
         f: FN,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
@@ -551,7 +548,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
                 .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                     self.world,
                     task_pool,
-                    batch_size,
                     f,
                     self.last_change_tick,
                     self.change_tick,
