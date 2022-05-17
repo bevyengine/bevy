@@ -1,12 +1,11 @@
 //! Entity handling types.
 //!
-//! In the ECS paradigm, the **entity** is an abstract and elementary concept. It is closely related
-//! to [components]. An entity exclusively owns zero or more component instances, all of different
+//! An **entity** exclusively owns zero or more [component] instances, all of different
 //! types, and can dynamically acquire or lose them over its lifetime.
 //!
 //! See [`Entity`] to learn more.
 //!
-//! [components]: crate::component::Component
+//! [component]: crate::component::Component
 //!
 //! # Usage
 //!
