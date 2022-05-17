@@ -55,7 +55,7 @@ use std::{
 ///
 /// # Usage
 ///
-/// This data type is returned by iterating a `Query` ([learn more]). It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
+/// This data type is returned by iterating a `Query` ([learn more]) with a `Entity` [`WorldQuery`] argument. It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
