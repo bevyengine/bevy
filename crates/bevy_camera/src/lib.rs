@@ -1,6 +1,6 @@
 //! Flying camera plugin for the game engine Bevy
 
-mod camera;
+mod camera_controller;
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -8,7 +8,7 @@ pub mod prelude {
     pub use crate::CameraController;
 }
 
-pub use camera::*;
+pub use camera_controller::*;
 
 use bevy_app::prelude::*;
 
