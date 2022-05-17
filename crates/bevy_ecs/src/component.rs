@@ -219,7 +219,7 @@ impl ComponentDescriptor {
         name: String,
         storage_type: StorageType,
         layout: Layout,
-        drop: for<'a> unsafe fn(OwningPtr<'a>),
+        drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     ) -> Self {
         Self {
             name,
