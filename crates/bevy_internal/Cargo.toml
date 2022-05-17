@@ -97,4 +97,4 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.8.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.8.0-dev" }
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = {version = "0.5", features = ["logger"]}
+ndk-glue = {version = "0.6", features = ["logger"]}

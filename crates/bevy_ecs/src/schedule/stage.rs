@@ -802,6 +802,12 @@ impl Stage for SystemStage {
             for index in 0..self.run_criteria.len() {
                 let (run_criteria, tail) = self.run_criteria.split_at_mut(index);
                 let mut criteria = &mut tail[0];
+
+                #[cfg(feature = "trace")]
+                let _span =
+                    bevy_utils::tracing::info_span!("run criteria", name = &*criteria.name())
+                        .entered();
+
                 match &mut criteria.inner {
                     RunCriteriaInner::Single(system) => criteria.should_run = system.run((), world),
                     RunCriteriaInner::Piped {

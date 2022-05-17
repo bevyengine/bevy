@@ -1,10 +1,11 @@
+//! This example illustrates the various features of Bevy UI.
+
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
     winit::WinitSettings,
 };
 
-/// This example illustrates the various features of Bevy UI.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

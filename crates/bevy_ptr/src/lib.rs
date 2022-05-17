@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
-use std::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+#![no_std]
+#![warn(missing_docs)]
+
+use core::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 
 /// Type-erased borrow of some unknown type chosen when constructing this type.
 ///
@@ -239,7 +242,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 }
 
 mod private {
-    use std::cell::UnsafeCell;
+    use core::cell::UnsafeCell;
 
     pub trait SealedUnsafeCell {}
     impl<'a, T> SealedUnsafeCell for &'a UnsafeCell<T> {}

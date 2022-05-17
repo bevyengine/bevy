@@ -1,8 +1,21 @@
+//! Simple benchmark to test per-entity draw overhead.
+//!
+//! To measure performance realistically, be sure to run this in release mode.
+//! `cargo run --example many_cubes --release`
+//!
+//! By default, this arranges the meshes in a cubical pattern, where the number of visible meshes
+//! varies with the viewing angle. You can choose to run the demo with a spherical pattern that
+//! distributes the meshes evenly.
+//!
+//! To start the demo using the spherical layout run
+//! `cargo run --example many_cubes --release sphere`
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     prelude::*,
 };
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -119,6 +132,7 @@ fn setup(
 // http://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/
 // for details.
 const EPSILON: f64 = 0.36;
+
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
         2.0 * std::f64::consts::PI * (i as f64 / golden_ratio),
