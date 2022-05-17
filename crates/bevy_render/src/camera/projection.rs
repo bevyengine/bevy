@@ -67,12 +67,13 @@ pub enum ScalingMode {
     /// Match the window size. 1 world unit = 1 pixel.
     WindowSize,
     /// Use minimal possible viewport size while keeping the aspect ratio.
+    /// Arguments are in world units.
     Auto { min_width: f32, min_height: f32 },
     /// Keep vertical axis constant; resize horizontal with aspect ratio.
-    /// The argument is the height of the viewport.
+    /// The argument is the desired height of the viewport in world units.
     FixedVertical(f32),
     /// Keep horizontal axis constant; resize vertical with aspect ratio.
-    /// The argument is the width of the viewport.
+    /// The argument is the desired width of the viewport in world units.
     FixedHorizontal(f32),
 }
 
