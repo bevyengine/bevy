@@ -171,11 +171,11 @@ pub trait BuildChildren {
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
     ///
     /// Compared to [`with_children`][BuildChildren::with_children], this method returns the
-    /// the value returned from the closure, but doesn't  allow chaining.
-    /// 
+    /// the value returned from the closure, but doesn't allow chaining.
+    ///
     /// ## Example
     ///
-    /// ```
+    /// ```no_run
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_hierarchy::*;
     /// #
@@ -210,38 +210,25 @@ pub trait BuildChildren {
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
-        let parent = self.id();
-        let push_children = {
-            let mut builder = ChildBuilder {
-                commands: self.commands(),
-                push_children: PushChildren {
-                    children: SmallVec::default(),
-                    parent,
-                },
-            };
-            spawn_children(&mut builder);
-            builder.push_children
-        };
-
-        self.commands().add(push_children);
+        self.add_children(spawn_children);
         self
     }
 
     fn add_children<T>(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder) -> T) -> T {
         let parent = self.id();
-        let (out, push_children) = {
-            let mut builder = ChildBuilder {
-                commands: self.commands(),
-                push_children: PushChildren {
-                    children: SmallVec::default(),
-                    parent,
-                },
-            };
-            (spawn_children(&mut builder), builder.push_children)
+        let mut builder = ChildBuilder {
+            commands: self.commands(),
+            push_children: PushChildren {
+                children: SmallVec::default(),
+                parent,
+            },
         };
 
-        self.commands().add(push_children);
-        out
+        let result = spawn_children(&mut builder);
+        let children = builder.push_children;
+        self.commands().add(children);
+
+        result
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
