@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
    sodipodi:docname="bevy_logo_dark.svg"
-   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
    id="svg2321"
    version="1.1"
-   viewBox="0 0 146.71918 36.62384"
-   height="36.62384mm"
-   width="146.71918mm"
+   viewBox="0 0 111.65417 27.516668"
+   height="104"
+   width="422"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -53,7 +53,7 @@
      inkscape:label="Layer 1">
     <g
        id="g1911-8-3-9-3-2-8"
-       transform="translate(-517.96199,-278.01119)"
+       transform="matrix(0.74988724,0,0,0.74988724,-376.95221,-177.15224)"
        inkscape:export-filename="/home/carter/code/bevy/assets/bevy_logo_dark.png"
        inkscape:export-xdpi="81.422768"
        inkscape:export-ydpi="81.422768"
@@ -68,14 +68,14 @@
         <path
            inkscape:connector-curvature="0"
            id="path819-1-94-5-3-1-9-6-4-90-0-8-9-5-8-6-1-6-2"
-           style="fill:#787878;fill-opacity:1;stroke:none;stroke-width:0.559814px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-           d="m 2246.0312,2340.1914 v 0 c -0.016,3e-4 -0.031,0 -0.047,0 -0.9804,3.0675 -1.7386,6.3997 -1.8828,10.1953 -0.2712,7.1263 0.453,11.4639 -0.3672,16.0801 -0.8202,4.6163 -3.2453,9.161 -9.4141,16.2871 -7.3424,8.482 -18.9789,15.0453 -32.4199,17.2637 -2.5015,1.5971 -5.1421,3.0609 -7.9199,4.3633 10.4618,3.9385 21.4025,4.1531 30.0761,1.3066 15.2793,-5.0141 14.0962,-8.6155 20.9434,-19.1074 2.1569,-3.3051 4.6474,-5.8282 7.1484,-7.9004 7.1248,3.1068 14.1431,5.1015 18.5157,4.6074 2.351,-5.4505 -0.057,-11.7712 -4.0586,-17.7461 3.2821,-10.196 -1.6986,-20.4059 -12.7305,-24.0156 -2.8775,-0.9415 -5.4633,-1.3844 -7.8438,-1.3379 z m 8.2754,14.9707 a 4.1668789,4.2454995 48.679502 0 1 3.1973,1.3965 4.1668789,4.2454995 48.679502 0 1 -0.4375,5.9336 4.1668789,4.2454995 48.679502 0 1 -5.9394,-0.3262 4.1668789,4.2454995 48.679502 0 1 0.4375,-5.9336 4.1668789,4.2454995 48.679502 0 1 2.7421,-1.0703 z m -68.375,45.3789 c 0.1273,0.075 0.2572,0.1408 0.3848,0.2149 0.131,-0.049 0.2642,-0.1009 0.3945,-0.1504 -0.2598,-0.023 -0.5188,-0.039 -0.7793,-0.064 z"
-           transform="matrix(-0.55180403,-0.23802315,-0.23802315,0.55180403,1946.7322,-620.612)" />
+           style="fill:#787878;fill-opacity:1;stroke:none;stroke-width:0.336421px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+           d="m 154.7847,138.0234 v 0 c 0.009,0.004 0.0171,0.007 0.0259,0.0112 -0.18914,1.92602 -0.56391,3.94521 -1.38778,6.07396 -1.54657,3.99687 -2.97864,6.218 -3.62481,8.96047 -0.6462,2.74252 -0.38976,5.82753 1.31803,11.22806 2.03265,6.42806 6.8915,12.81947 13.78027,17.24286 1.00019,1.47671 2.10887,2.91296 3.33167,4.29281 -6.71032,-0.31687 -12.79852,-2.80259 -16.90712,-6.43782 -7.2377,-6.40363 -5.72765,-8.10929 -7.00865,-15.52855 -0.40349,-2.33716 -1.1772,-4.32222 -2.06403,-6.06096 -4.67099,0.0185 -9.0185,-0.55136 -11.31371,-1.86479 5e-5,-3.5672 2.83327,-6.48182 6.46353,-8.82632 0.61581,-6.40741 5.79438,-10.85576 12.74101,-10.22176 1.81192,0.16539 3.34419,0.53648 4.6467,1.12875 z m -8.12977,6.29115 c -0.67116,-0.30652 -1.43695,-0.30274 -2.09669,0.01 -1.25022,0.59197 -1.77452,2.10469 -1.17092,3.37831 0.60324,1.27328 2.10524,1.82562 3.35503,1.23372 1.25022,-0.59197 1.77453,-2.10469 1.17092,-3.37832 -0.26127,-0.5512 -0.70769,-0.99227 -1.25834,-1.24328 z"
+           sodipodi:nodetypes="csccsccccccccscccccccc" />
       </g>
     </g>
     <g
        id="g1051-1-2-0-8-6-0-8-1-5-6-9-6-8-9"
-       transform="matrix(-0.45399624,0.36689705,0.36689705,0.45399624,73.527335,10.816805)"
+       transform="matrix(-0.34044599,0.27513142,0.27513142,0.34044599,63.485864,39.091909)"
        style="opacity:1;fill:#ececec;fill-opacity:1;stroke:none;stroke-width:0.755906;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        inkscape:export-filename="/home/carter/code/bevy/assets/bevy_logo_dark.png"
        inkscape:export-xdpi="81.422768"
@@ -96,7 +96,7 @@
     <g
        style="opacity:1;fill:#b2b2b2;fill-opacity:1;stroke-width:0.755906;stroke-miterlimit:4;stroke-dasharray:none"
        id="g1051-1-1-8-8-4-9-4-0-4-6-4-7-6-6-0"
-       transform="matrix(-0.50509374,0.06754889,0.06754889,0.50509374,156.75523,55.243465)"
+       transform="matrix(-0.37876335,0.05065405,0.05065405,0.37876335,126.70824,72.413789)"
        inkscape:export-filename="/home/carter/code/bevy/assets/bevy_logo_dark.png"
        inkscape:export-xdpi="81.422768"
        inkscape:export-ydpi="81.422768">
@@ -128,7 +128,7 @@
     </g>
     <g
        aria-label="BEVY"
-       transform="matrix(1.7088406,0,0,1.8039104,-52.767175,-214.85137)"
+       transform="matrix(1.2814378,0,0,1.3527294,-29.705311,-130.13378)"
        style="font-style:normal;font-weight:normal;font-size:10.3007px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;opacity:1;fill:#ececec;fill-opacity:1;stroke:none;stroke-width:0.257517;stroke-miterlimit:4;stroke-dasharray:none"
        id="text1778-3-6-3-9-3-6-4-0-9-5-4-6"
        inkscape:export-filename="/home/carter/code/bevy/assets/bevy_logo_dark.png"
