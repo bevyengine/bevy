@@ -248,6 +248,31 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 unsafe fn archetype_filter_fetch(&mut self, _archetype_index: usize) -> bool {
                     true #(&& self.#field_idents.archetype_filter_fetch(_archetype_index))*
                 }
+
+                fn init_state(world: &mut #path::world::World) -> Self::State {
+                    #state_struct_name {
+                        #(#field_idents: <<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::init_state(world),)*
+                        #(#ignored_field_idents: Default::default(),)*
+                    }
+                }
+
+                fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
+                    ##(<<<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>>::update_component_access(&state.#field_idents, _access);)*
+                }
+
+                fn update_archetype_component_access(state: &Self::State, _archetype: &#path::archetype::Archetype, _access: &mut #path::query::Access<#path::archetype::ArchetypeComponentId>) {
+                    // ##(<#field_types as Fetch<'_>>::update_archetype_component_access(&state.#field_idents, _access);)*
+                }
+
+                fn matches_archetype(state: &Self::State, _archetype: &#path::archetype::Archetype) -> bool {
+                    true
+                    // true #(&& <#field_types as Fetch<'_>>::matches_archetype(&state.#field_idents, _archetype))*
+                }
+
+                fn matches_table(state: &Self::State, _table: &#path::storage::Table) -> bool {
+                    true
+                    // true #(&& <#field_types as Fetch<'_>>::matches_table(&state.#field_idents,_table))*
+                }
             }
         }
     };
@@ -257,35 +282,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let state_impl = quote! {
         #[doc(hidden)]
         #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
-
             #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
             #(#ignored_field_idents: #ignored_field_types,)*
-        }
-
-        // SAFETY: `update_component_access` and `update_archetype_component_access` are called for each item in the struct
-        unsafe impl #user_impl_generics #path::query::FetchState for #state_struct_name #user_ty_generics #user_where_clauses {
-            fn init(world: &mut #path::world::World) -> Self {
-                #state_struct_name {
-                    #(#field_idents: <<#field_types as #path::query::WorldQuery>::State as #path::query::FetchState>::init(world),)*
-                    #(#ignored_field_idents: Default::default(),)*
-                }
-            }
-
-            fn update_component_access(&self, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
-                #(self.#field_idents.update_component_access(_access);)*
-            }
-
-            fn update_archetype_component_access(&self, _archetype: &#path::archetype::Archetype, _access: &mut #path::query::Access<#path::archetype::ArchetypeComponentId>) {
-                #(self.#field_idents.update_archetype_component_access(_archetype, _access);)*
-            }
-
-            fn matches_archetype(&self, _archetype: &#path::archetype::Archetype) -> bool {
-                true #(&& self.#field_idents.matches_archetype(_archetype))*
-            }
-
-            fn matches_table(&self, _table: &#path::storage::Table) -> bool {
-                true #(&& self.#field_idents.matches_table(_table))*
-            }
         }
     };
 

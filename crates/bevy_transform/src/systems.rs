@@ -4,7 +4,7 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_tasks::prelude::ComputeTaskPool;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
-pub fn transform_propagate_system_flat(
+pub(crate) fn transform_propagate_system_flat(
     mut query: Query<
         (&Transform, &mut GlobalTransform),
         (Changed<Transform>, Without<Parent>, Without<Children>),
@@ -17,7 +17,7 @@ pub fn transform_propagate_system_flat(
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
-pub fn transform_propagate_system(
+pub(crate) fn transform_propagate_system(
     task_pool: Res<ComputeTaskPool>,
     mut root_query: Query<
         (

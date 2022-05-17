@@ -3,10 +3,7 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     prelude::FromWorld,
-    query::{
-        Access, Fetch, FetchState, FilteredAccess, NopFetch, QueryCombinationIter, QueryIter,
-        WorldQuery,
-    },
+    query::{Access, Fetch, FilteredAccess, NopFetch, QueryCombinationIter, QueryIter, WorldQuery},
     storage::TableId,
     world::{World, WorldId},
 };
@@ -43,17 +40,17 @@ impl<Q: WorldQuery, F: WorldQuery> FromWorld for QueryState<Q, F> {
 impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
-        let fetch_state = <Q::State as FetchState>::init(world);
-        let filter_state = <F::State as FetchState>::init(world);
+        let fetch_state = QueryFetch::<Q>::init_state(world);
+        let filter_state = QueryFetch::<F>::init_state(world);
 
         let mut component_access = FilteredAccess::default();
-        fetch_state.update_component_access(&mut component_access);
+        QueryFetch::<Q>::update_component_access(&fetch_state, &mut component_access);
 
         // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
         // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
         // because they are evaluated *before* a specific reference is constructed.
         let mut filter_component_access = FilteredAccess::default();
-        filter_state.update_component_access(&mut filter_component_access);
+        QueryFetch::<F>::update_component_access(&filter_state, &mut filter_component_access);
 
         // Merge the temporary filter access with the main access. This ensures that filter access is
         // properly considered in a global "cross-query" context (both within systems and across systems).
@@ -115,13 +112,19 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
     /// Creates a new [`Archetype`].
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        if self.fetch_state.matches_archetype(archetype)
-            && self.filter_state.matches_archetype(archetype)
+        if QueryFetch::<Q>::matches_archetype(&self.fetch_state, archetype)
+            && QueryFetch::<F>::matches_archetype(&self.filter_state, archetype)
         {
-            self.fetch_state
-                .update_archetype_component_access(archetype, &mut self.archetype_component_access);
-            self.filter_state
-                .update_archetype_component_access(archetype, &mut self.archetype_component_access);
+            Q::Fetch::update_archetype_component_access(
+                &self.fetch_state,
+                archetype,
+                &mut self.archetype_component_access,
+            );
+            F::Fetch::update_archetype_component_access(
+                &self.filter_state,
+                archetype,
+                &mut self.archetype_component_access,
+            );
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow(archetype_index + 1);
