@@ -116,10 +116,6 @@ path = "examples/hello_world.rs"
 
 # 2D Rendering
 [[example]]
-name = "change_sprite_runtime"
-path = "examples/2d/change_sprite_runtime.rs"
-
-[[example]]
 name = "contributors"
 path = "examples/2d/contributors.rs"
 
@@ -301,6 +297,10 @@ path = "examples/asset/custom_asset_io.rs"
 [[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
+
+[[example]]
+name = "modify_sprite"
+path = "examples/asset/modify_sprite.rs"
 
 # Async Tasks
 [[example]]
