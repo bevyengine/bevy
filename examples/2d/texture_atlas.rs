@@ -1,7 +1,8 @@
+//! In this example we generate a new texture atlas (sprite sheet) from a folder containing
+//! individual sprites.
+
 use bevy::{asset::LoadState, prelude::*};
 
-/// In this example we generate a new texture atlas (sprite sheet) from a folder containing
-/// individual sprites
 fn main() {
     App::new()
         .init_resource::<RpgSpriteHandles>()

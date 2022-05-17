@@ -510,11 +510,11 @@ unsafe impl ReadOnlySystemParamFetch for WorldState {}
 #[doc(hidden)]
 pub struct WorldState;
 
-impl<'w, 's> SystemParam for &'w World {
+impl<'w> SystemParam for &'w World {
     type Fetch = WorldState;
 }
 
-unsafe impl<'w, 's> SystemParamState for WorldState {
+unsafe impl SystemParamState for WorldState {
     fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let mut access = Access::default();
         access.read_all();
@@ -1365,7 +1365,7 @@ impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
 pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
 
 // Safe: This doesn't add any more reads, and the delegated fetch confirms it
-unsafe impl<'w, 's, S: ReadOnlySystemParamFetch, P> ReadOnlySystemParamFetch
+unsafe impl<S: ReadOnlySystemParamFetch, P> ReadOnlySystemParamFetch
     for StaticSystemParamState<S, P>
 {
 }
@@ -1394,7 +1394,7 @@ where
     }
 }
 
-unsafe impl<'w, 's, S: SystemParamState, P: SystemParam + 'static> SystemParamState
+unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
     for StaticSystemParamState<S, P>
 {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {

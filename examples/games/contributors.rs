@@ -1,3 +1,5 @@
+//! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
+
 use bevy::{prelude::*, utils::HashSet};
 use rand::{prelude::SliceRandom, Rng};
 use std::{

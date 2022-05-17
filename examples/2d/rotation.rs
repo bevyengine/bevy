@@ -1,3 +1,5 @@
+//! Demonstrates rotating entities in 2D using quaternions.
+
 use bevy::{
     core::FixedTimestep,
     math::{const_vec2, Vec3Swizzles},

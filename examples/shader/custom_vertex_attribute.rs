@@ -1,3 +1,5 @@
+//! Illustrates creating a custom shader material that reads a mesh's custom vertex attribute.
+
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     pbr::MaterialPipeline,
