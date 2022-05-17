@@ -63,9 +63,8 @@ pub enum ScalingMode {
     /// Manually specify left/right/top/bottom values.
     /// Ignore window resizing; the image will stretch.
     None,
-    /// Match the window size.
-    /// The argument is the amount of world units per pixel.
-    WindowSize(f32),
+    /// Match the window size. 1 world unit = 1 pixel.
+    WindowSize,
     /// Use minimal possible viewport size while keeping the aspect ratio.
     Auto { min_width: f32, min_height: f32 },
     /// Keep vertical axis constant; resize horizontal with aspect ratio.
@@ -111,7 +110,7 @@ impl CameraProjection for OrthographicProjection {
         }
 
         let (viewport_width, viewport_height) = match self.scaling_mode {
-            ScalingMode::WindowSize(scale) => (width * scale, height * scale),
+            ScalingMode::WindowSize => (width, height),
             ScalingMode::Auto {
                 min_width,
                 min_height,
@@ -168,7 +167,7 @@ impl Default for OrthographicProjection {
             near: 0.0,
             far: 1000.0,
             window_origin: WindowOrigin::Center,
-            scaling_mode: ScalingMode::WindowSize(1.0),
+            scaling_mode: ScalingMode::WindowSize,
             scale: 1.0,
             depth_calculation: DepthCalculation::Distance,
         }
