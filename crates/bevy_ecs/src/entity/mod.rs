@@ -55,10 +55,8 @@ use std::{
 ///
 /// # Usage
 ///
-/// This data type is returned by iterating a `Query` that has `Entity` as part of its [`WorldQuery`] parameter ([learn more]).
+/// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
 /// It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
-///
-/// [`WorldQuery`]: crate::query::WorldQuery
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
