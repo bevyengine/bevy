@@ -164,6 +164,10 @@ impl App {
     ///
     /// Finalizes the [`App`] configuration. For general usage, see the example on the item
     /// level documentation.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called from `Plugin::build()`, because it would prevent other plugins to properly build.
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
