@@ -498,7 +498,6 @@ macro_rules! impl_tick_filter {
         pub struct $fetch_name<'w, T> {
             table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
             marker: PhantomData<T>,
-            entities: Option<ThinSlicePtr<'w, Entity>>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
             change_tick: u32,
@@ -570,7 +569,6 @@ macro_rules! impl_tick_filter {
             unsafe fn init(world: &'w World, state: & $state_name<T>, last_change_tick: u32, change_tick: u32) -> Self {
                 Self {
                     table_ticks: None,
-                    entities: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
                         .then(|| world.storages().sparse_sets.get(state.component_id).unwrap()),
                     marker: PhantomData,
@@ -589,7 +587,12 @@ macro_rules! impl_tick_filter {
             const IS_ARCHETYPAL:  bool = false;
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-                self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice().into());
+                match T::Storage::STORAGE_TYPE {
+                    StorageType::Table => {
+                        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice().into());
+                    }
+                    StorageType::SparseSet => {},
+                }
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
@@ -598,7 +601,7 @@ macro_rules! impl_tick_filter {
                         let table = &tables[archetype.table_id()];
                         self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice().into());
                     }
-                    StorageType::SparseSet => self.entities = Some(archetype.entities().into()),
+                    StorageType::SparseSet => {},
                 }
             }
 
@@ -650,7 +653,6 @@ macro_rules! impl_tick_filter {
                 Self {
                     table_ticks: self.table_ticks.clone(),
                     marker: self.marker.clone(),
-                    entities: self.entities.clone(),
                     sparse_set: self.sparse_set.clone(),
                     last_change_tick: self.last_change_tick.clone(),
                     change_tick: self.change_tick.clone(),

@@ -818,7 +818,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
                 let rows = archetype.entity_table_rows();
                 let entities = archetype.entities();
-                for idx  in 0..archetype.len() {
+                for idx in 0..archetype.len() {
                     let row = rows.get_unchecked(idx);
                     let entity = entities.get_unchecked(idx);
                     if !filter.filter_fetch(entity, row) {
@@ -923,7 +923,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             fetch.set_archetype(&self.fetch_state, archetype, tables);
                             filter.set_archetype(&self.filter_state, archetype, tables);
 
-                            for idx  in offset..offset + len {
+                            for idx in offset..offset + len {
                                 let row = rows.get_unchecked(idx);
                                 let entity = entities.get_unchecked(idx);
                                 if !filter.filter_fetch(entity, row) {
