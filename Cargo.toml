@@ -19,7 +19,6 @@ members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "errors"]
 default = [
   "animation",
   "bevy_audio",
-  "bevy_camera",
   "bevy_gilrs",
   "bevy_winit",
   "render",
@@ -35,6 +34,7 @@ dynamic = ["bevy_dylib"]
 
 # Rendering support
 render = [
+  "bevy_internal/bevy_camera",
   "bevy_internal/bevy_core_pipeline",
   "bevy_internal/bevy_pbr",
   "bevy_internal/bevy_gltf",
