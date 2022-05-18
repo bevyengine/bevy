@@ -10,7 +10,7 @@ assignees: ''
 
 The release number or commit hash of the version you're using.
 
-## \[Optional\] Setup information
+## \[Optional\] Relevant system infromation
 
 If you are reporting a bug about:
 
