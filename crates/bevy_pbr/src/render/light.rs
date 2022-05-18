@@ -21,10 +21,7 @@ use bevy_render::{
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::{
-        encase::{ShaderType, Size},
-        *,
-    },
+    render_resource::{ShaderSize, ShaderType, *},
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{

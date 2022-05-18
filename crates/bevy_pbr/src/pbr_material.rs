@@ -8,10 +8,7 @@ use bevy_render::{
     mesh::MeshVertexBufferLayout,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{
-        encase::{ShaderType, Size},
-        *,
-    },
+    render_resource::{ShaderSize, ShaderType, *},
     renderer::RenderDevice,
     texture::Image,
 };

@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::{encase::ShaderType, *},
+    render_resource::{ShaderType, *},
     renderer::RenderDevice,
     texture::BevyDefault,
     view::ViewUniform,
