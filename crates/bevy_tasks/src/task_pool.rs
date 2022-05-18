@@ -295,6 +295,7 @@ impl TaskPool {
         let compute_threads = builder
             .compute
             .get_number_of_threads(remaining_threads, total_threads);
+        tracing::trace!("Compute Threads: {}", compute_threads);
 
         let compute_threads = (0..compute_threads)
             .map(|i| {
@@ -315,11 +316,13 @@ impl TaskPool {
                 let shutdown_rx = shutdown_rx.clone();
                 make_thread_builder(&builder, "IO", i)
                     .spawn(move || {
-                        let future = io
-                            .run(shutdown_rx.recv())
-                            .or(compute.run(shutdown_rx.recv()));
+                        let future = async {
+                            loop {
+                                io.tick().or(compute.tick()).await;
+                            }
+                        };
                         // Use unwrap_err because we expect a Closed error
-                        future::block_on(future).unwrap_err();
+                        future::block_on(future.or(shutdown_rx.recv())).unwrap_err();
                     })
                     .expect("Failed to spawn thread.")
             })
@@ -332,12 +335,13 @@ impl TaskPool {
                 let shutdown_rx = shutdown_rx.clone();
                 make_thread_builder(&builder, "Aync Compute", i)
                     .spawn(move || {
-                        let future = async_compute
-                            .run(shutdown_rx.recv())
-                            .or(compute.run(shutdown_rx.recv()))
-                            .or(io.run(shutdown_rx.recv()));
+                        let future = async {
+                            loop {
+                                async_compute.tick().or(compute.tick()).or(io.tick()).await;
+                            }
+                        };
                         // Use unwrap_err because we expect a Closed error
-                        future::block_on(future).unwrap_err();
+                        future::block_on(future.or(shutdown_rx.recv())).unwrap_err();
                     })
                     .expect("Failed to spawn thread.")
             })
