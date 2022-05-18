@@ -7,7 +7,7 @@ use bevy_render::{
     color::Color,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{ShaderSize, ShaderType, *},
+    render_resource::*,
     renderer::RenderDevice,
     texture::Image,
 };

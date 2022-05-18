@@ -6,10 +6,10 @@ use bevy::{
     render::{
         render_asset::{PrepareAssetError, RenderAsset},
         render_resource::{
-            encase::{self, ShaderType, Size},
-            BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+            encase, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
             BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer,
-            BufferBindingType, BufferInitDescriptor, BufferUsages, ShaderStages,
+            BufferBindingType, BufferInitDescriptor, BufferUsages, ShaderSize, ShaderStages,
+            ShaderType,
         },
         renderer::RenderDevice,
     },

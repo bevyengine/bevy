@@ -1,8 +1,5 @@
 use crate::{
-    render_resource::{
-        encase::{internal::WriteInto, ShaderType},
-        DynamicUniformBuffer,
-    },
+    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ComputedVisibility,
     RenderApp, RenderStage,

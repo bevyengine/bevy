@@ -1,9 +1,6 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::{ShaderType, *},
-    renderer::RenderDevice,
-    texture::BevyDefault,
-    view::ViewUniform,
+    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
 };
 
 pub struct UiPipeline {

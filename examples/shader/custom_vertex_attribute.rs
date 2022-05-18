@@ -7,11 +7,10 @@ use bevy::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
         render_asset::{PrepareAssetError, RenderAsset},
         render_resource::{
-            encase::{self, ShaderType, Size},
             BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
             BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer,
             BufferBindingType, BufferInitDescriptor, BufferUsages, RenderPipelineDescriptor,
-            ShaderStages, SpecializedMeshPipelineError, VertexFormat,
+            ShaderSize, ShaderStages, ShaderType, SpecializedMeshPipelineError, VertexFormat,
         },
         renderer::RenderDevice,
     },
@@ -89,7 +88,7 @@ impl RenderAsset for CustomMaterial {
         let color = Vec4::from_slice(&extracted_asset.color.as_linear_rgba_f32());
 
         let byte_buffer = [0u8; Vec4::SIZE.get() as usize];
-        let mut buffer = encase::UniformBuffer::new(byte_buffer);
+        let mut buffer = bevy::render::render_resource::encase::UniformBuffer::new(byte_buffer);
         buffer.write(&color).unwrap();
 
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
