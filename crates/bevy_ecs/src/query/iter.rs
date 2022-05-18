@@ -288,7 +288,7 @@ impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIterationCursor<'w, 's, Q, Q
 where
     QF: Fetch<'w, State = Q::State>,
 {
-    const IS_DENSE: bool = QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE;
+    const IS_DENSE: bool = QF::IS_DENSE || <QueryFetch<'static, F>>::IS_DENSE;
 
     unsafe fn init_empty(
         world: &'w World,
