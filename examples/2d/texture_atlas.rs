@@ -51,12 +51,7 @@ fn setup(
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     for handle in &rpg_sprite_handles.handles {
         let handle = handle.typed_weak();
-        let texture = match textures.get(&handle) {
-            Some(it) => it,
-            // If an asset in the folder happened to be valid, but not a texture,
-            // we don't want to add it to the atlas
-            None => continue,
-        };
+        let texture = textures.get(&handle).expect("Textures folder contained a file which way matched by a loader which did not create an `Image` asset");
         texture_atlas_builder.add_texture(handle, texture);
     }
 
