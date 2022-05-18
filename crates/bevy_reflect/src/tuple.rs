@@ -1,6 +1,6 @@
 use crate::{
-    serde::Serializable, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectMut, ReflectRef, TypeRegistration,
+    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectMut,
+    ReflectRef, TypeRegistration,
 };
 use serde::Deserialize;
 use std::any::Any;
@@ -259,16 +259,8 @@ unsafe impl Reflect for DynamicTuple {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 
@@ -408,16 +400,8 @@ macro_rules! impl_reflect_tuple {
                 Box::new(self.clone_dynamic())
             }
 
-            fn reflect_hash(&self) -> Option<u64> {
-                None
-            }
-
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
                 crate::tuple_partial_eq(self, value)
-            }
-
-            fn serializable(&self) -> Option<Serializable> {
-                None
             }
         }
 

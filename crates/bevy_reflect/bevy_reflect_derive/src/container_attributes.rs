@@ -171,55 +171,70 @@ impl ReflectTraits {
         &self.idents
     }
 
-    /// Returns the logic for `Reflect::reflect_hash` as a `TokenStream`.
+    /// Returns the implementation of `Reflect::reflect_hash` as a `TokenStream`.
     ///
     /// If `Hash` was not registered, returns `None`.
-    pub fn get_hash_impl(&self, path: &Path) -> Option<proc_macro2::TokenStream> {
+    pub fn get_hash_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
         match &self.hash {
             TraitImpl::Implemented => Some(quote! {
-                use std::hash::{Hash, Hasher};
-                let mut hasher = #path::ReflectHasher::default();
-                Hash::hash(&std::any::Any::type_id(self), &mut hasher);
-                Hash::hash(self, &mut hasher);
-                Some(hasher.finish())
-            }),
-            TraitImpl::Custom(impl_fn) => Some(quote! {
-                Some(#impl_fn(self))
-            }),
-            TraitImpl::NotImplemented => None,
-        }
-    }
-
-    /// Returns the logic for `Reflect::reflect_partial_eq` as a `TokenStream`.
-    ///
-    /// If `PartialEq` was not registered, returns `None`.
-    pub fn get_partial_eq_impl(&self) -> Option<proc_macro2::TokenStream> {
-        match &self.partial_eq {
-            TraitImpl::Implemented => Some(quote! {
-                let value = value.any();
-                if let Some(value) = value.downcast_ref::<Self>() {
-                    Some(std::cmp::PartialEq::eq(self, value))
-                } else {
-                    Some(false)
+                fn reflect_hash(&self) -> Option<u64> {
+                    use std::hash::{Hash, Hasher};
+                    let mut hasher = #bevy_reflect_path::ReflectHasher::default();
+                    Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+                    Hash::hash(self, &mut hasher);
+                    Some(hasher.finish())
                 }
             }),
             TraitImpl::Custom(impl_fn) => Some(quote! {
-                Some(#impl_fn(self, value))
+                fn reflect_hash(&self) -> Option<u64> {
+                    Some(#impl_fn(self))
+                }
             }),
             TraitImpl::NotImplemented => None,
         }
     }
 
-    /// Returns the logic for `Reflect::serializable` as a `TokenStream`.
+    /// Returns the implementation of `Reflect::reflect_partial_eq` as a `TokenStream`.
     ///
-    /// If `Serialize` was not registered, returns `None`.
-    pub fn get_serialize_impl(&self, path: &Path) -> Option<proc_macro2::TokenStream> {
-        match &self.serialize {
+    /// If `PartialEq` was not registered, returns `None`.
+    pub fn get_partial_eq_impl(
+        &self,
+        bevy_reflect_path: &Path,
+    ) -> Option<proc_macro2::TokenStream> {
+        match &self.partial_eq {
             TraitImpl::Implemented => Some(quote! {
-                Some(#path::serde::Serializable::Borrowed(self))
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
+                    let value = value.any();
+                    if let Some(value) = value.downcast_ref::<Self>() {
+                        Some(std::cmp::PartialEq::eq(self, value))
+                    } else {
+                        Some(false)
+                    }
+                }
             }),
             TraitImpl::Custom(impl_fn) => Some(quote! {
-                Some(#impl_fn(self))
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
+                    Some(#impl_fn(self, value))
+                }
+            }),
+            TraitImpl::NotImplemented => None,
+        }
+    }
+
+    /// Returns the implementation of `Reflect::serializable` as a `TokenStream`.
+    ///
+    /// If `Serialize` was not registered, returns `None`.
+    pub fn get_serialize_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
+        match &self.serialize {
+            TraitImpl::Implemented => Some(quote! {
+                fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
+                    Some(#bevy_reflect_path::serde::Serializable::Borrowed(self))
+                }
+            }),
+            TraitImpl::Custom(impl_fn) => Some(quote! {
+                fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
+                    Some(#impl_fn(self))
+                }
             }),
             TraitImpl::NotImplemented => None,
         }
