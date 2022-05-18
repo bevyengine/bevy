@@ -8,6 +8,10 @@ pub use crate::{
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_animation")]
+pub use crate::animation::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_audio")]
 pub use crate::audio::prelude::*;
 
@@ -16,12 +20,12 @@ pub use crate::audio::prelude::*;
 pub use crate::camera::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_animation")]
-pub use crate::animation::prelude::*;
-
-#[doc(hidden)]
 #[cfg(feature = "bevy_core_pipeline")]
 pub use crate::core_pipeline::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_gilrs")]
+pub use crate::gilrs::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_pbr")]
@@ -46,7 +50,3 @@ pub use crate::ui::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_dynamic_plugin")]
 pub use crate::dynamic_plugin::*;
-
-#[doc(hidden)]
-#[cfg(feature = "bevy_gilrs")]
-pub use crate::gilrs::*;
