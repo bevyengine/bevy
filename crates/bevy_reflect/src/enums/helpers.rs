@@ -9,7 +9,7 @@ pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
     value.variant_name().hash(&mut hasher);
     value.variant_type().hash(&mut hasher);
     for field in value.iter_fields() {
-        hasher.write_u64(field.reflect_hash()?);
+        hasher.write_u64(field.value().reflect_hash()?);
     }
     Some(hasher.finish())
 }
@@ -54,10 +54,10 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> 
     match a.variant_type() {
         VariantType::Struct => {
             // Same struct fields?
-            for (i, value) in a.iter_fields().enumerate() {
-                let field_name = a.name_at(i).unwrap();
+            for field in a.iter_fields() {
+                let field_name = field.name().unwrap();
                 if let Some(field_value) = b.field(field_name) {
-                    if let Some(false) | None = field_value.reflect_partial_eq(value) {
+                    if let Some(false) | None = field_value.reflect_partial_eq(field.value()) {
                         // Fields failed comparison
                         return Some(false);
                     }
@@ -70,9 +70,9 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> 
         }
         VariantType::Tuple => {
             // Same tuple fields?
-            for (i, value) in a.iter_fields().enumerate() {
+            for (i, field) in a.iter_fields().enumerate() {
                 if let Some(field_value) = b.field_at(i) {
-                    if let Some(false) | None = field_value.reflect_partial_eq(value) {
+                    if let Some(false) | None = field_value.reflect_partial_eq(field.value()) {
                         // Fields failed comparison
                         return Some(false);
                     }

@@ -87,7 +87,11 @@ impl DynamicEnum {
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
     ///
-    pub fn new<I: Into<String>, V: Into<DynamicVariant>>(name: I, variant_name: I, variant: V) -> Self {
+    pub fn new<I: Into<String>, V: Into<DynamicVariant>>(
+        name: I,
+        variant_name: I,
+        variant: V,
+    ) -> Self {
         Self {
             name: name.into(),
             variant_name: variant_name.into(),
@@ -131,7 +135,7 @@ impl DynamicEnum {
             VariantType::Tuple => {
                 let mut data = DynamicTuple::default();
                 for field in value.iter_fields() {
-                    data.insert_boxed(field.clone_value());
+                    data.insert_boxed(field.value().clone_value());
                 }
                 DynamicEnum::new(
                     value.type_name(),
@@ -141,9 +145,9 @@ impl DynamicEnum {
             }
             VariantType::Struct => {
                 let mut data = DynamicStruct::default();
-                for (index, field) in value.iter_fields().enumerate() {
-                    let name = value.name_at(index).unwrap();
-                    data.insert_boxed(name, field.clone_value());
+                for field in value.iter_fields() {
+                    let name = field.name().unwrap();
+                    data.insert_boxed(name, field.value().clone_value());
                 }
                 DynamicEnum::new(
                     value.type_name(),
@@ -276,10 +280,10 @@ impl Reflect for DynamicEnum {
     #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
         if let ReflectRef::Enum(enum_value) = value.reflect_ref() {
-            for (i, value) in enum_value.iter_fields().enumerate() {
-                let name = enum_value.name_at(i).unwrap();
+            for field in enum_value.iter_fields() {
+                let name = field.name().unwrap();
                 if let Some(v) = self.field_mut(name) {
-                    v.apply(value);
+                    v.apply(field.value());
                 }
             }
         } else {

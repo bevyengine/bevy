@@ -228,15 +228,15 @@ impl<'a> VariantFieldIter<'a> {
 }
 
 impl<'a> Iterator for VariantFieldIter<'a> {
-    type Item = &'a dyn Reflect;
+    type Item = VariantField<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = match self.container.variant_type() {
             VariantType::Unit => None,
-            VariantType::Tuple => self.container.field_at(self.index),
+            VariantType::Tuple => Some(VariantField::Tuple(self.container.field_at(self.index)?)),
             VariantType::Struct => {
                 let name = self.container.name_at(self.index)?;
-                self.container.field(name)
+                Some(VariantField::Struct(name, self.container.field(name)?))
             }
         };
         self.index += 1;
@@ -250,3 +250,25 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 }
 
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
+
+pub enum VariantField<'a> {
+    Struct(&'a str, &'a dyn Reflect),
+    Tuple(&'a dyn Reflect),
+}
+
+impl<'a> VariantField<'a> {
+    pub fn name(&self) -> Option<&'a str> {
+        if let Self::Struct(name, ..) = self {
+            Some(*name)
+        } else {
+            None
+        }
+    }
+
+    pub fn value(&self) -> &'a dyn Reflect {
+        match self {
+            Self::Tuple(value) => *value,
+            Self::Struct(.., value) => *value,
+        }
+    }
+}

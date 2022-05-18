@@ -203,14 +203,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                         // Same variant -> just update fields
                         match #ref_value.variant_type() {
                             #bevy_reflect_path::VariantType::Struct => {
-                                for (index, field) in #ref_value.iter_fields().enumerate() {
-                                    let name = #ref_value.name_at(index).unwrap();
-                                    #bevy_reflect_path::Enum::field_mut(self, name).map(|v| v.apply(field));
+                                for field in #ref_value.iter_fields() {
+                                    let name = field.name().unwrap();
+                                    #bevy_reflect_path::Enum::field_mut(self, name).map(|v| v.apply(field.value()));
                                 }
                             }
                             #bevy_reflect_path::VariantType::Tuple => {
                                 for (index, field) in #ref_value.iter_fields().enumerate() {
-                                    #bevy_reflect_path::Enum::field_at_mut(self, index).map(|v| v.apply(field));
+                                    #bevy_reflect_path::Enum::field_at_mut(self, index).map(|v| v.apply(field.value()));
                                 }
                             }
                             _ => {}

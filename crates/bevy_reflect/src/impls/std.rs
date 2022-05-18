@@ -668,7 +668,7 @@ impl<T: Reflect + Clone> Reflect for Option<T> {
                 // Same variant -> just update fields
                 for (index, field) in value.iter_fields().enumerate() {
                     let name = value.name_at(index).unwrap();
-                    self.field_mut(name).map(|v| v.apply(field));
+                    self.field_mut(name).map(|v| v.apply(field.value()));
                 }
             } else {
                 // New variant -> perform a switch

@@ -168,26 +168,26 @@ mod tests {
     #[test]
     fn enum_should_iterate_fields() {
         // === Unit === //
-        let value = MyEnum::A;
+        let value: &dyn Enum = &MyEnum::A;
         assert_eq!(0, value.field_len());
         let mut iter = value.iter_fields();
         assert!(iter.next().is_none());
 
         // === Tuple === //
-        let value = MyEnum::B(123, 321);
+        let value: &dyn Enum = &MyEnum::B(123, 321);
         assert_eq!(2, value.field_len());
         let mut iter = value.iter_fields();
         assert!(iter
             .next()
-            .and_then(|field| field.reflect_partial_eq(&123_usize))
+            .and_then(|field| field.value().reflect_partial_eq(&123_usize))
             .unwrap_or_default());
         assert!(iter
             .next()
-            .and_then(|field| field.reflect_partial_eq(&321_i32))
+            .and_then(|field| field.value().reflect_partial_eq(&321_i32))
             .unwrap_or_default());
 
         // === Struct === //
-        let value = MyEnum::C {
+        let value: &dyn Enum = &MyEnum::C {
             foo: 1.23,
             bar: true,
         };
@@ -195,11 +195,17 @@ mod tests {
         let mut iter = value.iter_fields();
         assert!(iter
             .next()
-            .and_then(|field| field.reflect_partial_eq(&1.23_f32))
+            .and_then(|field| field
+                .value()
+                .reflect_partial_eq(&1.23_f32)
+                .and(field.name().map(|name| name == "foo")))
             .unwrap_or_default());
         assert!(iter
             .next()
-            .and_then(|field| field.reflect_partial_eq(&true))
+            .and_then(|field| field
+                .value()
+                .reflect_partial_eq(&true)
+                .and(field.name().map(|name| name == "bar")))
             .unwrap_or_default());
     }
 
