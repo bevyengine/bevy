@@ -141,11 +141,8 @@ impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
     ) {
     }
 
-    #[inline]
-    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) {}
-
-    #[inline]
-    unsafe fn table_fetch(&mut self, _table_row: usize) {}
+    #[inline(always)]
+    unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) {}
 }
 
 // SAFETY: no component access or archetype component access
@@ -284,11 +281,8 @@ impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
     ) {
     }
 
-    #[inline]
-    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) {}
-
-    #[inline]
-    unsafe fn table_fetch(&mut self, _table_row: usize) {}
+    #[inline(always)]
+    unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) {}
 }
 
 // SAFETY: no component access or archetype component access
@@ -409,26 +403,17 @@ macro_rules! impl_query_filter_tuple {
                 )*
             }
 
-            #[inline]
-            unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
+            #[inline(always)]
+            unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
                 let ($($filter,)*) = &mut self.0;
-                false $(|| ($filter.matches && $filter.fetch.table_filter_fetch(table_row)))*
+                false $(|| ($filter.matches && $filter.fetch.filter_fetch(_entity, _table_row)))*
             }
 
-            #[inline]
-            unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
+            #[inline(always)]
+            unsafe fn filter_fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
+                // Explicitly repeated code here to avoid potential poor inlining
                 let ($($filter,)*) = &mut self.0;
-                false $(|| ($filter.matches && $filter.fetch.archetype_filter_fetch(archetype_index)))*
-            }
-
-            #[inline]
-            unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
-                self.table_fetch(table_row)
-            }
-
-            #[inline]
-            unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
-                self.archetype_fetch(archetype_index)
+                false $(|| ($filter.matches && $filter.fetch.filter_fetch(_entity, _table_row)))*
             }
         }
 
@@ -620,14 +605,10 @@ macro_rules! impl_tick_filter {
                 }
             }
 
-            unsafe fn table_fetch(&mut self, table_row: usize) -> bool {
-                $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), self.last_change_tick, self.change_tick)
-            }
-
-            unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> bool {
+            #[inline(always)]
+            unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        let table_row = *self.entity_table_rows.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
                         $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
@@ -644,14 +625,25 @@ macro_rules! impl_tick_filter {
                 }
             }
 
-            #[inline]
-            unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
-                self.table_fetch(table_row)
-            }
-
-            #[inline]
-            unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
-                self.archetype_fetch(archetype_index)
+            #[inline(always)]
+            unsafe fn filter_fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
+                // Explicitly repeated code here to avoid potential poor inlining
+                match T::Storage::STORAGE_TYPE {
+                    StorageType::Table => {
+                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), self.last_change_tick, self.change_tick)
+                    }
+                    StorageType::SparseSet => {
+                        let entity = *self.entities.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
+                        let ticks = self
+                            .sparse_set
+                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .get_ticks(entity)
+                            .map(|ticks| &*ticks.get())
+                            .cloned()
+                            .unwrap();
+                        $is_detected(&ticks, self.last_change_tick, self.change_tick)
+                    }
+                }
             }
         }
 
@@ -713,7 +705,7 @@ impl_tick_filter!(
 
 impl_tick_filter!(
     /// A filter on a component that only retains results added or mutably dereferenced after the system last ran.
-    ///  
+    ///
     /// A common use for this filter is avoiding redundant work when values have not changed.
     ///
     /// **Note** that simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).

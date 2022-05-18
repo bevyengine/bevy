@@ -374,41 +374,11 @@ pub trait Fetch<'world>: Sized {
     /// [`Self::State`] this was initialized with.
     unsafe fn set_table(&mut self, state: &Self::State, table: &'world Table);
 
-    /// Fetch [`Self::Item`] for the given `archetype_index` in the current [`Archetype`]. This must
-    /// always be called after [`Fetch::set_archetype`] with an `archetype_index` in the range of
-    /// the current [`Archetype`]
-    ///
-    /// # Safety
-    /// Must always be called _after_ [`Fetch::set_archetype`]. `archetype_index` must be in the range
-    /// of the current archetype
-    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item;
+    unsafe fn fetch(&mut self, entity: &Entity, table_index: &usize) -> Self::Item;
 
-    /// Fetch [`Self::Item`] for the given `table_row` in the current [`Table`]. This must always be
-    /// called after [`Fetch::set_table`] with a `table_row` in the range of the current [`Table`]
-    ///
-    /// # Safety
-    ///
-    /// Must always be called _after_ [`Fetch::set_table`]. `table_row` must be in the range of the
-    /// current table
-    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item;
-
-    /// # Safety
-    ///
-    /// Must always be called _after_ [`Fetch::set_archetype`]. `archetype_index` must be in the range
-    /// of the current archetype.
     #[allow(unused_variables)]
-    #[inline]
-    unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
-        true
-    }
-
-    /// # Safety
-    ///
-    /// Must always be called _after_ [`Fetch::set_table`]. `table_row` must be in the range of the
-    /// current table.
-    #[allow(unused_variables)]
-    #[inline]
-    unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
+    #[inline(always)]
+    unsafe fn filter_fetch(&mut self, entity: &Entity, table_index: &usize) -> bool {
         true
     }
 }
@@ -454,7 +424,7 @@ impl WorldQuery for Entity {
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct EntityFetch<'w> {
-    entities: Option<ThinSlicePtr<'w, Entity>>,
+    marker: PhantomData<&'w Entity>,
 }
 
 /// SAFETY: access is read only
@@ -510,7 +480,7 @@ impl<'w> Fetch<'w> for EntityFetch<'w> {
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> EntityFetch<'w> {
-        EntityFetch { entities: None }
+        EntityFetch { marker: PhantomData }
     }
 
     #[inline]
@@ -520,24 +490,14 @@ impl<'w> Fetch<'w> for EntityFetch<'w> {
         archetype: &'w Archetype,
         _tables: &Tables,
     ) {
-        self.entities = Some(archetype.entities().into());
     }
 
     #[inline]
-    unsafe fn set_table(&mut self, _state: &Self::State, table: &'w Table) {
-        self.entities = Some(table.entities().into());
-    }
+    unsafe fn set_table(&mut self, _state: &Self::State, table: &'w Table) {}
 
-    #[inline]
-    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let entities = self.entities.unwrap_or_else(|| debug_checked_unreachable());
-        *entities.get(table_row)
-    }
-
-    #[inline]
-    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
-        let entities = self.entities.unwrap_or_else(|| debug_checked_unreachable());
-        *entities.get(archetype_index)
+    #[inline(always)]
+    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
+        *entity
     }
 }
 
@@ -691,37 +651,26 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
         );
     }
 
-    #[inline]
-    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
+    #[inline(always)]
+    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                let (entity_table_rows, table_components) = self
-                    .entity_table_rows
-                    .zip(self.table_components)
+                let components = self
+                    .table_components
                     .unwrap_or_else(|| debug_checked_unreachable());
-                let table_row = *entity_table_rows.get(archetype_index);
-                table_components.get(table_row).deref()
+                components.get(*table_row).deref()
             }
             StorageType::SparseSet => {
                 let (entities, sparse_set) = self
                     .entities
                     .zip(self.sparse_set)
                     .unwrap_or_else(|| debug_checked_unreachable());
-                let entity = *entities.get(archetype_index);
                 sparse_set
-                    .get(entity)
+                    .get(*entity)
                     .unwrap_or_else(|| debug_checked_unreachable())
                     .deref::<T>()
             }
         }
-    }
-
-    #[inline]
-    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let components = self
-            .table_components
-            .unwrap_or_else(|| debug_checked_unreachable());
-        components.get(table_row).deref()
     }
 }
 
@@ -903,15 +852,14 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
         self.table_ticks = Some(column.get_ticks_slice().into());
     }
 
-    #[inline]
-    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
+    #[inline(always)]
+    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                let (entity_table_rows, (table_components, table_ticks)) = self
-                    .entity_table_rows
-                    .zip(self.table_components.zip(self.table_ticks))
+                let (table_components, table_ticks) = self
+                    .table_components
+                    .zip(self.table_ticks)
                     .unwrap_or_else(|| debug_checked_unreachable());
-                let table_row = *entity_table_rows.get(archetype_index);
                 Mut {
                     value: table_components.get(table_row).deref_mut(),
                     ticks: Ticks {
@@ -939,22 +887,6 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
                     },
                 }
             }
-        }
-    }
-
-    #[inline]
-    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let (table_components, table_ticks) = self
-            .table_components
-            .zip(self.table_ticks)
-            .unwrap_or_else(|| debug_checked_unreachable());
-        Mut {
-            value: table_components.get(table_row).deref_mut(),
-            ticks: Ticks {
-                component_ticks: table_ticks.get(table_row).deref_mut(),
-                change_tick: self.change_tick,
-                last_change_tick: self.last_change_tick,
-            },
         }
     }
 }
@@ -1022,16 +954,14 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
         );
     }
 
-    #[inline]
-    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
+    #[inline(always)]
+    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                let (entity_table_rows, table_components) = self
-                    .entity_table_rows
-                    .zip(self.table_components)
+                let components = self
+                    .table_components
                     .unwrap_or_else(|| debug_checked_unreachable());
-                let table_row = *entity_table_rows.get(archetype_index);
-                table_components.get(table_row).deref()
+                components.get(table_row).deref()
             }
             StorageType::SparseSet => {
                 let (entities, sparse_set) = self
@@ -1045,14 +975,6 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
                     .deref::<T>()
             }
         }
-    }
-
-    #[inline]
-    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        let components = self
-            .table_components
-            .unwrap_or_else(|| debug_checked_unreachable());
-        components.get(table_row).deref()
     }
 }
 
@@ -1167,19 +1089,10 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
         }
     }
 
-    #[inline]
-    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
+    #[inline(always)]
+    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
         if self.matches {
-            Some(self.fetch.archetype_fetch(archetype_index))
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        if self.matches {
-            Some(self.fetch.table_fetch(table_row))
+            Some(self.fetch.fetch(archetype_index))
         } else {
             None
         }
@@ -1410,14 +1323,10 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
         );
     }
 
-    #[inline]
-    unsafe fn archetype_fetch(&mut self, archetype_index: usize) -> Self::Item {
+    #[inline(always)]
+    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                let entity_table_rows = self
-                    .entity_table_rows
-                    .unwrap_or_else(|| debug_checked_unreachable());
-                let table_row = *entity_table_rows.get(archetype_index);
                 ChangeTrackers {
                     component_ticks: {
                         let table_ticks = self
@@ -1446,21 +1355,6 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                     change_tick: self.change_tick,
                 }
             }
-        }
-    }
-
-    #[inline]
-    unsafe fn table_fetch(&mut self, table_row: usize) -> Self::Item {
-        ChangeTrackers {
-            component_ticks: {
-                let table_ticks = self
-                    .table_ticks
-                    .unwrap_or_else(|| debug_checked_unreachable());
-                table_ticks.get(table_row).read()
-            },
-            marker: PhantomData,
-            last_change_tick: self.last_change_tick,
-            change_tick: self.change_tick,
         }
     }
 }
@@ -1504,32 +1398,17 @@ macro_rules! impl_tuple_fetch {
                 $($name.set_table($state, _table);)*
             }
 
-            #[inline]
+            #[inline(always)]
             #[allow(clippy::unused_unit)]
-            unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
+            unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
                 let ($($name,)*) = self;
-                ($($name.table_fetch(_table_row),)*)
+                ($($name.fetch(_entity, _table_row),)*)
             }
 
-            #[inline]
-            #[allow(clippy::unused_unit)]
-            unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
+            #[inline(always)]
+            unsafe fn filter_fetch(&mut self, _entity: &Entity, _table_row: &usize) -> bool {
                 let ($($name,)*) = self;
-                ($($name.archetype_fetch(_archetype_index),)*)
-            }
-
-            #[allow(unused_variables)]
-            #[inline]
-            unsafe fn table_filter_fetch(&mut self, table_row: usize) -> bool {
-                let ($($name,)*) = self;
-                true $(&& $name.table_filter_fetch(table_row))*
-            }
-
-            #[allow(unused_variables)]
-            #[inline]
-            unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
-                let ($($name,)*) = self;
-                true $(&& $name.archetype_filter_fetch(archetype_index))*
+                true $(&& $name.filter_fetch(_entity, _table_row))*
             }
         }
 
@@ -1637,21 +1516,12 @@ macro_rules! impl_anytuple_fetch {
                 )*
             }
 
-            #[inline]
+            #[inline(always)]
             #[allow(clippy::unused_unit)]
-            unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
+            unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
                 let ($($name,)*) = &mut self.0;
                 ($(
-                    $name.1.then(|| $name.0.table_fetch(_table_row)),
-                )*)
-            }
-
-            #[inline]
-            #[allow(clippy::unused_unit)]
-            unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
-                let ($($name,)*) = &mut self.0;
-                ($(
-                    $name.1.then(|| $name.0.archetype_fetch(_archetype_index)),
+                    $name.1.then(|| $name.0.fetch(_entity, _table_row)),
                 )*)
             }
         }
@@ -1776,8 +1646,5 @@ impl<'w, State: FetchState> Fetch<'w> for NopFetch<State> {
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
 
     #[inline(always)]
-    unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {}
-
-    #[inline(always)]
-    unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {}
+    unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {}
 }

@@ -363,8 +363,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
-        if filter.archetype_filter_fetch(location.index) {
-            Ok(fetch.archetype_fetch(location.index))
+        if filter.filter_fetch(&entity, &location.index) {
+            Ok(fetch.fetch(&entity, &location.index))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }
@@ -799,12 +799,14 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                 fetch.set_table(&self.fetch_state, table);
                 filter.set_table(&self.filter_state, table);
 
-                for table_index in 0..table.len() {
-                    if !filter.table_filter_fetch(table_index) {
+                let entities = table.entities();
+                for row in 0..table.len() {
+                    let entity = entities.get_unchecked(row);
+                    if !filter.filter_fetch(entity, &row) {
                         continue;
                     }
-                    let item = fetch.table_fetch(table_index);
-                    func(item);
+                    let item = ;
+                    func(ifetch.fetch(entity, &row));
                 }
             }
         } else {
@@ -815,11 +817,15 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                 fetch.set_archetype(&self.fetch_state, archetype, tables);
                 filter.set_archetype(&self.filter_state, archetype, tables);
 
-                for archetype_index in 0..archetype.len() {
-                    if !filter.archetype_filter_fetch(archetype_index) {
+                let rows = archetype.entity_table_rows();
+                let entities = archetype.entities();
+                for idx  in 0..archetype.len() {
+                    let row = rows.get_unchecked(idx);
+                    let entity = entities.get_unchecked(idx);
+                    if !filter.filter_fetch(entity, row) {
                         continue;
                     }
-                    func(fetch.archetype_fetch(archetype_index));
+                    func(fetch.fetch(entity, row));
                 }
             }
         }
@@ -872,12 +878,12 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             let table = &tables[*table_id];
                             fetch.set_table(&self.fetch_state, table);
                             filter.set_table(&self.filter_state, table);
-                            for table_index in offset..offset + len {
-                                if !filter.table_filter_fetch(table_index) {
+                            for row in 0..table.len() {
+                                let entity = entities.get_unchecked(row);
+                                if !filter.filter_fetch(entity, &row) {
                                     continue;
                                 }
-                                let item = fetch.table_fetch(table_index);
-                                func(item);
+                                func(fetch.fetch(entity, &row));
                             }
                         };
                         #[cfg(feature = "trace")]
@@ -911,15 +917,19 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                                 change_tick,
                             );
                             let tables = &world.storages().tables;
-                            let archetype = &world.archetypes[*archetype_id];
+                            let archetype = &archetypes[*archetype_id];
                             fetch.set_archetype(&self.fetch_state, archetype, tables);
                             filter.set_archetype(&self.filter_state, archetype, tables);
 
-                            for archetype_index in offset..offset + len {
-                                if !filter.archetype_filter_fetch(archetype_index) {
+                            let rows = archetype.entity_table_rows();
+                            let entities = archetype.entities();
+                            for idx  in 0..archetype.len() {
+                                let row = rows.get_unchecked(idx);
+                                let entity = entities.get_unchecked(idx);
+                                if !filter.filter_fetch(entity, row) {
                                     continue;
                                 }
-                                func(fetch.archetype_fetch(archetype_index));
+                                func(fetch.fetch(entity, row));
                             }
                         };
 
