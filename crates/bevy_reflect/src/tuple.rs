@@ -260,6 +260,11 @@ unsafe impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn get_type_info(&self) -> TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
     fn any(&self) -> &dyn Any {
         self
     }
@@ -421,6 +426,10 @@ macro_rules! impl_reflect_tuple {
                 std::any::type_name::<Self>()
             }
 
+            fn get_type_info(&self) -> TypeInfo {
+                <Self as Typed>::type_info()
+            }
+
             fn any(&self) -> &dyn Any {
                 self
             }
@@ -471,7 +480,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Typed),*> Typed for ($($name,)*) {
+        impl <$($name: Reflect),*> Typed for ($($name,)*) {
             fn type_info() -> TypeInfo {
                 let fields = [
                     $(UnnamedField::new::<$name>($index),)*

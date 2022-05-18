@@ -55,6 +55,15 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// [type name]: std::any::type_name
     fn type_name(&self) -> &str;
 
+    /// Returns the [`TypeInfo`] of the underlying type.
+    ///
+    /// This generates a new [`TypeInfo`] on every call. If this method is called
+    /// frequently, consider using [`TypeRegistry::get_type_info`] to get a cached
+    /// instance instead.
+    ///
+    /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
+    fn get_type_info(&self) -> TypeInfo;
+
     /// Returns the value as a [`&dyn Any`][std::any::Any].
     fn any(&self) -> &dyn Any;
 

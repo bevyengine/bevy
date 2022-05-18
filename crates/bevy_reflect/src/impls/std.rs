@@ -108,6 +108,10 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
         std::any::type_name::<Self>()
     }
 
+    fn get_type_info(&self) -> TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     fn any(&self) -> &dyn Any {
         self
     }
@@ -230,6 +234,10 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
 unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
+    }
+
+    fn get_type_info(&self) -> TypeInfo {
+        <Self as Typed>::type_info()
     }
 
     fn any(&self) -> &dyn Any {
@@ -356,6 +364,10 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
         std::any::type_name::<Self>()
     }
 
+    fn get_type_info(&self) -> TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     #[inline]
     fn any(&self) -> &dyn Any {
         self
@@ -480,6 +492,10 @@ impl_array_get_type_registration! {
 unsafe impl Reflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
+    }
+
+    fn get_type_info(&self) -> TypeInfo {
+        <Self as Typed>::type_info()
     }
 
     fn any(&self) -> &dyn Any {

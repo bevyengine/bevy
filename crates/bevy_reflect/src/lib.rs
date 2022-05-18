@@ -488,8 +488,13 @@ mod tests {
         // TypeInfo (unsized)
         assert_eq!(
             std::any::TypeId::of::<dyn Reflect>(),
-            <dyn Reflect>::type_info().id().type_id()
+            <dyn Reflect as Typed>::type_info().id().type_id()
         );
+
+        // TypeInfo (instance)
+        let value: &dyn Reflect = &123;
+        let info = value.get_type_info();
+        assert!(info.id().is::<i32>());
 
         // Struct
         #[derive(Reflect)]
@@ -520,6 +525,10 @@ mod tests {
             panic!("Expected `TypeInfo::Struct`");
         }
 
+        let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
+        let info = value.get_type_info();
+        assert!(info.id().is::<MyStruct>());
+
         // Struct (generic)
         #[derive(Reflect)]
         struct MyGenericStruct<T: Reflect> {
@@ -547,6 +556,13 @@ mod tests {
             panic!("Expected `TypeInfo::Struct`");
         }
 
+        let value: &dyn Reflect = &MyGenericStruct {
+            foo: String::from("Hello!"),
+            bar: 321,
+        };
+        let info = value.get_type_info();
+        assert!(info.id().is::<MyGenericStruct<String>>());
+
         // Tuple Struct
         #[derive(Reflect)]
         struct MyTupleStruct(usize, i32, MyStruct);
@@ -567,6 +583,10 @@ mod tests {
             panic!("Expected `TypeInfo::TupleStruct`");
         }
 
+        let value: &dyn Reflect = &MyTupleStruct(123, 321, MyStruct { foo: 123, bar: 321 });
+        let info = value.get_type_info();
+        assert!(info.id().is::<MyTupleStruct>());
+
         // Tuple
         type MyTuple = (u32, f32, String);
 
@@ -582,6 +602,10 @@ mod tests {
             panic!("Expected `TypeInfo::Tuple`");
         }
 
+        let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
+        let info = value.get_type_info();
+        assert!(info.id().is::<MyTuple>());
+
         // List
         type MyList = Vec<usize>;
 
@@ -596,10 +620,14 @@ mod tests {
             panic!("Expected `TypeInfo::List`");
         }
 
+        let value: &dyn Reflect = &vec![123_usize];
+        let info = value.get_type_info();
+        assert!(info.id().is::<MyList>());
+
         // List (with capacity)
         #[cfg(feature = "smallvec")]
         {
-            type MyListWithCapacity = smallvec::SmallVec<[String; 123]>;
+            type MyListWithCapacity = smallvec::SmallVec<[String; 2]>;
 
             let info = MyListWithCapacity::type_info();
             if let TypeInfo::List(info) = info {
@@ -610,10 +638,15 @@ mod tests {
                     info.id().type_name()
                 );
                 assert_eq!(std::any::type_name::<String>(), info.item().type_name());
-                assert_eq!(Some(123usize), info.capacity());
+                assert_eq!(Some(2usize), info.capacity());
             } else {
                 panic!("Expected `TypeInfo::List`");
             }
+
+            let value: MyListWithCapacity = smallvec::smallvec![String::default(); 2];
+            let value: &dyn Reflect = &value;
+            let info = value.get_type_info();
+            assert!(info.id().is::<MyListWithCapacity>());
         }
 
         // Array
@@ -630,6 +663,10 @@ mod tests {
             panic!("Expected `TypeInfo::Array`");
         }
 
+        let value: &dyn Reflect = &[1usize, 2usize, 3usize];
+        let info = value.get_type_info();
+        assert!(info.id().is::<MyArray>());
+
         // Map
         type MyMap = HashMap<usize, f32>;
 
@@ -645,6 +682,10 @@ mod tests {
             panic!("Expected `TypeInfo::Map`");
         }
 
+        let value: &dyn Reflect = &MyMap::new();
+        let info = value.get_type_info();
+        assert!(info.id().is::<MyMap>());
+
         // Value
         type MyValue = String;
 
@@ -656,6 +697,10 @@ mod tests {
             panic!("Expected `TypeInfo::Value`");
         }
 
+        let value: &dyn Reflect = &String::from("Hello!");
+        let info = value.get_type_info();
+        assert!(info.id().is::<MyValue>());
+
         // Dynamic
         type MyDynamic = DynamicList;
 
@@ -666,6 +711,10 @@ mod tests {
         } else {
             panic!("Expected `TypeInfo::Dynamic`");
         }
+
+        let value: &dyn Reflect = &DynamicList::default();
+        let info = value.get_type_info();
+        assert!(info.id().is::<MyDynamic>());
     }
 
     #[test]

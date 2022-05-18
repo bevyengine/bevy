@@ -64,6 +64,10 @@ where
         std::any::type_name::<Self>()
     }
 
+    fn get_type_info(&self) -> TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     fn any(&self) -> &dyn Any {
         self
     }

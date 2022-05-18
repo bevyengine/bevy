@@ -177,6 +177,11 @@ unsafe impl Reflect for DynamicMap {
         &self.name
     }
 
+    #[inline]
+    fn get_type_info(&self) -> TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     fn any(&self) -> &dyn Any {
         self
     }

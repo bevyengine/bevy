@@ -122,6 +122,11 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
             }
 
             #[inline]
+            fn get_type_info(&self) -> #bevy_reflect_path::TypeInfo {
+                <Self as #bevy_reflect_path::Typed>::type_info()
+            }
+
+            #[inline]
             fn any(&self) -> &dyn std::any::Any {
                 self
             }
@@ -272,6 +277,11 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
             }
 
             #[inline]
+            fn get_type_info(&self) -> #bevy_reflect_path::TypeInfo {
+                <Self as #bevy_reflect_path::Typed>::type_info()
+            }
+
+            #[inline]
             fn any(&self) -> &dyn std::any::Any {
                 self
             }
@@ -371,6 +381,11 @@ pub(crate) fn impl_value(
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
+            }
+
+            #[inline]
+            fn get_type_info(&self) -> #bevy_reflect_path::TypeInfo {
+                <Self as #bevy_reflect_path::Typed>::type_info()
             }
 
             #[inline]

@@ -246,6 +246,11 @@ unsafe impl Reflect for DynamicTupleStruct {
     }
 
     #[inline]
+    fn get_type_info(&self) -> TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
     fn any(&self) -> &dyn Any {
         self
     }
