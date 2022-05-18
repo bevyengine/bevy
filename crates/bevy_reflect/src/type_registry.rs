@@ -2,9 +2,9 @@ use crate::{Reflect, TypeInfo, Typed};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use serde::de::Error;
 use serde::Deserialize;
 use std::{any::TypeId, fmt::Debug, sync::Arc};
-use serde::de::Error;
 
 /// A registry of reflected types.
 #[derive(Default)]

@@ -1,6 +1,5 @@
 use crate::{
-    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeIdentity,
-    TypeInfo, Typed,
+    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo, Typed,
 };
 use bevy_utils::{Entry, HashMap};
 use std::{any::Any, borrow::Cow, slice::Iter};

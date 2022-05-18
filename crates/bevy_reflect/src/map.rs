@@ -3,10 +3,7 @@ use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::{
-    DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo,
-    Typed,
-};
+use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo, Typed};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
