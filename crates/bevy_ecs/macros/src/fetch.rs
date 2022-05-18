@@ -257,21 +257,19 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 }
 
                 fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
-                    ##(<<<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>>::update_component_access(&state.#field_idents, _access);)*
+                    #(<<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::update_component_access(&state.#field_idents, _access);)*
                 }
 
                 fn update_archetype_component_access(state: &Self::State, _archetype: &#path::archetype::Archetype, _access: &mut #path::query::Access<#path::archetype::ArchetypeComponentId>) {
-                    // ##(<#field_types as Fetch<'_>>::update_archetype_component_access(&state.#field_idents, _access);)*
+                    #(<<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::update_archetype_component_access(&state.#field_idents, _archetype, _access);)*
                 }
 
                 fn matches_archetype(state: &Self::State, _archetype: &#path::archetype::Archetype) -> bool {
-                    true
-                    // true #(&& <#field_types as Fetch<'_>>::matches_archetype(&state.#field_idents, _archetype))*
+                    true #(&& <<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::matches_archetype(&state.#field_idents, _archetype))*
                 }
 
                 fn matches_table(state: &Self::State, _table: &#path::storage::Table) -> bool {
-                    true
-                    // true #(&& <#field_types as Fetch<'_>>::matches_table(&state.#field_idents,_table))*
+                    true #(&& <<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::matches_table(&state.#field_idents, _table))*
                 }
             }
         }
