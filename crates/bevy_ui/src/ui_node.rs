@@ -1,6 +1,6 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
-use bevy_derive::Deref;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
@@ -370,7 +370,7 @@ impl From<Color> for UiColor {
 }
 
 /// The image of the node
-#[derive(Component, Clone, Debug, Reflect, Deref)]
+#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
 pub struct UiImage(pub Handle<Image>);
 
