@@ -344,7 +344,7 @@ impl HandleUntyped {
     /// Create a weak typed [`Handle`] from this handle.
     ///
     /// If this handle is strong and dropped, there is no guarantee that the asset
-    /// will still be available.
+    /// will still be available (if only the returned handle is kept)
     pub fn typed_weak<T: Asset>(&self) -> Handle<T> {
         self.clone_weak().typed()
     }
