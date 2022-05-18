@@ -429,7 +429,7 @@ impl TaskPool {
             let local_executor: &'scope async_executor::LocalExecutor =
                 unsafe { mem::transmute(local_executor) };
             let mut scope = Scope {
-                executor: <&'scope async_executor::Executor>::clone(&executor),
+                executor,
                 local_executor,
                 spawned: Vec::new(),
             };
