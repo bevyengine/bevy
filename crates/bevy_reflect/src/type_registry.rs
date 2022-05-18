@@ -4,6 +4,7 @@ use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
 use std::{any::TypeId, fmt::Debug, sync::Arc};
+use serde::de::Error;
 
 /// A registry of reflected types.
 #[derive(Default)]
@@ -58,7 +59,7 @@ impl TypeRegistry {
                 .insert(short_name, registration.type_id());
         }
         self.full_name_to_id
-            .insert(registration.name().to_string(), registration.type_id());
+            .insert(registration.type_name().to_string(), registration.type_id());
         self.registrations
             .insert(registration.type_id(), registration);
     }
@@ -265,7 +266,7 @@ impl TypeRegistration {
     /// Returns the [name] of the type.
     ///
     /// [name]: std::any::type_name
-    pub fn name(&self) -> &'static str {
+    pub fn type_name(&self) -> &'static str {
         self.type_info.id().type_name()
     }
 
