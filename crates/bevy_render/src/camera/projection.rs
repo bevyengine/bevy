@@ -136,6 +136,15 @@ impl CameraProjection for OrthographicProjection {
                 self.bottom = -half_height;
                 self.right = half_width;
                 self.top = half_height;
+
+                if let ScalingMode::WindowSize = self.scaling_mode {
+                    if self.scale == 1.0 {
+                        self.left = self.left.floor();
+                        self.bottom = self.bottom.floor();
+                        self.right = self.right.floor();
+                        self.top = self.top.floor();
+                    }
+                }
             }
             WindowOrigin::BottomLeft => {
                 self.left = 0.0;
