@@ -1,12 +1,11 @@
 use std::{
     future::Future,
     mem,
-    pin::Pin,
     sync::Arc,
     thread::{self, JoinHandle},
 };
 
-use futures_lite::{future, pin, FutureExt};
+use futures_lite::{future, FutureExt};
 
 use crate::{Task, TaskGroup};
 
@@ -327,7 +326,7 @@ impl TaskPool {
                             }
                         };
                         // Use unwrap_err because we expect a Closed error
-                        future::block_on(future.or(shutdown_rx.recv())).unwrap_err();
+                        future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
                     })
                     .expect("Failed to spawn thread.")
             })
@@ -346,7 +345,7 @@ impl TaskPool {
                             }
                         };
                         // Use unwrap_err because we expect a Closed error
-                        future::block_on(future.or(shutdown_rx.recv())).unwrap_err();
+                        future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
                     })
                     .expect("Failed to spawn thread.")
             })
