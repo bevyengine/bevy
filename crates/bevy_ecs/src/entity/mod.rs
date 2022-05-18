@@ -55,7 +55,7 @@ use std::{
 ///
 /// # Usage
 ///
-/// This data type is returned by iterating a `Query` with an `Entity` [`WorldQuery`] parameter ([learn more]).
+/// This data type is returned by iterating a `Query` that has `Entity` as part of its [`WorldQuery`] parameter ([learn more]).
 /// It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
 ///
 /// [`WorldQuery`]: crate::query::WorldQuery
@@ -77,7 +77,7 @@ use std::{
 /// # bevy_ecs::system::IntoExclusiveSystem::exclusive_system(exclusive_system);
 /// ```
 ///
-/// It can be used to refer to a specific entity to apply [`EntityCommands`], and to call [`Query::get`] (or similar methods) to access its components.
+/// It can be used to refer to a specific entity to apply [`EntityCommands`], or to call [`Query::get`] (or similar methods) to access its components.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
