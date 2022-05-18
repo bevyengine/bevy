@@ -805,8 +805,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                     if !filter.filter_fetch(entity, &row) {
                         continue;
                     }
-                    let item = ;
-                    func(ifetch.fetch(entity, &row));
+                    func(fetch.fetch(entity, &row));
                 }
             }
         } else {
@@ -876,9 +875,10 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             );
                             let tables = &world.storages().tables;
                             let table = &tables[*table_id];
+                            let entities = table.entities();
                             fetch.set_table(&self.fetch_state, table);
                             filter.set_table(&self.filter_state, table);
-                            for row in 0..table.len() {
+                            for row in offset..offset + len {
                                 let entity = entities.get_unchecked(row);
                                 if !filter.filter_fetch(entity, &row) {
                                     continue;
@@ -917,13 +917,13 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                                 change_tick,
                             );
                             let tables = &world.storages().tables;
-                            let archetype = &archetypes[*archetype_id];
+                            let archetype = &world.archetypes[*archetype_id];
+                            let rows = archetype.entity_table_rows();
+                            let entities = archetype.entities();
                             fetch.set_archetype(&self.fetch_state, archetype, tables);
                             filter.set_archetype(&self.filter_state, archetype, tables);
 
-                            let rows = archetype.entity_table_rows();
-                            let entities = archetype.entities();
-                            for idx  in 0..archetype.len() {
+                            for idx  in offset..offset + len {
                                 let row = rows.get_unchecked(idx);
                                 let entity = entities.get_unchecked(idx);
                                 if !filter.filter_fetch(entity, row) {

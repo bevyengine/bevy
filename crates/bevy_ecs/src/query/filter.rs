@@ -606,17 +606,16 @@ macro_rules! impl_tick_filter {
             }
 
             #[inline(always)]
-            unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
+            unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), self.last_change_tick, self.change_tick)
+                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(*table_row)).deref(), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
-                        let entity = *self.entities.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
                         let ticks = self
                             .sparse_set
                             .unwrap_or_else(|| debug_checked_unreachable())
-                            .get_ticks(entity)
+                            .get_ticks(*entity)
                             .map(|ticks| &*ticks.get())
                             .cloned()
                             .unwrap();
@@ -630,14 +629,13 @@ macro_rules! impl_tick_filter {
                 // Explicitly repeated code here to avoid potential poor inlining
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), self.last_change_tick, self.change_tick)
+                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(*_table_row)).deref(), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
-                        let entity = *self.entities.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
                         let ticks = self
                             .sparse_set
                             .unwrap_or_else(|| debug_checked_unreachable())
-                            .get_ticks(entity)
+                            .get_ticks(*_entity)
                             .map(|ticks| &*ticks.get())
                             .cloned()
                             .unwrap();

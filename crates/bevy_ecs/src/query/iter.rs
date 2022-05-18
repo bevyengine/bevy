@@ -1,5 +1,6 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
+    entity::Entity,
     query::{Fetch, QueryState, WorldQuery},
     storage::{TableId, Tables},
     world::World,
@@ -254,6 +255,8 @@ where
 struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
+    entities: Option<&'s [Entity]>,
+    rows: Option<&'s [usize]>,
     fetch: QF,
     filter: QueryFetch<'w, F>,
     current_len: usize,
@@ -270,6 +273,8 @@ where
         Self {
             table_id_iter: self.table_id_iter.clone(),
             archetype_id_iter: self.archetype_id_iter.clone(),
+            entities: None,
+            rows: None,
             fetch: self.fetch.clone(),
             filter: self.filter.clone(),
             current_len: self.current_len,
@@ -319,6 +324,8 @@ where
         QueryIterationCursor {
             fetch,
             filter,
+            entities: None,
+            rows: None,
             table_id_iter: query_state.matched_table_ids.iter(),
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
             current_len: 0,
@@ -331,10 +338,13 @@ where
     #[inline]
     unsafe fn peek_last(&mut self) -> Option<QF::Item> {
         if self.current_index > 0 {
+            let index = self.current_index - 1;
+            let entity = self.entities.unwrap().get_unchecked(index);
             if Self::IS_DENSE {
-                Some(self.fetch.table_fetch(self.current_index - 1))
+                Some(self.fetch.fetch(entity, &index))
             } else {
-                Some(self.fetch.archetype_fetch(self.current_index - 1))
+                let row = self.rows.unwrap().get_unchecked(index);
+                Some(self.fetch.fetch(entity, row))
             }
         } else {
             None
@@ -357,18 +367,21 @@ where
                     let table = &tables[*table_id];
                     self.fetch.set_table(&query_state.fetch_state, table);
                     self.filter.set_table(&query_state.filter_state, table);
+                    // This borrow is valid for the lifetime of the state, but the compiler
+                    // can't prove that.
+                    self.entities = Some(std::mem::transmute(table.entities()));
                     self.current_len = table.len();
                     self.current_index = 0;
                     continue;
                 }
 
-                if !self.filter.table_filter_fetch(self.current_index) {
+                let entity = self.entities.unwrap().get_unchecked(self.current_index);
+                if !self.filter.filter_fetch(entity, &self.current_index) {
                     self.current_index += 1;
                     continue;
                 }
 
-                let item = self.fetch.table_fetch(self.current_index);
-
+                let item = self.fetch.fetch(entity, &self.current_index);
                 self.current_index += 1;
                 return Some(item);
             }
@@ -381,17 +394,23 @@ where
                         .set_archetype(&query_state.fetch_state, archetype, tables);
                     self.filter
                         .set_archetype(&query_state.filter_state, archetype, tables);
+                    // These borrows are valid for the lifetime of the state, but the compiler
+                    // can't prove that.
+                    self.entities = Some(std::mem::transmute(archetype.entities()));
+                    self.rows = Some(std::mem::transmute(archetype.entity_table_rows()));
                     self.current_len = archetype.len();
                     self.current_index = 0;
                     continue;
                 }
 
-                if !self.filter.archetype_filter_fetch(self.current_index) {
+                let entity = self.entities.unwrap().get_unchecked(self.current_index);
+                let row = self.rows.unwrap().get_unchecked(self.current_index);
+                if !self.filter.filter_fetch(entity, row) {
                     self.current_index += 1;
                     continue;
                 }
 
-                let item = self.fetch.archetype_fetch(self.current_index);
+                let item = self.fetch.fetch(entity, row);
                 self.current_index += 1;
                 return Some(item);
             }

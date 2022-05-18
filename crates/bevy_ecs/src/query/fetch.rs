@@ -480,23 +480,25 @@ impl<'w> Fetch<'w> for EntityFetch<'w> {
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> EntityFetch<'w> {
-        EntityFetch { marker: PhantomData }
+        EntityFetch {
+            marker: PhantomData,
+        }
     }
 
     #[inline]
     unsafe fn set_archetype(
         &mut self,
         _state: &Self::State,
-        archetype: &'w Archetype,
+        _archetype: &'w Archetype,
         _tables: &Tables,
     ) {
     }
 
     #[inline]
-    unsafe fn set_table(&mut self, _state: &Self::State, table: &'w Table) {}
+    unsafe fn set_table(&mut self, _state: &Self::State, _table: &'w Table) {}
 
     #[inline(always)]
-    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
+    unsafe fn fetch(&mut self, entity: &Entity, _table_row: &usize) -> Self::Item {
         *entity
     }
 }
@@ -661,7 +663,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
                 components.get(*table_row).deref()
             }
             StorageType::SparseSet => {
-                let (entities, sparse_set) = self
+                let (_, sparse_set) = self
                     .entities
                     .zip(self.sparse_set)
                     .unwrap_or_else(|| debug_checked_unreachable());
@@ -856,6 +858,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
+                let table_row = *table_row;
                 let (table_components, table_ticks) = self
                     .table_components
                     .zip(self.table_ticks)
@@ -870,13 +873,12 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
                 }
             }
             StorageType::SparseSet => {
-                let (entities, sparse_set) = self
+                let (_, sparse_set) = self
                     .entities
                     .zip(self.sparse_set)
                     .unwrap_or_else(|| debug_checked_unreachable());
-                let entity = *entities.get(archetype_index);
                 let (component, component_ticks) = sparse_set
-                    .get_with_ticks(entity)
+                    .get_with_ticks(*entity)
                     .unwrap_or_else(|| debug_checked_unreachable());
                 Mut {
                     value: component.assert_unique().deref_mut(),
@@ -961,16 +963,15 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
                 let components = self
                     .table_components
                     .unwrap_or_else(|| debug_checked_unreachable());
-                components.get(table_row).deref()
+                components.get(*table_row).deref()
             }
             StorageType::SparseSet => {
-                let (entities, sparse_set) = self
+                let (_, sparse_set) = self
                     .entities
                     .zip(self.sparse_set)
                     .unwrap_or_else(|| debug_checked_unreachable());
-                let entity = *entities.get(archetype_index);
                 sparse_set
-                    .get(entity)
+                    .get(*entity)
                     .unwrap_or_else(|| debug_checked_unreachable())
                     .deref::<T>()
             }
@@ -1091,11 +1092,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 
     #[inline(always)]
     unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
-        if self.matches {
-            Some(self.fetch.fetch(archetype_index))
-        } else {
-            None
-        }
+        self.matches.then(|| self.fetch.fetch(entity, table_row))
     }
 }
 
@@ -1326,27 +1323,23 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
     #[inline(always)]
     unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                ChangeTrackers {
-                    component_ticks: {
-                        let table_ticks = self
-                            .table_ticks
-                            .unwrap_or_else(|| debug_checked_unreachable());
-                        table_ticks.get(table_row).read()
-                    },
-                    marker: PhantomData,
-                    last_change_tick: self.last_change_tick,
-                    change_tick: self.change_tick,
-                }
-            }
+            StorageType::Table => ChangeTrackers {
+                component_ticks: {
+                    let table_ticks = self
+                        .table_ticks
+                        .unwrap_or_else(|| debug_checked_unreachable());
+                    table_ticks.get(*table_row).read()
+                },
+                marker: PhantomData,
+                last_change_tick: self.last_change_tick,
+                change_tick: self.change_tick,
+            },
             StorageType::SparseSet => {
-                let entities = self.entities.unwrap_or_else(|| debug_checked_unreachable());
-                let entity = *entities.get(archetype_index);
                 ChangeTrackers {
                     component_ticks: self
                         .sparse_set
                         .unwrap_or_else(|| debug_checked_unreachable())
-                        .get_ticks(entity)
+                        .get_ticks(*entity)
                         .map(|ticks| &*ticks.get())
                         .cloned()
                         .unwrap_or_else(|| debug_checked_unreachable()),
