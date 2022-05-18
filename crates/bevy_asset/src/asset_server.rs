@@ -785,7 +785,7 @@ mod test {
             id: &Handle<PngAsset>,
             world: &'world World,
         ) -> Option<&'world PngAsset> {
-            world.resource::<Assets<PngAsset>>().get(&id)
+            world.resource::<Assets<PngAsset>>().get(id)
         }
 
         fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
