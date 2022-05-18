@@ -34,7 +34,7 @@ You should also consider testing the examples of our upstream dependencies to he
 
 ## What you did
 
-Please provide a runnable code snippet or link if you can.
+Describe how you arrived at the problem. If you can, consider providing a code snippet or link.
 
 ## What went wrong
 
