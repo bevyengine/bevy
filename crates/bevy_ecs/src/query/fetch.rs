@@ -564,7 +564,6 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
 pub struct ReadFetch<'w, T> {
     // T::Storage = TableStorage
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     // T::Storage = SparseStorage
     entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -574,7 +573,6 @@ impl<T> Clone for ReadFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
             table_components: self.table_components,
-            entity_table_rows: self.entity_table_rows,
             entities: self.entities,
             sparse_set: self.sparse_set,
         }
@@ -611,7 +609,6 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             table_components: None,
-            entity_table_rows: None,
             entities: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
@@ -632,7 +629,6 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
     ) {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                self.entity_table_rows = Some(archetype.entity_table_rows().into());
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
@@ -690,7 +686,6 @@ pub struct WriteFetch<'w, T> {
     // T::Storage = TableStorage
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     // T::Storage = SparseStorage
     entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -705,7 +700,6 @@ impl<T> Clone for WriteFetch<'_, T> {
             table_components: self.table_components,
             table_ticks: self.table_ticks,
             entities: self.entities,
-            entity_table_rows: self.entity_table_rows,
             sparse_set: self.sparse_set,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
@@ -717,7 +711,6 @@ impl<T> Clone for WriteFetch<'_, T> {
 pub struct ReadOnlyWriteFetch<'w, T> {
     // T::Storage = TableStorage
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     // T::Storage = SparseStorage
     entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -731,7 +724,6 @@ impl<T> Clone for ReadOnlyWriteFetch<'_, T> {
         Self {
             table_components: self.table_components,
             entities: self.entities,
-            entity_table_rows: self.entity_table_rows,
             sparse_set: self.sparse_set,
         }
     }
@@ -813,7 +805,6 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
         Self {
             table_components: None,
             entities: None,
-            entity_table_rows: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     .storages()
@@ -836,7 +827,6 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     ) {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                self.entity_table_rows = Some(archetype.entity_table_rows().into());
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
@@ -915,7 +905,6 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
         Self {
             table_components: None,
             entities: None,
-            entity_table_rows: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     .storages()
@@ -935,7 +924,6 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
     ) {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                self.entity_table_rows = Some(archetype.entity_table_rows().into());
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
@@ -1221,7 +1209,6 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 pub struct ChangeTrackersFetch<'w, T> {
     // T::Storage = TableStorage
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     // T::Storage = SparseStorage
     entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -1235,7 +1222,6 @@ impl<T> Clone for ChangeTrackersFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
             table_ticks: self.table_ticks,
-            entity_table_rows: self.entity_table_rows,
             entities: self.entities,
             sparse_set: self.sparse_set,
             marker: self.marker,
@@ -1276,7 +1262,6 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
         ChangeTrackersFetch {
             table_ticks: None,
             entities: None,
-            entity_table_rows: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     .storages()
@@ -1299,7 +1284,6 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
     ) {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                self.entity_table_rows = Some(archetype.entity_table_rows().into());
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();

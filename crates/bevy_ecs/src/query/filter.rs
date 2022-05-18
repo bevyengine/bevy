@@ -497,7 +497,6 @@ macro_rules! impl_tick_filter {
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
             table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-            entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
             marker: PhantomData<T>,
             entities: Option<ThinSlicePtr<'w, Entity>>,
             sparse_set: Option<&'w ComponentSparseSet>,
@@ -572,7 +571,6 @@ macro_rules! impl_tick_filter {
                 Self {
                     table_ticks: None,
                     entities: None,
-                    entity_table_rows: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
                         .then(|| world.storages().sparse_sets.get(state.component_id).unwrap()),
                     marker: PhantomData,
@@ -597,7 +595,6 @@ macro_rules! impl_tick_filter {
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        self.entity_table_rows = Some(archetype.entity_table_rows().into());
                         let table = &tables[archetype.table_id()];
                         self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice().into());
                     }
@@ -652,7 +649,6 @@ macro_rules! impl_tick_filter {
             fn clone(&self) -> Self {
                 Self {
                     table_ticks: self.table_ticks.clone(),
-                    entity_table_rows: self.entity_table_rows.clone(),
                     marker: self.marker.clone(),
                     entities: self.entities.clone(),
                     sparse_set: self.sparse_set.clone(),
