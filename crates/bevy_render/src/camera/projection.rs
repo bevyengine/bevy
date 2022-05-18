@@ -107,10 +107,6 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        if let ScalingMode::None = self.scaling_mode {
-            return;
-        }
-
         let (viewport_width, viewport_height) = match self.scaling_mode {
             ScalingMode::WindowSize => (width, height),
             ScalingMode::Auto {
@@ -129,7 +125,7 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::FixedHorizontal(viewport_width) => {
                 (viewport_width, height * viewport_width / width)
             }
-            ScalingMode::None => unreachable!(),
+            ScalingMode::None => return,
         };
 
         match self.window_origin {
