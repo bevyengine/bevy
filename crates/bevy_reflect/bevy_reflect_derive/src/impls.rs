@@ -39,20 +39,16 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = derive_data
-        .traits()
-        .get_hash_impl(bevy_reflect_path)
-        .unwrap_or_else(|| quote!(None));
-    let serialize_fn = derive_data
-        .traits()
-        .get_serialize_impl(bevy_reflect_path)
-        .unwrap_or_else(|| quote!(None));
+    let hash_fn = derive_data.traits().get_hash_impl(bevy_reflect_path);
+    let serialize_fn = derive_data.traits().get_serialize_impl(bevy_reflect_path);
     let partial_eq_fn = derive_data
         .traits()
-        .get_partial_eq_impl()
+        .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
-                #bevy_reflect_path::struct_partial_eq(self, value)
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
+                    #bevy_reflect_path::struct_partial_eq(self, value)
+                }
             }
         });
 
@@ -175,17 +171,11 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Struct(self)
             }
 
-            fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
-                #serialize_fn
-            }
+            #hash_fn
 
-            fn reflect_hash(&self) -> Option<u64> {
-                #hash_fn
-            }
+            #partial_eq_fn
 
-            fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
-                #partial_eq_fn
-            }
+            #serialize_fn
         }
 
         impl #impl_generics #bevy_reflect_path::Typed for #struct_name #ty_generics #where_clause {
@@ -217,20 +207,16 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = derive_data
-        .traits()
-        .get_hash_impl(bevy_reflect_path)
-        .unwrap_or_else(|| quote!(None));
-    let serialize_fn = derive_data
-        .traits()
-        .get_serialize_impl(bevy_reflect_path)
-        .unwrap_or_else(|| quote!(None));
+    let hash_fn = derive_data.traits().get_hash_impl(bevy_reflect_path);
+    let serialize_fn = derive_data.traits().get_serialize_impl(bevy_reflect_path);
     let partial_eq_fn = derive_data
         .traits()
-        .get_partial_eq_impl()
+        .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
-                #bevy_reflect_path::tuple_struct_partial_eq(self, value)
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
+                    #bevy_reflect_path::tuple_struct_partial_eq(self, value)
+                }
             }
         });
 
@@ -329,17 +315,11 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
                 #bevy_reflect_path::ReflectMut::TupleStruct(self)
             }
 
-            fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
-                #serialize_fn
-            }
+            #hash_fn
 
-            fn reflect_hash(&self) -> Option<u64> {
-                #hash_fn
-            }
+            #partial_eq_fn
 
-            fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
-                #partial_eq_fn
-            }
+            #serialize_fn
         }
 
         impl #impl_generics #bevy_reflect_path::Typed for #struct_name #ty_generics #where_clause {
@@ -360,17 +340,11 @@ pub(crate) fn impl_value(
     generics: &Generics,
     get_type_registration_impl: proc_macro2::TokenStream,
     bevy_reflect_path: &Path,
-    reflect_attrs: &ReflectTraits,
+    reflect_traits: &ReflectTraits,
 ) -> TokenStream {
-    let hash_fn = reflect_attrs
-        .get_hash_impl(bevy_reflect_path)
-        .unwrap_or_else(|| quote!(None));
-    let partial_eq_fn = reflect_attrs
-        .get_partial_eq_impl()
-        .unwrap_or_else(|| quote!(None));
-    let serialize_fn = reflect_attrs
-        .get_serialize_impl(bevy_reflect_path)
-        .unwrap_or_else(|| quote!(None));
+    let hash_fn = reflect_traits.get_hash_impl(bevy_reflect_path);
+    let serialize_fn = reflect_traits.get_serialize_impl(bevy_reflect_path);
+    let partial_eq_fn = reflect_traits.get_partial_eq_impl(bevy_reflect_path);
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
@@ -437,17 +411,11 @@ pub(crate) fn impl_value(
                 #bevy_reflect_path::ReflectMut::Value(self)
             }
 
-            fn reflect_hash(&self) -> Option<u64> {
-                #hash_fn
-            }
+            #hash_fn
 
-            fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
-                #partial_eq_fn
-            }
+            #partial_eq_fn
 
-            fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
-                #serialize_fn
-            }
+            #serialize_fn
         }
 
         impl #impl_generics #bevy_reflect_path::Typed for #type_name #ty_generics #where_clause {

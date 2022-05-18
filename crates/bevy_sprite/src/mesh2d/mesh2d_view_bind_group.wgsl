@@ -6,8 +6,6 @@ struct View {
     inverse_view: mat4x4<f32>;
     projection: mat4x4<f32>;
     world_position: vec3<f32>;
-    near: f32;
-    far: f32;
     width: f32;
     height: f32;
 };

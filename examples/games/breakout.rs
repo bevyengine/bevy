@@ -1,4 +1,4 @@
-//! A simplified implementation of the classic game "Breakout"
+//! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
     core::FixedTimestep,

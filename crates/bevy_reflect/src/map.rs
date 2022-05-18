@@ -4,7 +4,7 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo,
+    DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo,
     Typed,
 };
 
@@ -229,16 +229,8 @@ unsafe impl Reflect for DynamicMap {
         Box::new(self.clone_dynamic())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 

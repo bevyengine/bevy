@@ -217,8 +217,6 @@ pub enum SimulationLightSystems {
 /// rendering
 #[derive(Debug, Copy, Clone)]
 pub enum ClusterFarZMode {
-    /// Use the camera far-plane to determine the z-depth of the furthest cluster layer
-    CameraFarPlane,
     /// Calculate the required maximum z-depth based on currently visible lights.
     /// Makes better use of available clusters, speeding up GPU lighting operations
     /// at the expense of some CPU time and using more indices in the cluster light
@@ -758,7 +756,6 @@ pub(crate) fn assign_lights_to_clusters(
         let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
 
         let far_z = match config.far_z_mode() {
-            ClusterFarZMode::CameraFarPlane => camera.far,
             ClusterFarZMode::MaxLightRange => {
                 let inverse_view_row_2 = inverse_view_transform.row(2);
                 lights
@@ -772,7 +769,17 @@ pub(crate) fn assign_lights_to_clusters(
             ClusterFarZMode::Constant(far) => far,
         };
         let first_slice_depth = match (is_orthographic, requested_cluster_dimensions.z) {
-            (true, _) => camera.near,
+            (true, _) => {
+                // NOTE: Based on glam's Mat4::orthographic_rh(), as used to calculate the orthographic projection
+                // matrix, we can calculate the projection's view-space near plane as follows:
+                // component 3,2 = r * near and 2,2 = r where r = 1.0 / (near - far)
+                // There is a caveat here that when calculating the projection matrix, near and far were swapped to give
+                // reversed z, consistent with the perspective projection. So,
+                // 3,2 = r * far and 2,2 = r where r = 1.0 / (far - near)
+                // rearranging r = 1.0 / (far - near), r * (far - near) = 1.0, r * far - 1.0 = r * near, near = (r * far - 1.0) / r
+                // = (3,2 - 1.0) / 2,2
+                (camera.projection_matrix.w_axis.z - 1.0) / camera.projection_matrix.z_axis.z
+            }
             (false, 1) => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
         };

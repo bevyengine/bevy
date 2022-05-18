@@ -1,6 +1,5 @@
 use crate::{
-    serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo,
-    Typed, UnnamedField,
+    DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo, Typed, UnnamedField,
 };
 use std::any::Any;
 use std::slice::Iter;
@@ -302,16 +301,8 @@ unsafe impl Reflect for DynamicTupleStruct {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 

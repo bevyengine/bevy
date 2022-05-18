@@ -1,3 +1,6 @@
+//! Shows how to render multiple passes to the same window, useful for rendering different views
+//! or drawing an object on top regardless of depth.
+
 use bevy::{
     core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},
     prelude::*,
@@ -68,6 +71,7 @@ fn extract_first_pass_camera_phases(
         ));
     }
 }
+
 // A node for the first pass camera that runs draw_3d_graph with this camera.
 struct FirstPassCameraDriver {
     query: QueryState<Entity, With<FirstPassCamera>>,

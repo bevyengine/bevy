@@ -1,6 +1,7 @@
+//! This example illustrates how to load and play an audio file, and control how it's played.
+
 use bevy::{audio::AudioSink, prelude::*};
 
-/// This example illustrates how to load and play an audio file, and control how it's played
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

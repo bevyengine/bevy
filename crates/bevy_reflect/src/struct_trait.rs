@@ -1,5 +1,5 @@
 use crate::{
-    serde::Serializable, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeIdentity,
+    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeIdentity,
     TypeInfo, Typed,
 };
 use bevy_utils::{Entry, HashMap};
@@ -385,16 +385,8 @@ unsafe impl Reflect for DynamicStruct {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         struct_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 

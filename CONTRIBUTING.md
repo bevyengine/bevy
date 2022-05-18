@@ -2,7 +2,6 @@
 
 Hey, so you're interested in contributing to Bevy!
 Feel free to pitch in on whatever interests you and we'll be happy to help you contribute.
-Ultimately @cart has final say on which changes are merged, but you're welcome to try and convince him.
 
 Check out our community's [Code of Conduct](https://github.com/bevyengine/bevy/blob/main/CODE_OF_CONDUCT.md) and feel free to say hi on [Discord](https://discord.gg/bevy) if you'd like.
 It's a nice place to chat about Bevy development, ask questions, and get to know the other contributors and users in a less formal setting.
