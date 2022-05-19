@@ -1,7 +1,7 @@
 #import bevy_pbr::mesh_view_bind_group
 #import bevy_pbr::mesh_struct
 
-[[group(1), binding(0)]]
+[[group(2), binding(0)]]
 var<uniform> mesh: Mesh;
 
 struct Vertex {
@@ -29,7 +29,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 struct Time {
     time_since_startup: f32;
 };
-[[group(2), binding(0)]]
+[[group(1), binding(0)]]
 var<uniform> time: Time;
 
 
