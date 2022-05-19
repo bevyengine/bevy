@@ -97,7 +97,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        self.spawn(future)
+        self.spawn(TaskGroup::Compute, future)
     }
 }
 
