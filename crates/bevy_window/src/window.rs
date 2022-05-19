@@ -620,7 +620,7 @@ pub struct WindowDescriptor {
     /// If set to `None`, some platform-specific position will be chosen.
     pub position: Option<Vec2>,
     pub resize_constraints: WindowResizeConstraints,
-    /// Overrides the [`Window`](crate::Window)'s ratio of physical pixels to logical pixels.
+    /// Overrides the window's ratio of physical pixels to logical pixels.
     pub scale_factor_override: Option<f64>,
     pub title: String,
     #[doc(alias = "vsync")]
