@@ -624,14 +624,14 @@ pub struct WindowDescriptor {
     /// Overrides the window's ratio of physical pixels to logical pixels.
     pub scale_factor_override: Option<f64>,
     /// Sets the title that displays on the window top bar, on the system task bar and other OS specific places.
-    /// # Platform-specific
+    /// ## Platform-specific
     /// - Web: Unsupported.
     pub title: String,
     /// Controls when is a frame presented to the screen.
     #[doc(alias = "vsync")]
     pub present_mode: PresentMode,
     /// Sets whether the window is resizable.
-    /// # Platform-specific
+    /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     pub resizable: bool,
     /// Sets whether the window should have borders and bars.
@@ -643,7 +643,7 @@ pub struct WindowDescriptor {
     /// Sets the [`WindowMode`](crate::WindowMode).
     pub mode: WindowMode,
     /// Sets whether the background of the window should be transparent.
-    /// # Platform-specific
+    /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     /// - macOS X: Not working as expected.
     /// - Windows 11: Not working as expected
