@@ -366,7 +366,7 @@ macro_rules! impl_query_filter_tuple {
             type State = Or<($(<$filter as Fetch<'w>>::State,)*)>;
             type Item = bool;
 
-            const IS_DENSE: bool = true $(|| $filter::IS_DENSE)*;
+            const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 

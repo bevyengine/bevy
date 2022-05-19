@@ -374,8 +374,21 @@ pub trait Fetch<'world>: Sized {
     /// [`Self::State`] this was initialized with.
     unsafe fn set_table(&mut self, state: &Self::State, table: &'world Table);
 
+    /// Fetch [`Self::Item`] for either the given `entity` in the current [`Table`], or for the given
+    /// `entity` in the current [`Archetype`]. This must always be called after [`Fetch::set_table`]
+    /// with a `table_row` in the range of the current [`Table`] or after [`Fetch::set_archetype`]  
+    /// with a `entity` in the current archetype.
+    ///
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`Fetch::set_table`] or [`Fetch::set_archetype`]. `entity` and
+    /// `table_row` must be in the range of the current table and archetype.
     unsafe fn fetch(&mut self, entity: &Entity, table_index: &usize) -> Self::Item;
 
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`Fetch::set_table`] or [`Fetch::set_archetype`]. `entity` and
+    /// `table_row` must be in the range of the current table and archetype.
     #[allow(unused_variables)]
     #[inline(always)]
     unsafe fn filter_fetch(&mut self, entity: &Entity, table_index: &usize) -> bool {
@@ -1353,7 +1366,7 @@ macro_rules! impl_tuple_fetch {
                 ($($name::init(_world, $name, _last_change_tick, _change_tick),)*)
             }
 
-            const IS_DENSE: bool = true $(|| $name::IS_DENSE)*;
+            const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 

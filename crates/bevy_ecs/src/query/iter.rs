@@ -288,7 +288,7 @@ impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIterationCursor<'w, 's, Q, Q
 where
     QF: Fetch<'w, State = Q::State>,
 {
-    const IS_DENSE: bool = QF::IS_DENSE || <QueryFetch<'static, F>>::IS_DENSE;
+    const IS_DENSE: bool = QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE;
 
     unsafe fn init_empty(
         world: &'w World,
@@ -375,6 +375,7 @@ where
                     continue;
                 }
 
+                println!("{} {} {:?}", self.current_index, self.current_len, self.entities);
                 let entity = self.entities.unwrap().get_unchecked(self.current_index);
                 if !self.filter.filter_fetch(entity, &self.current_index) {
                     self.current_index += 1;
