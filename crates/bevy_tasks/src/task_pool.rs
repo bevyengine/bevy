@@ -440,24 +440,27 @@ impl TaskPool {
 
             f(&mut scope);
 
-            future::block_on(async move {
-                let get_results = async move {
-                    let mut results = Vec::with_capacity(scope.spawned.len());
-                    for task in scope.spawned {
-                        results.push(task.await);
-                    }
+            match scope.len() {
+                0 => Vec::new(),
+                1 => vec![future::block_on(&mut scope.spawned[0])],
+                _ => future::block_on(async move {
+                    let get_results = async move {
+                        let mut results = Vec::with_capacity(scope.spawned.len());
+                        for task in scope.spawned {
+                            results.push(task.await);
+                        }
+                        results
+                    };
 
-                    results
-                };
+                    let tick_forever = async move {
+                        loop {
+                            local_executor.tick().or(executor.tick()).await;
+                        }
+                    };
 
-                let tick_forever = async move {
-                    loop {
-                        local_executor.tick().or(executor.tick()).await;
-                    }
-                };
-
-                get_results.or(tick_forever).await
-            })
+                    get_results.or(tick_forever).await
+                })
+            }
         })
     }
 
