@@ -82,7 +82,7 @@ impl TaskPool {
     /// and simply call detach on returned Task (like AssetServer does) - spawned future
     /// can write results to some channel / event queue.
     #[inline]
-    pub fn spawn<T>(&self, group: TaskGroup, future: impl Future<Output = T> + 'static) -> FakeTask
+    pub fn spawn<T>(&self, _: TaskGroup, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
     {
