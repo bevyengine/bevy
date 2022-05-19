@@ -602,7 +602,7 @@ impl Window {
     }
 }
 
-/// Describes the information needed for a window creation.
+/// Describes the information needed for creating a window.
 ///
 /// This should be set up before adding the [`WindowPlugin`](crate::WindowPlugin). Most of these settings can also later
 /// be configured through the [`Window`](crate::Window) resource.
