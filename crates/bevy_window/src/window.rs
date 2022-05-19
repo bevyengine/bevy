@@ -608,7 +608,7 @@ impl Window {
 /// Most of these settings can also later be configured through the [`Window`](crate::Window) resource.
 ///
 /// See [`examples/window/window_settings.rs`] for usage.
-/// 
+///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
