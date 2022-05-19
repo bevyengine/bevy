@@ -139,18 +139,24 @@ impl TaskPoolBuilder {
     }
 
     /// Configure the group options for [`TaskGroup::Compute`].
+    ///
+    /// [`TaskGroup::Compute`]: crate::TaskGroup::Compute
     pub fn compute<F: FnOnce(&mut TaskGroupBuilder)>(mut self, builder: F) -> Self {
         builder(&mut self.io);
         self
     }
 
     /// Configure the group options for [`TaskGroup::AsyncCompute`].
+    ///
+    /// [`TaskGroup::AsyncCompute`]: crate::TaskGroup::AsyncCompute
     pub fn async_compute<F: FnOnce(&mut TaskGroupBuilder)>(mut self, builder: F) -> Self {
         builder(&mut self.io);
         self
     }
 
     /// Configure the group options for [`TaskGroup::IO`].
+    ///
+    /// [`TaskGroup::IO`]: crate::TaskGroup::IO
     pub fn io<F: FnOnce(&mut TaskGroupBuilder)>(mut self, builder: F) -> Self {
         builder(&mut self.io);
         self
