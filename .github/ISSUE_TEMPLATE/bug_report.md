@@ -10,7 +10,7 @@ assignees: ''
 
 The release number or commit hash of the version you're using.
 
-## \[Optional\] Relevant system infromation
+## \[Optional\] Relevant system information
 
 If you cannot get Bevy to build or run on your machine, please include:
 
