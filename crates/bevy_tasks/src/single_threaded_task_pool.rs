@@ -1,50 +1,10 @@
+pub use crate::task_pool_builder::TaskPoolBuilder;
 use crate::TaskGroup;
 use std::{
     future::Future,
     mem,
     sync::{Arc, Mutex},
 };
-
-/// Used to create a TaskPool
-#[derive(Debug, Default, Clone)]
-pub struct TaskPoolBuilder {}
-
-impl TaskPoolBuilder {
-    /// Creates a new TaskPoolBuilder instance
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// No op on the single threaded task pool
-    pub fn compute_threads(self, num_threads: usize) -> Self {
-        self
-    }
-
-    /// No op on the single threaded task pool
-    pub fn async_compute_threads(self, num_threads: usize) -> Self {
-        self
-    }
-
-    /// No op on the single threaded task pool
-    pub fn io_threads(self, num_threads: usize) -> Self {
-        self
-    }
-
-    /// No op on the single threaded task pool
-    pub fn stack_size(self, _stack_size: usize) -> Self {
-        self
-    }
-
-    /// No op on the single threaded task pool
-    pub fn thread_name(self, _thread_name: String) -> Self {
-        self
-    }
-
-    /// Creates a new [`TaskPool`]
-    pub fn build(self) -> TaskPool {
-        TaskPool::new_internal()
-    }
-}
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool. In this case - main thread only.
@@ -71,8 +31,7 @@ impl TaskPool {
         TaskPoolBuilder::new().build()
     }
 
-    #[allow(unused_variables)]
-    fn new_internal() -> Self {
+    pub(crate) fn new_internal(_: TaskPoolBuilder) -> Self {
         Self {}
     }
 
@@ -86,21 +45,8 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
-    where
-        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
-        T: Send + 'static,
-    {
-        self.scope_as(TaskGroup::Compute, f)
-    }
-
-    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
-    /// passing a scope object into it. The scope object provided to the callback can be used
-    /// to spawn tasks. This function will await the completion of all tasks before returning.
-    ///
-    /// This is similar to `rayon::scope` and `crossbeam::scope`
     #[inline]
-    pub fn scope_as<'scope, F, T>(&self, _: TaskGroup, f: F) -> Vec<T>
+    pub fn scope<'scope, F, T>(&self, _: TaskGroup, f: F) -> Vec<T>
     where
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
@@ -135,28 +81,8 @@ impl TaskPool {
     /// caller can spawn long-running future writing results to some channel / event queue
     /// and simply call detach on returned Task (like AssetServer does) - spawned future
     /// can write results to some channel / event queue.
-    pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
-    where
-        T: 'static,
-    {
-        self.spawn_as(TaskGroup::Compute, future)
-    }
-
-    /// Spawns a static future onto the JS event loop. For now it is returning FakeTask
-    /// instance with no-op detach method. Returning real Task is possible here, but tricky:
-    /// future is running on JS event loop, Task is running on async_executor::LocalExecutor
-    /// so some proxy future is needed. Moreover currently we don't have long-living
-    /// LocalExecutor here (above `spawn` implementation creates temporary one)
-    /// But for typical use cases it seems that current implementation should be sufficient:
-    /// caller can spawn long-running future writing results to some channel / event queue
-    /// and simply call detach on returned Task (like AssetServer does) - spawned future
-    /// can write results to some channel / event queue.
     #[inline]
-    pub fn spawn_as<T>(
-        &self,
-        group: TaskGroup,
-        future: impl Future<Output = T> + 'static,
-    ) -> FakeTask
+    pub fn spawn<T>(&self, group: TaskGroup, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
     {

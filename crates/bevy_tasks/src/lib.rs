@@ -17,6 +17,8 @@ mod single_threaded_task_pool;
 #[cfg(target_arch = "wasm32")]
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
+mod task_pool_builder;
+
 mod iter;
 pub use iter::ParallelIterator;
 
