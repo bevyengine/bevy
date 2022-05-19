@@ -337,7 +337,7 @@ impl TaskPool {
                 let async_compute = Arc::clone(&compute_executor);
                 let io = Arc::clone(&io_executor);
                 let shutdown_rx = shutdown_rx.clone();
-                make_thread_builder(&builder, "Aync Compute", i)
+                make_thread_builder(&builder, "Async Compute", i)
                     .spawn(move || {
                         let future = async {
                             loop {
