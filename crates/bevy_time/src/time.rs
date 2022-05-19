@@ -2,19 +2,6 @@ use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_utils::{tracing::warn, Duration, Instant};
 use crossbeam_channel::{Receiver, Sender};
 
-/// channel resource used to receive time from render world
-pub struct TimeReceiver(pub Receiver<Instant>);
-/// channel resource used to send time from render world
-pub struct TimeSender(pub Sender<Instant>);
-
-/// create channels used for sending time between render world and app world
-pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
-    // bound the channel to 2 since when pipelined the render phase can finish before
-    // the time system runs.
-    let (s, r) = crossbeam_channel::bounded::<Instant>(2);
-    (TimeSender(s), TimeReceiver(r))
-}
-
 /// Tracks elapsed time since the last update and since the App has started
 #[derive(Debug, Clone)]
 pub struct Time {
@@ -155,6 +142,19 @@ impl Time {
     pub fn time_since_startup(&self) -> Duration {
         self.time_since_startup
     }
+}
+
+/// channel resource used to receive time from render world
+pub struct TimeReceiver(pub Receiver<Instant>);
+/// channel resource used to send time from render world
+pub struct TimeSender(pub Sender<Instant>);
+
+/// create channels used for sending time between render world and app world
+pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
+    // bound the channel to 2 since when pipelined the render phase can finish before
+    // the time system runs.
+    let (s, r) = crossbeam_channel::bounded::<Instant>(2);
+    (TimeSender(s), TimeReceiver(r))
 }
 
 /// The system used to update the time. If there is a render world the time is sent from
