@@ -180,11 +180,32 @@ impl TaskPoolBuilder {
     }
 }
 
+#[derive(Debug, Default)]
+struct GroupInfo {
+    executor: async_executor::Executor<'static>,
+    threads: usize,
+}
+
+#[derive(Debug, Default)]
+struct Groups {
+    compute: GroupInfo,
+    async_compute: GroupInfo,
+    io: GroupInfo,
+}
+
+impl Groups {
+    fn get(&self, group: TaskGroup) -> &GroupInfo {
+        match group {
+            TaskGroup::Compute => &self.compute,
+            TaskGroup::AsyncCompute => &self.async_compute,
+            TaskGroup::IO => &self.io,
+        }
+    }
+}
+
 #[derive(Debug)]
 struct TaskPoolInner {
-    compute_threads: Vec<JoinHandle<()>>,
-    async_compute_threads: Vec<JoinHandle<()>>,
-    io_threads: Vec<JoinHandle<()>>,
+    threads: Vec<JoinHandle<()>>,
     shutdown_tx: async_channel::Sender<()>,
 }
 
@@ -193,19 +214,7 @@ impl Drop for TaskPoolInner {
         self.shutdown_tx.close();
 
         let panicking = thread::panicking();
-        for join_handle in self.compute_threads.drain(..) {
-            let res = join_handle.join();
-            if !panicking {
-                res.expect("Task thread panicked while executing.");
-            }
-        }
-        for join_handle in self.async_compute_threads.drain(..) {
-            let res = join_handle.join();
-            if !panicking {
-                res.expect("Task thread panicked while executing.");
-            }
-        }
-        for join_handle in self.io_threads.drain(..) {
+        for join_handle in self.threads.drain(..) {
             let res = join_handle.join();
             if !panicking {
                 res.expect("Task thread panicked while executing.");
@@ -232,17 +241,15 @@ impl Drop for TaskPoolInner {
 /// via [`TaskPoolBuilder`] when constructing the pool.
 #[derive(Debug, Clone)]
 pub struct TaskPool {
-    /// The executor for the pool
+    /// The groups for the pool
     ///
-    /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
+    /// This has to be separate from TaskPoolInner because we have to create an Arc to
     /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the Vec<Task<T>> contained within TaskPoolInner
-    compute_executor: Arc<async_executor::Executor<'static>>,
-    async_compute_executor: Arc<async_executor::Executor<'static>>,
-    io_executor: Arc<async_executor::Executor<'static>>,
+    /// the Vec<JoinHandle<()>> contained within TaskPoolInner
+    groups: Arc<Groups>,
 
     /// Inner state of the pool
-    inner: Arc<TaskPoolInner>,
+    _inner: Arc<TaskPoolInner>,
 }
 
 impl TaskPool {
@@ -263,10 +270,7 @@ impl TaskPool {
     fn new_internal(builder: TaskPoolBuilder) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
-        let compute_executor = Arc::new(async_executor::Executor::new());
-        let async_compute_executor = Arc::new(async_executor::Executor::new());
-        let io_executor = Arc::new(async_executor::Executor::new());
-
+        let mut groups = Groups::default();
         let total_threads =
             crate::logical_core_count().clamp(builder.min_total_threads, builder.max_total_threads);
         tracing::trace!("Assigning {} cores to default task pools", total_threads);
@@ -274,91 +278,86 @@ impl TaskPool {
         let mut remaining_threads = total_threads;
 
         // Determine the number of IO threads we will use
-        let io_threads = builder
+        groups.io.threads = builder
             .io
             .get_number_of_threads(remaining_threads, total_threads);
 
-        tracing::trace!("IO Threads: {}", io_threads);
-        remaining_threads = remaining_threads.saturating_sub(io_threads);
+        tracing::trace!("IO Threads: {}", groups.io.threads);
+        remaining_threads = remaining_threads.saturating_sub(groups.io.threads);
 
         // Determine the number of async compute threads we will use
-        let async_compute_threads = builder
+        groups.async_compute.threads = builder
             .async_compute
             .get_number_of_threads(remaining_threads, total_threads);
 
-        tracing::trace!("Async Compute Threads: {}", async_compute_threads);
-        remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
+        tracing::trace!("Async Compute Threads: {}", groups.async_compute.threads);
+        remaining_threads = remaining_threads.saturating_sub(groups.async_compute.threads);
 
         // Determine the number of compute threads we will use
         // This is intentionally last so that an end user can specify 1.0 as the percent
-        let compute_threads = builder
+        groups.compute.threads = builder
             .compute
             .get_number_of_threads(remaining_threads, total_threads);
-        tracing::trace!("Compute Threads: {}", compute_threads);
+        tracing::trace!("Compute Threads: {}", groups.compute.threads);
 
-        let compute_threads = (0..compute_threads)
-            .map(|i| {
-                let compute = Arc::clone(&compute_executor);
-                let shutdown_rx = shutdown_rx.clone();
-                make_thread_builder(&builder, "Compute", i)
-                    .spawn(move || {
-                        let future = async {
-                            loop {
-                                compute.tick().await;
-                            }
-                        };
-                        // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
-                    })
-                    .expect("Failed to spawn thread.")
-            })
-            .collect();
-        let io_threads = (0..io_threads)
-            .map(|i| {
-                let compute = Arc::clone(&compute_executor);
-                let io = Arc::clone(&io_executor);
-                let shutdown_rx = shutdown_rx.clone();
-                make_thread_builder(&builder, "IO", i)
-                    .spawn(move || {
-                        let future = async {
-                            loop {
-                                io.tick().or(compute.tick()).await;
-                            }
-                        };
-                        // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
-                    })
-                    .expect("Failed to spawn thread.")
-            })
-            .collect();
-        let async_compute_threads = (0..async_compute_threads)
-            .map(|i| {
-                let compute = Arc::clone(&compute_executor);
-                let async_compute = Arc::clone(&compute_executor);
-                let io = Arc::clone(&io_executor);
-                let shutdown_rx = shutdown_rx.clone();
-                make_thread_builder(&builder, "Async Compute", i)
-                    .spawn(move || {
-                        let future = async {
-                            loop {
-                                async_compute.tick().or(compute.tick()).or(io.tick()).await;
-                            }
-                        };
-                        // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
-                    })
-                    .expect("Failed to spawn thread.")
-            })
-            .collect();
+        let groups = Arc::new(groups);
+        let mut threads = Vec::with_capacity(total_threads);
+        threads.extend((0..groups.compute.threads).map(|i| {
+            let groups = Arc::clone(&groups);
+            let shutdown_rx = shutdown_rx.clone();
+            make_thread_builder(&builder, "Compute", i)
+                .spawn(move || {
+                    let compute = &groups.compute.executor;
+                    let future = async {
+                        loop {
+                            compute.tick().await;
+                        }
+                    };
+                    // Use unwrap_err because we expect a Closed error
+                    future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
+                })
+                .expect("Failed to spawn thread.")
+        }));
+        threads.extend((0..groups.io.threads).map(|i| {
+            let groups = Arc::clone(&groups);
+            let shutdown_rx = shutdown_rx.clone();
+            make_thread_builder(&builder, "IO", i)
+                .spawn(move || {
+                    let compute = &groups.compute.executor;
+                    let io = &groups.io.executor;
+                    let future = async {
+                        loop {
+                            io.tick().or(compute.tick()).await;
+                        }
+                    };
+                    // Use unwrap_err because we expect a Closed error
+                    future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
+                })
+                .expect("Failed to spawn thread.")
+        }));
+        threads.extend((0..groups.async_compute.threads).map(|i| {
+            let groups = Arc::clone(&groups);
+            let shutdown_rx = shutdown_rx.clone();
+            make_thread_builder(&builder, "Async Compute", i)
+                .spawn(move || {
+                    let compute = &groups.compute.executor;
+                    let async_compute = &groups.async_compute.executor;
+                    let io = &groups.io.executor;
+                    let future = async {
+                        loop {
+                            async_compute.tick().or(compute.tick()).or(io.tick()).await;
+                        }
+                    };
+                    // Use unwrap_err because we expect a Closed error
+                    future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
+                })
+                .expect("Failed to spawn thread.")
+        }));
 
         Self {
-            compute_executor,
-            async_compute_executor,
-            io_executor,
-            inner: Arc::new(TaskPoolInner {
-                compute_threads,
-                async_compute_threads,
-                io_threads,
+            groups,
+            _inner: Arc::new(TaskPoolInner {
+                threads,
                 shutdown_tx,
             }),
         }
@@ -373,11 +372,7 @@ impl TaskPool {
 
     /// Return the number of threads owned by a given group in the task pool
     pub fn thread_count_for(&self, group: TaskGroup) -> usize {
-        match group {
-            TaskGroup::Compute => self.inner.compute_threads.len(),
-            TaskGroup::IO => self.inner.compute_threads.len(),
-            TaskGroup::AsyncCompute => self.inner.compute_threads.len(),
-        }
+        self.groups.get(group).threads
     }
 
     /// Allows spawning non-`'static` futures on the thread pool in a specific task group. The
@@ -392,27 +387,15 @@ impl TaskPool {
         T: Send + 'static,
     {
         if self.thread_count_for(group) == 0 {
-            tracing::error!("Attempting to use TaskPool::scope with the {:?} task group, but there are no threads for it!", 
+            tracing::error!("Attempting to use TaskPool::scope with the {:?} task group, but there are no threads for it!",
                             group);
         }
         // SAFETY: This function blocks until all futures complete, so this future must return
         // before this function returns. However, rust has no way of knowing
         // this so we must convert to 'static here to appease the compiler as it is unable to
         // validate safety.
-        let executor: &'scope async_executor::Executor = match group {
-            TaskGroup::Compute => {
-                let executor: &async_executor::Executor = &*self.compute_executor;
-                unsafe { mem::transmute(executor) }
-            }
-            TaskGroup::AsyncCompute => {
-                let executor: &async_executor::Executor = &*self.async_compute_executor;
-                unsafe { mem::transmute(executor) }
-            }
-            TaskGroup::IO => {
-                let executor: &async_executor::Executor = &*self.io_executor;
-                unsafe { mem::transmute(executor) }
-            }
-        };
+        let executor: &async_executor::Executor = &self.groups.get(group).executor;
+        let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
             let local_executor: &'scope async_executor::LocalExecutor =
                 unsafe { mem::transmute(local_executor) };
@@ -463,14 +446,10 @@ impl TaskPool {
         T: Send + 'static,
     {
         if self.thread_count_for(group) == 0 {
-            tracing::error!("Attempted to use TaskPool::spawn with the {:?} task group, but there are no threads for it!", 
+            tracing::error!("Attempted to use TaskPool::spawn with the {:?} task group, but there are no threads for it!",
                             group);
         }
-        Task::new(match group {
-            TaskGroup::Compute => self.compute_executor.spawn(future),
-            TaskGroup::AsyncCompute => self.async_compute_executor.spawn(future),
-            TaskGroup::IO => self.io_executor.spawn(future),
-        })
+        Task::new(self.groups.get(group).executor.spawn(future))
     }
 
     /// Spawns a static future on the thread-local async executor for the current thread. The task
