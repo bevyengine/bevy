@@ -619,17 +619,28 @@ pub struct WindowDescriptor {
     /// The position on the screen that the window will be centered at.
     /// If set to `None`, some platform-specific position will be chosen.
     pub position: Option<Vec2>,
+    /// Sets minimum and maximum resize limits.
     pub resize_constraints: WindowResizeConstraints,
     /// Overrides the window's ratio of physical pixels to logical pixels.
     pub scale_factor_override: Option<f64>,
+    /// Sets the title that displays on the window top bar, on the system task bar and other OS specific places.
+    /// # Platform-specific
+    /// - Web: Unsupported.
     pub title: String,
+    /// Controls when is a frame presented to the screen.
     #[doc(alias = "vsync")]
     pub present_mode: PresentMode,
+    /// Sets whether the window is resizable.
+    /// # Platform-specific
+    /// - iOS / Android / Web: Unsupported.
     pub resizable: bool,
     /// Sets whether the window should have borders and bars.
     pub decorations: bool,
+    /// Sets whether the cursor is visible when the window has focus.
     pub cursor_visible: bool,
+    /// Sets whether the window locks the cursor inside its borders when the window has focus.
     pub cursor_locked: bool,
+    /// Sets the [`WindowMode`](crate::WindowMode).
     pub mode: WindowMode,
     /// Sets whether the background of the window should be transparent.
     /// # Platform-specific
