@@ -219,34 +219,19 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     #(self.#field_idents.set_table(&_state.#field_idents, _table);)*
                 }
 
-                /// SAFETY: we call `table_fetch` for each member that implements `Fetch`.
-                #[inline]
-                unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {
+                /// SAFETY: we call `fetch` for each member that implements `Fetch`.
+                #[inline(always)]
+                unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
                     Self::Item {
-                        #(#field_idents: self.#field_idents.table_fetch(_table_row),)*
-                        #(#ignored_field_idents: Default::default(),)*
-                    }
-                }
-
-                /// SAFETY: we call `archetype_fetch` for each member that implements `Fetch`.
-                #[inline]
-                unsafe fn archetype_fetch(&mut self, _archetype_index: usize) -> Self::Item {
-                    Self::Item {
-                        #(#field_idents: self.#field_idents.archetype_fetch(_archetype_index),)*
+                        #(#field_idents: self.#field_idents.fetch(_entity, _table_row),)*
                         #(#ignored_field_idents: Default::default(),)*
                     }
                 }
 
                 #[allow(unused_variables)]
-                #[inline]
-                unsafe fn table_filter_fetch(&mut self, _table_row: usize) -> bool {
-                    true #(&& self.#field_idents.table_filter_fetch(_table_row))*
-                }
-
-                #[allow(unused_variables)]
-                #[inline]
-                unsafe fn archetype_filter_fetch(&mut self, _archetype_index: usize) -> bool {
-                    true #(&& self.#field_idents.archetype_filter_fetch(_archetype_index))*
+                #[inline(always)]
+                unsafe fn filter_fetch(&mut self, _entity: &Entity, _table_row: &usize) -> bool {
+                    true #(&& self.#field_idents.filter_fetch(_entity, _table_row))*
                 }
             }
         }
