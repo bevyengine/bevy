@@ -12,19 +12,19 @@ use std::{
 #[derive(Clone, Copy, Debug)]
 pub enum TaskGroup {
     /// CPU-bound, short-lived, latency-sensitive tasks. Does not need
-    /// to yield regularly. Should not hold the thread indefinitely or at the 
+    /// to yield regularly. Should not hold the thread indefinitely or at the
     /// very minimum should not hold a thread longer than the course of a frame.
     Compute,
-    /// IO-bound, potentially long lasting tasks that readily yield any incoming or 
+    /// IO-bound, potentially long lasting tasks that readily yield any incoming or
     /// outbound communication Usually used for loading assets or network communication.
-    /// 
+    ///
     /// If IO threads are sitting idle, they may run `Compute` tasks if the compute threads
     /// are at capacity.
     IO,
     /// CPU-bound, long-lived takss. Can hold the thread for very long periods (longer than
     /// a single frame).
-    /// 
-    /// If async compute threads are sitting idle, they may run `Compute` or `IO` tasks if the 
+    ///
+    /// If async compute threads are sitting idle, they may run `Compute` or `IO` tasks if the
     /// respective threads are at capacity.
     AsyncCompute,
 }
