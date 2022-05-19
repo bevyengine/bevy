@@ -602,12 +602,14 @@ impl Window {
     }
 }
 
-/// Describes the information needed for a window creation.
+/// Describes the information needed for creating a window.
 ///
 /// This should be set up before adding the [`WindowPlugin`](crate::WindowPlugin).
 /// Most of these settings can also later be configured through the [`Window`](crate::Window) resource.
 ///
-/// See [`examples/window/window_settings.rs`](https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs) for usage.
+/// See [`examples/window/window_settings.rs`] for usage.
+/// 
+/// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
