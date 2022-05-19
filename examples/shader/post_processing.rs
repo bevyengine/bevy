@@ -1,4 +1,6 @@
-//! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
+//! Shows how to render a custom post processing effect, here a chromatic aberration.
+//! This example is useful to implement your own post-processing effect such as
+//! edge detection, blur, pixelization, vignette... and countless others.
 
 use bevy::{
     core_pipeline::{
@@ -28,13 +30,12 @@ use bevy::{
 #[derive(Component, Default)]
 pub struct FirstPassCamera;
 
-// The name of the final node of the first pass.
+/// The name of the final node of the first pass.
 pub const FIRST_PASS_DRIVER: &str = "first_pass_driver";
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(Msaa { samples: 4 }) // Use 4x MSAA
-        .add_plugins(DefaultPlugins)
+    app.add_plugins(DefaultPlugins)
         .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
         .add_plugin(CameraTypePlugin::<FirstPassCamera>::default())
         .add_startup_system(setup)
@@ -65,7 +66,7 @@ fn main() {
     app.run();
 }
 
-// Add 3D render phases for FIRST_PASS_CAMERA.
+/// Add 3D render phases for FIRST_PASS_CAMERA.
 fn extract_first_pass_camera_phases(
     mut commands: Commands,
     active: Res<ActiveCamera<FirstPassCamera>>,
@@ -79,7 +80,7 @@ fn extract_first_pass_camera_phases(
     }
 }
 
-// A node for the first pass camera that runs draw_3d_graph with this camera.
+/// A node for the first pass camera that runs draw_3d_graph with this camera.
 struct FirstPassCameraDriver {
     query: QueryState<Entity, With<FirstPassCamera>>,
 }
@@ -109,25 +110,23 @@ impl Node for FirstPassCameraDriver {
     }
 }
 
-// Marks the first pass cube (rendered to a texture.)
+/// Marks the first pass cube (rendered to a texture.)
 #[derive(Component)]
 struct FirstPassCube;
 
-// Marks the main pass cube, to which the texture is applied.
-#[derive(Component)]
-struct MainPassCube;
-
 fn setup(
     mut commands: Commands,
+    mut windows: ResMut<Windows>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mut clear_colors: ResMut<RenderTargetClearColors>,
 ) {
+    let window = windows.get_primary_mut().unwrap();
     let size = Extent3d {
-        width: 1280,
-        height: 720,
+        width: window.physical_width(),
+        height: window.physical_height(),
         ..default()
     };
 
@@ -247,8 +246,9 @@ fn first_pass_cube_rotator_system(
     }
 }
 
-///! Declaration of the custom material handling post processing effect
+// Region below declares of the custom material handling post processing effect
 
+/// Our custom post processing material
 #[derive(TypeUuid, Clone)]
 #[uuid = "bc2f08eb-a0fb-43f1-a908-54871ea597d5"]
 struct PostProcessingMaterial {
