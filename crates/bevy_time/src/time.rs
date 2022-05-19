@@ -1,6 +1,6 @@
-use async_channel::{Receiver, Sender};
 use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_utils::{tracing::warn, Duration, Instant};
+use crossbeam_channel::{Receiver, Sender};
 
 /// channel resource used to receive time from render world
 pub struct TimeReceiver(pub Receiver<Instant>);
@@ -11,7 +11,7 @@ pub struct TimeSender(pub Sender<Instant>);
 pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
     // bound the channel to 2 since when pipelined the render phase can finish before
     // the time system runs.
-    let (s, r) = async_channel::bounded::<Instant>(2);
+    let (s, r) = crossbeam_channel::bounded::<Instant>(2);
     (TimeSender(s), TimeReceiver(r))
 }
 
