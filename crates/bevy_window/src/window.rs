@@ -604,8 +604,8 @@ impl Window {
 
 /// Describes the information needed for a window creation.
 ///
-/// This should be set up before adding the [`WindowPlugin`](crate::WindowPlugin). Most of these settings can also later
-/// be configured through the [`Window`](crate::Window) resource.
+/// This should be set up before adding the [`WindowPlugin`](crate::WindowPlugin).
+/// Most of these settings can also later be configured through the [`Window`](crate::Window) resource.
 ///
 /// See [`examples/window/window_settings.rs`](https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs) for usage.
 #[derive(Debug, Clone)]
