@@ -1,5 +1,5 @@
 use async_channel::{Receiver, Sender};
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_utils::{tracing::warn, Duration, Instant};
 
 /// channel resource used to receive time from render world
@@ -159,11 +159,16 @@ impl Time {
 
 /// The system used to update the time. If there is a render world the time is sent from
 /// there to this system through channels. Otherwise the time is updated in this system.
-pub(crate) fn time_system(mut time: ResMut<Time>, time_recv: Option<Res<TimeReceiver>>) {
+pub(crate) fn time_system(
+    mut time: ResMut<Time>,
+    time_recv: Option<Res<TimeReceiver>>,
+    mut has_received_time: Local<bool>,
+) {
     if let Some(time_recv) = time_recv {
         if let Ok(new_time) = time_recv.0.try_recv() {
             time.update_with_instant(new_time);
-        } else {
+            *has_received_time = true;
+        } else if *has_received_time {
             warn!("time_system did not receive time from render world! Calculations depending on the time may be incorrect.");
         }
     } else {
