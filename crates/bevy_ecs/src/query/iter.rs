@@ -1,7 +1,7 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     entity::Entity,
-    query::{Fetch, QueryState, WorldQuery},
+    query::{debug_checked_unreachable, Fetch, QueryState, WorldQuery},
     storage::{TableId, Tables},
     world::World,
 };
@@ -273,8 +273,8 @@ where
         Self {
             table_id_iter: self.table_id_iter.clone(),
             archetype_id_iter: self.archetype_id_iter.clone(),
-            entities: None,
-            rows: None,
+            entities: self.entities,
+            rows: self.rows,
             fetch: self.fetch.clone(),
             filter: self.filter.clone(),
             current_len: self.current_len,
@@ -375,8 +375,10 @@ where
                     continue;
                 }
 
-                println!("{} {} {:?}", self.current_index, self.current_len, self.entities);
-                let entity = self.entities.unwrap().get_unchecked(self.current_index);
+                let entity = self
+                    .entities
+                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .get_unchecked(self.current_index);
                 if !self.filter.filter_fetch(entity, &self.current_index) {
                     self.current_index += 1;
                     continue;
@@ -404,8 +406,14 @@ where
                     continue;
                 }
 
-                let entity = self.entities.unwrap().get_unchecked(self.current_index);
-                let row = self.rows.unwrap().get_unchecked(self.current_index);
+                let entity = self
+                    .entities
+                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .get_unchecked(self.current_index);
+                let row = self
+                    .rows
+                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .get_unchecked(self.current_index);
                 if !self.filter.filter_fetch(entity, row) {
                     self.current_index += 1;
                     continue;

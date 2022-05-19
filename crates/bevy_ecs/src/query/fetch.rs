@@ -339,9 +339,9 @@ pub trait Fetch<'world>: Sized {
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
     /// all of the matched components. This is used to select a more efficient "table iterator"
-    /// for "dense" queries. If this returns true, [`Fetch::set_table`] and [`Fetch::table_fetch`]
-    /// will be called for iterators. If this returns false, [`Fetch::set_archetype`] and
-    /// [`Fetch::archetype_fetch`] will be called for iterators.
+    /// for "dense" queries. If this returns true, [`Fetch::set_table`] before [`Fetch::fetch`]
+    /// will be called for iterators. If this returns false, [`Fetch::set_archetype`] will be used
+    /// before [`Fetch::fetch`] will be called for iterators.
     const IS_DENSE: bool;
 
     /// Returns true if (and only if) this Fetch relies strictly on archetypes to limit which
@@ -404,8 +404,7 @@ pub trait Fetch<'world>: Sized {
 ///
 /// Implementor must ensure that [`FetchState::update_component_access`] and
 /// [`FetchState::update_archetype_component_access`] exactly reflects the results of
-/// [`FetchState::matches_archetype`], [`FetchState::matches_table`], [`Fetch::archetype_fetch`], and
-/// [`Fetch::table_fetch`].
+/// [`FetchState::matches_archetype`], [`FetchState::matches_table`], and [`Fetch::fetch`].
 pub unsafe trait FetchState: Send + Sync + Sized {
     fn init(world: &mut World) -> Self;
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>);
