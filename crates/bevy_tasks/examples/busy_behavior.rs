@@ -1,4 +1,4 @@
-use bevy_tasks::TaskPool;
+use bevy_tasks::{TaskGroup, TaskPool};
 
 // This sample demonstrates creating a thread pool with 4 compute threads and spawning 40 tasks that
 // spin for 100ms. It's expected to take about a second to run (assuming the machine has >= 4 logical
@@ -11,7 +11,7 @@ fn main() {
         .build();
 
     let t0 = instant::Instant::now();
-    pool.scope(|s| {
+    pool.scope(TaskGroup::Compute, |s| {
         for i in 0..40 {
             s.spawn(async move {
                 let now = instant::Instant::now();

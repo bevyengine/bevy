@@ -1,4 +1,4 @@
-use bevy_tasks::TaskPool;
+use bevy_tasks::{TaskGroup, TaskPool};
 
 // This sample demonstrates a thread pool with one thread per logical core and only one task
 // spinning. Other than the one thread, the system should remain idle, demonstrating good behavior
@@ -9,7 +9,7 @@ fn main() {
         .thread_name("Idle Behavior ThreadPool")
         .build();
 
-    pool.scope(|s| {
+    pool.scope(TaskGroup::Compute, |s| {
         for i in 0..1 {
             s.spawn(async move {
                 println!("Blocking for 10 seconds");

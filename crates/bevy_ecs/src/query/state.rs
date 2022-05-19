@@ -10,7 +10,7 @@ use crate::{
     storage::TableId,
     world::{World, WorldId},
 };
-use bevy_tasks::TaskPool;
+use bevy_tasks::{TaskGroup, TaskPool};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
@@ -850,7 +850,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        task_pool.scope(|scope| {
+        task_pool.scope(TaskGroup::Compute, |scope| {
             if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
                 let tables = &world.storages().tables;
                 for table_id in &self.matched_table_ids {

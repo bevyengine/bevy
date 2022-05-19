@@ -379,7 +379,7 @@ impl AssetServer {
         let owned_path = asset_path.to_owned();
         self.server
             .task_pool
-            .spawn_as(TaskGroup::IO, async move {
+            .spawn(TaskGroup::IO, async move {
                 if let Err(err) = server.load_async(owned_path, force).await {
                     warn!("{}", err);
                 }

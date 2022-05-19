@@ -380,29 +380,13 @@ impl TaskPool {
         }
     }
 
-    /// Allows spawning non-`'static` futures on the thread pool under the [`Compute`] task group.
-    /// The function takes a callback, passing a scope object into it. The scope object provided to
-    /// the callback can be used to spawn tasks. This function will await the completion of all
-    /// tasks before returning.
-    ///
-    /// This is similar to `rayon::scope` and `crossbeam::scope`
-    ///
-    /// [`Compute`]: crate::TaskGroup::Compute
-    pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
-    where
-        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
-        T: Send + 'static,
-    {
-        self.scope_as(TaskGroup::Compute, f)
-    }
-
     /// Allows spawning non-`'static` futures on the thread pool in a specific task group. The
     /// function takes a callback, passing a scope object into it. The scope object provided
     /// to the callback can be used to spawn tasks. This function will await the completion of
     /// all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    pub fn scope_as<'scope, F, T>(&self, group: TaskGroup, f: F) -> Vec<T>
+    pub fn scope<'scope, F, T>(&self, group: TaskGroup, f: F) -> Vec<T>
     where
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
@@ -440,7 +424,7 @@ impl TaskPool {
 
             f(&mut scope);
 
-            match scope.len() {
+            match scope.spawned.len() {
                 0 => Vec::new(),
                 1 => vec![future::block_on(&mut scope.spawned[0])],
                 _ => future::block_on(async move {
@@ -459,23 +443,9 @@ impl TaskPool {
                     };
 
                     get_results.or(tick_forever).await
-                })
+                }),
             }
         })
-    }
-
-    /// Spawns a static future onto the thread pool in the [`Compute`] group. The returned Task is a future.
-    /// It can also be cancelled and "detached" allowing it to continue running without having to be polled
-    /// by the end-user.
-    ///
-    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
-    ///
-    /// [`Compute`]: crate::TaskGroup::Compute
-    pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
-    where
-        T: Send + 'static,
-    {
-        self.spawn_as(TaskGroup::Compute, future)
     }
 
     /// Spawns a static future onto the thread pool in a group. The returned Task is a future.
@@ -484,7 +454,7 @@ impl TaskPool {
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
     #[inline]
-    pub fn spawn_as<T>(
+    pub fn spawn<T>(
         &self,
         group: TaskGroup,
         future: impl Future<Output = T> + Send + 'static,
@@ -583,6 +553,7 @@ fn make_thread_builder(
 #[allow(clippy::blacklisted_name)]
 mod tests {
     use super::*;
+    use crate::TaskGroup;
     use std::sync::{
         atomic::{AtomicBool, AtomicI32, Ordering},
         Barrier,
@@ -597,7 +568,7 @@ mod tests {
 
         let count = Arc::new(AtomicI32::new(0));
 
-        let outputs = pool.scope(|scope| {
+        let outputs = pool.scope(TaskGroup::Compute, |scope| {
             for _ in 0..100 {
                 let count_clone = count.clone();
                 scope.spawn(async move {
@@ -629,7 +600,7 @@ mod tests {
         let local_count = Arc::new(AtomicI32::new(0));
         let non_local_count = Arc::new(AtomicI32::new(0));
 
-        let outputs = pool.scope(|scope| {
+        let outputs = pool.scope(TaskGroup::Compute, |scope| {
             for i in 0..100 {
                 if i % 2 == 0 {
                     let count_clone = non_local_count.clone();
@@ -677,7 +648,7 @@ mod tests {
             let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
             std::thread::spawn(move || {
-                inner_pool.scope(|scope| {
+                inner_pool.scope(TaskGroup::Compute, |scope| {
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
