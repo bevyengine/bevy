@@ -629,7 +629,7 @@ pub struct WindowDescriptor {
     /// ## Platform-specific
     /// - Web: Unsupported.
     pub title: String,
-    /// Controls when is a frame presented to the screen.
+    /// Controls when a frame is presented to the screen.
     #[doc(alias = "vsync")]
     pub present_mode: PresentMode,
     /// Sets whether the window is resizable.
