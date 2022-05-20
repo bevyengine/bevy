@@ -5,6 +5,8 @@ Describe the objective or issue this PR addresses.
 If you're fixing a specific issue, say "Fixes #X" and the linked issue will automatically be closed when this PR is merged.
 Under each bullet point, describe how this change addressed those objectives if it is not obvious.
 
+If this is a particularly complex PR, please add a clear list of the changes made.
+
 ## Context
 
 Discuss any context that may be needed for a user with only passing acquaintance with this library to understand the changes you've made.
