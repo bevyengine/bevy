@@ -1,13 +1,13 @@
 //! Storage layouts for ECS data.
 
 mod blob_vec;
+mod resource;
 mod sparse_set;
 mod table;
-mod resource;
 
 pub use blob_vec::*;
-pub use sparse_set::*;
 pub use resource::*;
+pub use sparse_set::*;
 pub use table::*;
 
 /// The raw data stores of a [World](crate::world::World)

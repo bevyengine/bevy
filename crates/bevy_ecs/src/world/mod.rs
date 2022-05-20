@@ -1051,9 +1051,13 @@ impl World {
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         let (ptr, mut ticks) = {
-            let column = self.storages.resources.get_mut(component_id).unwrap_or_else(|| {
-                panic!("resource does not exist: {}", std::any::type_name::<R>())
-            });
+            let column = self
+                .storages
+                .resources
+                .get_mut(component_id)
+                .unwrap_or_else(|| {
+                    panic!("resource does not exist: {}", std::any::type_name::<R>())
+                });
             assert!(
                 !column.is_empty(),
                 "resource does not exist: {}",
@@ -1077,7 +1081,9 @@ impl World {
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>());
 
-        let column = self.storages.resources
+        let column = self
+            .storages
+            .resources
             .get_mut(component_id)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
 
@@ -1202,16 +1208,15 @@ impl World {
     unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
         // SAFE: resource archetype always exists
         let resources = &mut self.storages.resources;
-        let resources_components = resources.components_mut();
+        let resource_components = &mut resources.components;
+        let resources = &mut resources.resources;
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
         let components = &self.components;
         resources.get_or_insert_with(component_id, || {
-            resource_archetype_components.insert(
+            resource_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
-                    archetype_component_id: ArchetypeComponentId::new(
-                        *archetype_component_count,
-                    ),
+                    archetype_component_id: ArchetypeComponentId::new(*archetype_component_count),
                     storage_type: StorageType::Table,
                 },
             );
@@ -1240,13 +1245,16 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<&Column> {
-        self.storages.resources.get(component_id).and_then(|column| {
-            if column.is_empty() {
-                None
-            } else {
-                Some(column)
-            }
-        })
+        self.storages
+            .resources
+            .get(component_id)
+            .and_then(|column| {
+                if column.is_empty() {
+                    None
+                } else {
+                    Some(column)
+                }
+            })
     }
 
     pub(crate) fn validate_non_send_access<T: 'static>(&self) {
@@ -1442,10 +1450,7 @@ impl fmt::Debug for World {
             .field("entity_count", &self.entities.len())
             .field("archetype_count", &self.archetypes.len())
             .field("component_count", &self.components.len())
-            .field(
-                "resource_count",
-                &self.storages.resources.len(),
-            )
+            .field("resource_count", &self.storages.resources.len())
             .finish()
     }
 }

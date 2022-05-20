@@ -18,7 +18,6 @@ pub struct ArchetypeId(usize);
 
 impl ArchetypeId {
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
-    pub const RESOURCE: ArchetypeId = ArchetypeId(1);
     pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
 
     #[inline]
@@ -122,7 +121,7 @@ pub struct Archetype {
     table_info: TableInfo,
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
-    pub(crate) components: SparseSet<ComponentId, ArchetypeComponentInfo>,
+    components: SparseSet<ComponentId, ArchetypeComponentInfo>,
 }
 
 impl Archetype {
@@ -362,17 +361,6 @@ impl Default for Archetypes {
             archetype_component_count: 0,
         };
         archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
-
-        // adds the resource archetype. it is "special" in that it is inaccessible via a "hash",
-        // which prevents entities from being added to it
-        archetypes.archetypes.push(Archetype::new(
-            ArchetypeId::RESOURCE,
-            TableId::empty(),
-            Box::new([]),
-            Box::new([]),
-            Vec::new(),
-            Vec::new(),
-        ));
         archetypes
     }
 }
@@ -400,21 +388,6 @@ impl Archetypes {
         unsafe {
             self.archetypes
                 .get_unchecked_mut(ArchetypeId::EMPTY.index())
-        }
-    }
-
-    #[inline]
-    pub fn resource(&self) -> &Archetype {
-        // SAFE: resource archetype always exists
-        unsafe { self.archetypes.get_unchecked(ArchetypeId::RESOURCE.index()) }
-    }
-
-    #[inline]
-    pub fn resource_mut(&mut self) -> &mut Archetype {
-        // SAFE: resource archetype always exists
-        unsafe {
-            self.archetypes
-                .get_unchecked_mut(ArchetypeId::RESOURCE.index())
         }
     }
 

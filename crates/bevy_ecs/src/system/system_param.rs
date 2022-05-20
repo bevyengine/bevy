@@ -323,8 +323,9 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
         );
         combined_access.add_read(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
+        let archetype_component_id = world
+            .storages
+            .resources
             .get_archetype_component_id(component_id)
             .unwrap();
         system_meta
@@ -432,8 +433,9 @@ unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
         }
         combined_access.add_write(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
+        let archetype_component_id = world
+            .storages
+            .resources
             .get_archetype_component_id(component_id)
             .unwrap();
         system_meta
@@ -877,8 +879,9 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
         );
         combined_access.add_read(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
+        let archetype_component_id = world
+            .storages
+            .resources
             .get_archetype_component_id(component_id)
             .unwrap();
         system_meta
@@ -991,8 +994,9 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         }
         combined_access.add_write(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
+        let archetype_component_id = world
+            .storages
+            .resources
             .get_archetype_component_id(component_id)
             .unwrap();
         system_meta

@@ -1014,8 +1014,8 @@ mod tests {
             .get_resource_id(TypeId::of::<i32>())
             .unwrap();
         let archetype_component_id = world
-            .archetypes()
-            .resource()
+            .storages()
+            .resources
             .get_archetype_component_id(resource_id)
             .unwrap();
 
@@ -1081,8 +1081,8 @@ mod tests {
         );
 
         let current_archetype_component_id = world
-            .archetypes()
-            .resource()
+            .storages()
+            .resources
             .get_archetype_component_id(current_resource_id)
             .unwrap();
 
