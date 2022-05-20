@@ -20,15 +20,6 @@ Which parts of this PR were you unsure about? Which parts were particularly tric
 
 If you're stuck on part of the changes or want feedback early, open a draft PR and list the items that need to be completed here using a checklist.
 
-## Changelog
-
-> This section is optional. If this was a trivial fix, or has no externally-visible impact, you can delete this section.
-
-- What changed as a result of this PR?
-- If applicable, organize changes under "Added", "Changed", or "Fixed" sub-headings
-- Stick to one or two sentences. If more detail is needed for a particular change, consider adding it to the "Solution" section
-  - If you can't summarize the work, your change may be unreasonably large / unrelated. Consider splitting your PR to make it easier to review and merge!
-
 ## Migration Guide
 
 > This section is optional. If there are no breaking changes, you can delete this section.
