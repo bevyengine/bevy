@@ -47,9 +47,7 @@ impl Plugin for WinitPlugin {
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows));
         #[cfg(target_arch = "wasm32")]
-        {
-            app.add_plugin(web_resize::CanvasParentResizePlugin);
-        }
+        app.add_plugin(web_resize::CanvasParentResizePlugin);
         let event_loop = EventLoop::new();
         let mut create_window_reader = WinitCreateWindowReader::default();
         handle_create_window_events(&mut app.world, &event_loop, &mut create_window_reader.0);
