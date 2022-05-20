@@ -6,8 +6,8 @@ use crate::{
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
-use nonmax::NonMaxUsize;
 use bevy_ptr::OwningPtr;
+use nonmax::NonMaxUsize;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},

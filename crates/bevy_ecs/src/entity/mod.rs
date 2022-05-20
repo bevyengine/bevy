@@ -492,7 +492,7 @@ impl Entities {
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
-    /// each time init is called. This _can_ be `None`, provided the [`Entity`] has not been assigned 
+    /// each time init is called. This _can_ be `None`, provided the [`Entity`] has not been assigned
     /// to an [`Archetype`][crate::archetype::Archetype].
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut Option<EntityLocation>)) {
         let free_cursor = self.free_cursor.get_mut();

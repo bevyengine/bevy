@@ -11,8 +11,8 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
 use bevy_ecs_macros::all_tuples;
-use nonmax::NonMaxUsize;
 use bevy_ptr::OwningPtr;
+use nonmax::NonMaxUsize;
 use std::{any::TypeId, collections::HashMap};
 
 /// An ordered collection of [`Component`]s.

@@ -3,8 +3,8 @@ use crate::{
     entity::Entity,
     storage::BlobVec,
 };
-use nonmax::{NonMaxU16, NonMaxU32, NonMaxU64, NonMaxU8, NonMaxUsize};
 use bevy_ptr::{OwningPtr, Ptr};
+use nonmax::{NonMaxU16, NonMaxU32, NonMaxU64, NonMaxU8, NonMaxUsize};
 use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
 #[derive(Debug)]
