@@ -6,7 +6,7 @@ use crossbeam_channel::{Receiver, Sender};
 use wasm_bindgen::JsCast;
 use winit::dpi::LogicalSize;
 
-pub struct CanvasParentResizePlugin;
+pub(crate) struct CanvasParentResizePlugin;
 
 impl Plugin for CanvasParentResizePlugin {
     fn build(&self, app: &mut App) {
