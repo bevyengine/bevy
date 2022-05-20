@@ -5,7 +5,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
-    storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
+    storage::{SparseArray, SparseSet, SparseSetIndex, TableId},
 };
 use std::{
     collections::HashMap,
@@ -122,7 +122,6 @@ pub struct Archetype {
     table_info: TableInfo,
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
-    pub(crate) unique_components: SparseSet<ComponentId, Column>,
     pub(crate) components: SparseSet<ComponentId, ArchetypeComponentInfo>,
 }
 
@@ -170,7 +169,6 @@ impl Archetype {
             components,
             table_components,
             sparse_set_components,
-            unique_components: SparseSet::new(),
             entities: Default::default(),
             edges: Default::default(),
         }
@@ -204,16 +202,6 @@ impl Archetype {
     #[inline]
     pub fn sparse_set_components(&self) -> &[ComponentId] {
         &self.sparse_set_components
-    }
-
-    #[inline]
-    pub fn unique_components(&self) -> &SparseSet<ComponentId, Column> {
-        &self.unique_components
-    }
-
-    #[inline]
-    pub fn unique_components_mut(&mut self) -> &mut SparseSet<ComponentId, Column> {
-        &mut self.unique_components
     }
 
     #[inline]

@@ -681,9 +681,7 @@ impl World {
     #[allow(unused_unsafe)]
     pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        let resource_archetype = self.archetypes.resource_mut();
-        let unique_components = resource_archetype.unique_components_mut();
-        let column = unique_components.get_mut(component_id)?;
+        let column = self.storages.resources.get_mut(component_id)?;
         if column.is_empty() {
             return None;
         }
@@ -755,8 +753,8 @@ impl World {
         match self.get_resource() {
             Some(x) => x,
             None => panic!(
-                "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                "Requested resource {} does not exist in the `World`.
+                Did you forget to add it using `app.add_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<R>()
@@ -779,8 +777,8 @@ impl World {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                "Requested resource {} does not exist in the `World`.
+                Did you forget to add it using `app.add_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<R>()
@@ -841,8 +839,8 @@ impl World {
         match self.get_non_send_resource() {
             Some(x) => x,
             None => panic!(
-                "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                "Requested non-send resource {} does not exist in the `World`.
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             ),
@@ -861,8 +859,8 @@ impl World {
         match self.get_non_send_resource_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                "Requested non-send resource {} does not exist in the `World`.
+                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             ),
@@ -1053,9 +1051,7 @@ impl World {
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         let (ptr, mut ticks) = {
-            let resource_archetype = self.archetypes.resource_mut();
-            let unique_components = resource_archetype.unique_components_mut();
-            let column = unique_components.get_mut(component_id).unwrap_or_else(|| {
+            let column = self.storages.resources.get_mut(component_id).unwrap_or_else(|| {
                 panic!("resource does not exist: {}", std::any::type_name::<R>())
             });
             assert!(
@@ -1081,9 +1077,7 @@ impl World {
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>());
 
-        let resource_archetype = self.archetypes.resource_mut();
-        let unique_components = resource_archetype.unique_components_mut();
-        let column = unique_components
+        let column = self.storages.resources
             .get_mut(component_id)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
 
@@ -1207,29 +1201,24 @@ impl World {
     #[inline]
     unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
         // SAFE: resource archetype always exists
-        let resource_archetype = self
-            .archetypes
-            .archetypes
-            .get_unchecked_mut(ArchetypeId::RESOURCE.index());
-        let resource_archetype_components = &mut resource_archetype.components;
+        let resources = &mut self.storages.resources;
+        let resources_components = resources.components_mut();
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
         let components = &self.components;
-        resource_archetype
-            .unique_components
-            .get_or_insert_with(component_id, || {
-                resource_archetype_components.insert(
-                    component_id,
-                    ArchetypeComponentInfo {
-                        archetype_component_id: ArchetypeComponentId::new(
-                            *archetype_component_count,
-                        ),
-                        storage_type: StorageType::Table,
-                    },
-                );
-                *archetype_component_count += 1;
-                let component_info = components.get_info_unchecked(component_id);
-                Column::with_capacity(component_info, 1)
-            })
+        resources.get_or_insert_with(component_id, || {
+            resource_archetype_components.insert(
+                component_id,
+                ArchetypeComponentInfo {
+                    archetype_component_id: ArchetypeComponentId::new(
+                        *archetype_component_count,
+                    ),
+                    storage_type: StorageType::Table,
+                },
+            );
+            *archetype_component_count += 1;
+            let component_info = components.get_info_unchecked(component_id);
+            Column::with_capacity(component_info, 1)
+        })
     }
 
     pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
@@ -1251,9 +1240,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<&Column> {
-        let resource_archetype = self.archetypes.resource();
-        let unique_components = resource_archetype.unique_components();
-        unique_components.get(component_id).and_then(|column| {
+        self.storages.resources.get(component_id).and_then(|column| {
             if column.is_empty() {
                 None
             } else {
@@ -1321,8 +1308,7 @@ impl World {
         let change_tick = self.change_tick();
         self.storages.tables.check_change_ticks(change_tick);
         self.storages.sparse_sets.check_change_ticks(change_tick);
-        let resource_archetype = self.archetypes.resource_mut();
-        for column in resource_archetype.unique_components.values_mut() {
+        for column in self.storages.resources.columns_mut() {
             column.check_change_ticks(change_tick);
         }
     }
@@ -1458,7 +1444,7 @@ impl fmt::Debug for World {
             .field("component_count", &self.components.len())
             .field(
                 "resource_count",
-                &self.archetypes.resource().unique_components.len(),
+                &self.storages.resources.len(),
             )
             .finish()
     }
