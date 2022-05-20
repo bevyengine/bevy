@@ -16,8 +16,6 @@ This may include related issues, previous discussion, or relevant bits of how th
 
 Which parts of this PR were you unsure about? Which parts were particularly tricky?
 
-If you're stuck on part of the changes or want feedback early, open a draft PR and list the items that need to be completed here using a checklist.
-
 ## Migration Guide
 
 > This section is optional. If there are no breaking changes, you can delete this section.
