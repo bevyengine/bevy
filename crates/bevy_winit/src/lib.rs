@@ -50,6 +50,8 @@ impl Plugin for WinitPlugin {
         app.add_plugin(web_resize::CanvasParentResizePlugin);
         let event_loop = EventLoop::new();
         let mut create_window_reader = WinitCreateWindowReader::default();
+        // Note that we create a window here "early" because WASM/WebGL requires the window to exist prior to initializing
+        // the renderer.
         handle_create_window_events(&mut app.world, &event_loop, &mut create_window_reader.0);
         app.insert_resource(create_window_reader)
             .insert_non_send_resource(event_loop);
