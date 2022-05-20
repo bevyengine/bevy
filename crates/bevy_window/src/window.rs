@@ -594,7 +594,8 @@ impl Window {
     }
 
     /// Whether or not to fit the canvas element's size to its parent element's size.
-    /// This value does not do anything on non-web platforms.
+    /// 
+    /// This value has no effect on non-web platforms.
     #[inline]
     pub fn fit_canvas_to_parent(&self) -> bool {
         self.fit_canvas_to_parent
