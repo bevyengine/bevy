@@ -4,7 +4,7 @@ Why are you making these changes?
 Link any associated issues with "Fixes #X" so they can be automatically closed.
 If this is a particularly complex PR, please add a clear list of the changes made.
 
-Discuss any background information that may be needed for a new contributor to understand the changes you've made.
+Discuss any background information that may be needed for someone unfamiliar with this area of the code to understand the changes you've made.
 This may include related issues, previous discussion, or links to documentation.
 
 ## Feedback wanted
