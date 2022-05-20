@@ -16,7 +16,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    // Load the Bevy logo
+    // Load the Bevy logo as a texture
     let texture_handle = asset_server.load("branding/banner.png");
     // Build a default quad mesh
     let mut mesh = Mesh::from(shape::Quad::default());
@@ -34,7 +34,7 @@ fn setup(
     commands.spawn_bundle(MaterialMesh2dBundle {
         mesh: meshes.add(mesh).into(),
         transform: Transform::default().with_scale(Vec3::splat(128.)),
-        material: materials.add(ColorMaterial::from(texture_handle.clone())),
+        material: materials.add(ColorMaterial::from(texture_handle)),
         ..default()
     });
 }
