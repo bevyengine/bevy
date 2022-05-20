@@ -16,7 +16,10 @@ use bevy::{
             AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
             SetItemPipeline, TrackedRenderPass,
         },
-        render_resource::*,
+        render_resource::{
+            std140::{AsStd140, Std140},
+            *,
+        },
         renderer::{RenderDevice, RenderQueue},
         view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
         RenderApp, RenderStage,
@@ -59,7 +62,7 @@ impl Plugin for CustomMaterialPlugin {
         let render_device = app.world.resource::<RenderDevice>();
         let buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("time uniform buffer"),
-            size: std::mem::size_of::<f32>() as u64,
+            size: TimeUniform::std140_size_static() as u64,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -133,14 +136,14 @@ fn queue_custom(
     }
 }
 
-#[derive(Default)]
-struct ExtractedTime {
+#[derive(Default, Clone, AsStd140)]
+struct TimeUniform {
     seconds_since_startup: f32,
 }
 
 // extract the passed time into a resource in the render world
 fn extract_time(mut commands: Commands, time: Res<Time>) {
-    commands.insert_resource(ExtractedTime {
+    commands.insert_resource(TimeUniform {
         seconds_since_startup: time.seconds_since_startup() as f32,
     });
 }
@@ -152,15 +155,11 @@ struct TimeMeta {
 
 // write the extracted time into the corresponding uniform buffer
 fn prepare_time(
-    time: Res<ExtractedTime>,
+    time: Res<TimeUniform>,
     time_meta: ResMut<TimeMeta>,
     render_queue: Res<RenderQueue>,
 ) {
-    render_queue.write_buffer(
-        &time_meta.buffer,
-        0,
-        bevy::core::cast_slice(&[time.seconds_since_startup]),
-    );
+    render_queue.write_buffer(&time_meta.buffer, 0, time.as_std140().as_bytes());
 }
 
 // create a bind group for the time uniform buffer
@@ -202,7 +201,7 @@ impl FromWorld for CustomPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(std::mem::size_of::<f32>() as u64),
+                        min_binding_size: BufferSize::new(TimeUniform::std140_size_static() as u64),
                     },
                     count: None,
                 }],
