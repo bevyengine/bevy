@@ -715,9 +715,16 @@ pub fn queue_mesh_bind_group(
 // ignoring the rest, whether they're valid for other dynamic offsets or not. This trick may
 // be supported later in encase, and then we should make use of it.
 
-#[derive(Default)]
 pub struct SkinnedMeshUniform {
     pub buffer: BufferVec<Mat4>,
+}
+
+impl Default for SkinnedMeshUniform {
+    fn default() -> Self {
+        Self {
+            buffer: BufferVec::new(BufferUsages::UNIFORM),
+        }
+    }
 }
 
 pub fn prepare_skinned_meshes(
