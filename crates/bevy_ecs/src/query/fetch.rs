@@ -421,7 +421,7 @@ pub trait Fetch<'world>: Sized {
 ///
 /// Implementor must ensure that [`FetchState::update_component_access`] and
 /// [`FetchState::update_archetype_component_access`] exactly reflects the results of
-/// [`FetchState::matches_archetype`], [`FetchState::matches_table`], [`Fetch::archetype_fetch`], and
+/// [`FetchState::matches_component_set`], [`Fetch::archetype_fetch`], and
 /// [`Fetch::table_fetch`].
 pub unsafe trait FetchState: Send + Sync + Sized {
     fn init(world: &mut World) -> Self;
