@@ -10,7 +10,7 @@ Under each bullet point, describe how this change addressed those objectives if 
 ## Context
 
 Discuss any context that may be needed for a user who is not as familiar with this library to understand the changes you've made.
-This may include related issues, previous discussion, or relevant bits of how the library works).
+This may include related issues, previous discussion, or relevant bits of how the library works.
 
 ## Feedback wanted
 
