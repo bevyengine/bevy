@@ -625,7 +625,7 @@ pub struct WindowDescriptor {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
-    /// The "html canvas" element selector. If set, the given selector will be used to find a matching html canvas element,
+    /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
     /// rather than creating a new one.   
     /// This value does not do anything on non-web platforms.
     pub canvas: Option<String>,
