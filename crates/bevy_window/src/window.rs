@@ -585,8 +585,9 @@ impl Window {
         self.raw_window_handle.clone()
     }
 
-    /// The "html canvas" element selector, if it was configured for this window.
-    /// Uses the CSS selector format: https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector.
+    /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
+    /// rather than creating a new one.   
+    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
     #[inline]
@@ -632,8 +633,9 @@ pub struct WindowDescriptor {
     pub transparent: bool,
     /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
     /// rather than creating a new one.   
-    /// Uses the CSS selector format: https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector.
-    /// This value does not do anything on non-web platforms.
+    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
+    ///
+    /// This value has no effect on non-web platforms.
     pub canvas: Option<String>,
     /// Whether or not to fit the canvas element's size to its parent element's size.
     ///
