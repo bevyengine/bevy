@@ -10,7 +10,7 @@ use crate::{
     storage::TableId,
     world::{World, WorldId},
 };
-use bevy_tasks::{ComputeTaskPool, TaskPool};
+use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
