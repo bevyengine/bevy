@@ -42,7 +42,7 @@ impl DynamicScene {
             // and insert it into the dynamic scene.
             for entity in archetype.entities() {
                 scene.entities.push(DynamicEntity {
-                    entity: entity.id(),
+                    entity: entity.entity().id(),
                     components: Vec::new(),
                 });
             }
@@ -56,7 +56,8 @@ impl DynamicScene {
                     .and_then(|registration| registration.data::<ReflectComponent>());
                 if let Some(reflect_component) = reflect_component {
                     for (i, entity) in archetype.entities().iter().enumerate() {
-                        if let Some(component) = reflect_component.reflect_component(world, *entity)
+                        if let Some(component) =
+                            reflect_component.reflect_component(world, entity.entity())
                         {
                             scene.entities[entities_offset + i]
                                 .components

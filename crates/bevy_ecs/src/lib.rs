@@ -542,7 +542,7 @@ mod tests {
             .spawn()
             .insert_bundle((TableStored("def"), A(456), SparseStored(1)))
             .id();
-        // // this should be skipped
+        // this should be skipped
         // SparseStored(1).spawn().insert("abc");
         let ents = world
             .query::<(Entity, Option<&SparseStored>, &A)>()

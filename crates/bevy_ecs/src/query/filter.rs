@@ -570,7 +570,12 @@ macro_rules! impl_tick_filter {
                 Self {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
-                        .then(|| world.storages().sparse_sets.get(state.component_id).unwrap()),
+                        .then(|| {
+                            world.storages()
+                                 .sparse_sets
+                                 .get(state.component_id)
+                                 .unwrap_or_else(|| debug_checked_unreachable())
+                        }),
                     marker: PhantomData,
                     last_change_tick,
                     change_tick,
@@ -589,7 +594,12 @@ macro_rules! impl_tick_filter {
             unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice().into());
+                        self.table_ticks = Some(
+                            table.get_column(state.component_id)
+                                 .unwrap_or_else(|| debug_checked_unreachable())
+                                 .get_ticks_slice()
+                                 .into()
+                        );
                     }
                     StorageType::SparseSet => {},
                 }
@@ -609,7 +619,14 @@ macro_rules! impl_tick_filter {
             unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(*table_row)).deref(), self.last_change_tick, self.change_tick)
+                        $is_detected(&*(
+                            self.table_ticks
+                                .unwrap_or_else(|| debug_checked_unreachable())
+                                .get(*table_row))
+                                .deref(),
+                            self.last_change_tick,
+                            self.change_tick
+                        )
                     }
                     StorageType::SparseSet => {
                         let ticks = self
@@ -618,7 +635,7 @@ macro_rules! impl_tick_filter {
                             .get_ticks(*entity)
                             .map(|ticks| &*ticks.get())
                             .cloned()
-                            .unwrap();
+                            .unwrap_or_else(|| debug_checked_unreachable());
                         $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }
@@ -629,7 +646,15 @@ macro_rules! impl_tick_filter {
                 // Explicitly repeated code here to avoid potential poor inlining
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(*_table_row)).deref(), self.last_change_tick, self.change_tick)
+                        $is_detected(&*(
+                            self
+                                .table_ticks
+                                .unwrap_or_else(|| debug_checked_unreachable())
+                                .get(*_table_row))
+                                .deref(),
+                            self.last_change_tick,
+                            self.change_tick
+                        )
                     }
                     StorageType::SparseSet => {
                         let ticks = self
@@ -638,7 +663,7 @@ macro_rules! impl_tick_filter {
                             .get_ticks(*_entity)
                             .map(|ticks| &*ticks.get())
                             .cloned()
-                            .unwrap();
+                            .unwrap_or_else(|| debug_checked_unreachable());
                         $is_detected(&ticks, self.last_change_tick, self.change_tick)
                     }
                 }

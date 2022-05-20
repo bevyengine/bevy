@@ -158,7 +158,7 @@ impl SceneSpawner {
                 for scene_entity in archetype.entities() {
                     let entity = *instance_info
                         .entity_map
-                        .entry(*scene_entity)
+                        .entry(scene_entity.entity())
                         .or_insert_with(|| world.spawn().id());
                     for component_id in archetype.components() {
                         let component_info = scene
@@ -182,7 +182,7 @@ impl SceneSpawner {
                         reflect_component.copy_component(
                             &scene.world,
                             world,
-                            *scene_entity,
+                            scene_entity.entity(),
                             entity,
                         );
                     }

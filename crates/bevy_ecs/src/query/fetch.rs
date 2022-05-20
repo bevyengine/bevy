@@ -624,7 +624,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
                     .storages()
                     .sparse_sets
                     .get(state.component_id)
-                    .unwrap()
+                    .unwrap_or_else(|| debug_checked_unreachable())
             }),
         }
     }
@@ -654,7 +654,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
                 self.table_components = Some(
                     table
                         .get_column(state.component_id)
-                        .unwrap()
+                        .unwrap_or_else(|| debug_checked_unreachable())
                         .get_data_slice()
                         .into(),
                 );
@@ -666,18 +666,17 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
     #[inline(always)]
     unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                let components = self
-                    .table_components
-                    .unwrap_or_else(|| debug_checked_unreachable());
-                components.get(*table_row).deref()
-            }
+            StorageType::Table => self
+                .table_components
+                .unwrap_or_else(|| debug_checked_unreachable())
+                .get(*table_row)
+                .deref(),
             StorageType::SparseSet => self
                 .sparse_set
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .get(*entity)
                 .unwrap_or_else(|| debug_checked_unreachable())
-                .deref::<T>(),
+                .deref(),
         }
     }
 }
@@ -815,7 +814,7 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
                     .storages()
                     .sparse_sets
                     .get(state.component_id)
-                    .unwrap()
+                    .unwrap_or_else(|| debug_checked_unreachable())
             }),
             table_ticks: None,
             last_change_tick,
@@ -917,7 +916,7 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
                     .storages()
                     .sparse_sets
                     .get(state.component_id)
-                    .unwrap()
+                    .unwrap_or_else(|| debug_checked_unreachable())
             }),
         }
     }
@@ -947,7 +946,7 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
                 self.table_components = Some(
                     table
                         .get_column(state.component_id)
-                        .unwrap()
+                        .unwrap_or_else(|| debug_checked_unreachable())
                         .get_data_slice()
                         .into(),
                 );
@@ -970,7 +969,7 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .get(*entity)
                 .unwrap_or_else(|| debug_checked_unreachable())
-                .deref::<T>(),
+                .deref(),
         }
     }
 }
@@ -1272,7 +1271,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                     .storages()
                     .sparse_sets
                     .get(state.component_id)
-                    .unwrap()
+                    .unwrap_or_else(|| debug_checked_unreachable())
             }),
             marker: PhantomData,
             last_change_tick,
