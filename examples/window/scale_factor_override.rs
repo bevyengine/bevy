@@ -1,6 +1,8 @@
+//! This example illustrates how to override the window scale factor imposed by the
+//! operating system.
+
 use bevy::prelude::*;
 
-/// This example illustrates how to customize the default window settings
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -35,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn_bundle(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: Rect::all(Val::Px(2.0)),
+                        border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
                     color: Color::rgb(0.65, 0.65, 0.65).into(),
@@ -64,7 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// This system toggles scale factor overrides when enter is pressed
 fn toggle_override(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
-    let window = windows.get_primary_mut().unwrap();
+    let window = windows.primary_mut();
     if input.just_pressed(KeyCode::Return) {
         window.set_scale_factor_override(window.scale_factor_override().xor(Some(1.)));
     }
@@ -72,7 +74,7 @@ fn toggle_override(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
 
 /// This system changes the scale factor override when up or down is pressed
 fn change_scale_factor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
-    let window = windows.get_primary_mut().unwrap();
+    let window = windows.primary_mut();
     if input.just_pressed(KeyCode::Up) {
         window.set_scale_factor_override(window.scale_factor_override().map(|n| n + 1.));
     } else if input.just_pressed(KeyCode::Down) {

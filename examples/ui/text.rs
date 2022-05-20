@@ -1,11 +1,13 @@
+//! This example illustrates how to create UI text and update it in a system.
+//!
+//! It displays the current FPS in the top left corner, as well as text that changes color
+//! in the bottom right. For text within a scene, please see the text2d example.
+
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
 
-/// This example illustrates how to create UI text and update it in a system. It displays the
-/// current FPS in the top left corner, as well as text that changes colour in the bottom right.
-/// For text within a scene, please see the text2d example.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -33,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect {
                     bottom: Val::Px(5.0),
                     right: Val::Px(15.0),
                     ..default()

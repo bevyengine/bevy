@@ -1,6 +1,7 @@
 use crate::{
-    render_resource::{std140::AsStd140, DynamicUniformVec},
+    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
+    view::ComputedVisibility,
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -8,11 +9,8 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{FilterFetch, QueryItem, WorldQuery},
-    system::{
-        lifetimeless::{Read, SCommands, SQuery},
-        RunSystem, SystemParamItem,
-    },
+    query::{QueryItem, WorldQuery},
+    system::{lifetimeless::Read, StaticSystemParam},
 };
 use std::{marker::PhantomData, ops::Deref};
 
@@ -60,7 +58,7 @@ impl<C> Default for UniformComponentPlugin<C> {
     }
 }
 
-impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
+impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -71,12 +69,12 @@ impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
 }
 
 /// Stores all uniforms of the component type.
-pub struct ComponentUniforms<C: Component + AsStd140> {
-    uniforms: DynamicUniformVec<C>,
+pub struct ComponentUniforms<C: Component + ShaderType> {
+    uniforms: DynamicUniformBuffer<C>,
 }
 
-impl<C: Component + AsStd140> Deref for ComponentUniforms<C> {
-    type Target = DynamicUniformVec<C>;
+impl<C: Component + ShaderType> Deref for ComponentUniforms<C> {
+    type Target = DynamicUniformBuffer<C>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -84,14 +82,14 @@ impl<C: Component + AsStd140> Deref for ComponentUniforms<C> {
     }
 }
 
-impl<C: Component + AsStd140> ComponentUniforms<C> {
+impl<C: Component + ShaderType> ComponentUniforms<C> {
     #[inline]
-    pub fn uniforms(&self) -> &DynamicUniformVec<C> {
+    pub fn uniforms(&self) -> &DynamicUniformBuffer<C> {
         &self.uniforms
     }
 }
 
-impl<C: Component + AsStd140> Default for ComponentUniforms<C> {
+impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
     fn default() -> Self {
         Self {
             uniforms: Default::default(),
@@ -108,17 +106,22 @@ fn prepare_uniform_components<C: Component>(
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
 ) where
-    C: AsStd140 + Clone,
+    C: ShaderType + WriteInto + Clone,
 {
     component_uniforms.uniforms.clear();
-    for (entity, component) in components.iter() {
-        commands
-            .get_or_spawn(entity)
-            .insert(DynamicUniformIndex::<C> {
-                index: component_uniforms.uniforms.push(component.clone()),
-                marker: PhantomData,
-            });
-    }
+    let entities = components
+        .iter()
+        .map(|(entity, component)| {
+            (
+                entity,
+                (DynamicUniformIndex::<C> {
+                    index: component_uniforms.uniforms.push(component.clone()),
+                    marker: PhantomData,
+                },),
+            )
+        })
+        .collect::<Vec<_>>();
+    commands.insert_or_spawn_batch(entities);
 
     component_uniforms
         .uniforms
@@ -129,22 +132,38 @@ fn prepare_uniform_components<C: Component>(
 ///
 /// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) step
 /// for the specified [`ExtractComponent`].
-pub struct ExtractComponentPlugin<C, F = ()>(PhantomData<fn() -> (C, F)>);
+pub struct ExtractComponentPlugin<C, F = ()> {
+    only_extract_visible: bool,
+    marker: PhantomData<fn() -> (C, F)>,
+}
 
 impl<C, F> Default for ExtractComponentPlugin<C, F> {
     fn default() -> Self {
-        Self(PhantomData)
+        Self {
+            only_extract_visible: false,
+            marker: PhantomData,
+        }
     }
 }
 
-impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C>
-where
-    <C::Filter as WorldQuery>::Fetch: FilterFetch,
-{
+impl<C, F> ExtractComponentPlugin<C, F> {
+    pub fn extract_visible() -> Self {
+        Self {
+            only_extract_visible: true,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        let system = ExtractComponentSystem::<C>::system(&mut app.world);
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, system);
+            if self.only_extract_visible {
+                render_app
+                    .add_system_to_stage(RenderStage::Extract, extract_visible_components::<C>);
+            } else {
+                render_app.add_system_to_stage(RenderStage::Extract, extract_components::<C>);
+            }
         }
     }
 }
@@ -160,25 +179,31 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`] type.
-pub struct ExtractComponentSystem<C: ExtractComponent>(PhantomData<C>);
+fn extract_components<C: ExtractComponent>(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    mut query: StaticSystemParam<Query<(Entity, C::Query), C::Filter>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in query.iter_mut() {
+        values.push((entity, (C::extract_component(query_item),)));
+    }
+    *previous_len = values.len();
+    commands.insert_or_spawn_batch(values);
+}
 
-impl<C: ExtractComponent> RunSystem for ExtractComponentSystem<C>
-where
-    <C::Filter as WorldQuery>::Fetch: FilterFetch,
-{
-    type Param = (
-        SCommands,
-        // the previous amount of extracted components
-        Local<'static, usize>,
-        SQuery<(Entity, C::Query), C::Filter>,
-    );
-
-    fn run((mut commands, mut previous_len, mut query): SystemParamItem<Self::Param>) {
-        let mut values = Vec::with_capacity(*previous_len);
-        for (entity, query_item) in query.iter_mut() {
+/// This system extracts all visible components of the corresponding [`ExtractComponent`] type.
+fn extract_visible_components<C: ExtractComponent>(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    mut query: StaticSystemParam<Query<(Entity, Read<ComputedVisibility>, C::Query), C::Filter>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, computed_visibility, query_item) in query.iter_mut() {
+        if computed_visibility.is_visible {
             values.push((entity, (C::extract_component(query_item),)));
         }
-        *previous_len = values.len();
-        commands.insert_or_spawn_batch(values);
     }
+    *previous_len = values.len();
+    commands.insert_or_spawn_batch(values);
 }

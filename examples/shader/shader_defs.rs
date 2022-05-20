@@ -1,3 +1,6 @@
+//! Demonstrates creating a custom material that uses "shaders defs", a tool that enables
+//! conditional compilation in shaders.
+
 use bevy::{
     core_pipeline::Transparent3d,
     pbr::{
@@ -11,7 +14,7 @@ use bevy::{
         render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
-            RenderPipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
+            PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
             SpecializedMeshPipelineError, SpecializedMeshPipelines,
         },
         view::ExtractedView,
@@ -139,7 +142,7 @@ fn queue_custom(
     custom_pipeline: Res<IsRedPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<IsRedPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     material_meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform, &IsRed)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {

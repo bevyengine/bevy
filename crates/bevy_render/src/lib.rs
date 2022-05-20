@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod camera;
 pub mod color;
 pub mod mesh;
@@ -36,7 +38,7 @@ use crate::{
     mesh::MeshPlugin,
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
-    render_resource::{RenderPipelineCache, Shader, ShaderLoader},
+    render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::render_system,
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -146,12 +148,13 @@ impl Plugin for RenderPlugin {
                 .init_resource::<ScratchRenderWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
-            let render_pipeline_cache = RenderPipelineCache::new(device.clone());
+
+            let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
 
             let mut render_app = App::empty();
             let mut extract_stage =
-                SystemStage::parallel().with_system(RenderPipelineCache::extract_shaders);
+                SystemStage::parallel().with_system(PipelineCache::extract_shaders);
             // don't apply buffers when the stage finishes running
             // extract stage runs on the app world, but the buffers are applied to the render world
             extract_stage.set_apply_buffers(false);
@@ -163,7 +166,7 @@ impl Plugin for RenderPlugin {
                 .add_stage(
                     RenderStage::Render,
                     SystemStage::parallel()
-                        .with_system(RenderPipelineCache::process_pipeline_queue_system)
+                        .with_system(PipelineCache::process_pipeline_queue_system)
                         .with_system(render_system.exclusive_system().at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
@@ -171,25 +174,22 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(adapter_info)
-                .insert_resource(render_pipeline_cache)
+                .insert_resource(pipeline_cache)
                 .insert_resource(asset_server)
                 .init_resource::<RenderGraph>();
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
-                let render_span = bevy_utils::tracing::info_span!("renderer subapp");
-                #[cfg(feature = "trace")]
-                let _render_guard = render_span.enter();
+                let _render_span = bevy_utils::tracing::info_span!("renderer subapp").entered();
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush")
+                            .entered();
 
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let meta_len = app_world.entities().meta.len();
+                    let meta_len = app_world.entities().meta_len();
                     render_app
                         .world
                         .entities()
@@ -198,14 +198,13 @@ impl Plugin for RenderPlugin {
                     // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
                     // these entities cannot be accessed without spawning directly onto them
                     // this _only_ works as expected because clear_entities() is called at the end of every frame.
-                    render_app.world.entities_mut().flush_as_invalid();
+                    unsafe { render_app.world.entities_mut() }.flush_as_invalid();
                 }
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "extract");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "extract").entered();
 
                     // extract
                     extract(app_world, render_app);
@@ -213,9 +212,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "prepare");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "prepare").entered();
 
                     // prepare
                     let prepare = render_app
@@ -227,9 +225,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "queue");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "queue").entered();
 
                     // queue
                     let queue = render_app
@@ -241,9 +238,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "sort");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "sort").entered();
 
                     // phase sort
                     let phase_sort = render_app
@@ -255,9 +251,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "render");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "render").entered();
 
                     // render
                     let render = render_app
@@ -269,9 +264,8 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let stage_span = bevy_utils::tracing::info_span!("stage", name = "cleanup");
-                    #[cfg(feature = "trace")]
-                    let _stage_guard = stage_span.enter();
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "cleanup").entered();
 
                     // cleanup
                     let cleanup = render_app
@@ -279,6 +273,11 @@ impl Plugin for RenderPlugin {
                         .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
                         .unwrap();
                     cleanup.run(&mut render_app.world);
+                }
+                {
+                    #[cfg(feature = "trace")]
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "clear_entities").entered();
 
                     render_app.world.clear_entities();
                 }
@@ -289,6 +288,8 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
+            // NOTE: Load this after renderer initialization so that it knows about the supported
+            // compressed texture formats
             .add_plugin(ImagePlugin);
     }
 }

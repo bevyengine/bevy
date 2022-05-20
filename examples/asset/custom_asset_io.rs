@@ -1,5 +1,9 @@
+//! Implements a custom asset io loader.
+//! An [`AssetIo`] is what the asset server uses to read the raw bytes of assets.
+//! It does not know anything about the asset formats, only how to talk to the underlying storage.
+
 use bevy::{
-    asset::{AssetIo, AssetIoError},
+    asset::{AssetIo, AssetIoError, Metadata},
     prelude::*,
     utils::BoxedFuture,
 };
@@ -26,11 +30,6 @@ impl AssetIo for CustomAssetIo {
         self.0.read_directory(path)
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
-        info!("is_directory({:?})", path);
-        self.0.is_directory(path)
-    }
-
     fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
         info!("watch_path_for_changes({:?})", path);
         self.0.watch_path_for_changes(path)
@@ -39,6 +38,11 @@ impl AssetIo for CustomAssetIo {
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
         info!("watch_for_changes()");
         self.0.watch_for_changes()
+    }
+
+    fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
+        info!("get_metadata({:?})", path);
+        self.0.get_metadata(path)
     }
 }
 

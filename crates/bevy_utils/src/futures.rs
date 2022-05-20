@@ -1,0 +1,33 @@
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+};
+
+pub fn now_or_never<F: Future>(mut future: F) -> Option<F::Output> {
+    let noop_waker = noop_waker();
+    let mut cx = Context::from_waker(&noop_waker);
+
+    // Safety: `future` is not moved and the original value is shadowed
+    let future = unsafe { Pin::new_unchecked(&mut future) };
+
+    match future.poll(&mut cx) {
+        Poll::Ready(x) => Some(x),
+        _ => None,
+    }
+}
+
+unsafe fn noop_clone(_data: *const ()) -> RawWaker {
+    noop_raw_waker()
+}
+unsafe fn noop(_data: *const ()) {}
+
+const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(noop_clone, noop, noop, noop);
+
+fn noop_raw_waker() -> RawWaker {
+    RawWaker::new(std::ptr::null(), &NOOP_WAKER_VTABLE)
+}
+
+fn noop_waker() -> Waker {
+    unsafe { Waker::from_raw(noop_raw_waker()) }
+}

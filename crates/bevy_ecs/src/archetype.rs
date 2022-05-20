@@ -9,7 +9,6 @@ use crate::{
 };
 use nonmax::NonMaxUsize;
 use std::{
-    borrow::Cow,
     collections::HashMap,
     hash::Hash,
     ops::{Index, IndexMut},
@@ -136,8 +135,8 @@ pub struct Archetype {
     entities: Vec<Entity>,
     edges: Edges,
     table_info: TableInfo,
-    table_components: Cow<'static, [ComponentId]>,
-    sparse_set_components: Cow<'static, [ComponentId]>,
+    table_components: Box<[ComponentId]>,
+    sparse_set_components: Box<[ComponentId]>,
     pub(crate) unique_components: SparseSet<ComponentId, Column>,
     pub(crate) components: SparseSet<ComponentId, ArchetypeComponentInfo>,
 }
@@ -146,8 +145,8 @@ impl Archetype {
     pub fn new(
         id: ArchetypeId,
         table_id: TableId,
-        table_components: Cow<'static, [ComponentId]>,
-        sparse_set_components: Cow<'static, [ComponentId]>,
+        table_components: Box<[ComponentId]>,
+        sparse_set_components: Box<[ComponentId]>,
         table_archetype_components: Vec<ArchetypeComponentId>,
         sparse_set_archetype_components: Vec<ArchetypeComponentId>,
     ) -> Self {
@@ -346,8 +345,8 @@ impl ArchetypeGeneration {
 
 #[derive(Hash, PartialEq, Eq)]
 pub struct ArchetypeIdentity {
-    table_components: Cow<'static, [ComponentId]>,
-    sparse_set_components: Cow<'static, [ComponentId]>,
+    table_components: Box<[ComponentId]>,
+    sparse_set_components: Box<[ComponentId]>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -410,8 +409,8 @@ impl Default for Archetypes {
         archetypes.archetypes.push(Archetype::new(
             ArchetypeId::RESOURCE,
             TableId::empty(),
-            Cow::Owned(Vec::new()),
-            Cow::Owned(Vec::new()),
+            Box::new([]),
+            Box::new([]),
             Vec::new(),
             Vec::new(),
         ));
@@ -506,8 +505,8 @@ impl Archetypes {
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
     ) -> ArchetypeId {
-        let table_components = Cow::from(table_components);
-        let sparse_set_components = Cow::from(sparse_set_components);
+        let table_components = table_components.into_boxed_slice();
+        let sparse_set_components = sparse_set_components.into_boxed_slice();
         let archetype_identity = ArchetypeIdentity {
             sparse_set_components: sparse_set_components.clone(),
             table_components: table_components.clone(),

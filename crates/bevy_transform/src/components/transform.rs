@@ -1,6 +1,7 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{const_vec3, Mat3, Mat4, Quat, Vec3};
+use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use std::ops::Mul;
 
@@ -15,18 +16,18 @@ use std::ops::Mul;
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](super::Parent).
+/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] in the system
-/// [`transform_propagate_system`](crate::transform_propagate_system::transform_propagate_system).
+/// [`transform_propagate_system`](crate::transform_propagate_system).
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
-#[reflect(Component, PartialEq)]
+#[reflect(Component, Default, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     pub translation: Vec3,
@@ -111,6 +112,7 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new translation.
     #[inline]
+    #[must_use]
     pub const fn with_translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
         self
@@ -118,6 +120,7 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new rotation.
     #[inline]
+    #[must_use]
     pub const fn with_rotation(mut self, rotation: Quat) -> Self {
         self.rotation = rotation;
         self
@@ -125,6 +128,7 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new scale.
     #[inline]
+    #[must_use]
     pub const fn with_scale(mut self, scale: Vec3) -> Self {
         self.scale = scale;
         self
@@ -223,8 +227,8 @@ impl Transform {
     /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
     #[inline]
     pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
-        value = self.rotation * value;
         value = self.scale * value;
+        value = self.rotation * value;
         value += self.translation;
         value
     }
