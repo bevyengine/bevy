@@ -1,3 +1,5 @@
+//! Displays a single [`Sprite`], created from an image.
+
 use bevy::prelude::*;
 
 fn main() {

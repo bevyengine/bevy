@@ -273,6 +273,11 @@ impl Plugin for RenderPlugin {
                         .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
                         .unwrap();
                     cleanup.run(&mut render_app.world);
+                }
+                {
+                    #[cfg(feature = "trace")]
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "clear_entities").entered();
 
                     render_app.world.clear_entities();
                 }

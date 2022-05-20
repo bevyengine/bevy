@@ -1,3 +1,5 @@
+//! Iterates and prints gamepad input and connection events.
+
 use bevy::{
     input::gamepad::{GamepadEvent, GamepadEventType},
     prelude::*,

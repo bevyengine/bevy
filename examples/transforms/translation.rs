@@ -1,3 +1,5 @@
+//! Illustrates how to move an object along an axis.
+
 use bevy::prelude::*;
 
 // Define a struct to keep some information about our entity.

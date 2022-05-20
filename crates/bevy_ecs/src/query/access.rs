@@ -148,6 +148,23 @@ impl<T: SparseSetIndex> Access<T> {
 /// An [`Access`] that has been filtered to include and exclude certain combinations of elements.
 ///
 /// Used internally to statically check if queries are disjoint.
+///
+/// Subtle: a `read` or `write` in `access` should not be considered to imply a
+/// `with` access.
+///
+/// For example consider `Query<Option<&T>>` this only has a `read` of `T` as doing
+/// otherwise would allow for queriess to be considered disjoint that actually arent:
+/// - `Query<(&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
+/// - `Query<&mut T, Without<U>>` read/write `T`, without `U`
+/// from this we could reasonably conclude that the queries are disjoint but they aren't.
+///
+/// In order to solve this the actual access that `Query<(&mut T, Option<&U>)>` has
+/// is read/write `T`, read `U`. It must still have a read `U` access otherwise the following
+/// queries would be incorrectly considered disjoint:
+/// - `Query<&mut T>`  read/write `T`
+/// - `Query<Option<&T>` accesses nothing
+///
+/// See comments the `WorldQuery` impls of `AnyOf`/`Option`/`Or` for more information.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
@@ -208,6 +225,15 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn add_without(&mut self, index: T) {
         self.without.grow(index.sparse_set_index() + 1);
         self.without.insert(index.sparse_set_index());
+    }
+
+    pub fn extend_intersect_filter(&mut self, other: &FilteredAccess<T>) {
+        self.without.intersect_with(&other.without);
+        self.with.intersect_with(&other.with);
+    }
+
+    pub fn extend_access(&mut self, other: &FilteredAccess<T>) {
+        self.access.extend(&other.access);
     }
 
     /// Returns `true` if this and `other` can be active at the same time.
