@@ -405,6 +405,10 @@ impl Table {
             column.clear();
         }
     }
+
+    pub fn component_ids(&self) -> &super::SparseArray<ComponentId, usize> {
+        self.columns.sparse_array()
+    }
 }
 
 /// A collection of [`Table`] storages, indexed by [`TableId`]
