@@ -222,11 +222,6 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn component_ids(&self) -> &SparseArray<ComponentId, usize> {
-        self.components.sparse_array()
-    }
-
-    #[inline]
     pub fn edges(&self) -> &Edges {
         &self.edges
     }

@@ -279,8 +279,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(self.#field_idents.update_archetype_component_access(_archetype, _access);)*
             }
 
-            fn matches_component_set(&self, _component_set: &#path::storage::SparseArray<#path::component::ComponentId, usize>) -> bool {
-                true #(&& self.#field_idents.matches_component_set(_component_set))*
+            fn matches_component_set(&self, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
+                true #(&& self.#field_idents.matches_component_set(_set_contains_id))*
 
             }
         }

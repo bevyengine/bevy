@@ -6,7 +6,7 @@ use crate::{
         debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, QueryFetch,
         ROQueryFetch, WorldQuery, WorldQueryGats,
     },
-    storage::{ComponentSparseSet, SparseArray, Table, Tables},
+    storage::{ComponentSparseSet, Table, Tables},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
@@ -90,8 +90,8 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     ) {
     }
 
-    fn matches_component_set(&self, component_set: &SparseArray<ComponentId, usize>) -> bool {
-        component_set.contains(self.component_id)
+    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        set_contains_id(self.component_id)
     }
 }
 
@@ -228,8 +228,8 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
         _access: &mut Access<ArchetypeComponentId>,
     ) {
     }
-    fn matches_component_set(&self, component_set: &SparseArray<ComponentId, usize>) -> bool {
-        !component_set.contains(self.component_id)
+    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        !set_contains_id(self.component_id)
     }
 }
 
@@ -381,7 +381,7 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
-                    $filter.matches = $state.matches_component_set(table.component_ids());
+                    $filter.matches = $state.matches_component_set(&|id| table.has_column(id));
                     if $filter.matches {
                         $filter.fetch.set_table($state, table);
                     }
@@ -393,7 +393,7 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
-                    $filter.matches = $state.matches_component_set(archetype.component_ids());
+                    $filter.matches = $state.matches_component_set(&|id| archetype.contains(id));
                     if $filter.matches {
                         $filter.fetch.set_archetype($state, archetype, tables);
                     }
@@ -468,9 +468,9 @@ macro_rules! impl_query_filter_tuple {
                 $($filter.update_archetype_component_access(archetype, access);)*
             }
 
-            fn matches_component_set(&self, _component_set: &SparseArray<ComponentId, usize>) -> bool {
+            fn matches_component_set(&self, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = &self.0;
-                false $(|| $filter.matches_component_set(_component_set))*
+                false $(|| $filter.matches_component_set(_set_contains_id))*
             }
         }
 
@@ -550,8 +550,8 @@ macro_rules! impl_tick_filter {
                 }
             }
 
-            fn matches_component_set(&self, component_set: &SparseArray<ComponentId, usize>) -> bool {
-                component_set.contains(self.component_id)
+            fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+                set_contains_id(self.component_id)
             }
         }
 
