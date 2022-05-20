@@ -9,8 +9,8 @@ If this is a particularly complex PR, please add a clear list of the changes mad
 
 ## Context
 
-Discuss any context that may be needed for a user with only passing acquaintance with this library to understand the changes you've made.
-This may include related issues, previous discussion, or relevant bits of how the library works).
+Discuss any context that may be needed for a user who is not as familiar with this library to understand the changes you've made.
+This may include related issues, previous discussion, or relevant bits of how the library works.
 
 ## Feedback wanted
 
