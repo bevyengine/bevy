@@ -596,6 +596,10 @@ impl Window {
 
     /// Whether or not to fit the canvas element's size to its parent element's size.
     ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
     /// This value has no effect on non-web platforms.
     #[inline]
     pub fn fit_canvas_to_parent(&self) -> bool {
@@ -632,7 +636,12 @@ pub struct WindowDescriptor {
     /// This value does not do anything on non-web platforms.
     pub canvas: Option<String>,
     /// Whether or not to fit the canvas element's size to its parent element's size.
-    /// This value does not do anything on non-web platforms.
+    ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
+    /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
 }
 
