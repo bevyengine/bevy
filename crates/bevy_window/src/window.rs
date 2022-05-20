@@ -586,7 +586,8 @@ impl Window {
     }
 
     /// The "html canvas" element selector, if it was configured for this window.
-    /// This value does not do anything on non-web platforms.
+    ///
+    /// This value has no effect on non-web platforms.
     #[inline]
     pub fn canvas(&self) -> Option<&str> {
         self.canvas.as_deref()
