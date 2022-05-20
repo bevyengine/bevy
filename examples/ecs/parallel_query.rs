@@ -1,6 +1,6 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
-use bevy::{prelude::*, tasks::prelude::*};
+use bevy::prelude::*;
 use rand::random;
 
 #[derive(Component, Deref)]
