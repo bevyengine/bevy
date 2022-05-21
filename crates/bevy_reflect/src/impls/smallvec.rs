@@ -1,9 +1,7 @@
 use smallvec::SmallVec;
 use std::any::Any;
 
-use crate::{
-    serde::Serializable, Array, ArrayIter, FromReflect, List, Reflect, ReflectMut, ReflectRef,
-};
+use crate::{Array, ArrayIter, FromReflect, List, Reflect, ReflectMut, ReflectRef};
 
 impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
 where
@@ -100,16 +98,8 @@ where
         Box::new(List::clone_dynamic(self))
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 

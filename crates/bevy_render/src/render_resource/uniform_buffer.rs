@@ -1,41 +1,40 @@
-use super::Buffer;
-use crate::renderer::{RenderDevice, RenderQueue};
+use crate::{
+    render_resource::Buffer,
+    renderer::{RenderDevice, RenderQueue},
+};
 use encase::{
-    internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
-    StorageBuffer as StorageBufferWrapper,
+    internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
+    UniformBuffer as UniformBufferWrapper,
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
-pub struct StorageBuffer<T: ShaderType> {
+pub struct UniformBuffer<T: ShaderType> {
     value: T,
-    scratch: StorageBufferWrapper<Vec<u8>>,
+    scratch: UniformBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
-    capacity: usize,
 }
 
-impl<T: ShaderType> From<T> for StorageBuffer<T> {
+impl<T: ShaderType> From<T> for UniformBuffer<T> {
     fn from(value: T) -> Self {
         Self {
             value,
-            scratch: StorageBufferWrapper::new(Vec::new()),
+            scratch: UniformBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
         }
     }
 }
 
-impl<T: ShaderType + Default> Default for StorageBuffer<T> {
+impl<T: ShaderType + Default> Default for UniformBuffer<T> {
     fn default() -> Self {
         Self {
             value: T::default(),
-            scratch: StorageBufferWrapper::new(Vec::new()),
+            scratch: UniformBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
         }
     }
 }
 
-impl<T: ShaderType + WriteInto> StorageBuffer<T> {
+impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
@@ -63,40 +62,38 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.scratch.write(&self.value).unwrap();
 
-        let size = self.scratch.as_ref().len();
-
-        if self.capacity < size {
-            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: None,
-                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
-                contents: self.scratch.as_ref(),
-            }));
-            self.capacity = size;
-        } else if let Some(buffer) = &self.buffer {
-            queue.write_buffer(buffer, 0, self.scratch.as_ref());
+        match &self.buffer {
+            Some(buffer) => queue.write_buffer(buffer, 0, self.scratch.as_ref()),
+            None => {
+                self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+                    label: None,
+                    usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+                    contents: self.scratch.as_ref(),
+                }));
+            }
         }
     }
 }
 
-pub struct DynamicStorageBuffer<T: ShaderType> {
+pub struct DynamicUniformBuffer<T: ShaderType> {
     values: Vec<T>,
-    scratch: DynamicStorageBufferWrapper<Vec<u8>>,
+    scratch: DynamicUniformBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     capacity: usize,
 }
 
-impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
+impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
     fn default() -> Self {
         Self {
             values: Vec::new(),
-            scratch: DynamicStorageBufferWrapper::new(Vec::new()),
+            scratch: DynamicUniformBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
         }
     }
 }
 
-impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
+impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
@@ -135,7 +132,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         if self.capacity < size {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: None,
-                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;

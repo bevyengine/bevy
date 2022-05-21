@@ -749,7 +749,7 @@ impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
     type _State = ComponentId;
 }
 
-impl<'w, 's, T: Component> Fetch<'w> for WriteFetch<'w, T> {
+impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     type Item = Mut<'w, T>;
     type State = ComponentId;
 
@@ -1096,7 +1096,13 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     }
 
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
-        <T as Fetch<'_>>::update_component_access(state, access)
+        // We don't want to add the `with`/`without` of `T` as `Option<T>` will match things regardless of
+        // `T`'s filters. for example `Query<(Option<&U>, &mut V)>` will match every entity with a `V` component
+        // regardless of whether it has a `U` component. If we dont do this the query will not conflict with
+        // `Query<&mut V, Without<U>>` which would be unsound.
+        let mut intermediate = access.clone();
+        <T as Fetch<'_>>::update_component_access(state, &mut intermediate);
+        access.extend_access(&intermediate);
     }
 
     fn update_archetype_component_access(
@@ -1559,7 +1565,34 @@ macro_rules! impl_anytuple_fetch {
 
             fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = &_state.0;
-                $(<$name as Fetch<'_>>::update_component_access($name, _access);)*
+
+                // We do not unconditionally add `$name`'s `with`/`without` accesses to `_access`
+                // as this would be unsound. For example the following two queries should conflict:
+                // - Query<(AnyOf<(&A, ())>, &mut B)>
+                // - Query<&mut B, Without<A>>
+                //
+                // If we were to unconditionally add `$name`'s `with`/`without` accesses then `AnyOf<(&A, ())>`
+                // would have a `With<A>` access which is incorrect as this `WorldQuery` will match entities that
+                // do not have the `A` component. This is the same logic as the `Or<...>: WorldQuery` impl.
+                //
+                // The correct thing to do here is to only add a `with`/`without` access to `_access` if all
+                // `$name` params have that `with`/`without` access. More jargony put- we add the intersection
+                // of all `with`/`without` accesses of the `$name` params to `_access`.
+                let mut _intersected_access = _access.clone();
+                let mut _not_first = false;
+                $(
+                    if _not_first {
+                        let mut intermediate = _access.clone();
+                        <$name as Fetch<'_>>::update_component_access($name, &mut intermediate);
+                        _intersected_access.extend_intersect_filter(&intermediate);
+                        _intersected_access.extend_access(&intermediate);
+                    } else {
+                        <$name as Fetch<'_>>::update_component_access($name, &mut _intersected_access);
+                        _not_first = true;
+                    }
+                )*
+
+                *_access = _intersected_access;
             }
 
             fn update_archetype_component_access(_state: &Self::State, _archetype: &Archetype, _access: &mut Access<ArchetypeComponentId>) {
