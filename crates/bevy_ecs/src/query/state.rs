@@ -40,17 +40,17 @@ impl<Q: WorldQuery, F: WorldQuery> FromWorld for QueryState<Q, F> {
 impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
-        let fetch_state = QueryFetch::<Q>::init_state(world);
-        let filter_state = QueryFetch::<F>::init_state(world);
+        let fetch_state = Q::Fetch::init_state(world);
+        let filter_state = F::Fetch::init_state(world);
 
         let mut component_access = FilteredAccess::default();
-        QueryFetch::<Q>::update_component_access(&fetch_state, &mut component_access);
+        Q::Fetch::update_component_access(&fetch_state, &mut component_access);
 
         // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
         // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
         // because they are evaluated *before* a specific reference is constructed.
         let mut filter_component_access = FilteredAccess::default();
-        QueryFetch::<F>::update_component_access(&filter_state, &mut filter_component_access);
+        F::Fetch::update_component_access(&filter_state, &mut filter_component_access);
 
         // Merge the temporary filter access with the main access. This ensures that filter access is
         // properly considered in a global "cross-query" context (both within systems and across systems).
@@ -112,8 +112,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
     /// Creates a new [`Archetype`].
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        if QueryFetch::<Q>::matches_archetype(&self.fetch_state, archetype)
-            && QueryFetch::<F>::matches_archetype(&self.filter_state, archetype)
+        if Q::Fetch::matches_archetype(&self.fetch_state, archetype)
+            && F::Fetch::matches_archetype(&self.filter_state, archetype)
         {
             Q::Fetch::update_archetype_component_access(
                 &self.fetch_state,
