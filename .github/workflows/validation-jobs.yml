@@ -100,7 +100,7 @@ jobs:
 
   run-examples-on-wasm:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
 
@@ -117,6 +117,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            ~/.github/start-wasm-example/node_modules
             target/
           key: ${{ runner.os }}-wasm-run-examples-${{ hashFiles('**/Cargo.toml') }}
 
@@ -130,6 +131,18 @@ jobs:
       - name: Install wasm-bindgen
         run: cargo install --force wasm-bindgen-cli
 
+      - name: Setup playwright
+        run: |
+          cd .github/start-wasm-example
+          npm install
+          npx playwright install --with-deps
+          cd ../..
+
+      - name: First WASM build
+        run: |
+          cp .github/start-wasm-example/test-wasm.ron ci_testing_config.ron
+          cargo build --example ui --features "bevy_ci_testing" --target wasm32-unknown-unknown
+
       - name: Run examples
         shell: bash
         run: |
@@ -137,17 +150,21 @@ jobs:
           python3 -m http.server --directory examples/wasm &
 
           # build the example in wasm
-          example=.github/example-run/scene.ron
-          # example_name=`basename $example .ron`
-          example_name=lighting
-          echo "running $example_name - "`date`
-          cp $example ci_testing_config.ron
-          cargo build --example $example_name --features "bevy_ci_testing" --target wasm32-unknown-unknown
-          wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/debug/examples/$example_name.wasm
-          cd .github/start-wasm-example
-          npm install
-          npx playwright install --with-deps
-          xvfb-run npx playwright test --headed
+          cp .github/start-wasm-example/test-wasm.ron ci_testing_config.ron
+          for example_name in shapes lighting ui
+          do
+            echo "running $example_name - "`date`
+            cargo build --example $example_name --features "bevy_ci_testing" --target wasm32-unknown-unknown
+            wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/debug/examples/$example_name.wasm
+            cd .github/start-wasm-example
+            # Fails to open a webgl2 render context in webkit in CI for all examples
+            # webkit doesn't work in 3D for now
+            xvfb-run npx playwright test --headed --project firefox chromium
+            mv screenshot-firefox.png screenshot-$example_name-firefox.png
+            mv screenshot-chromium.png screenshot-$example_name-chromium.png
+            # mv screenshot-webkit.png screenshot-$example_name-webkit.png
+            cd ../..
+          done
 
       - name: Save screenshots
         uses: actions/upload-artifact@v3

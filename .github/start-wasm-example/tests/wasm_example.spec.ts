@@ -9,7 +9,7 @@ test.describe('WASM example', () => {
     let start = new Date().getTime();
 
     let found = false;
-    while (new Date().getTime() - start < 600000) {
+    while (new Date().getTime() - start < 300_000) {
       let msg = await promise_with_timeout(100, on_console(page), "no log found");
       if (msg.includes("no log found")) {
         continue;
