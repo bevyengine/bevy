@@ -388,7 +388,7 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     /// Adds a [`BoxedCommand`] directly to the command list.
-    /// This is currently helpful for sending commands from non_system/async sources.
+    /// This is currently helpful for sending commands from non_system or async sources.
     pub fn add_boxed(&mut self, command: BoxedCommand) {
         self.queue.push_boxed(command);
     }
