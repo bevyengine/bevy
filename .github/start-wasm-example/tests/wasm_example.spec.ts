@@ -16,7 +16,8 @@ test.describe('WASM example', () => {
       }
       console.log(msg);
       if (msg.includes("Test successful")) {
-        await page.screenshot({ path: `screenshot-${test_info.project.name}.png`, fullPage: true });
+        let prefix = process.env.SCREENSHOT_PREFIX === undefined ? "screenshot" : process.env.SCREENSHOT_PREFIX;
+        await page.screenshot({ path: `${prefix}-${test_info.project.name}.png`, fullPage: true });
         found = true;
         break;
       }
