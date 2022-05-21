@@ -134,17 +134,16 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// Returns a hash of the value (which includes the type).
     ///
     /// If the underlying type does not support hashing, returns `None`.
-    fn reflect_hash(&self) -> Option<u64>;
+    fn reflect_hash(&self) -> Option<u64> {
+        None
+    }
 
     /// Returns a "partial equality" comparison result.
     ///
     /// If the underlying type does not support equality testing, returns `None`.
-    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool>;
-
-    /// Returns a serializable version of the value.
-    ///
-    /// If the underlying type does not support serialization, returns `None`.
-    fn serializable(&self) -> Option<Serializable>;
+    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool> {
+        None
+    }
 
     /// Debug formatter for the value.
     ///
@@ -163,6 +162,13 @@ pub unsafe trait Reflect: Any + Send + Sync {
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
             _ => write!(f, "Reflect({})", self.type_name()),
         }
+    }
+
+    /// Returns a serializable version of the value.
+    ///
+    /// If the underlying type does not support serialization, returns `None`.
+    fn serializable(&self) -> Option<Serializable> {
+        None
     }
 }
 

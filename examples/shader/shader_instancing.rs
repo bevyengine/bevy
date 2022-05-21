@@ -1,3 +1,5 @@
+//! A custom shader showing off rendering a mesh multiple times in one draw call.
+
 use bevy::{
     core_pipeline::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
@@ -64,6 +66,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 
 #[derive(Component, Deref)]
 struct InstanceMaterialData(Vec<InstanceData>);
+
 impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
     type Filter = ();
@@ -226,6 +229,7 @@ type DrawCustom = (
 );
 
 pub struct DrawMeshInstanced;
+
 impl EntityRenderCommand for DrawMeshInstanced {
     type Param = (
         SRes<RenderAssets<Mesh>>,

@@ -1,3 +1,6 @@
+//! Demonstrates creating a custom material that uses "shaders defs", a tool that enables
+//! conditional compilation in shaders.
+
 use bevy::{
     core_pipeline::Transparent3d,
     pbr::{

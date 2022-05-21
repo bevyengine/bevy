@@ -16,6 +16,7 @@ use std::{
 };
 
 impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(char(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -34,9 +35,10 @@ impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
-impl_reflect_value!(Duration(Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
+impl_from_reflect_value!(char);
 impl_from_reflect_value!(u8);
 impl_from_reflect_value!(u16);
 impl_from_reflect_value!(u32);
@@ -271,16 +273,8 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         Box::new(self.clone_dynamic())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 
@@ -550,6 +544,15 @@ mod tests {
     #[test]
     fn can_serialize_duration() {
         assert!(std::time::Duration::ZERO.serializable().is_some());
+    }
+
+    #[test]
+    fn should_partial_eq_char() {
+        let a: &dyn Reflect = &'x';
+        let b: &dyn Reflect = &'x';
+        let c: &dyn Reflect = &'o';
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]

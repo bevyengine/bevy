@@ -1,3 +1,5 @@
+//! Renders a 2D scene containing a single, moving sprite.
+
 use bevy::prelude::*;
 
 fn main() {
@@ -25,6 +27,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Direction::Up);
 }
 
+/// The sprite is animated by changing its translation depending on the time that has passed since
+/// the last frame.
 fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
     for (mut logo, mut transform) in sprite_position.iter_mut() {
         match *logo {

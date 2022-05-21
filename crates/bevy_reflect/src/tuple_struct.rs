@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{Reflect, ReflectMut, ReflectRef};
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
 
@@ -252,16 +252,8 @@ unsafe impl Reflect for DynamicTupleStruct {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -1,6 +1,6 @@
 use crate::{
-    GlobalLightMeta, GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
-    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
+    GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
+    ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 use bevy_app::Plugin;
@@ -19,7 +19,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -76,7 +76,7 @@ impl Plugin for MeshRenderPlugin {
     }
 }
 
-#[derive(Component, AsStd140, Clone)]
+#[derive(Component, ShaderType, Clone)]
 pub struct MeshUniform {
     pub transform: Mat4,
     pub inverse_transpose_model: Mat4,
@@ -267,10 +267,7 @@ impl FromWorld for MeshPipeline {
         let render_device = world.resource::<RenderDevice>();
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-        let cluster_min_binding_size = match clustered_forward_buffer_binding_type {
-            BufferBindingType::Storage { .. } => None,
-            BufferBindingType::Uniform => BufferSize::new(16384),
-        };
+
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -280,7 +277,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                        min_binding_size: Some(ViewUniform::min_size()),
                     },
                     count: None,
                 },
@@ -291,7 +288,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(GpuLights::std140_size_static() as u64),
+                        min_binding_size: Some(GpuLights::min_size()),
                     },
                     count: None,
                 },
@@ -344,10 +341,9 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        // NOTE (when no storage buffers): Static size for uniform buffers.
-                        // GpuPointLight has a padded size of 64 bytes, so 16384 / 64 = 256
-                        // point lights max
-                        min_binding_size: cluster_min_binding_size,
+                        min_binding_size: Some(GpuPointLights::min_size(
+                            clustered_forward_buffer_binding_type,
+                        )),
                     },
                     count: None,
                 },
@@ -358,9 +354,11 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        // NOTE (when no storage buffers): With 256 point lights max, indices
-                        // need 8 bits so use u8
-                        min_binding_size: cluster_min_binding_size,
+                        min_binding_size: Some(
+                            ViewClusterBindings::min_size_cluster_light_index_lists(
+                                clustered_forward_buffer_binding_type,
+                            ),
+                        ),
                     },
                     count: None,
                 },
@@ -371,12 +369,11 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        // NOTE (when no storage buffers): The offset needs to address 16384
-                        // indices, which needs 14 bits. The count can be at most all 256 lights
-                        // so 8 bits.
-                        // NOTE: Pack the offset into the upper 19 bits and the count into the
-                        // lower 13 bits.
-                        min_binding_size: cluster_min_binding_size,
+                        min_binding_size: Some(
+                            ViewClusterBindings::min_size_cluster_offsets_and_counts(
+                                clustered_forward_buffer_binding_type,
+                            ),
+                        ),
                     },
                     count: None,
                 },
@@ -390,7 +387,7 @@ impl FromWorld for MeshPipeline {
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: true,
-                min_binding_size: BufferSize::new(MeshUniform::std140_size_static() as u64),
+                min_binding_size: Some(MeshUniform::min_size()),
             },
             count: None,
         };
@@ -688,7 +685,7 @@ pub fn queue_mesh_bind_group(
             skinned: None,
         };
 
-        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.uniform_buffer() {
+        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.buffer() {
             mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -712,9 +709,15 @@ pub fn queue_mesh_bind_group(
     }
 }
 
+// NOTE: This is using BufferVec because it is using a trick to allow a fixed-size array
+// in a uniform buffer to be used like a variable-sized array by only writing the valid data
+// into the buffer, knowing the number of valid items starting from the dynamic offset, and
+// ignoring the rest, whether they're valid for other dynamic offsets or not. This trick may
+// be supported later in encase, and then we should make use of it.
+
 #[derive(Default)]
 pub struct SkinnedMeshUniform {
-    pub buffer: UniformVec<Mat4>,
+    pub buffer: BufferVec<Mat4>,
 }
 
 pub fn prepare_skinned_meshes(

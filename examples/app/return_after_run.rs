@@ -1,3 +1,5 @@
+//! Shows how to return to the calling function after a windowed Bevy app has exited.
+
 use bevy::{prelude::*, winit::WinitSettings};
 
 fn main() {

@@ -1,3 +1,7 @@
+//! This example provides a 2D benchmark.
+//!
+//! Usage: spawn more entities by clicking on the screen.
+
 use bevy::{
     core::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -22,9 +26,6 @@ struct Bird {
     velocity: Vec3,
 }
 
-/// This example provides a 2D benchmark.
-///
-/// Usage: spawn more entities by clicking on the screen.
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {

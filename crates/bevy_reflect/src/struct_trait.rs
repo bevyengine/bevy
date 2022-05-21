@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{Reflect, ReflectMut, ReflectRef};
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
 use std::{any::Any, borrow::Cow};
@@ -313,16 +313,8 @@ unsafe impl Reflect for DynamicStruct {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         struct_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
