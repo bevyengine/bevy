@@ -128,7 +128,7 @@ jobs:
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
 
       - name: Install wasm-bindgen
-        run: cargo install wasm-bindgen-cli
+        run: cargo install --force wasm-bindgen-cli
 
       - name: Run examples
         shell: bash
