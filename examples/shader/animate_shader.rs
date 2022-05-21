@@ -16,10 +16,7 @@ use bevy::{
             AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
             SetItemPipeline, TrackedRenderPass,
         },
-        render_resource::{
-            std140::{AsStd140, Std140},
-            *,
-        },
+        render_resource::*,
         renderer::{RenderDevice, RenderQueue},
         view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
         RenderApp, RenderStage,
@@ -59,20 +56,9 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        let render_device = app.world.resource::<RenderDevice>();
-        let buffer = render_device.create_buffer(&BufferDescriptor {
-            label: Some("time uniform buffer"),
-            size: TimeUniform::std140_size_static() as u64,
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
-            .insert_resource(TimeMeta {
-                buffer,
-                bind_group: None,
-            })
+            .init_resource::<TimeMeta>()
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
             .add_system_to_stage(RenderStage::Extract, extract_time)
@@ -136,8 +122,10 @@ fn queue_custom(
     }
 }
 
-#[derive(Default, Clone, AsStd140)]
+#[derive(Default, Clone, ShaderType)]
 struct TimeUniform {
+    // on WebGL, uniforms need to be at least 16 bytes wide
+    #[align(16)]
     seconds_since_startup: f32,
 }
 
@@ -148,18 +136,21 @@ fn extract_time(mut commands: Commands, time: Res<Time>) {
     });
 }
 
+#[derive(Default)]
 struct TimeMeta {
-    buffer: Buffer,
+    buffer: UniformBuffer<TimeUniform>,
     bind_group: Option<BindGroup>,
 }
 
 // write the extracted time into the corresponding uniform buffer
 fn prepare_time(
     time: Res<TimeUniform>,
-    time_meta: ResMut<TimeMeta>,
+    mut time_meta: ResMut<TimeMeta>,
+    render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    render_queue.write_buffer(&time_meta.buffer, 0, time.as_std140().as_bytes());
+    time_meta.buffer.set(time.clone());
+    time_meta.buffer.write_buffer(&render_device, &render_queue);
 }
 
 // create a bind group for the time uniform buffer
@@ -173,7 +164,7 @@ fn queue_time_bind_group(
         layout: &pipeline.time_bind_group_layout,
         entries: &[BindGroupEntry {
             binding: 0,
-            resource: time_meta.buffer.as_entire_binding(),
+            resource: time_meta.buffer.binding().unwrap(),
         }],
     });
     time_meta.bind_group = Some(bind_group);
@@ -201,7 +192,7 @@ impl FromWorld for CustomPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(TimeUniform::std140_size_static() as u64),
+                        min_binding_size: Some(TimeUniform::min_size()),
                     },
                     count: None,
                 }],
