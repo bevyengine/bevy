@@ -34,7 +34,7 @@ impl CommandQueue {
     where
         C: Command,
     {
-        /// SAFE: This function is only every called when the `command` bytes is the associated
+        /// SAFE: This function is only ever called when the `command` bytes is the associated
         /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
         /// accesses are safe.
         unsafe fn write_command<T: Command>(command: *mut u8, world: &mut World) {
