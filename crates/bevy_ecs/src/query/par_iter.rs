@@ -2,6 +2,8 @@ use crate::world::World;
 
 use super::{Fetch, QueryFetch, QueryItem, QueryState, ROQueryFetch, ROQueryItem, WorldQuery};
 
+const DEFAULT_BATCHES_PER_THREAD: usize = 4;
+
 pub struct QueryParIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
     pub(crate) world: &'w World,
     pub(crate) state: &'s QueryState<Q, F>,
@@ -130,6 +132,6 @@ where
                 .map(|id| archetypes[*id].len())
                 .max()
         };
-        max_size.map(|max| max / thread_count)
+        max_size.map(|max| max / (thread_count * DEFAULT_BATCHES_PER_THREAD))
     }
 }
