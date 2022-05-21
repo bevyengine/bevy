@@ -97,3 +97,60 @@ jobs:
             time CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
             sleep 10
           done
+
+  run-examples-on-wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-wasm-run-examples-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: install xvfb, llvmpipe and lavapipe
+        run: |
+          sudo apt-get update -y -qq
+          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+          sudo apt-get update
+          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+
+      - name: Install wasm-bindgen
+        run: cargo install wasm-bindgen-cli
+
+      - name: Run examples
+        shell: bash
+        run: |
+          # start a webserver
+          python3 -m http.server --directory examples/wasm &
+
+          # build the example in wasm
+          example=.github/example-run/scene.ron
+          # example_name=`basename $example .ron`
+          example_name=lighting
+          echo "running $example_name - "`date`
+          cp $example ci_testing_config.ron
+          cargo build --example $example_name --features "bevy_ci_testing" --target wasm32-unknown-unknown
+          wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/debug/examples/$example_name.wasm
+          cd .github/start-wasm-example
+          npm install
+          npx playwright install --with-deps
+          xvfb-run npx playwright test --headed
+
+      - name: Save screenshots
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: .github/start-wasm-example/screenshot-*.png
