@@ -12,7 +12,7 @@ use crate::{
     camera::ExtractedCamera,
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
+    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
@@ -81,26 +81,22 @@ pub struct ExtractedView {
     pub transform: GlobalTransform,
     pub width: u32,
     pub height: u32,
-    pub near: f32,
-    pub far: f32,
 }
 
-#[derive(Clone, AsStd140)]
+#[derive(Clone, ShaderType)]
 pub struct ViewUniform {
     view_proj: Mat4,
     view: Mat4,
     inverse_view: Mat4,
     projection: Mat4,
     world_position: Vec3,
-    near: f32,
-    far: f32,
     width: f32,
     height: f32,
 }
 
 #[derive(Default)]
 pub struct ViewUniforms {
-    pub uniforms: DynamicUniformVec<ViewUniform>,
+    pub uniforms: DynamicUniformBuffer<ViewUniform>,
 }
 
 #[derive(Component)]
@@ -157,8 +153,6 @@ fn prepare_view_uniforms(
                 inverse_view,
                 projection,
                 world_position: camera.transform.translation,
-                near: camera.near,
-                far: camera.far,
                 width: camera.width as f32,
                 height: camera.height as f32,
             }),

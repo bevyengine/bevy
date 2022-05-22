@@ -16,7 +16,8 @@ pub struct BlobVec {
     len: usize,
     data: NonNull<u8>,
     swap_scratch: NonNull<u8>,
-    drop: unsafe fn(OwningPtr<'_>),
+    // None if the underlying type doesn't need to be dropped
+    drop: Option<unsafe fn(OwningPtr<'_>)>,
 }
 
 // We want to ignore the `drop` field in our `Debug` impl
@@ -36,9 +37,13 @@ impl BlobVec {
     /// # Safety
     ///
     /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobVec`].
+    ///
+    /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
+    ///
+    /// [`needs_drop`]: core::mem::needs_drop
     pub unsafe fn new(
         item_layout: Layout,
-        drop: unsafe fn(OwningPtr<'_>),
+        drop: Option<unsafe fn(OwningPtr<'_>)>,
         capacity: usize,
     ) -> BlobVec {
         if item_layout.size() == 0 {
@@ -141,7 +146,9 @@ impl BlobVec {
         let ptr = self.get_unchecked_mut(index).promote().as_ptr();
         self.len = 0;
         // Drop the old value, then write back, justifying the promotion
-        (self.drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
+        if let Some(drop) = self.drop {
+            (drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
+        }
         std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
         self.len = old_len;
     }
@@ -204,7 +211,9 @@ impl BlobVec {
         debug_assert!(index < self.len());
         let drop = self.drop;
         let value = self.swap_remove_and_forget_unchecked(index);
-        (drop)(value);
+        if let Some(drop) = drop {
+            (drop)(value);
+        }
     }
 
     /// # Safety
@@ -252,14 +261,15 @@ impl BlobVec {
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
         // accidentally drop elements twice in the event of a drop impl panicking.
         self.len = 0;
-        let drop = self.drop;
-        let layout_size = self.item_layout.size();
-        for i in 0..len {
-            unsafe {
-                // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
-                // will panic here due to self.len being set to 0
-                let ptr = self.get_ptr_mut().byte_add(i * layout_size).promote();
-                (drop)(ptr);
+        if let Some(drop) = self.drop {
+            let layout_size = self.item_layout.size();
+            for i in 0..len {
+                unsafe {
+                    // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
+                    // will panic here due to self.len being set to 0
+                    let ptr = self.get_ptr_mut().byte_add(i * layout_size).promote();
+                    (drop)(ptr);
+                }
             }
         }
     }
@@ -375,8 +385,8 @@ mod tests {
     #[test]
     fn resize_test() {
         let item_layout = Layout::new::<usize>();
-        let drop = drop_ptr::<usize>;
-        let mut blob_vec = unsafe { BlobVec::new(item_layout, drop, 64) };
+        // usize doesn't need dropping
+        let mut blob_vec = unsafe { BlobVec::new(item_layout, None, 64) };
         unsafe {
             for i in 0..1_000 {
                 push(&mut blob_vec, i as usize);
@@ -406,7 +416,7 @@ mod tests {
         {
             let item_layout = Layout::new::<Foo>();
             let drop = drop_ptr::<Foo>;
-            let mut blob_vec = unsafe { BlobVec::new(item_layout, drop, 2) };
+            let mut blob_vec = unsafe { BlobVec::new(item_layout, Some(drop), 2) };
             assert_eq!(blob_vec.capacity(), 2);
             unsafe {
                 let foo1 = Foo {
@@ -466,6 +476,6 @@ mod tests {
     fn blob_vec_drop_empty_capacity() {
         let item_layout = Layout::new::<Foo>();
         let drop = drop_ptr::<Foo>;
-        let _ = unsafe { BlobVec::new(item_layout, drop, 0) };
+        let _ = unsafe { BlobVec::new(item_layout, Some(drop), 0) };
     }
 }

@@ -1,3 +1,9 @@
+//! A simple glTF scene viewer made with Bevy.
+//!
+//! Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`,
+//! replacing the path as appropriate.
+//! With no arguments it will load the `FieldHelmet` glTF model from the repository assets subdirectory.
+
 use bevy::{
     asset::{AssetServerSettings, LoadState},
     gltf::Gltf,
@@ -151,6 +157,7 @@ fn start_animation(
         }
     }
 }
+
 fn keyboard_animation_control(
     keyboard_input: Res<Input<KeyCode>>,
     mut animation_player: Query<&mut AnimationPlayer>,
@@ -286,13 +293,7 @@ fn camera_spawn_check(
                     &transform.back(),
                     perspective_projection.far(),
                 );
-                let camera = Camera {
-                    near: perspective_projection.near,
-                    far: perspective_projection.far,
-                    ..default()
-                };
                 PerspectiveCameraBundle {
-                    camera,
                     perspective_projection,
                     frustum,
                     transform,

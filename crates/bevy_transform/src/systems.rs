@@ -11,16 +11,21 @@ pub fn transform_propagate_system(
             &Transform,
             Changed<Transform>,
             &mut GlobalTransform,
+            Entity,
         ),
         Without<Parent>,
     >,
-    mut transform_query: Query<
-        (&Transform, Changed<Transform>, &mut GlobalTransform),
-        With<Parent>,
-    >,
+    mut transform_query: Query<(
+        &Transform,
+        Changed<Transform>,
+        &mut GlobalTransform,
+        &Parent,
+    )>,
     children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
 ) {
-    for (children, transform, transform_changed, mut global_transform) in root_query.iter_mut() {
+    for (children, transform, transform_changed, mut global_transform, entity) in
+        root_query.iter_mut()
+    {
         let mut changed = transform_changed;
         if transform_changed {
             *global_transform = GlobalTransform::from(*transform);
@@ -35,6 +40,7 @@ pub fn transform_propagate_system(
                     &mut transform_query,
                     &children_query,
                     *child,
+                    entity,
                     changed,
                 );
             }
@@ -44,19 +50,26 @@ pub fn transform_propagate_system(
 
 fn propagate_recursive(
     parent: &GlobalTransform,
-    transform_query: &mut Query<
-        (&Transform, Changed<Transform>, &mut GlobalTransform),
-        With<Parent>,
-    >,
+    transform_query: &mut Query<(
+        &Transform,
+        Changed<Transform>,
+        &mut GlobalTransform,
+        &Parent,
+    )>,
     children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
+    expected_parent: Entity,
     mut changed: bool,
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
     let global_matrix = {
-        let (transform, transform_changed, mut global_transform) =
+        let (transform, transform_changed, mut global_transform, child_parent) =
             transform_query.get_mut(entity).map_err(drop)?;
-
+        // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
+        assert_eq!(
+            child_parent.0, expected_parent,
+            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+        );
         changed |= transform_changed;
         if changed {
             *global_transform = parent.mul_transform(*transform);
@@ -73,6 +86,7 @@ fn propagate_recursive(
             transform_query,
             children_query,
             *child,
+            entity,
             changed,
         );
     }
@@ -321,5 +335,37 @@ mod test {
                 },
             );
         }
+    }
+    #[test]
+    #[should_panic]
+    fn panic_when_hierarchy_cycle() {
+        let mut app = App::new();
+
+        app.add_system(parent_update_system);
+        app.add_system(transform_propagate_system);
+
+        let child = app
+            .world
+            .spawn()
+            .insert_bundle((Transform::identity(), GlobalTransform::default()))
+            .id();
+
+        let grandchild = app
+            .world
+            .spawn()
+            .insert_bundle((
+                Transform::identity(),
+                GlobalTransform::default(),
+                Parent(child),
+            ))
+            .id();
+        app.world.spawn().insert_bundle((
+            Transform::default(),
+            GlobalTransform::default(),
+            Children::with(&[child]),
+        ));
+        app.world.entity_mut(child).insert(Parent(grandchild));
+
+        app.update();
     }
 }

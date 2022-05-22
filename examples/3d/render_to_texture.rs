@@ -1,3 +1,5 @@
+//! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
+
 use bevy::{
     core_pipeline::{
         draw_3d_graph, node, AlphaMask3d, Opaque3d, RenderTargetClearColors, Transparent3d,

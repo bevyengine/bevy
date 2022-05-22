@@ -8,10 +8,7 @@ use bevy_render::{
     mesh::MeshVertexBufferLayout,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{
-        std140::{AsStd140, Std140},
-        *,
-    },
+    render_resource::*,
     renderer::RenderDevice,
     texture::Image,
 };
@@ -140,7 +137,7 @@ bitflags::bitflags! {
 }
 
 /// The GPU representation of the uniform data of a [`StandardMaterial`].
-#[derive(Clone, Default, AsStd140)]
+#[derive(Clone, Default, ShaderType)]
 pub struct StandardMaterialUniformData {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
@@ -296,12 +293,15 @@ impl RenderAsset for StandardMaterial {
             flags: flags.bits(),
             alpha_cutoff,
         };
-        let value_std140 = value.as_std140();
+
+        let byte_buffer = [0u8; StandardMaterialUniformData::SIZE.get() as usize];
+        let mut buffer = encase::UniformBuffer::new(byte_buffer);
+        buffer.write(&value).unwrap();
 
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("pbr_standard_material_uniform_buffer"),
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            contents: value_std140.as_bytes(),
+            contents: buffer.as_ref(),
         });
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
@@ -423,9 +423,7 @@ impl SpecializedMaterial for StandardMaterial {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(
-                            StandardMaterialUniformData::std140_size_static() as u64,
-                        ),
+                        min_binding_size: Some(StandardMaterialUniformData::min_size()),
                     },
                     count: None,
                 },
