@@ -14,7 +14,7 @@ use super::{CommandQueue, Commands};
 #[derive(Default)]
 /// The internal [`SystemParamState`] of the [`ParallelCommands`] type
 pub struct ParallelCommandsState {
-    tls: ThreadLocal<Cell<CommandQueue>>,
+    thread_local_storage: ThreadLocal<Cell<CommandQueue>>,
 }
 
 /// An alternative to [`Commands`] that can be used in parallel contexts, such as those in [`Query::par_for_each`](crate::system::Query::par_for_each)
@@ -76,7 +76,7 @@ unsafe impl SystemParamState for ParallelCommandsState {
     }
 
     fn apply(&mut self, world: &mut World) {
-        for cq in self.tls.iter_mut() {
+        for cq in self.thread_local_storage.iter_mut() {
             cq.get_mut().apply(world);
         }
     }
@@ -84,13 +84,16 @@ unsafe impl SystemParamState for ParallelCommandsState {
 
 impl<'w, 's> ParallelCommands<'w, 's> {
     pub fn command_scope<R>(&self, f: impl FnOnce(Commands) -> R) -> R {
-        let tls = &self.state.tls;
-        let tl_cq = tls.get_or_default();
-        let mut cq = tl_cq.take();
+        let store = &self.state.thread_local_storage;
+        let command_queue_cell = store.get_or_default();
+        let mut command_queue = command_queue_cell.take();
 
-        let r = f(Commands::new_from_entities(&mut cq, self.entities));
+        let r = f(Commands::new_from_entities(
+            &mut command_queue,
+            self.entities,
+        ));
 
-        tl_cq.set(cq);
+        command_queue_cell.set(command_queue);
         r
     }
 }
