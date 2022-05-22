@@ -7,7 +7,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
-use nonmax::NonMaxUsize;
+use nonmax::{NonMaxU32, NonMaxUsize};
 use std::{
     collections::HashMap,
     hash::Hash,
@@ -15,7 +15,7 @@ use std::{
 };
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeId(NonMaxUsize);
+pub struct ArchetypeId(NonMaxU32);
 
 impl ArchetypeId {
     pub const EMPTY: ArchetypeId = unsafe { ArchetypeId::new_unchecked(0) };
@@ -24,26 +24,31 @@ impl ArchetypeId {
     /// Creates a new [`ArchetypeId`].
     ///
     /// # Panics
-    /// This will panic if `index` is `usize::MAX`.
+    /// This will panic if `index` is `u32::MAX` or greater.
     #[inline]
     pub fn new(index: usize) -> Self {
-        Self(NonMaxUsize::new(index).expect("ArchetypeID cannot be created from usize::MAX"))
+        assert!(
+            index < u32::MAX as usize,
+            "ArchetypeID cannot be u32::MAX or greater"
+        );
+        // SAFE: The above assertion will fail if the value is not valid.
+        unsafe { Self(NonMaxU32::new_unchecked(index as u32)) }
     }
 
     /// Creates a new [`ArchetypeId`] without checking for validity of the
     /// provided index.
     ///
     /// # Safety
-    /// `index` must not be `usize::MAX`
+    /// This is only safe if `index` is not `u32::MAX` or greater.
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> Self {
-        Self(NonMaxUsize::new_unchecked(index))
+        Self(NonMaxU32::new_unchecked(index as u32))
     }
 
     /// Gets the corresponding index for the ID.
     #[inline]
     pub const fn index(self) -> usize {
-        self.0.get()
+        self.0.get() as usize
     }
 }
 
