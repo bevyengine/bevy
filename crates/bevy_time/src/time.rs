@@ -165,6 +165,8 @@ pub(crate) fn time_system(
     mut has_received_time: Local<bool>,
 ) {
     if let Some(time_recv) = time_recv {
+        // TODO: delay checking channel on start by 2 frames when pipelined rendering
+        // is enabled. This is to make sure we always read the N-2 frame's time.
         if let Ok(new_time) = time_recv.0.try_recv() {
             time.update_with_instant(new_time);
             *has_received_time = true;
