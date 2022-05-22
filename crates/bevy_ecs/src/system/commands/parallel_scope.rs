@@ -17,7 +17,9 @@ pub struct ParallelCommandsState {
     tls: ThreadLocal<Cell<CommandQueue>>,
 }
 
-/// An alternative to [`Commands`] that can be used in parallel contexts, such as those in [`Query::par_for_each`]
+/// An alternative to [`Commands`] that can be used in parallel contexts, such as those in [`Query::par_for_each`](crate::system::Query::par_for_each)
+///
+/// Note: Because command application order will depend on how many threads are ran, non-commutative commands may result in non-deterministic results.
 ///
 /// Example:
 /// ```
@@ -42,7 +44,6 @@ pub struct ParallelCommandsState {
 /// }
 /// # bevy_ecs::system::assert_is_system(parallel_command_system);
 ///```
-/// [Query::par_for_each]: crate::system::Query::par_for_each
 pub struct ParallelCommands<'w, 's> {
     state: &'s mut ParallelCommandsState,
     entities: &'w Entities,
