@@ -7,7 +7,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
-use nonmax::{NonMaxU32, NonMaxUsize};
+use nonmax::NonMaxU32;
 use std::{
     collections::HashMap,
     hash::Hash,
@@ -355,7 +355,7 @@ pub struct ArchetypeIdentity {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeComponentId(NonMaxUsize);
+pub struct ArchetypeComponentId(NonMaxU32);
 
 impl ArchetypeComponentId {
     /// Creates a new [`ArchetypeComponentId`] from an index without
@@ -365,7 +365,7 @@ impl ArchetypeComponentId {
     /// `index` must not be [`usize::MAX`].
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> Self {
-        Self(NonMaxUsize::new_unchecked(index))
+        Self(NonMaxU32::new_unchecked(index as u32))
     }
 
     /// Creates a new [`ArchetypeComponentId`] from an index.
@@ -373,18 +373,23 @@ impl ArchetypeComponentId {
     /// # Panic
     /// This function will panic if `index` is equal to [`usize::MAX`].
     #[inline]
-    pub fn new(index: usize) -> Self {
-        Self(NonMaxUsize::new(index).unwrap())
+    pub const fn new(index: usize) -> Self {
+        assert!(
+            index < u32::MAX as usize,
+            "ArchetypeComponentId cannot be u32::MAX or greater"
+        );
+        // SAFE: The above assertion will fail if the value is not valid.
+        unsafe { Self::new_unchecked(index) }
     }
 
     #[inline]
     pub fn index(self) -> usize {
-        self.0.get()
+        self.0.get() as usize
     }
 }
 
 impl SparseSetIndex for ArchetypeComponentId {
-    type Repr = NonMaxUsize;
+    type Repr = NonMaxU32;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -398,12 +403,12 @@ impl SparseSetIndex for ArchetypeComponentId {
 
     #[inline]
     fn repr_from_index(index: usize) -> Self::Repr {
-        NonMaxUsize::new(index).unwrap()
+        NonMaxU32::new(index as u32).unwrap()
     }
 
     #[inline]
     fn repr_to_index(repr: &Self::Repr) -> usize {
-        repr.get()
+        repr.get() as usize
     }
 }
 

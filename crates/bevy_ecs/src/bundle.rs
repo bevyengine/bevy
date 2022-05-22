@@ -138,7 +138,7 @@ impl BundleId {
     /// type's invariants.
     ///
     /// # Safety
-    /// `value` must not be [`usize::MAX`].
+    /// `value` must be less than [`u32::MAX`].
     #[inline]
     pub const unsafe fn new_unchecked(value: usize) -> Self {
         Self(NonMaxU32::new_unchecked(value as u32))
@@ -147,11 +147,11 @@ impl BundleId {
     /// Creates a new [`BundleId`] from an index.
     ///
     /// # Panic
-    /// This function will panic if `value` is equal to [`usize::MAX`].
+    /// This function will panic if `value` is greater than or equal to [`u32::MAX`].
     #[inline]
     pub const fn new(value: usize) -> Self {
         assert!(
-            value < u32::MAX as usize,148ggkjjkkkkkkkkkkkkkkk
+            value < u32::MAX as usize,
             "BundleID cannot be u32::MAX or greater"
         );
         // SAFE: The above assertion will fail if the value is not valid.
