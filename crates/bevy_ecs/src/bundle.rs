@@ -12,7 +12,7 @@ use crate::{
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
-use nonmax::NonMaxUsize;
+use nonmax::NonMaxU32;
 use std::{any::TypeId, collections::HashMap};
 
 /// An ordered collection of [`Component`]s.
@@ -131,7 +131,7 @@ macro_rules! tuple_impl {
 all_tuples!(tuple_impl, 0, 15, C);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct BundleId(NonMaxUsize);
+pub struct BundleId(NonMaxU32);
 
 impl BundleId {
     /// Creates a new [`BundleId`] from an index without checking for the
@@ -141,7 +141,7 @@ impl BundleId {
     /// `value` must not be [`usize::MAX`].
     #[inline]
     pub const unsafe fn new_unchecked(value: usize) -> Self {
-        Self(NonMaxUsize::new_unchecked(value))
+        Self(NonMaxU32::new_unchecked(value as u32))
     }
 
     /// Creates a new [`BundleId`] from an index.
@@ -149,18 +149,23 @@ impl BundleId {
     /// # Panic
     /// This function will panic if `value` is equal to [`usize::MAX`].
     #[inline]
-    pub fn new(value: usize) -> Self {
-        Self(NonMaxUsize::new(value).unwrap())
+    pub const fn new(value: usize) -> Self {
+        assert!(
+            value < u32::MAX as usize,148ggkjjkkkkkkkkkkkkkkk
+            "BundleID cannot be u32::MAX or greater"
+        );
+        // SAFE: The above assertion will fail if the value is not valid.
+        unsafe { Self::new_unchecked(value) }
     }
 
     #[inline]
     pub fn index(self) -> usize {
-        self.0.get()
+        self.0.get() as usize
     }
 }
 
 impl SparseSetIndex for BundleId {
-    type Repr = NonMaxUsize;
+    type Repr = NonMaxU32;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -174,7 +179,7 @@ impl SparseSetIndex for BundleId {
 
     #[inline]
     fn repr_from_index(index: usize) -> Self::Repr {
-        NonMaxUsize::new(index).unwrap()
+        NonMaxU32::new(index as u32).unwrap()
     }
 
     #[inline]
