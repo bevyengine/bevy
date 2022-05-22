@@ -160,13 +160,26 @@ impl BundleId {
 }
 
 impl SparseSetIndex for BundleId {
+    type Repr = NonMaxUsize;
+
     #[inline]
     fn sparse_set_index(&self) -> usize {
         self.index()
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self::new(value)
+    }
+
+    #[inline]
+    fn repr_from_index(index : usize) -> Self::Repr {
+        NonMaxUsize::new(index).unwrap()
+    }
+
+    #[inline]
+    fn repr_to_index(repr: &Self::Repr) -> usize {
+        repr.get() as usize
     }
 }
 

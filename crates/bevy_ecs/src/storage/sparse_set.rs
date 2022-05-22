@@ -232,10 +232,10 @@ impl ComponentSparseSet {
 ///
 /// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
 #[derive(Debug)]
-pub struct SparseSet<I, V: 'static> {
+pub struct SparseSet<I: SparseSetIndex, V: 'static> {
     dense: Vec<V>,
     indices: Vec<I>,
-    sparse: SparseArray<I, NonMaxUsize>,
+    sparse: SparseArray<I, I::Repr>,
 }
 
 impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
@@ -243,7 +243,7 @@ impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
         Self::new()
     }
 }
-impl<I, V> SparseSet<I, V> {
+impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub const fn new() -> Self {
         Self {
             dense: Vec::new(),
@@ -271,10 +271,10 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFE: dense indices stored in self.sparse always exist
             unsafe {
-                *self.dense.get_unchecked_mut(dense_index.get()) = value;
+                *self.dense.get_unchecked_mut(I::repr_to_index(&dense_index)) = value;
             }
         } else {
-            let dense = NonMaxUsize::new(self.dense.len()).unwrap();
+            let dense = I::repr_from_index(self.dense.len());
             self.sparse.insert(index.clone(), dense);
             self.indices.push(index);
             self.dense.push(value);
@@ -306,15 +306,15 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFE: dense indices stored in self.sparse always exist
-            unsafe { self.dense.get_unchecked_mut(dense_index.get()) }
+            unsafe { self.dense.get_unchecked_mut(I::repr_to_index(&dense_index)) }
         } else {
             let value = func();
-            let dense_index = NonMaxUsize::new(self.dense.len()).unwrap();
-            self.sparse.insert(index.clone(), dense_index);
+            let dense_index = self.dense.len();
+            self.sparse.insert(index.clone(), I::repr_from_index(dense_index));
             self.indices.push(index);
             self.dense.push(value);
             // SAFE: dense index was just populated above
-            unsafe { self.dense.get_unchecked_mut(dense_index.get()) }
+            unsafe { self.dense.get_unchecked_mut(dense_index) }
         }
     }
 
@@ -336,7 +336,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get(&self, index: I) -> Option<&V> {
         self.sparse.get(index).map(|dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.get_unchecked(dense_index.get()) }
+            unsafe { self.dense.get_unchecked(I::repr_to_index(dense_index)) }
         })
     }
 
@@ -344,13 +344,13 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         let dense = &mut self.dense;
         self.sparse.get(index).map(move |dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { dense.get_unchecked_mut(dense_index.get()) }
+            unsafe { dense.get_unchecked_mut(I::repr_to_index(dense_index)) }
         })
     }
 
     pub fn remove(&mut self, index: I) -> Option<V> {
         self.sparse.remove(index).map(|dense_idx| {
-            let dense_index = dense_idx.get();
+            let dense_index = I::repr_to_index(&dense_idx);
             let is_last = dense_index == self.dense.len() - 1;
             let value = self.dense.swap_remove(dense_index);
             self.indices.swap_remove(dense_index);
@@ -376,19 +376,37 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 }
 
 pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
+    type Repr: Clone;
     fn sparse_set_index(&self) -> usize;
     fn get_sparse_set_index(value: usize) -> Self;
+    // fn to_repr(&self) -> Self::Repr;
+    fn repr_from_index(index: usize) -> Self::Repr;
+    fn repr_to_index(repr: &Self::Repr) -> usize;
 }
 
 macro_rules! impl_sparse_set_index {
     ($ty:ty, $underlying:ty) => {
         impl SparseSetIndex for $ty {
+            type Repr = Self;
+
+            #[inline]
             fn sparse_set_index(&self) -> usize {
                 self.get() as usize
             }
 
+            #[inline]
             fn get_sparse_set_index(value: usize) -> Self {
                 <$ty>::new(value as $underlying).unwrap()
+            }
+
+            #[inline]
+            fn repr_from_index(index : usize) -> Self::Repr {
+                <$ty>::new(index as $underlying).unwrap()
+            }
+
+            #[inline]
+            fn repr_to_index(repr: &Self::Repr) -> usize {
+                repr.get() as usize
             }
         }
     };

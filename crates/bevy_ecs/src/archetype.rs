@@ -379,13 +379,26 @@ impl ArchetypeComponentId {
 }
 
 impl SparseSetIndex for ArchetypeComponentId {
+    type Repr = NonMaxUsize;
+
     #[inline]
     fn sparse_set_index(&self) -> usize {
-        self.index()
+        self.0.get() as usize
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self::new(value)
+    }
+
+    #[inline]
+    fn repr_from_index(index : usize) -> Self::Repr {
+        NonMaxUsize::new(index).unwrap()
+    }
+
+    #[inline]
+    fn repr_to_index(repr: &Self::Repr) -> usize {
+        repr.get()
     }
 }
 

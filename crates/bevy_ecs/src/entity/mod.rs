@@ -29,6 +29,7 @@ pub use self::serde::*;
 pub use map_entities::*;
 
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
+use nonmax::NonMaxUsize;
 use std::{
     convert::TryFrom,
     fmt, mem,
@@ -154,12 +155,26 @@ impl fmt::Debug for Entity {
 }
 
 impl SparseSetIndex for Entity {
+    type Repr = NonMaxUsize; 
+
+    #[inline]
     fn sparse_set_index(&self) -> usize {
         self.id() as usize
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Entity::from_raw(value as u32)
+    }
+
+    #[inline]
+    fn repr_from_index(index : usize) -> Self::Repr {
+        NonMaxUsize::new(index).unwrap()
+    }
+
+    #[inline]
+    fn repr_to_index(repr: &Self::Repr) -> usize {
+        repr.get()
     }
 }
 
