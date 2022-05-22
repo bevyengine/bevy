@@ -7,7 +7,7 @@ use crate::{
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::OwningPtr;
-use nonmax::NonMaxUsize;
+use nonmax::NonMaxU32;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -139,36 +139,38 @@ impl ComponentInfo {
 }
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct ComponentId(NonMaxUsize);
+pub struct ComponentId(NonMaxU32);
 
 impl ComponentId {
     /// Creates a new [`ComponentId`] from an index without
     /// checking for the type's invariants.
     ///
     /// # Safety
-    /// This function is only safe if `index` is not equal to [`usize::MAX`].
+    /// This function is only safe if `index` is less than [`u32::MAX`].
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> ComponentId {
-        ComponentId(NonMaxUsize::new_unchecked(index))
+        ComponentId(NonMaxU32::new_unchecked(index as u32))
     }
 
     /// Creates a new [`ComponentId`] from an index.
     ///
     /// # Panic
-    /// This function will panic if `index` is equal to [`usize::MAX`].
+    /// This function will panic if `index` is greater than or equal to [`u32::MAX`].
     #[inline]
     pub fn new(index: usize) -> ComponentId {
-        ComponentId(NonMaxUsize::new(index).unwrap())
+        assert!(index < u32::MAX as usize);
+        // SAFE: The above assertion will fail if the value is not valid.
+        unsafe { Self(NonMaxU32::new_unchecked(index as u32)) }
     }
 
     #[inline]
     pub fn index(self) -> usize {
-        self.0.get()
+        self.0.get() as usize
     }
 }
 
 impl SparseSetIndex for ComponentId {
-    type Repr = NonMaxUsize;
+    type Repr = NonMaxU32;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -181,7 +183,9 @@ impl SparseSetIndex for ComponentId {
 
     #[inline]
     fn repr_from_index(index: usize) -> Self::Repr {
-        NonMaxUsize::new(index).unwrap()
+        assert!(index < u32::MAX as usize);
+        // SAFE: The above assertion will fail if the value is not valid.
+        unsafe { NonMaxU32::new_unchecked(index as u32) }
     }
 
     #[inline]
@@ -316,7 +320,7 @@ impl Components {
 
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0.get())
+        self.components.get(id.index())
     }
 
     /// # Safety
@@ -325,7 +329,7 @@ impl Components {
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
-        self.components.get_unchecked(id.0.get())
+        self.components.get_unchecked(id.index())
     }
 
     #[inline]
