@@ -310,7 +310,8 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         } else {
             let value = func();
             let dense_index = self.dense.len();
-            self.sparse.insert(index.clone(), I::repr_from_index(dense_index));
+            self.sparse
+                .insert(index.clone(), I::repr_from_index(dense_index));
             self.indices.push(index);
             self.dense.push(value);
             // SAFE: dense index was just populated above
@@ -400,7 +401,7 @@ macro_rules! impl_sparse_set_index {
             }
 
             #[inline]
-            fn repr_from_index(index : usize) -> Self::Repr {
+            fn repr_from_index(index: usize) -> Self::Repr {
                 <$ty>::new(index as $underlying).unwrap()
             }
 

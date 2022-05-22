@@ -155,7 +155,7 @@ impl fmt::Debug for Entity {
 }
 
 impl SparseSetIndex for Entity {
-    type Repr = NonMaxUsize; 
+    type Repr = NonMaxUsize;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -168,7 +168,7 @@ impl SparseSetIndex for Entity {
     }
 
     #[inline]
-    fn repr_from_index(index : usize) -> Self::Repr {
+    fn repr_from_index(index: usize) -> Self::Repr {
         NonMaxUsize::new(index).unwrap()
     }
 
