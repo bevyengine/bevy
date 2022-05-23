@@ -14,7 +14,7 @@ use bevy::{
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
             PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
-            SpecializedMeshPipelineError, SpecializedMeshPipelines, VertexState,
+            SpecializedMeshPipelineError, SpecializedMeshPipelines,
         },
         view::ExtractedView,
         RenderApp, RenderStage,
