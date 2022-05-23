@@ -646,6 +646,7 @@ pub struct WindowDescriptor {
     /// Sets minimum and maximum resize limits.
     pub resize_constraints: WindowResizeConstraints,
     /// Overrides the window's ratio of physical pixels to logical pixels.
+    /// If there are some scaling problems on X11 try to set this option to `Some(1.0)`.
     pub scale_factor_override: Option<f64>,
     /// Sets the title that displays on the window top bar, on the system task bar and other OS specific places.
     /// ## Platform-specific
