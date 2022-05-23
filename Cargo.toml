@@ -151,6 +151,10 @@ path = "examples/2d/texture_atlas.rs"
 name = "pipelined_texture_atlas"
 path = "examples/2d/pipelined_texture_atlas.rs"
 
+[[example]]
+name = "change_mesh_runtime"
+path = "examples/2d/change_mesh_runtime.rs"
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
