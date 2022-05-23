@@ -66,7 +66,7 @@ fn main() {
     app.run();
 }
 
-/// Add 3D render phases for FIRST_PASS_CAMERA.
+/// Add 3D render phases for `FirstPassCamera`.
 fn extract_first_pass_camera_phases(
     mut commands: Commands,
     active: Res<ActiveCamera<FirstPassCamera>>,
@@ -80,7 +80,7 @@ fn extract_first_pass_camera_phases(
     }
 }
 
-/// A node for the first pass camera that runs draw_3d_graph with this camera.
+/// A node for the `FirstPassCamera` that runs `draw_3d_graph` with this camera.
 struct FirstPassCameraDriver {
     query: QueryState<Entity, With<FirstPassCamera>>,
 }
