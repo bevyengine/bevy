@@ -9,7 +9,7 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
-use bevy_window::{WindowId, Windows};
+use bevy_window::Windows;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -22,13 +22,26 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 
 /// Defines how `min_size`, `size`, and `max_size` affects the bounds of a text
 /// block.
-pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f64) -> f32 {
-    // Needs support for percentages
+pub fn text_size_after_constraint(
+    min_size: Val,
+    size: Val,
+    max_size: Val,
+    scale_factor: f64,
+    window_size: f32,
+) -> f32 {
     match (min_size, size, max_size) {
         (_, _, Val::Px(max)) => scale_value(max, scale_factor),
+        (_, _, Val::Percent(max)) => scale_value((max / 100.) * window_size, scale_factor),
         (Val::Px(min), _, _) => scale_value(min, scale_factor),
+        (Val::Percent(min), _, _) => scale_value((min / 100.) * window_size, scale_factor),
         (Val::Undefined, Val::Px(size), Val::Undefined) => scale_value(size, scale_factor),
         (Val::Auto, Val::Px(size), Val::Auto) => scale_value(size, scale_factor),
+        (Val::Undefined, Val::Percent(size), Val::Undefined) => {
+            scale_value((size / 100.) * window_size, scale_factor)
+        }
+        (Val::Auto, Val::Percent(size), Val::Auto) => {
+            scale_value((size / 100.) * window_size, scale_factor)
+        }
         _ => f32::MAX,
     }
 }
@@ -51,8 +64,12 @@ pub fn text_system(
         Query<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary());
-
+    let (scale_factor, width_constraint, height_constraint) =
+        if let Some(window) = windows.get_primary() {
+            (window.scale_factor(), window.width(), window.height())
+        } else {
+            (1., f32::MAX, f32::MAX)
+        };
     let inv_scale_factor = 1. / scale_factor;
 
     #[allow(clippy::float_cmp)]
@@ -79,17 +96,19 @@ pub fn text_system(
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
             let node_size = Vec2::new(
-                text_constraint(
+                text_size_after_constraint(
                     style.min_size.width,
                     style.size.width,
                     style.max_size.width,
                     scale_factor,
+                    width_constraint,
                 ),
-                text_constraint(
+                text_size_after_constraint(
                     style.min_size.height,
                     style.size.height,
                     style.max_size.height,
                     scale_factor,
+                    height_constraint,
                 ),
             );
 
@@ -126,4 +145,90 @@ pub fn text_system(
     }
 
     queued_text.entities = new_queue;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::text_size_after_constraint;
+    use crate::Val;
+
+    #[test]
+    fn should_constrain_based_on_pixel_values() {
+        assert_eq!(
+            text_size_after_constraint(Val::Px(100.), Val::Undefined, Val::Undefined, 1., 1.),
+            100.
+        );
+        assert_eq!(
+            text_size_after_constraint(Val::Undefined, Val::Undefined, Val::Px(100.), 1., 1.),
+            100.
+        );
+        assert_eq!(
+            text_size_after_constraint(Val::Undefined, Val::Px(100.), Val::Undefined, 1., 1.),
+            100.
+        );
+    }
+
+    #[test]
+    fn should_constrain_based_on_percent_values() {
+        assert_eq!(
+            text_size_after_constraint(
+                Val::Percent(33.),
+                Val::Undefined,
+                Val::Undefined,
+                1.,
+                1000.
+            ),
+            330.
+        );
+        assert_eq!(
+            text_size_after_constraint(
+                Val::Undefined,
+                Val::Undefined,
+                Val::Percent(33.),
+                1.,
+                1000.
+            ),
+            330.
+        );
+        assert_eq!(
+            text_size_after_constraint(
+                Val::Undefined,
+                Val::Percent(33.),
+                Val::Undefined,
+                1.,
+                1000.
+            ),
+            330.
+        );
+    }
+
+    #[test]
+    fn should_ignore_min_if_max_is_given() {
+        assert_eq!(
+            text_size_after_constraint(
+                Val::Percent(33.),
+                Val::Undefined,
+                Val::Percent(50.),
+                1.,
+                1000.
+            ),
+            500.,
+            "min in percent and max in percent"
+        );
+        assert_eq!(
+            text_size_after_constraint(Val::Px(33.), Val::Undefined, Val::Px(50.), 1., 1000.),
+            50.,
+            "min in px and max in px"
+        );
+        assert_eq!(
+            text_size_after_constraint(Val::Px(33.), Val::Undefined, Val::Percent(50.), 1., 1000.),
+            500.,
+            "min in px and max in percent"
+        );
+        assert_eq!(
+            text_size_after_constraint(Val::Percent(33.), Val::Undefined, Val::Px(50.), 1., 1000.),
+            50.,
+            "min in percent and max in px"
+        );
+    }
 }
