@@ -208,8 +208,10 @@ fn setup(
     // This happens because the texture would be written and read in the same frame, which is not allowed.
     // So either render layers must be used to avoid this, or the texture must be double buffered.
 
-    let quad_size = 400.0;
-    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::splat(quad_size))));
+    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
+        size.width as f32,
+        size.height as f32,
+    ))));
 
     // This material has the texture that has been rendered.
     let material_handle = post_processing_materials.add(PostProcessingMaterial {
@@ -222,17 +224,13 @@ fn setup(
         material: material_handle,
         transform: Transform {
             translation: Vec3::new(0.0, 0.0, 1.5),
-            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
             ..default()
         },
         ..default()
     });
 
     // The main pass camera.
-    let mut camera = OrthographicCameraBundle::new_2d();
-    camera.orthographic_projection.scale = 0.10f32;
-    camera.transform.translation = Vec3::new(0f32, 100f32, -1f32);
-    commands.spawn_bundle(camera);
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
 /// Rotates the inner cube (first pass)
