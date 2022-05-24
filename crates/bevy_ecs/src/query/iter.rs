@@ -374,7 +374,9 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::Stat
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
     fetch: QF,
     filter: QueryFetch<'w, F>,
+    // length of the table table or length of the archetype, depending on whether both `Q`'s and `F`'s fetches are dense
     current_len: usize,
+    // either table row or archetype index, depending on whether both `Q`'s and `F`'s fetches are dense
     current_index: usize,
     phantom: PhantomData<(&'w (), Q)>,
 }
@@ -470,9 +472,12 @@ where
     ) -> Option<QF::Item> {
         if Self::IS_DENSE {
             loop {
+                // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_index == self.current_len {
                     let table_id = self.table_id_iter.next()?;
                     let table = &tables[*table_id];
+                    // SAFETY: `table` is from the world that `fetch/filter` were created for,
+                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     self.fetch.set_table(&query_state.fetch_state, table);
                     self.filter.set_table(&query_state.filter_state, table);
                     self.current_len = table.len();
@@ -480,11 +485,15 @@ where
                     continue;
                 }
 
+                // SAFETY: set_table was called prior.
+                // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                 if !self.filter.table_filter_fetch(self.current_index) {
                     self.current_index += 1;
                     continue;
                 }
 
+                // SAFETY: set_table was called prior.
+                // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                 let item = self.fetch.table_fetch(self.current_index);
 
                 self.current_index += 1;
@@ -495,6 +504,8 @@ where
                 if self.current_index == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
                     let archetype = &archetypes[*archetype_id];
+                    // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
+                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     self.fetch
                         .set_archetype(&query_state.fetch_state, archetype, tables);
                     self.filter
@@ -504,11 +515,15 @@ where
                     continue;
                 }
 
+                // SAFETY: set_archetype was called prior.
+                // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
                 if !self.filter.archetype_filter_fetch(self.current_index) {
                     self.current_index += 1;
                     continue;
                 }
 
+                // SAFETY: set_archetype was called prior, `current_index` is an archetype index in range of the current archetype
+                // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
                 let item = self.fetch.archetype_fetch(self.current_index);
                 self.current_index += 1;
                 return Some(item);
