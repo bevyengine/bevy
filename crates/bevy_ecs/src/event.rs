@@ -439,7 +439,10 @@ impl<E: Event> Events<E> {
     /// called once per frame/update.
     pub fn update(&mut self) {
         std::mem::swap(&mut self.events_a, &mut self.events_b);
+        // Garbage collect unused event space. Shrink after clear to avoid a copy.
+        let new_capacity = self.events_b.len().max(self.events_b.capacity() / 2);
         self.events_b.clear();
+        self.events_b.shrink_to(new_capacity);
         self.events_b.start_event_count = self.event_count;
         debug_assert_eq!(
             self.events_a.start_event_count + self.events_a.len(),
