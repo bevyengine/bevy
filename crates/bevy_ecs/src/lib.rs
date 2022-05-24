@@ -1,3 +1,4 @@
+#![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
