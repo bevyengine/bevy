@@ -130,17 +130,23 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// Returns a hash of the value (which includes the type).
     ///
     /// If the underlying type does not support hashing, returns `None`.
-    fn reflect_hash(&self) -> Option<u64>;
+    fn reflect_hash(&self) -> Option<u64> {
+        None
+    }
 
     /// Returns a "partial equality" comparison result.
     ///
     /// If the underlying type does not support equality testing, returns `None`.
-    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool>;
+    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool> {
+        None
+    }
 
     /// Returns a serializable version of the value.
     ///
     /// If the underlying type does not support serialization, returns `None`.
-    fn serializable(&self) -> Option<Serializable>;
+    fn serializable(&self) -> Option<Serializable> {
+        None
+    }
 }
 
 /// A trait for types which can be constructed from a reflected type.
