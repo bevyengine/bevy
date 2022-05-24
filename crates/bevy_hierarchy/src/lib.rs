@@ -32,8 +32,6 @@ impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
-            .add_event::<ChildAdded>()
-            .add_event::<ChildMoved>()
-            .add_event::<ChildRemoved>();
+            .add_event::<HierarchyEvent>();
     }
 }

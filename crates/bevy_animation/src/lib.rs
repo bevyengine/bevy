@@ -294,8 +294,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                animation_player
-                    .before(TransformSystem::TransformPropagate),
+                animation_player.before(TransformSystem::TransformPropagate),
             );
     }
 }

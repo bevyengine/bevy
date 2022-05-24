@@ -1,8 +1,7 @@
 use crate::{
     prelude::{Children, Parent},
-    ChildAdded, ChildMoved, ChildRemoved,
+    HierarchyEvent,
 };
-use smallvec::SmallVec;
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
@@ -10,31 +9,12 @@ use bevy_ecs::{
     system::{Command, Commands, EntityCommands},
     world::{EntityMut, World},
 };
+use smallvec::SmallVec;
 
-fn push_move_events(world: &mut World, events: SmallVec<[ChildMoved; 8]>) {
-    if let Some(mut removed) = world.get_resource_mut::<Events<ChildRemoved>>() {
-        for evt in events.iter() {
-            removed.send(ChildRemoved {
-                child: evt.child,
-                parent: evt.previous_parent,
-            });
-        }
-    }
-
-    if let Some(mut moved) = world.get_resource_mut::<Events<ChildMoved>>() {
+fn push_events(world: &mut World, events: SmallVec<[HierarchyEvent; 8]>) {
+    if let Some(mut moved) = world.get_resource_mut::<Events<HierarchyEvent>>() {
         for evt in events {
             moved.send(evt);
-        }
-    }
-}
-
-fn push_add_events(world: &mut World, parent: Entity, children: &[Entity]) {
-    if let Some(mut added) = world.get_resource_mut::<Events<ChildAdded>>() {
-        for child in children.iter() {
-            added.send(ChildAdded {
-                child: *child,
-                parent,
-            });
         }
     }
 }
@@ -75,19 +55,18 @@ fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
 }
 
 fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
-    let mut moved: SmallVec<[ChildMoved; 8]> = SmallVec::with_capacity(children.len());
+    let mut moved: SmallVec<[HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
     for child in children.iter() {
         if let Some(previous) = update_parent(world, *child, parent) {
             remove_from_children(world, previous, *child);
-            moved.push(ChildMoved {
+            moved.push(HierarchyEvent::ChildMoved {
                 child: *child,
                 previous_parent: previous,
                 new_parent: parent,
             });
         }
     }
-    push_move_events(world, moved);
-    push_add_events(world, parent, children);
+    push_events(world, moved);
 }
 
 /// Command that adds a child to an entity
@@ -107,19 +86,18 @@ impl Command for AddChild {
         }
         if let Some(previous) = previous {
             remove_from_children(world, previous, self.child);
-            if let Some(mut removed) = world.get_resource_mut::<Events<ChildRemoved>>() {
-                removed.send(ChildRemoved {
-                    child: self.child,
-                    parent: previous,
-                });
-            }
-            if let Some(mut removed) = world.get_resource_mut::<Events<ChildMoved>>() {
-                removed.send(ChildMoved {
+            if let Some(mut events) = world.get_resource_mut::<Events<HierarchyEvent>>() {
+                events.send(HierarchyEvent::ChildMoved {
                     child: self.child,
                     previous_parent: previous,
                     new_parent: self.parent,
                 });
             }
+        } else if let Some(mut events) = world.get_resource_mut::<Events<HierarchyEvent>>() {
+            events.send(HierarchyEvent::ChildAdded {
+                child: self.child,
+                parent: self.parent,
+            });
         }
         let mut parent = world.entity_mut(self.parent);
         if let Some(mut children) = parent.get_mut::<Children>() {
@@ -128,12 +106,6 @@ impl Command for AddChild {
             }
         } else {
             parent.insert(Children(smallvec::smallvec![self.child]));
-        }
-        if let Some(mut added) = world.get_resource_mut::<Events<ChildAdded>>() {
-            added.send(ChildAdded {
-                child: self.child,
-                parent: self.parent,
-            });
         }
     }
 }
@@ -186,20 +158,15 @@ pub struct RemoveChildren {
 }
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
-    let mut events: SmallVec<[ChildRemoved; 8]> = SmallVec::new();
+    let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
     for child in children.iter() {
         world.entity_mut(*child).remove::<Parent>();
-        events.push(ChildRemoved {
+        events.push(HierarchyEvent::ChildRemoved {
             child: *child,
             parent,
         });
     }
-
-    if let Some(mut removed) = world.get_resource_mut::<Events<ChildRemoved>>() {
-        for evt in events {
-            removed.send(evt);
-        }
-    }
+    push_events(world, events);
 
     if let Some(mut parent_children) = world.get_mut::<Children>(parent) {
         parent_children
@@ -372,8 +339,8 @@ impl<'w> WorldChildBuilder<'w> {
             .id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
-        if let Some(mut added) = self.world.get_resource_mut::<Events<ChildAdded>>() {
-            added.send(ChildAdded {
+        if let Some(mut added) = self.world.get_resource_mut::<Events<HierarchyEvent>>() {
+            added.send(HierarchyEvent::ChildAdded {
                 child: entity,
                 parent: parent_entity,
             });
@@ -387,8 +354,8 @@ impl<'w> WorldChildBuilder<'w> {
         let entity = self.world.spawn().insert(Parent(parent_entity)).id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
-        if let Some(mut added) = self.world.get_resource_mut::<Events<ChildAdded>>() {
-            added.send(ChildAdded {
+        if let Some(mut added) = self.world.get_resource_mut::<Events<HierarchyEvent>>() {
+            added.send(HierarchyEvent::ChildAdded {
                 child: entity,
                 parent: parent_entity,
             });
