@@ -492,6 +492,10 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 ///
 /// This trait can be useful for making your own adapters to systems.
 ///
+/// This should be used in combination with [`ParamSet`] where appropriate to
+/// create higher order systems.
+/// Using [`ParamSet`] limits parameter collisions when avoidable.
+///
 /// # Example
 ///
 /// To create something like [`ChainSystem`], but in entirely safe code.
@@ -540,6 +544,7 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 /// }
 /// ```
 /// [`ChainSystem`]: crate::system::ChainSystem
+/// [`ParamSet`]: crate::system::ParamSet
 pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
     fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;
 }
@@ -557,7 +562,7 @@ macro_rules! impl_system_function {
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognise that `func`
-                // is a function, potentially because there are ambiguous
+                // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut($($param,)*)->Out,
