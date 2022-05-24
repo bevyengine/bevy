@@ -1,3 +1,5 @@
+//! Creates a hierarchy of parents and children entities.
+
 use bevy::prelude::*;
 
 fn main() {

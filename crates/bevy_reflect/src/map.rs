@@ -2,7 +2,7 @@ use std::any::Any;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{Reflect, ReflectMut, ReflectRef};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -147,6 +147,16 @@ unsafe impl Reflect for DynamicMap {
         self
     }
 
+    #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
     fn apply(&mut self, value: &dyn Reflect) {
         if let ReflectRef::Map(map_value) = value.reflect_ref() {
             for (key, value) in map_value.iter() {
@@ -176,16 +186,8 @@ unsafe impl Reflect for DynamicMap {
         Box::new(self.clone_dynamic())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 
@@ -207,6 +209,15 @@ impl<'a> Iterator for MapIter<'a> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let size = self.map.len();
         (size, Some(size))
+    }
+}
+
+impl IntoIterator for DynamicMap {
+    type Item = (Box<dyn Reflect>, Box<dyn Reflect>);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
     }
 }
 
@@ -242,4 +253,29 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DynamicMap;
+
+    #[test]
+    fn test_into_iter() {
+        let expected = vec!["foo", "bar", "baz"];
+
+        let mut map = DynamicMap::default();
+        map.insert(0usize, expected[0].to_string());
+        map.insert(1usize, expected[1].to_string());
+        map.insert(2usize, expected[2].to_string());
+
+        for (index, item) in map.into_iter().enumerate() {
+            let key = item.0.take::<usize>().expect("couldn't downcast to usize");
+            let value = item
+                .1
+                .take::<String>()
+                .expect("couldn't downcast to String");
+            assert_eq!(index, key);
+            assert_eq!(expected[index], value);
+        }
+    }
 }

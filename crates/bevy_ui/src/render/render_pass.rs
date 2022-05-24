@@ -1,4 +1,3 @@
-use bevy_core::FloatOrd;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -8,11 +7,12 @@ use bevy_render::{
     render_graph::*,
     render_phase::*,
     render_resource::{
-        CachedPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
+        CachedRenderPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
     },
     renderer::*,
     view::*,
 };
+use bevy_utils::FloatOrd;
 
 use crate::prelude::CameraUi;
 
@@ -70,6 +70,11 @@ impl Node for UiPassNode {
             .query
             .get_manual(world, view_entity)
             .expect("view entity should exist");
+
+        if transparent_phase.items.is_empty() {
+            return Ok(());
+        }
+
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
             color_attachments: &[RenderPassColorAttachment {
@@ -102,7 +107,7 @@ impl Node for UiPassNode {
 pub struct TransparentUi {
     pub sort_key: FloatOrd,
     pub entity: Entity,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -127,9 +132,9 @@ impl EntityPhaseItem for TransparentUi {
     }
 }
 
-impl CachedPipelinePhaseItem for TransparentUi {
+impl CachedRenderPipelinePhaseItem for TransparentUi {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }

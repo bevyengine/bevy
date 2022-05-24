@@ -1,3 +1,8 @@
+//! This example illustrates how to run a winit window in a reactive, low power mode.
+//!
+//! This is useful for making desktop applications, or any other program that doesn't need to be
+//! running the event loop non-stop.
+
 use std::time::Duration;
 
 use bevy::{
@@ -6,9 +11,6 @@ use bevy::{
     winit::WinitSettings,
 };
 
-/// This example illustrates how to run a winit window in a reactive, low power mode. This is useful
-/// for making desktop applications, or any other program that doesn't need to be running the event
-/// loop non-stop.
 fn main() {
     App::new()
         // Continuous rendering for games - bevy's default.
@@ -169,7 +171,7 @@ pub(crate) mod test_setup {
                 style: Style {
                     align_self: AlignSelf::FlexStart,
                     position_type: PositionType::Absolute,
-                    position: Rect {
+                    position: UiRect {
                         top: Val::Px(5.0),
                         left: Val::Px(5.0),
                         ..Default::default()

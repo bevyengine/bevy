@@ -1,5 +1,4 @@
 use crate::{CalculatedClip, Node};
-use bevy_core::FloatOrd;
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -10,6 +9,7 @@ use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::FloatOrd;
 use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -98,7 +98,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_released(0);
+        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_pressed(0);
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
@@ -169,7 +169,8 @@ pub fn ui_focus_system(
     // reset lower nodes to None
     for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
         if let Some(mut interaction) = interaction {
-            if *interaction != Interaction::None {
+            // don't reset clicked nodes because they're handled separately
+            if *interaction != Interaction::Clicked && *interaction != Interaction::None {
                 *interaction = Interaction::None;
             }
         }

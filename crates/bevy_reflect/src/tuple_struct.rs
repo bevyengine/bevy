@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{Reflect, ReflectMut, ReflectRef};
 use std::any::Any;
 
 /// A reflected Rust tuple struct.
@@ -210,6 +210,16 @@ unsafe impl Reflect for DynamicTupleStruct {
     }
 
     #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -241,16 +251,8 @@ unsafe impl Reflect for DynamicTupleStruct {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 

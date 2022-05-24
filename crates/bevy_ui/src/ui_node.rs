@@ -1,7 +1,8 @@
+use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Size, Vec2};
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_math::Vec2;
+use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
@@ -11,7 +12,7 @@ use std::ops::{Add, AddAssign};
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in pixels
     pub size: Vec2,
@@ -67,7 +68,7 @@ impl AddAssign<f32> for Val {
 /// **Note:** Bevy's UI is upside down compared to how Flexbox normally works, to stay consistent with engine paradigms about layouting from
 /// the upper left corner of the display
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Component, PartialEq)]
+#[reflect(Component, Default, PartialEq)]
 pub struct Style {
     /// Whether to arrange this node and its children with flexbox layout
     pub display: Display,
@@ -89,13 +90,13 @@ pub struct Style {
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
     /// The position of the node as descrided by its Rect
-    pub position: Rect<Val>,
+    pub position: UiRect<Val>,
     /// The margin of the node
-    pub margin: Rect<Val>,
+    pub margin: UiRect<Val>,
     /// The padding of the node
-    pub padding: Rect<Val>,
+    pub padding: UiRect<Val>,
     /// The border of the node
-    pub border: Rect<Val>,
+    pub border: UiRect<Val>,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
@@ -358,7 +359,7 @@ pub struct CalculatedSize {
 
 /// The color of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct UiColor(pub Color);
 
 impl From<Color> for UiColor {
@@ -369,7 +370,7 @@ impl From<Color> for UiColor {
 
 /// The image of the node
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct UiImage(pub Handle<Image>);
 
 impl Default for UiImage {

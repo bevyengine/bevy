@@ -1,3 +1,6 @@
+//! Illustrates the difference between direction of a translation in respect to local object or
+//! global object Transform.
+
 use bevy::prelude::*;
 
 // Define a marker for entities that should be changed via their global transform.
@@ -114,9 +117,10 @@ The red cube is moved through its GlobalTransform and thus is unaffected by the 
             TextAlignment {
                 horizontal: HorizontalAlign::Left,
                 ..Default::default()
-            }
+            },
         ),
-        ..Default::default()});
+        ..Default::default()
+    });
 }
 
 // This system will move all cubes that are marked as ChangeGlobal according to their global transform.

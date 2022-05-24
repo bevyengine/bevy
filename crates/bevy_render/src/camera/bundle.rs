@@ -1,18 +1,21 @@
+use super::{CameraProjection, ScalingMode};
 use crate::{
     camera::{Camera, DepthCalculation, OrthographicProjection, PerspectiveProjection},
     primitives::Frustum,
     view::VisibleEntities,
 };
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{bundle::Bundle, prelude::Component};
 use bevy_math::Vec3;
+use bevy_reflect::Reflect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use super::{CameraProjection, ScalingMode};
-
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
 pub struct Camera3d;
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
 pub struct Camera2d;
 
 /// Component bundle for camera entities with perspective projection
@@ -52,11 +55,7 @@ impl<M: Component + Default> PerspectiveCameraBundle<M> {
             perspective_projection.far(),
         );
         PerspectiveCameraBundle {
-            camera: Camera {
-                near: perspective_projection.near,
-                far: perspective_projection.far,
-                ..Default::default()
-            },
+            camera: Camera::default(),
             perspective_projection,
             visible_entities: VisibleEntities::default(),
             frustum,
@@ -96,11 +95,7 @@ impl OrthographicCameraBundle<Camera3d> {
             orthographic_projection.far(),
         );
         OrthographicCameraBundle {
-            camera: Camera {
-                near: orthographic_projection.near,
-                far: orthographic_projection.far,
-                ..Default::default()
-            },
+            camera: Camera::default(),
             orthographic_projection,
             visible_entities: VisibleEntities::default(),
             frustum,
@@ -130,9 +125,18 @@ impl OrthographicCameraBundle<Camera2d> {
     /// corresponding to `Z=+999.9` (closest to camera) to `Z=-0.1` (furthest away from
     /// camera) in world space.
     pub fn new_2d() -> Self {
+        Self::new_2d_with_far(1000.0)
+    }
+
+    /// Create an orthographic projection camera with a custom Z position.
+    ///
+    /// The camera is placed at `Z=far-0.1`, looking toward the world origin `(0,0,0)`.
+    /// Its orthographic projection extends from `0.0` to `-far` in camera view space,
+    /// corresponding to `Z=far-0.1` (closest to camera) to `Z=-0.1` (furthest away from
+    /// camera) in world space.
+    pub fn new_2d_with_far(far: f32) -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
-        let far = 1000.0;
         let orthographic_projection = OrthographicProjection {
             far,
             depth_calculation: DepthCalculation::ZDifference,
@@ -148,11 +152,7 @@ impl OrthographicCameraBundle<Camera2d> {
             orthographic_projection.far(),
         );
         OrthographicCameraBundle {
-            camera: Camera {
-                near: orthographic_projection.near,
-                far: orthographic_projection.far,
-                ..Default::default()
-            },
+            camera: Camera::default(),
             orthographic_projection,
             visible_entities: VisibleEntities::default(),
             frustum,

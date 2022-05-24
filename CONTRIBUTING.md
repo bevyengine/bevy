@@ -2,7 +2,6 @@
 
 Hey, so you're interested in contributing to Bevy!
 Feel free to pitch in on whatever interests you and we'll be happy to help you contribute.
-Ultimately @cart has final say on which changes are merged, but you're welcome to try and convince him.
 
 Check out our community's [Code of Conduct](https://github.com/bevyengine/bevy/blob/main/CODE_OF_CONDUCT.md) and feel free to say hi on [Discord](https://discord.gg/bevy) if you'd like.
 It's a nice place to chat about Bevy development, ask questions, and get to know the other contributors and users in a less formal setting.
@@ -56,14 +55,14 @@ Bevy also currently has the following "development process" goals:
 * **Focus**: The Bevy Org should focus on building a small number of features excellently over merging every new community-contributed feature quickly. Sometimes this means pull requests will sit unmerged for a long time. This is the price of focus and we are willing to pay it. Fortunately Bevy is modular to its core. 3rd party plugins are a great way to work around this policy.
 * **User-facing API ergonomics come first**: Solid user experience should receive significant focus and investment. It should rarely be compromised in the interest of internal implementation details.  
 * **Modularity over deep integration**: Individual crates and features should be "pluggable" whenever possible. Don't tie crates, features, or types together that don't need to be.
-* **Don't merge everything ... don't merge too early**: Every feature we add increases maintenance burden and compile times. Only merge features that are "generally" useful. Don't merge major changes or new features unless we have relative consensus that the design is correct _and_ that we have the developer capacity to support it. When possible, make a 3rd party Plugin / crate first, then consider merging once the API has been tested in the wild. Bevy's modular structure means that the only difference between "official engine features" and "third party plugins" is our endorsement and the repo the code lives in. We should take advantage of that whenever possible.
-* **Control and consistency over 3rd party code reuse**: Only add a dependency if it is _absolutely_ necessary. Every dependency we add decreases our autonomy and consistency. Dependencies also have the potential to increase compile times and risk pulling in sub-dependencies we don't want / need.
+* **Don't merge everything ... don't merge too early**: Every feature we add increases maintenance burden and compile times. Only merge features that are "generally" useful. Don't merge major changes or new features unless we have relative consensus that the design is correct *and* that we have the developer capacity to support it. When possible, make a 3rd party Plugin / crate first, then consider merging once the API has been tested in the wild. Bevy's modular structure means that the only difference between "official engine features" and "third party plugins" is our endorsement and the repo the code lives in. We should take advantage of that whenever possible.
+* **Control and consistency over 3rd party code reuse**: Only add a dependency if it is *absolutely* necessary. Every dependency we add decreases our autonomy and consistency. Dependencies also have the potential to increase compile times and risk pulling in sub-dependencies we don't want / need.
 * **Don't re-invent every wheel**: As a counter to the previous point, don't re-invent everything at all costs. If there is a crate in the Rust ecosystem that is the "de-facto" standard (ex: wgpu, winit, cpal), we should heavily consider using it. Bevy should be a positive force in the ecosystem. We should drive the improvements we need into these core ecosystem crates.
 * **Rust-first**: Engine and user-facing code should optimize and encourage Rust-only workflows. Adding additional languages increases internal complexity, fractures the Bevy ecosystem, and makes it harder for users to understand the engine. Never compromise a Rust interface in the interest of compatibility with other languages.
 * **Thoughtful public interfaces over maximal configurability**: Symbols and apis should be private by default. Every public API should be thoughtfully and consistently designed. Don't expose unnecessary internal implementation details. Don't allow users to "shoot themselves in the foot". Favor one "happy path" api over multiple apis for different use cases.
 * **Welcome new contributors**: Invest in new contributors. Help them fill knowledge and skill gaps. Don't ever gatekeep Bevy development according to notions of required skills or credentials. Help new developers find their niche.
-* **Civil discourse**: We need to collectively discuss ideas and the best ideas _should_ win. But conversations need to remain respectful at all times. Remember that we're all in this together. Always follow our [Code of Conduct](https://github.com/bevyengine/bevy/blob/main/CODE_OF_CONDUCT.md).
-* **Test what you need to**: Write useful tests. Don't write tests that aren't useful. We _generally_ aren't strict about unit testing every line of code. We don't want you to waste your time. But at the same time:
+* **Civil discourse**: We need to collectively discuss ideas and the best ideas *should* win. But conversations need to remain respectful at all times. Remember that we're all in this together. Always follow our [Code of Conduct](https://github.com/bevyengine/bevy/blob/main/CODE_OF_CONDUCT.md).
+* **Test what you need to**: Write useful tests. Don't write tests that aren't useful. We *generally* aren't strict about unit testing every line of code. We don't want you to waste your time. But at the same time:
   * Most new features should have at least one minimal [example](https://github.com/bevyengine/bevy/tree/main/examples). These also serve as simple integration tests, as they are run as part of our CI process.
   * The more complex or "core" a feature is, the more strict we are about unit tests. Use your best judgement here. We will let you know if your pull request needs more tests. We use [Rust's built in testing framework](https://doc.rust-lang.org/book/ch11-01-writing-tests.html).
 
@@ -81,17 +80,54 @@ Check out the next section for details on how this plays out.
 2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
 3. Have asked to join the Bevy Org. Reach out to @cart on Discord or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
 
-Some Bevy Org members are also [Triage Team](https://github.com/orgs/bevyengine/teams/triage-team) members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community. Existing Bevy Engine Org members can [automatically request membership](https://github.com/orgs/bevyengine/teams/triage-team/members). Once again, if you are interested don't hesitate to apply. We generally accept membership requests.
+Some Bevy Org members are also Triage Team members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community. Existing Org members can vist the Bevy Engine Org page and navigate to the Triage Team to request membership. Once again, if you are interested don't hesitate to apply. We generally accept membership requests.
 
-We heavily limit who has merge rights within the org because this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction. Currently, only @cart can merge every class of change. @mockersf is allowed to merge small "uncontroversial" changes, provided these changes have at least two approvals. Same goes for @alice-i-cecile and doc related changes. If there is an emergency that needs a quick resolution and @cart is not around, both @mockersf and @alice-i-cecile are allowed to merge changes that resolve the emergency.
+Merge rights within the org are relatively centralized: this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction.
+
+The current structure is as follows:
+
+* @cart is our project lead, and has final say on controversial decisions
+* There is a small group of other maintainers (@alice-i-cecile, @mockersf and @superdump), who have merge rights but abide by the following rules:
+  * Trivial PRs can be merged without approvals
+  * Relatively uncontroversial PRs can be merged following approval from at least two other community members with appropriate expertise.
+  * Controversial PRs are added to a backlog for @cart to address once two maintainers agree that they are ready.
+  * If 45 days elapse without action on a controversial PR (approval, feedback or an explicit request to defer), they can be merged without project lead approval.
+* The Bevy org is made up of trusted community contributors: this is a relatively low bar, and org members help triage and maintain the project.
+* Community contributors (this means you!) can freely open issues, submit PRs and review PRs to improve Bevy.
+  * As discussed above, community reviews on PRs are incredibly helpful to enable maintainers to merge in uncontroversial PRs in a timely fashion.
+
+### Classifying PRs
+
+This strategy relies on a classification of PRs into three categories: **trivial**, **uncontroversial** and **controversial**.
+When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
+PRs that are deemed controversial will receive the `S-Controversial` label, and will have to go through the more thorough review process.
+
+PRs are trivial if there is no reasonable argument against them. This might include:
+
+* fixing dead links
+* removing dead code or dependencies
+* typo and grammar fixes
+
+PRs are controversial if there is serious design discussion required, or a large impact to contributors or users. Factors that increase controversy include:
+
+1. Changes to project-wide workflow or style.
+2. New architecture for a large feature.
+3. PRs where a serious tradeoff must be made.
+4. Heavy user impact.
+5. New ways for users to make mistakes (footguns).
+6. Introductions of `unsafe` code.
+7. Large-scale code reorganization.
+8. High levels of technical complexity.
+9. Adding a dependency.
+
+Finally, changes are "relatively uncontroversial" if they are neither trivial or controversial.
+Most PRs should fall into this category.
 
 ## How we work together
 
-Making a game engine is a huge project and facilitating collaboration is a lot of work. At the moment @cart is our only paid contributor, so [go sponsor him!](https://github.com/sponsors/cart)
+Making a game engine is a huge project and facilitating collaboration is a lot of work.
+At the moment @cart is our only paid contributor, so [go sponsor him!](https://github.com/sponsors/cart)
 We track issues and pull requests that must be included in releases using [Milestones](https://github.com/bevyengine/bevy/milestones).
-
-You can see what we're planning by following along at the [Bevy Roadmap](https://github.com/bevyengine/bevy/projects/1).
-If you'd like an up-to-the-minute look at our progress on a specific project, feel free to ask on Discord.
 
 ### Making changes to Bevy
 
@@ -243,10 +279,13 @@ If you're new to Bevy, here's the workflow we use:
 1. Fork the `bevyengine/bevy` repository on GitHub. You'll need to create a GitHub account if you don't have one already.
 2. Make your changes in a local clone of your fork, typically in its own new branch.
    1. Try to split your work into separate commits, each with a distinct purpose. Be particularly mindful of this when responding to reviews so it's easy to see what's changed.
-3. To test CI validations locally, run the `cargo run -p ci` command. You can also run sub-commands manually:
-    1. `cargo fmt --all -- --check` (remove `--check` to let the command fix found problems)
-    2. `cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity`
-    3. `cargo test --all-targets --workspace`
+3. To test CI validations locally, run the `cargo run -p ci` command. This will run most checks that happen in CI, but can take some time. You can also run sub-commands to iterate faster depending on what you're contributing:
+    * `cargo run -p ci -- lints` - to run formatting and clippy
+    * `cargo run -p ci -- test` - to run tests
+    * `cargo run -p ci -- doc` - to run doc tests and doc checks
+    * `cargo run -p ci -- compile` - to check that everything that must compile still does (examples and benches), and that some that shouldn't still don't ([`crates/bevy_ecs_compile_fail_tests`](./crates/bevy_ecs_compile_fail_tests))
+    * to get more informations on commands available and what is run, check the [tools/ci crate](./tools/ci)
+
 4. When working with Markdown (`.md`) files, Bevy's CI will check markdown files (like this one) using [markdownlint](https://github.com/DavidAnson/markdownlint).
 To locally lint your files using the same workflow as our CI:
    1. Install [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli).

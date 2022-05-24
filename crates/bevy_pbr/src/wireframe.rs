@@ -4,18 +4,17 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::mesh::MeshVertexBufferLayout;
-use bevy_render::render_resource::{
-    PolygonMode, RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-    SpecializedMeshPipelines,
-};
 use bevy_render::{
-    mesh::Mesh,
+    mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
-    render_resource::{RenderPipelineCache, Shader},
-    view::{ExtractedView, Msaa},
+    render_resource::{
+        PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+    },
+    view::{ExtractedView, Msaa, VisibleEntities},
     RenderApp, RenderStage,
 };
 use bevy_utils::tracing::error;
@@ -63,7 +62,7 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
 
 /// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Wireframe;
 
 #[derive(Debug, Clone, Default)]
@@ -109,21 +108,21 @@ fn queue_wireframes(
     render_meshes: Res<RenderAssets<Mesh>>,
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
-    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
-    mut material_meshes: QuerySet<(
-        QueryState<(Entity, &Handle<Mesh>, &MeshUniform)>,
-        QueryState<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
+    mut material_meshes: ParamSet<(
+        Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
+        Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
     )>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
+    mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
     let draw_custom = opaque_3d_draw_functions
         .read()
         .get_id::<DrawWireframes>()
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, mut transparent_phase) in views.iter_mut() {
+    for (view, visible_entities, mut opaque_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
 
@@ -132,7 +131,7 @@ fn queue_wireframes(
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
                     let key = msaa_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                    let pipeline_id = specialized_pipelines.specialize(
+                    let pipeline_id = pipelines.specialize(
                         &mut pipeline_cache,
                         &wireframe_pipeline,
                         key,
@@ -145,7 +144,7 @@ fn queue_wireframes(
                             return;
                         }
                     };
-                    transparent_phase.add(Opaque3d {
+                    opaque_phase.add(Opaque3d {
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
@@ -155,9 +154,19 @@ fn queue_wireframes(
             };
 
         if wireframe_config.global {
-            material_meshes.q0().iter().for_each(add_render_phase);
+            let query = material_meshes.p0();
+            visible_entities
+                .entities
+                .iter()
+                .filter_map(|visible_entity| query.get(*visible_entity).ok())
+                .for_each(add_render_phase);
         } else {
-            material_meshes.q1().iter().for_each(add_render_phase);
+            let query = material_meshes.p1();
+            visible_entities
+                .entities
+                .iter()
+                .filter_map(|visible_entity| query.get(*visible_entity).ok())
+                .for_each(add_render_phase);
         }
     }
 }

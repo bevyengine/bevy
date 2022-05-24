@@ -7,7 +7,6 @@ yanked = "deny"
 notice = "deny"
 ignore = [
     "RUSTSEC-2020-0056", # from gilrs v0.8.1 - unmaintained - https://github.com/koute/stdweb/issues/403
-    "RUSTSEC-2020-0095", # from crevice dev dependency - unmaintained - https://github.com/johannhof/difference.rs/issues/45
 ]
 
 [licenses]
@@ -15,6 +14,7 @@ unlicensed = "deny"
 copyleft = "deny"
 allow = [
     "MIT",
+    "MIT-0",
     "Apache-2.0",
     "BSD-3-Clause",
     "ISC",

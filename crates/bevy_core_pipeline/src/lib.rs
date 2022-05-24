@@ -20,14 +20,13 @@ pub use main_pass_driver::*;
 use std::ops::Range;
 
 use bevy_app::{App, Plugin};
-use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{ActiveCamera, Camera2d, Camera3d, RenderTarget},
+    camera::{ActiveCamera, Camera2d, Camera3d, ExtractedCamera, RenderTarget},
     color::Color,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedPipelinePhaseItem,
+        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
         DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
     },
     render_resource::*,
@@ -36,6 +35,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewDepthTexture},
     RenderApp, RenderStage, RenderWorld,
 };
+use bevy_utils::FloatOrd;
 
 /// When used as a resource, sets the color that is used to clear the screen between frames.
 ///
@@ -198,7 +198,7 @@ impl Plugin for CorePipelinePlugin {
 pub struct Transparent2d {
     pub sort_key: FloatOrd,
     pub entity: Entity,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     /// Range in the vertex buffer of this item
     pub batch_range: Option<Range<u32>>,
@@ -225,9 +225,9 @@ impl EntityPhaseItem for Transparent2d {
     }
 }
 
-impl CachedPipelinePhaseItem for Transparent2d {
+impl CachedRenderPipelinePhaseItem for Transparent2d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
@@ -244,7 +244,7 @@ impl BatchedPhaseItem for Transparent2d {
 
 pub struct Opaque3d {
     pub distance: f32,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -270,16 +270,16 @@ impl EntityPhaseItem for Opaque3d {
     }
 }
 
-impl CachedPipelinePhaseItem for Opaque3d {
+impl CachedRenderPipelinePhaseItem for Opaque3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
 
 pub struct AlphaMask3d {
     pub distance: f32,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -305,16 +305,16 @@ impl EntityPhaseItem for AlphaMask3d {
     }
 }
 
-impl CachedPipelinePhaseItem for AlphaMask3d {
+impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
 
 pub struct Transparent3d {
     pub distance: f32,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -340,9 +340,9 @@ impl EntityPhaseItem for Transparent3d {
     }
 }
 
-impl CachedPipelinePhaseItem for Transparent3d {
+impl CachedRenderPipelinePhaseItem for Transparent3d {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
@@ -390,7 +390,7 @@ pub fn prepare_core_views_system(
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedView),
+        (Entity, &ExtractedView, Option<&ExtractedCamera>),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -398,24 +398,35 @@ pub fn prepare_core_views_system(
         ),
     >,
 ) {
-    for (entity, view) in views_3d.iter() {
-        let cached_texture = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("view_depth_texture"),
-                size: Extent3d {
-                    depth_or_array_layers: 1,
-                    width: view.width as u32,
-                    height: view.height as u32,
+    let mut textures = HashMap::default();
+    for (entity, view, camera) in views_3d.iter() {
+        let mut get_cached_texture = || {
+            texture_cache.get(
+                &render_device,
+                TextureDescriptor {
+                    label: Some("view_depth_texture"),
+                    size: Extent3d {
+                        depth_or_array_layers: 1,
+                        width: view.width as u32,
+                        height: view.height as u32,
+                    },
+                    mip_level_count: 1,
+                    sample_count: msaa.samples,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
+                                                          * bit depth for better performance */
+                    usage: TextureUsages::RENDER_ATTACHMENT,
                 },
-                mip_level_count: 1,
-                sample_count: msaa.samples,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
-                                                      * bit depth for better performance */
-                usage: TextureUsages::RENDER_ATTACHMENT,
-            },
-        );
+            )
+        };
+        let cached_texture = if let Some(camera) = camera {
+            textures
+                .entry(camera.target.clone())
+                .or_insert_with(get_cached_texture)
+                .clone()
+        } else {
+            get_cached_texture()
+        };
         commands.entity(entity).insert(ViewDepthTexture {
             texture: cached_texture.texture,
             view: cached_texture.default_view,
