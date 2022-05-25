@@ -1,7 +1,8 @@
+//! This example illustrates how to use [`States`] to control transitioning from a `Menu` state to
+//! an `InGame` state.
+
 use bevy::prelude::*;
 
-/// This example illustrates how to use [`States`] to control transitioning from a `Menu` state to
-/// an `InGame` state.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

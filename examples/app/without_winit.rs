@@ -1,3 +1,5 @@
+//! Create an application without winit (runs single time, no event loop).
+
 use bevy::prelude::*;
 use bevy::winit::WinitPlugin;
 

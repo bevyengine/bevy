@@ -1,10 +1,10 @@
 use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::Events,
+    event::{Event, Events},
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
-        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
+        IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
     },
     system::Resource,
@@ -591,7 +591,7 @@ impl App {
             .add_stage(
                 StartupSchedule,
                 Schedule::default()
-                    .with_run_criteria(RunOnce::default())
+                    .with_run_criteria(ShouldRun::once)
                     .with_stage(StartupStage::PreStartup, SystemStage::parallel())
                     .with_stage(StartupStage::Startup, SystemStage::parallel())
                     .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
@@ -622,7 +622,7 @@ impl App {
     /// ```
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Resource,
+        T: Event,
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
@@ -779,8 +779,10 @@ impl App {
     /// There are built-in [`PluginGroup`]s that provide core engine functionality.
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
-    /// # Examples
+    /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
+    /// before / after another plugin), see [`add_plugins_with`](Self::add_plugins_with).
     ///
+    /// ## Examples
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder};
     /// #
@@ -805,7 +807,7 @@ impl App {
     /// Can be used to add a group of [`Plugin`]s, where the group is modified
     /// before insertion into a Bevy application. For example, you can add
     /// additional [`Plugin`]s at a specific place in the [`PluginGroup`], or deactivate
-    /// specific [`Plugin`]s while keeping the rest.
+    /// specific [`Plugin`]s while keeping the rest using a [`PluginGroupBuilder`].
     ///
     /// # Examples
     ///

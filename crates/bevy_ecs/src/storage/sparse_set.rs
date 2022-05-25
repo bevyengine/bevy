@@ -1,10 +1,10 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks},
     entity::Entity,
-    ptr::{OwningPtr, Ptr},
     storage::BlobVec,
 };
-use std::{cell::UnsafeCell, marker::PhantomData};
+use bevy_ptr::{OwningPtr, Ptr};
+use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
 #[derive(Debug)]
 pub struct SparseArray<I, V = I> {
@@ -372,7 +372,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 }
 
-pub trait SparseSetIndex: Clone {
+pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
     fn sparse_set_index(&self) -> usize;
     fn get_sparse_set_index(value: usize) -> Self;
 }

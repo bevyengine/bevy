@@ -1,3 +1,5 @@
+//! Illustrates parallel queries with `ParallelIterator`.
+
 use bevy::{prelude::*, tasks::prelude::*};
 use rand::random;
 

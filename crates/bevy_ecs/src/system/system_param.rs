@@ -5,7 +5,6 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
-    ptr::UnsafeCellDeref,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryFetch, QueryState, ReadOnlyFetch,
         WorldQuery,
@@ -15,6 +14,7 @@ use crate::{
 };
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_param_set};
+use bevy_ptr::UnsafeCellDeref;
 use std::{
     fmt::Debug,
     marker::PhantomData,
@@ -25,8 +25,27 @@ use std::{
 ///
 /// # Derive
 ///
-/// This trait can be derived with the [`derive@super::SystemParam`] macro. The only requirement
-/// is that every struct field must also implement `SystemParam`.
+/// This trait can be derived with the [`derive@super::SystemParam`] macro.
+/// This macro only works if each field on the derived struct implements [`SystemParam`].
+/// Note: There are additional requirements on the field types.
+/// See the *Generic `SystemParam`s* section for details and workarounds of the probable
+/// cause if this derive causes an error to be emitted.
+///
+///
+/// The struct for which `SystemParam` is derived must (currently) have exactly
+/// two lifetime parameters.
+/// The first is the lifetime of the world, and the second the lifetime
+/// of the parameter's state.
+///
+/// ## Attributes
+///
+/// `#[system_param(ignore)]`:
+/// Can be added to any field in the struct. Fields decorated with this attribute
+/// will created with the default value upon realisation.
+/// This is most useful for `PhantomData` fields, to ensure that the required lifetimes are
+/// used, as shown in the example.
+///
+/// # Example
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -46,6 +65,30 @@ use std::{
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+///
+/// # Generic `SystemParam`s
+///
+/// When using the derive macro, you may see an error in the form of:
+///
+/// ```text
+/// expected ... [ParamType]
+/// found associated type `<<[ParamType] as SystemParam>::Fetch as SystemParamFetch<'_, '_>>::Item`
+/// ```
+/// where `[ParamType]` is the type of one of your fields.
+/// To solve this error, you can wrap the field of type `[ParamType]` with [`StaticSystemParam`]
+/// (i.e. `StaticSystemParam<[ParamType]>`).
+///
+/// ## Details
+///
+/// The derive macro requires that the [`SystemParam`] implementation of
+/// each field `F`'s [`Fetch`](`SystemParam::Fetch`)'s [`Item`](`SystemParamFetch::Item`) is itself `F`
+/// (ignoring lifetimes for simplicity).
+/// This assumption is due to type inference reasons, so that the derived [`SystemParam`] can be
+/// used as an argument to a function system.
+/// If the compiler cannot validate this property for `[ParamType]`, it will error in the form shown above.
+///
+/// This will most commonly occur when working with `SystemParam`s generically, as the requirement
+/// has not been proven to the compiler.
 pub trait SystemParam: Sized {
     type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
 }
@@ -154,7 +197,7 @@ fn assert_component_access_compatibility(
     current: &FilteredAccess<ComponentId>,
     world: &World,
 ) {
-    let mut conflicts = system_access.get_conflicts(current);
+    let mut conflicts = system_access.get_conflicts_single(current);
     if conflicts.is_empty() {
         return;
     }
@@ -213,14 +256,12 @@ where
 }
 
 impl<'w, T: Resource> Res<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this
-    /// system.
+    /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Returns true if (and only if) this resource been changed since the last execution of this
-    /// system.
+    /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
@@ -512,11 +553,11 @@ unsafe impl ReadOnlySystemParamFetch for WorldState {}
 #[doc(hidden)]
 pub struct WorldState;
 
-impl<'w, 's> SystemParam for &'w World {
+impl<'w> SystemParam for &'w World {
     type Fetch = WorldState;
 }
 
-unsafe impl<'w, 's> SystemParamState for WorldState {
+unsafe impl SystemParamState for WorldState {
     fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let mut access = Access::default();
         access.read_all();
@@ -533,7 +574,7 @@ unsafe impl<'w, 's> SystemParamState for WorldState {
         filtered_access.read_all();
         if !system_meta
             .component_access_set
-            .get_conflicts(&filtered_access)
+            .get_conflicts_single(&filtered_access)
             .is_empty()
         {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
@@ -779,14 +820,12 @@ where
 }
 
 impl<'w, T: 'static> NonSend<'w, T> {
-    /// Returns true if (and only if) this resource been added since the last execution of this
-    /// system.
+    /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_change_tick, self.change_tick)
     }
 
-    /// Returns true if (and only if) this resource been changed since the last execution of this
-    /// system.
+    /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
         self.ticks
             .is_changed(self.last_change_tick, self.change_tick)
@@ -1369,7 +1408,7 @@ impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
 pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
 
 // Safe: This doesn't add any more reads, and the delegated fetch confirms it
-unsafe impl<'w, 's, S: ReadOnlySystemParamFetch, P> ReadOnlySystemParamFetch
+unsafe impl<S: ReadOnlySystemParamFetch, P> ReadOnlySystemParamFetch
     for StaticSystemParamState<S, P>
 {
 }
@@ -1398,7 +1437,7 @@ where
     }
 }
 
-unsafe impl<'w, 's, S: SystemParamState, P: SystemParam + 'static> SystemParamState
+unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
     for StaticSystemParamState<S, P>
 {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {

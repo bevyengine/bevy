@@ -8,13 +8,13 @@ use bevy_ecs::system::{Res, ResMut};
 pub struct FrameTimeDiagnosticsPlugin;
 
 pub struct FrameTimeDiagnosticsState {
-    frame_count: f64,
+    frame_count: u64,
 }
 
 impl Plugin for FrameTimeDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_startup_system(Self::setup_system)
-            .insert_resource(FrameTimeDiagnosticsState { frame_count: 0.0 })
+            .insert_resource(FrameTimeDiagnosticsState { frame_count: 0 })
             .add_system(Self::diagnostic_system);
     }
 }
@@ -37,8 +37,8 @@ impl FrameTimeDiagnosticsPlugin {
         time: Res<Time>,
         mut state: ResMut<FrameTimeDiagnosticsState>,
     ) {
-        state.frame_count += 1.0;
-        diagnostics.add_measurement(Self::FRAME_COUNT, state.frame_count);
+        state.frame_count = state.frame_count.wrapping_add(1);
+        diagnostics.add_measurement(Self::FRAME_COUNT, state.frame_count as f64);
 
         if time.delta_seconds_f64() == 0.0 {
             return;
