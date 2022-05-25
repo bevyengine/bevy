@@ -55,6 +55,11 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Create a new `Commands` from a queue and an [`Entities`] reference.
+    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
+        Self { queue, entities }
+    }
+
     /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
     ///
     /// To directly spawn an entity with a [`Bundle`] included, you can use

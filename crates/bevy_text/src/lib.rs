@@ -47,7 +47,10 @@ impl Plugin for TextPlugin {
             .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
             .insert_resource(DefaultTextPipeline::default())
-            .add_system_to_stage(CoreStage::PostUpdate, text2d_system.after(ModifiesWindows));
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_text2d_layout.after(ModifiesWindows),
+            );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(

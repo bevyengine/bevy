@@ -1,3 +1,5 @@
+//! Demonstrates how lighting is affected by different radius of point lights.
+
 use bevy::prelude::*;
 
 fn main() {

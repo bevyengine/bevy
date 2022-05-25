@@ -2,7 +2,7 @@ use bevy_ecs::{
     component::Component,
     prelude::{ParallelSystemDescriptorCoercion, Res, RunCriteriaDescriptorCoercion},
     schedule::{ShouldRun, Stage, SystemStage},
-    system::{IntoSystem, Query},
+    system::Query,
     world::World,
 };
 use criterion::{criterion_group, criterion_main, Criterion};

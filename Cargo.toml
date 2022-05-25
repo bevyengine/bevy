@@ -13,7 +13,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "errors"]
+members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "tools/build-wasm-example", "errors"]
 
 [features]
 default = [
@@ -541,6 +541,10 @@ path = "examples/stress_tests/bevymark.rs"
 [[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
+
+[[example]]
+name = "many_foxes"
+path = "examples/stress_tests/many_foxes.rs"
 
 [[example]]
 name = "many_lights"

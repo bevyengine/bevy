@@ -1,5 +1,5 @@
 use crate::{
-    render_resource::{std140::AsStd140, DynamicUniformVec},
+    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ComputedVisibility,
     RenderApp, RenderStage,
@@ -58,7 +58,7 @@ impl<C> Default for UniformComponentPlugin<C> {
     }
 }
 
-impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
+impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -69,12 +69,12 @@ impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
 }
 
 /// Stores all uniforms of the component type.
-pub struct ComponentUniforms<C: Component + AsStd140> {
-    uniforms: DynamicUniformVec<C>,
+pub struct ComponentUniforms<C: Component + ShaderType> {
+    uniforms: DynamicUniformBuffer<C>,
 }
 
-impl<C: Component + AsStd140> Deref for ComponentUniforms<C> {
-    type Target = DynamicUniformVec<C>;
+impl<C: Component + ShaderType> Deref for ComponentUniforms<C> {
+    type Target = DynamicUniformBuffer<C>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -82,14 +82,14 @@ impl<C: Component + AsStd140> Deref for ComponentUniforms<C> {
     }
 }
 
-impl<C: Component + AsStd140> ComponentUniforms<C> {
+impl<C: Component + ShaderType> ComponentUniforms<C> {
     #[inline]
-    pub fn uniforms(&self) -> &DynamicUniformVec<C> {
+    pub fn uniforms(&self) -> &DynamicUniformBuffer<C> {
         &self.uniforms
     }
 }
 
-impl<C: Component + AsStd140> Default for ComponentUniforms<C> {
+impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
     fn default() -> Self {
         Self {
             uniforms: Default::default(),
@@ -106,7 +106,7 @@ fn prepare_uniform_components<C: Component>(
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
 ) where
-    C: AsStd140 + Clone,
+    C: ShaderType + WriteInto + Clone,
 {
     component_uniforms.uniforms.clear();
     let entities = components

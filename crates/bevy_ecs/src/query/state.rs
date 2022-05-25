@@ -11,6 +11,8 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_tasks::TaskPool;
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
 use std::fmt;
 
@@ -856,7 +858,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                     let mut offset = 0;
                     while offset < table.len() {
                         let func = func.clone();
-                        scope.spawn(async move {
+                        let len = batch_size.min(table.len() - offset);
+                        let task = async move {
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
                             let mut filter = <QueryFetch<F> as Fetch>::init(
@@ -869,7 +872,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             let table = &tables[*table_id];
                             fetch.set_table(&self.fetch_state, table);
                             filter.set_table(&self.filter_state, table);
-                            let len = batch_size.min(table.len() - offset);
                             for table_index in offset..offset + len {
                                 if !filter.table_filter_fetch(table_index) {
                                     continue;
@@ -877,7 +879,17 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                                 let item = fetch.table_fetch(table_index);
                                 func(item);
                             }
-                        });
+                        };
+                        #[cfg(feature = "trace")]
+                        let span = bevy_utils::tracing::info_span!(
+                            "par_for_each",
+                            query = std::any::type_name::<Q>(),
+                            filter = std::any::type_name::<F>(),
+                            count = len,
+                        );
+                        #[cfg(feature = "trace")]
+                        let task = task.instrument(span);
+                        scope.spawn(task);
                         offset += batch_size;
                     }
                 }
@@ -888,7 +900,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                     let archetype = &archetypes[*archetype_id];
                     while offset < archetype.len() {
                         let func = func.clone();
-                        scope.spawn(async move {
+                        let len = batch_size.min(archetype.len() - offset);
+                        let task = async move {
                             let mut fetch =
                                 QF::init(world, &self.fetch_state, last_change_tick, change_tick);
                             let mut filter = <QueryFetch<F> as Fetch>::init(
@@ -902,14 +915,25 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             fetch.set_archetype(&self.fetch_state, archetype, tables);
                             filter.set_archetype(&self.filter_state, archetype, tables);
 
-                            let len = batch_size.min(archetype.len() - offset);
                             for archetype_index in offset..offset + len {
                                 if !filter.archetype_filter_fetch(archetype_index) {
                                     continue;
                                 }
                                 func(fetch.archetype_fetch(archetype_index));
                             }
-                        });
+                        };
+
+                        #[cfg(feature = "trace")]
+                        let span = bevy_utils::tracing::info_span!(
+                            "par_for_each",
+                            query = std::any::type_name::<Q>(),
+                            filter = std::any::type_name::<F>(),
+                            count = len,
+                        );
+                        #[cfg(feature = "trace")]
+                        let task = task.instrument(span);
+
+                        scope.spawn(task);
                         offset += batch_size;
                     }
                 }

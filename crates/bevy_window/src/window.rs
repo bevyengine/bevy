@@ -165,8 +165,8 @@ pub struct Window {
     raw_window_handle: RawWindowHandleWrapper,
     focused: bool,
     mode: WindowMode,
-    #[cfg(target_arch = "wasm32")]
-    pub canvas: Option<String>,
+    canvas: Option<String>,
+    fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
 }
 
@@ -267,8 +267,8 @@ impl Window {
             raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
             focused: true,
             mode: window_descriptor.mode,
-            #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
+            fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
         }
     }
@@ -600,6 +600,28 @@ impl Window {
     pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
         self.raw_window_handle.clone()
     }
+
+    /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
+    /// rather than creating a new one.   
+    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
+    ///
+    /// This value has no effect on non-web platforms.
+    #[inline]
+    pub fn canvas(&self) -> Option<&str> {
+        self.canvas.as_deref()
+    }
+
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
+    /// This value has no effect on non-web platforms.
+    #[inline]
+    pub fn fit_canvas_to_parent(&self) -> bool {
+        self.fit_canvas_to_parent
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -625,8 +647,20 @@ pub struct WindowDescriptor {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
-    #[cfg(target_arch = "wasm32")]
+    /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
+    /// rather than creating a new one.   
+    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
+    ///
+    /// This value has no effect on non-web platforms.
     pub canvas: Option<String>,
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
+    /// This value has no effect on non-web platforms.
+    pub fit_canvas_to_parent: bool,
 }
 
 impl Default for WindowDescriptor {
@@ -645,8 +679,8 @@ impl Default for WindowDescriptor {
             cursor_visible: true,
             mode: WindowMode::Windowed,
             transparent: false,
-            #[cfg(target_arch = "wasm32")]
             canvas: None,
+            fit_canvas_to_parent: false,
         }
     }
 }

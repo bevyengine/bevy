@@ -1,6 +1,7 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
+    change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
@@ -9,6 +10,7 @@ use bevy_ptr::OwningPtr;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
+    mem::needs_drop,
 };
 
 /// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
@@ -110,7 +112,13 @@ impl ComponentInfo {
     }
 
     #[inline]
-    pub fn drop(&self) -> unsafe fn(OwningPtr<'_>) {
+    /// Get the function which should be called to clean up values of
+    /// the underlying component type. This maps to the
+    /// [`Drop`] implementation for 'normal' Rust components
+    ///
+    /// Returns `None` if values of the underlying component type don't
+    /// need to be dropped, e.g. as reported by [`needs_drop`].
+    pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.descriptor.drop
     }
 
@@ -167,7 +175,8 @@ pub struct ComponentDescriptor {
     layout: Layout,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
     // this descriptor describes.
-    drop: for<'a> unsafe fn(OwningPtr<'a>),
+    // None if the underlying type doesn't need to be dropped
+    drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -196,7 +205,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: Self::drop_ptr::<T>,
+            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
         }
     }
 
@@ -212,7 +221,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: Self::drop_ptr::<T>,
+            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
         }
     }
 
@@ -223,7 +232,7 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: Self::drop_ptr::<T>,
+            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
         }
     }
 
@@ -345,6 +354,7 @@ impl Components {
     }
 }
 
+/// Records when a component was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
 pub struct ComponentTicks {
     pub(crate) added: u32,
@@ -353,22 +363,35 @@ pub struct ComponentTicks {
 
 impl ComponentTicks {
     #[inline]
+    /// Returns `true` if the component was added after the system last ran.
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        // The comparison is relative to `change_tick` so that we can detect changes over the whole
-        // `u32` range. Comparing directly the ticks would limit to half that due to overflow
-        // handling.
-        let component_delta = change_tick.wrapping_sub(self.added);
-        let system_delta = change_tick.wrapping_sub(last_change_tick);
+        // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
+        // `last_change_tick` and `self.added`, and we scan periodically to clamp `ComponentTicks` values
+        // so they never get older than `u32::MAX` (the difference would overflow).
+        //
+        // The clamp here ensures determinism (since scans could differ between app runs).
+        let ticks_since_insert = change_tick.wrapping_sub(self.added).min(MAX_CHANGE_AGE);
+        let ticks_since_system = change_tick
+            .wrapping_sub(last_change_tick)
+            .min(MAX_CHANGE_AGE);
 
-        component_delta < system_delta
+        ticks_since_system > ticks_since_insert
     }
 
     #[inline]
+    /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        let component_delta = change_tick.wrapping_sub(self.changed);
-        let system_delta = change_tick.wrapping_sub(last_change_tick);
+        // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
+        // `last_change_tick` and `self.changed`, and we scan periodically to clamp `ComponentTicks` values
+        // so they never get older than `u32::MAX` (the difference would overflow).
+        //
+        // The clamp here ensures determinism (since scans could differ between app runs).
+        let ticks_since_change = change_tick.wrapping_sub(self.changed).min(MAX_CHANGE_AGE);
+        let ticks_since_system = change_tick
+            .wrapping_sub(last_change_tick)
+            .min(MAX_CHANGE_AGE);
 
-        component_delta < system_delta
+        ticks_since_system > ticks_since_change
     }
 
     pub(crate) fn new(change_tick: u32) -> Self {
@@ -384,8 +407,10 @@ impl ComponentTicks {
     }
 
     /// Manually sets the change tick.
-    /// Usually, this is done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
-    /// on [`Mut`](crate::world::Mut) or [`ResMut`](crate::system::ResMut) etc.
+    ///
+    /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
+    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
+    /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
     /// ```rust,no_run
@@ -402,10 +427,10 @@ impl ComponentTicks {
 }
 
 fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
-    let tick_delta = change_tick.wrapping_sub(*last_change_tick);
-    const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
-    // Clamp to max delta
-    if tick_delta > MAX_DELTA {
-        *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
+    let age = change_tick.wrapping_sub(*last_change_tick);
+    // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
+    // so long as this check always runs before that can happen.
+    if age > MAX_CHANGE_AGE {
+        *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
     }
 }
