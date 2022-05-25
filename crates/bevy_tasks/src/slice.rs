@@ -13,7 +13,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// ```rust
     /// # use bevy_tasks::prelude::*;
     /// # use bevy_tasks::TaskPool;
-    /// let task_pool = TaskPool::new();
+    /// let task_pool = TaskPool::default();
     /// let counts = (0..10000).collect::<Vec<u32>>();
     /// let incremented = counts.par_chunk_map(&task_pool, 100, |chunk| {
     ///   let mut results = Vec::new();
@@ -57,7 +57,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// ```rust
     /// # use bevy_tasks::prelude::*;
     /// # use bevy_tasks::TaskPool;
-    /// let task_pool = TaskPool::new();
+    /// let task_pool = TaskPool::default();
     /// let counts = (0..10000).collect::<Vec<u32>>();
     /// let incremented = counts.par_splat_map(&task_pool, None, |chunk| {
     ///   let mut results = Vec::new();
@@ -107,7 +107,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// ```rust
     /// # use bevy_tasks::prelude::*;
     /// # use bevy_tasks::TaskPool;
-    /// let task_pool = TaskPool::new();
+    /// let task_pool = TaskPool::default();
     /// let mut counts = (0..10000).collect::<Vec<u32>>();
     /// let incremented = counts.par_chunk_map_mut(&task_pool, 100, |chunk| {
     ///   let mut results = Vec::new();
@@ -154,7 +154,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// ```rust
     /// # use bevy_tasks::prelude::*;
     /// # use bevy_tasks::TaskPool;
-    /// let task_pool = TaskPool::new();
+    /// let task_pool = TaskPool::default();
     /// let mut counts = (0..10000).collect::<Vec<u32>>();
     /// let incremented = counts.par_splat_map_mut(&task_pool, None, |chunk| {
     ///   let mut results = Vec::new();
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn test_par_chunks_map() {
         let v = vec![42; 1000];
-        let task_pool = TaskPool::new();
+        let task_pool = TaskPool::default();
         let outputs = v.par_splat_map(&task_pool, None, |numbers| -> i32 { numbers.iter().sum() });
 
         let mut sum = 0;
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn test_par_chunks_map_mut() {
         let mut v = vec![42; 1000];
-        let task_pool = TaskPool::new();
+        let task_pool = TaskPool::default();
 
         let outputs = v.par_splat_map_mut(&task_pool, None, |numbers| -> i32 {
             for number in numbers.iter_mut() {

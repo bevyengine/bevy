@@ -21,7 +21,7 @@ pub enum TaskGroup {
     /// If IO threads are sitting idle, they may run `Compute` tasks if the compute threads
     /// are at capacity.
     IO,
-    /// CPU-bound, long-lived takss. Can hold the thread for very long periods (longer than
+    /// CPU-bound, long-lived tasks. Can hold the thread for very long periods (longer than
     /// a single frame).
     ///
     /// If async compute threads are sitting idle, they may run `Compute` or `IO` tasks if the

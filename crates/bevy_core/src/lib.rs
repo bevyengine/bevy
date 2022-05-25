@@ -39,7 +39,7 @@ pub enum CoreSystem {
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
         // Setup the default bevy task pool if not already set up
-        app.world.get_resource_or_insert_with(TaskPool::new);
+        app.world.init_resource::<TaskPool>();
 
         app.init_resource::<Time>()
             .init_resource::<FixedTimesteps>()

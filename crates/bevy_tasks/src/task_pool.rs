@@ -87,11 +87,6 @@ impl TaskPool {
         static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
     }
 
-    /// Create a `TaskPool` with the default configuration.
-    pub fn new() -> Self {
-        TaskPoolBuilder::new().build()
-    }
-
     /// Get a [`TaskPoolBuilder`] for custom configuration.
     pub fn build() -> TaskPoolBuilder {
         TaskPoolBuilder::new()
@@ -297,7 +292,7 @@ impl TaskPool {
 
 impl Default for TaskPool {
     fn default() -> Self {
-        Self::new()
+        TaskPoolBuilder::new().build()
     }
 }
 
@@ -312,7 +307,7 @@ pub struct Scope<'scope, T> {
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {
-    /// Spawns a scoped future onto the thread pool with "compute" priority. The scope
+    /// Spawns a scoped future onto the thread pool into the scope's group. The scope
     /// *must* outlive the provided future. The results of the future will be returned
     /// as a part of [`TaskPool::scope`]'s return value.
     ///
@@ -370,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_spawn() {
-        let pool = TaskPool::new();
+        let pool = TaskPool::default();
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -401,7 +396,7 @@ mod tests {
 
     #[test]
     fn test_mixed_spawn_local_and_spawn() {
-        let pool = TaskPool::new();
+        let pool = TaskPool::default();
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -446,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_thread_locality() {
-        let pool = Arc::new(TaskPool::new());
+        let pool = Arc::new(TaskPool::default());
         let count = Arc::new(AtomicI32::new(0));
         let barrier = Arc::new(Barrier::new(101));
         let thread_check_failed = Arc::new(AtomicBool::new(false));
