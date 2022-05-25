@@ -1,8 +1,6 @@
-use crate::{
-    serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo,
-    Typed,
-};
+use crate::{serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 use serde::ser::SerializeSeq;
+use std::any::TypeId;
 use std::{
     any::Any,
     hash::{Hash, Hasher},
@@ -43,8 +41,10 @@ pub trait Array: Reflect {
 /// A container for compile-time array info
 #[derive(Clone, Debug)]
 pub struct ArrayInfo {
-    id: TypeIdentity,
-    item_id: TypeIdentity,
+    type_name: &'static str,
+    type_id: TypeId,
+    item_type_name: &'static str,
+    item_type_id: TypeId,
     capacity: usize,
 }
 
@@ -52,25 +52,51 @@ impl ArrayInfo {
     /// Create a new [`ArrayInfo`]
     pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
         Self {
-            id: TypeIdentity::of::<TArray>(),
-            item_id: TypeIdentity::of::<TItem>(),
+            type_name: std::any::type_name::<TArray>(),
+            type_id: TypeId::of::<TArray>(),
+            item_type_name: std::any::type_name::<TItem>(),
+            item_type_id: TypeId::of::<TItem>(),
             capacity,
         }
     }
 
-    /// The [`TypeIdentity`] of this array
-    pub fn id(&self) -> &TypeIdentity {
-        &self.id
-    }
-
-    /// The [`TypeIdentity`] of this array's item type
-    pub fn item(&self) -> &TypeIdentity {
-        &self.item_id
-    }
-
-    /// The compile-time capacity of this array
+    /// The compile-time capacity of the array.
     pub fn capacity(&self) -> usize {
         self.capacity
+    }
+
+    /// The [name] of the underlying type of the array.
+    ///
+    /// [name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        &self.type_name
+    }
+
+    /// The [`TypeId`] of the underlying type of the array.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the underlying type of the array.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [name] of the underlying item type.
+    ///
+    /// [name]: std::any::type_name
+    pub fn item_type_name(&self) -> &'static str {
+        &self.item_type_name
+    }
+
+    /// The [`TypeId`] of the underlying item type.
+    pub fn item_type_id(&self) -> TypeId {
+        self.item_type_id
+    }
+
+    /// Check if the given type matches the underlying item type.
+    pub fn item_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.item_type_id
     }
 }
 

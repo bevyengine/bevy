@@ -1,9 +1,9 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeIdentity, TypeInfo, Typed};
+use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -47,34 +47,76 @@ pub trait Map: Reflect {
 /// A container for compile-time map info
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    id: TypeIdentity,
-    key_id: TypeIdentity,
-    value_id: TypeIdentity,
+    type_name: &'static str,
+    type_id: TypeId,
+    key_type_name: &'static str,
+    key_type_id: TypeId,
+    value_type_name: &'static str,
+    value_type_id: TypeId,
 }
 
 impl MapInfo {
     /// Create a new [`MapInfo`]
     pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
         Self {
-            id: TypeIdentity::of::<TMap>(),
-            key_id: TypeIdentity::of::<TKey>(),
-            value_id: TypeIdentity::of::<TValue>(),
+            type_name: std::any::type_name::<TMap>(),
+            type_id: TypeId::of::<TMap>(),
+            key_type_name: std::any::type_name::<TKey>(),
+            key_type_id: TypeId::of::<TKey>(),
+            value_type_name: std::any::type_name::<TValue>(),
+            value_type_id: TypeId::of::<TValue>(),
         }
     }
 
-    /// The [`TypeIdentity`] of this map
-    pub fn id(&self) -> &TypeIdentity {
-        &self.id
+    /// The [name] of the underlying type.
+    ///
+    /// [name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        &self.type_name
     }
 
-    /// The [`TypeIdentity`] of this map's key type
-    pub fn key(&self) -> &TypeIdentity {
-        &self.key_id
+    /// The [`TypeId`] of the underlying type.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
     }
 
-    /// The [`TypeIdentity`] of this map's value type
-    pub fn value(&self) -> &TypeIdentity {
-        &self.value_id
+    /// Check if the given type matches the underlying type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [name] of the underlying key type.
+    ///
+    /// [name]: std::any::type_name
+    pub fn key_type_name(&self) -> &'static str {
+        &self.key_type_name
+    }
+
+    /// The [`TypeId`] of the underlying key type.
+    pub fn key_type_id(&self) -> TypeId {
+        self.key_type_id
+    }
+
+    /// Check if the given type matches the underlying key type.
+    pub fn key_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.key_type_id
+    }
+
+    /// The [name] of the underlying value type.
+    ///
+    /// [name]: std::any::type_name
+    pub fn value_type_name(&self) -> &'static str {
+        &self.value_type_name
+    }
+
+    /// The [`TypeId`] of the underlying value type.
+    pub fn value_type_id(&self) -> TypeId {
+        self.value_type_id
+    }
+
+    /// Check if the given type matches the underlying value type.
+    pub fn value_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.value_type_id
     }
 }
 

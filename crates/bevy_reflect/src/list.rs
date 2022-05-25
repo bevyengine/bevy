@@ -1,8 +1,8 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 
 use crate::{
     serde::Serializable, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect,
-    ReflectMut, ReflectRef, TypeIdentity, TypeInfo, Typed,
+    ReflectMut, ReflectRef, TypeInfo, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -25,8 +25,10 @@ pub trait List: Reflect + Array {
 /// A container for compile-time list info
 #[derive(Clone, Debug)]
 pub struct ListInfo {
-    id: TypeIdentity,
-    item_id: TypeIdentity,
+    type_name: &'static str,
+    type_id: TypeId,
+    item_type_name: &'static str,
+    item_type_id: TypeId,
     capacity: Option<usize>,
 }
 
@@ -34,25 +36,51 @@ impl ListInfo {
     /// Create a new [`ListInfo`]
     pub fn new<TList: List, TItem: FromReflect>(capacity: Option<usize>) -> Self {
         Self {
-            id: TypeIdentity::of::<TList>(),
-            item_id: TypeIdentity::of::<TItem>(),
+            type_name: std::any::type_name::<TList>(),
+            type_id: TypeId::of::<TList>(),
+            item_type_name: std::any::type_name::<TItem>(),
+            item_type_id: TypeId::of::<TItem>(),
             capacity,
         }
     }
 
-    /// The [`TypeIdentity`] of this list
-    pub fn id(&self) -> &TypeIdentity {
-        &self.id
-    }
-
-    /// The [`TypeIdentity`] of this list's item type
-    pub fn item(&self) -> &TypeIdentity {
-        &self.item_id
-    }
-
-    /// The compile-time capacity of this list, if any
+    /// The compile-time capacity of the list, if any.
     pub fn capacity(&self) -> Option<usize> {
         self.capacity
+    }
+
+    /// The [type name] of the list.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        &self.type_name
+    }
+
+    /// The [`TypeId`] of the list.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the list type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [type name] of the list item.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn item_type_name(&self) -> &'static str {
+        &self.item_type_name
+    }
+
+    /// The [`TypeId`] of the list item.
+    pub fn item_type_id(&self) -> TypeId {
+        self.item_type_id
+    }
+
+    /// Check if the given type matches the list item type.
+    pub fn item_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.item_type_id
     }
 }
 

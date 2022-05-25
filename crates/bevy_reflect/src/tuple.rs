@@ -1,9 +1,9 @@
 use crate::{
     DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectMut, ReflectRef, TypeIdentity, TypeInfo, TypeRegistration, Typed, UnnamedField,
+    ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 use serde::Deserialize;
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::slice::Iter;
 
 /// A reflected Rust tuple.
@@ -127,7 +127,8 @@ impl GetTupleField for dyn Tuple {
 /// A container for compile-time tuple info
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
-    id: TypeIdentity,
+    type_name: &'static str,
+    type_id: TypeId,
     fields: Box<[UnnamedField]>,
 }
 
@@ -140,14 +141,10 @@ impl TupleInfo {
     ///
     pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
         Self {
-            id: TypeIdentity::of::<T>(),
+            type_name: std::any::type_name::<T>(),
+            type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
         }
-    }
-
-    /// The [`TypeIdentity`] of this tuple
-    pub fn id(&self) -> &TypeIdentity {
-        &self.id
     }
 
     /// Get a field at the given index
@@ -163,6 +160,23 @@ impl TupleInfo {
     /// The total number of fields in this tuple
     pub fn field_len(&self) -> usize {
         self.fields.len()
+    }
+
+    /// The [name] of the underlying type.
+    ///
+    /// [name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        &self.type_name
+    }
+
+    /// The [`TypeId`] of the underlying type.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the underlying type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
     }
 }
 

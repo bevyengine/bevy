@@ -482,19 +482,19 @@ mod tests {
     fn reflect_type_info() {
         // TypeInfo
         let info = i32::type_info();
-        assert_eq!(std::any::type_name::<i32>(), info.id().type_name());
-        assert_eq!(std::any::TypeId::of::<i32>(), info.id().type_id());
+        assert_eq!(std::any::type_name::<i32>(), info.type_name());
+        assert_eq!(std::any::TypeId::of::<i32>(), info.type_id());
 
         // TypeInfo (unsized)
         assert_eq!(
             std::any::TypeId::of::<dyn Reflect>(),
-            <dyn Reflect as Typed>::type_info().id().type_id()
+            <dyn Reflect as Typed>::type_info().type_id()
         );
 
         // TypeInfo (instance)
-        let value: &dyn Reflect = &123;
+        let value: &dyn Reflect = &123_i32;
         let info = value.get_type_info();
-        assert!(info.id().is::<i32>());
+        assert!(info.is::<i32>());
 
         // Struct
         #[derive(Reflect)]
@@ -505,21 +505,21 @@ mod tests {
 
         let info = MyStruct::type_info();
         if let TypeInfo::Struct(info) = info {
-            assert!(info.id().is::<MyStruct>());
-            assert_eq!(std::any::type_name::<MyStruct>(), info.id().type_name());
+            assert!(info.is::<MyStruct>());
+            assert_eq!(std::any::type_name::<MyStruct>(), info.type_name());
             assert_eq!(
                 std::any::type_name::<i32>(),
-                info.field("foo").unwrap().id().type_name()
+                info.field("foo").unwrap().type_name()
             );
             assert_eq!(
                 std::any::TypeId::of::<i32>(),
-                info.field("foo").unwrap().id().type_id()
+                info.field("foo").unwrap().type_id()
             );
-            assert!(info.field("foo").unwrap().id().is::<i32>());
+            assert!(info.field("foo").unwrap().is::<i32>());
             assert_eq!("foo", info.field("foo").unwrap().name());
             assert_eq!(
                 std::any::type_name::<usize>(),
-                info.field_at(1).unwrap().id().type_name()
+                info.field_at(1).unwrap().type_name()
             );
         } else {
             panic!("Expected `TypeInfo::Struct`");
@@ -527,7 +527,7 @@ mod tests {
 
         let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
         let info = value.get_type_info();
-        assert!(info.id().is::<MyStruct>());
+        assert!(info.is::<MyStruct>());
 
         // Struct (generic)
         #[derive(Reflect)]
@@ -538,19 +538,19 @@ mod tests {
 
         let info = <MyGenericStruct<i32>>::type_info();
         if let TypeInfo::Struct(info) = info {
-            assert!(info.id().is::<MyGenericStruct<i32>>());
+            assert!(info.is::<MyGenericStruct<i32>>());
             assert_eq!(
                 std::any::type_name::<MyGenericStruct<i32>>(),
-                info.id().type_name()
+                info.type_name()
             );
             assert_eq!(
                 std::any::type_name::<i32>(),
-                info.field("foo").unwrap().id().type_name()
+                info.field("foo").unwrap().type_name()
             );
             assert_eq!("foo", info.field("foo").unwrap().name());
             assert_eq!(
                 std::any::type_name::<usize>(),
-                info.field_at(1).unwrap().id().type_name()
+                info.field_at(1).unwrap().type_name()
             );
         } else {
             panic!("Expected `TypeInfo::Struct`");
@@ -561,7 +561,7 @@ mod tests {
             bar: 321,
         };
         let info = value.get_type_info();
-        assert!(info.id().is::<MyGenericStruct<String>>());
+        assert!(info.is::<MyGenericStruct<String>>());
 
         // Tuple Struct
         #[derive(Reflect)]
@@ -569,34 +569,31 @@ mod tests {
 
         let info = MyTupleStruct::type_info();
         if let TypeInfo::TupleStruct(info) = info {
-            assert!(info.id().is::<MyTupleStruct>());
-            assert_eq!(
-                std::any::type_name::<MyTupleStruct>(),
-                info.id().type_name()
-            );
+            assert!(info.is::<MyTupleStruct>());
+            assert_eq!(std::any::type_name::<MyTupleStruct>(), info.type_name());
             assert_eq!(
                 std::any::type_name::<i32>(),
-                info.field_at(1).unwrap().id().type_name()
+                info.field_at(1).unwrap().type_name()
             );
-            assert!(info.field_at(1).unwrap().id().is::<i32>());
+            assert!(info.field_at(1).unwrap().is::<i32>());
         } else {
             panic!("Expected `TypeInfo::TupleStruct`");
         }
 
         let value: &dyn Reflect = &MyTupleStruct(123, 321, MyStruct { foo: 123, bar: 321 });
         let info = value.get_type_info();
-        assert!(info.id().is::<MyTupleStruct>());
+        assert!(info.is::<MyTupleStruct>());
 
         // Tuple
         type MyTuple = (u32, f32, String);
 
         let info = MyTuple::type_info();
         if let TypeInfo::Tuple(info) = info {
-            assert!(info.id().is::<MyTuple>());
-            assert_eq!(std::any::type_name::<MyTuple>(), info.id().type_name());
+            assert!(info.is::<MyTuple>());
+            assert_eq!(std::any::type_name::<MyTuple>(), info.type_name());
             assert_eq!(
                 std::any::type_name::<f32>(),
-                info.field_at(1).unwrap().id().type_name()
+                info.field_at(1).unwrap().type_name()
             );
         } else {
             panic!("Expected `TypeInfo::Tuple`");
@@ -604,17 +601,17 @@ mod tests {
 
         let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
         let info = value.get_type_info();
-        assert!(info.id().is::<MyTuple>());
+        assert!(info.is::<MyTuple>());
 
         // List
         type MyList = Vec<usize>;
 
         let info = MyList::type_info();
         if let TypeInfo::List(info) = info {
-            assert!(info.id().is::<MyList>());
-            assert!(info.item().is::<usize>());
-            assert_eq!(std::any::type_name::<MyList>(), info.id().type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.item().type_name());
+            assert!(info.is::<MyList>());
+            assert!(info.item_is::<usize>());
+            assert_eq!(std::any::type_name::<MyList>(), info.type_name());
+            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
             assert_eq!(None, info.capacity());
         } else {
             panic!("Expected `TypeInfo::List`");
@@ -622,7 +619,7 @@ mod tests {
 
         let value: &dyn Reflect = &vec![123_usize];
         let info = value.get_type_info();
-        assert!(info.id().is::<MyList>());
+        assert!(info.is::<MyList>());
 
         // List (with capacity)
         #[cfg(feature = "smallvec")]
@@ -631,13 +628,13 @@ mod tests {
 
             let info = MyListWithCapacity::type_info();
             if let TypeInfo::List(info) = info {
-                assert!(info.id().is::<MyListWithCapacity>());
-                assert!(info.item().is::<String>());
+                assert!(info.is::<MyListWithCapacity>());
+                assert!(info.item_is::<String>());
                 assert_eq!(
                     std::any::type_name::<MyListWithCapacity>(),
-                    info.id().type_name()
+                    info.type_name()
                 );
-                assert_eq!(std::any::type_name::<String>(), info.item().type_name());
+                assert_eq!(std::any::type_name::<String>(), info.item_type_name());
                 assert_eq!(Some(2usize), info.capacity());
             } else {
                 panic!("Expected `TypeInfo::List`");
@@ -646,7 +643,7 @@ mod tests {
             let value: MyListWithCapacity = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
             let info = value.get_type_info();
-            assert!(info.id().is::<MyListWithCapacity>());
+            assert!(info.is::<MyListWithCapacity>());
         }
 
         // Array
@@ -654,10 +651,10 @@ mod tests {
 
         let info = MyArray::type_info();
         if let TypeInfo::Array(info) = info {
-            assert!(info.id().is::<MyArray>());
-            assert!(info.item().is::<usize>());
-            assert_eq!(std::any::type_name::<MyArray>(), info.id().type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.item().type_name());
+            assert!(info.is::<MyArray>());
+            assert!(info.item_is::<usize>());
+            assert_eq!(std::any::type_name::<MyArray>(), info.type_name());
+            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
             assert_eq!(3, info.capacity());
         } else {
             panic!("Expected `TypeInfo::Array`");
@@ -665,56 +662,56 @@ mod tests {
 
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
         let info = value.get_type_info();
-        assert!(info.id().is::<MyArray>());
+        assert!(info.is::<MyArray>());
 
         // Map
         type MyMap = HashMap<usize, f32>;
 
         let info = MyMap::type_info();
         if let TypeInfo::Map(info) = info {
-            assert!(info.id().is::<MyMap>());
-            assert!(info.key().is::<usize>());
-            assert!(info.value().is::<f32>());
-            assert_eq!(std::any::type_name::<MyMap>(), info.id().type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.key().type_name());
-            assert_eq!(std::any::type_name::<f32>(), info.value().type_name());
+            assert!(info.is::<MyMap>());
+            assert!(info.key_is::<usize>());
+            assert!(info.value_is::<f32>());
+            assert_eq!(std::any::type_name::<MyMap>(), info.type_name());
+            assert_eq!(std::any::type_name::<usize>(), info.key_type_name());
+            assert_eq!(std::any::type_name::<f32>(), info.value_type_name());
         } else {
             panic!("Expected `TypeInfo::Map`");
         }
 
         let value: &dyn Reflect = &MyMap::new();
         let info = value.get_type_info();
-        assert!(info.id().is::<MyMap>());
+        assert!(info.is::<MyMap>());
 
         // Value
         type MyValue = String;
 
         let info = MyValue::type_info();
         if let TypeInfo::Value(info) = info {
-            assert!(info.id().is::<MyValue>());
-            assert_eq!(std::any::type_name::<MyValue>(), info.id().type_name());
+            assert!(info.is::<MyValue>());
+            assert_eq!(std::any::type_name::<MyValue>(), info.type_name());
         } else {
             panic!("Expected `TypeInfo::Value`");
         }
 
         let value: &dyn Reflect = &String::from("Hello!");
         let info = value.get_type_info();
-        assert!(info.id().is::<MyValue>());
+        assert!(info.is::<MyValue>());
 
         // Dynamic
         type MyDynamic = DynamicList;
 
         let info = MyDynamic::type_info();
         if let TypeInfo::Dynamic(info) = info {
-            assert!(info.id().is::<MyDynamic>());
-            assert_eq!(std::any::type_name::<MyDynamic>(), info.id().type_name());
+            assert!(info.is::<MyDynamic>());
+            assert_eq!(std::any::type_name::<MyDynamic>(), info.type_name());
         } else {
             panic!("Expected `TypeInfo::Dynamic`");
         }
 
         let value: &dyn Reflect = &DynamicList::default();
         let info = value.get_type_info();
-        assert!(info.id().is::<MyDynamic>());
+        assert!(info.is::<MyDynamic>());
     }
 
     #[test]

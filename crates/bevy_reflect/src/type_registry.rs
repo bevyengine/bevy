@@ -210,7 +210,7 @@ impl TypeRegistration {
     /// [`TypeId`]: std::any::TypeId
     #[inline]
     pub fn type_id(&self) -> TypeId {
-        self.type_info.id().type_id()
+        self.type_info.type_id()
     }
 
     /// Returns a reference to the value of type `T` in this registration's type
@@ -266,7 +266,7 @@ impl TypeRegistration {
     ///
     /// [name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        self.type_info.id().type_name()
+        self.type_info.type_name()
     }
 
     /// Calculates the short name of a type.
