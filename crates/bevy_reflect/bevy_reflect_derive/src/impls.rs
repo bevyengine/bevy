@@ -181,7 +181,7 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
         impl #impl_generics #bevy_reflect_path::Typed for #struct_name #ty_generics #where_clause {
             fn type_info() -> #bevy_reflect_path::TypeInfo {
                 let fields: [#bevy_reflect_path::NamedField; #field_count] = [
-                    #(#bevy_reflect_path::NamedField::static_new::<#field_types>(#field_names),)*
+                    #(#bevy_reflect_path::NamedField::new::<#field_types, _>(#field_names),)*
                 ];
                 let info = #bevy_reflect_path::StructInfo::new::<Self>(&fields);
                 #bevy_reflect_path::TypeInfo::Struct(info)

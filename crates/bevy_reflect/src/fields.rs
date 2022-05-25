@@ -12,21 +12,9 @@ pub struct NamedField {
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect>(name: &str) -> Self {
+    pub fn new<T: Reflect, TName: Into<Cow<'static, str>>>(name: TName) -> Self {
         Self {
-            name: Cow::Owned(name.into()),
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
-        }
-    }
-
-    /// Create a new [`NamedField`] using a static string.
-    ///
-    /// This helps save an allocation when the string has a static lifetime, such
-    /// as when using [`std::any::type_name`].
-    pub fn static_new<T: Reflect>(name: &'static str) -> Self {
-        Self {
-            name: Cow::Borrowed(name),
+            name: name.into(),
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
         }
