@@ -146,7 +146,8 @@ impl ComponentSparseSet {
         } else {
             let dense_index = self.dense.len();
             self.dense.push(value);
-            self.sparse.insert(entity, NonMaxUsize::new(dense_index).unwrap());
+            self.sparse
+                .insert(entity, NonMaxUsize::new(dense_index).unwrap());
             debug_assert_eq!(self.ticks.len(), dense_index);
             debug_assert_eq!(self.entities.len(), dense_index);
             self.ticks
