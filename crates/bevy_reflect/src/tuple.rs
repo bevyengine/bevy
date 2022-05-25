@@ -162,19 +162,19 @@ impl TupleInfo {
         self.fields.len()
     }
 
-    /// The [name] of the underlying type.
+    /// The [type name] of the tuple.
     ///
-    /// [name]: std::any::type_name
+    /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
         &self.type_name
     }
 
-    /// The [`TypeId`] of the underlying type.
+    /// The [`TypeId`] of the tuple.
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
-    /// Check if the given type matches the underlying type.
+    /// Check if the given type matches the tuple type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }

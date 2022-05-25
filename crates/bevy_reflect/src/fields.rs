@@ -37,19 +37,19 @@ impl NamedField {
         &self.name
     }
 
-    /// The [name] of the underlying type of the field.
+    /// The [type name] of the field.
     ///
-    /// [name]: std::any::type_name
+    /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
         &self.type_name
     }
 
-    /// The [`TypeId`] of the underlying type of the field.
+    /// The [`TypeId`] of the field.
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
-    /// Check if the given type matches the underlying type of the field.
+    /// Check if the given type matches the field type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
@@ -77,19 +77,19 @@ impl UnnamedField {
         self.index
     }
 
-    /// The [name] of the underlying type of the field.
+    /// The [type name] of the field.
     ///
-    /// [name]: std::any::type_name
+    /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
         &self.type_name
     }
 
-    /// The [`TypeId`] of the underlying type of the field.
+    /// The [`TypeId`] of the field.
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
-    /// Check if the given type matches the underlying type of the field.
+    /// Check if the given type matches the field type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }

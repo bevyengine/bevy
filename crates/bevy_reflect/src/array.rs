@@ -65,36 +65,36 @@ impl ArrayInfo {
         self.capacity
     }
 
-    /// The [name] of the underlying type of the array.
+    /// The [type name] of the array.
     ///
-    /// [name]: std::any::type_name
+    /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
         &self.type_name
     }
 
-    /// The [`TypeId`] of the underlying type of the array.
+    /// The [`TypeId`] of the array.
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
-    /// Check if the given type matches the underlying type of the array.
+    /// Check if the given type matches the array type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The [name] of the underlying item type.
+    /// The [type name] of the array item.
     ///
-    /// [name]: std::any::type_name
+    /// [type name]: std::any::type_name
     pub fn item_type_name(&self) -> &'static str {
         &self.item_type_name
     }
 
-    /// The [`TypeId`] of the underlying item type.
+    /// The [`TypeId`] of the array item.
     pub fn item_type_id(&self) -> TypeId {
         self.item_type_id
     }
 
-    /// Check if the given type matches the underlying item type.
+    /// Check if the given type matches the array item type.
     pub fn item_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.item_type_id
     }

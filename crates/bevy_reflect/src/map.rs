@@ -68,53 +68,53 @@ impl MapInfo {
         }
     }
 
-    /// The [name] of the underlying type.
+    /// The [type name] of the map.
     ///
-    /// [name]: std::any::type_name
+    /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
         &self.type_name
     }
 
-    /// The [`TypeId`] of the underlying type.
+    /// The [`TypeId`] of the map.
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
-    /// Check if the given type matches the underlying type.
+    /// Check if the given type matches the map type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The [name] of the underlying key type.
+    /// The [type name] of the key.
     ///
-    /// [name]: std::any::type_name
+    /// [type name]: std::any::type_name
     pub fn key_type_name(&self) -> &'static str {
         &self.key_type_name
     }
 
-    /// The [`TypeId`] of the underlying key type.
+    /// The [`TypeId`] of the key.
     pub fn key_type_id(&self) -> TypeId {
         self.key_type_id
     }
 
-    /// Check if the given type matches the underlying key type.
+    /// Check if the given type matches the key type.
     pub fn key_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.key_type_id
     }
 
-    /// The [name] of the underlying value type.
+    /// The [type name] of the value.
     ///
-    /// [name]: std::any::type_name
+    /// [type name]: std::any::type_name
     pub fn value_type_name(&self) -> &'static str {
         &self.value_type_name
     }
 
-    /// The [`TypeId`] of the underlying value type.
+    /// The [`TypeId`] of the value.
     pub fn value_type_id(&self) -> TypeId {
         self.value_type_id
     }
 
-    /// Check if the given type matches the underlying value type.
+    /// Check if the given type matches the value type.
     pub fn value_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.value_type_id
     }
