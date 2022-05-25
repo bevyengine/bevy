@@ -286,8 +286,8 @@ impl ComponentDescriptor {
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
-    resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
+    indices: std::collections::HashMap<TypeId, ComponentId, fxhash::FxBuildHasher>,
+    resource_indices: std::collections::HashMap<TypeId, ComponentId, fxhash::FxBuildHasher>,
 }
 
 impl Components {
@@ -295,17 +295,17 @@ impl Components {
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
         let components = &mut self.components;
-        let index = self.indices.entry(type_id).or_insert_with(|| {
-            let index = components.len();
+        let id = self.indices.entry(type_id).or_insert_with(|| {
+            let id = ComponentId::new(components.len());
             let descriptor = ComponentDescriptor::new::<T>();
-            let info = ComponentInfo::new(ComponentId::new(index), descriptor);
+            let info = ComponentInfo::new(id, descriptor);
             if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
                 storages.sparse_sets.get_or_insert(&info);
             }
             components.push(info);
-            index
+            id
         });
-        ComponentId::new(*index)
+        *id
     }
 
     #[inline]
@@ -334,16 +334,12 @@ impl Components {
 
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices
-            .get(&type_id)
-            .map(|index| ComponentId::new(*index))
+        self.indices.get(&type_id).copied()
     }
 
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices
-            .get(&type_id)
-            .map(|index| ComponentId::new(*index))
+        self.resource_indices.get(&type_id).copied()
     }
 
     #[inline]
@@ -376,14 +372,14 @@ impl Components {
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
         let components = &mut self.components;
-        let index = self.resource_indices.entry(type_id).or_insert_with(|| {
+        let id = self.resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
-            let index = components.len();
-            components.push(ComponentInfo::new(ComponentId::new(index), descriptor));
-            index
+            let id = ComponentId::new(components.len());
+            components.push(ComponentInfo::new(id, descriptor));
+            id
         });
 
-        ComponentId::new(*index)
+        *id
     }
 }
 
