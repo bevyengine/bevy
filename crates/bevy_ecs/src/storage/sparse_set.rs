@@ -98,7 +98,7 @@ pub struct ComponentSparseSet {
     dense: BlobVec,
     ticks: Vec<UnsafeCell<ComponentTicks>>,
     entities: Vec<Entity>,
-    sparse: SparseArray<Entity, usize>,
+    sparse: SparseArray<Entity, NonMaxUsize>,
 }
 
 impl ComponentSparseSet {
@@ -139,13 +139,14 @@ impl ComponentSparseSet {
     /// inside the [`ComponentInfo`] given when constructing this sparse set.
     pub unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity) {
+            let dense_index = dense_index.get();
             self.dense.replace_unchecked(dense_index, value);
             *self.ticks.get_unchecked_mut(dense_index) =
                 UnsafeCell::new(ComponentTicks::new(change_tick));
         } else {
             let dense_index = self.dense.len();
             self.dense.push(value);
-            self.sparse.insert(entity, dense_index);
+            self.sparse.insert(entity, NonMaxUsize::new(dense_index).unwrap());
             debug_assert_eq!(self.ticks.len(), dense_index);
             debug_assert_eq!(self.entities.len(), dense_index);
             self.ticks
@@ -163,13 +164,13 @@ impl ComponentSparseSet {
     pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {
         self.sparse.get(entity).map(|dense_index| {
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.get_unchecked(*dense_index) }
+            unsafe { self.dense.get_unchecked(dense_index.get()) }
         })
     }
 
     #[inline]
     pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
-        let dense_index = *self.sparse.get(entity)?;
+        let dense_index = self.sparse.get(entity)?.get();
         // SAFE: if the sparse index points to something in the dense vec, it exists
         unsafe {
             Some((
@@ -181,7 +182,7 @@ impl ComponentSparseSet {
 
     #[inline]
     pub fn get_ticks(&self, entity: Entity) -> Option<&UnsafeCell<ComponentTicks>> {
-        let dense_index = *self.sparse.get(entity)?;
+        let dense_index = self.sparse.get(entity)?.get();
         // SAFE: if the sparse index points to something in the dense vec, it exists
         unsafe { Some(self.ticks.get_unchecked(dense_index)) }
     }
@@ -191,13 +192,14 @@ impl ComponentSparseSet {
     #[must_use = "The returned pointer must be used to drop the removed component."]
     pub fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
         self.sparse.remove(entity).map(|dense_index| {
-            self.ticks.swap_remove(dense_index);
-            self.entities.swap_remove(dense_index);
-            let is_last = dense_index == self.dense.len() - 1;
+            let index = dense_index.get();
+            self.ticks.swap_remove(index);
+            self.entities.swap_remove(index);
+            let is_last = index == self.dense.len() - 1;
             // SAFE: dense_index was just removed from `sparse`, which ensures that it is valid
-            let value = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
+            let value = unsafe { self.dense.swap_remove_and_forget_unchecked(index) };
             if !is_last {
-                let swapped_entity = self.entities[dense_index];
+                let swapped_entity = self.entities[index];
                 *self.sparse.get_mut(swapped_entity).unwrap() = dense_index;
             }
             value
@@ -206,13 +208,14 @@ impl ComponentSparseSet {
 
     pub fn remove(&mut self, entity: Entity) -> bool {
         if let Some(dense_index) = self.sparse.remove(entity) {
-            self.ticks.swap_remove(dense_index);
-            self.entities.swap_remove(dense_index);
-            let is_last = dense_index == self.dense.len() - 1;
+            let index = dense_index.get();
+            self.ticks.swap_remove(index);
+            self.entities.swap_remove(index);
+            let is_last = index == self.dense.len() - 1;
             // SAFE: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.swap_remove_and_drop_unchecked(dense_index) }
+            unsafe { self.dense.swap_remove_and_drop_unchecked(index) }
             if !is_last {
-                let swapped_entity = self.entities[dense_index];
+                let swapped_entity = self.entities[index];
                 *self.sparse.get_mut(swapped_entity).unwrap() = dense_index;
             }
             true
