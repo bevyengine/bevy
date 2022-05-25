@@ -20,7 +20,7 @@ fn main() {
 fn touch_camera(
     windows: ResMut<Windows>,
     mut touches: EventReader<TouchInput>,
-    mut camera: Query<&mut Transform, (With<Camera>, With<PerspectiveProjection>)>,
+    mut camera: Query<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
 ) {
     for touch in touches.iter() {
@@ -90,14 +90,14 @@ fn setup_scene(
     });
 
     // Test ui
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands
         .spawn_bundle(ButtonBundle {
             style: Style {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect {
                     left: Val::Px(50.0),
                     right: Val::Px(50.0),
                     top: Val::Auto,
