@@ -145,6 +145,8 @@ impl GetPath for dyn Reflect {
     }
 }
 
+// This stores an access and a start index for the identity. The index is only really
+// used for errors.
 /// A path to a field within a type. Can be used like [`GetPath`] functions to get
 /// references to the inner fields of a type.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -241,6 +243,10 @@ impl fmt::Display for FieldPath {
     }
 }
 
+/// A singular owned field access within a path. Can be applied
+/// to a `dyn Reflect` to get a reference to the targetted field.
+/// 
+/// A path is composed of multiple accesses in sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Access {
     Field(String),
@@ -260,6 +266,11 @@ impl Access {
     }
 }
 
+/// A singular borrowed field access within a path. Can be applied
+/// to a `dyn Reflect` to get a reference to the targetted field.
+/// 
+/// Does not own the backing store it's sourced from. For an owned
+/// version, you can convert one to an [`Access`].
 #[derive(Debug)]
 enum AccessRef<'a> {
     Field(&'a str),
