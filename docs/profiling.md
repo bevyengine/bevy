@@ -52,6 +52,6 @@ After closing your app, an interactive `svg` file will be produced:
 
 ## Project Compile Times
 
-This requires nightly rust (`rustup default nightly`). Append ```-Ztimings``` to your app's cargo command (ex: `cargo build -Ztimings`). If you want a "full" profile, make sure you run `cargo clean` first. Open the produced `cargo-timing.html` file in your browser of choice. This will show how much time each crate in your app's dependency tree took to build.
+Append ```--timings``` to your app's cargo command (ex: `cargo build --timings`). If you want a "full" profile, make sure you run `cargo clean` first. Open the produced `cargo-timing.html` file in your browser of choice. This will show how much time each crate in your app's dependency tree took to build.
 
 ![image](https://user-images.githubusercontent.com/2694663/141657811-f4e15e3b-c9fc-491b-9313-236fd8c01288.png)
