@@ -1,10 +1,10 @@
 //! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
-    core::FixedTimestep,
     math::{const_vec2, const_vec3},
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
+    time::FixedTimestep,
 };
 
 // Defines the amount of time that should elapse between each physics step.
