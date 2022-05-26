@@ -1,24 +1,22 @@
 #![warn(missing_docs)]
 //! This crate provides core functionality for Bevy Engine.
 
-mod name;
 mod task_pool_options;
 mod time;
 
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
-pub use name::*;
 pub use task_pool_options::*;
 pub use time::*;
 
 pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, Name, Time, Timer};
+    pub use crate::{DefaultTaskPoolOptions, Time, Timer};
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, Name},
     schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
     system::IntoExclusiveSystem,
 };

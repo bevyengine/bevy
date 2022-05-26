@@ -6,10 +6,10 @@ use std::ops::Deref;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_core::{Name, Time};
+use bevy_core::Time;
 use bevy_ecs::{
     change_detection::DetectChanges,
-    entity::Entity,
+    entity::{Entity, Name},
     prelude::Component,
     reflect::ReflectComponent,
     schedule::ParallelSystemDescriptorCoercion,

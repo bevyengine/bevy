@@ -2,8 +2,11 @@ use anyhow::Result;
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
-use bevy_core::Name;
-use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
+use bevy_ecs::{
+    entity::{Entity, Name},
+    prelude::FromWorld,
+    world::World,
+};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};

@@ -3,6 +3,9 @@
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
+// for #[derive(Component)]
+extern crate self as bevy_ecs;
+
 pub mod archetype;
 pub mod bundle;
 pub mod change_detection;
@@ -29,7 +32,7 @@ pub mod prelude {
         bundle::Bundle,
         change_detection::DetectChanges,
         component::Component,
-        entity::Entity,
+        entity::{Entity, Name},
         event::{EventReader, EventWriter},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{

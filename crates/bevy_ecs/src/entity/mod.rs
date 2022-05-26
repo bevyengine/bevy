@@ -23,8 +23,10 @@
 //! - **Removing a component to an entity:** use
 //!   [`EntityCommands::remove`](crate::system::EntityCommands::remove).
 mod map_entities;
+mod name;
 mod serde;
 
+pub use self::name::Name;
 pub use self::serde::*;
 pub use map_entities::*;
 
