@@ -1,6 +1,4 @@
-use bevy_ecs::system::{Local, Res, ResMut};
-use bevy_utils::{tracing::warn, Duration, Instant};
-use crossbeam_channel::{Receiver, Sender};
+use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
 #[derive(Debug, Clone)]
@@ -141,40 +139,6 @@ impl Time {
     #[inline]
     pub fn time_since_startup(&self) -> Duration {
         self.time_since_startup
-    }
-}
-
-/// channel resource used to receive time from render world
-pub struct TimeReceiver(pub Receiver<Instant>);
-/// channel resource used to send time from render world
-pub struct TimeSender(pub Sender<Instant>);
-
-/// create channels used for sending time between render world and app world
-pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
-    // bound the channel to 2 since when pipelined the render phase can finish before
-    // the time system runs.
-    let (s, r) = crossbeam_channel::bounded::<Instant>(2);
-    (TimeSender(s), TimeReceiver(r))
-}
-
-/// The system used to update the time. If there is a render world the time is sent from
-/// there to this system through channels. Otherwise the time is updated in this system.
-pub(crate) fn time_system(
-    mut time: ResMut<Time>,
-    time_recv: Option<Res<TimeReceiver>>,
-    mut has_received_time: Local<bool>,
-) {
-    if let Some(time_recv) = time_recv {
-        // TODO: delay checking channel on start by 2 frames when pipelined rendering
-        // is enabled. This is to make sure we always read the N-2 frame's time.
-        if let Ok(new_time) = time_recv.0.try_recv() {
-            time.update_with_instant(new_time);
-            *has_received_time = true;
-        } else if *has_received_time {
-            warn!("time_system did not receive time from render world! Calculations depending on the time may be incorrect.");
-        }
-    } else {
-        time.update();
     }
 }
 
