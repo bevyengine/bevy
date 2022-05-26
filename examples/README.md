@@ -422,7 +422,13 @@ cargo install wasm-bindgen-cli
 ### Build & Run
 
 Following is an example for `lighting`. For other examples, change the `lighting` in the
-following commands.
+following command.
+
+```sh
+cargo run -p build-wasm-example -- lighting
+```
+
+This is the same as running
 
 ```sh
 cargo build --release --example lighting --target wasm32-unknown-unknown

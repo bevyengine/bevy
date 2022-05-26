@@ -210,7 +210,7 @@ impl<'a> Iterator for ArrayIter<'a> {
 
 impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 
-impl<'a> serde::Serialize for dyn Array {
+impl serde::Serialize for dyn Array {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

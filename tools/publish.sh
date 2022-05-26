@@ -11,6 +11,7 @@ crates=(
     bevy_ecs/macros
     bevy_ecs
     bevy_app
+    bevy_time
     bevy_log
     bevy_dynamic_plugin
     bevy_asset
@@ -20,8 +21,7 @@ crates=(
     bevy_hierarchy
     bevy_transform
     bevy_window
-    bevy_crevice/bevy-crevice-derive
-    bevy_crevice
+    bevy_encase_derive
     bevy_render
     bevy_core_pipeline
     bevy_input

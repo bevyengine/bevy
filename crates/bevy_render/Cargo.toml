@@ -31,9 +31,9 @@ webgl = ["wgpu/webgl"]
 bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.8.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.8.0-dev" }
-bevy_crevice = { path = "../bevy_crevice", version = "0.8.0-dev", features = ["glam"] }
 bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.8.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.8.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev", features = ["bevy"] }
 bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }
@@ -67,3 +67,4 @@ flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.2.4", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.2.0", optional = true }
+encase = { version = "0.2", features = ["glam"] }

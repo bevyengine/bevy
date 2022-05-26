@@ -1,6 +1,6 @@
 //! Eat the cakes. Eat them all. An example 3D game.
 
-use bevy::{core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d};
+use bevy::{ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d, time::FixedTimestep};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
