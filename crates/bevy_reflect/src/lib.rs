@@ -28,6 +28,7 @@ mod impls {
 
 pub mod serde;
 pub mod std_traits;
+pub mod utility;
 
 pub mod prelude {
     pub use crate::std_traits::*;

@@ -5,6 +5,7 @@ use crate::{
     ReflectDeserialize, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, ValueInfo,
 };
 
+use crate::utility::TypeInfoCell;
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
@@ -110,7 +111,7 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
         std::any::type_name::<Self>()
     }
 
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -165,8 +166,9 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
 }
 
 impl<T: FromReflect> Typed for Vec<T> {
-    fn type_info() -> TypeInfo {
-        TypeInfo::List(ListInfo::new::<Self, T>(None))
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>(None)))
     }
 }
 
@@ -238,7 +240,7 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         std::any::type_name::<Self>()
     }
 
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -293,8 +295,9 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
 }
 
 impl<K: Reflect + Eq + Hash, V: Reflect> Typed for HashMap<K, V> {
-    fn type_info() -> TypeInfo {
-        TypeInfo::Map(MapInfo::new::<Self, K, V>())
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
     }
 }
 
@@ -358,7 +361,7 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
         std::any::type_name::<Self>()
     }
 
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -439,8 +442,9 @@ impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
 }
 
 impl<T: Reflect, const N: usize> Typed for [T; N] {
-    fn type_info() -> TypeInfo {
-        TypeInfo::Array(ArrayInfo::new::<Self, T>(N))
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(N)))
     }
 }
 
@@ -488,7 +492,7 @@ unsafe impl Reflect for Cow<'static, str> {
         std::any::type_name::<Self>()
     }
 
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -556,8 +560,9 @@ unsafe impl Reflect for Cow<'static, str> {
 }
 
 impl Typed for Cow<'static, str> {
-    fn type_info() -> TypeInfo {
-        TypeInfo::Value(ValueInfo::new::<Self>())
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
 

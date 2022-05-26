@@ -3,6 +3,7 @@ use crate::{
 };
 use std::{any::Any, fmt::Debug};
 
+use crate::utility::TypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
 
 /// An immutable enumeration of "kinds" of reflected type.
@@ -62,7 +63,7 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// instance instead.
     ///
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-    fn get_type_info(&self) -> TypeInfo;
+    fn get_type_info(&self) -> &'static TypeInfo;
 
     /// Returns the value as a [`&dyn Any`][std::any::Any].
     fn any(&self) -> &dyn Any;
@@ -182,8 +183,9 @@ impl Debug for dyn Reflect {
 }
 
 impl Typed for dyn Reflect {
-    fn type_info() -> TypeInfo {
-        TypeInfo::Value(ValueInfo::new::<Self>())
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
 

@@ -1,6 +1,7 @@
 use smallvec::SmallVec;
 use std::any::Any;
 
+use crate::utility::{TypeInfoCell, TypeInfoGenericCell};
 use crate::{
     Array, ArrayIter, FromReflect, List, ListInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
 };
@@ -63,7 +64,7 @@ where
         std::any::type_name::<Self>()
     }
 
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -113,8 +114,11 @@ impl<T: smallvec::Array + Send + Sync + 'static> Typed for SmallVec<T>
 where
     T::Item: FromReflect + Clone,
 {
-    fn type_info() -> TypeInfo {
-        TypeInfo::List(ListInfo::new::<Self, T::Item>(Some(T::size())))
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::generic();
+        CELL.get_or_insert::<Self, _>(|| {
+            TypeInfo::List(ListInfo::new::<Self, T::Item>(Some(T::size())))
+        })
     }
 }
 

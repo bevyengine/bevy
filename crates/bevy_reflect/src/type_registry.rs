@@ -155,7 +155,7 @@ impl TypeRegistry {
     /// Returns the [`TypeInfo`] associated with the given `TypeId`.
     ///
     /// If the specified type has not been registered, returns `None`.
-    pub fn get_type_info(&self, type_id: TypeId) -> Option<&TypeInfo> {
+    pub fn get_type_info(&self, type_id: TypeId) -> Option<&'static TypeInfo> {
         self.get(type_id)
             .map(|registration| registration.type_info())
     }
@@ -201,7 +201,7 @@ impl TypeRegistryArc {
 pub struct TypeRegistration {
     short_name: String,
     data: HashMap<TypeId, Box<dyn TypeData>>,
-    type_info: TypeInfo,
+    type_info: &'static TypeInfo,
 }
 
 impl TypeRegistration {
@@ -234,8 +234,8 @@ impl TypeRegistration {
     }
 
     /// Returns a reference to the registration's [`TypeInfo`]
-    pub fn type_info(&self) -> &TypeInfo {
-        &self.type_info
+    pub fn type_info(&self) -> &'static TypeInfo {
+        self.type_info
     }
 
     /// Inserts an instance of `T` into this registration's type data.
@@ -323,7 +323,7 @@ impl Clone for TypeRegistration {
         TypeRegistration {
             data,
             short_name: self.short_name.clone(),
-            type_info: self.type_info.clone(),
+            type_info: self.type_info,
         }
     }
 }

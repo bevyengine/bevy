@@ -1,3 +1,4 @@
+use crate::utility::TypeInfoCell;
 use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed, UnnamedField};
 use std::any::{Any, TypeId};
 use std::slice::Iter;
@@ -257,7 +258,7 @@ unsafe impl Reflect for DynamicTupleStruct {
     }
 
     #[inline]
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -319,8 +320,9 @@ unsafe impl Reflect for DynamicTupleStruct {
 }
 
 impl Typed for DynamicTupleStruct {
-    fn type_info() -> TypeInfo {
-        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

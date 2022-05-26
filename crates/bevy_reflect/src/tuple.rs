@@ -1,3 +1,4 @@
+use crate::utility::TypeInfoCell;
 use crate::{
     DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
     ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
@@ -273,7 +274,7 @@ unsafe impl Reflect for DynamicTuple {
     }
 
     #[inline]
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -327,8 +328,9 @@ unsafe impl Reflect for DynamicTuple {
 }
 
 impl Typed for DynamicTuple {
-    fn type_info() -> TypeInfo {
-        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 
@@ -431,7 +433,7 @@ macro_rules! impl_reflect_tuple {
                 std::any::type_name::<Self>()
             }
 
-            fn get_type_info(&self) -> TypeInfo {
+            fn get_type_info(&self) -> &'static TypeInfo {
                 <Self as Typed>::type_info()
             }
 
@@ -478,12 +480,15 @@ macro_rules! impl_reflect_tuple {
         }
 
         impl <$($name: Reflect),*> Typed for ($($name,)*) {
-            fn type_info() -> TypeInfo {
-                let fields = [
-                    $(UnnamedField::new::<$name>($index),)*
-                ];
-                let info = TupleInfo::new::<Self>(&fields);
-                TypeInfo::Tuple(info)
+            fn type_info() -> &'static TypeInfo {
+                static CELL: $crate::utility::TypeInfoCell = $crate::utility::TypeInfoCell::non_generic();
+                CELL.get_or_insert::<Self, _>(|| {
+                    let fields = [
+                        $(UnnamedField::new::<$name>($index),)*
+                    ];
+                    let info = TupleInfo::new::<Self>(&fields);
+                    TypeInfo::Tuple(info)
+                })
             }
         }
 

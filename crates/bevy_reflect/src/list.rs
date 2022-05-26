@@ -1,5 +1,6 @@
 use std::any::{Any, TypeId};
 
+use crate::utility::TypeInfoCell;
 use crate::{
     serde::Serializable, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect,
     ReflectMut, ReflectRef, TypeInfo, Typed,
@@ -176,7 +177,7 @@ unsafe impl Reflect for DynamicList {
     }
 
     #[inline]
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -240,8 +241,9 @@ unsafe impl Reflect for DynamicList {
 }
 
 impl Typed for DynamicList {
-    fn type_info() -> TypeInfo {
-        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

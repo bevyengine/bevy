@@ -1,3 +1,4 @@
+use crate::utility::TypeInfoCell;
 use crate::{serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 use serde::ser::SerializeSeq;
 use std::any::TypeId;
@@ -153,7 +154,7 @@ unsafe impl Reflect for DynamicArray {
     }
 
     #[inline]
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -254,8 +255,9 @@ impl Array for DynamicArray {
 }
 
 impl Typed for DynamicArray {
-    fn type_info() -> TypeInfo {
-        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

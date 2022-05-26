@@ -9,7 +9,7 @@ use std::any::{Any, TypeId};
 /// [0]: crate::TypeRegistration::of
 pub trait Typed: Reflect {
     /// Returns the compile-time info for the underlying type
-    fn type_info() -> TypeInfo;
+    fn type_info() -> &'static TypeInfo;
 }
 
 /// Compile-time type information for various reflected types

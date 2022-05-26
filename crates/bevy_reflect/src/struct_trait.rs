@@ -1,3 +1,4 @@
+use crate::utility::TypeInfoCell;
 use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 use bevy_utils::{Entry, HashMap};
 use std::any::TypeId;
@@ -340,7 +341,7 @@ unsafe impl Reflect for DynamicStruct {
     }
 
     #[inline]
-    fn get_type_info(&self) -> TypeInfo {
+    fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
@@ -403,8 +404,9 @@ unsafe impl Reflect for DynamicStruct {
 }
 
 impl Typed for DynamicStruct {
-    fn type_info() -> TypeInfo {
-        TypeInfo::Dynamic(DynamicInfo::new::<Self>())
+    fn type_info() -> &'static TypeInfo {
+        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 
