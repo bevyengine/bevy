@@ -218,24 +218,24 @@ impl fmt::Display for FieldPath {
             match access {
                 Access::Field(field) => {
                     if idx != 0 {
-                        f.write_str(".")?;
+                        Token::DOT.fmt(f)?;
                     }
                     f.write_str(field.as_str())?;
                 }
                 Access::FieldIndex(index) => {
-                    f.write_str("#")?;
+                    Token::CROSSHATCH.fmt(f)?;
                     index.fmt(f)?;
                 }
                 Access::TupleIndex(index) => {
                     if idx != 0 {
-                        f.write_str(".")?;
+                        Token::DOT.fmt(f)?;
                     }
                     index.fmt(f)?;
                 }
                 Access::ListIndex(index) => {
-                    f.write_str("[")?;
+                    Token::OPEN_BRACKET.fmt(f)?;
                     index.fmt(f)?;
-                    f.write_str("]")?;
+                    Token::CLOSE_BRACKET.fmt(f)?;
                 }
             }
         }
