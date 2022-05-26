@@ -366,19 +366,19 @@ impl<'a> PathParser<'a> {
         }
 
         match self.path[self.index..].chars().next().unwrap() {
-            '.' => {
+            Token::DOT => {
                 self.index += 1;
                 return Some(Token::Dot);
             }
-            '#' => {
+            Token::CROSSHATCH => {
                 self.index += 1;
                 return Some(Token::CrossHatch);
             }
-            '[' => {
+            Token::OPEN_BRACKET => {
                 self.index += 1;
                 return Some(Token::OpenBracket);
             }
-            ']' => {
+            Token::CLOSE_BRACKET => {
                 self.index += 1;
                 return Some(Token::CloseBracket);
             }
@@ -388,7 +388,7 @@ impl<'a> PathParser<'a> {
         // we can assume we are parsing an ident now
         for (char_index, character) in self.path[self.index..].chars().enumerate() {
             match character {
-                '.' | '#' | '[' | ']' => {
+                Token::DOT | Token::CROSSHATCH | Token::OPEN_BRACKET | Token::CLOSE_BRACKET => {
                     let ident = Token::Ident(&self.path[self.index..self.index + char_index]);
                     self.index += char_index;
                     return Some(ident);
@@ -437,7 +437,7 @@ impl<'a> PathParser<'a> {
                 if !matches!(self.next_token(), Some(Token::CloseBracket)) {
                     return Err(ReflectPathError::ExpectedToken {
                         index: current_index,
-                        token: "]",
+                        token: Token::OPEN_BRACKET_STR,
                     });
                 }
 
@@ -445,7 +445,7 @@ impl<'a> PathParser<'a> {
             }
             Token::CloseBracket => Err(ReflectPathError::UnexpectedToken {
                 index: current_index,
-                token: "]",
+                token: Token::CLOSE_BRACKET_STR,
             }),
             Token::Ident(value) => value
                 .parse::<usize>()
@@ -471,6 +471,15 @@ enum Token<'a> {
     OpenBracket,
     CloseBracket,
     Ident(&'a str),
+}
+
+impl<'a> Token<'a> {
+    const DOT: char = '.';
+    const CROSSHATCH: char = '#';
+    const OPEN_BRACKET: char = '[';
+    const CLOSE_BRACKET: char = ']';
+    const OPEN_BRACKET_STR: &'static str = "[";
+    const CLOSE_BRACKET_STR: &'static str = "]";
 }
 
 #[cfg(test)]
