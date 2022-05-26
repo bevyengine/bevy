@@ -32,11 +32,7 @@ impl Plugin for CorePlugin {
             .unwrap_or_default()
             .create_default_pools(&mut app.world);
 
-        app.register_type::<HashSet<String>>()
-            .register_type::<Option<String>>()
-            .register_type::<Entity>()
-            .register_type::<Name>()
-            .register_type::<Range<f32>>();
+        app.register_type::<Entity>().register_type::<Name>();
 
         register_rust_types(app);
         register_math_types(app);
@@ -44,22 +40,9 @@ impl Plugin for CorePlugin {
 }
 
 fn register_rust_types(app: &mut App) {
-    app.register_type::<bool>()
-        .register_type::<u8>()
-        .register_type::<u16>()
-        .register_type::<u32>()
-        .register_type::<u64>()
-        .register_type::<u128>()
-        .register_type::<usize>()
-        .register_type::<i8>()
-        .register_type::<i16>()
-        .register_type::<i32>()
-        .register_type::<i64>()
-        .register_type::<i128>()
-        .register_type::<isize>()
-        .register_type::<f32>()
-        .register_type::<f64>()
+    app.register_type::<Range<f32>>()
         .register_type::<String>()
+        .register_type::<HashSet<String>>()
         .register_type::<Option<String>>();
 }
 

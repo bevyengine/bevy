@@ -6,7 +6,6 @@ use serde::Deserialize;
 use std::{any::TypeId, fmt::Debug, sync::Arc};
 
 /// A registry of reflected types.
-#[derive(Default)]
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
     short_name_to_id: HashMap<String, TypeId>,
@@ -35,7 +34,44 @@ pub trait GetTypeRegistration {
     fn get_type_registration() -> TypeRegistration;
 }
 
+impl Default for TypeRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TypeRegistry {
+    /// Create a type registry with *no* registered types.
+    pub fn empty() -> Self {
+        Self {
+            registrations: Default::default(),
+            short_name_to_id: Default::default(),
+            full_name_to_id: Default::default(),
+            ambiguous_names: Default::default(),
+        }
+    }
+
+    /// Create a type registry with default registrations for primitive types.
+    pub fn new() -> Self {
+        let mut registry = Self::empty();
+        registry.register::<bool>();
+        registry.register::<u8>();
+        registry.register::<u16>();
+        registry.register::<u32>();
+        registry.register::<u64>();
+        registry.register::<u128>();
+        registry.register::<usize>();
+        registry.register::<i8>();
+        registry.register::<i16>();
+        registry.register::<i32>();
+        registry.register::<i64>();
+        registry.register::<i128>();
+        registry.register::<isize>();
+        registry.register::<f32>();
+        registry.register::<f64>();
+        registry
+    }
+
     /// Registers the type `T`.
     pub fn register<T>(&mut self)
     where
