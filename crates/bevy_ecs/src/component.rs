@@ -6,7 +6,7 @@ use crate::{
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{OwningPtr, Ptr};
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -123,6 +123,11 @@ impl ComponentInfo {
     }
 
     #[inline]
+    pub fn swap(&self) -> unsafe fn(Ptr<'_>, Ptr<'_>) {
+        self.descriptor.swap
+    }
+
+    #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.descriptor.storage_type
     }
@@ -177,6 +182,9 @@ pub struct ComponentDescriptor {
     // this descriptor describes.
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    // SAFETY: this function must be safe to call with pointers pointing to items of the type
+    // this descriptor describes. Must never panic.
+    swap: for<'a> unsafe fn(Ptr<'a>, Ptr<'a>),
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -198,6 +206,11 @@ impl ComponentDescriptor {
         x.drop_as::<T>()
     }
 
+    // SAFETY: The pointers point to a valid value of type `T`. Can never panic.
+    unsafe fn swap_ptr<T>(a: Ptr<'_>, b: Ptr<'_>) {
+        core::ptr::swap(a.as_ptr().cast::<T>(), b.as_ptr().cast::<T>());
+    }
+
     pub fn new<T: Component>() -> Self {
         Self {
             name: std::any::type_name::<T>().to_string(),
@@ -206,6 +219,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            swap: Self::swap_ptr::<T>,
         }
     }
 
@@ -222,6 +236,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            swap: Self::swap_ptr::<T>,
         }
     }
 
@@ -233,6 +248,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            swap: Self::swap_ptr::<T>,
         }
     }
 
