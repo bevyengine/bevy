@@ -10,7 +10,6 @@ const DELTA_TIME: f64 = 0.01;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 0.03,
