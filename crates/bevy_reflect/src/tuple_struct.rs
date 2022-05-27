@@ -87,7 +87,7 @@ impl TupleStructInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        &self.type_name
+        self.type_name
     }
 
     /// The [`TypeId`] of the tuple struct.

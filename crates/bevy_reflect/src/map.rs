@@ -73,7 +73,7 @@ impl MapInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
-        &self.type_name
+        self.type_name
     }
 
     /// The [`TypeId`] of the map.
@@ -90,7 +90,7 @@ impl MapInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn key_type_name(&self) -> &'static str {
-        &self.key_type_name
+        self.key_type_name
     }
 
     /// The [`TypeId`] of the key.
@@ -107,7 +107,7 @@ impl MapInfo {
     ///
     /// [type name]: std::any::type_name
     pub fn value_type_name(&self) -> &'static str {
-        &self.value_type_name
+        self.value_type_name
     }
 
     /// The [`TypeId`] of the value.
