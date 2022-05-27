@@ -370,6 +370,14 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
         self.dense.iter_mut()
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
+        self.indices.iter().zip(self.dense.iter())
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
+        self.indices.iter().zip(self.dense.iter_mut())
+    }
 }
 
 pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
