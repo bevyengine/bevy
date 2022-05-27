@@ -210,6 +210,43 @@ fn assert_component_access_compatibility(
            query_type, filter_type, system_name, accesses);
 }
 
+/// Use to safely access and interact with up to 8 mutually exclusive [`SystemParam`]s such as
+/// two queries that reference the same mutable data  or a mutable query and acess to the ecs world.
+///
+/// Access to each individual [`SystemParam`] by using the funcions ```p0()```, ```p1()```, ..., ```p7()```. This ensures that
+/// there's either only one mutable reference to a parameter at a time or an infinite* number of inmutable references.
+/// # Example
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Component)]
+/// struct Health(u32);
+///
+/// #[derive(Component)]
+/// struct Enemy;
+///
+/// //Given the following system
+/// fn fancy_system(
+///     mut set: ParamSet<(
+///         Query<&mut Health, With<Enemy>>,
+///         Query<&mut Health, Without<Enemy>>,
+///         &World
+///     )>
+/// ) {
+///     //To access the param set's elements do as follows:
+///     for mut health in set.p0().iter_mut() {
+///         //Do your fancy stuff here...
+///     }
+///
+///     for mut health in set.p1().iter_mut() {
+///         //Do even fancier stuff here...
+///     }
+///
+///     let entities = set.p2().entities();
+///     //Note that you can only mutably access one parameter of the [`ParamSet`] at a time due to Rust's borrowing rules,
+///     //and, as such, you can gurantee no data races in your program.
+/// }
+/// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::Fetch,
     world: &'w World,
