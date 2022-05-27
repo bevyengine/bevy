@@ -183,12 +183,12 @@ impl BlobVec {
     #[must_use = "The returned pointer should be used to dropped the removed element"]
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> OwningPtr<'_> {
         debug_assert!(index < self.len());
-        let last = self.len - 1;
+        let new_len = self.len - 1;
         let size = self.item_layout.size();
-        (self.swap)(self.get_unchecked(last), self.get_unchecked(index));
-        self.len = last;
+        (self.swap)(self.get_unchecked(new_len), self.get_unchecked(index));
+        self.len = new_len;
         // Cannot use get_unchecked here as this is technically out of bounds after changing len.
-        self.get_ptr_mut().byte_add(last * size).promote()
+        self.get_ptr_mut().byte_add(new_len * size).promote()
     }
 
     /// # Safety
@@ -196,16 +196,11 @@ impl BlobVec {
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
-        if let Some(drop) = self.drop {
-            (drop)(self.get_unchecked_mut(index).promote());
+        let drop = self.drop;
+        let value = self.swap_remove_and_forget_unchecked(index);
+        if let Some(drop) = drop {
+            (drop)(value);
         }
-        let last = self.len - 1;
-        std::ptr::copy(
-            self.get_unchecked_mut(last).as_ptr(),
-            self.get_unchecked_mut(index).as_ptr(),
-            self.item_layout.size(),
-        );
-        self.len = last;
     }
 
     /// # Safety
