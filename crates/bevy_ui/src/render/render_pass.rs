@@ -2,6 +2,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
+use bevy_log::warn;
 use bevy_render::{
     camera::ActiveCamera,
     render_graph::*,
@@ -66,40 +67,41 @@ impl Node for UiPassNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (transparent_phase, target) = self
-            .query
-            .get_manual(world, view_entity)
-            .expect("view entity should exist");
+        match self.query.get_manual(world, view_entity) {
+            Ok((transparent_phase, target)) => {
+                if transparent_phase.items.is_empty() {
+                    return Ok(());
+                }
 
-        if transparent_phase.items.is_empty() {
-            return Ok(());
+                let pass_descriptor = RenderPassDescriptor {
+                    label: Some("ui_pass"),
+                    color_attachments: &[RenderPassColorAttachment {
+                        view: &target.view,
+                        resolve_target: None,
+                        ops: Operations {
+                            load: LoadOp::Load,
+                            store: true,
+                        },
+                    }],
+                    depth_stencil_attachment: None,
+                };
+
+                let draw_functions = world.resource::<DrawFunctions<TransparentUi>>();
+
+                let render_pass = render_context
+                    .command_encoder
+                    .begin_render_pass(&pass_descriptor);
+
+                let mut draw_functions = draw_functions.write();
+                let mut tracked_pass = TrackedRenderPass::new(render_pass);
+                for item in &transparent_phase.items {
+                    let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+                    draw_function.draw(world, &mut tracked_pass, view_entity, item);
+                }
+            }
+            Err(_) => warn!("view entity should exist!"),
         }
 
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("ui_pass"),
-            color_attachments: &[RenderPassColorAttachment {
-                view: &target.view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                },
-            }],
-            depth_stencil_attachment: None,
-        };
-
-        let draw_functions = world.resource::<DrawFunctions<TransparentUi>>();
-
-        let render_pass = render_context
-            .command_encoder
-            .begin_render_pass(&pass_descriptor);
-
-        let mut draw_functions = draw_functions.write();
-        let mut tracked_pass = TrackedRenderPass::new(render_pass);
-        for item in &transparent_phase.items {
-            let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-            draw_function.draw(world, &mut tracked_pass, view_entity, item);
-        }
         Ok(())
     }
 }
