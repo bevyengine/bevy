@@ -1,4 +1,4 @@
-use std::mem::MaybeUninit;
+use std::mem::{ManuallyDrop, MaybeUninit};
 
 use super::Command;
 use crate::world::World;
@@ -50,25 +50,27 @@ impl CommandQueue {
             func: write_command::<C>,
         });
 
+        // Use `ManuallyDrop` to forget `command` right away, avoiding
+        // any use of it after the `ptr::copy_nonoverlapping`.
+        let command = ManuallyDrop::new(command);
+
         if size > 0 {
             self.bytes.reserve(size);
 
             // SAFE: The internal `bytes` vector has enough storage for the
             // command (see the call the `reserve` above), the vector has
             // its length set appropriately and can contain any kind of bytes.
-            // Also `command` is forgotten at the end of this function so that
-            // when `apply` is called later, a double `drop` does not occur.
+            // Also `command` is forgotten so that  when `apply` is called
+            // later, a double `drop` does not occur.
             unsafe {
                 std::ptr::copy_nonoverlapping(
-                    &command as *const C as *const MaybeUninit<u8>,
+                    &*command as *const C as *const MaybeUninit<u8>,
                     self.bytes.as_mut_ptr().add(old_len),
                     size,
                 );
                 self.bytes.set_len(old_len + size);
             }
         }
-
-        std::mem::forget(command);
     }
 
     /// Execute the queued [`Command`]s in the world.
