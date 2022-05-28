@@ -85,27 +85,11 @@ impl CommandQueue {
         // unnecessary allocations.
         unsafe { self.bytes.set_len(0) };
 
-        let byte_ptr = if self.bytes.as_mut_ptr().is_null() {
-            // SAFE: If the vector's buffer pointer is `null` this mean nothing has been pushed to its bytes.
-            // This means either that:
-            //
-            // 1) There are no commands so this pointer will never be read/written from/to.
-            //
-            // 2) There are only zero-sized commands pushed.
-            //    According to https://doc.rust-lang.org/std/ptr/index.html
-            //    "The canonical way to obtain a pointer that is valid for zero-sized accesses is NonNull::dangling"
-            //    therefore it is safe to call `read_unaligned` on a pointer produced from `NonNull::dangling` for
-            //    zero-sized commands.
-            unsafe { std::ptr::NonNull::dangling().as_mut() }
-        } else {
-            self.bytes.as_mut_ptr()
-        };
-
         for meta in self.metas.drain(..) {
             // SAFE: The implementation of `write_command` is safe for the according Command type.
             // The bytes are safely cast to their original type, safely read, and then dropped.
             unsafe {
-                (meta.func)(byte_ptr.add(meta.offset), world);
+                (meta.func)(self.bytes.as_mut_ptr().add(meta.offset), world);
             }
         }
     }
