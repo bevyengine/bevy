@@ -226,4 +226,17 @@ mod test {
     fn test_command_is_send() {
         assert_is_send(SpawnCommand);
     }
+
+    struct CommandWithPadding(u8, u16);
+    impl Command for CommandWithPadding {
+        fn write(self, _: &mut World) {}
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn test_uninit_bytes() {
+        let mut queue = CommandQueue::default();
+        queue.push(CommandWithPadding(0, 0));
+        let _ = format!("{:?}", queue.bytes);
+    }
 }
