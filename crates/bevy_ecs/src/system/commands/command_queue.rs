@@ -60,6 +60,9 @@ impl CommandQueue {
             // SAFE: The internal `bytes` vector has enough storage for the
             // command (see the call the `reserve` above), the vector has
             // its length set appropriately and can contain any kind of bytes.
+            // In case we're writing a ZST and the `Vec` hasn't allocated yet
+            // then `as_mut_ptr` will be a dangling (non null) pointer, and
+            // thus valid for ZST writes.
             // Also `command` is forgotten so that  when `apply` is called
             // later, a double `drop` does not occur.
             unsafe {
@@ -87,6 +90,7 @@ impl CommandQueue {
 
         for meta in self.metas.drain(..) {
             // SAFE: The implementation of `write_command` is safe for the according Command type.
+            // It's ok to read from `bytes.as_mut_ptr()` because we just wrote to it in `push`.
             // The bytes are safely cast to their original type, safely read, and then dropped.
             unsafe {
                 (meta.func)(self.bytes.as_mut_ptr().add(meta.offset), world);
