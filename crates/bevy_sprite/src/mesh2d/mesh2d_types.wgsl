@@ -1,4 +1,4 @@
-#define_import_path bevy_sprite::mesh2d_struct
+#define_import_path bevy_sprite::mesh2d_types
 
 struct Mesh2d {
     model: mat4x4<f32>;
