@@ -79,8 +79,6 @@ impl<T> ResultSifter<T> {
     }
 
     /// Associated method that provides a convenient implementation for [`Iterator::fold`].
-    ///
-    /// [`Iterator::fold`]: core::iter::traits::iterator::Iterator::fold
     pub fn fold(mut sifter: Self, result: Result<T, syn::Error>) -> Self {
         sifter.sift(result);
         sifter
