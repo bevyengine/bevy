@@ -48,7 +48,7 @@ pub(crate) fn get_variant_constructors(
                     let expect_type = format!(
                         "field at index `{}` should be of type `{}`",
                         field_idx,
-                        field_ty.to_token_stream().to_string()
+                        field_ty.to_token_stream()
                     );
 
                     let unwrapper = if can_panic {
@@ -92,7 +92,7 @@ pub(crate) fn get_variant_constructors(
                     let expect_type = format!(
                         "field with name `{}` should be of type `{}`",
                         field_name,
-                        field_ty.to_token_stream().to_string()
+                        field_ty.to_token_stream()
                     );
 
                     let unwrapper = if can_panic {

@@ -117,7 +117,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             fn iter_fields(&self) -> #bevy_reflect_path::VariantFieldIter {
-                VariantFieldIter::new(self)
+                #bevy_reflect_path::VariantFieldIter::new(self)
             }
 
             #[inline]
