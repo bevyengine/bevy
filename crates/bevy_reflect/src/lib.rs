@@ -884,8 +884,8 @@ bevy_reflect::tests::should_reflect_debug::Test {
             let v = vec3(12.0, 3.0, -6.9);
 
             let mut registry = TypeRegistry::default();
-            registry.add_registration(Vec3::get_type_registration());
-            registry.add_registration(f32::get_type_registration());
+            register_type!(registry, Vec3, erased_serde::Serialize);
+            register_type!(registry, f32, erased_serde::Serialize);
 
             let ser = ReflectSerializer::new(&v, &registry);
 
