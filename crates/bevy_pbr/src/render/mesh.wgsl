@@ -1,5 +1,6 @@
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_view_types
+#import bevy_pbr::mesh_types
+#import bevy_pbr::mesh_view_bindings
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
@@ -68,7 +69,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif
 #ifdef VERTEX_COLORS
     out.color = vertex.color;
-#endif 
+#endif
 
     out.uv = vertex.uv;
     out.clip_position = view.view_proj * out.world_position;

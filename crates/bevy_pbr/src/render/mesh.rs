@@ -35,9 +35,11 @@ const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
-pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
+pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
+pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
-pub const MESH_STRUCT_HANDLE: HandleUntyped =
+pub const MESH_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
 pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
@@ -46,19 +48,20 @@ pub const SKINNING_HANDLE: HandleUntyped =
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        load_internal_asset!(
+            app,
+            MESH_VIEW_TYPES_HANDLE,
+            "mesh_view_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_VIEW_BINDINGS_HANDLE,
+            "mesh_view_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(app, MESH_TYPES_HANDLE, "mesh_types.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            MESH_STRUCT_HANDLE,
-            "mesh_struct.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH_VIEW_BIND_GROUP_HANDLE,
-            "mesh_view_bind_group.wgsl",
-            Shader::from_wgsl
-        );
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());

@@ -1,4 +1,4 @@
-#define_import_path bevy_pbr::mesh_struct
+#define_import_path bevy_pbr::mesh_types
 
 struct Mesh {
     model: mat4x4<f32>;
