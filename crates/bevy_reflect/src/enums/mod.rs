@@ -9,7 +9,6 @@ pub use helpers::*;
 pub use variants::*;
 
 #[cfg(test)]
-#[allow(unused_variables)]
 mod tests {
     use crate as bevy_reflect;
     use crate::*;

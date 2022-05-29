@@ -345,10 +345,10 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                         #unit{ #field_ident, .. } if #ref_index == #field_idx => Some(#field_ident)
                     });
                     enum_index_of.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_name == #field_name => Some(#field_idx)
+                        #unit{ .. } if #ref_name == #field_name => Some(#field_idx)
                     });
                     enum_name_at.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_index == #field_idx => Some(#field_name)
+                        #unit{ .. } if #ref_index == #field_idx => Some(#field_name)
                     });
 
                     let field_ty = &field.data.ty;
