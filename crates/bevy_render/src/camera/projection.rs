@@ -5,7 +5,8 @@ use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
 use bevy_reflect::{
-    std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
+    std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
+    ReflectSerialize,
 };
 use bevy_window::ModifiesWindows;
 use serde::{Deserialize, Serialize};
@@ -101,7 +102,7 @@ impl Default for Projection {
     }
 }
 
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct PerspectiveProjection {
     pub fov: f32,
@@ -140,14 +141,14 @@ impl Default for PerspectiveProjection {
 }
 
 // TODO: make this a component instead of a property
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect_value(Serialize, Deserialize)]
 pub enum WindowOrigin {
     Center,
     BottomLeft,
 }
 
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect_value(Serialize, Deserialize)]
 pub enum ScalingMode {
     /// Manually specify left/right/top/bottom values.
@@ -166,7 +167,7 @@ pub enum ScalingMode {
     FixedHorizontal(f32),
 }
 
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
     pub left: f32,
