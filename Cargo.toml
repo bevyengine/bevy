@@ -173,10 +173,6 @@ name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
-name = "post_processing"
-path = "examples/shader/post_processing.rs"
-
-[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 
@@ -507,6 +503,10 @@ path = "examples/scene/scene.rs"
 [[example]]
 name = "custom_vertex_attribute"
 path = "examples/shader/custom_vertex_attribute.rs"
+
+[[example]]
+name = "post_processing"
+path = "examples/shader/post_processing.rs"
 
 [[example]]
 name = "shader_defs"

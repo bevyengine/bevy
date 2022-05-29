@@ -4,7 +4,7 @@
 
 use bevy::{
     core_pipeline::{
-        draw_3d_graph, node, AlphaMask3d, Opaque3d, RenderTargetClearColors, Transparent3d,
+        draw_2d_graph, node, AlphaMask3d, Opaque3d, RenderTargetClearColors, Transparent3d,
     },
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
@@ -28,71 +28,52 @@ use bevy::{
 };
 
 #[derive(Component, Default)]
-pub struct FirstPassCamera;
+pub struct PostProcessingPassCamera;
 
-/// The name of the final node of the first pass.
-pub const FIRST_PASS_DRIVER: &str = "first_pass_driver";
+/// The name of the final node of the post_process pass.
+pub const POST_PROCESS_PASS_DRIVER: &str = "post_process_pass_driver";
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
-        .add_plugin(CameraTypePlugin::<FirstPassCamera>::default())
+        .add_plugin(CameraTypePlugin::<PostProcessingPassCamera>::default())
         .add_startup_system(setup)
-        .add_system(first_pass_cube_rotator_system);
+        .add_system(main_pass_cube_rotator_system);
 
     let render_app = app.sub_app_mut(RenderApp);
-    let driver = FirstPassCameraDriver::new(&mut render_app.world);
-    // This will add 3D render phases for the new camera.
-    render_app.add_system_to_stage(RenderStage::Extract, extract_first_pass_camera_phases);
+    let driver = PostProcessPassCameraDriver::new(&mut render_app.world);
 
     let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-    // Add a node for the first pass.
-    graph.add_node(FIRST_PASS_DRIVER, driver);
+    // Add a node for the post processing pass.
+    graph.add_node(POST_PROCESS_PASS_DRIVER, driver);
 
-    // The first pass's dependencies include those of the main pass.
+    // The post process pass's dependencies include those of the main pass.
     graph
-        .add_node_edge(node::MAIN_PASS_DEPENDENCIES, FIRST_PASS_DRIVER)
+        .add_node_edge(node::MAIN_PASS_DEPENDENCIES, POST_PROCESS_PASS_DRIVER)
         .unwrap();
 
-    // Insert the first pass node: CLEAR_PASS_DRIVER -> FIRST_PASS_DRIVER -> MAIN_PASS_DRIVER
+    // Insert the post process pass node: CLEAR_PASS_DRIVER -> MAIN_PASS_DRIVER -> POST_PROCESS_PASS_DRIVER
     graph
-        .add_node_edge(node::CLEAR_PASS_DRIVER, FIRST_PASS_DRIVER)
-        .unwrap();
-    graph
-        .add_node_edge(FIRST_PASS_DRIVER, node::MAIN_PASS_DRIVER)
+        .add_node_edge(POST_PROCESS_PASS_DRIVER, node::MAIN_PASS_DRIVER)
         .unwrap();
     app.run();
 }
 
-/// Add 3D render phases for `FirstPassCamera`.
-fn extract_first_pass_camera_phases(
-    mut commands: Commands,
-    active: Res<ActiveCamera<FirstPassCamera>>,
-) {
-    if let Some(entity) = active.get() {
-        commands.get_or_spawn(entity).insert_bundle((
-            RenderPhase::<Opaque3d>::default(),
-            RenderPhase::<AlphaMask3d>::default(),
-            RenderPhase::<Transparent3d>::default(),
-        ));
-    }
+/// A node for the `PostProcessingPassCamera` that runs `draw_2d_graph` with this camera.
+struct PostProcessPassCameraDriver {
+    query: QueryState<Entity, With<PostProcessingPassCamera>>,
 }
 
-/// A node for the `FirstPassCamera` that runs `draw_3d_graph` with this camera.
-struct FirstPassCameraDriver {
-    query: QueryState<Entity, With<FirstPassCamera>>,
-}
-
-impl FirstPassCameraDriver {
+impl PostProcessPassCameraDriver {
     pub fn new(render_world: &mut World) -> Self {
         Self {
             query: QueryState::new(render_world),
         }
     }
 }
-impl Node for FirstPassCameraDriver {
+impl Node for PostProcessPassCameraDriver {
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -104,15 +85,15 @@ impl Node for FirstPassCameraDriver {
         world: &World,
     ) -> Result<(), NodeRunError> {
         for camera in self.query.iter_manual(world) {
-            graph.run_sub_graph(draw_3d_graph::NAME, vec![SlotValue::Entity(camera)])?;
+            graph.run_sub_graph(draw_2d_graph::NAME, vec![SlotValue::Entity(camera)])?;
         }
         Ok(())
     }
 }
 
-/// Marks the first pass cube (rendered to a texture.)
+/// Marks the Main pass cube (rendered to a texture.)
 #[derive(Component)]
-struct FirstPassCube;
+struct MainPassCube;
 
 fn setup(
     mut commands: Commands,
@@ -159,9 +140,6 @@ fn setup(
         ..default()
     });
 
-    // This specifies the layer used for the first pass, which will be attached to the first pass camera and cube.
-    let first_pass_layer = RenderLayers::layer(1);
-
     // The cube that will be rendered to the texture.
     commands
         .spawn_bundle(PbrBundle {
@@ -170,8 +148,7 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
             ..default()
         })
-        .insert(FirstPassCube)
-        .insert(first_pass_layer);
+        .insert(MainPassCube);
 
     // Light
     // NOTE: Currently lights are shared between passes - see https://github.com/bevyengine/bevy/issues/3462
@@ -180,20 +157,53 @@ fn setup(
         ..default()
     });
 
-    // First pass camera
+    // Main pass camera
     let render_target = RenderTarget::Image(image_handle.clone());
     clear_colors.insert(render_target.clone(), Color::WHITE);
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        camera: Camera {
+            target: render_target,
+            ..default()
+        },
+        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
+            .looking_at(Vec3::default(), Vec3::Y),
+        ..PerspectiveCameraBundle::default()
+    });
+
+    // This specifies the layer used for the post processing pass, which will be attached to the post processing pass camera and 2d quad.
+    let post_processing_pass_layer = RenderLayers::layer((RenderLayers::TOTAL_LAYERS - 1) as u8);
+
+    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
+        size.width as f32,
+        size.height as f32,
+    ))));
+
+    // This material has the texture that has been rendered.
+    let material_handle = post_processing_materials.add(PostProcessingMaterial {
+        source_image: image_handle,
+    });
+
+    // Post processing pass 2d quad, with material containing the rendered main pass texture, with a custom shader.
     commands
-        .spawn_bundle(PerspectiveCameraBundle::<FirstPassCamera> {
-            camera: Camera {
-                target: render_target,
+        .spawn_bundle(MaterialMesh2dBundle {
+            mesh: quad_handle.into(),
+            material: material_handle,
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 1.5),
                 ..default()
             },
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-                .looking_at(Vec3::default(), Vec3::Y),
-            ..PerspectiveCameraBundle::new()
+            ..default()
         })
-        .insert(first_pass_layer);
+        .insert(post_processing_pass_layer);
+
+    // The post-processing pass camera.
+    commands
+        .spawn_bundle(OrthographicCameraBundle {
+            ..OrthographicCameraBundle::new_2d()
+        })
+        .insert(PostProcessingPassCamera)
+        .insert(post_processing_pass_layer);
+
     // NOTE: omitting the RenderLayers component for this camera may cause a validation error:
     //
     // thread 'main' panicked at 'wgpu error: Validation Error
@@ -207,36 +217,12 @@ fn setup(
     //
     // This happens because the texture would be written and read in the same frame, which is not allowed.
     // So either render layers must be used to avoid this, or the texture must be double buffered.
-
-    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-        size.width as f32,
-        size.height as f32,
-    ))));
-
-    // This material has the texture that has been rendered.
-    let material_handle = post_processing_materials.add(PostProcessingMaterial {
-        source_image: image_handle,
-    });
-
-    // Main pass 2d quad, with material containing the rendered first pass texture, with a custom shader.
-    commands.spawn_bundle(MaterialMesh2dBundle {
-        mesh: quad_handle.into(),
-        material: material_handle,
-        transform: Transform {
-            translation: Vec3::new(0.0, 0.0, 1.5),
-            ..default()
-        },
-        ..default()
-    });
-
-    // The main pass camera.
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
-/// Rotates the inner cube (first pass)
-fn first_pass_cube_rotator_system(
+/// Rotates the inner cube (main pass)
+fn main_pass_cube_rotator_system(
     time: Res<Time>,
-    mut query: Query<&mut Transform, With<FirstPassCube>>,
+    mut query: Query<&mut Transform, With<MainPassCube>>,
 ) {
     for mut transform in query.iter_mut() {
         transform.rotation *= Quat::from_rotation_x(1.5 * time.delta_seconds());
@@ -250,7 +236,7 @@ fn first_pass_cube_rotator_system(
 #[derive(TypeUuid, Clone)]
 #[uuid = "bc2f08eb-a0fb-43f1-a908-54871ea597d5"]
 struct PostProcessingMaterial {
-    /// In this example, this image will be the result of the first pass.
+    /// In this example, this image will be the result of the main pass.
     source_image: Handle<Image>,
 }
 
