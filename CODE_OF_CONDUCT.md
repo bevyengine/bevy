@@ -25,6 +25,7 @@ These are the policies for upholding [our community’s standards of conduct](#o
 These policies will be enforced in all official Bevy forums (Discord, GitHub, Reddit, etc.), but rules apply broadly to anywhere members of the community interact, including but not limited to unofficial discussions of Bevy, Bevy ecosystem spaces, or in person meetings.
 
 1. Hateful, hurtful, oppressive, or exclusionary remarks are not allowed.
+   1. Respect others identities, including stated pronouns.
 2. Personal attacks are out-of-line.
    1. Disagree with specific actions and decisions in a constructive way.
 3. Avoid sweeping negative comments or jokes that could be construed as passive-aggressive complaints.
