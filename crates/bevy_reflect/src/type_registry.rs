@@ -304,6 +304,34 @@ macro_rules! maybe_trait_cast {
     }};
 }
 
+#[doc(hidden)]
+pub trait NotFromType {
+    const FROM_TYPE_FN: Option<fn() -> Self> = None;
+}
+impl<T> NotFromType for T {}
+
+#[macro_export]
+macro_rules! maybe_type_data {
+    ($this_type:ty, $type_data_ty:path) => {{
+        {
+            #[allow(unused_imports)]
+            use $crate::NotFromType;
+            struct IsFromTypeImplemented<T>(core::marker::PhantomData<T>);
+            impl<T: $crate::FromType<$this_type> + 'static> IsFromTypeImplemented<T> {
+                #[allow(unused)]
+                const FROM_TYPE_FN: Option<fn() -> T> =
+                    Some(<T as $crate::FromType<$this_type>>::from_type);
+            }
+            if IsFromTypeImplemented::<$type_data_ty>::FROM_TYPE_FN.is_some() {
+                let v = IsFromTypeImplemented::<$type_data_ty>::FROM_TYPE_FN.unwrap()();
+                Some(v)
+            } else {
+                None
+            }
+        }
+    }};
+}
+
 #[macro_export]
 macro_rules! register_type {
     ($type_registry:ident, $this_type:ty, $($trait_type:path),* $(,)?) => {{
@@ -691,5 +719,15 @@ mod tests {
         let input = "Hello, World!";
         let erased = ErasedNonNull::new(input);
         let _ = unsafe { erased.into_ref::<i32>() };
+    }
+
+    #[test]
+    fn from_type_macro() {
+        let f32_deser = maybe_type_data!(f32, ReflectDeserialize);
+        let file_deser = maybe_type_data!(std::fs::File, ReflectDeserialize);
+        let none_deser = maybe_type_data!((), ReflectDeserialize);
+        assert!(f32_deser.is_some());
+        assert!(file_deser.is_none());
+        assert!(none_deser.is_some());
     }
 }
