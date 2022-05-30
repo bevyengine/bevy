@@ -352,7 +352,7 @@ where
 {
     /// Message shown when a system isn't initialised
     // When lines get too long, rustfmt can sometimes refuse to format them.
-    // Work around this by abstracting over the message.
+    // Work around this by storing the message separately.
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
