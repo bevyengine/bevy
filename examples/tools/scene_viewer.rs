@@ -41,33 +41,37 @@ Controls:
     Enter       - Cycle through animations
 "
     );
-    App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-        })
-        .insert_resource(AssetServerSettings {
-            asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
-            watch_for_changes: true,
-        })
-        .insert_resource(WindowDescriptor {
-            title: "bevy scene viewer".to_string(),
-            ..default()
-        })
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
-        .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
-        .add_system(update_lights)
-        .add_system(camera_controller)
-        .add_system(start_animation)
-        .add_system(keyboard_animation_control)
-        .add_system(keyboard_cameras_control)
-        .run();
+    let mut app = App::new();
+    app.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 1.0 / 5.0f32,
+    })
+    .insert_resource(AssetServerSettings {
+        asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+        watch_for_changes: true,
+    })
+    .insert_resource(WindowDescriptor {
+        title: "bevy scene viewer".to_string(),
+        ..default()
+    })
+    .add_plugins(DefaultPlugins)
+    .add_startup_system(setup)
+    .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
+    .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
+    .add_system(update_lights)
+    .add_system(camera_controller)
+    .add_system(keyboard_cameras_control);
+
+    #[cfg(feature = "animation")]
+    app.add_system(start_animation)
+        .add_system(keyboard_animation_control);
+
+    app.run();
 }
 
 struct SceneHandle {
     handle: Handle<Gltf>,
+    #[cfg(feature = "animation")]
     animations: Vec<Handle<AnimationClip>>,
     instance_id: Option<InstanceId>,
     is_loaded: bool,
@@ -82,6 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Loading {}", scene_path);
     commands.insert_resource(SceneHandle {
         handle: asset_server.load(&scene_path),
+        #[cfg(feature = "animation")]
         animations: Vec::new(),
         instance_id: None,
         is_loaded: false,
@@ -117,17 +122,20 @@ fn scene_load_check(
                 scene_handle.instance_id =
                     Some(scene_spawner.spawn(gltf_scene_handle.clone_weak()));
 
-                scene_handle.animations = gltf.animations.clone();
-                if !scene_handle.animations.is_empty() {
-                    info!(
-                        "Found {} animation{}",
-                        scene_handle.animations.len(),
-                        if scene_handle.animations.len() == 1 {
-                            ""
-                        } else {
-                            "s"
-                        }
-                    );
+                #[cfg(feature = "animation")]
+                {
+                    scene_handle.animations = gltf.animations.clone();
+                    if !scene_handle.animations.is_empty() {
+                        info!(
+                            "Found {} animation{}",
+                            scene_handle.animations.len(),
+                            if scene_handle.animations.len() == 1 {
+                                ""
+                            } else {
+                                "s"
+                            }
+                        );
+                    }
                 }
 
                 info!("Spawning scene...");
@@ -143,6 +151,7 @@ fn scene_load_check(
     }
 }
 
+#[cfg(feature = "animation")]
 fn start_animation(
     mut player: Query<&mut AnimationPlayer>,
     mut done: Local<bool>,
@@ -158,6 +167,7 @@ fn start_animation(
     }
 }
 
+#[cfg(feature = "animation")]
 fn keyboard_animation_control(
     keyboard_input: Res<Input<KeyCode>>,
     mut animation_player: Query<&mut AnimationPlayer>,
