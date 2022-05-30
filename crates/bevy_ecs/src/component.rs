@@ -10,6 +10,7 @@ use bevy_ptr::OwningPtr;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
+    borrow::Cow,
     mem::needs_drop,
 };
 
@@ -164,7 +165,7 @@ impl SparseSetIndex for ComponentId {
 }
 
 pub struct ComponentDescriptor {
-    name: String,
+    name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
     // associated rust component type if one exists.
     storage_type: StorageType,
@@ -201,7 +202,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
-            name: std::any::type_name::<T>().to_string(),
+            name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type: T::Storage::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
@@ -216,13 +217,13 @@ impl ComponentDescriptor {
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
     pub unsafe fn new_with_layout(
-        name: String,
+        name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     ) -> Self {
         Self {
-            name,
+            name: name.into(),
             storage_type,
             is_send_and_sync: true,
             type_id: None,
@@ -236,7 +237,7 @@ impl ComponentDescriptor {
     /// The [`StorageType`] for resources is always [`TableStorage`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
-            name: std::any::type_name::<T>().to_string(),
+            name: Cow::Borrowed(std::any::type_name::<T>()),
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
@@ -249,7 +250,7 @@ impl ComponentDescriptor {
 
     fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            name: std::any::type_name::<T>().to_string(),
+            name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
@@ -270,7 +271,7 @@ impl ComponentDescriptor {
 
     #[inline]
     pub fn name(&self) -> &str {
-        &self.name
+        self.name.as_ref()
     }
 }
 
