@@ -528,10 +528,6 @@ mod tests {
         world::World,
     };
 
-    use crate::prelude::{Children, Parent, PreviousParent};
-
-    use super::{BuildChildren, BuildWorldChildren};
-
     #[derive(Component)]
     struct C(u32);
 

@@ -286,36 +286,28 @@ mod test {
     fn correct_transforms_when_no_children() {
         let mut app = App::new();
 
-        app.add_system(parent_update_system);
         app.add_system(transform_propagate_system);
 
         let translation = vec3(1.0, 0.0, 0.0);
 
+        // These will be overwritten.
+        let mut child = Entity::from_raw(0);
+        let mut grandchild = Entity::from_raw(1);
         let parent = app
             .world
             .spawn()
             .insert(Transform::from_translation(translation))
             .insert(GlobalTransform::default())
-            .id();
-
-        let child = app
-            .world
-            .spawn()
-            .insert_bundle((
-                Transform::identity(),
-                GlobalTransform::default(),
-                Parent(parent),
-            ))
-            .id();
-
-        let grandchild = app
-            .world
-            .spawn()
-            .insert_bundle((
-                Transform::identity(),
-                GlobalTransform::default(),
-                Parent(child),
-            ))
+            .with_children(|builder| {
+                child = builder
+                    .spawn_bundle((Transform::identity(), GlobalTransform::default()))
+                    .with_children(|builder| {
+                        grandchild = builder
+                            .spawn_bundle((Transform::identity(), GlobalTransform::default()))
+                            .id();
+                    })
+                    .id();
+            })
             .id();
 
         app.update();
@@ -336,37 +328,5 @@ mod test {
                 },
             );
         }
-    }
-    #[test]
-    #[should_panic]
-    fn panic_when_hierarchy_cycle() {
-        let mut app = App::new();
-
-        app.add_system(parent_update_system);
-        app.add_system(transform_propagate_system);
-
-        let child = app
-            .world
-            .spawn()
-            .insert_bundle((Transform::identity(), GlobalTransform::default()))
-            .id();
-
-        let grandchild = app
-            .world
-            .spawn()
-            .insert_bundle((
-                Transform::identity(),
-                GlobalTransform::default(),
-                Parent(child),
-            ))
-            .id();
-        app.world.spawn().insert_bundle((
-            Transform::default(),
-            GlobalTransform::default(),
-            Children::with(&[child]),
-        ));
-        app.world.entity_mut(child).insert(Parent(grandchild));
-
-        app.update();
     }
 }
