@@ -49,6 +49,7 @@ skip = [
     { name = "ndk-sys", version = "0.2" },              # from winit v0.26.1
     { name = "stdweb", version = "0.1" },               # from rodio v0.15.0
     { name = "wasi",  version = "0.10"},                # from ahash v0.7.6
+    { name = "nix", version = "0.23.1" },               # from alsa v0.6.0
 ]
 
 [sources]
