@@ -217,13 +217,13 @@ impl ComponentDescriptor {
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
     pub unsafe fn new_with_layout(
-        name: String,
+        name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     ) -> Self {
         Self {
-            name,
+            name: name.into(),
             storage_type,
             is_send_and_sync: true,
             type_id: None,
