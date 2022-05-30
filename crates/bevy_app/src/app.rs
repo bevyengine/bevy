@@ -866,15 +866,6 @@ impl App {
         mut app: App,
         sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
-        if let Some(pool) = self.world.get_resource::<ComputeTaskPool>() {
-            app.world.insert_resource(pool.clone());
-        }
-        if let Some(pool) = self.world.get_resource::<AsyncComputeTaskPool>() {
-            app.world.insert_resource(pool.clone());
-        }
-        if let Some(pool) = self.world.get_resource::<IoTaskPool>() {
-            app.world.insert_resource(pool.clone());
-        }
         self.sub_apps.insert(
             Box::new(label),
             SubApp {
