@@ -89,7 +89,8 @@ Example | File | Description
 `move_sprite` | [`2d/move_sprite.rs`](./2d/move_sprite.rs) | Changes the transform of a sprite.
 `mesh2d` | [`2d/mesh2d.rs`](./2d/mesh2d.rs) | Renders a 2d mesh
 `mesh2d_manual` | [`2d/mesh2d_manual.rs`](./2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis.
-`rect` | [`2d/rect.rs`](./2d/rect.rs) | Renders a rectangle
+`mesh2d_vertex_color_texture` | [`2d/mesh2d_vertex_color_texture.rs`](./2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes.
+`shapes` | [`2d/shapes.rs`](./2d/shapes.rs) | Renders a rectangle, circle, and hexagon
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
 `text2d` | [`2d/text2d.rs`](./2d/text2d.rs) | Generates text in 2d
@@ -115,7 +116,9 @@ Example | File | Description
 `spherical_area_lights` | [`3d/spherical_area_lights.rs`](./3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior.
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
+`vertex_colors` | [`3d/vertex_colors.rs`](./3d/vertex_colors.rs) | Shows the use of vertex colors
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
+`3d_shapes` | [`3d/shapes.rs`](./3d/shapes.rs) | A scene showcasing the built-in 3D shapes
 
 ## Animation
 
@@ -190,6 +193,7 @@ Example | File | Description
 `startup_system` | [`ecs/startup_system.rs`](./ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 `state` | [`ecs/state.rs`](./ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
 `system_chaining` | [`ecs/system_chaining.rs`](./ecs/system_chaining.rs) | Chain two systems together, specifying a return type in a system (such as `Result`)
+`system_closure` | [`ecs/system_closure.rs`](./ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 `system_param` | [`ecs/system_param.rs`](./ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 `system_sets` | [`ecs/system_sets.rs`](./ecs/system_sets.rs) | Shows `SystemSet` use along with run criterion
 `timers` | [`ecs/timers.rs`](./ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
@@ -236,16 +240,23 @@ Example | File | Description
 
 ## Shaders
 
+These examples demonstrate how to implement different shaders in user code.
+
+A shader in its most common usage is a small program that is run by the GPU per-vertex in a mesh (a vertex shader)
+or per-affected-screen-fragment (a fragment shader.) The GPU executes these programs in a highly parallel way.
+
+There are also compute shaders which are used for more general processing leveraging the GPU’s parallelism.
+
 Example | File | Description
 --- | --- | ---
-`custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | Illustrates creating a custom shader material that reads a mesh's custom vertex attribute.
-`shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
-`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A custom shader sampling a texture with view-independent UV coordinates
-`shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A custom shader using the GLSL shading language.
-`shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A custom shader showing off rendering a mesh multiple times in one draw call.
-`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to pass changing data like the time since startup into a shader.
-`compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader simulating Conway's Game of Life
-`shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
+`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup.
+`compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life.
+`custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute.
+`shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader).
+`shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call.
+`shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | A shader and a material that uses it.
+`shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language.
+`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates.
 
 ## Stress Tests
 
@@ -260,7 +271,8 @@ cargo run --release --example <example name>
 Example | File | Description
 --- | --- | ---
 `bevymark` | [`stress_tests/bevymark.rs`](./stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
-`many_cubes` | [`stress_tests/many_cubes.rs`](./stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead
+`many_cubes` | [`stress_tests/many_cubes.rs`](./stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling.
+`many_foxes` | [`stress_tests/many_foxes.rs`](./stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000.
 `many_lights` | [`stress_tests/many_lights.rs`](./stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
 `many_sprites` | [`stress_tests/many_sprites.rs`](./stress_tests/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing.
 `transform_hierarchy.rs` | [`stress_tests/transform_hierarchy.rs`](./stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
@@ -275,14 +287,14 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`scene_viewer` | [`tools/scene_viewer.rs`](./tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer -- /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory.
+`scene_viewer` | [`tools/scene_viewer.rs`](./tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory.
 
 ## Transforms
 
 Example | File | Description
 --- | --- | ---
-`global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
 `3d_rotation` | [`transforms/3d_rotation.rs`](./transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
+`global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform.
 `scale` | [`transforms/scale.rs`](./transforms/scale.rs) | Illustrates how to scale an object in each direction
 `transform` | [`transforms/transfrom.rs`](./transforms/transform.rs) | Shows multiple transformations of objects
 `translation` | [`transforms/translation.rs`](./transforms/translation.rs) | Illustrates how to move an object along an axis
@@ -418,7 +430,13 @@ cargo install wasm-bindgen-cli
 ### Build & Run
 
 Following is an example for `lighting`. For other examples, change the `lighting` in the
-following commands.
+following command.
+
+```sh
+cargo run -p build-wasm-example -- lighting
+```
+
+This is the same as running
 
 ```sh
 cargo build --release --example lighting --target wasm32-unknown-unknown

@@ -1,4 +1,3 @@
-use bevy_core::FloatOrd;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -13,6 +12,7 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
+use bevy_utils::FloatOrd;
 
 use crate::prelude::CameraUi;
 
@@ -66,10 +66,16 @@ impl Node for UiPassNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (transparent_phase, target) = self
-            .query
-            .get_manual(world, view_entity)
-            .expect("view entity should exist");
+
+        // If there is no view entity, do not try to process the render phase for the view
+        let (transparent_phase, target) = match self.query.get_manual(world, view_entity) {
+            Ok(it) => it,
+            _ => return Ok(()),
+        };
+
+        if transparent_phase.items.is_empty() {
+            return Ok(());
+        }
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
             color_attachments: &[RenderPassColorAttachment {

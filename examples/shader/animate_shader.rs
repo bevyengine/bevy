@@ -1,3 +1,7 @@
+//! A shader that uses dynamic data like the time since startup.
+//!
+//! This example uses a specialized pipeline.
+
 use bevy::{
     core_pipeline::Transparent3d,
     ecs::system::{lifetimeless::SRes, SystemParamItem},
@@ -186,10 +190,10 @@ pub struct CustomPipeline {
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let asset_server = world.resource::<AssetServer>();
         let shader = asset_server.load("shaders/animate_shader.wgsl");
 
-        let render_device = world.get_resource_mut::<RenderDevice>().unwrap();
+        let render_device = world.resource_mut::<RenderDevice>();
         let time_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("time bind group"),
@@ -205,7 +209,7 @@ impl FromWorld for CustomPipeline {
                 }],
             });
 
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+        let mesh_pipeline = world.resource::<MeshPipeline>();
 
         CustomPipeline {
             shader,
@@ -244,6 +248,7 @@ type DrawCustom = (
 );
 
 struct SetTimeBindGroup<const I: usize>;
+
 impl<const I: usize> EntityRenderCommand for SetTimeBindGroup<I> {
     type Param = SRes<TimeMeta>;
 

@@ -1,7 +1,11 @@
+//! This example provides a 2D benchmark.
+//!
+//! Usage: spawn more entities by clicking on the screen.
+
 use bevy::{
-    core::FixedTimestep,
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    time::FixedTimestep,
     window::PresentMode,
 };
 use rand::{thread_rng, Rng};
@@ -22,9 +26,6 @@ struct Bird {
     velocity: Vec3,
 }
 
-/// This example provides a 2D benchmark.
-///
-/// Usage: spawn more entities by clicking on the screen.
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -134,7 +135,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             style: Style {
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect {
                     top: Val::Px(5.0),
                     left: Val::Px(5.0),
                     ..default()

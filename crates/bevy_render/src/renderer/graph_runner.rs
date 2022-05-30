@@ -101,9 +101,8 @@ impl RenderGraphRunner {
                             expected: input_slot.slot_type,
                             label: input_slot.name.clone().into(),
                         });
-                    } else {
-                        input_values.push(input_value.clone());
                     }
+                    input_values.push(input_value.clone());
                 } else {
                     return Err(RenderGraphRunnerError::MissingInput {
                         slot_index: i,

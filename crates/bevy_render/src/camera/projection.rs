@@ -1,6 +1,7 @@
 use super::DepthCalculation;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Mat4;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +13,7 @@ pub trait CameraProjection {
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct PerspectiveProjection {
     pub fov: f32,
     pub aspect_ratio: f32,
@@ -72,7 +73,7 @@ pub enum ScalingMode {
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct OrthographicProjection {
     pub left: f32,
     pub right: f32,
@@ -103,12 +104,14 @@ impl CameraProjection for OrthographicProjection {
     fn update(&mut self, width: f32, height: f32) {
         match (&self.scaling_mode, &self.window_origin) {
             (ScalingMode::WindowSize, WindowOrigin::Center) => {
-                let half_width = width / 2.0;
-                let half_height = height / 2.0;
-                self.left = -half_width;
+                let half_width = (width / 2.0).round();
+                let half_height = (height / 2.0).round();
+                // Assign left and bottom such that (right-left)==width and (top-bottom)==height
+                // still hold with  with rounded half_width and half_height
+                self.left = half_width - width;
                 self.right = half_width;
                 self.top = half_height;
-                self.bottom = -half_height;
+                self.bottom = half_height - height;
             }
             (ScalingMode::WindowSize, WindowOrigin::BottomLeft) => {
                 self.left = 0.0;

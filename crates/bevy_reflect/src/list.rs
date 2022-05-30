@@ -1,28 +1,15 @@
 use std::any::Any;
+use std::fmt::{Debug, Formatter};
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{serde::Serializable, Array, ArrayIter, DynamicArray, Reflect, ReflectMut, ReflectRef};
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
-pub trait List: Reflect {
-    /// Returns a reference to the element at `index`, or `None` if out of bounds.
-    fn get(&self, index: usize) -> Option<&dyn Reflect>;
-
-    /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
-
+///
+/// This is a sub-trait of [`Array`] as it implements a [`push`](List::push) function, allowing
+/// it's internal size to grow.
+pub trait List: Reflect + Array {
     /// Appends an element to the list.
     fn push(&mut self, value: Box<dyn Reflect>);
-
-    /// Returns the number of elements in the list.
-    fn len(&self) -> usize;
-
-    /// Returns `true` if the list contains no elements.
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Returns an iterator over the list.
-    fn iter(&self) -> ListIter;
 
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
@@ -68,7 +55,7 @@ impl DynamicList {
     }
 }
 
-impl List for DynamicList {
+impl Array for DynamicList {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.values.get(index).map(|value| &**value)
     }
@@ -81,6 +68,30 @@ impl List for DynamicList {
         self.values.len()
     }
 
+    fn iter(&self) -> ArrayIter {
+        ArrayIter {
+            array: self,
+            index: 0,
+        }
+    }
+
+    fn clone_dynamic(&self) -> DynamicArray {
+        DynamicArray {
+            name: self.name.clone(),
+            values: self
+                .values
+                .iter()
+                .map(|value| value.clone_value())
+                .collect(),
+        }
+    }
+}
+
+impl List for DynamicList {
+    fn push(&mut self, value: Box<dyn Reflect>) {
+        DynamicList::push_box(self, value);
+    }
+
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
             name: self.name.clone(),
@@ -90,17 +101,6 @@ impl List for DynamicList {
                 .map(|value| value.clone_value())
                 .collect(),
         }
-    }
-
-    fn iter(&self) -> ListIter {
-        ListIter {
-            list: self,
-            index: 0,
-        }
-    }
-
-    fn push(&mut self, value: Box<dyn Reflect>) {
-        DynamicList::push_box(self, value);
     }
 }
 
@@ -118,6 +118,16 @@ unsafe impl Reflect for DynamicList {
 
     #[inline]
     fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
         self
     }
 
@@ -143,12 +153,12 @@ unsafe impl Reflect for DynamicList {
 
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+        Box::new(List::clone_dynamic(self))
     }
 
     #[inline]
     fn reflect_hash(&self) -> Option<u64> {
-        None
+        crate::array_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -158,30 +168,28 @@ unsafe impl Reflect for DynamicList {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
-}
 
-/// An iterator over the elements of a [`List`].
-pub struct ListIter<'a> {
-    pub(crate) list: &'a dyn List,
-    pub(crate) index: usize,
-}
-
-impl<'a> Iterator for ListIter<'a> {
-    type Item = &'a dyn Reflect;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let value = self.list.get(self.index);
-        self.index += 1;
-        value
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.list.len();
-        (size, Some(size))
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicList(")?;
+        list_debug(self, f)?;
+        write!(f, ")")
     }
 }
 
-impl<'a> ExactSizeIterator for ListIter<'a> {}
+impl Debug for DynamicList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.debug(f)
+    }
+}
+
+impl IntoIterator for DynamicList {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
+    }
+}
 
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
@@ -233,4 +241,49 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`List`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+///
+/// let my_list: &dyn Reflect = &vec![1, 2, 3];
+/// println!("{:#?}", my_list);
+///
+/// // Output:
+///
+/// // [
+/// //   1,
+/// //   2,
+/// //   3,
+/// // ]
+/// ```
+#[inline]
+pub fn list_debug(dyn_list: &dyn List, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_list();
+    for item in dyn_list.iter() {
+        debug.entry(&item as &dyn Debug);
+    }
+    debug.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DynamicList;
+    use std::assert_eq;
+
+    #[test]
+    fn test_into_iter() {
+        let mut list = DynamicList::default();
+        list.push(0usize);
+        list.push(1usize);
+        list.push(2usize);
+        let items = list.into_iter();
+        for (index, item) in items.into_iter().enumerate() {
+            let value = item.take::<usize>().expect("couldn't downcast to usize");
+            assert_eq!(index, value);
+        }
+    }
 }

@@ -44,14 +44,18 @@ This approach requires no extra instrumentation and shows finer-grained flame gr
 
 Install [cargo-flamegraph](https://github.com/killercup/cargo-flamegraph), [enable debug symbols in your release build](https://github.com/killercup/cargo-flamegraph#improving-output-when-running-with---release), then run your app using one of the following commands. Note that `cargo-flamegraph` forwards arguments to cargo. You should treat the `cargo-flamegraph` command as a replacement for `cargo run --release`. The commands below include `--example EXAMPLE_NAME` to illustrate, but you can remove those arguments in favor of whatever you use to run your app:
 
-* Graph-Like Flame Graph: ```RUSTFLAGS='-C force-frame-pointers=y' cargo flamegraph -c "record -g" --example EXAMPLE_NAME```
-* Flat-ish Flame Graph: ```RUSTFLAGS='-C force-frame-pointers=y' cargo flamegraph --example EXAMPLE_NAME```
+* Graph-Like Flame Graph: `RUSTFLAGS='-C force-frame-pointers=y' cargo flamegraph -c "record -g" --example EXAMPLE_NAME`
+* Flat-ish Flame Graph: `RUSTFLAGS='-C force-frame-pointers=y' cargo flamegraph --example EXAMPLE_NAME`
 
 After closing your app, an interactive `svg` file will be produced:
 ![image](https://user-images.githubusercontent.com/2694663/141657609-0089675d-fb6a-4dc4-9a59-871e95e31c8a.png)
 
 ## Project Compile Times
 
-This requires nightly rust (`rustup default nightly`). Append ```-Ztimings``` to your app's cargo command (ex: `cargo build -Ztimings`). If you want a "full" profile, make sure you run `cargo clean` first. Open the produced `cargo-timing.html` file in your browser of choice. This will show how much time each crate in your app's dependency tree took to build.
+Append `--timings` to your app's cargo command (ex: `cargo build --timings`).
+If you want a "full" profile, make sure you run `cargo clean` first (note: this will clear previously generated reports).
+The command will tell you where it saved the report, which will be in your target directory under `cargo-timings/`.
+The report is a `.html` file and can be opened and viewed in your browser.
+This will show how much time each crate in your app's dependency tree took to build.
 
 ![image](https://user-images.githubusercontent.com/2694663/141657811-f4e15e3b-c9fc-491b-9313-236fd8c01288.png)

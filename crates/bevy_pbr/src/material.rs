@@ -15,9 +15,9 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_render::{
+    extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_component::ExtractComponentPlugin,
     render_phase::{
         AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
         SetItemPipeline, TrackedRenderPass,
@@ -74,6 +74,14 @@ pub trait Material: Asset + RenderAsset + Sized {
         &[]
     }
 
+    #[allow(unused_variables)]
+    #[inline]
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// for meshes with equal depth, to avoid z-fighting.
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        0.0
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`].
     #[allow(unused_variables)]
     #[inline]
@@ -127,10 +135,14 @@ impl<M: Material> SpecializedMaterial for M {
         <M as Material>::fragment_shader(asset_server)
     }
 
-    #[allow(unused_variables)]
     #[inline]
     fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
         <M as Material>::dynamic_uniform_indices(material)
+    }
+
+    #[inline]
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        <M as Material>::depth_bias(material)
     }
 }
 
@@ -189,6 +201,14 @@ pub trait SpecializedMaterial: Asset + RenderAsset + Sized {
     fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
         &[]
     }
+
+    #[allow(unused_variables)]
+    #[inline]
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// for meshes with equal depth, to avoid z-fighting.
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        0.0
+    }
 }
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`SpecializedMaterial`]
@@ -204,7 +224,7 @@ impl<M: SpecializedMaterial> Default for MaterialPlugin<M> {
 impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::default())
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
             .add_plugin(RenderAssetPlugin::<M>::default());
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -378,7 +398,8 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
 
                         // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
                         // gives the z component of translation of the mesh in view space
-                        let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3));
+                        let bias = M::depth_bias(material);
+                        let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3)) + bias;
                         match alpha_mode {
                             AlphaMode::Opaque => {
                                 opaque_phase.add(Opaque3d {

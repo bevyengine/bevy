@@ -1,6 +1,4 @@
 use anyhow::Result;
-#[cfg(feature = "bevy_animation")]
-use bevy_animation::{AnimationClip, AnimationPlayer, EntityPath, Keyframes, VariableCurve};
 use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
@@ -8,7 +6,7 @@ use bevy_core::Name;
 use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
-use bevy_math::{Mat4, Quat, Vec3};
+use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     StandardMaterial,
@@ -152,7 +150,7 @@ async fn load_gltf<'a, 'b>(
         let mut named_animations = HashMap::default();
         let mut animation_roots = HashSet::default();
         for animation in gltf.animations() {
-            let mut animation_clip = AnimationClip::default();
+            let mut animation_clip = bevy_animation::AnimationClip::default();
             for channel in animation.channels() {
                 match channel.sampler().interpolation() {
                     gltf::animation::Interpolation::Linear => (),
@@ -179,13 +177,15 @@ async fn load_gltf<'a, 'b>(
                 let keyframes = if let Some(outputs) = reader.read_outputs() {
                     match outputs {
                         gltf::animation::util::ReadOutputs::Translations(tr) => {
-                            Keyframes::Translation(tr.map(Vec3::from).collect())
+                            bevy_animation::Keyframes::Translation(tr.map(Vec3::from).collect())
                         }
                         gltf::animation::util::ReadOutputs::Rotations(rots) => {
-                            Keyframes::Rotation(rots.into_f32().map(Quat::from_array).collect())
+                            bevy_animation::Keyframes::Rotation(
+                                rots.into_f32().map(bevy_math::Quat::from_array).collect(),
+                            )
                         }
                         gltf::animation::util::ReadOutputs::Scales(scale) => {
-                            Keyframes::Scale(scale.map(Vec3::from).collect())
+                            bevy_animation::Keyframes::Scale(scale.map(Vec3::from).collect())
                         }
                         gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => {
                             warn!("Morph animation property not yet supported");
@@ -200,10 +200,10 @@ async fn load_gltf<'a, 'b>(
                 if let Some((root_index, path)) = paths.get(&node.index()) {
                     animation_roots.insert(root_index);
                     animation_clip.add_curve_to_path(
-                        EntityPath {
+                        bevy_animation::EntityPath {
                             parts: path.clone(),
                         },
-                        VariableCurve {
+                        bevy_animation::VariableCurve {
                             keyframe_timestamps,
                             keyframes,
                         },
@@ -264,12 +264,12 @@ async fn load_gltf<'a, 'b>(
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
-            // if let Some(vertex_attribute) = reader
-            //     .read_colors(0)
-            //     .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
-            // {
-            //     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
-            // }
+            if let Some(vertex_attribute) = reader
+                .read_colors(0)
+                .map(|v| VertexAttributeValues::Float32x4(v.into_rgba_f32().collect()))
+            {
+                mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_attribute);
+            }
 
             if let Some(iter) = reader.read_joints(0) {
                 let vertex_attribute = VertexAttributeValues::Uint16x4(iter.into_u16().collect());
@@ -496,7 +496,7 @@ async fn load_gltf<'a, 'b>(
                 if animation_roots.contains(&node.index()) {
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                        .insert(AnimationPlayer::default());
+                        .insert(bevy_animation::AnimationPlayer::default());
                 }
             }
         }
@@ -554,6 +554,7 @@ fn node_name(node: &Node) -> Name {
     Name::new(name)
 }
 
+#[cfg(feature = "bevy_animation")]
 fn paths_recur(
     node: Node,
     current_path: &[Name],
@@ -627,55 +628,45 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     let pbr = material.pbr_metallic_roughness();
 
     let color = pbr.base_color_factor();
-    let base_color_texture = if let Some(info) = pbr.base_color_texture() {
+    let base_color_texture = pbr.base_color_texture().map(|info| {
         // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        Some(load_context.get_handle(path))
-    } else {
-        None
-    };
+        load_context.get_handle(path)
+    });
 
     let normal_map_texture: Option<Handle<Image>> =
-        if let Some(normal_texture) = material.normal_texture() {
+        material.normal_texture().map(|normal_texture| {
             // TODO: handle normal_texture.scale
             // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
             let label = texture_label(&normal_texture.texture());
             let path = AssetPath::new_ref(load_context.path(), Some(&label));
-            Some(load_context.get_handle(path))
-        } else {
-            None
-        };
+            load_context.get_handle(path)
+        });
 
-    let metallic_roughness_texture = if let Some(info) = pbr.metallic_roughness_texture() {
+    let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
         // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        Some(load_context.get_handle(path))
-    } else {
-        None
-    };
+        load_context.get_handle(path)
+    });
 
-    let occlusion_texture = if let Some(occlusion_texture) = material.occlusion_texture() {
+    let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
         // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
         // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
         let label = texture_label(&occlusion_texture.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        Some(load_context.get_handle(path))
-    } else {
-        None
-    };
+        load_context.get_handle(path)
+    });
 
     let emissive = material.emissive_factor();
-    let emissive_texture = if let Some(info) = material.emissive_texture() {
+    let emissive_texture = material.emissive_texture().map(|info| {
         // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
         // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
         let label = texture_label(&info.texture());
         let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        Some(load_context.get_handle(path))
-    } else {
-        None
-    };
+        load_context.get_handle(path)
+    });
 
     load_context.set_labeled_asset(
         &material_label,
@@ -747,8 +738,6 @@ fn load_node(
 
                 node.insert(Camera {
                     projection_matrix: orthographic_projection.get_projection_matrix(),
-                    near: orthographic_projection.near,
-                    far: orthographic_projection.far,
                     ..Default::default()
                 });
                 node.insert(orthographic_projection);
@@ -768,8 +757,6 @@ fn load_node(
                 }
                 node.insert(Camera {
                     projection_matrix: perspective_projection.get_projection_matrix(),
-                    near: perspective_projection.near,
-                    far: perspective_projection.far,
                     ..Default::default()
                 });
                 node.insert(perspective_projection);

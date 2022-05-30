@@ -1,8 +1,10 @@
+//! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
+//! or by accessing the entities of the scene.
+
 use bevy::{prelude::*, scene::InstanceId};
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .init_resource::<SceneInstance>()
         .add_startup_system(setup)

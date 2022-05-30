@@ -1,7 +1,13 @@
+//! A compute shader that simulates Conway's Game of Life.
+//!
+//! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
+//! is rendered to the screen.
+
 use bevy::{
     core_pipeline::node::MAIN_PASS_DEPENDENCIES,
     prelude::*,
     render::{
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
         render_resource::*,
@@ -61,10 +67,12 @@ pub struct GameOfLifeComputePlugin;
 
 impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
+        // Extract the game of life image resource from the main world into the render world
+        // for operation on by the compute shader and display on the sprite.
+        app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<GameOfLifePipeline>()
-            .add_system_to_stage(RenderStage::Extract, extract_game_of_life_image)
             .add_system_to_stage(RenderStage::Queue, queue_bind_group);
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
@@ -75,13 +83,10 @@ impl Plugin for GameOfLifeComputePlugin {
     }
 }
 
-#[derive(Deref)]
+#[derive(Clone, Deref, ExtractResource)]
 struct GameOfLifeImage(Handle<Image>);
-struct GameOfLifeImageBindGroup(BindGroup);
 
-fn extract_game_of_life_image(mut commands: Commands, image: Res<GameOfLifeImage>) {
-    commands.insert_resource(GameOfLifeImage(image.clone()));
-}
+struct GameOfLifeImageBindGroup(BindGroup);
 
 fn queue_bind_group(
     mut commands: Commands,
@@ -182,14 +187,14 @@ impl render_graph::Node for GameOfLifeNode {
                 if let CachedPipelineState::Ok(_) =
                     pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
                 {
-                    self.state = GameOfLifeState::Init
+                    self.state = GameOfLifeState::Init;
                 }
             }
             GameOfLifeState::Init => {
                 if let CachedPipelineState::Ok(_) =
                     pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
                 {
-                    self.state = GameOfLifeState::Update
+                    self.state = GameOfLifeState::Update;
                 }
             }
             GameOfLifeState::Update => {}

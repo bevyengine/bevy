@@ -1,3 +1,5 @@
+//! A shader that renders a mesh multiple times in one draw call.
+
 use bevy::{
     core_pipeline::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
@@ -5,9 +7,9 @@ use bevy::{
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
-        render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{
             AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
             SetItemPipeline, TrackedRenderPass,
@@ -64,6 +66,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 
 #[derive(Component, Deref)]
 struct InstanceMaterialData(Vec<InstanceData>);
+
 impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
     type Filter = ();
@@ -169,11 +172,11 @@ pub struct CustomPipeline {
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let asset_server = world.resource::<AssetServer>();
         asset_server.watch_for_changes().unwrap();
         let shader = asset_server.load("shaders/instancing.wgsl");
 
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+        let mesh_pipeline = world.resource::<MeshPipeline>();
 
         CustomPipeline {
             shader,
@@ -226,6 +229,7 @@ type DrawCustom = (
 );
 
 pub struct DrawMeshInstanced;
+
 impl EntityRenderCommand for DrawMeshInstanced {
     type Param = (
         SRes<RenderAssets<Mesh>>,

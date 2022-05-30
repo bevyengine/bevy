@@ -1,3 +1,6 @@
+//! Shows how to render multiple passes to the same window, useful for rendering different views
+//! or drawing an object on top regardless of depth.
+
 use bevy::{
     core_pipeline::{draw_3d_graph, node, AlphaMask3d, Opaque3d, Transparent3d},
     prelude::*,
@@ -21,8 +24,7 @@ struct FirstPassCamera;
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(Msaa { samples: 4 })
-        .add_plugins(DefaultPlugins)
+    app.add_plugins(DefaultPlugins)
         .add_plugin(CameraTypePlugin::<FirstPassCamera>::default())
         .add_startup_system(setup)
         .add_system(cube_rotator_system)
@@ -35,7 +37,7 @@ fn main() {
     // This will add 3D render phases for the new camera.
     render_app.add_system_to_stage(RenderStage::Extract, extract_first_pass_camera_phases);
 
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
     // Add a node for the first pass.
     graph.add_node(FIRST_PASS_DRIVER, driver);
@@ -68,6 +70,7 @@ fn extract_first_pass_camera_phases(
         ));
     }
 }
+
 // A node for the first pass camera that runs draw_3d_graph with this camera.
 struct FirstPassCameraDriver {
     query: QueryState<Entity, With<FirstPassCamera>>,

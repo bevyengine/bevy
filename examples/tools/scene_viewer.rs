@@ -1,3 +1,9 @@
+//! A simple glTF scene viewer made with Bevy.
+//!
+//! Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`,
+//! replacing the path as appropriate.
+//! With no arguments it will load the `FieldHelmet` glTF model from the repository assets subdirectory.
+
 use bevy::{
     asset::{AssetServerSettings, LoadState},
     gltf::Gltf,
@@ -18,50 +24,54 @@ fn main() {
     println!(
         "
 Controls:
-    MOUSE  - Move camera orientation
-    LClick - Enable mouse movement
-    WSAD   - forward/back/strafe left/right
-    LShift - 'run'
-    E      - up
-    Q      - down
-    L      - animate light direction
-    U      - toggle shadows
-    C      - cycle through cameras
-    5/6    - decrease/increase shadow projection width
-    7/8    - decrease/increase shadow projection height
-    9/0    - decrease/increase shadow projection near/far
+    MOUSE       - Move camera orientation
+    LClick/M    - Enable mouse movement
+    WSAD        - forward/back/strafe left/right
+    LShift      - 'run'
+    E           - up
+    Q           - down
+    L           - animate light direction
+    U           - toggle shadows
+    C           - cycle through cameras
+    5/6         - decrease/increase shadow projection width
+    7/8         - decrease/increase shadow projection height
+    9/0         - decrease/increase shadow projection near/far
 
-    Space  - Play/Pause animation
-    Enter  - Cycle through animations
+    Space       - Play/Pause animation
+    Enter       - Cycle through animations
 "
     );
-    App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-        })
-        .insert_resource(AssetServerSettings {
-            asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
-            watch_for_changes: true,
-        })
-        .insert_resource(WindowDescriptor {
-            title: "bevy scene viewer".to_string(),
-            ..default()
-        })
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
-        .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
-        .add_system(update_lights)
-        .add_system(camera_controller)
-        .add_system(start_animation)
-        .add_system(keyboard_animation_control)
-        .add_system(keyboard_cameras_control)
-        .run();
+    let mut app = App::new();
+    app.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 1.0 / 5.0f32,
+    })
+    .insert_resource(AssetServerSettings {
+        asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+        watch_for_changes: true,
+    })
+    .insert_resource(WindowDescriptor {
+        title: "bevy scene viewer".to_string(),
+        ..default()
+    })
+    .add_plugins(DefaultPlugins)
+    .add_startup_system(setup)
+    .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
+    .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
+    .add_system(update_lights)
+    .add_system(camera_controller)
+    .add_system(keyboard_cameras_control);
+
+    #[cfg(feature = "animation")]
+    app.add_system(start_animation)
+        .add_system(keyboard_animation_control);
+
+    app.run();
 }
 
 struct SceneHandle {
-    handle: Handle<Scene>,
+    handle: Handle<Gltf>,
+    #[cfg(feature = "animation")]
     animations: Vec<Handle<AnimationClip>>,
     instance_id: Option<InstanceId>,
     is_loaded: bool,
@@ -76,6 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Loading {}", scene_path);
     commands.insert_resource(SceneHandle {
         handle: asset_server.load(&scene_path),
+        #[cfg(feature = "animation")]
         animations: Vec::new(),
         instance_id: None,
         is_loaded: false,
@@ -111,17 +122,20 @@ fn scene_load_check(
                 scene_handle.instance_id =
                     Some(scene_spawner.spawn(gltf_scene_handle.clone_weak()));
 
-                scene_handle.animations = gltf.animations.clone();
-                if !scene_handle.animations.is_empty() {
-                    info!(
-                        "Found {} animation{}",
-                        scene_handle.animations.len(),
-                        if scene_handle.animations.len() == 1 {
-                            ""
-                        } else {
-                            "s"
-                        }
-                    );
+                #[cfg(feature = "animation")]
+                {
+                    scene_handle.animations = gltf.animations.clone();
+                    if !scene_handle.animations.is_empty() {
+                        info!(
+                            "Found {} animation{}",
+                            scene_handle.animations.len(),
+                            if scene_handle.animations.len() == 1 {
+                                ""
+                            } else {
+                                "s"
+                            }
+                        );
+                    }
                 }
 
                 info!("Spawning scene...");
@@ -137,6 +151,7 @@ fn scene_load_check(
     }
 }
 
+#[cfg(feature = "animation")]
 fn start_animation(
     mut player: Query<&mut AnimationPlayer>,
     mut done: Local<bool>,
@@ -151,6 +166,8 @@ fn start_animation(
         }
     }
 }
+
+#[cfg(feature = "animation")]
 fn keyboard_animation_control(
     keyboard_input: Res<Input<KeyCode>>,
     mut animation_player: Query<&mut AnimationPlayer>,
@@ -286,13 +303,7 @@ fn camera_spawn_check(
                     &transform.back(),
                     perspective_projection.far(),
                 );
-                let camera = Camera {
-                    near: perspective_projection.near,
-                    far: perspective_projection.far,
-                    ..default()
-                };
                 PerspectiveCameraBundle {
-                    camera,
                     perspective_projection,
                     frustum,
                     transform,
@@ -404,7 +415,8 @@ struct CameraController {
     pub key_up: KeyCode,
     pub key_down: KeyCode,
     pub key_run: KeyCode,
-    pub key_enable_mouse: MouseButton,
+    pub mouse_key_enable_mouse: MouseButton,
+    pub keyboard_key_enable_mouse: KeyCode,
     pub walk_speed: f32,
     pub run_speed: f32,
     pub friction: f32,
@@ -426,7 +438,8 @@ impl Default for CameraController {
             key_up: KeyCode::E,
             key_down: KeyCode::Q,
             key_run: KeyCode::LShift,
-            key_enable_mouse: MouseButton::Left,
+            mouse_key_enable_mouse: MouseButton::Left,
+            keyboard_key_enable_mouse: KeyCode::M,
             walk_speed: 5.0,
             run_speed: 15.0,
             friction: 0.5,
@@ -442,6 +455,7 @@ fn camera_controller(
     mut mouse_events: EventReader<MouseMotion>,
     mouse_button_input: Res<Input<MouseButton>>,
     key_input: Res<Input<KeyCode>>,
+    mut move_toggled: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
     let dt = time.delta_seconds();
@@ -477,6 +491,9 @@ fn camera_controller(
         if key_input.pressed(options.key_down) {
             axis_input.y -= 1.0;
         }
+        if key_input.just_pressed(options.keyboard_key_enable_mouse) {
+            *move_toggled = !*move_toggled;
+        }
 
         // Apply movement update
         if axis_input != Vec3::ZERO {
@@ -501,7 +518,7 @@ fn camera_controller(
 
         // Handle mouse input
         let mut mouse_delta = Vec2::ZERO;
-        if mouse_button_input.pressed(options.key_enable_mouse) {
+        if mouse_button_input.pressed(options.mouse_key_enable_mouse) || *move_toggled {
             for mouse_event in mouse_events.iter() {
                 mouse_delta += mouse_event.delta;
             }

@@ -3,7 +3,7 @@
 //! Running this example:
 //!
 //! ```
-//! cargo r --release --example transform_hierarchy -- <configuration name>
+//! cargo r --release --example transform_hierarchy <configuration name>
 //! ```
 //!
 //! | Configuration        | Description                                                       |
@@ -187,7 +187,7 @@ fn main() {
         .add_plugin(TransformPlugin::default())
         .add_startup_system(setup)
         .add_system(update)
-        .run()
+        .run();
 }
 
 /// test configuration

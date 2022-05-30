@@ -1,3 +1,5 @@
+//! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
+
 use bevy::{
     core_pipeline::{
         draw_3d_graph, node, AlphaMask3d, Opaque3d, RenderTargetClearColors, Transparent3d,
@@ -24,8 +26,7 @@ pub const FIRST_PASS_DRIVER: &str = "first_pass_driver";
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(Msaa { samples: 4 }) // Use 4x MSAA
-        .add_plugins(DefaultPlugins)
+    app.add_plugins(DefaultPlugins)
         .add_plugin(CameraTypePlugin::<FirstPassCamera>::default())
         .add_startup_system(setup)
         .add_system(cube_rotator_system)
