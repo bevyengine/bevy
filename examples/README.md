@@ -89,6 +89,7 @@ Example | File | Description
 `move_sprite` | [`2d/move_sprite.rs`](./2d/move_sprite.rs) | Changes the transform of a sprite.
 `mesh2d` | [`2d/mesh2d.rs`](./2d/mesh2d.rs) | Renders a 2d mesh
 `mesh2d_manual` | [`2d/mesh2d_manual.rs`](./2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis.
+`mesh2d_vertex_color_texture` | [`2d/mesh2d_vertex_color_texture.rs`](./2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes.
 `shapes` | [`2d/shapes.rs`](./2d/shapes.rs) | Renders a rectangle, circle, and hexagon
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
@@ -239,16 +240,23 @@ Example | File | Description
 
 ## Shaders
 
+These examples demonstrate how to implement different shaders in user code.
+
+A shader in its most common usage is a small program that is run by the GPU per-vertex in a mesh (a vertex shader)
+or per-affected-screen-fragment (a fragment shader.) The GPU executes these programs in a highly parallel way.
+
+There are also compute shaders which are used for more general processing leveraging the GPU’s parallelism.
+
 Example | File | Description
 --- | --- | ---
-`custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | Illustrates creating a custom shader material that reads a mesh's custom vertex attribute.
-`shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
-`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A custom shader sampling a texture with view-independent UV coordinates
-`shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A custom shader using the GLSL shading language.
-`shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A custom shader showing off rendering a mesh multiple times in one draw call.
-`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to pass changing data like the time since startup into a shader.
-`compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader simulating Conway's Game of Life
-`shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
+`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup.
+`compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life.
+`custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute.
+`shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader).
+`shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call.
+`shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | A shader and a material that uses it.
+`shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language.
+`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates.
 
 ## Stress Tests
 
@@ -279,14 +287,14 @@ Example | File | Description
 
 Example | File | Description
 --- | --- | ---
-`scene_viewer` | [`tools/scene_viewer.rs`](./tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer -- /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory.
+`scene_viewer` | [`tools/scene_viewer.rs`](./tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory.
 
 ## Transforms
 
 Example | File | Description
 --- | --- | ---
-`global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
 `3d_rotation` | [`transforms/3d_rotation.rs`](./transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
+`global_vs_local_translation` | [`transforms/global_vs_local_translation.rs`](./transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform.
 `scale` | [`transforms/scale.rs`](./transforms/scale.rs) | Illustrates how to scale an object in each direction
 `transform` | [`transforms/transfrom.rs`](./transforms/transform.rs) | Shows multiple transformations of objects
 `translation` | [`transforms/translation.rs`](./transforms/translation.rs) | Illustrates how to move an object along an axis
@@ -422,7 +430,13 @@ cargo install wasm-bindgen-cli
 ### Build & Run
 
 Following is an example for `lighting`. For other examples, change the `lighting` in the
-following commands.
+following command.
+
+```sh
+cargo run -p build-wasm-example -- lighting
+```
+
+This is the same as running
 
 ```sh
 cargo build --release --example lighting --target wasm32-unknown-unknown

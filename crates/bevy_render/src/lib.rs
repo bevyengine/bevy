@@ -2,10 +2,11 @@ extern crate core;
 
 pub mod camera;
 pub mod color;
+pub mod extract_component;
+pub mod extract_resource;
 pub mod mesh;
 pub mod primitives;
 pub mod render_asset;
-pub mod render_component;
 pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
@@ -273,6 +274,11 @@ impl Plugin for RenderPlugin {
                         .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
                         .unwrap();
                     cleanup.run(&mut render_app.world);
+                }
+                {
+                    #[cfg(feature = "trace")]
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "clear_entities").entered();
 
                     render_app.world.clear_entities();
                 }

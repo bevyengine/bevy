@@ -1,3 +1,5 @@
+//! Displays a single [`Sprite`], created from an image, but flipped on one axis.
+
 use bevy::prelude::*;
 
 fn main() {

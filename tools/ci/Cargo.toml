@@ -7,5 +7,5 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-xshell = "0.1"
+xshell = "0.2"
 bitflags = "1.3"

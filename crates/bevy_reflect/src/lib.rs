@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod array;
 mod list;
 mod map;
 mod path;
@@ -35,6 +36,7 @@ pub mod prelude {
     };
 }
 
+pub use array::*;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
@@ -85,13 +87,14 @@ mod tests {
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
     use ::serde::de::DeserializeSeed;
-    use ::serde::Serialize;
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use std::fmt::{Debug, Formatter};
 
+    use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
     use crate::serde::{ReflectDeserializer, ReflectSerializer};
@@ -231,6 +234,66 @@ mod tests {
     }
 
     #[test]
+    fn from_reflect_should_use_default_field_attributes() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        struct MyStruct {
+            // Use `Default::default()`
+            // Note that this isn't an ignored field
+            #[reflect(default)]
+            foo: String,
+
+            // Use `get_bar_default()`
+            #[reflect(default = "get_bar_default")]
+            #[reflect(ignore)]
+            bar: usize,
+        }
+
+        fn get_bar_default() -> usize {
+            123
+        }
+
+        let expected = MyStruct {
+            foo: String::default(),
+            bar: 123,
+        };
+
+        let dyn_struct = DynamicStruct::default();
+        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
+
+        assert_eq!(Some(expected), my_struct);
+    }
+
+    #[test]
+    fn from_reflect_should_use_default_container_attribute() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        #[reflect(Default)]
+        struct MyStruct {
+            foo: String,
+            #[reflect(ignore)]
+            bar: usize,
+        }
+
+        impl Default for MyStruct {
+            fn default() -> Self {
+                Self {
+                    foo: String::from("Hello"),
+                    bar: 123,
+                }
+            }
+        }
+
+        let expected = MyStruct {
+            foo: String::from("Hello"),
+            bar: 123,
+        };
+
+        let dyn_struct = DynamicStruct::default();
+        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
+
+        assert_eq!(Some(expected), my_struct);
+    }
+
+    #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug, FromReflect)]
         #[reflect(PartialEq)]
@@ -243,6 +306,7 @@ mod tests {
             e: Bar,
             f: (i32, Vec<isize>, Bar),
             g: Vec<(Baz, HashMap<usize, Bar>)>,
+            h: [u32; 2],
         }
 
         #[derive(Reflect, Eq, PartialEq, Clone, Debug, FromReflect)]
@@ -269,6 +333,7 @@ mod tests {
             e: Bar { x: 1 },
             f: (1, vec![1, 2], Bar { x: 1 }),
             g: vec![(Baz("string".to_string()), hash_map_baz)],
+            h: [2; 2],
         };
 
         let mut foo_patch = DynamicStruct::default();
@@ -279,7 +344,7 @@ mod tests {
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", list.clone_dynamic());
+        foo_patch.insert("c", List::clone_dynamic(&list));
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
@@ -316,6 +381,9 @@ mod tests {
         });
         foo_patch.insert("g", composite);
 
+        let array = DynamicArray::from_vec(vec![2u32, 2u32]);
+        foo_patch.insert("h", array);
+
         foo.apply(&foo_patch);
 
         let mut hash_map = HashMap::default();
@@ -333,6 +401,7 @@ mod tests {
             e: Bar { x: 2 },
             f: (2, vec![3, 4, 5], Bar { x: 2 }),
             g: vec![(Baz("new_string".to_string()), hash_map_baz.clone())],
+            h: [2; 2],
         };
 
         assert_eq!(foo, expected_foo);
@@ -351,6 +420,7 @@ mod tests {
             e: Bar { x: 2 },
             f: (2, vec![3, 4, 5], Bar { x: 2 }),
             g: vec![(Baz("new_string".to_string()), hash_map_baz)],
+            h: [2; 2],
         };
 
         assert_eq!(new_foo, expected_new_foo);
@@ -368,6 +438,7 @@ mod tests {
             e: Bar,
             f: String,
             g: (i32, Vec<isize>, Bar),
+            h: [u32; 2],
         }
 
         #[derive(Reflect)]
@@ -386,6 +457,7 @@ mod tests {
             e: Bar { x: 1 },
             f: "hi".to_string(),
             g: (1, vec![1, 2], Bar { x: 1 }),
+            h: [2; 2],
         };
 
         let mut registry = TypeRegistry::default();
@@ -424,8 +496,12 @@ mod tests {
     #[test]
     fn dynamic_names() {
         let list = Vec::<usize>::new();
-        let dyn_list = list.clone_dynamic();
+        let dyn_list = List::clone_dynamic(&list);
         assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+
+        let array = [b'0'; 4];
+        let dyn_array = Array::clone_dynamic(&array);
+        assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
@@ -475,9 +551,91 @@ mod tests {
         let _ = trait_object.as_reflect();
     }
 
+    #[test]
+    fn should_reflect_debug() {
+        #[derive(Reflect)]
+        struct Test {
+            value: usize,
+            list: Vec<String>,
+            array: [f32; 3],
+            map: HashMap<i32, f32>,
+            a_struct: SomeStruct,
+            a_tuple_struct: SomeTupleStruct,
+            custom: CustomDebug,
+            unknown: Option<String>,
+            #[reflect(ignore)]
+            #[allow(dead_code)]
+            ignored: isize,
+        }
+
+        #[derive(Reflect)]
+        struct SomeStruct {
+            foo: String,
+        }
+
+        #[derive(Reflect)]
+        struct SomeTupleStruct(String);
+
+        #[derive(Reflect)]
+        #[reflect(Debug)]
+        struct CustomDebug;
+        impl Debug for CustomDebug {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("Cool debug!")
+            }
+        }
+
+        let mut map = HashMap::new();
+        map.insert(123, 1.23);
+
+        let test = Test {
+            value: 123,
+            list: vec![String::from("A"), String::from("B"), String::from("C")],
+            array: [1.0, 2.0, 3.0],
+            map,
+            a_struct: SomeStruct {
+                foo: String::from("A Struct!"),
+            },
+            a_tuple_struct: SomeTupleStruct(String::from("A Tuple Struct!")),
+            custom: CustomDebug,
+            unknown: Some(String::from("Enums aren't supported yet :(")),
+            ignored: 321,
+        };
+
+        let reflected: &dyn Reflect = &test;
+        let expected = r#"
+bevy_reflect::tests::should_reflect_debug::Test {
+    value: 123,
+    list: [
+        "A",
+        "B",
+        "C",
+    ],
+    array: [
+        1.0,
+        2.0,
+        3.0,
+    ],
+    map: {
+        123: 1.23,
+    },
+    a_struct: bevy_reflect::tests::should_reflect_debug::SomeStruct {
+        foo: "A Struct!",
+    },
+    a_tuple_struct: bevy_reflect::tests::should_reflect_debug::SomeTupleStruct(
+        "A Tuple Struct!",
+    ),
+    custom: Cool debug!,
+    unknown: Reflect(core::option::Option<alloc::string::String>),
+}"#;
+
+        assert_eq!(expected, format!("\n{:#?}", reflected));
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
+        use ::serde::Serialize;
 
         #[test]
         fn vec3_serialization() {
