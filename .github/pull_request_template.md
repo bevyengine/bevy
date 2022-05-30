@@ -4,7 +4,7 @@ Why are you making these changes?
 Link any associated issues with "Fixes #X" so they can be automatically closed.
 If this is a complex PR, please add a list of the changes made.
 
-Discuss any background information that may be needed for other reviewers to understand the changes you've made.
+Provide any background information that may be needed for other reviewers to understand the changes you've made.
 This may include related issues, previous discussion, or links to documentation.
 
 ## Feedback wanted
