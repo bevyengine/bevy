@@ -4,7 +4,6 @@ use bevy::prelude::*;
 #[bevy_main]
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 2 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .run();

@@ -1,4 +1,3 @@
-use bevy_ecs::system::ResMut;
 use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
@@ -32,7 +31,7 @@ impl Time {
     ///
     /// Calling this method on the [`Time`] resource as part of your app will most likely result in
     /// inaccurate timekeeping, as the resource is ordinarily managed by the
-    /// [`CorePlugin`](crate::CorePlugin).
+    /// [`TimePlugin`](crate::TimePlugin).
     pub fn update(&mut self) {
         self.update_with_instant(Instant::now());
     }
@@ -41,12 +40,12 @@ impl Time {
     ///
     /// This method is provided for use in tests. Calling this method on the [`Time`] resource as
     /// part of your app will most likely result in inaccurate timekeeping, as the resource is
-    /// ordinarily managed by the [`CorePlugin`](crate::CorePlugin).
+    /// ordinarily managed by the [`TimePlugin`](crate::TimePlugin).
     ///
     /// # Examples
     ///
     /// ```
-    /// # use bevy_core::prelude::*;
+    /// # use bevy_time::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_utils::Duration;
     /// # fn main () {
@@ -141,10 +140,6 @@ impl Time {
     pub fn time_since_startup(&self) -> Duration {
         self.time_since_startup
     }
-}
-
-pub(crate) fn time_system(mut time: ResMut<Time>) {
-    time.update();
 }
 
 #[cfg(test)]

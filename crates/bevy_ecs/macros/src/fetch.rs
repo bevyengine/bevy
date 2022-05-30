@@ -264,12 +264,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     #(<<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::update_archetype_component_access(&state.#field_idents, _archetype, _access);)*
                 }
 
-                fn matches_archetype(state: &Self::State, _archetype: &#path::archetype::Archetype) -> bool {
-                    true #(&& <<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::matches_archetype(&state.#field_idents, _archetype))*
-                }
-
-                fn matches_table(state: &Self::State, _table: &#path::storage::Table) -> bool {
-                    true #(&& <<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::matches_table(&state.#field_idents, _table))*
+                fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
+                    true #(&& <<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::matches_component_set(&state.#field_idents, _set_contains_id))*
                 }
             }
         }

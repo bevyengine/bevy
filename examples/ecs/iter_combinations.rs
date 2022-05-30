@@ -1,6 +1,6 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{core::FixedTimestep, pbr::AmbientLight, prelude::*, render::camera::Camera};
+use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera, time::FixedTimestep};
 use rand::{thread_rng, Rng};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -10,7 +10,6 @@ const DELTA_TIME: f64 = 0.01;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 0.03,

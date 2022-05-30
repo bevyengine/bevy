@@ -427,17 +427,10 @@ pub trait Fetch<'world>: Sized {
     ) {
     }
 
-    #[allow(unused_variables)]
-    #[inline]
-    fn matches_archetype(state: &Self::State, archetype: &Archetype) -> bool {
-        false
-    }
-
-    #[allow(unused_variables)]
-    #[inline]
-    fn matches_table(state: &Self::State, table: &Table) -> bool {
-        false
-    }
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool;
 }
 
 /// A fetch that is read only.
@@ -518,12 +511,10 @@ impl<'w> Fetch<'w> for EntityFetch<'w> {
     fn init_state(_world: &mut World) -> Self::State {}
 
     #[inline]
-    fn matches_archetype(_state: &Self::State, _archetype: &Archetype) -> bool {
-        true
-    }
-
-    #[inline]
-    fn matches_table(_state: &Self::State, _table: &Table) -> bool {
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
         true
     }
 }
@@ -673,12 +664,11 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
         }
     }
 
-    fn matches_archetype(state: &Self::State, archetype: &Archetype) -> bool {
-        archetype.contains(*state)
-    }
-
-    fn matches_table(state: &Self::State, table: &Table) -> bool {
-        table.has_column(*state)
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        set_contains_id(*state)
     }
 }
 
@@ -883,12 +873,11 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
         }
     }
 
-    fn matches_archetype(state: &Self::State, archetype: &Archetype) -> bool {
-        archetype.contains(*state)
-    }
-
-    fn matches_table(state: &Self::State, table: &Table) -> bool {
-        table.has_column(*state)
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        set_contains_id(*state)
     }
 }
 
@@ -998,12 +987,11 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
         }
     }
 
-    fn matches_archetype(state: &Self::State, archetype: &Archetype) -> bool {
-        archetype.contains(*state)
-    }
-
-    fn matches_table(state: &Self::State, table: &Table) -> bool {
-        table.has_column(*state)
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        set_contains_id(*state)
     }
 }
 
@@ -1059,7 +1047,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
         archetype: &'w Archetype,
         tables: &'w Tables,
     ) {
-        self.matches = <T as Fetch<'_>>::matches_archetype(state, archetype);
+        self.matches = <T as Fetch<'_>>::matches_component_set(state, &|id| archetype.contains(id));
         if self.matches {
             self.fetch.set_archetype(state, archetype, tables);
         }
@@ -1067,7 +1055,7 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-        self.matches = <T as Fetch<'_>>::matches_table(state, table);
+        self.matches = <T as Fetch<'_>>::matches_component_set(state, &|id| table.has_column(id));
         if self.matches {
             self.fetch.set_table(state, table);
         }
@@ -1110,16 +1098,15 @@ impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        if <T as Fetch<'_>>::matches_archetype(state, archetype) {
+        if <T as Fetch<'_>>::matches_component_set(state, &|id| archetype.contains(id)) {
             <T as Fetch<'_>>::update_archetype_component_access(state, archetype, access);
         }
     }
 
-    fn matches_archetype(_state: &Self::State, _archetype: &Archetype) -> bool {
-        true
-    }
-
-    fn matches_table(_state: &Self::State, _table: &Table) -> bool {
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
         true
     }
 }
@@ -1364,12 +1351,11 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
         }
     }
 
-    fn matches_archetype(state: &Self::State, archetype: &Archetype) -> bool {
-        archetype.contains(*state)
-    }
-
-    fn matches_table(state: &Self::State, table: &Table) -> bool {
-        table.has_column(*state)
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        set_contains_id(*state)
     }
 }
 
@@ -1455,14 +1441,9 @@ macro_rules! impl_tuple_fetch {
                 $(<$name as Fetch<'_>>::update_archetype_component_access($name, _archetype, _access);)*
             }
 
-            fn matches_archetype(_state: &Self::State, _archetype: &Archetype) -> bool {
+            fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
-                true $(&& <$name as Fetch<'_>>::matches_archetype($name, _archetype))*
-            }
-
-            fn matches_table(_state: &Self::State, _table: &Table) -> bool {
-                let ($($name,)*) = _state;
-                true $(&& <$name as Fetch<'_>>::matches_table($name, _table))*
+                true $(&& <$name as Fetch<'_>>::matches_component_set($name, _set_contains_id))*
             }
         }
 
@@ -1522,7 +1503,7 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = &mut self.0;
                 let ($($state,)*) = &_state.0;
                 $(
-                    $name.1 = <$name as Fetch<'_>>::matches_archetype($state, _archetype);
+                    $name.1 = <$name as Fetch<'_>>::matches_component_set($state, &|id| _archetype.contains(id));
                     if $name.1 {
                         $name.0.set_archetype($state, _archetype, _tables);
                     }
@@ -1534,7 +1515,7 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = &mut self.0;
                 let ($($state,)*) = &_state.0;
                 $(
-                    $name.1 = <$name as Fetch<'_>>::matches_table($state, _table);
+                    $name.1 = <$name as Fetch<'_>>::matches_component_set($state, &|id| _table.has_column(id));
                     if $name.1 {
                         $name.0.set_table($state, _table);
                     }
@@ -1598,20 +1579,15 @@ macro_rules! impl_anytuple_fetch {
             fn update_archetype_component_access(_state: &Self::State, _archetype: &Archetype, _access: &mut Access<ArchetypeComponentId>) {
                 let ($($name,)*) = &_state.0;
                 $(
-                    if <$name as Fetch<'_>>::matches_archetype($name, _archetype) {
+                    if <$name as Fetch<'_>>::matches_component_set($name, &|id| _archetype.contains(id)) {
                         <$name as Fetch<'_>>::update_archetype_component_access($name, _archetype, _access);
                     }
                 )*
             }
 
-            fn matches_archetype(_state: &Self::State, _archetype: &Archetype) -> bool {
+            fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = &_state.0;
-                false $(|| <$name as Fetch<'_>>::matches_archetype($name, _archetype))*
-            }
-
-            fn matches_table(_state: &Self::State, _table: &Table) -> bool {
-                let ($($name,)*) = &_state.0;
-                false $(|| <$name as Fetch<'_>>::matches_table($name, _table))*
+                false $(|| <$name as Fetch<'_>>::matches_component_set($name, _set_contains_id))*
             }
         }
 
@@ -1683,5 +1659,12 @@ impl<'w, State: Send + Sync> Fetch<'w> for NopFetch<State> {
     #[inline(always)]
     fn init_state(_world: &mut World) -> Self::State {
         unimplemented!();
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
     }
 }

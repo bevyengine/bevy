@@ -117,12 +117,11 @@ impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
         access.add_with(*state);
     }
 
-    fn matches_archetype(state: &Self::State, archetype: &Archetype) -> bool {
-        archetype.contains(*state)
-    }
-
-    fn matches_table(state: &Self::State, table: &Table) -> bool {
-        table.has_column(*state)
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        set_contains_id(*state)
     }
 }
 
@@ -238,12 +237,11 @@ impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
         access.add_without(*state);
     }
 
-    fn matches_archetype(state: &Self::State, archetype: &Archetype) -> bool {
-        !archetype.contains(*state)
-    }
-
-    fn matches_table(state: &Self::State, table: &Table) -> bool {
-        !table.has_column(*state)
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        !set_contains_id(*state)
     }
 }
 
@@ -346,7 +344,7 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
-                    $filter.matches = <$filter as Fetch<'_>>::matches_table($state, table);
+                    $filter.matches = <$filter as Fetch<'_>>::matches_component_set($state, &|id| table.has_column(id));
                     if $filter.matches {
                         $filter.fetch.set_table($state, table);
                     }
@@ -358,7 +356,7 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
-                    $filter.matches = <$filter as Fetch<'_>>::matches_archetype($state, archetype);
+                    $filter.matches = <$filter as Fetch<'_>>::matches_component_set($state, &|id| archetype.contains(id));
                     if $filter.matches {
                         $filter.fetch.set_archetype($state, archetype, tables);
                     }
@@ -428,14 +426,9 @@ macro_rules! impl_query_filter_tuple {
                 $(<$filter as Fetch<'_>>::update_archetype_component_access($filter, archetype, access);)*
             }
 
-            fn matches_archetype(state: &Self::State, archetype: &Archetype) -> bool {
+            fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = &state.0;
-                false $(|| <$filter as Fetch<'_>>::matches_archetype($filter, archetype))*
-            }
-
-            fn matches_table(state: &Self::State, table: &Table) -> bool {
-                let ($($filter,)*) = &state.0;
-                false $(|| <$filter as Fetch<'_>>::matches_table($filter, table))*
+                false $(|| <$filter as Fetch<'_>>::matches_component_set($filter, _set_contains_id))*
             }
         }
 
@@ -582,12 +575,8 @@ macro_rules! impl_tick_filter {
                 }
             }
 
-            fn matches_archetype(state: &Self::State, archetype: &Archetype) -> bool {
-                archetype.contains(*state)
-            }
-
-            fn matches_table(state: &Self::State, table: &Table) -> bool {
-                table.has_column(*state)
+            fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+                set_contains_id(*state)
             }
         }
 

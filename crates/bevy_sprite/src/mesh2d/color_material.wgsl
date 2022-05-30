@@ -29,13 +29,20 @@ struct FragmentInput {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
 #endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] colors: vec4<f32>;
+#endif
 };
 
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     var output_color: vec4<f32> = material.color;
     if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
+#ifdef VERTEX_COLORS
+        output_color = output_color * textureSample(texture, texture_sampler, in.uv) * in.colors;
+#else
         output_color = output_color * textureSample(texture, texture_sampler, in.uv);
+#endif
     }
     return output_color;
 }
