@@ -64,8 +64,8 @@ impl Node for CameraDriverNode {
             warn!("Camera priority ambiguities detected for active cameras with the following priorites: {:?}. To fix this, ensure there is exactly one Camera entity spawned with a given priority for a given RenderTarget. Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will result in rendering multiple instances of the scene or (2) for cases where multiple active cameras is intentional, ambiguities could result in unpredictable render results.", ambiguities);
         }
 
-        // Wgpu (and some backends) require doing work for swap chains if you call `get_curent_texture()` and `present()`
-        // This ensures that Bevy doesn't crash, even there are no cameras (and therefore no work submitted).
+        // wgpu (and some backends) require doing work for swap chains if you call `get_current_texture()` and `present()`
+        // This ensures that Bevy doesn't crash, even when there are no cameras (and therefore no work submitted).
         for (id, window) in world.resource::<ExtractedWindows>().iter() {
             if camera_windows.contains(id) {
                 continue;
