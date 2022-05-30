@@ -31,7 +31,6 @@ impl TableId {
 }
 
 pub struct Column {
-    pub(crate) component_id: ComponentId,
     pub(crate) data: BlobVec,
     pub(crate) ticks: Vec<UnsafeCell<ComponentTicks>>,
 }
@@ -40,7 +39,6 @@ impl Column {
     #[inline]
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Column {
-            component_id: component_info.id(),
             // SAFE: component_info.drop() is valid for the types that will be inserted.
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             ticks: Vec::with_capacity(capacity),
@@ -253,10 +251,9 @@ impl Table {
         debug_assert!(row < self.len());
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
-        for column in self.columns.values_mut() {
-            let component_id = column.component_id;
+        for (component_id, column) in self.columns.iter_mut() {
             let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
-            if let Some(new_column) = new_table.get_column_mut(component_id) {
+            if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize(new_row, data, ticks);
             }
         }
@@ -284,8 +281,8 @@ impl Table {
         debug_assert!(row < self.len());
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
-        for column in self.columns.values_mut() {
-            if let Some(new_column) = new_table.get_column_mut(column.component_id) {
+        for (component_id, column) in self.columns.iter_mut() {
+            if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
                 new_column.initialize(new_row, data, ticks);
             } else {
@@ -316,8 +313,8 @@ impl Table {
         debug_assert!(row < self.len());
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
-        for column in self.columns.values_mut() {
-            let new_column = new_table.get_column_mut(column.component_id).unwrap();
+        for (component_id, column) in self.columns.iter_mut() {
+            let new_column = new_table.get_column_mut(*component_id).unwrap();
             let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
             new_column.initialize(new_row, data, ticks);
         }

@@ -258,7 +258,7 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::Stat
     filter: QueryFetch<'w, F>,
     current_len: usize,
     current_index: usize,
-    phantom: PhantomData<&'w Q>,
+    phantom: PhantomData<(&'w (), Q)>,
 }
 
 impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, QF, F>

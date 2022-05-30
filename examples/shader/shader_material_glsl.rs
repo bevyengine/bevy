@@ -1,4 +1,4 @@
-//! A custom shader using the GLSL shading language.
+//! A shader that uses the GLSL shading language.
 
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},

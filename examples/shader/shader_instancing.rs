@@ -1,4 +1,4 @@
-//! A custom shader showing off rendering a mesh multiple times in one draw call.
+//! A shader that renders a mesh multiple times in one draw call.
 
 use bevy::{
     core_pipeline::Transparent3d,

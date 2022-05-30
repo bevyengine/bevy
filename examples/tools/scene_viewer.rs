@@ -70,7 +70,7 @@ Controls:
 }
 
 struct SceneHandle {
-    handle: Handle<Scene>,
+    handle: Handle<Gltf>,
     #[cfg(feature = "animation")]
     animations: Vec<Handle<AnimationClip>>,
     instance_id: Option<InstanceId>,

@@ -92,6 +92,7 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use std::fmt::{Debug, Formatter};
 
     use super::*;
     use crate as bevy_reflect;
@@ -487,6 +488,87 @@ mod tests {
 
         // Should compile:
         let _ = trait_object.as_reflect();
+    }
+
+    #[test]
+    fn should_reflect_debug() {
+        #[derive(Reflect)]
+        struct Test {
+            value: usize,
+            list: Vec<String>,
+            array: [f32; 3],
+            map: HashMap<i32, f32>,
+            a_struct: SomeStruct,
+            a_tuple_struct: SomeTupleStruct,
+            custom: CustomDebug,
+            unknown: Option<String>,
+            #[reflect(ignore)]
+            #[allow(dead_code)]
+            ignored: isize,
+        }
+
+        #[derive(Reflect)]
+        struct SomeStruct {
+            foo: String,
+        }
+
+        #[derive(Reflect)]
+        struct SomeTupleStruct(String);
+
+        #[derive(Reflect)]
+        #[reflect(Debug)]
+        struct CustomDebug;
+        impl Debug for CustomDebug {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("Cool debug!")
+            }
+        }
+
+        let mut map = HashMap::new();
+        map.insert(123, 1.23);
+
+        let test = Test {
+            value: 123,
+            list: vec![String::from("A"), String::from("B"), String::from("C")],
+            array: [1.0, 2.0, 3.0],
+            map,
+            a_struct: SomeStruct {
+                foo: String::from("A Struct!"),
+            },
+            a_tuple_struct: SomeTupleStruct(String::from("A Tuple Struct!")),
+            custom: CustomDebug,
+            unknown: Some(String::from("Enums aren't supported yet :(")),
+            ignored: 321,
+        };
+
+        let reflected: &dyn Reflect = &test;
+        let expected = r#"
+bevy_reflect::tests::should_reflect_debug::Test {
+    value: 123,
+    list: [
+        "A",
+        "B",
+        "C",
+    ],
+    array: [
+        1.0,
+        2.0,
+        3.0,
+    ],
+    map: {
+        123: 1.23,
+    },
+    a_struct: bevy_reflect::tests::should_reflect_debug::SomeStruct {
+        foo: "A Struct!",
+    },
+    a_tuple_struct: bevy_reflect::tests::should_reflect_debug::SomeTupleStruct(
+        "A Tuple Struct!",
+    ),
+    custom: Cool debug!,
+    unknown: Reflect(core::option::Option<alloc::string::String>),
+}"#;
+
+        assert_eq!(expected, format!("\n{:#?}", reflected));
     }
 
     #[cfg(feature = "glam")]

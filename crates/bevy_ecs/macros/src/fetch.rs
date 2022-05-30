@@ -279,12 +279,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(self.#field_idents.update_archetype_component_access(_archetype, _access);)*
             }
 
-            fn matches_archetype(&self, _archetype: &#path::archetype::Archetype) -> bool {
-                true #(&& self.#field_idents.matches_archetype(_archetype))*
-            }
+            fn matches_component_set(&self, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
+                true #(&& self.#field_idents.matches_component_set(_set_contains_id))*
 
-            fn matches_table(&self, _table: &#path::storage::Table) -> bool {
-                true #(&& self.#field_idents.matches_table(_table))*
             }
         }
     };

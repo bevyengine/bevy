@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::fmt::{Debug, Formatter};
 
 use crate::{serde::Serializable, Array, ArrayIter, DynamicArray, Reflect, ReflectMut, ReflectRef};
 
@@ -167,6 +168,18 @@ unsafe impl Reflect for DynamicList {
     fn serializable(&self) -> Option<Serializable> {
         Some(Serializable::Borrowed(self))
     }
+
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicList(")?;
+        list_debug(self, f)?;
+        write!(f, ")")
+    }
+}
+
+impl Debug for DynamicList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.debug(f)
+    }
 }
 
 impl serde::Serialize for DynamicList {
@@ -237,6 +250,32 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`List`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+///
+/// let my_list: &dyn Reflect = &vec![1, 2, 3];
+/// println!("{:#?}", my_list);
+///
+/// // Output:
+///
+/// // [
+/// //   1,
+/// //   2,
+/// //   3,
+/// // ]
+/// ```
+#[inline]
+pub fn list_debug(dyn_list: &dyn List, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_list();
+    for item in dyn_list.iter() {
+        debug.entry(&item as &dyn Debug);
+    }
+    debug.finish()
 }
 
 #[cfg(test)]

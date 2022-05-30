@@ -146,7 +146,7 @@ pub fn extract_uinodes(
         }
         let image = image.0.clone_weak();
         // Skip loading images
-        if !images.contains(image.clone_weak()) {
+        if !images.contains(&image) {
             continue;
         }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
@@ -196,7 +196,7 @@ pub fn extract_text_uinodes(
             for text_glyph in text_glyphs {
                 let color = text.sections[text_glyph.section_index].style.color;
                 let atlas = texture_atlases
-                    .get(text_glyph.atlas_info.texture_atlas.clone_weak())
+                    .get(&text_glyph.atlas_info.texture_atlas)
                     .unwrap();
                 let texture = atlas.texture.clone_weak();
                 let index = text_glyph.atlas_info.glyph_index as usize;
