@@ -490,11 +490,12 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 
 /// A trait implemented for all functions that can be used as [`System`]s.
 ///
-/// This trait can be useful for making your own adapters to systems.
+/// This trait can be useful for making your own systems which accept other systems,
+/// sometimes called higher order systems.
 ///
-/// This should be used in combination with [`ParamSet`] where appropriate to
-/// create higher order systems.
-/// Using [`ParamSet`] limits parameter collisions when avoidable.
+/// This should be used in combination with [`ParamSet`] when calling other systems
+/// within your system.
+/// Using [`ParamSet`] in this case avoids [`SystemParam`] collisions.
 ///
 /// # Example
 ///
@@ -506,16 +507,22 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{SystemParam, SystemParamItem};
 ///
+/// // Unfortunately, we need all of these generics. `A` is the first system, with its
+/// // parameters and marker type required for coherence. `B` is the second system, and
+/// // the other generics are for the input/output types of A and B.
+/// /// Chain creates a new system which calls `a`, then calls `b` with the output of `a`
 /// pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
 /// ) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
 /// where
+///     // We need A and B to be systems, add those bounds
 ///     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,
 ///     B: SystemParamFunction<Shared, BOut, BParam, BMarker>,
 ///     AParam: SystemParam,
 ///     BParam: SystemParam,
 /// {
+///     // The type of `params` is inferred based on the return of this function above
 ///     move |In(a_in), mut params| {
 ///         let shared = a.run(a_in, params.p0());
 ///         b.run(shared, params.p1())
