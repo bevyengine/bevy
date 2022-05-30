@@ -624,23 +624,51 @@ impl Window {
     }
 }
 
+/// Describes the information needed for creating a window.
+///
+/// This should be set up before adding the [`WindowPlugin`](crate::WindowPlugin).
+/// Most of these settings can also later be configured through the [`Window`](crate::Window) resource.
+///
+/// See [`examples/window/window_settings.rs`] for usage.
+///
+/// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
+    /// The requested logical width of the window's client area.
+    /// May vary from the physical width due to different pixel density on different monitors.
     pub width: f32,
+    /// The requested logical height of the window's client area.
+    /// May vary from the physical height due to different pixel density on different monitors.
     pub height: f32,
+    /// The position on the screen that the window will be centered at.
+    /// If set to `None`, some platform-specific position will be chosen.
     pub position: Option<Vec2>,
+    /// Sets minimum and maximum resize limits.
     pub resize_constraints: WindowResizeConstraints,
+    /// Overrides the window's ratio of physical pixels to logical pixels.
+    /// If there are some scaling problems on X11 try to set this option to `Some(1.0)`.
     pub scale_factor_override: Option<f64>,
+    /// Sets the title that displays on the window top bar, on the system task bar and other OS specific places.
+    /// ## Platform-specific
+    /// - Web: Unsupported.
     pub title: String,
+    /// Controls when a frame is presented to the screen.
     #[doc(alias = "vsync")]
     pub present_mode: PresentMode,
+    /// Sets whether the window is resizable.
+    /// ## Platform-specific
+    /// - iOS / Android / Web: Unsupported.
     pub resizable: bool,
+    /// Sets whether the window should have borders and bars.
     pub decorations: bool,
+    /// Sets whether the cursor is visible when the window has focus.
     pub cursor_visible: bool,
+    /// Sets whether the window locks the cursor inside its borders when the window has focus.
     pub cursor_locked: bool,
+    /// Sets the [`WindowMode`](crate::WindowMode).
     pub mode: WindowMode,
     /// Sets whether the background of the window should be transparent.
-    /// # Platform-specific
+    /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     /// - macOS X: Not working as expected.
     /// - Windows 11: Not working as expected
