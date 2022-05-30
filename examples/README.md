@@ -89,6 +89,7 @@ Example | File | Description
 `move_sprite` | [`2d/move_sprite.rs`](./2d/move_sprite.rs) | Changes the transform of a sprite.
 `mesh2d` | [`2d/mesh2d.rs`](./2d/mesh2d.rs) | Renders a 2d mesh
 `mesh2d_manual` | [`2d/mesh2d_manual.rs`](./2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis.
+`mesh2d_vertex_color_texture` | [`2d/mesh2d_vertex_color_texture.rs`](./2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes.
 `shapes` | [`2d/shapes.rs`](./2d/shapes.rs) | Renders a rectangle, circle, and hexagon
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
