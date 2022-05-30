@@ -10,6 +10,7 @@ pub use window::*;
 
 use crate::{
     camera::ExtractedCamera,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -27,12 +28,14 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Msaa>().add_plugin(VisibilityPlugin);
+        app.init_resource::<Msaa>()
+            // NOTE: windows.is_changed() handles cases where a window was resized
+            .add_plugin(ExtractResourcePlugin::<Msaa>::default())
+            .add_plugin(VisibilityPlugin);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .add_system_to_stage(RenderStage::Extract, extract_msaa)
                 .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
                 .add_system_to_stage(
                     RenderStage::Prepare,
@@ -42,7 +45,7 @@ impl Plugin for ViewPlugin {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, ExtractResource)]
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
 /// # Example
@@ -68,11 +71,6 @@ impl Default for Msaa {
     fn default() -> Self {
         Self { samples: 4 }
     }
-}
-
-pub fn extract_msaa(mut commands: Commands, msaa: Res<Msaa>) {
-    // NOTE: windows.is_changed() handles cases where a window was resized
-    commands.insert_resource(msaa.clone());
 }
 
 #[derive(Component)]
