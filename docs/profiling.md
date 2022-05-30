@@ -52,6 +52,11 @@ After closing your app, an interactive `svg` file will be produced:
 
 ## Project Compile Times
 
-Append `--timings` to your app's cargo command (ex: `cargo build --timings`). If you want a "full" profile, make sure you run `cargo clean` first. Open the produced `cargo-timing.html` file in your browser of choice. This will show how much time each crate in your app's dependency tree took to build.
+Append `--timings` to your app's cargo command (ex: `cargo build --timings`).
+If you want a "full" profile, make sure you run `cargo clean` first (note: this will clear previously generated reports).
+The command will tell you where it saved the report, which will be in your target directory under `cargo-timings/`.
+The report is a `.html` file and can be opened and viewed in your browser.
+This will show how much time each crate in your app's dependency tree took to build.
+
 
 ![image](https://user-images.githubusercontent.com/2694663/141657811-f4e15e3b-c9fc-491b-9313-236fd8c01288.png)
