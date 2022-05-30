@@ -147,7 +147,7 @@ pub unsafe trait Reflect: Any + Send + Sync {
 
     /// Debug formatter for the value.
     ///
-    /// any value that is not an implementor of a other `Reflect` subtraits
+    /// Any value that is not an implementor of other `Reflect` subtraits
     /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_name)"`,
     /// where `type_name` is the [type name] of the underlying type.
     ///
