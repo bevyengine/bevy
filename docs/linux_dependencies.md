@@ -109,3 +109,17 @@ Note that this template doesn't add Rust to the environment because there are ma
 ```bash
    sudo emerge --ask libX11 pkgconf alsa-lib
 ```
+
+## Alpine
+
+```bash
+   doas apk add alsa-lib-dev eudev-dev
+```
+
+If using Wayland, add
+
+```bash
+   doas apk add wayland-dev libxkbcommon-dev
+```
+
+If you get an 'Unable to find a GPU! Make sure you have installed required drivers!' message, and have an AMD graphics card, you might need to add `mesa-vulkan-ati`.
