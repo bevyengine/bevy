@@ -239,16 +239,23 @@ Example | File | Description
 
 ## Shaders
 
+These examples demonstrate how to implement different shaders in user code.
+
+A shader in its most common usage is a small program that is run by the GPU per-vertex in a mesh (a vertex shader)
+or per-affected-screen-fragment (a fragment shader.) The GPU executes these programs in a highly parallel way.
+
+There are also compute shaders which are used for more general processing leveraging the GPU’s parallelism.
+
 Example | File | Description
 --- | --- | ---
-`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | Shows how to pass changing data like the time since startup into a shader.
-`compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader simulating Conway's Game of Life
-`custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | Illustrates creating a custom shader material that reads a mesh's custom vertex attribute.
-`shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | Demonstrates creating a custom material that uses "shaders defs" (a tool to selectively toggle parts of a shader)
-`shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A custom shader showing off rendering a mesh multiple times in one draw call.
-`shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | Illustrates creating a custom material and a shader that uses it
-`shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A custom shader using the GLSL shading language.
-`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A custom shader sampling a texture with view-independent UV coordinates.
+`animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup.
+`compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life.
+`custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute.
+`shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader).
+`shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call.
+`shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | A shader and a material that uses it.
+`shader_material_glsl` | [`shader/shader_material_glsl.rs`](./shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language.
+`shader_material_screenspace_texture` | [`shader/shader_material_screenspace_texture.rs`](./shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates.
 
 ## Stress Tests
 

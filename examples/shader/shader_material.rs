@@ -1,4 +1,4 @@
-//! Illustrates creating a custom material and a shader that uses it.
+//! A shader and a material that uses it.
 
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
