@@ -17,5 +17,5 @@ Which parts of this PR were you unsure about? Which parts were particularly tric
 
 > This section is optional. If there are no breaking changes, you can delete this section.
 
-If this PR is a breaking change, describe how a user might need to migrate their code to support these changes
+If this PR is a breaking change, describe how a user might need to migrate their code to support these changes.
 Adding new functionality or fixing bugs is not a breaking change.
