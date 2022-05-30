@@ -514,7 +514,7 @@ macro_rules! impl_reflect_tuple {
 
         impl <$($name: Reflect),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
-                static CELL: $crate::utility::TypeInfoCell = $crate::utility::TypeInfoCell::non_generic();
+                static CELL: $crate::utility::TypeInfoCell = $crate::utility::TypeInfoCell::generic();
                 CELL.get_or_insert::<Self, _>(|| {
                     let fields = [
                         $(UnnamedField::new::<$name>($index),)*
