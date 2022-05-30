@@ -1,5 +1,6 @@
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
 use serde::ser::SerializeSeq;
+use std::fmt::Debug;
 use std::{
     any::Any,
     hash::{Hash, Hasher},
@@ -297,4 +298,30 @@ pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bo
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`Array`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+///
+/// let my_array: &dyn Reflect = &[1, 2, 3];
+/// println!("{:#?}", my_array);
+///
+/// // Output:
+///
+/// // [
+/// //   1,
+/// //   2,
+/// //   3,
+/// // ]
+/// ```
+#[inline]
+pub fn array_debug(dyn_array: &dyn Array, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_list();
+    for item in dyn_array.iter() {
+        debug.entry(&item as &dyn Debug);
+    }
+    debug.finish()
 }

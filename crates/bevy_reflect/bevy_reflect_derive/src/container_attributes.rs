@@ -15,6 +15,7 @@ use syn::{Meta, NestedMeta, Path};
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
+const DEBUG_ATTR: &str = "Debug";
 const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
 const SERIALIZE_ATTR: &str = "Serialize";
@@ -46,6 +47,7 @@ impl Default for TraitImpl {
 /// `Reflect` derive macro using the helper attribute: `#[reflect(...)]`.
 ///
 /// The list of special traits are as follows:
+/// * `Debug`
 /// * `Hash`
 /// * `PartialEq`
 /// * `Serialize`
@@ -101,6 +103,7 @@ impl Default for TraitImpl {
 ///
 #[derive(Default)]
 pub(crate) struct ReflectTraits {
+    debug: TraitImpl,
     hash: TraitImpl,
     partial_eq: TraitImpl,
     serialize: TraitImpl,
@@ -123,6 +126,7 @@ impl ReflectTraits {
                     };
 
                     match ident.as_str() {
+                        DEBUG_ATTR => traits.debug = TraitImpl::Implemented,
                         PARTIAL_EQ_ATTR => traits.partial_eq = TraitImpl::Implemented,
                         HASH_ATTR => traits.hash = TraitImpl::Implemented,
                         SERIALIZE_ATTR => traits.serialize = TraitImpl::Implemented,
@@ -145,6 +149,7 @@ impl ReflectTraits {
                             // This should be the ident of the custom function
                             let trait_func_ident = TraitImpl::Custom(segment.ident.clone());
                             match ident.as_str() {
+                                DEBUG_ATTR => traits.debug = trait_func_ident,
                                 PARTIAL_EQ_ATTR => traits.partial_eq = trait_func_ident,
                                 HASH_ATTR => traits.hash = trait_func_ident,
                                 SERIALIZE_ATTR => traits.serialize = trait_func_ident,
@@ -234,6 +239,25 @@ impl ReflectTraits {
             TraitImpl::Custom(impl_fn) => Some(quote! {
                 fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
                     Some(#impl_fn(self))
+                }
+            }),
+            TraitImpl::NotImplemented => None,
+        }
+    }
+
+    /// Returns the implementation of `Reflect::debug` as a `TokenStream`.
+    ///
+    /// If `Debug` was not registered, returns `None`.
+    pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {
+        match &self.debug {
+            TraitImpl::Implemented => Some(quote! {
+                fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    std::fmt::Debug::fmt(self, f)
+                }
+            }),
+            TraitImpl::Custom(impl_fn) => Some(quote! {
+                fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    #impl_fn(self, f)
                 }
             }),
             TraitImpl::NotImplemented => None,
