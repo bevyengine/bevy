@@ -166,7 +166,7 @@ unsafe impl Reflect for DynamicList {
     }
 
     fn serializable(&self) -> Option<Serializable> {
-        Some(Serializable::Borrowed(self))
+        None
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -179,15 +179,6 @@ unsafe impl Reflect for DynamicList {
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
-    }
-}
-
-impl serde::Serialize for DynamicList {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        crate::array_serialize(self, serializer)
     }
 }
 
