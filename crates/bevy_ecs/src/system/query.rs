@@ -7,7 +7,6 @@ use crate::{
     },
     world::{Mut, World},
 };
-use bevy_tasks::TaskPool;
 use std::{any::TypeId, fmt::Debug};
 
 /// Provides scoped access to components in a [`World`].
@@ -493,7 +492,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each query result in parallel using the given [`TaskPool`].
+    /// Runs `f` on each query result in parallel using the [`World`]'s [`ComputeTaskPool`].
     ///
     /// This can only be called for immutable data, see [`Self::par_for_each_mut`] for
     /// mutable access.
@@ -502,7 +501,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// The items in the query get sorted into batches.
     /// Internally, this function spawns a group of futures that each take on a `batch_size` sized section of the items (or less if the division is not perfect).
-    /// Then, the tasks in the [`TaskPool`] work through these futures.
+    /// Then, the tasks in the [`ComputeTaskPool`] work through these futures.
     ///
     /// You can use this value to tune between maximum multithreading ability (many small batches) and minimum parallelization overhead (few big batches).
     /// Rule of thumb: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
@@ -510,13 +509,17 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # Arguments
     ///
-    ///* `task_pool` - The [`TaskPool`] to use
     ///* `batch_size` - The number of batches to spawn
     ///* `f` - The function to run on each item in the query
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     #[inline]
     pub fn par_for_each<'this>(
         &'this self,
-        task_pool: &TaskPool,
         batch_size: usize,
         f: impl Fn(ROQueryItem<'this, Q>) + Send + Sync + Clone,
     ) {
@@ -526,7 +529,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
             self.state
                 .par_for_each_unchecked_manual::<ROQueryFetch<Q>, _>(
                     self.world,
-                    task_pool,
                     batch_size,
                     f,
                     self.last_change_tick,
@@ -535,12 +537,17 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each query result in parallel using the given [`TaskPool`].
+    /// Runs `f` on each query result in parallel using the [`World`]'s [`ComputeTaskPool`].
     /// See [`Self::par_for_each`] for more details.
+    ///
+    /// # Panics
+    /// [`ComputeTaskPool`] was not stored in the world at initialzation. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     #[inline]
     pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, Q>) + Send + Sync + Clone>(
         &'a mut self,
-        task_pool: &TaskPool,
         batch_size: usize,
         f: FN,
     ) {
@@ -550,7 +557,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
             self.state
                 .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                     self.world,
-                    task_pool,
                     batch_size,
                     f,
                     self.last_change_tick,
