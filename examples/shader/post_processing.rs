@@ -3,17 +3,14 @@
 //! edge detection, blur, pixelization, vignette... and countless others.
 
 use bevy::{
-    core_pipeline::{
-        draw_2d_graph, node, AlphaMask3d, Opaque3d, RenderTargetClearColors, Transparent3d,
-    },
+    core_pipeline::{draw_2d_graph, node, RenderTargetClearColors},
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
     reflect::TypeUuid,
     render::{
-        camera::{ActiveCamera, Camera, CameraTypePlugin, RenderTarget},
+        camera::{Camera, CameraTypePlugin, RenderTarget},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
-        render_phase::RenderPhase,
         render_resource::{
             BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
             BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
@@ -22,7 +19,7 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice},
         view::RenderLayers,
-        RenderApp, RenderStage,
+        RenderApp,
     },
     sprite::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle},
 };
@@ -30,7 +27,7 @@ use bevy::{
 #[derive(Component, Default)]
 pub struct PostProcessingPassCamera;
 
-/// The name of the final node of the post_process pass.
+/// The name of the final node of the post process pass.
 pub const POST_PROCESS_PASS_DRIVER: &str = "post_process_pass_driver";
 
 fn main() {
