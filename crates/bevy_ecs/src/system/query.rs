@@ -3,7 +3,8 @@ use crate::{
     entity::Entity,
     query::{
         NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
-        QueryParIter, QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
+        QueryParIter, QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch,
+        WorldQuery,
     },
     world::{Mut, World},
 };
