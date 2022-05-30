@@ -198,6 +198,7 @@ impl ComponentDescriptor {
         x.drop_as::<T>()
     }
 
+    /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
             name: std::any::type_name::<T>().to_string(),
@@ -206,6 +207,27 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+        }
+    }
+
+    /// Create a new `ComponentDescriptor`.
+    ///
+    /// # Safety
+    /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
+    /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
+    pub unsafe fn new_with_layout(
+        name: String,
+        storage_type: StorageType,
+        layout: Layout,
+        drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    ) -> Self {
+        Self {
+            name,
+            storage_type,
+            is_send_and_sync: true,
+            type_id: None,
+            layout,
+            drop,
         }
     }
 
@@ -263,18 +285,40 @@ impl Components {
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
-        let components = &mut self.components;
-        let index = self.indices.entry(type_id).or_insert_with(|| {
-            let index = components.len();
-            let descriptor = ComponentDescriptor::new::<T>();
-            let info = ComponentInfo::new(ComponentId(index), descriptor);
-            if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
-                storages.sparse_sets.get_or_insert(&info);
-            }
-            components.push(info);
-            index
+
+        let Components {
+            indices,
+            components,
+            ..
+        } = self;
+        let index = indices.entry(type_id).or_insert_with(|| {
+            Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
         });
         ComponentId(*index)
+    }
+
+    pub fn init_component_with_descriptor(
+        &mut self,
+        storages: &mut Storages,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        let index = Components::init_component_inner(&mut self.components, storages, descriptor);
+        ComponentId(index)
+    }
+
+    #[inline]
+    fn init_component_inner(
+        components: &mut Vec<ComponentInfo>,
+        storages: &mut Storages,
+        descriptor: ComponentDescriptor,
+    ) -> usize {
+        let index = components.len();
+        let info = ComponentInfo::new(ComponentId(index), descriptor);
+        if info.descriptor.storage_type == StorageType::SparseSet {
+            storages.sparse_sets.get_or_insert(&info);
+        }
+        components.push(info);
+        index
     }
 
     #[inline]
@@ -351,6 +395,10 @@ impl Components {
         });
 
         ComponentId(*index)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
+        self.components.iter()
     }
 }
 
