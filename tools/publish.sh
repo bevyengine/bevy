@@ -42,20 +42,23 @@ if [ -n "$(git status --porcelain)" ]; then
     exit 1
 fi
 
-cd crates
+pushd crates
+
 for crate in "${crates[@]}"
 do
   echo "Publishing ${crate}"
   cp ../docs/LICENSE-MIT "$crate"
   cp ../docs/LICENSE-APACHE "$crate"
   pushd "$crate"
-  git add .
+  git add LICENSE-MIT LICENSE-APACHE
   cargo publish --no-verify --allow-dirty
   popd
   sleep 20
 done
 
-cd ..
+popd
+
+echo "Publishing root crate"
 cargo publish --allow-dirty
 
 echo "Cleaning local state"
