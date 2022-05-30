@@ -896,13 +896,15 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                                 );
                                 let tables = &world.storages().tables;
                                 let table = &tables[*table_id];
+                                let entities = table.entities();
                                 fetch.set_table(&self.fetch_state, table);
                                 filter.set_table(&self.filter_state, table);
-                                for table_index in offset..offset + len {
-                                    if !filter.table_filter_fetch(table_index) {
+                                for row in offset..offset + len {
+                                    let entity = entities.get_unchecked(row);
+                                    if !filter.filter_fetch(entity, &row) {
                                         continue;
                                     }
-                                    let item = fetch.table_fetch(table_index);
+                                    let item = fetch.fetch(entity, &row);
                                     func(item);
                                 }
                             };
@@ -945,11 +947,19 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                                 fetch.set_archetype(&self.fetch_state, archetype, tables);
                                 filter.set_archetype(&self.filter_state, archetype, tables);
 
+                                let entities = archetype.entities();
                                 for archetype_index in offset..offset + len {
-                                    if !filter.archetype_filter_fetch(archetype_index) {
+                                    let archetype_entity = entities.get_unchecked(archetype_index);
+                                    if !filter.filter_fetch(
+                                        &archetype_entity.entity,
+                                        &archetype_entity.table_row,
+                                    ) {
                                         continue;
                                     }
-                                    func(fetch.archetype_fetch(archetype_index));
+                                    func(fetch.fetch(
+                                        &archetype_entity.entity,
+                                        &archetype_entity.table_row,
+                                    ));
                                 }
                             };
 
