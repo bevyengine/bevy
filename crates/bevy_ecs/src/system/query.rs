@@ -3,7 +3,7 @@ use crate::{
     entity::Entity,
     query::{
         NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
-        QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
+        QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -513,7 +513,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///* `f` - The function to run on each item in the query
     ///
     /// # Panics
-    /// [`ComputeTaskPool`] is not stored as a resource in `world`.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being 
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     #[inline]
@@ -540,7 +541,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// See [`Self::par_for_each`] for more details.
     ///
     /// # Panics
-    /// [`ComputeTaskPool`] is not stored as a resource in `world`.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being 
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     #[inline]
@@ -972,7 +974,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::system::QuerySingleError;
+    /// # use bevy_ecs::query::QuerySingleError;
     /// # #[derive(Component)]
     /// # struct PlayerScore(i32);
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
@@ -990,17 +992,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(player_scoring_system);
     /// ```
+    #[inline]
     pub fn get_single(&self) -> Result<ROQueryItem<'_, Q>, QuerySingleError> {
-        let mut query = self.iter();
-        let first = query.next();
-        let extra = query.next().is_some();
-
-        match (first, extra) {
-            (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
-                Self,
-            >())),
+        unsafe {
+            self.state.get_single_unchecked_manual::<ROQueryFetch<Q>>(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
@@ -1055,17 +1054,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
     /// ```
+    #[inline]
     pub fn get_single_mut(&mut self) -> Result<QueryItem<'_, Q>, QuerySingleError> {
-        let mut query = self.iter_mut();
-        let first = query.next();
-        let extra = query.next().is_some();
-
-        match (first, extra) {
-            (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
-                Self,
-            >())),
+        unsafe {
+            self.state.get_single_unchecked_manual::<QueryFetch<Q>>(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
@@ -1187,26 +1183,6 @@ impl std::fmt::Display for QueryComponentError {
     }
 }
 
-/// An error that occurs when evaluating a [`Query`] as a single expected resulted via
-/// [`Query::single`] or [`Query::single_mut`].
-#[derive(Debug)]
-pub enum QuerySingleError {
-    NoEntities(&'static str),
-    MultipleEntities(&'static str),
-}
-
-impl std::error::Error for QuerySingleError {}
-
-impl std::fmt::Display for QuerySingleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {}", query),
-            QuerySingleError::MultipleEntities(query) => {
-                write!(f, "Multiple entities fit the query {}!", query)
-            }
-        }
-    }
-}
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
     QueryFetch<'w, Q>: ReadOnlyFetch,

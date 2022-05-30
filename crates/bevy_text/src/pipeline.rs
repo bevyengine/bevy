@@ -66,7 +66,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
             .iter()
             .map(|section| {
                 let font = fonts
-                    .get(section.style.font.id)
+                    .get(&section.style.font)
                     .ok_or(TextError::NoSuchFont)?;
                 let font_id = self.get_or_insert_font_id(&section.style.font, font);
                 let font_size = scale_value(section.style.font_size, scale_factor);

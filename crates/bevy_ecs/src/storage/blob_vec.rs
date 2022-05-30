@@ -86,6 +86,11 @@ impl BlobVec {
         self.capacity
     }
 
+    #[inline]
+    pub fn layout(&self) -> Layout {
+        self.item_layout
+    }
+
     pub fn reserve_exact(&mut self, additional: usize) {
         let available_space = self.capacity - self.len;
         if available_space < additional {

@@ -98,7 +98,7 @@ pub fn extract_text2d_sprite(
                     .color
                     .as_rgba_linear();
                 let atlas = texture_atlases
-                    .get(text_glyph.atlas_info.texture_atlas.clone_weak())
+                    .get(&text_glyph.atlas_info.texture_atlas)
                     .unwrap();
                 let handle = atlas.texture.clone_weak();
                 let index = text_glyph.atlas_info.glyph_index as usize;
