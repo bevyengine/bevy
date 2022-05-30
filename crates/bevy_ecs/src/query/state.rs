@@ -119,8 +119,12 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
     /// Creates a new [`Archetype`].
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        if self.fetch_state.matches_archetype(archetype)
-            && self.filter_state.matches_archetype(archetype)
+        if self
+            .fetch_state
+            .matches_component_set(&|id| archetype.contains(id))
+            && self
+                .filter_state
+                .matches_component_set(&|id| archetype.contains(id))
         {
             self.fetch_state
                 .update_archetype_component_access(archetype, &mut self.archetype_component_access);
@@ -689,6 +693,14 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         );
     }
 
+    /// Runs `func` on each query result in parallel.
+    ///
+    /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
+    /// write-queries.
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
     #[inline]
     pub fn par_iter<'w, 's>(
         &'s mut self,
@@ -910,6 +922,136 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                 }
             });
     }
+
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// This can only be called for read-only queries,
+    /// see [`single_mut`](Self::single_mut) for write-queries.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
+    #[track_caller]
+    #[inline]
+    pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, Q> {
+        self.get_single(world).unwrap()
+    }
+
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// This can only be called for read-only queries,
+    /// see [`get_single_mut`](Self::get_single_mut) for write-queries.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    #[inline]
+    pub fn get_single<'w>(
+        &mut self,
+        world: &'w World,
+    ) -> Result<ROQueryItem<'w, Q>, QuerySingleError> {
+        self.update_archetypes(world);
+
+        // SAFETY: query is read only
+        unsafe {
+            self.get_single_unchecked_manual::<ROQueryFetch<'w, Q>>(
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
+    #[track_caller]
+    #[inline]
+    pub fn single_mut<'w>(&mut self, world: &'w mut World) -> QueryItem<'w, Q> {
+        // SAFETY: query has unique world access
+        self.get_single_mut(world).unwrap()
+    }
+
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    #[inline]
+    pub fn get_single_mut<'w>(
+        &mut self,
+        world: &'w mut World,
+    ) -> Result<QueryItem<'w, Q>, QuerySingleError> {
+        self.update_archetypes(world);
+
+        // SAFETY: query has unique world access
+        unsafe {
+            self.get_single_unchecked_manual::<QueryFetch<'w, Q>>(
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns a query result when there is exactly one entity matching the query.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn get_single_unchecked<'w>(
+        &mut self,
+        world: &'w World,
+    ) -> Result<QueryItem<'w, Q>, QuerySingleError> {
+        self.update_archetypes(world);
+
+        self.get_single_unchecked_manual::<QueryFetch<'w, Q>>(
+            world,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
+    }
+
+    /// Returns a query result when there is exactly one entity matching the query,
+    /// where the last change and the current change tick are given.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn get_single_unchecked_manual<'w, QF: Fetch<'w, State = Q::State>>(
+        &self,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Result<QF::Item, QuerySingleError> {
+        let mut query = self.iter_unchecked_manual::<QF>(world, last_change_tick, change_tick);
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
+        }
+    }
 }
 
 /// An error that occurs when retrieving a specific [`Entity`]'s query result.
@@ -1038,5 +1180,26 @@ mod tests {
 
         let mut query_state = world_1.query::<Entity>();
         let _panics = query_state.get_many_mut(&mut world_2, []);
+    }
+}
+
+/// An error that occurs when evaluating a [`QueryState`] as a single expected resulted via
+/// [`QueryState::single`] or [`QueryState::single_mut`].
+#[derive(Debug)]
+pub enum QuerySingleError {
+    NoEntities(&'static str),
+    MultipleEntities(&'static str),
+}
+
+impl std::error::Error for QuerySingleError {}
+
+impl std::fmt::Display for QuerySingleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {}", query),
+            QuerySingleError::MultipleEntities(query) => {
+                write!(f, "Multiple entities fit the query {}!", query)
+            }
+        }
     }
 }

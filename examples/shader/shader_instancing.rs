@@ -1,4 +1,4 @@
-//! A custom shader showing off rendering a mesh multiple times in one draw call.
+//! A shader that renders a mesh multiple times in one draw call.
 
 use bevy::{
     core_pipeline::Transparent3d,
@@ -7,9 +7,9 @@ use bevy::{
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
-        render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{
             AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
             SetItemPipeline, TrackedRenderPass,

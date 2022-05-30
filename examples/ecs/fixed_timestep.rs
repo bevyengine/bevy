@@ -1,8 +1,8 @@
 //! Shows how to create systems that run every fixed timestep, rather than every tick.
 
 use bevy::{
-    core::{FixedTimestep, FixedTimesteps},
     prelude::*,
+    time::{FixedTimestep, FixedTimesteps},
 };
 
 const LABEL: &str = "my_fixed_timestep";

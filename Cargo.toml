@@ -13,7 +13,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "errors"]
+members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "tools/build-wasm-example", "errors"]
 
 [features]
 default = [
@@ -142,6 +142,10 @@ path = "examples/2d/mesh2d.rs"
 [[example]]
 name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
+
+[[example]]
+name = "mesh2d_vertex_color_texture"
+path = "examples/2d/mesh2d_vertex_color_texture.rs"
 
 [[example]]
 name = "shapes"
