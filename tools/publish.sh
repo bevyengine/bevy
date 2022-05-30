@@ -37,13 +37,26 @@ crates=(
     bevy_dylib
 )
 
+if [ -n "$(git status --porcelain)" ]; then
+    echo "You have local changes!"
+    exit 1
+fi
+
 cd crates
 for crate in "${crates[@]}"
 do
   echo "Publishing ${crate}"
-  (cd "$crate"; cargo publish --no-verify)
+  cp ../docs/LICENSE-MIT "$crate"
+  cp ../docs/LICENSE-APACHE "$crate"
+  pushd "$crate"
+  git add .
+  cargo publish --no-verify --allow-dirty
+  popd
   sleep 20
 done
 
 cd ..
-cargo publish
+cargo publish --allow-dirty
+
+echo "Cleaning local state"
+git reset HEAD --hard
