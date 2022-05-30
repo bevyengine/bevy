@@ -115,8 +115,12 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
     /// Creates a new [`Archetype`].
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        if self.fetch_state.matches_archetype(archetype)
-            && self.filter_state.matches_archetype(archetype)
+        if self
+            .fetch_state
+            .matches_component_set(&|id| archetype.contains(id))
+            && self
+                .filter_state
+                .matches_component_set(&|id| archetype.contains(id))
         {
             self.fetch_state
                 .update_archetype_component_access(archetype, &mut self.archetype_component_access);
