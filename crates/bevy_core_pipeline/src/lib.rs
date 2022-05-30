@@ -24,6 +24,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{ActiveCamera, Camera2d, Camera3d, ExtractedCamera, RenderTarget},
     color::Color,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
@@ -33,7 +34,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::{ExtractedView, Msaa, ViewDepthTexture},
-    RenderApp, RenderStage, RenderWorld,
+    RenderApp, RenderStage,
 };
 use bevy_utils::FloatOrd;
 
@@ -41,7 +42,7 @@ use bevy_utils::FloatOrd;
 ///
 /// This color appears as the "background" color for simple apps, when
 /// there are portions of the screen with nothing rendered.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, ExtractResource)]
 pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
@@ -50,7 +51,7 @@ impl Default for ClearColor {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, ExtractResource)]
 pub struct RenderTargetClearColors {
     colors: HashMap<RenderTarget, Color>,
 }
@@ -113,7 +114,9 @@ pub enum CorePipelineRenderSystems {
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ClearColor>()
-            .init_resource::<RenderTargetClearColors>();
+            .init_resource::<RenderTargetClearColors>()
+            .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
+            .add_plugin(ExtractResourcePlugin::<RenderTargetClearColors>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -125,7 +128,6 @@ impl Plugin for CorePipelinePlugin {
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
-            .add_system_to_stage(RenderStage::Extract, extract_clear_color)
             .add_system_to_stage(RenderStage::Extract, extract_core_pipeline_camera_phases)
             .add_system_to_stage(RenderStage::Prepare, prepare_core_views_system)
             .add_system_to_stage(
@@ -344,24 +346,6 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
-    }
-}
-
-pub fn extract_clear_color(
-    clear_color: Res<ClearColor>,
-    clear_colors: Res<RenderTargetClearColors>,
-    mut render_world: ResMut<RenderWorld>,
-) {
-    // If the clear color has changed
-    if clear_color.is_changed() {
-        // Update the clear color resource in the render world
-        render_world.insert_resource(clear_color.clone());
-    }
-
-    // If the clear color has changed
-    if clear_colors.is_changed() {
-        // Update the clear color resource in the render world
-        render_world.insert_resource(clear_colors.clone());
     }
 }
 

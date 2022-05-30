@@ -1,8 +1,8 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
-use bevy_core::{Time, Timer};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_log::{debug, info};
+use bevy_time::{Time, Timer};
 use bevy_utils::Duration;
 
 /// An App Plugin that logs diagnostics to the console

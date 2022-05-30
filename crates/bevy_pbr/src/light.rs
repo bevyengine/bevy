@@ -9,6 +9,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
+    extract_resource::ExtractResource,
     prelude::Image,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
@@ -170,7 +171,7 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Debug)]
+#[derive(Clone, Debug, ExtractResource)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.

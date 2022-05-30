@@ -1,5 +1,4 @@
-//! Demonstrates creating a custom material that uses "shaders defs", a tool that enables
-//! conditional compilation in shaders.
+//! A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 
 use bevy::{
     core_pipeline::Transparent3d,
@@ -9,9 +8,9 @@ use bevy::{
     },
     prelude::*,
     render::{
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
-        render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
             PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
