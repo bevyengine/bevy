@@ -209,7 +209,6 @@ type DrawColoredMesh2d = (
 // using `include_str!()`, or loaded like any other asset with `asset_server.load()`.
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_view_types
 #import bevy_sprite::mesh2d_types
 #import bevy_sprite::mesh2d_view_bindings
 

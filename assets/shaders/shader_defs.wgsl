@@ -1,4 +1,3 @@
-#import bevy_pbr::mesh_view_types
 #import bevy_pbr::mesh_types
 #import bevy_pbr::mesh_view_bindings
 

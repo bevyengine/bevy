@@ -32,14 +32,9 @@
 //
 // The above integration needs to be approximated.
 
-#import bevy_pbr::mesh_view_types
-#import bevy_pbr::mesh_types
-#import bevy_pbr::pbr_types
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::pbr_bindings
-
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
+#import bevy_pbr::mesh_bindings
 
 let PI: f32 = 3.141592653589793;
 

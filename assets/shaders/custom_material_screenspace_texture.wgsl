@@ -1,4 +1,3 @@
-#import bevy_pbr::mesh_view_types
 #import bevy_pbr::mesh_view_bindings
 
 [[group(1), binding(0)]]

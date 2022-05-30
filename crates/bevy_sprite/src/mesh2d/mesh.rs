@@ -41,6 +41,8 @@ pub const MESH2D_VIEW_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6901431444735842434);
 pub const MESH2D_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8994673400261890424);
+pub const MESH2D_BINDINGS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8983617858458862856);
 pub const MESH2D_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2971387252468633715);
 
@@ -62,6 +64,12 @@ impl Plugin for Mesh2dRenderPlugin {
             app,
             MESH2D_TYPES_HANDLE,
             "mesh2d_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH2D_BINDINGS_HANDLE,
+            "mesh2d_bindings.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);

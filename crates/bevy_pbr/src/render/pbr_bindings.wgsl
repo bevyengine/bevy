@@ -1,5 +1,7 @@
 #define_import_path bevy_pbr::pbr_bindings
 
+#import bevy_pbr::pbr_types
+
 [[group(1), binding(0)]]
 var<uniform> material: StandardMaterial;
 [[group(1), binding(1)]]

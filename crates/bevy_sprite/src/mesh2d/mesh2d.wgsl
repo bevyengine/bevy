@@ -1,9 +1,5 @@
-#import bevy_sprite::mesh2d_view_types
-#import bevy_sprite::mesh2d_types
 #import bevy_sprite::mesh2d_view_bindings
-
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh2d;
+#import bevy_sprite::mesh2d_bindings
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;

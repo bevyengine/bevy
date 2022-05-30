@@ -1,4 +1,3 @@
-#import bevy_sprite::mesh2d_view_types
 #import bevy_sprite::mesh2d_types
 #import bevy_sprite::mesh2d_view_bindings
 
