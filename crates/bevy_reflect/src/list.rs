@@ -237,7 +237,7 @@ unsafe impl Reflect for DynamicList {
     }
 
     fn serializable(&self) -> Option<Serializable> {
-        Some(Serializable::Borrowed(self))
+        None
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -257,15 +257,6 @@ impl Typed for DynamicList {
     fn type_info() -> &'static TypeInfo {
         static CELL: TypeInfoCell = TypeInfoCell::non_generic();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
-    }
-}
-
-impl serde::Serialize for DynamicList {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        crate::array_serialize(self, serializer)
     }
 }
 
