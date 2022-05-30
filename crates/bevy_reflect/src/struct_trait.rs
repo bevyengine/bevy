@@ -1,8 +1,12 @@
 use crate::utility::TypeInfoCell;
 use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 use bevy_utils::{Entry, HashMap};
-use std::any::TypeId;
-use std::{any::Any, borrow::Cow, slice::Iter};
+use std::fmt::{Debug, Formatter};
+use std::{
+    any::{Any, TypeId},
+    borrow::Cow,
+    slice::Iter,
+};
 
 /// A reflected Rust regular struct type.
 ///
@@ -401,6 +405,18 @@ unsafe impl Reflect for DynamicStruct {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         struct_partial_eq(self, value)
     }
+
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicStruct(")?;
+        struct_debug(self, f)?;
+        write!(f, ")")
+    }
+}
+
+impl Debug for DynamicStruct {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.debug(f)
+    }
 }
 
 impl Typed for DynamicStruct {
@@ -441,4 +457,36 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`Struct`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+/// #[derive(Reflect)]
+/// struct MyStruct {
+///   foo: usize
+/// }
+///
+/// let my_struct: &dyn Reflect = &MyStruct { foo: 123 };
+/// println!("{:#?}", my_struct);
+///
+/// // Output:
+///
+/// // MyStruct {
+/// //   foo: 123,
+/// // }
+/// ```
+#[inline]
+pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_struct(dyn_struct.type_name());
+    for field_index in 0..dyn_struct.field_len() {
+        let field = dyn_struct.field_at(field_index).unwrap();
+        debug.field(
+            dyn_struct.name_at(field_index).unwrap(),
+            &field as &dyn Debug,
+        );
+    }
+    debug.finish()
 }

@@ -8,6 +8,9 @@ struct Vertex {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] tangent: vec4<f32>;
 #endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] colors: vec4<f32>;
+#endif
 };
 
 struct VertexOutput {
@@ -17,6 +20,9 @@ struct VertexOutput {
     [[location(2)]] uv: vec2<f32>;
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
+#endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] colors: vec4<f32>;
 #endif
 };
 
@@ -48,6 +54,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         ) * vertex.tangent.xyz,
         vertex.tangent.w
     );
+#endif
+#ifdef VERTEX_COLORS
+    out.colors = vertex.colors;
 #endif
     return out;
 }

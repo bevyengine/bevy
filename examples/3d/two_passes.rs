@@ -24,8 +24,7 @@ struct FirstPassCamera;
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(Msaa { samples: 4 })
-        .add_plugins(DefaultPlugins)
+    app.add_plugins(DefaultPlugins)
         .add_plugin(CameraTypePlugin::<FirstPassCamera>::default())
         .add_startup_system(setup)
         .add_system(cube_rotator_system)

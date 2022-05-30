@@ -45,11 +45,6 @@ pub enum RenderLightSystems {
     QueueShadows,
 }
 
-pub struct ExtractedAmbientLight {
-    color: Color,
-    brightness: f32,
-}
-
 #[derive(Component)]
 pub struct ExtractedPointLight {
     color: Color,
@@ -63,8 +58,6 @@ pub struct ExtractedPointLight {
     shadow_normal_bias: f32,
 }
 
-pub type ExtractedPointLightShadowMap = PointLightShadowMap;
-
 #[derive(Component)]
 pub struct ExtractedDirectionalLight {
     color: Color,
@@ -75,8 +68,6 @@ pub struct ExtractedDirectionalLight {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
 }
-
-pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuPointLight {
@@ -408,7 +399,6 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
 #[allow(clippy::too_many_arguments)]
 pub fn extract_lights(
     mut commands: Commands,
-    ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     global_point_lights: Res<GlobalVisiblePointLights>,
@@ -422,14 +412,14 @@ pub fn extract_lights(
     )>,
     mut previous_point_lights_len: Local<usize>,
 ) {
-    commands.insert_resource(ExtractedAmbientLight {
-        color: ambient_light.color,
-        brightness: ambient_light.brightness,
-    });
-    commands.insert_resource::<ExtractedPointLightShadowMap>(point_light_shadow_map.clone());
-    commands.insert_resource::<ExtractedDirectionalLightShadowMap>(
-        directional_light_shadow_map.clone(),
-    );
+    // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
+    // races between scheduling of ExtractResourceSystems and this system.
+    if point_light_shadow_map.is_changed() {
+        commands.insert_resource(point_light_shadow_map.clone());
+    }
+    if directional_light_shadow_map.is_changed() {
+        commands.insert_resource(directional_light_shadow_map.clone());
+    }
     // This is the point light shadow map texel size for one face of the cube as a distance of 1.0
     // world unit from the light.
     // point_light_texel_size = 2.0 * 1.0 * tan(PI / 4.0) / cube face width in texels
@@ -665,9 +655,9 @@ pub fn prepare_lights(
         (Entity, &ExtractedView, &ExtractedClusterConfig),
         With<RenderPhase<Transparent3d>>,
     >,
-    ambient_light: Res<ExtractedAmbientLight>,
-    point_light_shadow_map: Res<ExtractedPointLightShadowMap>,
-    directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
+    ambient_light: Res<AmbientLight>,
+    point_light_shadow_map: Res<PointLightShadowMap>,
+    directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {

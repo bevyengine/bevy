@@ -67,7 +67,7 @@ Controls:
 }
 
 struct SceneHandle {
-    handle: Handle<Scene>,
+    handle: Handle<Gltf>,
     animations: Vec<Handle<AnimationClip>>,
     instance_id: Option<InstanceId>,
     is_loaded: bool,

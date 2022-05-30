@@ -15,9 +15,9 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_render::{
+    extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_component::ExtractComponentPlugin,
     render_phase::{
         AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
         SetItemPipeline, TrackedRenderPass,
