@@ -19,7 +19,7 @@ const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
 const SERIALIZE_ATTR: &str = "Serialize";
 
-// Traits not considered "special" (i.e. use the `ReflectMyTrait` syntax)
+// The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
 // but useful to know exist nonetheless
 pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
 

@@ -241,7 +241,7 @@ mod tests {
             #[reflect(default)]
             foo: String,
 
-            // Use `get_foo_default()`
+            // Use `get_bar_default()`
             #[reflect(default = "get_bar_default")]
             #[reflect(ignore)]
             bar: usize,
