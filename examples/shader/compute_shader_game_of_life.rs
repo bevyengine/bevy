@@ -1,3 +1,8 @@
+//! A compute shader that simulates Conway's Game of Life.
+//!
+//! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
+//! is rendered to the screen.
+
 use bevy::{
     core_pipeline::node::MAIN_PASS_DEPENDENCIES,
     prelude::*,
@@ -80,6 +85,7 @@ impl Plugin for GameOfLifeComputePlugin {
 
 #[derive(Clone, Deref, ExtractResource)]
 struct GameOfLifeImage(Handle<Image>);
+
 struct GameOfLifeImageBindGroup(BindGroup);
 
 fn queue_bind_group(

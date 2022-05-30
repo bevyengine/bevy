@@ -55,11 +55,7 @@ impl<M: Component + Default> PerspectiveCameraBundle<M> {
             perspective_projection.far(),
         );
         PerspectiveCameraBundle {
-            camera: Camera {
-                near: perspective_projection.near,
-                far: perspective_projection.far,
-                ..Default::default()
-            },
+            camera: Camera::default(),
             perspective_projection,
             visible_entities: VisibleEntities::default(),
             frustum,
@@ -99,11 +95,7 @@ impl OrthographicCameraBundle<Camera3d> {
             orthographic_projection.far(),
         );
         OrthographicCameraBundle {
-            camera: Camera {
-                near: orthographic_projection.near,
-                far: orthographic_projection.far,
-                ..Default::default()
-            },
+            camera: Camera::default(),
             orthographic_projection,
             visible_entities: VisibleEntities::default(),
             frustum,
@@ -160,11 +152,7 @@ impl OrthographicCameraBundle<Camera2d> {
             orthographic_projection.far(),
         );
         OrthographicCameraBundle {
-            camera: Camera {
-                near: orthographic_projection.near,
-                far: orthographic_projection.far,
-                ..Default::default()
-            },
+            camera: Camera::default(),
             orthographic_projection,
             visible_entities: VisibleEntities::default(),
             frustum,

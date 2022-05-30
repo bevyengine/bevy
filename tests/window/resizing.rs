@@ -1,7 +1,7 @@
 //! A test to confirm that `bevy` allows setting the window to arbitrary small sizes
 //! This is run in CI to ensure that this doesn't regress again.
 
-use bevy::{input::system::exit_on_esc_system, prelude::*};
+use bevy::prelude::*;
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
 // TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
@@ -33,7 +33,7 @@ fn main() {
         .insert_resource(Phase::ContractingY)
         .add_system(change_window_size)
         .add_system(sync_dimensions)
-        .add_system(exit_on_esc_system)
+        .add_system(bevy::window::close_on_esc)
         .add_startup_system(setup_3d)
         .add_startup_system(setup_2d)
         .run();

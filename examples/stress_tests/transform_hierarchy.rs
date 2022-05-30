@@ -3,7 +3,7 @@
 //! Running this example:
 //!
 //! ```
-//! cargo r --release --example transform_hierarchy -- <configuration name>
+//! cargo r --release --example transform_hierarchy <configuration name>
 //! ```
 //!
 //! | Configuration        | Description                                                       |

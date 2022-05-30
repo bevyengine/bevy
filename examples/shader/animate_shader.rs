@@ -1,3 +1,7 @@
+//! A shader that uses dynamic data like the time since startup.
+//!
+//! This example uses a specialized pipeline.
+
 use bevy::{
     core_pipeline::Transparent3d,
     ecs::system::{lifetimeless::SRes, SystemParamItem},
@@ -244,6 +248,7 @@ type DrawCustom = (
 );
 
 struct SetTimeBindGroup<const I: usize>;
+
 impl<const I: usize> EntityRenderCommand for SetTimeBindGroup<I> {
     type Param = SRes<TimeMeta>;
 

@@ -1,3 +1,5 @@
+//! A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
+
 use bevy::{
     core_pipeline::Transparent3d,
     pbr::{

@@ -1,3 +1,5 @@
+//! A shader that samples a texture with view-independent UV coordinates.
+
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     pbr::MaterialPipeline,

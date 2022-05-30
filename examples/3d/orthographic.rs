@@ -1,8 +1,9 @@
+//! Shows how to create a 3D orthographic view (for isometric-look games or CAD applications).
+
 use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .run();

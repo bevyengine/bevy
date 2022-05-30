@@ -13,7 +13,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "errors"]
+members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "tools/build-wasm-example", "errors"]
 
 [features]
 default = [
@@ -144,8 +144,8 @@ name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
 
 [[example]]
-name = "rect"
-path = "examples/2d/rect.rs"
+name = "shapes"
+path = "examples/2d/shapes.rs"
 
 [[example]]
 name = "sprite"
@@ -197,6 +197,10 @@ name = "pbr"
 path = "examples/3d/pbr.rs"
 
 [[example]]
+name = "render_to_texture"
+path = "examples/3d/render_to_texture.rs"
+
+[[example]]
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
 
@@ -217,16 +221,16 @@ name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
-name = "render_to_texture"
-path = "examples/3d/render_to_texture.rs"
-
-[[example]]
 name = "two_passes"
 path = "examples/3d/two_passes.rs"
 
 [[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
+
+[[example]]
+name = "vertex_colors"
+path = "examples/3d/vertex_colors.rs"
 
 [[example]]
 name = "wireframe"
@@ -537,6 +541,10 @@ path = "examples/stress_tests/bevymark.rs"
 [[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
+
+[[example]]
+name = "many_foxes"
+path = "examples/stress_tests/many_foxes.rs"
 
 [[example]]
 name = "many_lights"

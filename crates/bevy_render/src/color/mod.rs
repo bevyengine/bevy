@@ -491,8 +491,8 @@ impl Color {
         }
     }
 
-    /// Converts a `Color` to a `[f32; 4]` from HLS colorspace
-    pub fn as_hlsa_f32(self: Color) -> [f32; 4] {
+    /// Converts a `Color` to a `[f32; 4]` from HSL colorspace
+    pub fn as_hsla_f32(self: Color) -> [f32; 4] {
         match self {
             Color::Rgba {
                 red,
