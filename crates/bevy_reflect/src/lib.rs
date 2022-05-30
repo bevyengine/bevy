@@ -94,6 +94,7 @@ mod tests {
     };
     use std::fmt::{Debug, Formatter};
 
+    use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
     use crate::serde::{ReflectDeserializer, ReflectSerializer};
@@ -230,6 +231,66 @@ mod tests {
             .map(|value| *value.downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
+    }
+
+    #[test]
+    fn from_reflect_should_use_default_field_attributes() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        struct MyStruct {
+            // Use `Default::default()`
+            // Note that this isn't an ignored field
+            #[reflect(default)]
+            foo: String,
+
+            // Use `get_bar_default()`
+            #[reflect(default = "get_bar_default")]
+            #[reflect(ignore)]
+            bar: usize,
+        }
+
+        fn get_bar_default() -> usize {
+            123
+        }
+
+        let expected = MyStruct {
+            foo: String::default(),
+            bar: 123,
+        };
+
+        let dyn_struct = DynamicStruct::default();
+        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
+
+        assert_eq!(Some(expected), my_struct);
+    }
+
+    #[test]
+    fn from_reflect_should_use_default_container_attribute() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        #[reflect(Default)]
+        struct MyStruct {
+            foo: String,
+            #[reflect(ignore)]
+            bar: usize,
+        }
+
+        impl Default for MyStruct {
+            fn default() -> Self {
+                Self {
+                    foo: String::from("Hello"),
+                    bar: 123,
+                }
+            }
+        }
+
+        let expected = MyStruct {
+            foo: String::from("Hello"),
+            bar: 123,
+        };
+
+        let dyn_struct = DynamicStruct::default();
+        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
+
+        assert_eq!(Some(expected), my_struct);
     }
 
     #[test]

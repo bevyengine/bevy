@@ -20,6 +20,10 @@ const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
 const SERIALIZE_ATTR: &str = "Serialize";
 
+// The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
+// but useful to know exist nonetheless
+pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
+
 /// A marker for trait implementations registered via the `Reflect` derive macro.
 #[derive(Clone)]
 pub(crate) enum TraitImpl {
