@@ -12,12 +12,12 @@ use bevy_ecs::{
 use bevy_math::{Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, Mesh, MeshVertexBufferLayout,
     },
     render_asset::RenderAssets,
-    render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},

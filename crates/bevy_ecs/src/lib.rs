@@ -59,7 +59,7 @@ mod tests {
         query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
         world::{Mut, World},
     };
-    use bevy_tasks::TaskPool;
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
         any::TypeId,
         sync::{
@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn par_for_each_dense() {
         let mut world = World::new();
-        let task_pool = TaskPool::default();
+        world.insert_resource(ComputeTaskPool(TaskPool::default()));
         let e1 = world.spawn().insert(A(1)).id();
         let e2 = world.spawn().insert(A(2)).id();
         let e3 = world.spawn().insert(A(3)).id();
@@ -385,7 +385,7 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         world
             .query::<(Entity, &A)>()
-            .par_for_each(&world, &task_pool, 2, |(e, &A(i))| {
+            .par_for_each(&world, 2, |(e, &A(i))| {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
@@ -398,8 +398,7 @@ mod tests {
     #[test]
     fn par_for_each_sparse() {
         let mut world = World::new();
-
-        let task_pool = TaskPool::default();
+        world.insert_resource(ComputeTaskPool(TaskPool::default()));
         let e1 = world.spawn().insert(SparseStored(1)).id();
         let e2 = world.spawn().insert(SparseStored(2)).id();
         let e3 = world.spawn().insert(SparseStored(3)).id();
@@ -408,7 +407,6 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         world.query::<(Entity, &SparseStored)>().par_for_each(
             &world,
-            &task_pool,
             2,
             |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
         );

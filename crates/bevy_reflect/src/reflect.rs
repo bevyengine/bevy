@@ -1,4 +1,8 @@
-use crate::{serde::Serializable, Array, List, Map, Struct, Tuple, TupleStruct};
+use crate::{
+    array_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
+    tuple_struct_debug, Array, List, Map, Struct, Tuple, TupleStruct,
+};
+
 use std::{any::Any, fmt::Debug};
 
 pub use bevy_utils::AHasher as ReflectHasher;
@@ -141,6 +145,25 @@ pub unsafe trait Reflect: Any + Send + Sync {
         None
     }
 
+    /// Debug formatter for the value.
+    ///
+    /// Any value that is not an implementor of other `Reflect` subtraits
+    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_name)"`,
+    /// where `type_name` is the [type name] of the underlying type.
+    ///
+    /// [type name]: Self::type_name
+    fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.reflect_ref() {
+            ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
+            ReflectRef::TupleStruct(dyn_tuple_struct) => tuple_struct_debug(dyn_tuple_struct, f),
+            ReflectRef::Tuple(dyn_tuple) => tuple_debug(dyn_tuple, f),
+            ReflectRef::List(dyn_list) => list_debug(dyn_list, f),
+            ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
+            ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
+            _ => write!(f, "Reflect({})", self.type_name()),
+        }
+    }
+
     /// Returns a serializable version of the value.
     ///
     /// If the underlying type does not support serialization, returns `None`.
@@ -166,7 +189,7 @@ pub trait FromReflect: Reflect + Sized {
 
 impl Debug for dyn Reflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Reflect({})", self.type_name())
+        self.debug(f)
     }
 }
 

@@ -200,55 +200,6 @@ jobs:
           # Not needed here as only one Linter is used.
           #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  check-markdown-links:
-    runs-on: ubuntu-latest
-    needs: markdownlint
-    if: always()
-    steps:
-    - uses: actions/checkout@v3
-    - name: check dead links
-      continue-on-error: true
-      id: run1
-      uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
-      with:
-        use-quiet-mode: 'yes'
-        use-verbose-mode: 'yes'
-        config-file: '.github/linters/markdown-link-check.json'
-    - name: Sleep for 30 seconds
-      if: steps.run1.outcome=='failure'
-      run: sleep 30s
-      shell: bash
-    - name: check dead links (retry)
-      continue-on-error: true
-      id: run2
-      if: steps.run1.outcome=='failure'
-      uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
-      with:
-        use-quiet-mode: 'yes'
-        use-verbose-mode: 'yes'
-        config-file: '.github/linters/markdown-link-check.json'
-    - name: Sleep for 30 seconds
-      if: steps.run2.outcome=='failure'
-      run: sleep 30s
-      shell: bash
-    - name: check dead links (retry 2)
-      continue-on-error: true
-      id: run3
-      if: steps.run2.outcome=='failure'
-      uses: gaurav-nelson/github-action-markdown-link-check@9710f0fec812ce0a3b98bef4c9d842fc1f39d976
-      with:
-        use-quiet-mode: 'yes'
-        use-verbose-mode: 'yes'
-        config-file: '.github/linters/markdown-link-check.json'
-    - name: set the status
-      if: always()
-      run: |
-        if ${{ steps.run1.outcome=='success' || steps.run2.outcome=='success' || steps.run3.outcome=='success' }}; then
-            echo success
-        else
-            exit 1
-        fi
-
   run-examples:
     runs-on: ubuntu-latest
     steps:
