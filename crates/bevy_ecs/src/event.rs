@@ -117,7 +117,7 @@ impl Default for EventGarbageCollection {
 ///
 /// # Example
 /// ```
-/// use bevy_ecs::event::Events;
+/// use bevy_ecs::event::*;
 ///
 /// struct MyEvent {
 ///     value: usize
@@ -126,9 +126,10 @@ impl Default for EventGarbageCollection {
 /// // setup
 /// let mut events = Events::<MyEvent>::default();
 /// let mut reader = events.get_reader();
+/// let settings = EventSettings::<MyEvent>::default();
 ///
 /// // run this once per update/frame
-/// events.update();
+/// events.update(&settings);
 ///
 /// // somewhere else: send an event
 /// events.send(MyEvent { value: 1 });
@@ -647,7 +648,7 @@ mod tests {
             "reader_a receives next unread event"
         );
 
-        events.update();
+        events.update(&Default::default());
 
         let mut reader_d = events.get_reader();
 
@@ -669,7 +670,7 @@ mod tests {
             "reader_d receives all events created before and after update"
         );
 
-        events.update();
+        events.update(&Default::default());
 
         assert_eq!(
             get_events(&events, &mut reader_missed),
@@ -703,7 +704,7 @@ mod tests {
         assert!(reader.iter(&events).next().is_none());
 
         events.send(E(2));
-        events.update();
+        events.update(&Default::default());
         events.send(E(3));
 
         assert!(reader.iter(&events).eq([E(2), E(3)].iter()));
@@ -740,12 +741,12 @@ mod tests {
         events.send(TestEvent { i: 0 });
         assert!(!events.is_empty());
 
-        events.update();
+        events.update(&Default::default());
         assert!(!events.is_empty());
 
         // events are only empty after the second call to update
         // due to double buffering.
-        events.update();
+        events.update(&Default::default());
         assert!(events.is_empty());
     }
 
@@ -799,12 +800,12 @@ mod tests {
         events.send(TestEvent { i: 0 });
         let reader = events.get_reader();
         assert_eq!(reader.len(&events), 2);
-        events.update();
+        events.update(&Default::default());
         events.send(TestEvent { i: 0 });
         assert_eq!(reader.len(&events), 3);
-        events.update();
+        events.update(&Default::default());
         assert_eq!(reader.len(&events), 1);
-        events.update();
+        events.update(&Default::default());
         assert!(reader.is_empty(&events));
     }
 
