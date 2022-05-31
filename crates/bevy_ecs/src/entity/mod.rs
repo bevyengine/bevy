@@ -640,6 +640,6 @@ mod tests {
         assert_eq!(
             std::mem::size_of::<EntityLocation>(),
             std::mem::size_of::<Option<EntityLocation>>(),
-        )
+        );
     }
 }

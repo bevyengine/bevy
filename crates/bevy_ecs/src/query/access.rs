@@ -363,67 +363,54 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 #[cfg(test)]
 mod tests {
     use crate::query::{Access, FilteredAccess};
-    use nonmax::NonMaxUsize;
 
     #[test]
     fn access_get_conflicts() {
-        let mut access_a = Access::<NonMaxUsize>::default();
-        access_a.add_read(NonMaxUsize::new(0).unwrap());
-        access_a.add_read(NonMaxUsize::new(1).unwrap());
+        let mut access_a = Access::<usize>::default();
+        access_a.add_read(0);
+        access_a.add_read(1);
 
-        let mut access_b = Access::<NonMaxUsize>::default();
-        access_b.add_read(NonMaxUsize::new(0).unwrap());
-        access_b.add_write(NonMaxUsize::new(1).unwrap());
+        let mut access_b = Access::<usize>::default();
+        access_b.add_read(0);
+        access_b.add_write(1);
 
-        assert_eq!(
-            access_a.get_conflicts(&access_b),
-            vec![NonMaxUsize::new(1).unwrap()]
-        );
+        assert_eq!(access_a.get_conflicts(&access_b), vec![1]);
 
-        let mut access_c = Access::<NonMaxUsize>::default();
-        access_c.add_write(NonMaxUsize::new(0).unwrap());
-        access_c.add_write(NonMaxUsize::new(1).unwrap());
+        let mut access_c = Access::<usize>::default();
+        access_c.add_write(0);
+        access_c.add_write(1);
 
-        assert_eq!(
-            access_a.get_conflicts(&access_c),
-            vec![NonMaxUsize::new(0).unwrap(), NonMaxUsize::new(1).unwrap()]
-        );
-        assert_eq!(
-            access_b.get_conflicts(&access_c),
-            vec![NonMaxUsize::new(0).unwrap(), NonMaxUsize::new(1).unwrap()]
-        );
+        assert_eq!(access_a.get_conflicts(&access_c), vec![0, 1]);
+        assert_eq!(access_b.get_conflicts(&access_c), vec![0, 1]);
 
-        let mut access_d = Access::<NonMaxUsize>::default();
-        access_d.add_read(NonMaxUsize::new(0).unwrap());
+        let mut access_d = Access::<usize>::default();
+        access_d.add_read(0);
 
         assert_eq!(access_d.get_conflicts(&access_a), vec![]);
         assert_eq!(access_d.get_conflicts(&access_b), vec![]);
-        assert_eq!(
-            access_d.get_conflicts(&access_c),
-            vec![NonMaxUsize::new(0).unwrap()]
-        );
+        assert_eq!(access_d.get_conflicts(&access_c), vec![0]);
     }
 
     #[test]
     fn filtered_access_extend() {
-        let mut access_a = FilteredAccess::<NonMaxUsize>::default();
-        access_a.add_read(NonMaxUsize::new(0).unwrap());
-        access_a.add_read(NonMaxUsize::new(1).unwrap());
-        access_a.add_with(NonMaxUsize::new(2).unwrap());
+        let mut access_a = FilteredAccess::<usize>::default();
+        access_a.add_read(0);
+        access_a.add_read(1);
+        access_a.add_with(2);
 
-        let mut access_b = FilteredAccess::<NonMaxUsize>::default();
-        access_b.add_read(NonMaxUsize::new(0).unwrap());
-        access_b.add_write(NonMaxUsize::new(3).unwrap());
-        access_b.add_without(NonMaxUsize::new(4).unwrap());
+        let mut access_b = FilteredAccess::<usize>::default();
+        access_b.add_read(0);
+        access_b.add_write(3);
+        access_b.add_without(4);
 
         access_a.extend(&access_b);
 
-        let mut expected = FilteredAccess::<NonMaxUsize>::default();
-        expected.add_read(NonMaxUsize::new(0).unwrap());
-        expected.add_read(NonMaxUsize::new(1).unwrap());
-        expected.add_with(NonMaxUsize::new(2).unwrap());
-        expected.add_write(NonMaxUsize::new(3).unwrap());
-        expected.add_without(NonMaxUsize::new(4).unwrap());
+        let mut expected = FilteredAccess::<usize>::default();
+        expected.add_read(0);
+        expected.add_read(1);
+        expected.add_with(2);
+        expected.add_write(3);
+        expected.add_without(4);
 
         assert!(access_a.eq(&expected));
     }

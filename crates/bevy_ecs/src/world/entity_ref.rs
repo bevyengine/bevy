@@ -962,7 +962,7 @@ mod tests {
 
     #[test]
     fn entity_ref_get_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
+        let invalid_component_id = ComponentId::new((u32::MAX - 1) as usize);
 
         let mut world = World::new();
         let entity = world.spawn().id();
@@ -972,7 +972,7 @@ mod tests {
 
     #[test]
     fn entity_mut_get_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
+        let invalid_component_id = ComponentId::new((u32::MAX - 1) as usize);
 
         let mut world = World::new();
         let mut entity = world.spawn();

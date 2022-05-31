@@ -1719,7 +1719,7 @@ mod tests {
     #[test]
     #[should_panic = "insert_resource_by_id called with component id which doesn't exist in this world"]
     fn insert_resource_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
+        let invalid_component_id = ComponentId::new((u32::MAX - 1) as usize);
 
         let mut world = World::new();
         OwningPtr::make((), |ptr| unsafe {
