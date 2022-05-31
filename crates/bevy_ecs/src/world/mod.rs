@@ -872,6 +872,17 @@ impl World {
         self.get_non_send_unchecked_mut_with_id(component_id)
     }
 
+    // Shorthand helper function for getting the data and change ticks for a resource.
+    #[inline]
+    pub(crate) fn get_resource_with_ticks_unchecked(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+        self.storages
+            .resources
+            .get_with_ticks_unchecked(component_id)
+    }
+
     // Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
     #[inline]
     pub(crate) fn get_resource_archetype_component_id(
@@ -1092,10 +1103,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<Mut<'_, R>> {
-        let (ptr, ticks) = self
-            .storages
-            .resources
-            .get_with_ticks_unchecked(component_id)?;
+        let (ptr, ticks) = self.get_resource_with_ticks_unchecked(component_id)?;
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
             ticks: Ticks {

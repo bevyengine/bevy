@@ -347,9 +347,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
         change_tick: u32,
     ) -> Self::Item {
         let (ptr, ticks) = world
-            .storages()
-            .resources
-            .get_with_ticks_unchecked(state.component_id)
+            .get_resource_with_ticks_unchecked(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -395,9 +393,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world
-            .storages()
-            .resources
-            .get_with_ticks_unchecked(state.0.component_id)
+            .get_resource_with_ticks_unchecked(state.0.component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
                 ticks: ticks.deref(),
@@ -904,9 +900,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
-            .storages()
-            .resources
-            .get_with_ticks_unchecked(state.component_id)
+            .get_resource_with_ticks_unchecked(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -954,9 +948,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         world
-            .storages()
-            .resources
-            .get_with_ticks_unchecked(state.0.component_id)
+            .get_resource_with_ticks_unchecked(state.0.component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
@@ -1021,9 +1013,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
-            .storages()
-            .resources
-            .get_with_ticks_unchecked(state.component_id)
+            .get_resource_with_ticks_unchecked(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -1069,9 +1059,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         world
-            .storages()
-            .resources
-            .get_with_ticks_unchecked(state.0.component_id)
+            .get_resource_with_ticks_unchecked(state.0.component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: Ticks {
