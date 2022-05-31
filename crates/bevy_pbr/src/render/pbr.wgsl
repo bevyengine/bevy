@@ -508,8 +508,12 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-        var T: vec3<f32> = normalize(in.world_tangent.xyz - N * dot(in.world_tangent.xyz, N));
-        var B: vec3<f32> = cross(N, T) * in.world_tangent.w;
+        // NOTE: The mikktspace method of normal mapping explicitly requires that these NOT be
+        // normalized nor any Gram-Schmidt applied to ensure the vertex normal is orthogonal to the
+        // vertex tangent! Do not change this code unless you really know what you are doing.
+        // http://www.mikktspace.com/
+        var T: vec3<f32> = in.world_tangent.xyz;
+        var B: vec3<f32> = in.world_tangent.w * cross(N, T);
 #endif
 #endif
 
@@ -541,7 +545,12 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         if ((material.flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
             Nt.y = -Nt.y;
         }
-        N = normalize(TBN * Nt);
+        // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
+        // the normal map texture in this way to be an EXACT inverse of how the normal map baker
+        // calculates the normal maps so there is no error introduced. Do not change this code
+        // unless you really know what you are doing.
+        // http://www.mikktspace.com/
+        N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
 #endif
 #endif
 
