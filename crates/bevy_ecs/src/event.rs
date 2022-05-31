@@ -248,7 +248,21 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
-/// Sends events of type `T`.
+/// Sends events of type `T` to [`EventReader`]s of type `T`.
+///
+/// # Usage
+///
+/// `EventWriter`s are usually declared as a [`SystemParam`].
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// pub struct MyEvent; // Custom event type.
+/// fn my_system(mut writer: EventWriter<MyEvent>) {
+///     writer.send(MyEvent);
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
 #[derive(SystemParam)]
 pub struct EventWriter<'w, 's, E: Event> {
     events: ResMut<'w, Events<E>>,
