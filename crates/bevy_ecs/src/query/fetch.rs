@@ -1448,7 +1448,7 @@ macro_rules! impl_anytuple_fetch {
                 AnyOf(($(($name::init(_world, $name, _last_change_tick, _change_tick), false),)*))
             }
 
-            const IS_DENSE: bool = true $(|| $name::IS_DENSE)*;
+            const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
