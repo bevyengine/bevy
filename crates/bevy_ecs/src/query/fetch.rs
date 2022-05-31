@@ -434,12 +434,10 @@ impl WorldQuery for Entity {
 /// The [`Fetch`] of [`Entity`].
 #[doc(hidden)]
 #[derive(Clone)]
-pub struct EntityFetch<'w> {
-    marker: PhantomData<&'w Entity>,
-}
+pub struct EntityFetch;
 
 /// SAFETY: access is read only
-unsafe impl<'w> ReadOnlyFetch for EntityFetch<'w> {}
+unsafe impl<'w> ReadOnlyFetch for EntityFetch {}
 
 /// The [`FetchState`] of [`Entity`].
 #[doc(hidden)]
@@ -467,12 +465,12 @@ unsafe impl FetchState for EntityState {
 }
 
 impl<'w> WorldQueryGats<'w> for Entity {
-    type Fetch = EntityFetch<'w>;
-    type ReadOnlyFetch = EntityFetch<'w>;
+    type Fetch = EntityFetch;
+    type ReadOnlyFetch = EntityFetch;
     type _State = EntityState;
 }
 
-impl<'w> Fetch<'w> for EntityFetch<'w> {
+impl<'w> Fetch<'w> for EntityFetch {
     type Item = Entity;
     type State = EntityState;
 
@@ -485,10 +483,8 @@ impl<'w> Fetch<'w> for EntityFetch<'w> {
         _state: &EntityState,
         _last_change_tick: u32,
         _change_tick: u32,
-    ) -> EntityFetch<'w> {
-        EntityFetch {
-            marker: PhantomData,
-        }
+    ) -> EntityFetch {
+        EntityFetch
     }
 
     #[inline]
