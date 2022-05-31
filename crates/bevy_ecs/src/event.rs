@@ -57,6 +57,41 @@ struct EventInstance<E: Event> {
     pub event: E,
 }
 
+/// Settings for controlling the general behavior of [`Events<T>`].
+pub struct EventSettings<T> {
+    pub garbage_collection: EventGarbageCollection,
+    marker_: PhantomData<fn() -> T>,
+}
+
+impl<T> Default for EventSettings<T> {
+    fn default() -> Self {
+        Self {
+            garbage_collection: Default::default(),
+            marker_: PhantomData,
+        }
+    }
+}
+
+/// Settings for controlling the garbage collection behavior of [`Events<T>`].
+pub enum EventGarbageCollection {
+    /// Exponentially decays the amount of allocated memory for the backing event buffer
+    /// with a configured minimum. This is the default.
+    ExponentialFalloff {
+        /// Each internal vec never goes below this value.
+        /// There are two internal vecs, so the total minimum capacity is 2 * min_capacity.
+        /// This defaults to 0.
+        min_capacity: usize,
+    },
+    /// Disables garbage collection entirely.
+    None,
+}
+
+impl Default for EventGarbageCollection {
+    fn default() -> Self {
+        Self::ExponentialFalloff { min_capacity: 0 }
+    }
+}
+
 /// An event collection that represents the events that occurred within the last two
 /// [`Events::update`] calls.
 /// Events can be written to using an [`EventWriter`]
@@ -437,10 +472,17 @@ impl<E: Event> Events<E> {
 
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
-    pub fn update(&mut self) {
+    pub fn update(&mut self, settings: &EventSettings<E>) {
         std::mem::swap(&mut self.events_a, &mut self.events_b);
         // Garbage collect unused event space. Shrink after clear to avoid a copy.
-        let new_capacity = self.events_b.len().max(self.events_b.capacity() / 2);
+        let new_capacity = match settings.garbage_collection {
+            EventGarbageCollection::ExponentialFalloff { min_capacity } => self
+                .events_b
+                .len()
+                .max(self.events_b.capacity() / 2)
+                .max(min_capacity),
+            EventGarbageCollection::None => self.events_b.capacity(),
+        };
         self.events_b.clear();
         self.events_b.shrink_to(new_capacity);
         self.events_b.start_event_count = self.event_count;
@@ -451,8 +493,12 @@ impl<E: Event> Events<E> {
     }
 
     /// A system that calls [`Events::update`] once per frame.
-    pub fn update_system(mut events: ResMut<Self>) {
-        events.update();
+    pub fn update_system(mut events: ResMut<Self>, settings: Option<Res<EventSettings<E>>>) {
+        if let Some(settings) = settings {
+            events.update(&settings);
+        } else {
+            events.update(&Default::default());
+        }
     }
 
     #[inline]
