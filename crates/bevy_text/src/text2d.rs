@@ -98,7 +98,7 @@ pub fn extract_text2d_sprite(
                     .color
                     .as_rgba_linear();
                 let atlas = texture_atlases
-                    .get(text_glyph.atlas_info.texture_atlas.clone_weak())
+                    .get(&text_glyph.atlas_info.texture_atlas)
                     .unwrap();
                 let handle = atlas.texture.clone_weak();
                 let index = text_glyph.atlas_info.glyph_index as usize;
@@ -127,7 +127,7 @@ pub fn extract_text2d_sprite(
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<HashSet<Entity>>,

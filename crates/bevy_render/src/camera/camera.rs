@@ -164,7 +164,6 @@ impl Camera {
     }
 }
 
-#[allow(clippy::type_complexity)]
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -339,5 +338,5 @@ pub fn extract_cameras<M: Component + Default>(
         }
     }
 
-    commands.insert_resource(active_camera.clone())
+    commands.insert_resource(active_camera.clone());
 }

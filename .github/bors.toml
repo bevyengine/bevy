@@ -7,7 +7,6 @@ status = [
     "build-wasm (nightly, ubuntu-latest)",
     "build-android",
     "markdownlint",
-    "check-markdown-links",
     "run-examples",
     "check-doc",
     "check-missing-examples-in-docs",

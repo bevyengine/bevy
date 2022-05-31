@@ -7,6 +7,7 @@ use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
@@ -491,8 +492,8 @@ impl Color {
         }
     }
 
-    /// Converts a `Color` to a `[f32; 4]` from HLS colorspace
-    pub fn as_hlsa_f32(self: Color) -> [f32; 4] {
+    /// Converts a `Color` to a `[f32; 4]` from HSL colorspace
+    pub fn as_hsla_f32(self: Color) -> [f32; 4] {
         match self {
             Color::Rgba {
                 red,
@@ -834,12 +835,8 @@ impl MulAssign<f32> for Color {
         match self {
             Color::Rgba {
                 red, green, blue, ..
-            } => {
-                *red *= rhs;
-                *green *= rhs;
-                *blue *= rhs;
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red, green, blue, ..
             } => {
                 *red *= rhs;
@@ -910,13 +907,8 @@ impl MulAssign<Vec4> for Color {
                 green,
                 blue,
                 alpha,
-            } => {
-                *red *= rhs.x;
-                *green *= rhs.y;
-                *blue *= rhs.z;
-                *alpha *= rhs.w;
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red,
                 green,
                 blue,
@@ -989,12 +981,8 @@ impl MulAssign<Vec3> for Color {
         match self {
             Color::Rgba {
                 red, green, blue, ..
-            } => {
-                *red *= rhs.x;
-                *green *= rhs.y;
-                *blue *= rhs.z;
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red, green, blue, ..
             } => {
                 *red *= rhs.x;
@@ -1065,13 +1053,8 @@ impl MulAssign<[f32; 4]> for Color {
                 green,
                 blue,
                 alpha,
-            } => {
-                *red *= rhs[0];
-                *green *= rhs[1];
-                *blue *= rhs[2];
-                *alpha *= rhs[3];
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red,
                 green,
                 blue,
@@ -1144,12 +1127,8 @@ impl MulAssign<[f32; 3]> for Color {
         match self {
             Color::Rgba {
                 red, green, blue, ..
-            } => {
-                *red *= rhs[0];
-                *green *= rhs[1];
-                *blue *= rhs[2];
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red, green, blue, ..
             } => {
                 *red *= rhs[0];
@@ -1170,10 +1149,12 @@ impl MulAssign<[f32; 3]> for Color {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum HexColorError {
+    #[error("Unexpected length of hex string")]
     Length,
-    Hex(hex::FromHexError),
+    #[error("Error parsing hex value")]
+    Hex(#[from] hex::FromHexError),
 }
 
 fn decode_rgb(data: &[u8]) -> Result<Color, HexColorError> {

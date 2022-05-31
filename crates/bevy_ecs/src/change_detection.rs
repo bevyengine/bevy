@@ -1,6 +1,6 @@
 //! Types that detect when their internal data mutate.
 
-use crate::{component::ComponentTicks, system::Resource};
+use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
@@ -227,6 +227,60 @@ pub struct ReflectMut<'a> {
 change_detection_impl!(ReflectMut<'a>, dyn Reflect,);
 #[cfg(feature = "bevy_reflect")]
 impl_into_inner!(ReflectMut<'a>, dyn Reflect,);
+
+/// Unique mutable borrow of resources or an entity's component.
+///
+/// Similar to [`Mut`], but not generic over the component type, instead
+/// exposing the raw pointer as a `*mut ()`.
+///
+/// Usually you don't need to use this and can instead use the APIs returning a
+/// [`Mut`], but in situations where the types are not known at compile time
+/// or are defined outside of rust this can be used.
+pub struct MutUntyped<'a> {
+    pub(crate) value: PtrMut<'a>,
+    pub(crate) ticks: Ticks<'a>,
+}
+
+impl<'a> MutUntyped<'a> {
+    /// Returns the pointer to the value, without marking it as changed.
+    ///
+    /// In order to mark the value as changed, you need to call [`set_changed`](DetectChanges::set_changed) manually.
+    pub fn into_inner(self) -> PtrMut<'a> {
+        self.value
+    }
+}
+
+impl DetectChanges for MutUntyped<'_> {
+    fn is_added(&self) -> bool {
+        self.ticks
+            .component_ticks
+            .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+    }
+
+    fn is_changed(&self) -> bool {
+        self.ticks
+            .component_ticks
+            .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+    }
+
+    fn set_changed(&mut self) {
+        self.ticks
+            .component_ticks
+            .set_changed(self.ticks.change_tick);
+    }
+
+    fn last_changed(&self) -> u32 {
+        self.ticks.last_change_tick
+    }
+}
+
+impl std::fmt::Debug for MutUntyped<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("MutUntyped")
+            .field(&self.value.as_ptr())
+            .finish()
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -1,6 +1,6 @@
 //! Eat the cakes. Eat them all. An example 3D game.
 
-use bevy::{core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d};
+use bevy::{ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d, time::FixedTimestep};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -11,7 +11,6 @@ enum GameState {
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)

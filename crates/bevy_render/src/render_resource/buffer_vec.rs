@@ -14,23 +14,14 @@ pub struct BufferVec<T: Pod> {
     buffer_usage: BufferUsages,
 }
 
-impl<T: Pod> Default for BufferVec<T> {
-    fn default() -> Self {
+impl<T: Pod> BufferVec<T> {
+    pub const fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             values: Vec::new(),
             buffer: None,
             capacity: 0,
-            buffer_usage: BufferUsages::all(),
             item_size: std::mem::size_of::<T>(),
-        }
-    }
-}
-
-impl<T: Pod> BufferVec<T> {
-    pub fn new(buffer_usage: BufferUsages) -> Self {
-        Self {
             buffer_usage,
-            ..Default::default()
         }
     }
 

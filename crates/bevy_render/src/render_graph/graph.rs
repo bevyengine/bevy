@@ -114,17 +114,8 @@ impl RenderGraph {
                 // node, we don't need to remove its input edges
                 for input_edge in node_state.edges.input_edges().iter() {
                     match input_edge {
-                        Edge::SlotEdge {
-                            output_node,
-                            output_index: _,
-                            input_node: _,
-                            input_index: _,
-                        } => {
-                            if let Ok(output_node) = self.get_node_state_mut(*output_node) {
-                                output_node.edges.remove_output_edge(input_edge.clone())?;
-                            }
-                        }
-                        Edge::NodeEdge {
+                        Edge::SlotEdge { output_node, .. }
+                        | Edge::NodeEdge {
                             input_node: _,
                             output_node,
                         } => {
@@ -143,12 +134,8 @@ impl RenderGraph {
                             output_index: _,
                             input_node,
                             input_index: _,
-                        } => {
-                            if let Ok(input_node) = self.get_node_state_mut(*input_node) {
-                                input_node.edges.remove_input_edge(output_edge.clone())?;
-                            }
                         }
-                        Edge::NodeEdge {
+                        | Edge::NodeEdge {
                             output_node: _,
                             input_node,
                         } => {

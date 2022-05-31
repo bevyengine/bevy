@@ -455,7 +455,7 @@ mod tests {
                     )
                 })
                 .collect::<Vec<_>>();
-            assert_eq!(custom_param_data, normal_data)
+            assert_eq!(custom_param_data, normal_data);
         }
 
         {
