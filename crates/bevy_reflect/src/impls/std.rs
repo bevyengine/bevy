@@ -248,7 +248,7 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         if let ReflectRef::Map(map_value) = value.reflect_ref() {
             for (key, value) in map_value.iter() {
                 if let Some(v) = Map::get_mut(self, key) {
-                    v.apply(value)
+                    v.apply(value);
                 }
             }
         } else {

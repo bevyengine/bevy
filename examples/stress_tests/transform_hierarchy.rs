@@ -187,7 +187,7 @@ fn main() {
         .add_plugin(TransformPlugin::default())
         .add_startup_system(setup)
         .add_system(update)
-        .run()
+        .run();
 }
 
 /// test configuration

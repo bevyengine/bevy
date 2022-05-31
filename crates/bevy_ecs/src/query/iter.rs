@@ -162,7 +162,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
 
         let ptr = values.as_mut_ptr().cast::<QueryItem<'w, Q>>();
         for (offset, cursor) in self.cursors.iter_mut().enumerate() {
-            ptr.add(offset).write(cursor.peek_last().unwrap())
+            ptr.add(offset).write(cursor.peek_last().unwrap());
         }
 
         Some(values.assume_init())

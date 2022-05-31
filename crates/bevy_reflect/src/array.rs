@@ -217,7 +217,7 @@ pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
     std::any::Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {
-        hasher.write_u64(value.reflect_hash()?)
+        hasher.write_u64(value.reflect_hash()?);
     }
     Some(hasher.finish())
 }

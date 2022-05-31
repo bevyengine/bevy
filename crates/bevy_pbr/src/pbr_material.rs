@@ -265,7 +265,7 @@ impl RenderAsset for StandardMaterial {
                 | TextureFormat::Rg16Unorm
                 | TextureFormat::Bc5RgUnorm
                 | TextureFormat::EacRg11Unorm => {
-                    flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP
+                    flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP;
                 }
                 _ => {}
             }

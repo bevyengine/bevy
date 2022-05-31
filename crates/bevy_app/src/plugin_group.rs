@@ -128,7 +128,7 @@ impl PluginGroupBuilder {
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
     /// in the order specified.
     pub fn finish(self, app: &mut App) {
-        for ty in self.order.iter() {
+        for ty in &self.order {
             if let Some(entry) = self.plugins.get(ty) {
                 if entry.enabled {
                     debug!("added plugin: {}", entry.plugin.name());
@@ -173,7 +173,7 @@ mod tests {
                 std::any::TypeId::of::<PluginB>(),
                 std::any::TypeId::of::<PluginC>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -190,7 +190,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -207,7 +207,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -225,7 +225,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -243,7 +243,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -261,6 +261,6 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 }

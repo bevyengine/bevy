@@ -354,8 +354,9 @@ pub fn queue_sprites(
     for event in &events.images {
         match event {
             AssetEvent::Created { .. } => None,
-            AssetEvent::Modified { handle } => image_bind_groups.values.remove(handle),
-            AssetEvent::Removed { handle } => image_bind_groups.values.remove(handle),
+            AssetEvent::Modified { handle } | AssetEvent::Removed { handle } => {
+                image_bind_groups.values.remove(handle)
+            }
         };
     }
 
@@ -501,10 +502,10 @@ pub fn queue_sprites(
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
-                    for i in QUAD_INDICES.iter() {
+                    for i in QUAD_INDICES {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
-                            position: positions[*i],
-                            uv: uvs[*i].into(),
+                            position: positions[i],
+                            uv: uvs[i].into(),
                             color: extracted_sprite.color.as_linear_rgba_f32(),
                         });
                     }
@@ -520,10 +521,10 @@ pub fn queue_sprites(
                         batch_range: Some(item_start..item_end),
                     });
                 } else {
-                    for i in QUAD_INDICES.iter() {
+                    for i in QUAD_INDICES {
                         sprite_meta.vertices.push(SpriteVertex {
-                            position: positions[*i],
-                            uv: uvs[*i].into(),
+                            position: positions[i],
+                            uv: uvs[i].into(),
                         });
                     }
                     let item_start = index;
