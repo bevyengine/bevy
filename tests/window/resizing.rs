@@ -150,7 +150,6 @@ fn setup_2d(mut commands: Commands) {
         camera_2d: Camera2d {
             // do not use a clear color
             clear_color: ClearColorConfig::None,
-            ..default()
         },
         ..default()
     });
