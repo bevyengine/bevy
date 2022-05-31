@@ -23,6 +23,7 @@ use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
+    cell::UnsafeCell,
     fmt,
     sync::atomic::{AtomicU32, Ordering},
 };

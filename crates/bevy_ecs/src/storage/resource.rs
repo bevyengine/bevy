@@ -7,7 +7,7 @@ use std::cell::UnsafeCell;
 
 /// The backing store for all [`Resource`]s stored in the [`World`].
 ///
-/// [`Resource`]: crate::system::system_param::Resource
+/// [`Resource`]: crate::system::Resource
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Resources {
@@ -70,7 +70,10 @@ impl Resources {
 
     #[inline]
     pub fn contains(&self, component_id: ComponentId) -> bool {
-        self.resources.contains(component_id)
+        self.resources
+            .get(component_id)
+            .map(|column| !column.is_empty())
+            .unwrap_or(false)
     }
 
     #[inline]
@@ -85,8 +88,8 @@ impl Resources {
             .then(|| unsafe { (column.get_data_unchecked(0), column.get_ticks_unchecked(0)) })
     }
 
-    // # Safety
-    // - ptr must point to valid data of this column's component type
+    /// # Safety
+    /// - ptr must point to valid data of this column's component type
     #[inline]
     pub unsafe fn insert(
         &mut self,
