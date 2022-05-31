@@ -12,12 +12,12 @@ use bevy_ecs::{
 use bevy_math::{Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, Mesh, MeshVertexBufferLayout,
     },
     render_asset::RenderAssets,
-    render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -715,9 +715,16 @@ pub fn queue_mesh_bind_group(
 // ignoring the rest, whether they're valid for other dynamic offsets or not. This trick may
 // be supported later in encase, and then we should make use of it.
 
-#[derive(Default)]
 pub struct SkinnedMeshUniform {
     pub buffer: BufferVec<Mat4>,
+}
+
+impl Default for SkinnedMeshUniform {
+    fn default() -> Self {
+        Self {
+            buffer: BufferVec::new(BufferUsages::UNIFORM),
+        }
+    }
 }
 
 pub fn prepare_skinned_meshes(
@@ -734,7 +741,7 @@ pub fn prepare_skinned_meshes(
     skinned_mesh_uniform
         .buffer
         .reserve(extracted_joints.buffer.len(), &render_device);
-    for joint in extracted_joints.buffer.iter() {
+    for joint in &extracted_joints.buffer {
         skinned_mesh_uniform.buffer.push(*joint);
     }
     skinned_mesh_uniform

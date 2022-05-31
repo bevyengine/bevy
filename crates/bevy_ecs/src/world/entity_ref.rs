@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
-    change_detection::Ticks,
+    change_detection::{MutUntyped, Ticks},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
@@ -103,11 +103,28 @@ impl<'w> EntityRef<'w> {
             .map(|(value, ticks)| Mut {
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    component_ticks: &mut *ticks.get(),
+                    component_ticks: ticks.deref_mut(),
                     last_change_tick,
                     change_tick,
                 },
             })
+    }
+}
+
+impl<'w> EntityRef<'w> {
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
+    /// which is only valid while the `'w` borrow of the lifetime is active.
+    #[inline]
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+        self.world.components().get_info(component_id)?;
+        // SAFE: entity_location is valid, component_id is valid as checked by the line above
+        unsafe { get_component(self.world, component_id, self.entity, self.location) }
     }
 }
 
@@ -207,7 +224,7 @@ impl<'w> EntityMut<'w> {
             .map(|(value, ticks)| Mut {
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    component_ticks: &mut *ticks.get(),
+                    component_ticks: ticks.deref_mut(),
                     last_change_tick: self.world.last_change_tick(),
                     change_tick: self.world.read_change_tick(),
                 },
@@ -488,14 +505,47 @@ impl<'w> EntityMut<'w> {
     }
 }
 
+impl<'w> EntityMut<'w> {
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
+    #[inline]
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+        self.world.components().get_info(component_id)?;
+        // SAFE: entity_location is valid, component_id is valid as checked by the line above
+        unsafe { get_component(self.world, component_id, self.entity, self.location) }
+    }
+
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
+    #[inline]
+    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        self.world.components().get_info(component_id)?;
+        // SAFE: entity_location is valid, component_id is valid as checked by the line above
+        unsafe { get_mut_by_id(self.world, self.entity, self.location, component_id) }
+    }
+}
+
 // TODO: move to Storages?
 /// Get a raw pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
-/// `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
 /// the archetype
+/// - `component_id` must be valid
 #[inline]
-unsafe fn get_component(
+pub(crate) unsafe fn get_component(
     world: &World,
     component_id: ComponentId,
     entity: Entity,
@@ -808,7 +858,7 @@ pub(crate) unsafe fn get_mut<T: Component>(
         |(value, ticks)| Mut {
             value: value.assert_unique().deref_mut::<T>(),
             ticks: Ticks {
-                component_ticks: &mut *ticks.get(),
+                component_ticks: ticks.deref_mut(),
                 last_change_tick,
                 change_tick,
             },
@@ -816,8 +866,33 @@ pub(crate) unsafe fn get_mut<T: Component>(
     )
 }
 
+// SAFETY: EntityLocation must be valid, component_id must be valid
+#[inline]
+pub(crate) unsafe fn get_mut_by_id(
+    world: &mut World,
+    entity: Entity,
+    location: EntityLocation,
+    component_id: ComponentId,
+) -> Option<MutUntyped> {
+    // SAFE: world access is unique, entity location and component_id required to be valid
+    get_component_and_ticks(world, component_id, entity, location).map(|(value, ticks)| {
+        MutUntyped {
+            value: value.assert_unique(),
+            ticks: Ticks {
+                component_ticks: ticks.deref_mut(),
+                last_change_tick: world.last_change_tick(),
+                change_tick: world.read_change_tick(),
+            },
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
+    use crate as bevy_ecs;
+    use crate::component::ComponentId;
+    use crate::prelude::*; // for the `#[derive(Component)]`
+
     #[test]
     fn sorted_remove() {
         let mut a = vec![1, 2, 3, 4, 5, 6, 7];
@@ -837,5 +912,71 @@ mod tests {
         super::sorted_remove(&mut a, &b);
 
         assert_eq!(a, vec![1]);
+    }
+
+    #[derive(Component)]
+    struct TestComponent(u32);
+
+    #[test]
+    fn entity_ref_get_by_id() {
+        let mut world = World::new();
+        let entity = world.spawn().insert(TestComponent(42)).id();
+        let component_id = world
+            .components()
+            .get_id(std::any::TypeId::of::<TestComponent>())
+            .unwrap();
+
+        let entity = world.entity(entity);
+        let test_component = entity.get_by_id(component_id).unwrap();
+        // SAFE: points to a valid `TestComponent`
+        let test_component = unsafe { test_component.deref::<TestComponent>() };
+
+        assert_eq!(test_component.0, 42);
+    }
+
+    #[test]
+    fn entity_mut_get_by_id() {
+        let mut world = World::new();
+        let entity = world.spawn().insert(TestComponent(42)).id();
+        let component_id = world
+            .components()
+            .get_id(std::any::TypeId::of::<TestComponent>())
+            .unwrap();
+
+        let mut entity_mut = world.entity_mut(entity);
+        let mut test_component = entity_mut.get_mut_by_id(component_id).unwrap();
+        {
+            test_component.set_changed();
+            // SAFE: `test_component` has unique access of the `EntityMut` and is not used afterwards
+            let test_component =
+                unsafe { test_component.into_inner().deref_mut::<TestComponent>() };
+            test_component.0 = 43;
+        }
+
+        let entity = world.entity(entity);
+        let test_component = entity.get_by_id(component_id).unwrap();
+        let test_component = unsafe { test_component.deref::<TestComponent>() };
+
+        assert_eq!(test_component.0, 43);
+    }
+
+    #[test]
+    fn entity_ref_get_by_id_invalid_component_id() {
+        let invalid_component_id = ComponentId::new(usize::MAX);
+
+        let mut world = World::new();
+        let entity = world.spawn().id();
+        let entity = world.entity(entity);
+        assert!(entity.get_by_id(invalid_component_id).is_none());
+    }
+
+    #[test]
+    fn entity_mut_get_by_id_invalid_component_id() {
+        let invalid_component_id = ComponentId::new(usize::MAX);
+
+        let mut world = World::new();
+        let mut entity = world.spawn();
+        assert!(entity.get_by_id(invalid_component_id).is_none());
+        assert!(entity.get_mut_by_id(invalid_component_id).is_none());
     }
 }

@@ -50,8 +50,9 @@ fn setup(
 ) {
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     for handle in &rpg_sprite_handles.handles {
-        let texture = textures.get(handle).unwrap();
-        texture_atlas_builder.add_texture(handle.clone_weak().typed::<Image>(), texture);
+        let handle = handle.typed_weak();
+        let texture = textures.get(&handle).expect("Textures folder contained a file which way matched by a loader which did not create an `Image` asset");
+        texture_atlas_builder.add_texture(handle, texture);
     }
 
     let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();

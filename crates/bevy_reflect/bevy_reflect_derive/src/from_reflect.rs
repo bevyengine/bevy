@@ -1,3 +1,5 @@
+use crate::container_attributes::REFLECT_DEFAULT;
+use crate::field_attributes::DefaultBehavior;
 use crate::ReflectDeriveData;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -53,24 +55,28 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
     };
 
     let field_types = derive_data.active_types();
-    let MemberValuePair(ignored_members, ignored_values) =
-        get_ignored_fields(derive_data, is_tuple);
     let MemberValuePair(active_members, active_values) =
         get_active_fields(derive_data, &ref_struct, &ref_struct_type, is_tuple);
 
-    let constructor = if derive_data.traits().contains("ReflectDefault") {
+    let constructor = if derive_data.traits().contains(REFLECT_DEFAULT) {
         quote!(
             let mut __this = Self::default();
             #(
-                __this.#active_members = #active_values;
+                if let Some(__field) = #active_values() {
+                    // Iff field exists -> use its value
+                    __this.#active_members = __field;
+                }
             )*
             Some(__this)
         )
     } else {
+        let MemberValuePair(ignored_members, ignored_values) =
+            get_ignored_fields(derive_data, is_tuple);
+
         quote!(
             Some(
                 Self {
-                    #(#active_members: #active_values,)*
+                    #(#active_members: #active_values()?,)*
                     #(#ignored_members: #ignored_values,)*
                 }
             )
@@ -106,14 +112,19 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
 }
 
 /// Get the collection of ignored field definitions
+///
+/// Each value of the `MemberValuePair` is a token stream that generates a
+/// a default value for the ignored field.
 fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> MemberValuePair {
     MemberValuePair::new(
         derive_data
             .ignored_fields()
             .map(|field| {
                 let member = get_ident(field.data, field.index, is_tuple);
-                let value = quote! {
-                    Default::default()
+
+                let value = match &field.attrs.default {
+                    DefaultBehavior::Func(path) => quote! {#path()},
+                    _ => quote! {Default::default()},
                 };
 
                 (member, value)
@@ -122,7 +133,10 @@ fn get_ignored_fields(derive_data: &ReflectDeriveData, is_tuple: bool) -> Member
     )
 }
 
-/// Get the collection of active field definitions
+/// Get the collection of active field definitions.
+///
+/// Each value of the `MemberValuePair` is a token stream that generates a
+/// closure of type `fn() -> Option<T>` where `T` is that field's type.
 fn get_active_fields(
     derive_data: &ReflectDeriveData,
     dyn_struct_name: &Ident,
@@ -139,12 +153,33 @@ fn get_active_fields(
                 let accessor = get_field_accessor(field.data, field.index, is_tuple);
                 let ty = field.data.ty.clone();
 
-                let value = quote! { {
-                    <#ty as #bevy_reflect_path::FromReflect>::from_reflect(
-                        // Accesses the field on the given dynamic struct or tuple struct
-                        #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor)?
-                    )?
-                }};
+                let get_field = quote! {
+                    #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor)
+                };
+
+                let value = match &field.attrs.default {
+                    DefaultBehavior::Func(path) => quote! {
+                        (||
+                            if let Some(field) = #get_field {
+                                <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                            } else {
+                                Some(#path())
+                            }
+                        )
+                    },
+                    DefaultBehavior::Default => quote! {
+                        (||
+                            if let Some(field) = #get_field {
+                                <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                            } else {
+                                Some(Default::default())
+                            }
+                        )
+                    },
+                    DefaultBehavior::Required => quote! {
+                        (|| <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?))
+                    },
+                };
 
                 (member, value)
             })
