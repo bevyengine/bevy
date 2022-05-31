@@ -20,7 +20,8 @@ unsafe fn debug_checked_unreachable() -> ! {
 #[cfg(test)]
 mod tests {
     use super::WorldQuery;
-    use crate::prelude::{AnyOf, Entity, Or, With, Without};
+    use crate::prelude::{AnyOf, Entity, Or, With, WithQuery, Without};
+    use crate::system::{IntoSystem, Query, System};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::collections::HashSet;
 
@@ -514,6 +515,54 @@ mod tests {
                 .iter(&world)
                 .collect::<Vec<_>>();
             assert_eq!(custom_param_entities, normal_entities);
+        }
+    }
+
+    #[test]
+    fn queried_with() {
+        let mut world = World::new();
+        world.spawn().insert_bundle((A(0), B(0)));
+        world.spawn().insert_bundle((A(0), B(0)));
+        world.spawn().insert_bundle((A(0),));
+        world.spawn().insert_bundle((B(0),));
+        {
+            fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
+                assert_eq!(has_a.queried_with(&has_a_and_b).count(), 2);
+            }
+            let mut system = IntoSystem::into_system(system);
+            system.initialize(&mut world);
+            system.run((), &mut world);
+        }
+        {
+            fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
+                assert_eq!(has_a.queried_with(&has_a_and_b).count(), 2);
+            }
+            let mut system = IntoSystem::into_system(system);
+            system.initialize(&mut world);
+            system.run((), &mut world);
+        }
+        {
+            fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
+                has_a.queried_foreach_with_mut(&mut b_query, |mut b| {
+                    b.0 = 1;
+                });
+            }
+            let mut system = IntoSystem::into_system(system);
+            system.initialize(&mut world);
+            system.run((), &mut world);
+        }
+        {
+            fn system(query: Query<(Option<&A>, &B)>) {
+                for (maybe_a, b) in &query {
+                    match maybe_a {
+                        Some(_) => assert_eq!(b.0, 1),
+                        None => assert_eq!(b.0, 0),
+                    }
+                }
+            }
+            let mut system = IntoSystem::into_system(system);
+            system.initialize(&mut world);
+            system.run((), &mut world);
         }
     }
 }
