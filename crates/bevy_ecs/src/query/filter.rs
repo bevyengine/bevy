@@ -572,17 +572,12 @@ macro_rules! impl_tick_filter {
             const IS_ARCHETYPAL:  bool = false;
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-                match T::Storage::STORAGE_TYPE {
-                    StorageType::Table => {
-                        self.table_ticks = Some(
-                            table.get_column(state.component_id)
-                                 .unwrap_or_else(|| debug_checked_unreachable())
-                                 .get_ticks_slice()
-                                 .into()
-                        );
-                    }
-                    StorageType::SparseSet => {},
-                }
+                self.table_ticks = Some(
+                    table.get_column(state.component_id)
+                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .get_ticks_slice()
+                            .into()
+                );
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
