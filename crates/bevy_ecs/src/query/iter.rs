@@ -370,8 +370,6 @@ where
                     let table = &tables[*table_id];
                     self.fetch.set_table(&query_state.fetch_state, table);
                     self.filter.set_table(&query_state.filter_state, table);
-                    // This borrow is valid for the lifetime of the state, but the compiler
-                    // can't prove that.
                     self.entities = table.entities();
                     self.current_len = table.len();
                     self.current_index = 0;
@@ -397,8 +395,6 @@ where
                         .set_archetype(&query_state.fetch_state, archetype, tables);
                     self.filter
                         .set_archetype(&query_state.filter_state, archetype, tables);
-                    // These borrows are valid for the lifetime of the state, but the compiler
-                    // can't prove that.
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_index = 0;
