@@ -247,7 +247,6 @@ pub fn camera_system<T: CameraProjection + Component>(
             camera.physical_target_size = camera.target.get_physical_size(&windows, &images);
             if let Some(size) = camera.logical_target_size {
                 camera_projection.update(size.x, size.y);
-                camera.logical_target_size = Some(size);
                 camera.projection_matrix = camera_projection.get_projection_matrix();
                 camera.depth_calculation = camera_projection.depth_calculation();
             }
