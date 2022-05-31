@@ -78,7 +78,8 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub unsafe fn initialize_data(&mut self, row: usize, data: OwningPtr<'_>) {
+    pub unsafe fn initialize_data(&mut self, row: u32, data: OwningPtr<'_>) {
+        let row = row as usize;
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
     }
@@ -549,7 +550,7 @@ mod tests {
             // SAFE: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);
-                let value: W<usize> = W(row);
+                let value: W<u32> = W(row);
                 OwningPtr::make(value, |value_ptr| {
                     table
                         .get_column_mut(component_id)
