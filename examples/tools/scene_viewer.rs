@@ -340,37 +340,61 @@ struct CameraTracker {
     cameras: Vec<Entity>,
 }
 
+impl CameraTracker {
+    fn track_camera(&mut self, entity: Entity) -> bool {
+        self.cameras.push(entity);
+        if self.active_index.is_none() {
+            self.active_index = Some(self.cameras.len() - 1);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn active_camera(&self) -> Option<Entity> {
+        self.active_index.map(|i| self.cameras[i])
+    }
+
+    fn set_next_active(&mut self) -> Option<Entity> {
+        let active_index = self.active_index?;
+        let new_i = (active_index + 1) % self.cameras.len();
+        self.active_index = Some(new_i);
+        Some(self.cameras[new_i])
+    }
+}
+
 fn camera_tracker(
     mut camera_tracker: ResMut<CameraTracker>,
     keyboard_input: Res<Input<KeyCode>>,
     mut queries: ParamSet<(
-        Query<(Entity, &mut Camera), Added<Camera>>,
+        Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
         Query<&mut Camera>,
     )>,
 ) {
+    // track added scene camera entities first, to ensure they are preferred for the
+    // default active camera
     for (entity, mut camera) in queries.p0().iter_mut() {
-        camera_tracker.cameras.push(entity);
-        if camera_tracker.active_index.is_some() {
-            // only allow one active camera at a time
-            camera.is_active = false;
-        } else {
-            // enable this camera if there is not already an active camera
-            camera_tracker.active_index = Some(camera_tracker.cameras.len() - 1);
-            camera.is_active = true;
-        }
+        camera.is_active = camera_tracker.track_camera(entity);
+    }
+
+    // iterate added custom camera entities second
+    for (entity, mut camera) in queries.p1().iter_mut() {
+        camera.is_active = camera_tracker.track_camera(entity);
     }
 
     if keyboard_input.just_pressed(KeyCode::C) {
-        if let Some(i) = camera_tracker.active_index {
-            // disable currently active camera
-            if let Ok(mut camera) = queries.p1().get_mut(camera_tracker.cameras[i]) {
+        // disable currently active camera
+        if let Some(e) = camera_tracker.active_camera() {
+            if let Ok(mut camera) = queries.p2().get_mut(e) {
                 camera.is_active = false;
             }
+        }
 
-            let new_i = (i + 1) % camera_tracker.cameras.len();
-            if let Ok(mut camera) = queries.p1().get_mut(camera_tracker.cameras[new_i]) {
+        // enable next active camera
+        if let Some(e) = camera_tracker.set_next_active() {
+            if let Ok(mut camera) = queries.p2().get_mut(e) {
                 camera.is_active = true;
-                camera_tracker.active_index = Some(new_i);
             }
         }
     }
