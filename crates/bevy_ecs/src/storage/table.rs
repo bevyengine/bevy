@@ -42,14 +42,7 @@ impl Column {
         Column {
             component_id: component_info.id(),
             // SAFE: component_info.drop() is valid for the types that will be inserted.
-            data: unsafe {
-                BlobVec::new(
-                    component_info.layout(),
-                    component_info.swap(),
-                    component_info.drop(),
-                    capacity,
-                )
-            },
+            data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             ticks: Vec::with_capacity(capacity),
         }
     }

@@ -15,7 +15,6 @@ pub struct BlobVec {
     /// Number of elements, not bytes
     len: usize,
     data: NonNull<u8>,
-    swap: unsafe fn(Ptr<'_>, Ptr<'_>),
     // None if the underlying type doesn't need to be dropped
     drop: Option<unsafe fn(OwningPtr<'_>)>,
 }
@@ -42,7 +41,6 @@ impl BlobVec {
     /// [`needs_drop`]: core::mem::needs_drop
     pub unsafe fn new(
         item_layout: Layout,
-        swap: unsafe fn(Ptr<'_>, Ptr<'_>),
         drop: Option<unsafe fn(OwningPtr<'_>)>,
         capacity: usize,
     ) -> BlobVec {
@@ -52,7 +50,6 @@ impl BlobVec {
                 capacity: usize::MAX,
                 len: 0,
                 item_layout,
-                swap,
                 drop,
             }
         } else {
@@ -61,7 +58,6 @@ impl BlobVec {
                 capacity: 0,
                 len: 0,
                 item_layout,
-                swap,
                 drop,
             };
             blob_vec.reserve_exact(capacity);
@@ -185,7 +181,13 @@ impl BlobVec {
         debug_assert!(index < self.len());
         let new_len = self.len - 1;
         let size = self.item_layout.size();
-        (self.swap)(self.get_unchecked(new_len), self.get_unchecked(index));
+        if index != new_len {
+            std::ptr::swap_nonoverlapping::<u8>(
+                self.get_unchecked_mut(index).as_ptr(),
+                self.get_unchecked_mut(new_len).as_ptr(),
+                size,
+            );
+        }
         self.len = new_len;
         // Cannot use get_unchecked here as this is technically out of bounds after changing len.
         self.get_ptr_mut().byte_add(new_len * size).promote()
@@ -331,7 +333,7 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::ptr::{OwningPtr, Ptr};
+    use crate::ptr::OwningPtr;
 
     use super::BlobVec;
     use std::{alloc::Layout, cell::RefCell, rc::Rc};
@@ -339,11 +341,6 @@ mod tests {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
         x.drop_as::<T>()
-    }
-
-    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
-    unsafe fn swap_ptr<T>(a: Ptr<'_>, b: Ptr<'_>) {
-        core::ptr::swap(a.as_ptr().cast::<T>(), b.as_ptr().cast::<T>());
     }
 
     /// # Safety
@@ -377,7 +374,7 @@ mod tests {
     fn resize_test() {
         let item_layout = Layout::new::<usize>();
         // usize doesn't need dropping
-        let mut blob_vec = unsafe { BlobVec::new(item_layout, swap_ptr::<usize>, None, 64) };
+        let mut blob_vec = unsafe { BlobVec::new(item_layout, None, 64) };
         unsafe {
             for i in 0..1_000 {
                 push(&mut blob_vec, i as usize);
@@ -407,7 +404,7 @@ mod tests {
         {
             let item_layout = Layout::new::<Foo>();
             let drop = drop_ptr::<Foo>;
-            let mut blob_vec = unsafe { BlobVec::new(item_layout, swap_ptr::<Foo>, Some(drop), 2) };
+            let mut blob_vec = unsafe { BlobVec::new(item_layout, Some(drop), 2) };
             assert_eq!(blob_vec.capacity(), 2);
             unsafe {
                 let foo1 = Foo {
@@ -467,6 +464,6 @@ mod tests {
     fn blob_vec_drop_empty_capacity() {
         let item_layout = Layout::new::<Foo>();
         let drop = drop_ptr::<Foo>;
-        let _ = unsafe { BlobVec::new(item_layout, swap_ptr::<Foo>, Some(drop), 0) };
+        let _ = unsafe { BlobVec::new(item_layout, Some(drop), 0) };
     }
 }
