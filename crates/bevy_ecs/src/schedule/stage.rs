@@ -47,6 +47,7 @@ impl_downcast!(Stage);
 ///
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
+#[derive(Default)]
 pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
