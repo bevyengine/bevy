@@ -113,7 +113,7 @@ impl Resources {
     }
 
     pub fn check_change_ticks(&mut self, change_tick: u32) {
-        for column in self.storages.resources.columns_mut() {
+        for column in self.resources.values_mut() {
             column.check_change_ticks(change_tick);
         }
     }
