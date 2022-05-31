@@ -54,31 +54,31 @@ impl Default for Camera {
 }
 
 impl Camera {
-    /// Given a position in world space, use the camera to compute the screen space coordinates.
+    /// Given a position in world space, use the camera to compute the viewport-space coordinates.
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
-    pub fn world_to_screen(
+    pub fn world_to_viewport(
         &self,
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Option<Vec2> {
-        let window_size = self.logical_target_size?;
+        let target_size = self.logical_target_size?;
         let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
-        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
+        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
 
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size)
+        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size)
     }
 
-    /// Given a position in world space, use the camera to compute the Normalized Device Coordinates.
+    /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
     ///
-    /// Values returned will be between -1.0 and 1.0 when the position is in screen space.
-    /// To get the coordinates in the render target dimensions, you should use
-    /// [`world_to_screen`](Self::world_to_screen).
+    /// Values returned will be between -1.0 and 1.0 when the position is within the viewport.
+    /// To get the coordinates in the render target's viewport dimensions, you should use
+    /// [`world_to_viewport`](Self::world_to_viewport).
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
