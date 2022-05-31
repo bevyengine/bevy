@@ -255,8 +255,8 @@ where
 struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
-    entities: &'s [Entity],
-    archetype_entities: &'s [ArchetypeEntity],
+    entities: &'w [Entity],
+    archetype_entities: &'w [ArchetypeEntity],
     fetch: QF,
     filter: QueryFetch<'w, F>,
     current_len: usize,
@@ -372,7 +372,7 @@ where
                     self.filter.set_table(&query_state.filter_state, table);
                     // This borrow is valid for the lifetime of the state, but the compiler
                     // can't prove that.
-                    self.entities = std::mem::transmute(table.entities());
+                    self.entities = table.entities();
                     self.current_len = table.len();
                     self.current_index = 0;
                     continue;
@@ -399,7 +399,7 @@ where
                         .set_archetype(&query_state.filter_state, archetype, tables);
                     // These borrows are valid for the lifetime of the state, but the compiler
                     // can't prove that.
-                    self.archetype_entities = std::mem::transmute(archetype.entities());
+                    self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_index = 0;
                     continue;
