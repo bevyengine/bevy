@@ -61,7 +61,14 @@ impl Node for CameraDriverNode {
         }
 
         if !ambiguities.is_empty() {
-            warn!("Camera priority ambiguities detected for active cameras with the following priorites: {:?}. To fix this, ensure there is exactly one Camera entity spawned with a given priority for a given RenderTarget. Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will result in rendering multiple instances of the scene or (2) for cases where multiple active cameras is intentional, ambiguities could result in unpredictable render results.", ambiguities);
+            warn!(
+                "Camera priority ambiguities detected for active cameras with the following priorites: {:?}. \
+                To fix this, ensure there is exactly one Camera entity spawned with a given priority for a given RenderTarget. \
+                Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will \
+                result in rendering multiple instances of the scene or (2) for cases where multiple active cameras is intentional, \
+                ambiguities could result in unpredictable render results.",
+                ambiguities
+            );
         }
 
         // wgpu (and some backends) require doing work for swap chains if you call `get_current_texture()` and `present()`
