@@ -10,7 +10,6 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 use bevy_utils::{tracing::debug, HashMap};
 use std::fmt::Debug;
 
@@ -863,7 +862,7 @@ impl App {
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
-        mut app: App,
+        app: App,
         sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
