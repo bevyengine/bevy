@@ -80,7 +80,7 @@ fn setup(
         Some("orthographic") => commands.spawn_bundle(Camera3dBundle {
             projection: OrthographicProjection {
                 scale: 20.0,
-                scaling_mode: ScalingMode::FixedHorizontal,
+                scaling_mode: ScalingMode::FixedHorizontal(1.0),
                 ..default()
             }
             .into(),
