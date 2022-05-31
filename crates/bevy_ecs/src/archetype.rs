@@ -102,12 +102,12 @@ impl Edges {
 
 struct TableInfo {
     id: TableId,
-    entity_rows: Vec<usize>,
+    entity_rows: Vec<u32>,
 }
 
 pub(crate) struct ArchetypeSwapRemoveResult {
     pub(crate) swapped_entity: Option<Entity>,
-    pub(crate) table_row: usize,
+    pub(crate) table_row: u32,
 }
 
 pub(crate) struct ArchetypeComponentInfo {
@@ -192,7 +192,7 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn entity_table_rows(&self) -> &[usize] {
+    pub fn entity_table_rows(&self) -> &[u32] {
         &self.table_info.entity_rows
     }
 
@@ -232,25 +232,26 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn entity_table_row(&self, index: usize) -> usize {
-        self.table_info.entity_rows[index]
+    pub fn entity_table_row(&self, index: u32) -> u32 {
+        self.table_info.entity_rows[index as usize]
     }
 
     #[inline]
-    pub fn set_entity_table_row(&mut self, index: usize, table_row: usize) {
-        self.table_info.entity_rows[index] = table_row;
+    pub fn set_entity_table_row(&mut self, index: u32, table_row: u32) {
+        self.table_info.entity_rows[index as usize] = table_row;
     }
 
     /// # Safety
     /// valid component values must be immediately written to the relevant storages
     /// `table_row` must be valid
-    pub unsafe fn allocate(&mut self, entity: Entity, table_row: usize) -> EntityLocation {
+    pub unsafe fn allocate(&mut self, entity: Entity, table_row: u32) -> EntityLocation {
+        let index = self.entities.len() as u32;
         self.entities.push(entity);
         self.table_info.entity_rows.push(table_row);
 
         EntityLocation {
             archetype_id: self.id,
-            index: self.entities.len() - 1,
+            index,
         }
     }
 
@@ -261,16 +262,16 @@ impl Archetype {
 
     /// Removes the entity at `index` by swapping it out. Returns the table row the entity is stored
     /// in.
-    pub(crate) fn swap_remove(&mut self, index: usize) -> ArchetypeSwapRemoveResult {
-        let is_last = index == self.entities.len() - 1;
-        self.entities.swap_remove(index);
+    pub(crate) fn swap_remove(&mut self, index: u32) -> ArchetypeSwapRemoveResult {
+        let is_last = index as usize == self.entities.len() - 1;
+        self.entities.swap_remove(index as usize);
         ArchetypeSwapRemoveResult {
             swapped_entity: if is_last {
                 None
             } else {
-                Some(self.entities[index])
+                Some(self.entities[index as usize])
             },
-            table_row: self.table_info.entity_rows.swap_remove(index),
+            table_row: self.table_info.entity_rows.swap_remove(index as usize),
         }
     }
 

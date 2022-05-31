@@ -592,7 +592,7 @@ unsafe impl<T: Component> FetchState for ReadState<T> {
 pub struct ReadFetch<'w, T> {
     // T::Storage = TableStorage
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    entity_table_rows: Option<ThinSlicePtr<'w, u32>>,
     // T::Storage = SparseStorage
     entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -690,7 +690,7 @@ impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
                     .zip(self.table_components)
                     .unwrap_or_else(|| debug_checked_unreachable());
                 let table_row = *entity_table_rows.get(archetype_index);
-                table_components.get(table_row).deref()
+                table_components.get(table_row as usize).deref()
             }
             StorageType::SparseSet => {
                 let (entities, sparse_set) = self
@@ -729,7 +729,7 @@ pub struct WriteFetch<'w, T> {
     // T::Storage = TableStorage
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    entity_table_rows: Option<ThinSlicePtr<'w, u32>>,
     // T::Storage = SparseStorage
     entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -756,7 +756,7 @@ impl<T> Clone for WriteFetch<'_, T> {
 pub struct ReadOnlyWriteFetch<'w, T> {
     // T::Storage = TableStorage
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    entity_table_rows: Option<ThinSlicePtr<'w, u32>>,
     // T::Storage = SparseStorage
     entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -899,9 +899,9 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
                     .unwrap_or_else(|| debug_checked_unreachable());
                 let table_row = *entity_table_rows.get(archetype_index);
                 Mut {
-                    value: table_components.get(table_row).deref_mut(),
+                    value: table_components.get(table_row as usize).deref_mut(),
                     ticks: Ticks {
-                        component_ticks: table_ticks.get(table_row).deref_mut(),
+                        component_ticks: table_ticks.get(table_row as usize).deref_mut(),
                         change_tick: self.change_tick,
                         last_change_tick: self.last_change_tick,
                     },
@@ -1017,7 +1017,7 @@ impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
                     .zip(self.table_components)
                     .unwrap_or_else(|| debug_checked_unreachable());
                 let table_row = *entity_table_rows.get(archetype_index);
-                table_components.get(table_row).deref()
+                table_components.get(table_row as usize).deref()
             }
             StorageType::SparseSet => {
                 let (entities, sparse_set) = self
@@ -1296,7 +1296,7 @@ unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
 pub struct ChangeTrackersFetch<'w, T> {
     // T::Storage = TableStorage
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    entity_table_rows: Option<ThinSlicePtr<'w, u32>>,
     // T::Storage = SparseStorage
     entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -1408,7 +1408,7 @@ impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                         let table_ticks = self
                             .table_ticks
                             .unwrap_or_else(|| debug_checked_unreachable());
-                        table_ticks.get(table_row).read()
+                        table_ticks.get(table_row as usize).read()
                     },
                     marker: PhantomData,
                     last_change_tick: self.last_change_tick,

@@ -572,7 +572,7 @@ impl EntityMeta {
         generation: 0,
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
-            index: usize::MAX, // dummy value, to be filled in
+            index: u32::MAX, // dummy value, to be filled in
         },
     };
 }
@@ -584,7 +584,7 @@ pub struct EntityLocation {
     pub archetype_id: ArchetypeId,
 
     /// The index of the entity in the archetype
-    pub index: usize,
+    pub index: u32,
 }
 
 #[cfg(test)]

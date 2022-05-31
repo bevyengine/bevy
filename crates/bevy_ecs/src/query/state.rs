@@ -371,8 +371,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
-        if filter.archetype_filter_fetch(location.index) {
-            Ok(fetch.archetype_fetch(location.index))
+        if filter.archetype_filter_fetch(location.index as usize) {
+            Ok(fetch.archetype_fetch(location.index as usize))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }

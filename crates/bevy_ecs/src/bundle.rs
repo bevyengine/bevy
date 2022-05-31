@@ -268,7 +268,7 @@ impl BundleInfo {
         sparse_sets: &mut SparseSets,
         add_bundle: &AddBundle,
         entity: Entity,
-        table_row: usize,
+        table_row: u32,
         change_tick: u32,
         bundle: T,
     ) {
@@ -416,7 +416,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
     pub unsafe fn insert<T: Bundle>(
         &mut self,
         entity: Entity,
-        archetype_index: usize,
+        archetype_index: u32,
         bundle: T,
     ) -> EntityLocation {
         let location = EntityLocation {

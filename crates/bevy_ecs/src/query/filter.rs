@@ -498,7 +498,7 @@ macro_rules! impl_tick_filter {
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
             table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-            entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+            entity_table_rows: Option<ThinSlicePtr<'w, u32>>,
             marker: PhantomData<T>,
             entities: Option<ThinSlicePtr<'w, Entity>>,
             sparse_set: Option<&'w ComponentSparseSet>,
@@ -610,7 +610,7 @@ macro_rules! impl_tick_filter {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         let table_row = *self.entity_table_rows.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
-                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), self.last_change_tick, self.change_tick)
+                        $is_detected(&*(self.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row as usize)).deref(), self.last_change_tick, self.change_tick)
                     }
                     StorageType::SparseSet => {
                         let entity = *self.entities.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);

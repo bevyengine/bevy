@@ -52,7 +52,8 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub unsafe fn initialize(&mut self, row: usize, data: OwningPtr<'_>, ticks: ComponentTicks) {
+    pub unsafe fn initialize(&mut self, row: u32, data: OwningPtr<'_>, ticks: ComponentTicks) {
+        let row = row as usize;
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
         *self.ticks.get_unchecked_mut(row).get_mut() = ticks;
@@ -64,7 +65,8 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub unsafe fn replace(&mut self, row: usize, data: OwningPtr<'_>, change_tick: u32) {
+    pub unsafe fn replace(&mut self, row: u32, data: OwningPtr<'_>, change_tick: u32) {
+        let row = row as usize;
         debug_assert!(row < self.len());
         self.data.replace_unchecked(row, data);
         self.ticks
@@ -102,19 +104,19 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: usize) {
-        self.data.swap_remove_and_drop_unchecked(row);
-        self.ticks.swap_remove(row);
+    pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: u32) {
+        self.data.swap_remove_and_drop_unchecked(row as usize);
+        self.ticks.swap_remove(row as usize);
     }
 
     #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed component"]
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
-        row: usize,
+        row: u32,
     ) -> (OwningPtr<'_>, ComponentTicks) {
-        let data = self.data.swap_remove_and_forget_unchecked(row);
-        let ticks = self.ticks.swap_remove(row).into_inner();
+        let data = self.data.swap_remove_and_forget_unchecked(row as usize);
+        let ticks = self.ticks.swap_remove(row as usize).into_inner();
         (data, ticks)
     }
 
@@ -151,7 +153,8 @@ impl Column {
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
     #[inline]
-    pub unsafe fn get_data_unchecked(&self, row: usize) -> Ptr<'_> {
+    pub unsafe fn get_data_unchecked(&self, row: u32) -> Ptr<'_> {
+        let row = row as usize;
         debug_assert!(row < self.data.len());
         self.data.get_unchecked(row)
     }
@@ -160,7 +163,8 @@ impl Column {
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
     #[inline]
-    pub unsafe fn get_data_unchecked_mut(&mut self, row: usize) -> PtrMut<'_> {
+    pub unsafe fn get_data_unchecked_mut(&mut self, row: u32) -> PtrMut<'_> {
+        let row = row as usize;
         debug_assert!(row < self.data.len());
         self.data.get_unchecked_mut(row)
     }
@@ -168,7 +172,8 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub unsafe fn get_ticks_unchecked(&self, row: usize) -> &UnsafeCell<ComponentTicks> {
+    pub unsafe fn get_ticks_unchecked(&self, row: u32) -> &UnsafeCell<ComponentTicks> {
+        let row = row as usize;
         debug_assert!(row < self.ticks.len());
         self.ticks.get_unchecked(row)
     }
@@ -223,10 +228,11 @@ impl Table {
     ///
     /// # Safety
     /// `row` must be in-bounds
-    pub unsafe fn swap_remove_unchecked(&mut self, row: usize) -> Option<Entity> {
+    pub unsafe fn swap_remove_unchecked(&mut self, row: u32) -> Option<Entity> {
         for column in self.columns.values_mut() {
             column.swap_remove_unchecked(row);
         }
+        let row = row as usize;
         let is_last = row == self.entities.len() - 1;
         self.entities.swap_remove(row);
         if is_last {
@@ -245,12 +251,12 @@ impl Table {
     /// Row must be in-bounds
     pub unsafe fn move_to_and_forget_missing_unchecked(
         &mut self,
-        row: usize,
+        row: u32,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row < self.len());
-        let is_last = row == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row));
+        debug_assert!((row as usize) < self.len());
+        let is_last = row as usize == self.entities.len() - 1;
+        let new_row = new_table.allocate(self.entities.swap_remove(row as usize));
         for (component_id, column) in self.columns.iter_mut() {
             let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
@@ -262,7 +268,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                Some(self.entities[row])
+                Some(self.entities[row as usize])
             },
         }
     }
@@ -275,12 +281,12 @@ impl Table {
     /// row must be in-bounds
     pub unsafe fn move_to_and_drop_missing_unchecked(
         &mut self,
-        row: usize,
+        row: u32,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row < self.len());
-        let is_last = row == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row));
+        debug_assert!((row as usize) < self.len());
+        let is_last = row as usize == self.entities.len() - 1;
+        let new_row = new_table.allocate(self.entities.swap_remove(row as usize));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
@@ -294,7 +300,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                Some(self.entities[row])
+                Some(self.entities[row as usize])
             },
         }
     }
@@ -307,12 +313,12 @@ impl Table {
     /// `row` must be in-bounds. `new_table` must contain every component this table has
     pub unsafe fn move_to_superset_unchecked(
         &mut self,
-        row: usize,
+        row: u32,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row < self.len());
-        let is_last = row == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row));
+        debug_assert!((row as usize) < self.len());
+        let is_last = row as usize == self.entities.len() - 1;
+        let new_row = new_table.allocate(self.entities.swap_remove(row as usize));
         for (component_id, column) in self.columns.iter_mut() {
             let new_column = new_table.get_column_mut(*component_id).unwrap();
             let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
@@ -323,7 +329,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                Some(self.entities[row])
+                Some(self.entities[row as usize])
             },
         }
     }
@@ -360,9 +366,9 @@ impl Table {
     ///
     /// # Safety
     /// the allocated row must be written to immediately with valid values in each column
-    pub unsafe fn allocate(&mut self, entity: Entity) -> usize {
+    pub unsafe fn allocate(&mut self, entity: Entity) -> u32 {
         self.reserve(1);
-        let index = self.entities.len();
+        let index = self.entities.len() as u32;
         self.entities.push(entity);
         for column in self.columns.values_mut() {
             column.data.set_len(self.entities.len());
@@ -424,7 +430,7 @@ impl Default for Tables {
 
 pub struct TableMoveResult {
     pub swapped_entity: Option<Entity>,
-    pub new_row: usize,
+    pub new_row: u32,
 }
 
 impl Tables {
