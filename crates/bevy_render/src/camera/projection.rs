@@ -66,10 +66,15 @@ pub enum ScalingMode {
     None,
     /// Match the window size. 1 world unit = 1 pixel.
     WindowSize,
+    /// Use minimal possible viewport size while keeping the aspect ratio.
+    /// Arguments are in world units.
+    Auto { min_width: f32, min_height: f32 },
     /// Keep vertical axis constant; resize horizontal with aspect ratio.
-    FixedVertical,
+    /// The argument is the desired height of the viewport in world units.
+    FixedVertical(f32),
     /// Keep horizontal axis constant; resize vertical with aspect ratio.
-    FixedHorizontal,
+    /// The argument is the desired width of the viewport in world units.
+    FixedHorizontal(f32),
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
@@ -102,52 +107,51 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        match (&self.scaling_mode, &self.window_origin) {
-            (ScalingMode::WindowSize, WindowOrigin::Center) => {
-                let half_width = (width / 2.0).round();
-                let half_height = (height / 2.0).round();
-                // Assign left and bottom such that (right-left)==width and (top-bottom)==height
-                // still hold with  with rounded half_width and half_height
-                self.left = half_width - width;
+        let (viewport_width, viewport_height) = match self.scaling_mode {
+            ScalingMode::WindowSize => (width, height),
+            ScalingMode::Auto {
+                min_width,
+                min_height,
+            } => {
+                if width * min_height > min_width * height {
+                    (width * min_height / height, min_height)
+                } else {
+                    (min_width, height * min_width / width)
+                }
+            }
+            ScalingMode::FixedVertical(viewport_height) => {
+                (width * viewport_height / height, viewport_height)
+            }
+            ScalingMode::FixedHorizontal(viewport_width) => {
+                (viewport_width, height * viewport_width / width)
+            }
+            ScalingMode::None => return,
+        };
+
+        match self.window_origin {
+            WindowOrigin::Center => {
+                let half_width = viewport_width / 2.0;
+                let half_height = viewport_height / 2.0;
+                self.left = -half_width;
+                self.bottom = -half_height;
                 self.right = half_width;
                 self.top = half_height;
-                self.bottom = half_height - height;
+
+                if let ScalingMode::WindowSize = self.scaling_mode {
+                    if self.scale == 1.0 {
+                        self.left = self.left.floor();
+                        self.bottom = self.bottom.floor();
+                        self.right = self.right.floor();
+                        self.top = self.top.floor();
+                    }
+                }
             }
-            (ScalingMode::WindowSize, WindowOrigin::BottomLeft) => {
+            WindowOrigin::BottomLeft => {
                 self.left = 0.0;
-                self.right = width;
-                self.top = height;
                 self.bottom = 0.0;
+                self.right = viewport_width;
+                self.top = viewport_height;
             }
-            (ScalingMode::FixedVertical, WindowOrigin::Center) => {
-                let aspect_ratio = width / height;
-                self.left = -aspect_ratio;
-                self.right = aspect_ratio;
-                self.top = 1.0;
-                self.bottom = -1.0;
-            }
-            (ScalingMode::FixedVertical, WindowOrigin::BottomLeft) => {
-                let aspect_ratio = width / height;
-                self.left = 0.0;
-                self.right = aspect_ratio;
-                self.top = 1.0;
-                self.bottom = 0.0;
-            }
-            (ScalingMode::FixedHorizontal, WindowOrigin::Center) => {
-                let aspect_ratio = height / width;
-                self.left = -1.0;
-                self.right = 1.0;
-                self.top = aspect_ratio;
-                self.bottom = -aspect_ratio;
-            }
-            (ScalingMode::FixedHorizontal, WindowOrigin::BottomLeft) => {
-                let aspect_ratio = height / width;
-                self.left = 0.0;
-                self.right = 1.0;
-                self.top = aspect_ratio;
-                self.bottom = 0.0;
-            }
-            (ScalingMode::None, _) => {}
         }
     }
 
