@@ -30,6 +30,11 @@
 #![allow(
     clippy::all,
     clippy::doc_markdown,
+    clippy::redundant_else,
+    clippy::match_same_arms,
+    clippy::semicolon_if_nothing_returned,
+    clippy::explicit_iter_loop,
+    clippy::map_flatten,
     dead_code,
     mutable_transmutes,
     non_camel_case_types,

@@ -1,4 +1,12 @@
-#![allow(clippy::bool_assert_comparison, clippy::useless_conversion)]
+#![allow(
+    clippy::bool_assert_comparison,
+    clippy::useless_conversion,
+    clippy::redundant_else,
+    clippy::match_same_arms,
+    clippy::semicolon_if_nothing_returned,
+    clippy::explicit_iter_loop,
+    clippy::map_flatten
+)]
 
 use bevy_mikktspace::{generate_tangents, Geometry};
 use glam::{Vec2, Vec3};
