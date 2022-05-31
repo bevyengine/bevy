@@ -541,7 +541,7 @@ mod tests {
     fn table() {
         let mut components = Components::default();
         let mut storages = Storages::default();
-        let component_id = components.init_component::<W<usize>>(&mut storages);
+        let component_id = components.init_component::<W<u32>>(&mut storages);
         let columns = &[component_id];
         let mut table = Table::with_capacity(0, columns.len());
         table.add_column(components.get_info(component_id).unwrap());
