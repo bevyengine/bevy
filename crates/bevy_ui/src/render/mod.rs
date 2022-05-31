@@ -210,6 +210,17 @@ pub fn extract_uinodes(
     }
 }
 
+/// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
+/// distance of this many units. This ensures that with a left-handed projection,
+/// as ui elements are "stacked on top of each other", they are within the camera's view
+/// and have room to grow.
+// TODO: Consider computing this value at runtime based on the maximum z-value.
+const UI_CAMERA_FAR: f32 = 1000.0;
+
+// This value is subtracted from the far distance for the camera's z-position to ensure nodes at z == 0.0 are rendered
+// TODO: Evaluate if we still need this.
+const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
+
 #[derive(Component)]
 pub struct DefaultCameraView(pub Entity);
 
@@ -229,9 +240,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
         if let (Some(logical_size), Some(physical_size)) =
             (camera.logical_target_size, camera.physical_target_size)
         {
-            let far = 1000.0;
             let mut projection = OrthographicProjection {
-                far,
+                far: UI_CAMERA_FAR,
                 window_origin: WindowOrigin::BottomLeft,
                 depth_calculation: DepthCalculation::ZDifference,
                 ..Default::default()
@@ -243,7 +253,11 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 .get_or_spawn(default_camera_view)
                 .insert(ExtractedView {
                     projection: projection.get_projection_matrix(),
-                    transform: GlobalTransform::from_xyz(0.0, 0.0, far - 0.1),
+                    transform: GlobalTransform::from_xyz(
+                        0.0,
+                        0.0,
+                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                    ),
                     width: physical_size.x,
                     height: physical_size.y,
                 });
