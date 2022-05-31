@@ -185,9 +185,7 @@ impl<'w> WorldCell<'w> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
         let archetype_component_id = self
             .world
-            .storages
-            .resources
-            .get_archetype_component_id(component_id)?;
+            .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrow::new(
             // SAFE: ComponentId matches TypeId
             unsafe { self.world.get_resource_with_id(component_id)? },
@@ -220,9 +218,7 @@ impl<'w> WorldCell<'w> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
         let archetype_component_id = self
             .world
-            .storages
-            .resources
-            .get_archetype_component_id(component_id)?;
+            .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrowMut::new(
             // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
             unsafe {
@@ -258,9 +254,7 @@ impl<'w> WorldCell<'w> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
         let archetype_component_id = self
             .world
-            .storages
-            .resources
-            .get_archetype_component_id(component_id)?;
+            .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrow::new(
             // SAFE: ComponentId matches TypeId
             unsafe { self.world.get_non_send_with_id(component_id)? },
@@ -293,9 +287,7 @@ impl<'w> WorldCell<'w> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
         let archetype_component_id = self
             .world
-            .storages
-            .resources
-            .get_archetype_component_id(component_id)?;
+            .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrowMut::new(
             // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
             unsafe {
@@ -387,9 +379,7 @@ mod tests {
             .get_resource_id(TypeId::of::<u32>())
             .unwrap();
         let u32_archetype_component_id = world
-            .storages
-            .resources
-            .get_archetype_component_id(u32_component_id)
+            .get_resource_archetype_component_id(u32_component_id)
             .unwrap();
         assert_eq!(world.archetype_component_access.access.len(), 1);
         assert_eq!(

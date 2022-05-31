@@ -896,6 +896,17 @@ impl World {
         self.get_non_send_unchecked_mut_with_id(component_id)
     }
 
+    // Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
+    #[inline]
+    pub(crate) fn get_resource_archetype_component_id(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<ArchetypeComponentId> {
+        self.storages
+            .resources
+            .get_archetype_component_id(component_id)
+    }
+
     /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
     /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
     /// This is faster than doing equivalent operations one-by-one.
