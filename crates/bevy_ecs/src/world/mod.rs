@@ -681,61 +681,37 @@ impl World {
     #[allow(unused_unsafe)]
     pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        let column = self.storages.resources.get_mut(component_id)?;
-        if column.is_empty() {
-            return None;
+        // SAFE: the resource is of type R and the value is returned back to the caller.
+        // The access here must not be used on non-send types.
+        unsafe {
+            let (ptr, _) = self.storages.resources.remove(component_id)?;
+            Some(ptr.read::<R>())
         }
-        // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
-        // ptr value / drop is called when R is dropped
-        let (ptr, _) = unsafe { column.swap_remove_and_forget_unchecked(0) };
-        // SAFE: column is of type R
-        Some(unsafe { ptr.read::<R>() })
     }
 
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource<R: 'static>(&self) -> bool {
-        let component_id =
-            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
-                component_id
-            } else {
-                return false;
-            };
-        self.get_populated_resource_column(component_id).is_some()
+        self.components
+            .get_resource_id(TypeId::of::<R>())
+            .map(|component_id| self.storages.resources.contains(component_id))
+            .unwrap_or(false)
     }
 
     pub fn is_resource_added<R: Resource>(&self) -> bool {
-        let component_id =
-            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
-                component_id
-            } else {
-                return false;
-            };
-        let column = if let Some(column) = self.get_populated_resource_column(component_id) {
-            column
-        } else {
-            return false;
-        };
-        // SAFE: resources table always have row 0
-        let ticks = unsafe { column.get_ticks_unchecked(0).deref() };
-        ticks.is_added(self.last_change_tick(), self.read_change_tick())
+        self.components
+            .get_resource_id(TypeId::of::<R>())
+            .and_then(|component_id| self.storages.resources.get_ticks(component_id))
+            .map(|ticks| ticks.is_added(self.last_change_tick(), self.read_change_tick()))
+            .unwrap_or(false)
     }
 
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
-        let component_id =
-            if let Some(component_id) = self.components.get_resource_id(TypeId::of::<R>()) {
-                component_id
-            } else {
-                return false;
-            };
-        let column = if let Some(column) = self.get_populated_resource_column(component_id) {
-            column
-        } else {
-            return false;
-        };
-        // SAFE: resources table always have row 0
-        let ticks = unsafe { column.get_ticks_unchecked(0).deref() };
-        ticks.is_changed(self.last_change_tick(), self.read_change_tick())
+        self.components
+            .get_resource_id(TypeId::of::<R>())
+            .and_then(|component_id| self.storages.resources.get_ticks(component_id))
+            .map(|ticks| ticks.is_changed(self.last_change_tick(), self.read_change_tick()))
+            .unwrap_or(false)
     }
 
     /// Gets a reference to the resource of the given type
@@ -1061,23 +1037,11 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        let (ptr, mut ticks) = {
-            let column = self
-                .storages
-                .resources
-                .get_mut(component_id)
-                .unwrap_or_else(|| {
-                    panic!("resource does not exist: {}", std::any::type_name::<R>())
-                });
-            assert!(
-                !column.is_empty(),
-                "resource does not exist: {}",
-                std::any::type_name::<R>()
-            );
-            // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of
-            // the ptr value / drop is called when R is dropped
-            unsafe { column.swap_remove_and_forget_unchecked(0) }
-        };
+        let (ptr, mut ticks) = self
+            .storages
+            .resources
+            .remove(component_id)
+            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // SAFE: pointer is of type R
         // Read the value onto the stack to avoid potential mut aliasing.
         let mut value = unsafe { ptr.read::<R>() };
@@ -1092,18 +1056,18 @@ impl World {
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>());
 
-        let column = self
-            .storages
-            .resources
-            .get_mut(component_id)
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-
         OwningPtr::make(value, |ptr| {
             unsafe {
                 // SAFE: pointer is of type R
-                column.push(ptr, ticks);
+                self.storages
+                    .resources
+                    .insert(component_id, ptr, ticks)
+                    .unwrap_or_else(|| {
+                        panic!("resource does not exist: {}", std::any::type_name::<R>())
+                    });
             }
         });
+
         result
     }
 
@@ -1114,8 +1078,10 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<&R> {
-        let column = self.get_populated_resource_column(component_id)?;
-        Some(column.get_data_ptr().deref::<R>())
+        self.storages
+            .resources
+            .get(component_id)
+            .map(|ptr| ptr.deref())
     }
 
     /// # Safety
@@ -1126,11 +1092,14 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<Mut<'_, R>> {
-        let column = self.get_populated_resource_column(component_id)?;
+        let (ptr, ticks) = self
+            .storages
+            .resources
+            .get_with_ticks_unchecked(component_id)?;
         Some(Mut {
-            value: column.get_data_ptr().assert_unique().deref_mut(),
+            value: ptr.assert_unique().deref_mut(),
             ticks: Ticks {
-                component_ticks: column.get_ticks_unchecked(0).deref_mut(),
+                component_ticks: ticks.deref_mut(),
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.read_change_tick(),
             },
@@ -1251,23 +1220,6 @@ impl World {
         component_id
     }
 
-    /// returns the resource column if the requested resource exists
-    pub(crate) fn get_populated_resource_column(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&Column> {
-        self.storages
-            .resources
-            .get(component_id)
-            .and_then(|column| {
-                if column.is_empty() {
-                    None
-                } else {
-                    Some(column)
-                }
-            })
-    }
-
     pub(crate) fn validate_non_send_access<T: 'static>(&self) {
         assert!(
             self.main_thread_validator.is_main_thread(),
@@ -1327,9 +1279,7 @@ impl World {
         let change_tick = self.change_tick();
         self.storages.tables.check_change_ticks(change_tick);
         self.storages.sparse_sets.check_change_ticks(change_tick);
-        for column in self.storages.resources.columns_mut() {
-            column.check_change_ticks(change_tick);
-        }
+        self.storages.resources.check_change_ticks(change_tick);
     }
 
     pub fn clear_entities(&mut self) {
