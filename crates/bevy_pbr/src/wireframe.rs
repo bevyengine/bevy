@@ -97,7 +97,6 @@ impl SpecializedMeshPipeline for WireframePipeline {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::type_complexity)]
 fn queue_wireframes(
     opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
     render_meshes: Res<RenderAssets<Mesh>>,

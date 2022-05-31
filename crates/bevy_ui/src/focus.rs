@@ -57,7 +57,6 @@ pub struct State {
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
-#[allow(clippy::type_complexity)]
 pub fn ui_focus_system(
     mut state: Local<State>,
     windows: Res<Windows>,
