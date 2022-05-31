@@ -8,7 +8,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .insert_resource(WgpuSettings {
             features: WgpuFeatures::POLYGON_MODE_LINE,
             ..default()

@@ -359,10 +359,9 @@ mod menu {
     ) {
         for (interaction, mut color, selected) in interaction_query.iter_mut() {
             *color = match (*interaction, selected) {
-                (Interaction::Clicked, _) => PRESSED_BUTTON.into(),
+                (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
                 (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
-                (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::None, None) => NORMAL_BUTTON.into(),
             }
         }
