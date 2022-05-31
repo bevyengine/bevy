@@ -203,7 +203,7 @@ impl Mesh {
     /// Panics if the attributes have different vertex counts.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
-        for (attribute_id, attribute_data) in self.attributes.iter() {
+        for (attribute_id, attribute_data) in &self.attributes {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 assert_eq!(previous_vertex_count, attribute_len,
@@ -253,6 +253,7 @@ impl Mesh {
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
+    #[allow(clippy::match_same_arms)]
     pub fn duplicate_vertices(&mut self) {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
             indices.map(|i| values[i]).collect()
@@ -430,7 +431,7 @@ impl InnerMeshVertexBufferLayout {
                     format: layout_attribute.format,
                     offset: layout_attribute.offset,
                     shader_location: attribute_descriptor.shader_location,
-                })
+                });
             } else {
                 return Err(MissingVertexAttributeError {
                     id: attribute_descriptor.id,
@@ -491,6 +492,7 @@ pub trait VertexFormatSize {
 }
 
 impl VertexFormatSize for wgpu::VertexFormat {
+    #[allow(clippy::match_same_arms)]
     fn get_size(self) -> u64 {
         match self {
             VertexFormat::Uint8x2 => 2,
@@ -568,6 +570,7 @@ pub enum VertexAttributeValues {
 impl VertexAttributeValues {
     /// Returns the number of vertices in this [`VertexAttributeValues`]. For a single
     /// mesh, all of the [`VertexAttributeValues`] must have the same length.
+    #[allow(clippy::match_same_arms)]
     pub fn len(&self) -> usize {
         match *self {
             VertexAttributeValues::Float32(ref values) => values.len(),
@@ -617,6 +620,7 @@ impl VertexAttributeValues {
     // TODO: add vertex format as parameter here and perform type conversions
     /// Flattens the [`VertexAttributeValues`] into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
+    #[allow(clippy::match_same_arms)]
     pub fn get_bytes(&self) -> &[u8] {
         match self {
             VertexAttributeValues::Float32(values) => cast_slice(&values[..]),

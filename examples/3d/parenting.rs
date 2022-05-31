@@ -5,7 +5,6 @@ use bevy::{camera::CameraControllerPlugin, prelude::*};
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(CameraControllerPlugin)
         .add_startup_system(setup)

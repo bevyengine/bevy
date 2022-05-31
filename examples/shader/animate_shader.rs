@@ -1,5 +1,6 @@
-//! Shows how to pass changing data like the time since startup into a shader, using a custom
-//! specialized pipeline.
+//! A shader that uses dynamic data like the time since startup.
+//!
+//! This example uses a specialized pipeline.
 
 use bevy::{
     core_pipeline::Transparent3d,

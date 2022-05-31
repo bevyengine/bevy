@@ -9,7 +9,6 @@ fn main() {
             mode: WindowMode::BorderlessFullscreen,
             ..default()
         })
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
         .add_startup_system(setup_music)

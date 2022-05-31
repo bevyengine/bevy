@@ -1,5 +1,6 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{Reflect, ReflectMut, ReflectRef};
 use std::any::Any;
+use std::fmt::{Debug, Formatter};
 
 /// A reflected Rust tuple struct.
 ///
@@ -251,16 +252,20 @@ unsafe impl Reflect for DynamicTupleStruct {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicTupleStruct(")?;
+        tuple_struct_debug(self, f)?;
+        write!(f, ")")
+    }
+}
+
+impl Debug for DynamicTupleStruct {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.debug(f)
     }
 }
 
@@ -293,4 +298,33 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`TupleStruct`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+/// #[derive(Reflect)]
+/// struct MyTupleStruct(usize);
+///
+/// let my_tuple_struct: &dyn Reflect = &MyTupleStruct(123);
+/// println!("{:#?}", my_tuple_struct);
+///
+/// // Output:
+///
+/// // MyTupleStruct (
+/// //   123,
+/// // )
+/// ```
+#[inline]
+pub fn tuple_struct_debug(
+    dyn_tuple_struct: &dyn TupleStruct,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    let mut debug = f.debug_tuple(dyn_tuple_struct.type_name());
+    for field in dyn_tuple_struct.iter_fields() {
+        debug.field(&field as &dyn Debug);
+    }
+    debug.finish()
 }

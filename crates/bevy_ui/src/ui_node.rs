@@ -1,5 +1,6 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
@@ -55,8 +56,7 @@ impl AddAssign<f32> for Val {
     fn add_assign(&mut self, rhs: f32) {
         match self {
             Val::Undefined | Val::Auto => {}
-            Val::Px(value) => *value += rhs,
-            Val::Percent(value) => *value += rhs,
+            Val::Px(value) | Val::Percent(value) => *value += rhs,
         }
     }
 }
@@ -369,7 +369,7 @@ impl From<Color> for UiColor {
 }
 
 /// The image of the node
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
 pub struct UiImage(pub Handle<Image>);
 

@@ -180,7 +180,7 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
-        self.as_ptr().cast::<T>().drop_in_place()
+        self.as_ptr().cast::<T>().drop_in_place();
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
