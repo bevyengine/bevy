@@ -66,7 +66,8 @@ impl<T: Component> WorldQueryGats<'_> for With<T> {
     type _State = ComponentId;
 }
 
-impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
+// SAFETY: no component access or archetype component access
+unsafe impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
     type Item = ();
     type State = ComponentId;
 
@@ -115,6 +116,14 @@ impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         access.add_with(*state);
+    }
+
+    #[inline]
+    fn update_archetype_component_access(
+        _state: &Self::State,
+        _archetype: &Archetype,
+        _access: &mut Access<ArchetypeComponentId>,
+    ) {
     }
 
     fn matches_component_set(
@@ -186,7 +195,8 @@ impl<T: Component> WorldQueryGats<'_> for Without<T> {
     type _State = ComponentId;
 }
 
-impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
+// SAFETY: no component access or archetype component access
+unsafe impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
     type Item = ();
     type State = ComponentId;
 
@@ -235,6 +245,13 @@ impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         access.add_without(*state);
+    }
+
+    fn update_archetype_component_access(
+        _state: &Self::State,
+        _archetype: &Archetype,
+        _access: &mut Access<ArchetypeComponentId>,
+    ) {
     }
 
     fn matches_component_set(
@@ -320,9 +337,10 @@ macro_rules! impl_query_filter_tuple {
             type _State = Or<($($filter::_State,)*)>;
         }
 
+        // SAFETY: update_component_access and update_archetype_component_access are called for each item in the tuple
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, $($filter: Fetch<'w>),*> Fetch<'w> for Or<($(OrFetch<'w, $filter>,)*)> {
+        unsafe impl<'w, $($filter: Fetch<'w>),*> Fetch<'w> for Or<($(OrFetch<'w, $filter>,)*)> {
             type State = Or<($(<$filter as Fetch<'w>>::State,)*)>;
             type Item = bool;
 
@@ -476,7 +494,8 @@ macro_rules! impl_tick_filter {
             type _State = ComponentId;
         }
 
-        impl<'w, T: Component> Fetch<'w> for $fetch_name<'w, T> {
+        // SAFETY: this reads the T component. archetype component access and component access are updated to reflect that
+        unsafe impl<'w, T: Component> Fetch<'w> for $fetch_name<'w, T> {
             type State = ComponentId;
             type Item = bool;
 

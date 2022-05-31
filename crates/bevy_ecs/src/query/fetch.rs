@@ -320,7 +320,13 @@ pub trait WorldQueryGats<'world> {
 ///
 /// Every type that implements [`WorldQuery`] have their associated [`WorldQuery::Fetch`](WorldQueryGats::Fetch)  and
 /// [`WorldQuery::State`] types that are essential for fetching component data.
-pub trait Fetch<'world>: Sized {
+///
+/// # Safety
+///
+/// Implementor must ensure that [`Fetch::update_component_access`] and [`Fetch::update_archetype_component_access`]
+/// exactly reflects the results of [`Fetch::matches_component_set`], [`Fetch::archetype_fetch`], and
+/// [`Fetch::table_fetch`].
+pub unsafe trait Fetch<'world>: Sized {
     type Item;
     type State: Send + Sync;
 
@@ -415,17 +421,14 @@ pub trait Fetch<'world>: Sized {
     fn init_state(world: &mut World) -> Self::State;
 
     #[allow(unused_variables)]
-    #[inline]
-    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
 
     #[allow(unused_variables)]
-    #[inline]
     fn update_archetype_component_access(
         state: &Self::State,
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
+    );
 
     fn matches_component_set(
         state: &Self::State,
@@ -464,7 +467,8 @@ impl<'w> WorldQueryGats<'w> for Entity {
     type _State = ();
 }
 
-impl<'w> Fetch<'w> for EntityFetch<'w> {
+// SAFETY: no component or archetype access
+unsafe impl<'w> Fetch<'w> for EntityFetch<'w> {
     type Item = Entity;
     type State = ();
 
@@ -509,6 +513,15 @@ impl<'w> Fetch<'w> for EntityFetch<'w> {
     }
 
     fn init_state(_world: &mut World) -> Self::State {}
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn update_archetype_component_access(
+        _state: &Self::State,
+        _archetype: &Archetype,
+        _access: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
 
     #[inline]
     fn matches_component_set(
@@ -558,7 +571,9 @@ impl<'w, T: Component> WorldQueryGats<'w> for &T {
     type _State = ComponentId;
 }
 
-impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
+// SAFETY: component access and archetype component access are properly updated to reflect that T is
+// read
+unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
     type Item = &'w T;
     type State = ComponentId;
 
@@ -739,7 +754,9 @@ impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
     type _State = ComponentId;
 }
 
-impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
+// SAFETY: component access and archetype component access are properly updated to reflect that T is
+// written
+unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     type Item = Mut<'w, T>;
     type State = ComponentId;
 
@@ -881,7 +898,9 @@ impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     }
 }
 
-impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
+// SAFETY: component access and archetype component access are properly updated to reflect that T is
+// read
+unsafe impl<'w, T: Component> Fetch<'w> for ReadOnlyWriteFetch<'w, T> {
     type Item = &'w T;
     type State = ComponentId;
 
@@ -1020,7 +1039,9 @@ impl<'w, T: WorldQueryGats<'w>> WorldQueryGats<'w> for Option<T> {
     type _State = T::_State;
 }
 
-impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
+// SAFETY: component access and archetype component access are properly updated according to the
+// internal Fetch
+unsafe impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     type Item = Option<T::Item>;
     type State = T::State;
 
@@ -1221,7 +1242,9 @@ impl<'w, T: Component> WorldQueryGats<'w> for ChangeTrackers<T> {
     type _State = ComponentId;
 }
 
-impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
+// SAFETY: component access and archetype component access are properly updated to reflect that T is
+// read
+unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
     type Item = ChangeTrackers<T>;
     type State = ComponentId;
 
@@ -1369,8 +1392,9 @@ macro_rules! impl_tuple_fetch {
             type _State = ($($name::_State,)*);
         }
 
+        // SAFETY: update_component_access and update_archetype_component_access are called for each item in the tuple
         #[allow(non_snake_case)]
-        impl<'w, $($name: Fetch<'w>),*> Fetch<'w> for ($($name,)*) {
+        unsafe impl<'w, $($name: Fetch<'w>),*> Fetch<'w> for ($($name,)*) {
             type Item = ($($name::Item,)*);
             type State = ($($name::State,)*);
 
@@ -1483,8 +1507,9 @@ macro_rules! impl_anytuple_fetch {
             type _State = AnyOf<($($name::_State,)*)>;
         }
 
+        // SAFETY: update_component_access and update_archetype_component_access are called for each item in the tuple
         #[allow(non_snake_case)]
-        impl<'w, $($name: Fetch<'w>),*> Fetch<'w> for AnyOf<($(($name, bool),)*)> {
+        unsafe impl<'w, $($name: Fetch<'w>),*> Fetch<'w> for AnyOf<($(($name, bool),)*)> {
             type Item = ($(Option<$name::Item>,)*);
             type State = AnyOf<($($name::State,)*)>;
 
@@ -1620,7 +1645,7 @@ pub struct NopFetch<State> {
     state: PhantomData<State>,
 }
 
-impl<'w, State: Send + Sync> Fetch<'w> for NopFetch<State> {
+unsafe impl<'w, State: Send + Sync> Fetch<'w> for NopFetch<State> {
     type Item = ();
     type State = State;
 
@@ -1659,6 +1684,15 @@ impl<'w, State: Send + Sync> Fetch<'w> for NopFetch<State> {
     #[inline(always)]
     fn init_state(_world: &mut World) -> Self::State {
         unimplemented!();
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn update_archetype_component_access(
+        _state: &Self::State,
+        _archetype: &Archetype,
+        _access: &mut Access<ArchetypeComponentId>,
+    ) {
     }
 
     fn matches_component_set(

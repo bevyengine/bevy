@@ -178,7 +178,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(#ignored_field_idents: #ignored_field_types,)*
             }
 
-            impl #user_impl_generics_with_world #path::query::Fetch<'__w>
+            unsafe impl #user_impl_generics_with_world #path::query::Fetch<'__w>
                 for #fetch_struct_name #user_ty_generics_with_world #user_where_clauses_with_world {
 
                 type Item = #item_struct_name #user_ty_generics_with_world;
