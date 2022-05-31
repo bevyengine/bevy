@@ -19,7 +19,7 @@ fn setup(
     commands.spawn_bundle(Camera3dBundle {
         projection: OrthographicProjection {
             scale: 3.0,
-            scaling_mode: ScalingMode::FixedVertical,
+            scaling_mode: ScalingMode::FixedVertical(2.0),
             ..default()
         }
         .into(),

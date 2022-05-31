@@ -334,7 +334,7 @@ fn main() {
         // Be aware that not everything reported by this checker is a potential problem, you'll have
         // to make that judgement yourself.
         .add_plugin(LogPlugin::default())
-        .insert_resource(ReportExecutionOrderAmbiguities)
+        .init_resource::<ReportExecutionOrderAmbiguities>()
         // This call to run() starts the app we just built!
         .run();
 }

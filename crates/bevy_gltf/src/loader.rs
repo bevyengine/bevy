@@ -63,6 +63,8 @@ pub enum GltfError {
     AssetIoError(#[from] AssetIoError),
     #[error("Missing sampler for animation {0}")]
     MissingAnimationSampler(usize),
+    #[error("failed to generate tangents: {0}")]
+    GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -252,13 +254,6 @@ async fn load_gltf<'a, 'b>(
             }
 
             if let Some(vertex_attribute) = reader
-                .read_tangents()
-                .map(|v| VertexAttributeValues::Float32x4(v.collect()))
-            {
-                mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
-            }
-
-            if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
                 .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
             {
@@ -310,6 +305,25 @@ async fn load_gltf<'a, 'b>(
                 }
             }
 
+            if let Some(vertex_attribute) = reader
+                .read_tangents()
+                .map(|v| VertexAttributeValues::Float32x4(v.collect()))
+            {
+                mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+            } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
+                && primitive.material().normal_texture().is_some()
+            {
+                bevy_log::debug!(
+                    "Missing vertex tangents, computing them using the mikktspace algorithm"
+                );
+                if let Err(err) = mesh.generate_tangents() {
+                    bevy_log::warn!(
+                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
+                        err
+                    );
+                }
+            }
+
             let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
             primitives.push(super::GltfPrimitive {
                 mesh,
@@ -319,6 +333,7 @@ async fn load_gltf<'a, 'b>(
                     .and_then(|i| materials.get(i).cloned()),
             });
         }
+
         let handle = load_context.set_labeled_asset(
             &mesh_label(&mesh),
             LoadedAsset::new(super::GltfMesh { primitives }),
@@ -713,8 +728,8 @@ fn load_node(
                 let orthographic_projection: OrthographicProjection = OrthographicProjection {
                     far: orthographic.zfar(),
                     near: orthographic.znear(),
-                    scaling_mode: ScalingMode::FixedHorizontal,
-                    scale: xmag / 2.0,
+                    scaling_mode: ScalingMode::FixedHorizontal(1.0),
+                    scale: xmag,
                     ..Default::default()
                 };
 

@@ -59,6 +59,7 @@ pub struct StandardMaterial {
     pub cull_mode: Option<Face>,
     pub unlit: bool,
     pub alpha_mode: AlphaMode,
+    pub depth_bias: f32,
 }
 
 impl Default for StandardMaterial {
@@ -89,6 +90,7 @@ impl Default for StandardMaterial {
             cull_mode: Some(Face::Back),
             unlit: false,
             alpha_mode: AlphaMode::Opaque,
+            depth_bias: 0.0,
         }
     }
 }
@@ -171,6 +173,7 @@ pub struct GpuStandardMaterial {
     pub flags: StandardMaterialFlags,
     pub base_color_texture: Option<Handle<Image>>,
     pub alpha_mode: AlphaMode,
+    pub depth_bias: f32,
     pub cull_mode: Option<Face>,
 }
 
@@ -361,6 +364,7 @@ impl RenderAsset for StandardMaterial {
             has_normal_map,
             base_color_texture: material.base_color_texture,
             alpha_mode: material.alpha_mode,
+            depth_bias: material.depth_bias,
             cull_mode: material.cull_mode,
         })
     }
@@ -525,5 +529,10 @@ impl SpecializedMaterial for StandardMaterial {
     #[inline]
     fn alpha_mode(render_asset: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
         render_asset.alpha_mode
+    }
+
+    #[inline]
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        material.depth_bias
     }
 }
