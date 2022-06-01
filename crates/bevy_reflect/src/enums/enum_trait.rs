@@ -323,8 +323,7 @@ impl<'a> VariantField<'a> {
 
     pub fn value(&self) -> &'a dyn Reflect {
         match self {
-            Self::Tuple(value) => *value,
-            Self::Struct(.., value) => *value,
+            Self::Struct(.., value) | Self::Tuple(value) => *value,
         }
     }
 }

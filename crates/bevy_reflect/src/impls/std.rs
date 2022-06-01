@@ -902,10 +902,10 @@ mod tests {
                 .field_at_mut(0)
                 .and_then(|field| field.downcast_mut::<usize>())
             {
-                *field = 321
+                *field = 321;
             }
         } else {
-            panic!("expected `VariantType::Tuple`")
+            panic!("expected `VariantType::Tuple`");
         }
 
         assert_eq!(Some(321), value);
