@@ -105,9 +105,9 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> 
 ///
 /// // Output:
 ///
-/// // MyEnum {
-/// //   foo: 123,
-/// // }
+/// // B (
+/// //   123,
+/// // )
 /// ```
 #[inline]
 pub fn enum_debug(dyn_enum: &dyn Enum, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
