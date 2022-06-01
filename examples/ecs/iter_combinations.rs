@@ -1,4 +1,6 @@
-use bevy::{core::FixedTimestep, pbr::AmbientLight, prelude::*, render::camera::Camera};
+//! Shows how to iterate over combinations of query results.
+
+use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera, time::FixedTimestep};
 use rand::{thread_rng, Rng};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -8,11 +10,10 @@ const DELTA_TIME: f64 = 0.01;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 0.03,
-            ..Default::default()
+            ..default()
         })
         .add_startup_system(generate_bodies)
         .add_stage_after(
@@ -81,7 +82,7 @@ fn generate_bodies(
                 transform: Transform {
                     translation: position,
                     scale: Vec3::splat(radius),
-                    ..Default::default()
+                    ..default()
                 },
                 mesh: mesh.clone(),
                 material: materials.add(
@@ -92,7 +93,7 @@ fn generate_bodies(
                     )
                     .into(),
                 ),
-                ..Default::default()
+                ..default()
             },
             mass: Mass(mass_value),
             acceleration: Acceleration(Vec3::ZERO),
@@ -120,12 +121,12 @@ fn generate_bodies(
                 material: materials.add(StandardMaterial {
                     base_color: Color::ORANGE_RED,
                     emissive: (Color::ORANGE_RED * 2.),
-                    ..Default::default()
+                    ..default()
                 }),
-                ..Default::default()
+                ..default()
             },
             mass: Mass(500.0),
-            ..Default::default()
+            ..default()
         })
         .insert(Star)
         .with_children(|p| {
@@ -135,14 +136,14 @@ fn generate_bodies(
                     intensity: 400.0,
                     range: 100.0,
                     radius: star_radius,
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             });
         });
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 

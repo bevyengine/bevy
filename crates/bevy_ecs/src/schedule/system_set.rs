@@ -1,9 +1,9 @@
 use crate::schedule::{
     AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
-    RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel,
+    IntoSystemDescriptor, RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor,
+    SystemLabel,
 };
-
-use super::IntoSystemDescriptor;
+use crate::system::AsSystemLabel;
 
 /// A builder for describing several systems at the same time.
 #[derive(Default)]
@@ -70,33 +70,39 @@ impl SystemSet {
         Self::new().with_run_criteria(State::<T>::on_resume(s))
     }
 
+    #[must_use]
     pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
         self.ambiguity_sets.push(Box::new(set));
         self
     }
 
+    #[must_use]
     pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
         self.systems.push(system.into_descriptor());
         self
     }
 
+    #[must_use]
     pub fn with_run_criteria<Marker>(mut self, run_criteria: impl IntoRunCriteria<Marker>) -> Self {
         self.run_criteria = Some(run_criteria.into());
         self
     }
 
+    #[must_use]
     pub fn label(mut self, label: impl SystemLabel) -> Self {
         self.labels.push(Box::new(label));
         self
     }
 
-    pub fn before(mut self, label: impl SystemLabel) -> Self {
-        self.before.push(Box::new(label));
+    #[must_use]
+    pub fn before<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> Self {
+        self.before.push(Box::new(label.as_system_label()));
         self
     }
 
-    pub fn after(mut self, label: impl SystemLabel) -> Self {
-        self.after.push(Box::new(label));
+    #[must_use]
+    pub fn after<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> Self {
+        self.after.push(Box::new(label.as_system_label()));
         self
     }
 

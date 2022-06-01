@@ -32,55 +32,9 @@
 //
 // The above integration needs to be approximated.
 
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
-
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
-
-struct StandardMaterial {
-    base_color: vec4<f32>;
-    emissive: vec4<f32>;
-    perceptual_roughness: f32;
-    metallic: f32;
-    reflectance: f32;
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
-    flags: u32;
-    alpha_cutoff: f32;
-};
-
-let STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
-let STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT: u32           = 2u;
-let STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT: u32 = 4u;
-let STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT: u32          = 8u;
-let STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT: u32               = 16u;
-let STANDARD_MATERIAL_FLAGS_UNLIT_BIT: u32                      = 32u;
-let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 64u;
-let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 128u;
-let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 256u;
-
-[[group(1), binding(0)]]
-var<uniform> material: StandardMaterial;
-[[group(1), binding(1)]]
-var base_color_texture: texture_2d<f32>;
-[[group(1), binding(2)]]
-var base_color_sampler: sampler;
-[[group(1), binding(3)]]
-var emissive_texture: texture_2d<f32>;
-[[group(1), binding(4)]]
-var emissive_sampler: sampler;
-[[group(1), binding(5)]]
-var metallic_roughness_texture: texture_2d<f32>;
-[[group(1), binding(6)]]
-var metallic_roughness_sampler: sampler;
-[[group(1), binding(7)]]
-var occlusion_texture: texture_2d<f32>;
-[[group(1), binding(8)]]
-var occlusion_sampler: sampler;
-[[group(1), binding(9)]]
-var normal_map_texture: texture_2d<f32>;
-[[group(1), binding(10)]]
-var normal_map_sampler: sampler;
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::pbr_bindings
+#import bevy_pbr::mesh_bindings
 
 let PI: f32 = 3.141592653589793;
 
@@ -238,17 +192,19 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
     return change_luminance(color, l_new);
 }
 
+// NOTE: Keep in sync with bevy_pbr/src/light.rs
 fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
+    var z_slice: u32 = 0u;
     if (is_orthographic) {
         // NOTE: view_z is correct in the orthographic case
-        return u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
+        z_slice = u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        return min(
-            u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0),
-            lights.cluster_dimensions.z - 1u
-        );
+        z_slice = u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0);
     }
+    // NOTE: We use min as we may limit the far z plane used for clustering to be closeer than
+    // the furthest thing being drawn. This means that we need to limit to the maximum cluster.
+    return min(z_slice, lights.cluster_dimensions.z - 1u);
 }
 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
@@ -262,27 +218,32 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: b
     );
 }
 
-struct ClusterOffsetAndCount {
-    offset: u32;
-    count: u32;
-};
-
-fn unpack_offset_and_count(cluster_index: u32) -> ClusterOffsetAndCount {
+// this must match CLUSTER_COUNT_SIZE in light.rs
+let CLUSTER_COUNT_SIZE = 13u;
+fn unpack_offset_and_count(cluster_index: u32) -> vec2<u32> {
+#ifdef NO_STORAGE_BUFFERS_SUPPORT
     let offset_and_count = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
-    var output: ClusterOffsetAndCount;
-    // The offset is stored in the upper 24 bits
-    output.offset = (offset_and_count >> 8u) & ((1u << 24u) - 1u);
-    // The count is stored in the lower 8 bits
-    output.count = offset_and_count & ((1u << 8u) - 1u);
-    return output;
+    return vec2<u32>(
+        // The offset is stored in the upper 32 - CLUSTER_COUNT_SIZE = 19 bits
+        (offset_and_count >> CLUSTER_COUNT_SIZE) & ((1u << 32u - CLUSTER_COUNT_SIZE) - 1u),
+        // The count is stored in the lower CLUSTER_COUNT_SIZE = 13 bits
+        offset_and_count & ((1u << CLUSTER_COUNT_SIZE) - 1u)
+    );
+#else
+    return cluster_offsets_and_counts.data[cluster_index];
+#endif
 }
 
 fn get_light_id(index: u32) -> u32 {
+#ifdef NO_STORAGE_BUFFERS_SUPPORT
     // The index is correct but in cluster_light_index_lists we pack 4 u8s into a u32
     // This means the index into cluster_light_index_lists is index / 4
     let indices = cluster_light_index_lists.data[index >> 4u][(index >> 2u) & ((1u << 2u) - 1u)];
     // And index % 4 gives the sub-index of the u8 within the u32 so we shift by 8 * sub-index
     return (indices >> (8u * (index & ((1u << 2u) - 1u)))) & ((1u << 8u) - 1u);
+#else
+    return cluster_light_index_lists.data[index];
+#endif
 }
 
 fn point_light(
@@ -456,11 +417,17 @@ struct FragmentInput {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
 #endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] color: vec4<f32>;
+#endif
 };
 
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     var output_color: vec4<f32> = material.base_color;
+    #ifdef VERTEX_COLORS
+    output_color = output_color * in.color;
+    #endif
     if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
@@ -493,8 +460,12 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-        var T: vec3<f32> = normalize(in.world_tangent.xyz - N * dot(in.world_tangent.xyz, N));
-        var B: vec3<f32> = cross(N, T) * in.world_tangent.w;
+        // NOTE: The mikktspace method of normal mapping explicitly requires that these NOT be
+        // normalized nor any Gram-Schmidt applied to ensure the vertex normal is orthogonal to the
+        // vertex tangent! Do not change this code unless you really know what you are doing.
+        // http://www.mikktspace.com/
+        var T: vec3<f32> = in.world_tangent.xyz;
+        var B: vec3<f32> = in.world_tangent.w * cross(N, T);
 #endif
 #endif
 
@@ -513,7 +484,25 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
         let TBN = mat3x3<f32>(T, B, N);
-        N = TBN * normalize(textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0);
+        // Nt is the tangent-space normal.
+        var Nt: vec3<f32>;
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+            // Only use the xy components and derive z for 2-component normal maps.
+            Nt = vec3<f32>(textureSample(normal_map_texture, normal_map_sampler, in.uv).rg * 2.0 - 1.0, 0.0);
+            Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
+        } else {
+            Nt = textureSample(normal_map_texture, normal_map_sampler, in.uv).rgb * 2.0 - 1.0;
+        }
+        // Normal maps authored for DirectX require flipping the y component
+        if ((material.flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
+            Nt.y = -Nt.y;
+        }
+        // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
+        // the normal map texture in this way to be an EXACT inverse of how the normal map baker
+        // calculates the normal maps so there is no error introduced. Do not change this code
+        // unless you really know what you are doing.
+        // http://www.mikktspace.com/
+        N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
 #endif
 #endif
 
@@ -566,7 +555,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         ), in.world_position);
         let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, is_orthographic);
         let offset_and_count = unpack_offset_and_count(cluster_index);
-        for (var i: u32 = offset_and_count.offset; i < offset_and_count.offset + offset_and_count.count; i = i + 1u) {
+        for (var i: u32 = offset_and_count[0]; i < offset_and_count[0] + offset_and_count[1]; i = i + 1u) {
             let light_id = get_light_id(i);
             let light = point_lights.data[light_id];
             var shadow: f32 = 1.0;
@@ -620,9 +609,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         let cluster_overlay_alpha = 0.1;
         let max_light_complexity_per_cluster = 64.0;
         output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
-            + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count));
+            + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count[1]));
         output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
-            + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count.count)));
+            + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count[1])));
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
         // NOTE: Visualizes the cluster to which the fragment belongs

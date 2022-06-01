@@ -39,10 +39,15 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (transparent_phase, target) = self
-            .query
-            .get_manual(world, view_entity)
-            .expect("view entity should exist");
+        // If there is no view entity, do not try to process the render phase for the view
+        let (transparent_phase, target) = match self.query.get_manual(world, view_entity) {
+            Ok(it) => it,
+            _ => return Ok(()),
+        };
+
+        if transparent_phase.items.is_empty() {
+            return Ok(());
+        }
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_2d"),
@@ -53,9 +58,7 @@ impl Node for MainPass2dNode {
             depth_stencil_attachment: None,
         };
 
-        let draw_functions = world
-            .get_resource::<DrawFunctions<Transparent2d>>()
-            .unwrap();
+        let draw_functions = world.resource::<DrawFunctions<Transparent2d>>();
 
         let render_pass = render_context
             .command_encoder
@@ -63,7 +66,7 @@ impl Node for MainPass2dNode {
 
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
-        for item in transparent_phase.items.iter() {
+        for item in &transparent_phase.items {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }

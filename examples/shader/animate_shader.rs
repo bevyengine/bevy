@@ -1,3 +1,7 @@
+//! A shader that uses dynamic data like the time since startup.
+//!
+//! This example uses a specialized pipeline.
+
 use bevy::{
     core_pipeline::Transparent3d,
     ecs::system::{lifetimeless::SRes, SystemParamItem},
@@ -7,6 +11,8 @@ use bevy::{
     },
     prelude::*,
     render::{
+        mesh::MeshVertexBufferLayout,
+        render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
             SetItemPipeline, TrackedRenderPass,
@@ -40,7 +46,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
@@ -51,7 +57,7 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        let render_device = app.world.get_resource::<RenderDevice>().unwrap();
+        let render_device = app.world.resource::<RenderDevice>();
         let buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("time uniform buffer"),
             size: std::mem::size_of::<f32>() as u64,
@@ -66,7 +72,7 @@ impl Plugin for CustomMaterialPlugin {
                 bind_group: None,
             })
             .init_resource::<CustomPipeline>()
-            .init_resource::<SpecializedPipelines<CustomPipeline>>()
+            .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
             .add_system_to_stage(RenderStage::Extract, extract_time)
             .add_system_to_stage(RenderStage::Extract, extract_custom_material)
             .add_system_to_stage(RenderStage::Prepare, prepare_time)
@@ -90,13 +96,15 @@ fn extract_custom_material(
 }
 
 // add each entity with a mesh and a `CustomMaterial` to every view's `Transparent3d` render phase using the `CustomPipeline`
+#[allow(clippy::too_many_arguments)]
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     custom_pipeline: Res<CustomPipeline>,
     msaa: Res<Msaa>,
-    mut pipelines: ResMut<SpecializedPipelines<CustomPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
-    material_meshes: Query<(Entity, &MeshUniform), (With<Handle<Mesh>>, With<CustomMaterial>)>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    render_meshes: Res<RenderAssets<Mesh>>,
+    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<CustomMaterial>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions
@@ -106,18 +114,22 @@ fn queue_custom(
 
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples)
         | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
-    let pipeline = pipelines.specialize(&mut pipeline_cache, &custom_pipeline, key);
 
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
-        for (entity, mesh_uniform) in material_meshes.iter() {
-            transparent_phase.add(Transparent3d {
-                entity,
-                pipeline,
-                draw_function: draw_custom,
-                distance: view_row_2.dot(mesh_uniform.transform.col(3)),
-            });
+        for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
+            if let Some(mesh) = render_meshes.get(mesh_handle) {
+                let pipeline = pipelines
+                    .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)
+                    .unwrap();
+                transparent_phase.add(Transparent3d {
+                    entity,
+                    pipeline,
+                    draw_function: draw_custom,
+                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                });
+            }
         }
     }
 }
@@ -178,10 +190,10 @@ pub struct CustomPipeline {
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
         let world = world.cell();
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let asset_server = world.resource::<AssetServer>();
         let shader = asset_server.load("shaders/animate_shader.wgsl");
 
-        let render_device = world.get_resource_mut::<RenderDevice>().unwrap();
+        let render_device = world.resource_mut::<RenderDevice>();
         let time_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("time bind group"),
@@ -197,7 +209,7 @@ impl FromWorld for CustomPipeline {
                 }],
             });
 
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap();
+        let mesh_pipeline = world.resource::<MeshPipeline>();
 
         CustomPipeline {
             shader,
@@ -207,11 +219,15 @@ impl FromWorld for CustomPipeline {
     }
 }
 
-impl SpecializedPipeline for CustomPipeline {
+impl SpecializedMeshPipeline for CustomPipeline {
     type Key = MeshPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut descriptor = self.mesh_pipeline.specialize(key);
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone();
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone();
         descriptor.layout = Some(vec![
@@ -219,7 +235,7 @@ impl SpecializedPipeline for CustomPipeline {
             self.mesh_pipeline.mesh_layout.clone(),
             self.time_bind_group_layout.clone(),
         ]);
-        descriptor
+        Ok(descriptor)
     }
 }
 
@@ -232,6 +248,7 @@ type DrawCustom = (
 );
 
 struct SetTimeBindGroup<const I: usize>;
+
 impl<const I: usize> EntityRenderCommand for SetTimeBindGroup<I> {
     type Param = SRes<TimeMeta>;
 

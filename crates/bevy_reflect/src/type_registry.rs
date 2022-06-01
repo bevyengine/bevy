@@ -104,7 +104,7 @@ impl TypeRegistry {
             .and_then(move |id| self.get_mut(id))
     }
 
-    /// Returns a mutable reference to the [`TypeRegistration`] of the type with
+    /// Returns a reference to the [`TypeRegistration`] of the type with
     /// the given short name.
     ///
     /// If the short name is ambiguous, or if no type with the given short name
@@ -115,7 +115,21 @@ impl TypeRegistry {
             .and_then(|id| self.registrations.get(id))
     }
 
-    /// Returns the [`TypeData`] of type `T` associated with the given `TypeId`.
+    /// Returns a mutable reference to the [`TypeRegistration`] of the type with
+    /// the given short name.
+    ///
+    /// If the short name is ambiguous, or if no type with the given short name
+    /// has been registered, returns `None`.
+    pub fn get_with_short_name_mut(
+        &mut self,
+        short_type_name: &str,
+    ) -> Option<&mut TypeRegistration> {
+        self.short_name_to_id
+            .get(short_type_name)
+            .and_then(|id| self.registrations.get_mut(id))
+    }
+
+    /// Returns a reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
     ///
     /// The returned value may be used to downcast [`Reflect`] trait objects to
     /// trait objects of the trait used to generate `T`, provided that the
@@ -129,10 +143,25 @@ impl TypeRegistry {
             .and_then(|registration| registration.data::<T>())
     }
 
-    /// Returns an iterator overed the [`TypeRegistration`]s of the registered
+    /// Returns a mutable reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
+    ///
+    /// If the specified type has not been registered, or if `T` is not present
+    /// in its type registration, returns `None`.
+    pub fn get_type_data_mut<T: TypeData>(&mut self, type_id: TypeId) -> Option<&mut T> {
+        self.get_mut(type_id)
+            .and_then(|registration| registration.data_mut::<T>())
+    }
+
+    /// Returns an iterator over the [`TypeRegistration`]s of the registered
     /// types.
     pub fn iter(&self) -> impl Iterator<Item = &TypeRegistration> {
         self.registrations.values()
+    }
+
+    /// Returns a mutable iterator over the [`TypeRegistration`]s of the registered
+    /// types.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TypeRegistration> {
+        self.registrations.values_mut()
     }
 }
 
@@ -276,7 +305,7 @@ impl TypeRegistration {
 impl Clone for TypeRegistration {
     fn clone(&self) -> Self {
         let mut data = HashMap::default();
-        for (id, type_data) in self.data.iter() {
+        for (id, type_data) in &self.data {
             data.insert(*id, (*type_data).clone_type_data());
         }
 
@@ -320,7 +349,6 @@ pub trait FromType<T> {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectDeserialize {
-    #[allow(clippy::type_complexity)]
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
@@ -353,6 +381,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 #[cfg(test)]
 mod test {
     use crate::TypeRegistration;
+    use bevy_utils::HashMap;
 
     #[test]
     fn test_get_short_name() {
@@ -390,37 +419,36 @@ mod test {
         );
     }
 
-    // TODO: re-enable
-    // #[test]
-    // fn test_property_type_registration() {
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<f64>>().short_name,
-    //         "Option<f64>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<HashMap<u32, String>>().short_name,
-    //         "HashMap<u32, String>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<u32, String>>>().short_name,
-    //         "Option<HashMap<u32, String>>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<u32, Option<String>>>>().short_name,
-    //         "Option<HashMap<u32, Option<String>>>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<String, Option<String>>>>().short_name,
-    //         "Option<HashMap<String, Option<String>>>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<Option<String>, Option<String>>>>().short_name,
-    //         "Option<HashMap<Option<String>, Option<String>>>"
-    //     );
-    //     assert_eq!(
-    //         TypeRegistration::of::<Option<HashMap<Option<String>, (String, Option<String>)>>>()
-    //             .short_name,
-    //         "Option<HashMap<Option<String>, (String, Option<String>)>>"
-    //     );
-    // }
+    #[test]
+    fn test_property_type_registration() {
+        assert_eq!(
+            TypeRegistration::of::<Option<f64>>().short_name,
+            "Option<f64>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<HashMap<u32, String>>().short_name,
+            "HashMap<u32, String>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<u32, String>>>().short_name,
+            "Option<HashMap<u32, String>>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<u32, Option<String>>>>().short_name,
+            "Option<HashMap<u32, Option<String>>>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<String, Option<String>>>>().short_name,
+            "Option<HashMap<String, Option<String>>>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<Option<String>, Option<String>>>>().short_name,
+            "Option<HashMap<Option<String>, Option<String>>>"
+        );
+        assert_eq!(
+            TypeRegistration::of::<Option<HashMap<Option<String>, (String, Option<String>)>>>()
+                .short_name,
+            "Option<HashMap<Option<String>, (String, Option<String>)>>"
+        );
+    }
 }

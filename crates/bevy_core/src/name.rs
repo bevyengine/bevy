@@ -1,4 +1,5 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_utils::AHasher;
 use std::{
@@ -14,7 +15,7 @@ use std::{
 /// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
 /// used instead as the default unique identifier.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
     name: Cow<'static, str>,
@@ -68,10 +69,46 @@ impl Name {
     }
 }
 
+impl std::fmt::Display for Name {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.name, f)
+    }
+}
+
+/* Conversions from strings */
+
 impl From<&str> for Name {
     #[inline(always)]
     fn from(name: &str) -> Self {
         Name::new(name.to_owned())
+    }
+}
+impl From<String> for Name {
+    #[inline(always)]
+    fn from(name: String) -> Self {
+        Name::new(name)
+    }
+}
+
+/* Conversions to strings */
+
+impl AsRef<str> for Name {
+    #[inline(always)]
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+impl From<&Name> for String {
+    #[inline(always)]
+    fn from(val: &Name) -> String {
+        val.as_str().to_owned()
+    }
+}
+impl From<Name> for String {
+    #[inline(always)]
+    fn from(val: Name) -> String {
+        val.name.into_owned()
     }
 }
 

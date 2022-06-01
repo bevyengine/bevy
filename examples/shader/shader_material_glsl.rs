@@ -1,14 +1,14 @@
+//! A shader that uses the GLSL shading language.
+
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     pbr::{MaterialPipeline, SpecializedMaterial},
     prelude::*,
     reflect::TypeUuid,
     render::{
+        mesh::MeshVertexBufferLayout,
         render_asset::{PrepareAssetError, RenderAsset},
-        render_resource::{
-            std140::{AsStd140, Std140},
-            *,
-        },
+        render_resource::*,
         renderer::RenderDevice,
     },
 };
@@ -34,13 +34,13 @@ fn setup(
         material: materials.add(CustomMaterial {
             color: Color::GREEN,
         }),
-        ..Default::default()
+        ..default()
     });
 
     // camera
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
@@ -69,8 +69,13 @@ impl RenderAsset for CustomMaterial {
         (render_device, material_pipeline): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let color = Vec4::from_slice(&extracted_asset.color.as_linear_rgba_f32());
+
+        let byte_buffer = [0u8; Vec4::SIZE.get() as usize];
+        let mut buffer = encase::UniformBuffer::new(byte_buffer);
+        buffer.write(&color).unwrap();
+
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            contents: color.as_std140().as_bytes(),
+            contents: buffer.as_ref(),
             label: None,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
@@ -95,9 +100,15 @@ impl SpecializedMaterial for CustomMaterial {
 
     fn key(_: &<CustomMaterial as RenderAsset>::PreparedAsset) -> Self::Key {}
 
-    fn specialize(_: Self::Key, descriptor: &mut RenderPipelineDescriptor) {
+    fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
+        descriptor: &mut RenderPipelineDescriptor,
+        _: Self::Key,
+        _layout: &MeshVertexBufferLayout,
+    ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.vertex.entry_point = "main".into();
         descriptor.fragment.as_mut().unwrap().entry_point = "main".into();
+        Ok(())
     }
 
     fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
@@ -120,7 +131,7 @@ impl SpecializedMaterial for CustomMaterial {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: BufferSize::new(Vec4::std140_size_static() as u64),
+                    min_binding_size: Some(Vec4::min_size()),
                 },
                 count: None,
             }],

@@ -5,6 +5,39 @@ use raw_window_handle::RawWindowHandle;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
 
+/// Presentation mode for a window.
+///
+/// The presentation mode specifies when a frame is presented to the window. The `Fifo`
+/// option corresponds to a traditional `VSync`, where the framerate is capped by the
+/// display refresh rate. Both `Immediate` and `Mailbox` are low-latency and are not
+/// capped by the refresh rate, but may not be available on all platforms. Tearing
+/// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
+/// `Fifo`.
+///
+/// `Immediate` or `Mailbox` will gracefully fallback to `Fifo` when unavailable.
+///
+/// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor::present_mode)
+/// or updated on a [`Window`](Window::set_present_mode).
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[doc(alias = "vsync")]
+pub enum PresentMode {
+    /// The presentation engine does **not** wait for a vertical blanking period and
+    /// the request is presented immediately. This is a low-latency presentation mode,
+    /// but visible tearing may be observed. Will fallback to `Fifo` if unavailable on the
+    /// selected platform and backend. Not optimal for mobile.
+    Immediate = 0,
+    /// The presentation engine waits for the next vertical blanking period to update
+    /// the current image, but frames may be submitted without delay. This is a low-latency
+    /// presentation mode and visible tearing will **not** be observed. Will fallback to `Fifo`
+    /// if unavailable on the selected platform and backend. Not optimal for mobile.
+    Mailbox = 1,
+    /// The presentation engine waits for the next vertical blanking period to update
+    /// the current image. The framerate will be capped at the display refresh rate,
+    /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
+    Fifo = 2, // NOTE: The explicit ordinal values mirror wgpu and the vulkan spec.
+}
+
 impl WindowId {
     pub fn new() -> Self {
         WindowId(Uuid::new_v4())
@@ -26,7 +59,7 @@ use crate::raw_window_handle::RawWindowHandleWrapper;
 
 impl fmt::Display for WindowId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.to_simple().fmt(f)
+        self.0.as_simple().fmt(f)
     }
 }
 
@@ -62,7 +95,8 @@ impl Default for WindowResizeConstraints {
 }
 
 impl WindowResizeConstraints {
-    pub fn check_constraints(&self) -> WindowResizeConstraints {
+    #[must_use]
+    pub fn check_constraints(&self) -> Self {
         let WindowResizeConstraints {
             mut min_width,
             mut min_height,
@@ -121,7 +155,7 @@ pub struct Window {
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
     title: String,
-    vsync: bool,
+    present_mode: PresentMode,
     resizable: bool,
     decorations: bool,
     cursor_icon: CursorIcon,
@@ -131,8 +165,8 @@ pub struct Window {
     raw_window_handle: RawWindowHandleWrapper,
     focused: bool,
     mode: WindowMode,
-    #[cfg(target_arch = "wasm32")]
-    pub canvas: Option<String>,
+    canvas: Option<String>,
+    fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
 }
 
@@ -152,8 +186,8 @@ pub enum WindowCommand {
         logical_resolution: (f32, f32),
         scale_factor: f64,
     },
-    SetVsync {
-        vsync: bool,
+    SetPresentMode {
+        present_mode: PresentMode,
     },
     SetResizable {
         resizable: bool,
@@ -185,6 +219,7 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
+    Close,
 }
 
 /// Defines the way a window is displayed
@@ -222,7 +257,7 @@ impl Window {
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
-            vsync: window_descriptor.vsync,
+            present_mode: window_descriptor.present_mode,
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
@@ -232,8 +267,8 @@ impl Window {
             raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
             focused: true,
             mode: window_descriptor.mode,
-            #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
+            fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
         }
     }
@@ -332,7 +367,7 @@ impl Window {
     #[inline]
     pub fn set_position(&mut self, position: IVec2) {
         self.command_queue
-            .push(WindowCommand::SetPosition { position })
+            .push(WindowCommand::SetPosition { position });
     }
 
     /// Modifies the minimum and maximum window bounds for resizing in logical pixels.
@@ -425,14 +460,17 @@ impl Window {
     }
 
     #[inline]
-    pub fn vsync(&self) -> bool {
-        self.vsync
+    #[doc(alias = "vsync")]
+    pub fn present_mode(&self) -> PresentMode {
+        self.present_mode
     }
 
     #[inline]
-    pub fn set_vsync(&mut self, vsync: bool) {
-        self.vsync = vsync;
-        self.command_queue.push(WindowCommand::SetVsync { vsync });
+    #[doc(alias = "set_vsync")]
+    pub fn set_present_mode(&mut self, present_mode: PresentMode) {
+        self.present_mode = present_mode;
+        self.command_queue
+            .push(WindowCommand::SetPresentMode { present_mode });
     }
 
     #[inline]
@@ -534,6 +572,21 @@ impl Window {
         });
     }
 
+    /// Close the operating system window corresponding to this [`Window`].  
+    /// This will also lead to this [`Window`] being removed from the
+    /// [`Windows`] resource.
+    ///
+    /// If the default [`WindowPlugin`] is used, when no windows are
+    /// open, the [app will exit](bevy_app::AppExit).  
+    /// To disable this behaviour, set `exit_on_all_closed` on the [`WindowPlugin`]
+    /// to `false`
+    ///
+    /// [`Windows`]: crate::Windows
+    /// [`WindowPlugin`]: crate::WindowPlugin
+    pub fn close(&mut self) {
+        self.command_queue.push(WindowCommand::Close);
+    }
+
     #[inline]
     pub fn drain_commands(&mut self) -> impl Iterator<Item = WindowCommand> + '_ {
         self.command_queue.drain(..)
@@ -547,52 +600,115 @@ impl Window {
     pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
         self.raw_window_handle.clone()
     }
+
+    /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
+    /// rather than creating a new one.   
+    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
+    ///
+    /// This value has no effect on non-web platforms.
+    #[inline]
+    pub fn canvas(&self) -> Option<&str> {
+        self.canvas.as_deref()
+    }
+
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
+    /// This value has no effect on non-web platforms.
+    #[inline]
+    pub fn fit_canvas_to_parent(&self) -> bool {
+        self.fit_canvas_to_parent
+    }
 }
 
+/// Describes the information needed for creating a window.
+///
+/// This should be set up before adding the [`WindowPlugin`](crate::WindowPlugin).
+/// Most of these settings can also later be configured through the [`Window`](crate::Window) resource.
+///
+/// See [`examples/window/window_settings.rs`] for usage.
+///
+/// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
+    /// The requested logical width of the window's client area.
+    /// May vary from the physical width due to different pixel density on different monitors.
     pub width: f32,
+    /// The requested logical height of the window's client area.
+    /// May vary from the physical height due to different pixel density on different monitors.
     pub height: f32,
+    /// The position on the screen that the window will be centered at.
+    /// If set to `None`, some platform-specific position will be chosen.
     pub position: Option<Vec2>,
+    /// Sets minimum and maximum resize limits.
     pub resize_constraints: WindowResizeConstraints,
+    /// Overrides the window's ratio of physical pixels to logical pixels.
+    /// If there are some scaling problems on X11 try to set this option to `Some(1.0)`.
     pub scale_factor_override: Option<f64>,
+    /// Sets the title that displays on the window top bar, on the system task bar and other OS specific places.
+    /// ## Platform-specific
+    /// - Web: Unsupported.
     pub title: String,
-    pub vsync: bool,
+    /// Controls when a frame is presented to the screen.
+    #[doc(alias = "vsync")]
+    pub present_mode: PresentMode,
+    /// Sets whether the window is resizable.
+    /// ## Platform-specific
+    /// - iOS / Android / Web: Unsupported.
     pub resizable: bool,
+    /// Sets whether the window should have borders and bars.
     pub decorations: bool,
+    /// Sets whether the cursor is visible when the window has focus.
     pub cursor_visible: bool,
+    /// Sets whether the window locks the cursor inside its borders when the window has focus.
     pub cursor_locked: bool,
+    /// Sets the [`WindowMode`](crate::WindowMode).
     pub mode: WindowMode,
     /// Sets whether the background of the window should be transparent.
-    /// # Platform-specific
+    /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     /// - macOS X: Not working as expected.
     /// - Windows 11: Not working as expected
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
-    #[cfg(target_arch = "wasm32")]
+    /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
+    /// rather than creating a new one.   
+    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
+    ///
+    /// This value has no effect on non-web platforms.
     pub canvas: Option<String>,
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
+    /// This value has no effect on non-web platforms.
+    pub fit_canvas_to_parent: bool,
 }
 
 impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
-            title: "bevy".to_string(),
+            title: "app".to_string(),
             width: 1280.,
             height: 720.,
             position: None,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
-            vsync: true,
+            present_mode: PresentMode::Fifo,
             resizable: true,
             decorations: true,
             cursor_locked: false,
             cursor_visible: true,
             mode: WindowMode::Windowed,
             transparent: false,
-            #[cfg(target_arch = "wasm32")]
             canvas: None,
+            fit_canvas_to_parent: false,
         }
     }
 }

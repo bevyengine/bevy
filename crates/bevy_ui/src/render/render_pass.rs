@@ -1,33 +1,34 @@
-use bevy_core::FloatOrd;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
-    camera::ExtractedCameraNames,
+    camera::ActiveCamera,
     render_graph::*,
     render_phase::*,
     render_resource::{
-        CachedPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
+        CachedRenderPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
     },
     renderer::*,
     view::*,
 };
+use bevy_utils::FloatOrd;
 
-use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta, CAMERA_UI};
+use crate::prelude::CameraUi;
+
+use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta};
 
 pub struct UiPassDriverNode;
 
-impl bevy_render::render_graph::Node for UiPassDriverNode {
+impl Node for UiPassDriverNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         _render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
-        if let Some(camera_ui) = extracted_cameras.entities.get(CAMERA_UI) {
-            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(*camera_ui)])?;
+        if let Some(camera_ui) = world.resource::<ActiveCamera<CameraUi>>().get() {
+            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(camera_ui)])?;
         }
 
         Ok(())
@@ -49,7 +50,7 @@ impl UiPassNode {
     }
 }
 
-impl bevy_render::render_graph::Node for UiPassNode {
+impl Node for UiPassNode {
     fn input(&self) -> Vec<SlotInfo> {
         vec![SlotInfo::new(UiPassNode::IN_VIEW, SlotType::Entity)]
     }
@@ -65,10 +66,16 @@ impl bevy_render::render_graph::Node for UiPassNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (transparent_phase, target) = self
-            .query
-            .get_manual(world, view_entity)
-            .expect("view entity should exist");
+
+        // If there is no view entity, do not try to process the render phase for the view
+        let (transparent_phase, target) = match self.query.get_manual(world, view_entity) {
+            Ok(it) => it,
+            _ => return Ok(()),
+        };
+
+        if transparent_phase.items.is_empty() {
+            return Ok(());
+        }
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
             color_attachments: &[RenderPassColorAttachment {
@@ -82,9 +89,7 @@ impl bevy_render::render_graph::Node for UiPassNode {
             depth_stencil_attachment: None,
         };
 
-        let draw_functions = world
-            .get_resource::<DrawFunctions<TransparentUi>>()
-            .unwrap();
+        let draw_functions = world.resource::<DrawFunctions<TransparentUi>>();
 
         let render_pass = render_context
             .command_encoder
@@ -92,7 +97,7 @@ impl bevy_render::render_graph::Node for UiPassNode {
 
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
-        for item in transparent_phase.items.iter() {
+        for item in &transparent_phase.items {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }
@@ -103,7 +108,7 @@ impl bevy_render::render_graph::Node for UiPassNode {
 pub struct TransparentUi {
     pub sort_key: FloatOrd,
     pub entity: Entity,
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -128,9 +133,9 @@ impl EntityPhaseItem for TransparentUi {
     }
 }
 
-impl CachedPipelinePhaseItem for TransparentUi {
+impl CachedRenderPipelinePhaseItem for TransparentUi {
     #[inline]
-    fn cached_pipeline(&self) -> CachedPipelineId {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
@@ -174,7 +179,7 @@ impl<const I: usize> EntityRenderCommand for SetUiTextureBindGroup<I> {
         let batch = query_batch.get(item).unwrap();
         let image_bind_groups = image_bind_groups.into_inner();
 
-        pass.set_bind_group(1, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
+        pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
 }

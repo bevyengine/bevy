@@ -7,7 +7,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use bevy_window::{RawWindowHandleWrapper, WindowId, Windows};
+use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
 
@@ -43,7 +43,7 @@ pub struct ExtractedWindow {
     pub handle: RawWindowHandleWrapper,
     pub physical_width: u32,
     pub physical_height: u32,
-    pub vsync: bool,
+    pub present_mode: PresentMode,
     pub swap_chain_texture: Option<TextureView>,
     pub size_changed: bool,
 }
@@ -67,7 +67,11 @@ impl DerefMut for ExtractedWindows {
     }
 }
 
-fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>) {
+fn extract_windows(
+    mut render_world: ResMut<RenderWorld>,
+    mut closed: EventReader<WindowClosed>,
+    windows: Res<Windows>,
+) {
     let mut extracted_windows = render_world.get_resource_mut::<ExtractedWindows>().unwrap();
     for window in windows.iter() {
         let (new_width, new_height) = (
@@ -83,7 +87,7 @@ fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>)
                     handle: window.raw_window_handle(),
                     physical_width: new_width,
                     physical_height: new_height,
-                    vsync: window.vsync(),
+                    present_mode: window.present_mode(),
                     swap_chain_texture: None,
                     size_changed: false,
                 });
@@ -104,6 +108,9 @@ fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>)
             extracted_window.physical_width = new_width;
             extracted_window.physical_height = new_height;
         }
+    }
+    for closed_window in closed.iter() {
+        extracted_windows.remove(&closed_window.id);
     }
 }
 
@@ -138,10 +145,10 @@ pub fn prepare_windows(
             width: window.physical_width,
             height: window.physical_height,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            present_mode: if window.vsync {
-                wgpu::PresentMode::Fifo
-            } else {
-                wgpu::PresentMode::Immediate
+            present_mode: match window.present_mode {
+                PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+                PresentMode::Immediate => wgpu::PresentMode::Immediate,
             },
         };
 

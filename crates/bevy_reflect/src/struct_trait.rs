@@ -1,6 +1,7 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
-use bevy_utils::HashMap;
-use std::{any::Any, borrow::Cow, collections::hash_map::Entry};
+use crate::{Reflect, ReflectMut, ReflectRef};
+use bevy_utils::{Entry, HashMap};
+use std::fmt::{Debug, Formatter};
+use std::{any::Any, borrow::Cow};
 
 /// A reflected Rust regular struct type.
 ///
@@ -270,6 +271,16 @@ unsafe impl Reflect for DynamicStruct {
     }
 
     #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -289,7 +300,7 @@ unsafe impl Reflect for DynamicStruct {
             for (i, value) in struct_value.iter_fields().enumerate() {
                 let name = struct_value.name_at(i).unwrap();
                 if let Some(v) = self.field_mut(name) {
-                    v.apply(value)
+                    v.apply(value);
                 }
             }
         } else {
@@ -302,16 +313,20 @@ unsafe impl Reflect for DynamicStruct {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         struct_partial_eq(self, value)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicStruct(")?;
+        struct_debug(self, f)?;
+        write!(f, ")")
+    }
+}
+
+impl Debug for DynamicStruct {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.debug(f)
     }
 }
 
@@ -346,4 +361,36 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`Struct`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+/// #[derive(Reflect)]
+/// struct MyStruct {
+///   foo: usize
+/// }
+///
+/// let my_struct: &dyn Reflect = &MyStruct { foo: 123 };
+/// println!("{:#?}", my_struct);
+///
+/// // Output:
+///
+/// // MyStruct {
+/// //   foo: 123,
+/// // }
+/// ```
+#[inline]
+pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_struct(dyn_struct.type_name());
+    for field_index in 0..dyn_struct.field_len() {
+        let field = dyn_struct.field_at(field_index).unwrap();
+        debug.field(
+            dyn_struct.name_at(field_index).unwrap(),
+            &field as &dyn Debug,
+        );
+    }
+    debug.finish()
 }

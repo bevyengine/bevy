@@ -169,7 +169,7 @@ impl<T: Asset> Handle<T> {
     /// Makes this handle Strong if it wasn't already.
     ///
     /// This method requires the corresponding [Assets](crate::Assets) collection
-    pub fn make_strong(&mut self, assets: &mut Assets<T>) {
+    pub fn make_strong(&mut self, assets: &Assets<T>) {
         if self.is_strong() {
             return;
         }
@@ -179,8 +179,9 @@ impl<T: Asset> Handle<T> {
     }
 
     #[inline]
+    #[must_use]
     pub fn clone_weak(&self) -> Self {
-        Handle::weak(self.id)
+        Self::weak(self.id)
     }
 
     pub fn clone_untyped(&self) -> HandleUntyped {
@@ -327,8 +328,9 @@ impl HandleUntyped {
         }
     }
 
-    pub fn clone_weak(&self) -> HandleUntyped {
-        HandleUntyped::weak(self.id)
+    #[must_use]
+    pub fn clone_weak(&self) -> Self {
+        Self::weak(self.id)
     }
 
     pub fn is_weak(&self) -> bool {
@@ -339,14 +341,23 @@ impl HandleUntyped {
         matches!(self.handle_type, HandleType::Strong(_))
     }
 
+    /// Create a weak typed [`Handle`] from this handle.
+    ///
+    /// If this handle is strong and dropped, there is no guarantee that the asset
+    /// will still be available (if only the returned handle is kept)
+    pub fn typed_weak<T: Asset>(&self) -> Handle<T> {
+        self.clone_weak().typed()
+    }
+
     /// Convert this handle into a typed [Handle].
     ///
     /// The new handle will maintain the Strong or Weak status of the current handle.
     pub fn typed<T: Asset>(mut self) -> Handle<T> {
         if let HandleId::Id(type_uuid, _) = self.id {
-            if T::TYPE_UUID != type_uuid {
-                panic!("Attempted to convert handle to invalid type.");
-            }
+            assert!(
+                T::TYPE_UUID == type_uuid,
+                "Attempted to convert handle to invalid type."
+            );
         }
         let handle_type = match &self.handle_type {
             HandleType::Strong(sender) => HandleType::Strong(sender.clone()),

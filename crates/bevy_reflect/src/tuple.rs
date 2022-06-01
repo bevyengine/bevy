@@ -1,6 +1,10 @@
+use crate::{
+    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectMut,
+    ReflectRef, TypeRegistration,
+};
+use serde::Deserialize;
 use std::any::Any;
-
-use crate::{serde::Serializable, FromReflect, Reflect, ReflectMut, ReflectRef};
+use std::fmt::{Debug, Formatter};
 
 /// A reflected Rust tuple.
 ///
@@ -223,6 +227,16 @@ unsafe impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -246,16 +260,14 @@ unsafe impl Reflect for DynamicTuple {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_partial_eq(self, value)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicTuple(")?;
+        tuple_debug(self, f)?;
+        write!(f, ")")
     }
 }
 
@@ -269,7 +281,7 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
         for (i, value) in tuple.iter_fields().enumerate() {
             if let Some(v) = a.field_mut(i) {
-                v.apply(value)
+                v.apply(value);
             }
         }
     } else {
@@ -303,6 +315,32 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`Tuple`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+///
+/// let my_tuple: &dyn Reflect = &(1, 2, 3);
+/// println!("{:#?}", my_tuple);
+///
+/// // Output:
+///
+/// // (
+/// //   1,
+/// //   2,
+/// //   3,
+/// // )
+/// ```
+#[inline]
+pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_tuple("");
+    for field in dyn_tuple.iter_fields() {
+        debug.field(&field as &dyn Debug);
+    }
+    debug.finish()
 }
 
 macro_rules! impl_reflect_tuple {
@@ -366,6 +404,14 @@ macro_rules! impl_reflect_tuple {
                 self
             }
 
+            fn as_reflect(&self) -> &dyn Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+                self
+            }
+
             fn apply(&mut self, value: &dyn Reflect) {
                 crate::tuple_apply(self, value);
             }
@@ -387,16 +433,16 @@ macro_rules! impl_reflect_tuple {
                 Box::new(self.clone_dynamic())
             }
 
-            fn reflect_hash(&self) -> Option<u64> {
-                None
-            }
-
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
                 crate::tuple_partial_eq(self, value)
             }
+        }
 
-            fn serializable(&self) -> Option<Serializable> {
-                None
+        impl<$($name: Reflect + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+            fn get_type_registration() -> TypeRegistration {
+                let mut registration = TypeRegistration::of::<($($name,)*)>();
+                registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());
+                registration
             }
         }
 

@@ -60,9 +60,7 @@ impl RenderGraphRunner {
         Self::run_graph(graph, None, &mut render_context, world, &[])?;
         {
             #[cfg(feature = "trace")]
-            let span = info_span!("submit_graph_commands");
-            #[cfg(feature = "trace")]
-            let _guard = span.enter();
+            let _span = info_span!("submit_graph_commands").entered();
             queue.submit(vec![render_context.command_encoder.finish()]);
         }
         Ok(())
@@ -103,9 +101,8 @@ impl RenderGraphRunner {
                             expected: input_slot.slot_type,
                             label: input_slot.name.clone().into(),
                         });
-                    } else {
-                        input_values.push(input_value.clone());
                     }
+                    input_values.push(input_value.clone());
                 } else {
                     return Err(RenderGraphRunnerError::MissingInput {
                         slot_index: i,
@@ -170,15 +167,12 @@ impl RenderGraphRunner {
                 smallvec![None; node_state.output_slots.len()];
             {
                 let mut context = RenderGraphContext::new(graph, node_state, &inputs, &mut outputs);
-                #[cfg(feature = "trace")]
-                let span = info_span!("node", name = node_state.type_name);
-                #[cfg(feature = "trace")]
-                let guard = span.enter();
+                {
+                    #[cfg(feature = "trace")]
+                    let _span = info_span!("node", name = node_state.type_name).entered();
 
-                node_state.node.run(&mut context, render_context, world)?;
-
-                #[cfg(feature = "trace")]
-                drop(guard);
+                    node_state.node.run(&mut context, render_context, world)?;
+                }
 
                 for run_sub_graph in context.finish() {
                     let sub_graph = graph
