@@ -4,12 +4,14 @@ test.beforeEach(async ({ page }) => {
   await page.goto('http://localhost:8000/');
 });
 
+const MAX_TIMEOUT_FOR_TEST = 300_000;
+
 test.describe('WASM example', () => {
   test('Wait for success', async ({ page }, test_info) => {
     let start = new Date().getTime();
 
     let found = false;
-    while (new Date().getTime() - start < 300_000) {
+    while (new Date().getTime() - start < MAX_TIMEOUT_FOR_TEST) {
       let msg = await promise_with_timeout(100, on_console(page), "no log found");
       if (msg.includes("no log found")) {
         continue;
