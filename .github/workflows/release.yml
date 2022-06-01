@@ -1,0 +1,48 @@
+name: Release
+
+# how to trigger: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install cargo-release
+        run: cargo install cargo-release
+
+      - name: Setup release
+        run: |
+          git config user.name 'Bevy Auto Releaser'
+          git config user.email 'bevy@users.noreply.github.com'
+          # --workspace: updating all crates in the workspace
+          # --no-publish: do not publish to crates.io
+          # --execute: not a dry run
+          # --no-tag: do not push tag for each new version
+          # --no-push: do not push the update commits
+          # --exclude: ignore those packages
+          cargo release minor \
+            --workspace \
+            --no-publish \
+            --execute \
+            --no-tag \
+            --no-confirm \
+            --no-push \
+            --exclude ci \
+            --exclude errors \
+            --exclude bevy-ios-example
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v3
+        with:
+          delete-branch: true
+          base: "main"
+          title: "Preparing Next Release"
+          body: |
+            Preparing next release
+            This PR has been auto-generated
