@@ -33,7 +33,7 @@ impl<I, V> SparseArray<I, V> {
 
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
     #[inline]
-    fn split_index(index: I) -> (usize, usize) {
+    fn split_at_index(index: I) -> (usize, usize) {
         let idx = index.sparse_set_index();
         (idx / PAGE_SIZE, idx % PAGE_SIZE)
     }
@@ -60,7 +60,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 
     #[inline]
     pub fn insert(&mut self, index: I, value: V) {
-        let (page, index) = Self::split_index(index);
+        let (page, index) = Self::split_at_index(index);
         if page >= self.values.len() {
             self.values.resize_with(page + 1, || None);
         }
@@ -70,7 +70,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 
     #[inline]
     pub fn contains(&self, index: I) -> bool {
-        let (page, index) = Self::split_index(index);
+        let (page, index) = Self::split_at_index(index);
         self.values
             .get(page)
             .and_then(|p| p.as_ref())
@@ -81,7 +81,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 
     #[inline]
     pub fn get(&self, index: I) -> Option<&V> {
-        let (page, index) = Self::split_index(index);
+        let (page, index) = Self::split_at_index(index);
         self.values
             .get(page)
             .and_then(|p| p.as_ref())
@@ -91,7 +91,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 
     #[inline]
     pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
-        let (page, index) = Self::split_index(index);
+        let (page, index) = Self::split_at_index(index);
         self.values
             .get_mut(page)
             .and_then(|page| page.as_mut())
@@ -101,7 +101,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 
     #[inline]
     pub fn remove(&mut self, index: I) -> Option<V> {
-        let (page, index) = Self::split_index(index);
+        let (page, index) = Self::split_at_index(index);
         self.values
             .get_mut(page)
             .and_then(|page| page.as_mut())
@@ -111,7 +111,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 
     #[inline]
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
-        let (page, index) = Self::split_index(index);
+        let (page, index) = Self::split_at_index(index);
         if page >= self.values.len() {
             self.values.resize_with(page + 1, || None);
         }
