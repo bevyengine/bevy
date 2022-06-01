@@ -522,10 +522,12 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
 ///     move |In(input), mut params| {
-///         let shared = system.run(input, params.p0())
+///         system.run(input, params.p0())
 ///     }
 /// }
 ///
+/// # bevy_ecs::system::assert_is_system(identity(|| ()));
+/// # bevy_ecs::system::assert_is_system(identity(|_: In<u32>| ()));
 /// ```
 ///
 /// [`chain`]: crate::system::chain
