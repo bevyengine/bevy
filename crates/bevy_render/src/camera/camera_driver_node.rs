@@ -62,7 +62,7 @@ impl Node for CameraDriverNode {
 
         if !ambiguities.is_empty() {
             warn!(
-                "Camera priority ambiguities detected for active cameras with the following priorites: {:?}. \
+                "Camera priority ambiguities detected for active cameras with the following priorities: {:?}. \
                 To fix this, ensure there is exactly one Camera entity spawned with a given priority for a given RenderTarget. \
                 Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will \
                 result in rendering multiple instances of the scene or (2) for cases where multiple active cameras is intentional, \
