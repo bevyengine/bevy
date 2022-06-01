@@ -2,12 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 0 1-7 3,6,9,12 *"
-    # at 0:00, on the first seven days of the month, in march, june, september and december
-    # in cron, it is not possible to say "first monday of the month", so the cron is selecting
-    # the first week, and the action is only running if the day is a monday using the 
-    # is-it-monday step
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,21 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Only run on mondays
-        id: is-it-monday
-        continue-on-error: true
-        run: |
-          if [[ ! $(date +%u) -eq 1 ]]; then
-            echo 'This is not a monday.'
-            exit 1
-          fi
-
       - name: Install cargo-release
-        if: steps.is-it-monday.outcome=='success'
         run: cargo install cargo-release
 
       - name: Setup release
-        if: steps.is-it-monday.outcome=='success'
         run: |
           git config user.name 'Bevy Auto Releaser'
           git config user.email 'bevy@users.noreply.github.com'
@@ -54,7 +37,6 @@ jobs:
             --exclude bevy-ios-example
 
       - name: Create PR
-        if: steps.is-it-monday.outcome=='success'
         uses: peter-evans/create-pull-request@v3
         with:
           delete-branch: true
