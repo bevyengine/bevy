@@ -1,4 +1,5 @@
-//! Shows how to render a custom post processing effect, here a chromatic aberration.
+//! A custom post processing effect, using two render passes and a custom shader.
+//! Here a chromatic aberration is applied to a 3d scene containting a rotating cube.
 //! This example is useful to implement your own post-processing effect such as
 //! edge detection, blur, pixelization, vignette... and countless others.
 
