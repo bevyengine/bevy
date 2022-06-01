@@ -93,7 +93,7 @@ pub mod __macro_exports {
 mod tests {
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
-    use ::serde::de::DeserializeSeed;
+    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
@@ -451,7 +451,8 @@ mod tests {
             h: [u32; 2],
         }
 
-        #[derive(Reflect)]
+        #[derive(Reflect, Serialize, Deserialize)]
+        #[reflect(Serialize, Deserialize)]
         struct Bar {
             x: u32,
         }
