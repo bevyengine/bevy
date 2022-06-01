@@ -59,6 +59,7 @@ struct EventInstance<E: Event> {
 
 /// Settings for controlling the general behavior of [`Events<T>`].
 pub struct EventSettings<T> {
+    /// Controls how and when the memory allocated for events will be freed
     pub garbage_collection: EventGarbageCollection,
     marker_: PhantomData<fn() -> T>,
 }
