@@ -4,6 +4,7 @@ use crate::{
 };
 use serde::Deserialize;
 use std::any::Any;
+use std::fmt::{Debug, Formatter};
 
 /// A reflected Rust tuple.
 ///
@@ -262,6 +263,12 @@ unsafe impl Reflect for DynamicTuple {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_partial_eq(self, value)
     }
+
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicTuple(")?;
+        tuple_debug(self, f)?;
+        write!(f, ")")
+    }
 }
 
 /// Applies the elements of `b` to the corresponding elements of `a`.
@@ -308,6 +315,32 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`Tuple`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+///
+/// let my_tuple: &dyn Reflect = &(1, 2, 3);
+/// println!("{:#?}", my_tuple);
+///
+/// // Output:
+///
+/// // (
+/// //   1,
+/// //   2,
+/// //   3,
+/// // )
+/// ```
+#[inline]
+pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_tuple("");
+    for field in dyn_tuple.iter_fields() {
+        debug.field(&field as &dyn Debug);
+    }
+    debug.finish()
 }
 
 macro_rules! impl_reflect_tuple {

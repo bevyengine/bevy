@@ -144,6 +144,10 @@ name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
 
 [[example]]
+name = "mesh2d_vertex_color_texture"
+path = "examples/2d/mesh2d_vertex_color_texture.rs"
+
+[[example]]
 name = "shapes"
 path = "examples/2d/shapes.rs"
 

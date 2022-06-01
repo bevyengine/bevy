@@ -781,8 +781,11 @@ mod test {
             asset_server.get_handle_untyped(id)
         }
 
-        fn get_asset(id: impl Into<HandleId>, world: &World) -> Option<&PngAsset> {
-            world.resource::<Assets<PngAsset>>().get(id.into())
+        fn get_asset<'world>(
+            id: &Handle<PngAsset>,
+            world: &'world World,
+        ) -> Option<&'world PngAsset> {
+            world.resource::<Assets<PngAsset>>().get(id)
         }
 
         fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
@@ -800,7 +803,7 @@ mod test {
         );
 
         // load the asset
-        let handle = load_asset(path.clone(), &app.world);
+        let handle = load_asset(path.clone(), &app.world).typed();
         let weak_handle = handle.clone_weak();
 
         // asset is loading
@@ -826,7 +829,7 @@ mod test {
         assert!(get_asset(&weak_handle, &app.world).is_none());
 
         // finally, reload the asset
-        let handle = load_asset(path.clone(), &app.world);
+        let handle = load_asset(path.clone(), &app.world).typed();
         assert_eq!(LoadState::Loading, get_load_state(&handle, &app.world));
         app.update();
         assert_eq!(LoadState::Loaded, get_load_state(&handle, &app.world));

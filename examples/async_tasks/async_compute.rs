@@ -11,7 +11,6 @@ use std::time::{Duration, Instant};
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_env)
         .add_startup_system(add_assets)

@@ -15,27 +15,27 @@ use std::{
     ops::Range,
 };
 
-impl_reflect_value!(bool(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(char(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u8(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u16(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u32(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u64(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u128(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(usize(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i8(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i16(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i32(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i64(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i128(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(isize(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f32(PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f64(PartialEq, Serialize, Deserialize));
-impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(char(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(usize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
-impl_reflect_value!(Duration(Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -156,7 +156,7 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
     }
 
     fn serializable(&self) -> Option<Serializable> {
-        Some(Serializable::Owned(Box::new(SerializeArrayLike(self))))
+        None
     }
 }
 
@@ -248,7 +248,7 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         if let ReflectRef::Map(map_value) = value.reflect_ref() {
             for (key, value) in map_value.iter() {
                 if let Some(v) = Map::get_mut(self, key) {
-                    v.apply(value)
+                    v.apply(value);
                 }
             }
         } else {
@@ -396,7 +396,7 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
 
     #[inline]
     fn serializable(&self) -> Option<Serializable> {
-        Some(Serializable::Owned(Box::new(SerializeArrayLike(self))))
+        None
     }
 }
 
@@ -411,18 +411,6 @@ impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
         } else {
             None
         }
-    }
-}
-
-// Supports dynamic serialization for types that implement `Array`.
-struct SerializeArrayLike<'a>(&'a dyn Array);
-
-impl<'a> serde::Serialize for SerializeArrayLike<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        crate::array_serialize(self.0, serializer)
     }
 }
 

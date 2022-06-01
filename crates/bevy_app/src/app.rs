@@ -10,6 +10,7 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
+use bevy_tasks::TaskPool;
 use bevy_utils::{tracing::debug, HashMap};
 use std::fmt::Debug;
 
@@ -862,9 +863,12 @@ impl App {
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
-        app: App,
+        mut app: App,
         sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
+        if let Some(pool) = self.world.get_resource::<TaskPool>() {
+            app.world.insert_resource(pool.clone());
+        }
         self.sub_apps.insert(
             Box::new(label),
             SubApp {
