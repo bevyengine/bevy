@@ -1156,10 +1156,10 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_iter<I, II, T>(&self, entities: II) -> QueryManyIter<'_, '_, I, Q, F, T>
+    pub fn many_iter<I, II, E>(&self, entities: II) -> QueryManyIter<'_, '_, I, Q, F, E>
     where
-        T: Borrow<Entity>,
-        I: Iterator<Item = T>,
+        E: Borrow<Entity>,
+        I: Iterator<Item = E>,
         II: IntoIterator<IntoIter = I>,
     {
         QueryManyIter {
@@ -1195,14 +1195,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_for_each<II, T>(&self, input: II, cb: impl Fn(ROQueryItem<'_, Q>))
+    pub fn many_for_each<II, E>(&self, entities: II, f: impl Fn(ROQueryItem<'_, Q>))
     where
-        T: Borrow<Entity>,
-        II: IntoIterator<Item = T>,
+        E: Borrow<Entity>,
+        II: IntoIterator<Item = E>,
     {
-        input.into_iter().map(|e| *e.borrow()).for_each(|input| {
+        entities.into_iter().map(|e| *e.borrow()).for_each(|input| {
             if let Ok(item) = self.get(input) {
-                cb(item);
+                f(item);
             }
         });
     }
@@ -1235,14 +1235,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_for_each_mut<II, T>(&mut self, input: II, mut cb: impl FnMut(QueryItem<'_, Q>))
+    pub fn many_for_each_mut<II, E>(&mut self, entities: II, mut f: impl FnMut(QueryItem<'_, Q>))
     where
-        T: Borrow<Entity>,
-        II: IntoIterator<Item = T>,
+        E: Borrow<Entity>,
+        II: IntoIterator<Item = E>,
     {
-        input.into_iter().map(|e| *e.borrow()).for_each(|entity| {
+        entities.into_iter().map(|e| *e.borrow()).for_each(|entity| {
             if let Ok(item) = self.get_mut(entity) {
-                cb(item);
+                f(item);
             }
         });
     }
