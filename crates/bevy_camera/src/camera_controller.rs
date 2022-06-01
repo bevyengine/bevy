@@ -1,8 +1,8 @@
-use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::{mouse::MouseMotion, prelude::*};
 use bevy_math::prelude::*;
 use bevy_render::prelude::*;
+use bevy_time::Time;
 use bevy_transform::prelude::*;
 
 /// Provides basic movement functionality to the attached camera
