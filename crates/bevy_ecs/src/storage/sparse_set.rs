@@ -73,8 +73,8 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values
             .get(page)
             .and_then(|p| p.as_ref())
-            .and_then(|p| p.get(index))
-            .map(Option::is_some)
+            // SAFETY: Index is always valid as it must be less than page size.
+            .map(|p| unsafe { p.get_unchecked(index).is_some() })
             .unwrap_or(false)
     }
 
@@ -84,7 +84,8 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values
             .get(page)
             .and_then(|p| p.as_ref())
-            .and_then(|p| p[index].as_ref())
+            // SAFETY: Index is always valid as it must be less than page size.
+            .and_then(|p| unsafe { p.get_unchecked(index).as_ref() })
     }
 
     #[inline]
@@ -93,7 +94,8 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values
             .get_mut(page)
             .and_then(|page| page.as_mut())
-            .and_then(|page| page[index].as_mut())
+            // SAFETY: Index is always valid as it must be less than page size.
+            .and_then(|page| unsafe { page.get_unchecked_mut(index).as_mut() })
     }
 
     #[inline]
@@ -102,7 +104,8 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values
             .get_mut(page)
             .and_then(|page| page.as_mut())
-            .and_then(|page| page[index].take())
+            // SAFETY: Index is always valid as it must be less than page size.
+            .and_then(|page| unsafe { page.get_unchecked_mut(index).take() })
     }
 
     #[inline]
@@ -111,8 +114,14 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         if page >= self.values.len() {
             self.values.resize_with(page + 1, || None);
         }
-        let page = self.values[page].get_or_insert_with(Self::make_page);
-        page[index].get_or_insert_with(func)
+        // SAFETY: Page and index both must after the resize.
+        unsafe {
+            let page = self
+                .values
+                .get_unchecked_mut(page)
+                .get_or_insert_with(Self::make_page);
+            page.get_unchecked_mut(index).get_or_insert_with(func)
+        }
     }
 
     pub fn clear(&mut self) {
