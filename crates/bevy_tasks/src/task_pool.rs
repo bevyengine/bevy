@@ -1,8 +1,8 @@
 use std::{
     future::Future,
     mem,
-    sync::Arc,
     pin::Pin,
+    sync::Arc,
     thread::{self, JoinHandle},
 };
 
@@ -191,14 +191,16 @@ impl TaskPool {
 
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
-        self.thread_count_for(TaskGroup::Compute)
-            + self.thread_count_for(TaskGroup::AsyncCompute)
-            + self.thread_count_for(TaskGroup::IO)
+        self._inner.threads.len()
     }
 
-    /// Return the number of threads owned by a given group in the task pool
+    /// Return the number of threads that can run a given [`TaskGroup`] in the task pool
     pub fn thread_count_for(&self, group: TaskGroup) -> usize {
-        self.groups.get(group).threads
+        match group {
+            TaskGroup::Compute => self.thread_num(),
+            TaskGroup::IO => self.groups.io.threads + self.groups.async_compute.threads,
+            TaskGroup::AsyncCompute => self.groups.async_compute.threads,
+        }
     }
 
     /// Allows spawning non-`'static` futures on the thread pool in a specific task group. The
