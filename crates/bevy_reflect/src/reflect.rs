@@ -1,5 +1,5 @@
 use crate::{
-    array_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
+    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
     tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
     ValueInfo,
 };
@@ -173,6 +173,7 @@ pub trait Reflect: Any + Send + Sync {
             ReflectRef::List(dyn_list) => list_debug(dyn_list, f),
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
+            ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
             _ => write!(f, "Reflect({})", self.type_name()),
         }
     }

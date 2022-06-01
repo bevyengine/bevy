@@ -1,4 +1,5 @@
 use crate::{Enum, Reflect, ReflectRef, VariantType};
+use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
 /// Returns the `u64` hash of the given [enum](Enum).
@@ -84,5 +85,47 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> 
             Some(true)
         }
         _ => Some(false),
+    }
+}
+
+/// The default debug formatter for [`Enum`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+/// #[derive(Reflect)]
+/// enum MyEnum {
+///   A,
+///   B (usize),
+///   C {value: i32}
+/// }
+///
+/// let my_enum: &dyn Reflect = &MyEnum::B(123);
+/// println!("{:#?}", my_enum);
+///
+/// // Output:
+///
+/// // MyEnum {
+/// //   foo: 123,
+/// // }
+/// ```
+#[inline]
+pub fn enum_debug(dyn_enum: &dyn Enum, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match dyn_enum.variant_type() {
+        VariantType::Unit => f.write_str(dyn_enum.variant_name()),
+        VariantType::Tuple => {
+            let mut debug = f.debug_tuple(dyn_enum.variant_name());
+            for field in dyn_enum.iter_fields() {
+                debug.field(&field.value() as &dyn Debug);
+            }
+            debug.finish()
+        }
+        VariantType::Struct => {
+            let mut debug = f.debug_struct(dyn_enum.variant_name());
+            for field in dyn_enum.iter_fields() {
+                debug.field(field.name().unwrap(), &field.value() as &dyn Debug);
+            }
+            debug.finish()
+        }
     }
 }

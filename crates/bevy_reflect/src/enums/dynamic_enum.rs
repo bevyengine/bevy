@@ -1,9 +1,10 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum, Reflect,
-    ReflectMut, ReflectRef, Struct, Tuple, TypeInfo, Typed, VariantFieldIter, VariantType,
+    enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum,
+    Reflect, ReflectMut, ReflectRef, Struct, Tuple, TypeInfo, Typed, VariantFieldIter, VariantType,
 };
 use std::any::Any;
+use std::fmt::Formatter;
 
 /// A dynamic representation of an enum variant.
 pub enum DynamicVariant {
@@ -320,6 +321,13 @@ impl Reflect for DynamicEnum {
     #[inline]
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         enum_partial_eq(self, value)
+    }
+
+    #[inline]
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicEnum(")?;
+        enum_debug(self, f)?;
+        write!(f, ")")
     }
 }
 
