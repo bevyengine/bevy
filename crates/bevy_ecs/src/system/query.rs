@@ -3,11 +3,12 @@ use crate::{
     entity::Entity,
     query::{
         NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
-        QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
+        QueryManyIter, QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch,
+        WorldQuery,
     },
     world::{Mut, World},
 };
-use std::{any::TypeId, fmt::Debug};
+use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 
 /// Provides scoped access to components in a [`World`].
 ///
@@ -1126,6 +1127,124 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
                 )
                 .is_ok()
         }
+    }
+
+    /// Iterate over this [`Query`] where the entities match.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Counter {
+    ///     value: i32
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     list: Vec<Entity>,
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     counter_query: Query<&Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         for counter in counter_query.many_iter(&friends.list) {
+    ///             println!("Friend's counter: {:?}", counter.value);
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn many_iter<I, II, T>(&self, entities: II) -> QueryManyIter<'_, '_, I, Q, F, T>
+    where
+        T: Borrow<Entity>,
+        I: Iterator<Item = T>,
+        II: IntoIterator<IntoIter = I>,
+    {
+        QueryManyIter {
+            entities: entities.into_iter(),
+            query: self,
+        }
+    }
+
+    /// Calls a closure on each result of [`Query`] where the entities match.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Counter {
+    ///     value: i32
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     list: Vec<Entity>,
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     counter_query: Query<&Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         counter_query.many_for_each(&friends.list, |counter| {
+    ///             println!("Friend's counter: {:?}", counter.value);
+    ///         });
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn many_for_each<II, T>(&self, input: II, cb: impl Fn(ROQueryItem<'_, Q>))
+    where
+        T: Borrow<Entity>,
+        II: IntoIterator<Item = T>,
+    {
+        input.into_iter().map(|e| *e.borrow()).for_each(|input| {
+            if let Ok(item) = self.get(input) {
+                cb(item);
+            }
+        });
+    }
+
+    /// Calls a closure on each result of [`Query`] where the entities match.
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Counter {
+    ///     value: i32
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     list: Vec<Entity>,
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     mut counter_query: Query<&mut Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         counter_query.many_for_each_mut(&friends.list, |mut counter| {
+    ///             println!("Friend's counter: {:?}", counter.value);
+    ///             counter.value += 1;
+    ///         });
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn many_for_each_mut<II, T>(&mut self, input: II, mut cb: impl FnMut(QueryItem<'_, Q>))
+    where
+        T: Borrow<Entity>,
+        II: IntoIterator<Item = T>,
+    {
+        input.into_iter().map(|e| *e.borrow()).for_each(|entity| {
+            if let Ok(item) = self.get_mut(entity) {
+                cb(item);
+            }
+        });
     }
 }
 

@@ -20,7 +20,7 @@ unsafe fn debug_checked_unreachable() -> ! {
 #[cfg(test)]
 mod tests {
     use super::WorldQuery;
-    use crate::prelude::{AnyOf, Entity, Or, With, WithQuery, Without};
+    use crate::prelude::{AnyOf, Entity, Or, With, Without};
     use crate::system::{IntoSystem, Query, System};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::collections::HashSet;
@@ -519,15 +519,16 @@ mod tests {
     }
 
     #[test]
-    fn queried_with() {
+    fn many() {
         let mut world = World::new();
         world.spawn().insert_bundle((A(0), B(0)));
         world.spawn().insert_bundle((A(0), B(0)));
         world.spawn().insert_bundle((A(0),));
         world.spawn().insert_bundle((B(0),));
+
         {
-            fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
-                assert_eq!(has_a.queried_with(&has_a_and_b).count(), 2);
+            fn system(query: Query<Entity>, b_query: Query<&B>) {
+                for _b in b_query.many_iter(&query) {}
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
@@ -535,7 +536,7 @@ mod tests {
         }
         {
             fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
-                assert_eq!(has_a.queried_with(&has_a_and_b).count(), 2);
+                assert_eq!(has_a_and_b.many_iter(&has_a).count(), 2);
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
@@ -543,7 +544,7 @@ mod tests {
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
-                has_a.queried_foreach_with_mut(&mut b_query, |mut b| {
+                b_query.many_for_each_mut(&has_a, |mut b| {
                     b.0 = 1;
                 });
             }

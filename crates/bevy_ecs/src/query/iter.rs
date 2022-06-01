@@ -401,18 +401,21 @@ where
     }
 }
 
-pub struct WithQueryIter<'w, 's, I, Q, F, T>
+/// An [`Iterator`] over the results of a query that match a list of entities.
+///
+/// This struct is created by the [`Query::many_iter`](crate::system::Query::many_iter) method.
+pub struct QueryManyIter<'w, 's, I, Q, F, T>
 where
     T: Borrow<Entity>,
     I: Iterator<Item = T>,
     Q: WorldQuery,
     F: WorldQuery,
 {
-    iter: I,
-    query: &'w Query<'w, 's, Q, F>,
+    pub(crate) entities: I,
+    pub(crate) query: &'w Query<'w, 's, Q, F>,
 }
 
-impl<'w, 's, I, Q, F, T> Iterator for WithQueryIter<'w, 's, I, Q, F, T>
+impl<'w, 's, I, Q, F, T> Iterator for QueryManyIter<'w, 's, I, Q, F, T>
 where
     T: Borrow<Entity>,
     I: Iterator<Item = T>,
@@ -427,80 +430,11 @@ where
     /// Returns [`None`] when iteration is finished.
     fn next(&mut self) -> Option<Self::Item> {
         // Loop until query.get() succeeds and return Some, or the entity iterator is finished and return None.
-        for entity in self.iter.by_ref() {
-            if let Ok(item) = self.query.get(*entity.borrow()) {
+        for entity in self.entities.by_ref().map(|entity| *entity.borrow()) {
+            if let Ok(item) = self.query.get(entity) {
                 return Some(item);
             }
         }
         None
     }
-}
-
-pub trait WithQuery<Q, F, T>: IntoIterator<Item = T>
-where
-    Self: Sized,
-    T: Borrow<Entity>,
-    Q: WorldQuery,
-    F: WorldQuery,
-{
-    /// # Examples
-    ///
-    /// ```
-    /// #[derive(Component)]
-    /// struct Foo;
-    ///
-    /// #[derive(Component)]
-    /// struct Bar;
-    ///
-    /// fn system(
-    ///     foo_query: Query<&Children, With<Foo>>,
-    ///     bar_query: Query<&Bar>
-    /// ) {
-    ///     for children in &foo_query {
-    ///         // An entity with the components Children and Foo.
-    ///         for bar in children.queried_with(&bar_query) {
-    ///             // This is a child of that entity that has a Bar component.
-    ///         }
-    ///     }
-    /// }
-    /// ```
-    /// # let mut system = IntoSystem::into_system(system);
-    /// # system.initialize(&mut world);
-    /// # system.run((), &mut world);
-    /// ```
-    fn queried_with<'w, 's>(
-        self,
-        query: &'w Query<'w, 's, Q, F>,
-    ) -> WithQueryIter<'w, 's, Self::IntoIter, Q, F, T> {
-        WithQueryIter {
-            iter: self.into_iter(),
-            query,
-        }
-    }
-
-    fn queried_foreach_with(self, query: &Query<Q, F>, cb: impl Fn(ROQueryItem<Q>)) {
-        self.into_iter().for_each(|entity| {
-            if let Ok(item) = query.get(*entity.borrow()) {
-                cb(item);
-            }
-        });
-    }
-
-    fn queried_foreach_with_mut(self, query: &mut Query<Q, F>, mut cb: impl FnMut(QueryItem<Q>)) {
-        self.into_iter().for_each(|entity| {
-            if let Ok(item) = query.get_mut(*entity.borrow()) {
-                cb(item);
-            }
-        });
-    }
-}
-
-impl<I, II, Q, F, T> WithQuery<Q, F, T> for II
-where
-    T: Borrow<Entity>,
-    I: Iterator<Item = T>,
-    II: IntoIterator<IntoIter = I, Item = T>,
-    Q: WorldQuery,
-    F: WorldQuery,
-{
 }
