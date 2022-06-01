@@ -210,7 +210,11 @@ impl Transform {
     }
 
     /// Multiplies `self` with `transform` component by component, returning the
-    /// resulting [`Transform`]
+    /// resulting [`Transform`].
+    ///
+    /// Note that `self.mul_transform(transform)` is identical to `self * transform`.
+    ///
+    /// To find `X` such as `transform * X = self`, see [`GlobalTransform::reparented_to`].
     #[inline]
     #[must_use]
     pub fn mul_transform(&self, transform: Transform) -> Self {

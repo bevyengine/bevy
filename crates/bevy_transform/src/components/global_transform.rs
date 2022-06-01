@@ -206,7 +206,11 @@ impl GlobalTransform {
     }
 
     /// Multiplies `self` with `transform` component by component, returning the
-    /// resulting [`GlobalTransform`]
+    /// resulting [`GlobalTransform`].
+    ///
+    /// Note that `self.mul_transform(transform)` is identical to `self * transform`.
+    ///
+    /// To find `X` such as `transform * X = self`, see [`Self::reparented_to`].
     #[inline]
     #[must_use]
     pub fn mul_transform(&self, transform: Transform) -> Self {
@@ -217,6 +221,50 @@ impl GlobalTransform {
             translation,
             rotation,
             scale,
+        }
+    }
+
+    /// Returns `X` such as `transform * X = self`.
+    ///
+    /// `(t2 * t1).reparented_to(t2) == t1` Note that transforms are not commutative, meaning that
+    /// `(t1 * t2).reparented_to(t2) != t1`.
+    ///
+    /// This is useful if you want to "reparent" an `Entity`. Say you have an entity
+    /// `e1` that you want to turn into a child of `e2`, but you want `e1` to keep the
+    /// same global transform, even after re-partenting. You would use:
+    /// ```rust
+    /// # use bevy_math::{Vec3, Quat};
+    /// # use bevy_transform::prelude::{GlobalTransform, Transform};
+    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
+    /// # use bevy_hierarchy::prelude::Parent;
+    /// #[derive(Component)]
+    /// struct ToReparent {
+    ///     new_parent: Entity,
+    /// }
+    /// fn reparent_system(
+    ///     mut commands: Commands,
+    ///     mut targets: Query<(&mut Transform, Entity, &GlobalTransform, &ToReparent)>,
+    ///     transforms: Query<&GlobalTransform>,
+    /// ) {
+    ///     for (mut transform, entity, initial, to_reparent) in targets.iter_mut() {
+    ///         if let Ok(parent_transform) = transforms.get(to_reparent.new_parent) {
+    ///             *transform = initial.reparented_to(*parent_transform);
+    ///             commands.entity(entity)
+    ///                 .remove::<ToReparent>()
+    ///                 .insert(Parent(to_reparent.new_parent));
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn reparented_to(&self, transform: GlobalTransform) -> Transform {
+        let (spos, srot, sscale) = (self.translation, self.rotation, self.scale);
+        let (tpos, trot, tscale) = (transform.translation, transform.rotation, transform.scale);
+        Transform {
+            translation: trot.inverse() * (spos - tpos) / tscale,
+            rotation: trot.inverse() * srot,
+            scale: sscale / tscale,
         }
     }
 
@@ -285,5 +333,39 @@ impl Mul<Vec3> for GlobalTransform {
     #[inline]
     fn mul(self, value: Vec3) -> Self::Output {
         self.mul_vec3(value)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn reparented_to_transform_identity() {
+        fn identity(t1: GlobalTransform, t2: GlobalTransform) -> Transform {
+            t2.mul_transform(t1.into()).reparented_to(t2)
+        }
+        let t1 = GlobalTransform {
+            translation: Vec3::new(1034.0, 34.0, -1324.34),
+            rotation: Quat::from_rotation_x(1.2),
+            scale: Vec3::new(1.0, 2.345, 0.9),
+        };
+        let t2 = GlobalTransform {
+            translation: Vec3::new(28.0, -54.493, 324.34),
+            rotation: Quat::from_rotation_z(1.9),
+            scale: Vec3::new(3.0, 1.345, 0.9),
+        };
+        let f32_equal = |left: f32, right: f32| (left - right).abs() < 0.0001;
+        let rt_t1_pos = identity(t1, t2).translation;
+        let rt_t2_pos = identity(t2, t1).translation;
+        assert!(f32_equal(t1.translation.length(), rt_t1_pos.length()));
+        assert!(f32_equal(t2.translation.length(), rt_t2_pos.length()));
+        assert!(f32_equal(
+            t1.scale.length(),
+            identity(t1, t2).scale.length()
+        ));
+        assert!(f32_equal(
+            t2.scale.length(),
+            identity(t2, t1).scale.length()
+        ));
     }
 }
