@@ -21,6 +21,7 @@ tasks:
 
   - name: Install wasm tooling
     before: |
+      rustup update
       rustup target add wasm32-unknown-unknown
       cargo install cargo-quickinstall
       cargo quickinstall wasm-bindgen-cli
