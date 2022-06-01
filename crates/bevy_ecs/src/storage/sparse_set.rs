@@ -32,6 +32,7 @@ impl<I, V> SparseArray<I, V> {
 }
 
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
+    #[inline]
     fn split_index(index: I) -> (usize, usize) {
         let idx = index.sparse_set_index();
         (idx / PAGE_SIZE, idx % PAGE_SIZE)
