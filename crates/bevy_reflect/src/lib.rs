@@ -961,17 +961,33 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let result = ron::to_string(&ser).expect("Failed to serialize to string");
+            let output = to_string_pretty(&ser, Default::default()).unwrap();
+            let expected = r#"
+{
+    "type": "glam::f32::vec3::Vec3",
+    "value": {
+        "x": 12.0,
+        "y": 3.0,
+        "z": -6.9,
+    },
+}
+"#;
 
-            assert_eq!(
-                result,
-                r#"{"type":"glam::f32::vec3::Vec3","value":(12.0,3.0,-6.9)}"#
-            );
+            assert_eq!(expected, format!("\n{}\n", output));
         }
 
         #[test]
         fn vec3_deserialization() {
-            let data = r#"{"type":"glam::f32::vec3::Vec3","value":(12.0,3.0,-6.9)}"#;
+            let data = r#"
+{
+    "type": "glam::f32::vec3::Vec3",
+    "value": {
+        "x": 12,
+        "y": 3,
+        "z": -6.9,
+    },
+}
+"#;
 
             let mut registry = TypeRegistry::default();
             registry.add_registration(Vec3::get_type_registration());
