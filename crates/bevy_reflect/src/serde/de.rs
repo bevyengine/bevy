@@ -148,7 +148,7 @@ impl<'a, 'de> Visitor<'de> for ReflectDeserializerVisitor<'a> {
 
         match map.next_key::<&str>()? {
             Some(type_fields::VALUE) => {
-                let registration = self.registry.get_with_name(&type_name).ok_or_else(|| {
+                let registration = self.registry.get_with_name(type_name).ok_or_else(|| {
                     de::Error::custom(format_args!("No registration found for {}", type_name))
                 })?;
                 let type_info = registration.type_info();
@@ -160,12 +160,10 @@ impl<'a, 'de> Visitor<'de> for ReflectDeserializerVisitor<'a> {
             }
             Some(type_fields::TYPE) => Err(de::Error::duplicate_field(type_fields::TYPE)),
             Some(field) => Err(de::Error::unknown_field(field, &[type_fields::VALUE])),
-            None => {
-                return Err(de::Error::invalid_length(
-                    0,
-                    &"two entries: `type` and `value`",
-                ));
-            }
+            None => Err(de::Error::invalid_length(
+                0,
+                &"two entries: `type` and `value`",
+            )),
         }
     }
 }
@@ -727,6 +725,7 @@ mod tests {
     use bevy_utils::HashMap;
     use serde::de::DeserializeSeed;
     use serde::Deserialize;
+    use std::f32::consts::PI;
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
     struct MyStruct {
@@ -865,7 +864,7 @@ mod tests {
         let expected = MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
-            tuple_value: (3.14, 1337),
+            tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
@@ -883,7 +882,7 @@ mod tests {
                 "primitive_value": 123,
                 "option_value": Some("Hello world!"),
                 "tuple_value": (
-                    3.14,
+                    3.1415927,
                     1337,
                 ),
                 "list_value": [
