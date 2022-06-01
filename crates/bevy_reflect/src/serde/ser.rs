@@ -366,6 +366,7 @@ mod tests {
     use bevy_utils::HashMap;
     use ron::ser::PrettyConfig;
     use serde::Serialize;
+    use std::f32::consts::PI;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -419,7 +420,7 @@ mod tests {
         let input = MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
-            tuple_value: (3.14, 1337),
+            tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
@@ -440,7 +441,7 @@ mod tests {
     "value": {
         "primitive_value": 123,
         "option_value": Some("Hello world!"),
-        "tuple_value": (3.14, 1337),
+        "tuple_value": (3.1415927, 1337),
         "list_value": [
             -2,
             -1,
