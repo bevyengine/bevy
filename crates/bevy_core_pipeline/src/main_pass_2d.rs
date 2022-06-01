@@ -9,8 +9,10 @@ use bevy_render::{
 };
 
 pub struct MainPass2dNode {
-    query:
-        QueryState<(&'static RenderPhase<Transparent2d>, &'static ViewTarget), With<ExtractedView>>,
+    query: QueryState<
+        (&'static mut RenderPhase<Transparent2d>, &'static ViewTarget),
+        With<ExtractedView>,
+    >,
 }
 
 impl MainPass2dNode {
@@ -45,7 +47,7 @@ impl Node for MainPass2dNode {
             _ => return Ok(()),
         };
 
-        if transparent_phase.items.is_empty() {
+        if transparent_phase.sorted.is_empty() {
             return Ok(());
         }
 
@@ -66,7 +68,7 @@ impl Node for MainPass2dNode {
 
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
-        for item in &transparent_phase.items {
+        for item in &transparent_phase.sorted {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }

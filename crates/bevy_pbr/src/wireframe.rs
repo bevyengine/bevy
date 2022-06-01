@@ -109,14 +109,14 @@ fn queue_wireframes(
         Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
         Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
     )>,
-    mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
+    views: Query<(&ExtractedView, &VisibleEntities, &RenderPhase<Opaque3d>)>,
 ) {
     let draw_custom = opaque_3d_draw_functions
         .read()
         .get_id::<DrawWireframes>()
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, visible_entities, mut opaque_phase) in views.iter_mut() {
+    for (view, visible_entities, opaque_phase) in views.iter() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
 

@@ -394,7 +394,7 @@ pub fn queue_sprites(
             let extracted_sprites = &mut extracted_sprites.sprites;
             let image_bind_groups = &mut *image_bind_groups;
 
-            transparent_phase.items.reserve(extracted_sprites.len());
+            transparent_phase.sorted.reserve(extracted_sprites.len());
 
             // Sort sprites by z for correct transparency and then by handle to improve batching
             extracted_sprites.sort_unstable_by(|a, b| {

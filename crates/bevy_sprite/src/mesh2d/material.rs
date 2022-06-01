@@ -304,13 +304,13 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,
     material2d_meshes: Query<(&Handle<M>, &Mesh2dHandle, &Mesh2dUniform)>,
-    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
+    views: Query<(&VisibleEntities, &RenderPhase<Transparent2d>)>,
 ) {
     if material2d_meshes.is_empty() {
         return;
     }
     let render_device = render_device.into_inner();
-    for (visible_entities, mut transparent_phase) in views.iter_mut() {
+    for (visible_entities, transparent_phase) in views.iter() {
         let draw_transparent_pbr = transparent_draw_functions
             .read()
             .get_id::<DrawMaterial2d<M>>()

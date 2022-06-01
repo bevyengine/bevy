@@ -5,31 +5,44 @@ pub use draw::*;
 pub use draw_state::*;
 
 use bevy_ecs::prelude::{Component, Query};
+use std::cell::Cell;
+use thread_local::ThreadLocal;
 
 use copyless::VecHelper;
 
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]
 pub struct RenderPhase<I: PhaseItem> {
-    pub items: Vec<I>,
+    items: ThreadLocal<Cell<Vec<I>>>,
+    pub sorted: Vec<I>,
 }
 
 impl<I: PhaseItem> Default for RenderPhase<I> {
     fn default() -> Self {
-        Self { items: Vec::new() }
+        Self {
+            items: ThreadLocal::new(),
+            sorted: Vec::new(),
+        }
     }
 }
 
 impl<I: PhaseItem> RenderPhase<I> {
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
-    pub fn add(&mut self, item: I) {
-        self.items.alloc().init(item);
+    pub fn add(&self, item: I) {
+        let cell = self.items.get_or_default();
+        let mut queue = cell.take();
+        queue.alloc().init(item);
+        cell.set(queue);
     }
 
     /// Sorts all of its [`PhaseItems`](PhaseItem).
     pub fn sort(&mut self) {
-        self.items.sort_by_key(|d| d.sort_key());
+        debug_assert!(self.sorted.is_empty());
+        for batch in self.items.iter_mut() {
+            self.sorted.append(batch.get_mut());
+        }
+        self.sorted.sort_by_key(|d| d.sort_key());
     }
 }
 
@@ -37,10 +50,10 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
     /// Batches the compatible [`BatchedPhaseItem`]s of this render phase
     pub fn batch(&mut self) {
         // TODO: this could be done in-place
-        let mut items = std::mem::take(&mut self.items);
+        let mut items = std::mem::take(&mut self.sorted);
         let mut items = items.drain(..);
 
-        self.items.reserve(items.len());
+        self.sorted.reserve(items.len());
 
         // Start the first batch from the first item
         if let Some(mut current_batch) = items.next() {
@@ -51,12 +64,12 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
                     BatchResult::IncompatibleItems
                 ) {
                     // Store the completed batch, and start a new one from the incompatible item
-                    self.items.push(current_batch);
+                    self.sorted.push(current_batch);
                     current_batch = next_item;
                 }
             }
             // Store the last batch
-            self.items.push(current_batch);
+            self.sorted.push(current_batch);
         }
     }
 }

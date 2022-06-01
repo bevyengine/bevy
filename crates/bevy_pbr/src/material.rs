@@ -335,16 +335,15 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
-    mut views: Query<(
+    views: Query<(
         &ExtractedView,
         &VisibleEntities,
-        &mut RenderPhase<Opaque3d>,
-        &mut RenderPhase<AlphaMask3d>,
-        &mut RenderPhase<Transparent3d>,
+        &RenderPhase<Opaque3d>,
+        &RenderPhase<AlphaMask3d>,
+        &RenderPhase<Transparent3d>,
     )>,
 ) {
-    for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
-        views.iter_mut()
+    for (view, visible_entities, opaque_phase, alpha_mask_phase, transparent_phase) in views.iter()
     {
         let draw_opaque_pbr = opaque_draw_functions
             .read()

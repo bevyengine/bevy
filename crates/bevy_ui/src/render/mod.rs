@@ -401,7 +401,7 @@ pub fn queue_uinodes(
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
-    mut views: Query<&mut RenderPhase<TransparentUi>>,
+    views: Query<&RenderPhase<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -425,7 +425,7 @@ pub fn queue_uinodes(
         }));
         let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
         let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
-        for mut transparent_phase in views.iter_mut() {
+        for transparent_phase in views.iter() {
             for (entity, batch) in ui_batches.iter() {
                 image_bind_groups
                     .values

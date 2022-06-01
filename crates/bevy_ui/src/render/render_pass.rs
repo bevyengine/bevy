@@ -73,7 +73,7 @@ impl Node for UiPassNode {
             _ => return Ok(()),
         };
 
-        if transparent_phase.items.is_empty() {
+        if transparent_phase.sorted.is_empty() {
             return Ok(());
         }
         let pass_descriptor = RenderPassDescriptor {
@@ -97,7 +97,7 @@ impl Node for UiPassNode {
 
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
-        for item in &transparent_phase.items {
+        for item in &transparent_phase.sorted {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }

@@ -1343,7 +1343,7 @@ pub fn queue_shadows(
     mut pipelines: ResMut<SpecializedMeshPipelines<ShadowPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     view_lights: Query<&ViewLightEntities>,
-    mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
+    view_light_shadow_phases: Query<(&LightEntity, &RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&VisibleEntities, With<ExtractedDirectionalLight>>,
 ) {
@@ -1353,8 +1353,8 @@ pub fn queue_shadows(
             .get_id::<DrawShadowMesh>()
             .unwrap();
         for view_light_entity in view_lights.lights.iter().copied() {
-            let (light_entity, mut shadow_phase) =
-                view_light_shadow_phases.get_mut(view_light_entity).unwrap();
+            let (light_entity, shadow_phase) =
+                view_light_shadow_phases.get(view_light_entity).unwrap();
             let visible_entities = match light_entity {
                 LightEntity::Directional { light_entity } => directional_light_entities
                     .get(*light_entity)
@@ -1476,7 +1476,7 @@ impl Node for ShadowPassNode {
                     .get_manual(world, view_light_entity)
                     .unwrap();
 
-                if shadow_phase.items.is_empty() {
+                if shadow_phase.sorted.is_empty() {
                     continue;
                 }
 
@@ -1499,7 +1499,7 @@ impl Node for ShadowPassNode {
                     .begin_render_pass(&pass_descriptor);
                 let mut draw_functions = draw_functions.write();
                 let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                for item in &shadow_phase.items {
+                for item in &shadow_phase.sorted {
                     let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                     draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
                 }

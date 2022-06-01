@@ -13,9 +13,9 @@ use bevy_utils::tracing::info_span;
 pub struct MainPass3dNode {
     query: QueryState<
         (
-            &'static RenderPhase<Opaque3d>,
-            &'static RenderPhase<AlphaMask3d>,
-            &'static RenderPhase<Transparent3d>,
+            &'static mut RenderPhase<Opaque3d>,
+            &'static mut RenderPhase<AlphaMask3d>,
+            &'static mut RenderPhase<Transparent3d>,
             &'static ViewTarget,
             &'static ViewDepthTexture,
         ),
@@ -55,7 +55,7 @@ impl Node for MainPass3dNode {
                 Err(_) => return Ok(()), // No window
             };
 
-        if !opaque_phase.items.is_empty() {
+        if !opaque_phase.sorted.is_empty() {
             // Run the opaque pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
@@ -86,13 +86,13 @@ impl Node for MainPass3dNode {
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            for item in &opaque_phase.items {
+            for item in &opaque_phase.sorted {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
             }
         }
 
-        if !alpha_mask_phase.items.is_empty() {
+        if !alpha_mask_phase.sorted.is_empty() {
             // Run the alpha mask pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
@@ -122,13 +122,13 @@ impl Node for MainPass3dNode {
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            for item in &alpha_mask_phase.items {
+            for item in &alpha_mask_phase.sorted {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
             }
         }
 
-        if !transparent_phase.items.is_empty() {
+        if !transparent_phase.sorted.is_empty() {
             // Run the transparent pass, sorted back-to-front
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
@@ -163,7 +163,7 @@ impl Node for MainPass3dNode {
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            for item in &transparent_phase.items {
+            for item in &transparent_phase.sorted {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
             }
