@@ -269,7 +269,7 @@ where
             return Err(StateError::AlreadyInState);
         }
 
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
