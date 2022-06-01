@@ -59,7 +59,7 @@ mod tests {
         query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
         world::{Mut, World},
     };
-    use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use bevy_tasks::TaskPool;
     use std::{
         any::TypeId,
         sync::{
@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn par_for_each_dense() {
         let mut world = World::new();
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
+        world.insert_resource(TaskPool::default());
         let e1 = world.spawn().insert(A(1)).id();
         let e2 = world.spawn().insert(A(2)).id();
         let e3 = world.spawn().insert(A(3)).id();
@@ -398,7 +398,7 @@ mod tests {
     #[test]
     fn par_for_each_sparse() {
         let mut world = World::new();
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
+        world.insert_resource(TaskPool::default());
         let e1 = world.spawn().insert(SparseStored(1)).id();
         let e2 = world.spawn().insert(SparseStored(2)).id();
         let e3 = world.spawn().insert(SparseStored(3)).id();
