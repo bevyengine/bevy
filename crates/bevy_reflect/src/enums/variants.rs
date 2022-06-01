@@ -73,6 +73,13 @@ impl VariantInfo {
             Self::Unit(info) => info.name(),
         }
     }
+    pub fn variant_type(&self) -> VariantType {
+        match self {
+            Self::Struct(..) => VariantType::Struct,
+            Self::Tuple(..) => VariantType::Tuple,
+            Self::Unit(..) => VariantType::Unit,
+        }
+    }
 }
 
 /// Type info for struct variants.

@@ -1,7 +1,7 @@
-use crate::{DynamicEnum, Reflect, VariantInfo, VariantType};
+use crate::{DynamicEnum, Reflect, TypeInfo, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::slice::Iter;
 
 /// A trait representing a [reflected] enum.
@@ -93,24 +93,61 @@ pub trait Enum: Reflect {
     fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
     /// Returns a mutable reference to the value of the field (in the current variant) at the given index.
     fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
-    /// Returns the index of the field (in the current variant) with the given name.
-    ///
-    /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn index_of(&self, name: &str) -> Option<usize>;
+    /// Returns an iterator over the values of the current variant's fields.
+    fn iter_fields(&self) -> VariantFieldIter;
+    /// The name of the current variant.
+    fn variant_name(&self) -> &str;
+    // Clones the enum into a [`DynamicEnum`].
+    fn clone_dynamic(&self) -> DynamicEnum;
+    /// The type of the current variant.
+    fn variant_type(&self) -> VariantType {
+        if let TypeInfo::Enum(info) = self.get_type_info() {
+            if let Some(variant) = info.variant(self.variant_name()) {
+                variant.variant_type()
+            } else {
+                panic!("invalid variant: `{}`", self.variant_name());
+            }
+        } else {
+            panic!(
+                "`{:?}` is not `TypeInfo::Enum`",
+                std::any::type_name::<Self>()
+            );
+        }
+    }
     /// Returns the name of the field (in the current variant) with the given index.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn name_at(&self, index: usize) -> Option<&str>;
-    /// Returns an iterator over the values of the current variant's fields.
-    fn iter_fields(&self) -> VariantFieldIter;
-    /// Returns the number of fields in the current variant.
-    fn field_len(&self) -> usize;
-    /// The name of the current variant.
-    fn variant_name(&self) -> &str;
-    /// The type of the current variant.
-    fn variant_type(&self) -> VariantType;
-    // Clones the enum into a [`DynamicEnum`].
-    fn clone_dynamic(&self) -> DynamicEnum;
+    fn name_at(&self, index: usize) -> Option<&str> {
+        if let TypeInfo::Enum(info) = self.get_type_info() {
+            match info.variant(self.variant_name())? {
+                VariantInfo::Struct(variant) => {
+                    variant.field_at(index).map(|field| field.name().borrow())
+                }
+                _ => None,
+            }
+        } else {
+            panic!(
+                "`{:?}` is not `TypeInfo::Enum`",
+                std::any::type_name::<Self>()
+            );
+        }
+    }
+    /// Returns the index of the field (in the current variant) with the given name.
+    ///
+    /// For non-[`VariantType::Struct`] variants, this should return `None`.
+    fn index_of(&self, name: &str) -> Option<usize> {
+        if let TypeInfo::Enum(info) = self.get_type_info() {
+            match info.variant(self.variant_name())? {
+                VariantInfo::Struct(variant) => variant.index_of(name),
+                _ => None,
+            }
+        } else {
+            panic!(
+                "`{:?}` is not `TypeInfo::Enum`",
+                std::any::type_name::<Self>()
+            );
+        }
+    }
     /// Returns true if the current variant's type matches the given one.
     fn is_variant(&self, variant_type: VariantType) -> bool {
         self.variant_type() == variant_type
@@ -118,6 +155,25 @@ pub trait Enum: Reflect {
     /// Returns the full path to the current variant.
     fn variant_path(&self) -> String {
         format!("{}::{}", self.type_name(), self.variant_name())
+    }
+    /// Returns the number of fields in the current variant.
+    fn field_len(&self) -> usize {
+        if let TypeInfo::Enum(info) = self.get_type_info() {
+            if let Some(variant) = info.variant(self.variant_name()) {
+                match variant {
+                    VariantInfo::Unit(..) => 0,
+                    VariantInfo::Tuple(variant_info) => variant_info.field_len(),
+                    VariantInfo::Struct(variant_info) => variant_info.field_len(),
+                }
+            } else {
+                panic!("invalid variant: `{}`", self.variant_name());
+            }
+        } else {
+            panic!(
+                "`{:?}` is not `TypeInfo::Enum`",
+                std::any::type_name::<Self>()
+            );
+        }
     }
 }
 

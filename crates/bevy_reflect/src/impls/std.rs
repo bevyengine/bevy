@@ -586,24 +586,8 @@ impl<T: Reflect + Clone> Enum for Option<T> {
         }
     }
 
-    fn index_of(&self, _name: &str) -> Option<usize> {
-        None
-    }
-
-    fn name_at(&self, _index: usize) -> Option<&str> {
-        None
-    }
-
     fn iter_fields(&self) -> VariantFieldIter {
         VariantFieldIter::new(self)
-    }
-
-    #[inline]
-    fn field_len(&self) -> usize {
-        match self {
-            Some(..) => 1,
-            None => 0,
-        }
     }
 
     #[inline]
@@ -614,6 +598,10 @@ impl<T: Reflect + Clone> Enum for Option<T> {
         }
     }
 
+    fn clone_dynamic(&self) -> DynamicEnum {
+        DynamicEnum::from_ref::<Self>(self)
+    }
+
     #[inline]
     fn variant_type(&self) -> VariantType {
         match self {
@@ -622,8 +610,20 @@ impl<T: Reflect + Clone> Enum for Option<T> {
         }
     }
 
-    fn clone_dynamic(&self) -> DynamicEnum {
-        DynamicEnum::from_ref::<Self>(self)
+    fn name_at(&self, _index: usize) -> Option<&str> {
+        None
+    }
+
+    fn index_of(&self, _name: &str) -> Option<usize> {
+        None
+    }
+
+    #[inline]
+    fn field_len(&self) -> usize {
+        match self {
+            Some(..) => 1,
+            None => 0,
+        }
     }
 }
 
