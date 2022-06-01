@@ -262,8 +262,8 @@ where
     }
 
     /// Schedule a state change that replaces the active state with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the
-    /// current state
+    /// This will fail if there is a scheduled operation, pending transition, or if the given
+    /// `state` matches the current state
     pub fn set(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
