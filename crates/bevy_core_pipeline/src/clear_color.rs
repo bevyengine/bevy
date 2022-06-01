@@ -1,7 +1,7 @@
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize};
-use bevy_render::{color::Color, extract_resource::ExtractResource, RenderWorld};
+use bevy_render::{color::Color, extract_resource::ExtractResource};
 use serde::{Deserialize, Serialize};
 
 #[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
