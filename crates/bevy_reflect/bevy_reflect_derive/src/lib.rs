@@ -71,8 +71,9 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     };
 
     match derive_data {
-        ReflectDerive::Struct(struct_data) => from_reflect::impl_struct(&struct_data),
-        ReflectDerive::UnitStruct(struct_data) => from_reflect::impl_struct(&struct_data),
+        ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => {
+            from_reflect::impl_struct(&struct_data)
+        }
         ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(&struct_data),
         ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
         ReflectDerive::Value(meta) => from_reflect::impl_value(&meta),
