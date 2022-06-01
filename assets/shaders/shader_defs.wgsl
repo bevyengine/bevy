@@ -1,5 +1,5 @@
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_types
+#import bevy_pbr::mesh_view_bindings
 
 [[group(1), binding(0)]]
 var<uniform> mesh: Mesh;
@@ -26,7 +26,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 [[stage(fragment)]]
 fn fragment() -> [[location(0)]] vec4<f32> {
     var color = vec4<f32>(0.0, 0.0, 1.0, 1.0);
-# ifdef IS_RED 
+# ifdef IS_RED
     color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
 # endif
     return color;

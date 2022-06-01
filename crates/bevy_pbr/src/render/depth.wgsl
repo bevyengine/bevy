@@ -1,11 +1,6 @@
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_view_types
+#import bevy_pbr::mesh_types
 
-// NOTE: Keep in sync with pbr.wgsl
-struct View {
-    view_proj: mat4x4<f32>;
-    projection: mat4x4<f32>;
-    world_position: vec3<f32>;
-};
 [[group(0), binding(0)]]
 var<uniform> view: View;
 
