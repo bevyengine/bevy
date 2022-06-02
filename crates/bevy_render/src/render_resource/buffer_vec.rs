@@ -3,10 +3,10 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_core::{cast_slice, Pod};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use copyless::VecHelper;
 use wgpu::BufferUsages;
-#[cfg(feature="trace")]
-use bevy_utils::tracing::info_span;
 
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
@@ -79,7 +79,7 @@ impl<T: Pod> BufferVec<T> {
         if let Some(buffer) = &self.buffer {
             let range = 0..self.item_size * self.values.len();
             let bytes: &[u8] = cast_slice(&self.values);
-            #[cfg(feature="trace")]
+            #[cfg(feature = "trace")]
             let _span = info_span!("BufferVec: write buffer").entered();
             queue.write_buffer(buffer, 0, &bytes[range]);
         }

@@ -2,13 +2,13 @@ use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use encase::{
     internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
     UniformBuffer as UniformBufferWrapper,
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
-#[cfg(feature="trace")]
-use bevy_utils::tracing::info_span;
 
 pub struct UniformBuffer<T: ShaderType> {
     value: T,
@@ -66,10 +66,10 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 
         match &self.buffer {
             Some(buffer) => {
-                #[cfg(feature="trace")]
+                #[cfg(feature = "trace")]
                 let _span = info_span!("UniformBuffer: write buffer").entered();
                 queue.write_buffer(buffer, 0, self.scratch.as_ref())
-            },
+            }
             None => {
                 self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                     label: None,
@@ -143,7 +143,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
             }));
             self.capacity = size;
         } else if let Some(buffer) = &self.buffer {
-            #[cfg(feature="trace")]
+            #[cfg(feature = "trace")]
             let _span = info_span!("DynamicUniformBuffer: write buffer").entered();
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }

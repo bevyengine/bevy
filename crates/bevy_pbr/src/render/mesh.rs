@@ -752,7 +752,10 @@ pub fn prepare_skinned_meshes(
     skinned_mesh_uniform
         .buffer
         .reserve(extracted_joints.buffer.len(), &render_device);
-    skinned_mesh_uniform.buffer.swap(&mut extracted_joints.buffer);
+    skinned_mesh_uniform
+        .buffer
+        .swap(&mut extracted_joints.buffer);
+    extracted_joints.buffer.clear();
     skinned_mesh_uniform
         .buffer
         .write_buffer(&render_device, &render_queue);
