@@ -1,5 +1,5 @@
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::mesh_bindings
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
@@ -11,9 +11,6 @@ struct CustomMaterial {
 };
 [[group(1), binding(0)]]
 var<uniform> material: CustomMaterial;
-
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;

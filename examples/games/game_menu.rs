@@ -42,9 +42,8 @@ fn main() {
         .run();
 }
 
-// As there isn't an actual game, setup is just adding a `UiCameraBundle`
 fn setup(mut commands: Commands) {
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
 }
 
 mod splash {

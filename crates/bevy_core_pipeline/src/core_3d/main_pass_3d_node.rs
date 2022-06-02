@@ -1,4 +1,7 @@
-use crate::{AlphaMask3d, Opaque3d, Transparent3d};
+use crate::{
+    clear_color::{ClearColor, ClearColorConfig},
+    core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
+};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -16,6 +19,7 @@ pub struct MainPass3dNode {
             &'static RenderPhase<Opaque3d>,
             &'static RenderPhase<AlphaMask3d>,
             &'static RenderPhase<Transparent3d>,
+            &'static Camera3d,
             &'static ViewTarget,
             &'static ViewDepthTexture,
         ),
@@ -28,7 +32,7 @@ impl MainPass3dNode {
 
     pub fn new(world: &mut World) -> Self {
         Self {
-            query: QueryState::new(world),
+            query: world.query_filtered(),
         }
     }
 }
@@ -49,13 +53,16 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth) =
+        let (opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth) =
             match self.query.get_manual(world, view_entity) {
                 Ok(query) => query,
-                Err(_) => return Ok(()), // No window
+                Err(_) => {
+                    return Ok(());
+                } // No window
             };
 
-        if !opaque_phase.items.is_empty() {
+        // Always run opaque pass to ensure screen is cleared
+        {
             // Run the opaque pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
@@ -65,14 +72,21 @@ impl Node for MainPass3dNode {
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
                 color_attachments: &[target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
+                    load: match camera_3d.clear_color {
+                        ClearColorConfig::Default => {
+                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                        }
+                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                        ClearColorConfig::None => LoadOp::Load,
+                    },
                     store: true,
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
-                        load: LoadOp::Load,
+                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections
+                        load: LoadOp::Clear(0.0),
                         store: true,
                     }),
                     stencil_ops: None,

@@ -35,6 +35,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.8.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.8.0-dev" }
+bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.8.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev", features = ["bevy"] }
 bevy_render_macros = { path = "macros", version = "0.8.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }

@@ -1,4 +1,4 @@
-#define_import_path bevy_sprite::mesh2d_view_bind_group
+#define_import_path bevy_sprite::mesh2d_view_types
 
 struct View {
     view_proj: mat4x4<f32>;

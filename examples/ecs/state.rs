@@ -7,6 +7,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_state(AppState::Menu)
+        .add_startup_system(setup)
         .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
         .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu))
         .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
@@ -33,9 +34,11 @@ const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
+fn setup(mut commands: Commands) {
+    commands.spawn_bundle(Camera2dBundle::default());
+}
+
 fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // ui camera
-    commands.spawn_bundle(UiCameraBundle::default());
     let button_entity = commands
         .spawn_bundle(ButtonBundle {
             style: Style {
@@ -97,7 +100,6 @@ fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
         ..default()
