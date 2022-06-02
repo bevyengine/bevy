@@ -4,12 +4,12 @@
 //! edge detection, blur, pixelization, vignette... and countless others.
 
 use bevy::{
-    core_pipeline::{draw_2d_graph, node, RenderTargetClearColors},
+    core_pipeline::clear_color::ClearColorConfig,
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
     reflect::TypeUuid,
     render::{
-        camera::{Camera, CameraTypePlugin, RenderTarget},
+        camera::{Camera, RenderTarget},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
         render_resource::{
@@ -35,58 +35,10 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
-        .add_plugin(CameraTypePlugin::<PostProcessingPassCamera>::default())
         .add_startup_system(setup)
         .add_system(main_pass_cube_rotator_system);
 
-    let render_app = app.sub_app_mut(RenderApp);
-    let driver = PostProcessPassCameraDriver::new(&mut render_app.world);
-
-    let mut graph = render_app.world.resource_mut::<RenderGraph>();
-
-    // Add a node for the post processing pass.
-    graph.add_node(POST_PROCESS_PASS_DRIVER, driver);
-
-    // The post process pass's dependencies include those of the main pass.
-    graph
-        .add_node_edge(node::MAIN_PASS_DEPENDENCIES, POST_PROCESS_PASS_DRIVER)
-        .unwrap();
-
-    // Insert the post process pass node: CLEAR_PASS_DRIVER -> MAIN_PASS_DRIVER -> POST_PROCESS_PASS_DRIVER
-    graph
-        .add_node_edge(POST_PROCESS_PASS_DRIVER, node::MAIN_PASS_DRIVER)
-        .unwrap();
     app.run();
-}
-
-/// A node for the `PostProcessingPassCamera` that runs `draw_2d_graph` with this camera.
-struct PostProcessPassCameraDriver {
-    query: QueryState<Entity, With<PostProcessingPassCamera>>,
-}
-
-impl PostProcessPassCameraDriver {
-    pub fn new(render_world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(render_world),
-        }
-    }
-}
-impl Node for PostProcessPassCameraDriver {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
-
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        for camera in self.query.iter_manual(world) {
-            graph.run_sub_graph(draw_2d_graph::NAME, vec![SlotValue::Entity(camera)])?;
-        }
-        Ok(())
-    }
 }
 
 /// Marks the Main pass cube (rendered to a texture.)
@@ -100,7 +52,6 @@ fn setup(
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    mut clear_colors: ResMut<RenderTargetClearColors>,
 ) {
     let window = windows.get_primary_mut().unwrap();
     let size = Extent3d {
@@ -156,16 +107,17 @@ fn setup(
     });
 
     // Main pass camera
-    let render_target = RenderTarget::Image(image_handle.clone());
-    clear_colors.insert(render_target.clone(), Color::WHITE);
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
+        camera_3d: Camera3d {
+            clear_color: ClearColorConfig::Custom(Color::WHITE),
+        },
         camera: Camera {
-            target: render_target,
+            target: RenderTarget::Image(image_handle.clone()),
             ..default()
         },
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
             .looking_at(Vec3::default(), Vec3::Y),
-        ..PerspectiveCameraBundle::default()
+        ..default()
     });
 
     // This specifies the layer used for the post processing pass, which will be attached to the post processing pass camera and 2d quad.
@@ -196,25 +148,16 @@ fn setup(
 
     // The post-processing pass camera.
     commands
-        .spawn_bundle(OrthographicCameraBundle {
-            ..OrthographicCameraBundle::new_2d()
+        .spawn_bundle(Camera2dBundle {
+            camera: Camera {
+                // render after the "main pass" camera
+                priority: 1,
+                ..default()
+            },
+            ..Camera2dBundle::default()
         })
         .insert(PostProcessingPassCamera)
         .insert(post_processing_pass_layer);
-
-    // NOTE: omitting the RenderLayers component for this camera may cause a validation error:
-    //
-    // thread 'main' panicked at 'wgpu error: Validation Error
-    //
-    //    Caused by:
-    //        In a RenderPass
-    //          note: encoder = `<CommandBuffer-(0, 1, Metal)>`
-    //        In a pass parameter
-    //          note: command buffer = `<CommandBuffer-(0, 1, Metal)>`
-    //        Attempted to use texture (5, 1, Metal) mips 0..1 layers 0..1 as a combination of COLOR_TARGET within a usage scope.
-    //
-    // This happens because the texture would be written and read in the same frame, which is not allowed.
-    // So either render layers must be used to avoid this, or the texture must be double buffered.
 }
 
 /// Rotates the inner cube (main pass)
