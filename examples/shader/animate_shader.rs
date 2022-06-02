@@ -102,10 +102,10 @@ fn queue_custom(
     custom_pipeline: Res<CustomPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<LockablePipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<CustomMaterial>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    views: Query<(&ExtractedView, &RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions
         .read()
@@ -115,7 +115,7 @@ fn queue_custom(
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples)
         | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-    for (view, mut transparent_phase) in views.iter_mut() {
+    for (view, transparent_phase) in views.iter() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {

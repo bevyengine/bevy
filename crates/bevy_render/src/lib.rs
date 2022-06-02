@@ -39,7 +39,9 @@ use crate::{
     mesh::MeshPlugin,
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
-    render_resource::{PipelineCache, Shader, ShaderLoader},
+    render_resource::{
+        lock_pipeline_cache, unlock_pipeline_cache, PipelineCache, Shader, ShaderLoader,
+    },
     renderer::render_system,
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -154,8 +156,9 @@ impl Plugin for RenderPlugin {
             let asset_server = app.world.resource::<AssetServer>().clone();
 
             let mut render_app = App::empty();
-            let mut extract_stage =
-                SystemStage::parallel().with_system(PipelineCache::extract_shaders);
+            let mut extract_stage = SystemStage::parallel()
+                .with_system(PipelineCache::extract_shaders)
+                .with_system(lock_pipeline_cache);
             // don't apply buffers when the stage finishes running
             // extract stage runs on the app world, but the buffers are applied to the render world
             extract_stage.set_apply_buffers(false);
@@ -163,7 +166,10 @@ impl Plugin for RenderPlugin {
                 .add_stage(RenderStage::Extract, extract_stage)
                 .add_stage(RenderStage::Prepare, SystemStage::parallel())
                 .add_stage(RenderStage::Queue, SystemStage::parallel())
-                .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
+                .add_stage(
+                    RenderStage::PhaseSort,
+                    SystemStage::parallel().with_system(unlock_pipeline_cache),
+                )
                 .add_stage(
                     RenderStage::Render,
                     SystemStage::parallel()

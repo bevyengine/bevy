@@ -20,7 +20,7 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupLayout, PipelineCache, RenderPipelineDescriptor, Shader,
+        BindGroup, BindGroupLayout, LockablePipelineCache, RenderPipelineDescriptor, Shader,
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
@@ -298,7 +298,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<LockablePipelineCache>,
     render_device: Res<RenderDevice>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
@@ -317,6 +317,8 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
             .unwrap();
 
         let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
+        let phase_cell = transparent_phase.get();
+        let mut phase_queue = phase_cell.take();
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
@@ -329,7 +331,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
 
                         let material_key = M::key(render_device, material2d);
                         let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
+                            &pipeline_cache,
                             &material2d_pipeline,
                             Material2dKey {
                                 mesh_key,
@@ -347,7 +349,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
                         };
 
                         let mesh_z = mesh2d_uniform.transform.w_axis.z;
-                        transparent_phase.add(Transparent2d {
+                        phase_queue.push(Transparent2d {
                             entity: *visible_entity,
                             draw_function: draw_transparent_pbr,
                             pipeline: pipeline_id,
@@ -363,6 +365,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
                 }
             }
         }
+        phase_cell.set(phase_queue);
     }
 }
 

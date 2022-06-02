@@ -397,7 +397,7 @@ pub fn queue_uinodes(
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<LockablePipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
@@ -424,37 +424,41 @@ pub fn queue_uinodes(
             layout: &ui_pipeline.view_layout,
         }));
         let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
-        let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
+        let pipeline = pipelines.specialize(&pipeline_cache, &ui_pipeline, UiPipelineKey {});
         for transparent_phase in views.iter() {
-            for (entity, batch) in ui_batches.iter() {
-                image_bind_groups
-                    .values
-                    .entry(batch.image.clone_weak())
-                    .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&batch.image).unwrap();
-                        render_device.create_bind_group(&BindGroupDescriptor {
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&gpu_image.sampler),
-                                },
-                            ],
-                            label: Some("ui_material_bind_group"),
-                            layout: &ui_pipeline.image_layout,
-                        })
-                    });
+            transparent_phase.phase_scope(|mut phase| {
+                for (entity, batch) in ui_batches.iter() {
+                    image_bind_groups
+                        .values
+                        .entry(batch.image.clone_weak())
+                        .or_insert_with(|| {
+                            let gpu_image = gpu_images.get(&batch.image).unwrap();
+                            render_device.create_bind_group(&BindGroupDescriptor {
+                                entries: &[
+                                    BindGroupEntry {
+                                        binding: 0,
+                                        resource: BindingResource::TextureView(
+                                            &gpu_image.texture_view,
+                                        ),
+                                    },
+                                    BindGroupEntry {
+                                        binding: 1,
+                                        resource: BindingResource::Sampler(&gpu_image.sampler),
+                                    },
+                                ],
+                                label: Some("ui_material_bind_group"),
+                                layout: &ui_pipeline.image_layout,
+                            })
+                        });
 
-                transparent_phase.add(TransparentUi {
-                    draw_function: draw_ui_function,
-                    pipeline,
-                    entity,
-                    sort_key: FloatOrd(batch.z),
-                });
-            }
+                    phase.add(TransparentUi {
+                        draw_function: draw_ui_function,
+                        pipeline,
+                        entity,
+                        sort_key: FloatOrd(batch.z),
+                    });
+                }
+            });
         }
     }
 }

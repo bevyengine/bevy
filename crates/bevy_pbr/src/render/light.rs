@@ -1341,7 +1341,7 @@ pub fn queue_shadows(
     casting_meshes: Query<&Handle<Mesh>, Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<ShadowPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<LockablePipelineCache>,
     view_lights: Query<&ViewLightEntities>,
     view_light_shadow_phases: Query<(&LightEntity, &RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
@@ -1355,6 +1355,8 @@ pub fn queue_shadows(
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, shadow_phase) =
                 view_light_shadow_phases.get(view_light_entity).unwrap();
+            let phase_cell = shadow_phase.get();
+            let mut phase_queue = phase_cell.take();
             let visible_entities = match light_entity {
                 LightEntity::Directional { light_entity } => directional_light_entities
                     .get(*light_entity)
@@ -1375,7 +1377,7 @@ pub fn queue_shadows(
                         let key =
                             ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
                         let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
+                            &pipeline_cache,
                             &shadow_pipeline,
                             key,
                             &mesh.layout,
@@ -1389,7 +1391,7 @@ pub fn queue_shadows(
                             }
                         };
 
-                        shadow_phase.add(Shadow {
+                        phase_queue.push(Shadow {
                             draw_function: draw_shadow_mesh,
                             pipeline: pipeline_id,
                             entity,
@@ -1398,6 +1400,7 @@ pub fn queue_shadows(
                     }
                 }
             }
+            phase_cell.set(phase_queue);
         }
     }
 }

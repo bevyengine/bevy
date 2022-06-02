@@ -10,6 +10,18 @@ use thread_local::ThreadLocal;
 
 use copyless::VecHelper;
 
+pub struct RenderPhaseScope<'a, I: PhaseItem> {
+    phase_queue: &'a mut Vec<I>,
+}
+
+impl<'a, I: PhaseItem> RenderPhaseScope<'a, I> {
+    /// Adds a [`PhaseItem`] to this render phase.
+    #[inline]
+    pub fn add(&mut self, item: I) {
+        self.phase_queue.alloc().init(item);
+    }
+}
+
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]
 pub struct RenderPhase<I: PhaseItem> {
@@ -27,13 +39,17 @@ impl<I: PhaseItem> Default for RenderPhase<I> {
 }
 
 impl<I: PhaseItem> RenderPhase<I> {
-    /// Adds a [`PhaseItem`] to this render phase.
-    #[inline]
-    pub fn add(&self, item: I) {
-        let cell = self.items.get_or_default();
-        let mut queue = cell.take();
-        queue.alloc().init(item);
-        cell.set(queue);
+    pub fn get(&self) -> &Cell<Vec<I>> {
+        self.items.get_or_default()
+    }
+
+    pub fn phase_scope(&self, f: impl FnOnce(RenderPhaseScope<'_, I>)) {
+        let store = self.get();
+        let mut phase_queue = store.take();
+        f(RenderPhaseScope {
+            phase_queue: &mut phase_queue,
+        });
+        store.set(phase_queue);
     }
 
     /// Sorts all of its [`PhaseItems`](PhaseItem).
@@ -42,7 +58,7 @@ impl<I: PhaseItem> RenderPhase<I> {
         for batch in self.items.iter_mut() {
             self.sorted.append(batch.get_mut());
         }
-        self.sorted.sort_by_key(|d| d.sort_key());
+        self.sorted.sort_unstable_by_key(|d| d.sort_key());
     }
 }
 

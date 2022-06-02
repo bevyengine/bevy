@@ -11,8 +11,10 @@ use crate::{
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::event::EventReader;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Commands, Res, ResMut};
+use bevy_ecs::world::{FromWorld, World};
 use bevy_utils::{default, tracing::error, Entry, HashMap, HashSet};
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{hash::Hash, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
 use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout as RawVertexBufferLayout};
@@ -28,20 +30,20 @@ pub enum Pipeline {
     ComputePipeline(ComputePipeline),
 }
 
-type CachedPipelineId = usize;
+type CachedPipelineId = u32;
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct CachedRenderPipelineId(CachedPipelineId);
+pub struct CachedRenderPipelineId(u32);
 
 impl CachedRenderPipelineId {
-    pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
+    pub const INVALID: Self = CachedRenderPipelineId(u32::MAX);
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct CachedComputePipelineId(CachedPipelineId);
 
 impl CachedComputePipelineId {
-    pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
+    pub const INVALID: Self = CachedComputePipelineId(u32::MAX);
 }
 
 struct CachedPipeline {
@@ -241,12 +243,42 @@ impl LayoutCache {
     }
 }
 
+pub struct LockablePipelineCache(RwLock<PipelineCache>);
+
+impl LockablePipelineCache {
+    pub fn read(&self) -> RwLockReadGuard<'_, PipelineCache> {
+        self.0.read()
+    }
+
+    pub fn write(&self) -> RwLockWriteGuard<'_, PipelineCache> {
+        self.0.write()
+    }
+}
+
+impl FromWorld for LockablePipelineCache {
+    fn from_world(world: &mut World) -> Self {
+        Self(RwLock::new(
+            world.remove_resource::<PipelineCache>().unwrap(),
+        ))
+    }
+}
+
 pub struct PipelineCache {
     layout_cache: LayoutCache,
     shader_cache: ShaderCache,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
+}
+
+impl FromWorld for PipelineCache {
+    fn from_world(world: &mut World) -> Self {
+        world
+            .remove_resource::<LockablePipelineCache>()
+            .unwrap()
+            .0
+            .into_inner()
+    }
 }
 
 impl PipelineCache {
@@ -262,12 +294,12 @@ impl PipelineCache {
 
     #[inline]
     pub fn get_render_pipeline_state(&self, id: CachedRenderPipelineId) -> &CachedPipelineState {
-        &self.pipelines[id.0].state
+        &self.pipelines[id.0 as usize].state
     }
 
     #[inline]
     pub fn get_compute_pipeline_state(&self, id: CachedComputePipelineId) -> &CachedPipelineState {
-        &self.pipelines[id.0].state
+        &self.pipelines[id.0 as usize].state
     }
 
     #[inline]
@@ -275,7 +307,7 @@ impl PipelineCache {
         &self,
         id: CachedRenderPipelineId,
     ) -> &RenderPipelineDescriptor {
-        match &self.pipelines[id.0].descriptor {
+        match &self.pipelines[id.0 as usize].descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(descriptor) => descriptor,
             PipelineDescriptor::ComputePipelineDescriptor(_) => unreachable!(),
         }
@@ -286,7 +318,7 @@ impl PipelineCache {
         &self,
         id: CachedComputePipelineId,
     ) -> &ComputePipelineDescriptor {
-        match &self.pipelines[id.0].descriptor {
+        match &self.pipelines[id.0 as usize].descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(_) => unreachable!(),
             PipelineDescriptor::ComputePipelineDescriptor(descriptor) => descriptor,
         }
@@ -295,7 +327,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
-            &self.pipelines[id.0].state
+            &self.pipelines[id.0 as usize].state
         {
             Some(pipeline)
         } else {
@@ -306,7 +338,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_compute_pipeline(&self, id: CachedComputePipelineId) -> Option<&ComputePipeline> {
         if let CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline)) =
-            &self.pipelines[id.0].state
+            &self.pipelines[id.0 as usize].state
         {
             Some(pipeline)
         } else {
@@ -318,7 +350,8 @@ impl PipelineCache {
         &mut self,
         descriptor: RenderPipelineDescriptor,
     ) -> CachedRenderPipelineId {
-        let id = CachedRenderPipelineId(self.pipelines.len());
+        assert!(self.pipelines.len() < u32::MAX as usize);
+        let id = CachedRenderPipelineId(self.pipelines.len() as u32);
         self.pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
@@ -331,7 +364,8 @@ impl PipelineCache {
         &mut self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
-        let id = CachedComputePipelineId(self.pipelines.len());
+        assert!(self.pipelines.len() < u32::MAX as usize);
+        let id = CachedComputePipelineId(self.pipelines.len() as u32);
         self.pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
@@ -343,7 +377,7 @@ impl PipelineCache {
     fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
         let pipelines_to_queue = self.shader_cache.set_shader(handle, shader.clone());
         for cached_pipeline in pipelines_to_queue {
-            self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
+            self.pipelines[cached_pipeline as usize].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);
         }
     }
@@ -351,7 +385,7 @@ impl PipelineCache {
     fn remove_shader(&mut self, shader: &Handle<Shader>) {
         let pipelines_to_queue = self.shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
-            self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
+            self.pipelines[cached_pipeline as usize].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);
         }
     }
@@ -477,7 +511,7 @@ impl PipelineCache {
         let mut pipelines = mem::take(&mut self.pipelines);
 
         for id in waiting_pipelines {
-            let pipeline = &mut pipelines[id];
+            let pipeline = &mut pipelines[id as usize];
             match &pipeline.state {
                 CachedPipelineState::Ok(_) => continue,
                 CachedPipelineState::Queued => {}
@@ -669,4 +703,12 @@ impl<'a> Iterator for ErrorSources<'a> {
         self.current = self.current.and_then(std::error::Error::source);
         current
     }
+}
+
+pub(crate) fn lock_pipeline_cache(mut commands: Commands) {
+    commands.init_resource::<LockablePipelineCache>();
+}
+
+pub(crate) fn unlock_pipeline_cache(mut commands: Commands) {
+    commands.init_resource::<PipelineCache>();
 }

@@ -12,8 +12,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::{
-        PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        LockablePipelineCache, PolygonMode, RenderPipelineDescriptor, Shader,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     view::{ExtractedView, Msaa, VisibleEntities},
     RenderApp, RenderStage,
@@ -103,7 +103,7 @@ fn queue_wireframes(
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<LockablePipelineCache>,
     msaa: Res<Msaa>,
     mut material_meshes: ParamSet<(
         Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
@@ -120,13 +120,15 @@ fn queue_wireframes(
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
 
+        let phase_cell = opaque_phase.get();
+        let mut phase_queue = phase_cell.take();
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
                     let key = msaa_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     let pipeline_id = pipelines.specialize(
-                        &mut pipeline_cache,
+                        &pipeline_cache,
                         &wireframe_pipeline,
                         key,
                         &mesh.layout,
@@ -138,7 +140,7 @@ fn queue_wireframes(
                             return;
                         }
                     };
-                    opaque_phase.add(Opaque3d {
+                    phase_queue.push(Opaque3d {
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
@@ -162,6 +164,7 @@ fn queue_wireframes(
                 .filter_map(|visible_entity| query.get(*visible_entity).ok())
                 .for_each(add_render_phase);
         }
+        phase_cell.set(phase_queue);
     }
 }
 

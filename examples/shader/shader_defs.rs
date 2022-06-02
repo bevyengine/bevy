@@ -141,9 +141,9 @@ fn queue_custom(
     custom_pipeline: Res<IsRedPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<IsRedPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<LockablePipelineCache>,
     material_meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform, &IsRed)>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    views: Query<(&ExtractedView, &RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions
         .read()
@@ -159,7 +159,7 @@ fn queue_custom(
                     msaa_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
                     .specialize(
-                        &mut pipeline_cache,
+                        &pipeline_cache,
                         &custom_pipeline,
                         (*is_red, key),
                         &mesh.layout,
