@@ -1,4 +1,4 @@
-//! Renders two 3d passes to the same window from different perspectives.
+//! Renders two cameras to the same window to accomplish "split screen".
 
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,

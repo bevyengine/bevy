@@ -114,7 +114,7 @@ Example | File | Description
 `shadow_caster_receiver` | [`3d/shadow_caster_receiver.rs`](./3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 `shadow_biases` | [`3d/shadow_biases.rs`](./3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 `spherical_area_lights` | [`3d/spherical_area_lights.rs`](./3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior.
-`split_screen` | [`3d/split_screen.rs`](./3d/split_screen.rs) | Demonstrates how to render two cameras to the same window.
+`split_screen` | [`3d/split_screen.rs`](./3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen".
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
 `two_passes` | [`3d/two_passes.rs`](./3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives.
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
