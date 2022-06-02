@@ -141,7 +141,7 @@ fn generate_bodies(
                 ..default()
             });
         });
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

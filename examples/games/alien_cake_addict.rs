@@ -1,6 +1,6 @@
 //! Eat the cakes. Eat them all. An example 3D game.
 
-use bevy::{ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d, time::FixedTimestep};
+use bevy::{ecs::schedule::SystemSet, prelude::*, time::FixedTimestep};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -79,7 +79,7 @@ const RESET_FOCUS: [f32; 3] = [
 fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     game.camera_should_focus = Vec3::from(RESET_FOCUS);
     game.camera_is_focus = game.camera_should_focus;
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(
             -(BOARD_SIZE_I as f32 / 2.0),
             2.0 * BOARD_SIZE_J as f32 / 3.0,
@@ -88,7 +88,6 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
         .looking_at(game.camera_is_focus, Vec3::Y),
         ..default()
     });
-    commands.spawn_bundle(UiCameraBundle::default());
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {

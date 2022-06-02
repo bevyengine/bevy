@@ -1,26 +1,26 @@
-mod camera;
 mod pipeline;
 mod render_pass;
 
-pub use camera::*;
+use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::CameraUi, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
     color::Color,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, SlotInfo, SlotType},
+    render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ViewUniforms, Visibility},
+    view::{ExtractedView, ViewUniforms, Visibility},
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
@@ -70,7 +70,14 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_system_to_stage(RenderStage::Extract, extract_ui_camera_phases)
+        .add_system_to_stage(
+            RenderStage::Extract,
+            extract_default_ui_camera_view::<Camera2d>,
+        )
+        .add_system_to_stage(
+            RenderStage::Extract,
+            extract_default_ui_camera_view::<Camera3d>,
+        )
         .add_system_to_stage(
             RenderStage::Extract,
             extract_uinodes.label(RenderUiSystem::ExtractNode),
@@ -84,16 +91,64 @@ pub fn build_ui_render(app: &mut App) {
         .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
 
     // Render graph
-    let ui_pass_node = UiPassNode::new(&mut render_app.world);
+    let ui_graph_2d = get_ui_graph(render_app);
+    let ui_graph_3d = get_ui_graph(render_app);
     let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-    let mut draw_ui_graph = RenderGraph::default();
-    draw_ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
-    let input_node_id = draw_ui_graph.set_input(vec![SlotInfo::new(
+    if let Some(graph_2d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_2d::graph::NAME) {
+        graph_2d.add_sub_graph(draw_ui_graph::NAME, ui_graph_2d);
+        graph_2d.add_node(
+            draw_ui_graph::node::UI_PASS,
+            RunGraphOnViewNode::new(draw_ui_graph::NAME),
+        );
+        graph_2d
+            .add_node_edge(
+                bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
+                draw_ui_graph::node::UI_PASS,
+            )
+            .unwrap();
+        graph_2d
+            .add_slot_edge(
+                graph_2d.input_node().unwrap().id,
+                bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
+                draw_ui_graph::node::UI_PASS,
+                RunGraphOnViewNode::IN_VIEW,
+            )
+            .unwrap();
+    }
+
+    if let Some(graph_3d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME) {
+        graph_3d.add_sub_graph(draw_ui_graph::NAME, ui_graph_3d);
+        graph_3d.add_node(
+            draw_ui_graph::node::UI_PASS,
+            RunGraphOnViewNode::new(draw_ui_graph::NAME),
+        );
+        graph_3d
+            .add_node_edge(
+                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+                draw_ui_graph::node::UI_PASS,
+            )
+            .unwrap();
+        graph_3d
+            .add_slot_edge(
+                graph_3d.input_node().unwrap().id,
+                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+                draw_ui_graph::node::UI_PASS,
+                RunGraphOnViewNode::IN_VIEW,
+            )
+            .unwrap();
+    }
+}
+
+fn get_ui_graph(render_app: &mut App) -> RenderGraph {
+    let ui_pass_node = UiPassNode::new(&mut render_app.world);
+    let mut ui_graph = RenderGraph::default();
+    ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
+    let input_node_id = ui_graph.set_input(vec![SlotInfo::new(
         draw_ui_graph::input::VIEW_ENTITY,
         SlotType::Entity,
     )]);
-    draw_ui_graph
+    ui_graph
         .add_slot_edge(
             input_node_id,
             draw_ui_graph::input::VIEW_ENTITY,
@@ -101,15 +156,7 @@ pub fn build_ui_render(app: &mut App) {
             UiPassNode::IN_VIEW,
         )
         .unwrap();
-    graph.add_sub_graph(draw_ui_graph::NAME, draw_ui_graph);
-
-    graph.add_node(node::UI_PASS_DRIVER, UiPassDriverNode);
-    graph
-        .add_node_edge(
-            bevy_core_pipeline::node::MAIN_PASS_DRIVER,
-            node::UI_PASS_DRIVER,
-        )
-        .unwrap();
+    ui_graph
 }
 
 pub struct ExtractedUiNode {
@@ -160,6 +207,65 @@ pub fn extract_uinodes(
             atlas_size: None,
             clip: clip.map(|clip| clip.clip),
         });
+    }
+}
+
+/// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
+/// distance of this many units. This ensures that with a left-handed projection,
+/// as ui elements are "stacked on top of each other", they are within the camera's view
+/// and have room to grow.
+// TODO: Consider computing this value at runtime based on the maximum z-value.
+const UI_CAMERA_FAR: f32 = 1000.0;
+
+// This value is subtracted from the far distance for the camera's z-position to ensure nodes at z == 0.0 are rendered
+// TODO: Evaluate if we still need this.
+const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
+
+#[derive(Component)]
+pub struct DefaultCameraView(pub Entity);
+
+pub fn extract_default_ui_camera_view<T: Component>(
+    mut commands: Commands,
+    render_world: Res<RenderWorld>,
+    query: Query<(Entity, &Camera, Option<&CameraUi>), With<T>>,
+) {
+    for (entity, camera, camera_ui) in query.iter() {
+        // ignore cameras with disabled ui
+        if let Some(&CameraUi {
+            is_enabled: false, ..
+        }) = camera_ui
+        {
+            continue;
+        }
+        if let (Some(logical_size), Some(physical_size)) =
+            (camera.logical_target_size, camera.physical_target_size)
+        {
+            let mut projection = OrthographicProjection {
+                far: UI_CAMERA_FAR,
+                window_origin: WindowOrigin::BottomLeft,
+                depth_calculation: DepthCalculation::ZDifference,
+                ..Default::default()
+            };
+            projection.update(logical_size.x, logical_size.y);
+            // This roundabout approach is required because spawn().id() won't work in this context
+            let default_camera_view = render_world.entities().reserve_entity();
+            commands
+                .get_or_spawn(default_camera_view)
+                .insert(ExtractedView {
+                    projection: projection.get_projection_matrix(),
+                    transform: GlobalTransform::from_xyz(
+                        0.0,
+                        0.0,
+                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                    ),
+                    width: physical_size.x,
+                    height: physical_size.y,
+                });
+            commands.get_or_spawn(entity).insert_bundle((
+                DefaultCameraView(default_camera_view),
+                RenderPhase::<TransparentUi>::default(),
+            ));
+        }
     }
 }
 
@@ -447,7 +553,6 @@ pub fn queue_uinodes(
                             layout: &ui_pipeline.image_layout,
                         })
                     });
-
                 transparent_phase.add(TransparentUi {
                     draw_function: draw_ui_function,
                     pipeline,
