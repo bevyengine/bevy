@@ -118,7 +118,7 @@ impl From<Handle<Image>> for StandardMaterial {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct StandardMaterialFlags: u32 {

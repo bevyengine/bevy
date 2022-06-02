@@ -1,24 +1,20 @@
-use std::marker::PhantomData;
-
 use crate::{
     camera::CameraProjection,
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::TextureView,
     view::{ExtractedView, ExtractedWindows, VisibleEntities},
-    RenderApp, RenderStage,
 };
-use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::With,
     query::Added,
     reflect::ReflectComponent,
-    system::{Commands, ParamSet, Query, Res, ResMut},
+    system::{Commands, ParamSet, Query, Res},
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -26,19 +22,94 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use wgpu::Extent3d;
 
-#[derive(Component, Default, Debug, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Reflect, Clone)]
+#[reflect(Component)]
 pub struct Camera {
     pub projection_matrix: Mat4,
+    pub logical_target_size: Option<Vec2>,
+    pub physical_target_size: Option<UVec2>,
+    pub priority: isize,
+    pub is_active: bool,
     #[reflect(ignore)]
     pub target: RenderTarget,
     #[reflect(ignore)]
     pub depth_calculation: DepthCalculation,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
+impl Default for Camera {
+    fn default() -> Self {
+        Self {
+            is_active: true,
+            priority: 0,
+            projection_matrix: Default::default(),
+            logical_target_size: Default::default(),
+            physical_target_size: Default::default(),
+            target: Default::default(),
+            depth_calculation: Default::default(),
+        }
+    }
+}
+
+impl Camera {
+    /// Given a position in world space, use the camera to compute the viewport-space coordinates.
+    ///
+    /// To get the coordinates in Normalized Device Coordinates, you should use
+    /// [`world_to_ndc`](Self::world_to_ndc).
+    pub fn world_to_viewport(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Option<Vec2> {
+        let target_size = self.logical_target_size?;
+        let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
+        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in viewport-space
+        if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
+            return None;
+        }
+
+        // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
+        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size)
+    }
+
+    /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
+    ///
+    /// Values returned will be between -1.0 and 1.0 when the position is within the viewport.
+    /// To get the coordinates in the render target's viewport dimensions, you should use
+    /// [`world_to_viewport`](Self::world_to_viewport).
+    pub fn world_to_ndc(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Option<Vec3> {
+        // Build a transform to convert from world to NDC using camera data
+        let world_to_ndc: Mat4 =
+            self.projection_matrix * camera_transform.compute_matrix().inverse();
+        let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
+
+        if !ndc_space_coords.is_nan() {
+            Some(ndc_space_coords)
+        } else {
+            None
+        }
+    }
+}
+
+/// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
+#[derive(Component, Deref, DerefMut, Reflect, Default)]
+#[reflect(Component)]
+pub struct CameraRenderGraph(Cow<'static, str>);
+
+impl CameraRenderGraph {
+    #[inline]
+    pub fn new<T: Into<Cow<'static, str>>>(name: T) -> Self {
+        Self(name.into())
+    }
+}
+
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowId),
@@ -118,52 +189,6 @@ impl Default for DepthCalculation {
     }
 }
 
-impl Camera {
-    /// Given a position in world space, use the camera to compute the screen space coordinates.
-    ///
-    /// To get the coordinates in Normalized Device Coordinates, you should use
-    /// [`world_to_ndc`](Self::world_to_ndc).
-    pub fn world_to_screen(
-        &self,
-        windows: &Windows,
-        images: &Assets<Image>,
-        camera_transform: &GlobalTransform,
-        world_position: Vec3,
-    ) -> Option<Vec2> {
-        let window_size = self.target.get_logical_size(windows, images)?;
-        let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
-        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in screen space
-        if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
-            return None;
-        }
-
-        // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * window_size)
-    }
-
-    /// Given a position in world space, use the camera to compute the Normalized Device Coordinates.
-    ///
-    /// Values returned will be between -1.0 and 1.0 when the position is in screen space.
-    /// To get the coordinates in the render target dimensions, you should use
-    /// [`world_to_screen`](Self::world_to_screen).
-    pub fn world_to_ndc(
-        &self,
-        camera_transform: &GlobalTransform,
-        world_position: Vec3,
-    ) -> Option<Vec3> {
-        // Build a transform to convert from world to NDC using camera data
-        let world_to_ndc: Mat4 =
-            self.projection_matrix * camera_transform.compute_matrix().inverse();
-        let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
-
-        if !ndc_space_coords.is_nan() {
-            Some(ndc_space_coords)
-        } else {
-            None
-        }
-    }
-}
-
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -218,7 +243,9 @@ pub fn camera_system<T: CameraProjection + Component>(
             || added_cameras.contains(&entity)
             || camera_projection.is_changed()
         {
-            if let Some(size) = camera.target.get_logical_size(&windows, &images) {
+            camera.logical_target_size = camera.target.get_logical_size(&windows, &images);
+            camera.physical_target_size = camera.target.get_physical_size(&windows, &images);
+            if let Some(size) = camera.logical_target_size {
                 camera_projection.update(size.x, size.y);
                 camera.projection_matrix = camera_projection.get_projection_matrix();
                 camera.depth_calculation = camera_projection.depth_calculation();
@@ -227,116 +254,44 @@ pub fn camera_system<T: CameraProjection + Component>(
     }
 }
 
-pub struct CameraTypePlugin<T: Component + Default>(PhantomData<T>);
-
-impl<T: Component + Default> Default for CameraTypePlugin<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl<T: Component + Default> Plugin for CameraTypePlugin<T> {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<ActiveCamera<T>>()
-            .add_startup_system_to_stage(StartupStage::PostStartup, set_active_camera::<T>)
-            .add_system_to_stage(CoreStage::PostUpdate, set_active_camera::<T>);
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, extract_cameras::<T>);
-        }
-    }
-}
-
-/// The canonical source of the "active camera" of the given camera type `T`.
-#[derive(Debug)]
-pub struct ActiveCamera<T: Component> {
-    camera: Option<Entity>,
-    marker: PhantomData<T>,
-}
-
-impl<T: Component> Default for ActiveCamera<T> {
-    fn default() -> Self {
-        Self {
-            camera: Default::default(),
-            marker: Default::default(),
-        }
-    }
-}
-
-impl<T: Component> Clone for ActiveCamera<T> {
-    fn clone(&self) -> Self {
-        Self {
-            camera: self.camera,
-            marker: self.marker,
-        }
-    }
-}
-
-impl<T: Component> ActiveCamera<T> {
-    /// Sets the active camera to the given `camera` entity.
-    pub fn set(&mut self, camera: Entity) {
-        self.camera = Some(camera);
-    }
-
-    /// Returns the active camera, if it exists.
-    pub fn get(&self) -> Option<Entity> {
-        self.camera
-    }
-}
-
-pub fn set_active_camera<T: Component>(
-    mut active_camera: ResMut<ActiveCamera<T>>,
-    cameras: Query<Entity, (With<Camera>, With<T>)>,
-) {
-    // Check if there is already an active camera set and
-    // that it has not been deleted on the previous frame
-    if let Some(camera) = active_camera.get() {
-        if cameras.contains(camera) {
-            return;
-        }
-    }
-
-    // If the previous active camera ceased to exist
-    // fallback to another camera of the same type T
-    if let Some(camera) = cameras.iter().next() {
-        active_camera.camera = Some(camera);
-    } else {
-        active_camera.camera = None;
-    }
-}
-
 #[derive(Component, Debug)]
 pub struct ExtractedCamera {
     pub target: RenderTarget,
     pub physical_size: Option<UVec2>,
+    pub render_graph: Cow<'static, str>,
+    pub priority: isize,
 }
 
-pub fn extract_cameras<M: Component + Default>(
+pub fn extract_cameras(
     mut commands: Commands,
-    windows: Res<Windows>,
-    images: Res<Assets<Image>>,
-    active_camera: Res<ActiveCamera<M>>,
-    query: Query<(&Camera, &GlobalTransform, &VisibleEntities), With<M>>,
+    query: Query<(
+        Entity,
+        &Camera,
+        &CameraRenderGraph,
+        &GlobalTransform,
+        &VisibleEntities,
+    )>,
 ) {
-    if let Some(entity) = active_camera.get() {
-        if let Ok((camera, transform, visible_entities)) = query.get(entity) {
-            if let Some(size) = camera.target.get_physical_size(&windows, &images) {
-                commands.get_or_spawn(entity).insert_bundle((
-                    ExtractedCamera {
-                        target: camera.target.clone(),
-                        physical_size: camera.target.get_physical_size(&windows, &images),
-                    },
-                    ExtractedView {
-                        projection: camera.projection_matrix,
-                        transform: *transform,
-                        width: size.x,
-                        height: size.y,
-                    },
-                    visible_entities.clone(),
-                    M::default(),
-                ));
-            }
+    for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
+        if !camera.is_active {
+            continue;
+        }
+        if let Some(size) = camera.physical_target_size {
+            commands.get_or_spawn(entity).insert_bundle((
+                ExtractedCamera {
+                    target: camera.target.clone(),
+                    physical_size: Some(size),
+                    render_graph: camera_render_graph.0.clone(),
+                    priority: camera.priority,
+                },
+                ExtractedView {
+                    projection: camera.projection_matrix,
+                    transform: *transform,
+                    width: size.x,
+                    height: size.y,
+                },
+                visible_entities.clone(),
+            ));
         }
     }
-
-    commands.insert_resource(active_camera.clone());
 }
