@@ -4,7 +4,7 @@ This page lists the required dependencies to build a Bevy project on your Linux 
 
 If you don't see your distro present in the list, feel free to add the instructions in this document.
 
-## Ubuntu 20.04
+## [Ubuntu](https://ubuntu.com/)
 
 ```bash
 sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
@@ -26,7 +26,7 @@ Compiling with clang is also possible - replace the `g++` package with `clang`.
 Graphics and audio need to be configured for them to work with WSL 2 backend.
 Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to set up graphics and audio.
 
-## Fedora
+## [Fedora](https://getfedora.org/)
 
 ```bash
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
@@ -94,11 +94,11 @@ with pkgs; mkShell {
 }
 ```
 
-And enter it by just running `nix-shell`. You should be able compile bevy programms using `cargo` within this nix-shell.
+And enter it by just running `nix-shell`. You should be able compile bevy programs using `cargo` within this nix-shell.
 
-Note that this template doesn't add Rust to the environment because there are many ways to do it, each with its pros and cons. For example, to use stable Rust from nixpkgs you can add `cargo` to `nativeBuildInputs`.
+Note that this template does not add Rust to the environment because there are many ways to do it, each with its pros and cons. For example, to use stable Rust from nixpkgs you can add `cargo` to `nativeBuildInputs`.
 
-## Opensuse Tumbleweed
+## [OpenSUSE](https://www.opensuse.org/)
 
 ```bash
    sudo zypper install libudev-devel gcc-c++ alsa-lib-devel
@@ -108,4 +108,11 @@ Note that this template doesn't add Rust to the environment because there are ma
 
 ```bash
    sudo emerge --ask libX11 pkgconf alsa-lib
+```
+
+## [Clear Linux OS](https://clearlinux.org/)
+
+```bash
+sudo swupd bundle-add devpkg-alsa-lib
+sudo swupd bundle-add devpkg-libgudev
 ```

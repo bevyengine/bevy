@@ -1,11 +1,13 @@
-use crate::prelude::{Children, Parent, PreviousParent};
+use smallvec::SmallVec;
+
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     system::{Command, Commands, EntityCommands},
     world::{EntityMut, World},
 };
-use smallvec::SmallVec;
+
+use crate::prelude::{Children, Parent, PreviousParent};
 
 /// Command that adds a child to an entity
 #[derive(Debug)]
@@ -165,7 +167,40 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 /// Trait defining how to build children
 pub trait BuildChildren {
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
+    ///
+    /// Compared to [`add_children`][BuildChildren::add_children], this method returns self
+    /// to allow chaining.
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
+    /// Creates a [`ChildBuilder`] with the given children built in the given closure
+    ///
+    /// Compared to [`with_children`][BuildChildren::with_children], this method returns the
+    /// the value returned from the closure, but doesn't allow chaining.
+    ///
+    /// ## Example
+    ///
+    /// ```no_run
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_hierarchy::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct SomethingElse;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct MoreStuff;
+    /// #
+    /// # fn foo(mut commands: Commands) {
+    ///     let mut parent_commands = commands.spawn();
+    ///     let child_id = parent_commands.add_children(|parent| {
+    ///         parent.spawn().id()
+    ///     });
+    ///
+    ///     parent_commands.insert(SomethingElse);
+    ///     commands.entity(child_id).with_children(|parent| {
+    ///         parent.spawn().insert(MoreStuff);
+    ///     });
+    /// # }
+    /// ```
+    fn add_children<T>(&mut self, f: impl FnOnce(&mut ChildBuilder) -> T) -> T;
     /// Pushes children to the back of the builder's children
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index
@@ -178,21 +213,25 @@ pub trait BuildChildren {
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
+        self.add_children(spawn_children);
+        self
+    }
+
+    fn add_children<T>(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder) -> T) -> T {
         let parent = self.id();
-        let push_children = {
-            let mut builder = ChildBuilder {
-                commands: self.commands(),
-                push_children: PushChildren {
-                    children: SmallVec::default(),
-                    parent,
-                },
-            };
-            spawn_children(&mut builder);
-            builder.push_children
+        let mut builder = ChildBuilder {
+            commands: self.commands(),
+            push_children: PushChildren {
+                children: SmallVec::default(),
+                parent,
+            },
         };
 
-        self.commands().add(push_children);
-        self
+        let result = spawn_children(&mut builder);
+        let children = builder.push_children;
+        self.commands().add(children);
+
+        result
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
@@ -460,15 +499,18 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
 
 #[cfg(test)]
 mod tests {
-    use super::{BuildChildren, BuildWorldChildren};
-    use crate::prelude::{Children, Parent, PreviousParent};
+    use smallvec::{smallvec, SmallVec};
+
     use bevy_ecs::{
         component::Component,
         entity::Entity,
         system::{CommandQueue, Commands},
         world::World,
     };
-    use smallvec::{smallvec, SmallVec};
+
+    use crate::prelude::{Children, Parent, PreviousParent};
+
+    use super::{BuildChildren, BuildWorldChildren};
 
     #[derive(Component)]
     struct C(u32);
@@ -479,12 +521,13 @@ mod tests {
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
 
-        let mut children = Vec::new();
         let parent = commands.spawn().insert(C(1)).id();
-        commands.entity(parent).with_children(|parent| {
-            children.push(parent.spawn().insert(C(2)).id());
-            children.push(parent.spawn().insert(C(3)).id());
-            children.push(parent.spawn().insert(C(4)).id());
+        let children = commands.entity(parent).add_children(|parent| {
+            [
+                parent.spawn().insert(C(2)).id(),
+                parent.spawn().insert(C(3)).id(),
+                parent.spawn().insert(C(4)).id(),
+            ]
         });
 
         queue.apply(&mut world);

@@ -112,6 +112,7 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new translation.
     #[inline]
+    #[must_use]
     pub const fn with_translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
         self
@@ -119,6 +120,7 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new rotation.
     #[inline]
+    #[must_use]
     pub const fn with_rotation(mut self, rotation: Quat) -> Self {
         self.rotation = rotation;
         self
@@ -126,6 +128,7 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new scale.
     #[inline]
+    #[must_use]
     pub const fn with_scale(mut self, scale: Vec3) -> Self {
         self.scale = scale;
         self

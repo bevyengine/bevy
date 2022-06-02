@@ -1,8 +1,9 @@
-//! Shows how to pass changing data like the time since startup into a shader, using a custom
-//! specialized pipeline.
+//! A shader that uses dynamic data like the time since startup.
+//!
+//! This example uses a specialized pipeline.
 
 use bevy::{
-    core_pipeline::Transparent3d,
+    core_pipeline::core_3d::Transparent3d,
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
@@ -43,7 +44,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     ));
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

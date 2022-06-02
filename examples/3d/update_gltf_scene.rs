@@ -5,7 +5,6 @@ use bevy::{prelude::*, scene::InstanceId};
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .init_resource::<SceneInstance>()
         .add_startup_system(setup)
@@ -32,7 +31,7 @@ fn setup(
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..default()
     });
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(1.05, 0.9, 1.5)
             .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ..default()
