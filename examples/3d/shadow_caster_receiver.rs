@@ -116,12 +116,13 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(-5.0, 5.0, 5.0)
-            .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
-        ..default()
-    })
-    .insert(CameraController::default());
+    commands
+        .spawn_bundle(Camera3dBundle {
+            transform: Transform::from_xyz(-5.0, 5.0, 5.0)
+                .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
+            ..default()
+        })
+        .insert(CameraController::default());
 }
 
 fn toggle_light(
