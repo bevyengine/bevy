@@ -157,6 +157,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(RemoveWhenGameDone);
 }
+
 fn back_to_menu(time: Res<Time>, mut state: ResMut<State<AppState>>, input: Res<Input<KeyCode>>) {
     if input.pressed(KeyCode::Escape) {
         state.push(AppState::Menu);
