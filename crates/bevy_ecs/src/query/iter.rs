@@ -1,6 +1,6 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
-    entity::Entity,
+    entity::{Entities, Entity},
     prelude::World,
     query::{Fetch, QueryState, WorldQuery},
     storage::{TableId, Tables},
@@ -87,7 +87,9 @@ pub struct QueryManyIter<
     I::Item: Borrow<Entity>,
 {
     entity_iter: I,
-    world: &'w World,
+    entities: &'w Entities,
+    tables: &'w Tables,
+    archetypes: &'w Archetypes,
     fetch: QF,
     filter: QueryFetch<'w, F>,
     query_state: &'s QueryState<Q, F>,
@@ -124,7 +126,9 @@ where
         );
         QueryManyIter {
             query_state,
-            world,
+            entities: &world.entities,
+            archetypes: &world.archetypes,
+            tables: &world.storages.tables,
             fetch,
             filter,
             entity_iter: entity_list.into_iter(),
@@ -141,18 +145,13 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            let World {
-                entities,
-                archetypes,
-                storages,
-                ..
-            } = self.world;
+            for entity in self.entity_iter.by_ref() {
+                let location = if let Some(location) = self.entities.get(*entity.borrow()) {
+                    location
+                } else {
+                    continue;
+                };
 
-            while let Some(location) = self
-                .entity_iter
-                .next()
-                .and_then(|e| entities.get(*e.borrow()))
-            {
                 if !self
                     .query_state
                     .matched_archetypes
@@ -161,18 +160,12 @@ where
                     continue;
                 }
 
-                let archetype = &archetypes[location.archetype_id];
+                let archetype = &self.archetypes[location.archetype_id];
 
-                self.fetch.set_archetype(
-                    &self.query_state.fetch_state,
-                    archetype,
-                    &storages.tables,
-                );
-                self.filter.set_archetype(
-                    &self.query_state.filter_state,
-                    archetype,
-                    &storages.tables,
-                );
+                self.fetch
+                    .set_archetype(&self.query_state.fetch_state, archetype, self.tables);
+                self.filter
+                    .set_archetype(&self.query_state.filter_state, archetype, self.tables);
                 if self.filter.archetype_filter_fetch(location.index) {
                     return Some(self.fetch.archetype_fetch(location.index));
                 }
@@ -182,14 +175,8 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let max_size = self
-            .query_state
-            .matched_archetype_ids
-            .iter()
-            .map(|id| self.world.archetypes[*id].len())
-            .sum();
-
-        (0, Some(max_size))
+        let (_, max_size) = self.entity_iter.size_hint();
+        (0, max_size)
     }
 }
 
