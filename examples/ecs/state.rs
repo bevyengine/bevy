@@ -51,6 +51,10 @@ const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
+fn setup(mut commands: Commands) {
+    commands.spawn_bundle(Camera2dBundle::default());
+}
+
 fn setup_menu(
     menu_configuration: Res<MenuConfiguration>,
     mut commands: Commands,
@@ -69,9 +73,6 @@ fn setup_menu(
     let mut continue_entity = None;
     if menu_configuration.is_continue_available {
         continue_entity = Some(create_button(&mut commands, &*asset_server, "Continue"));
-    } else {
-        // ui camera
-        commands.spawn_bundle(Camera2dBundle::default());
     }
 
     commands.insert_resource(MenuData {
@@ -167,9 +168,6 @@ fn cleanup_game(mut commands: Commands, query_to_remove: Query<Entity, With<Remo
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands
-        .spawn_bundle(OrthographicCameraBundle::new_2d())
-        .insert(RemoveWhenGameDone);
     commands
         .spawn_bundle(SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
