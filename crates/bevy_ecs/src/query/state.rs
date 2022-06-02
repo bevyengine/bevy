@@ -625,16 +625,17 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         'w,
         's,
         QF: Fetch<'w, State = Q::State>,
-        E: Borrow<Entity>,
-        I: Iterator<Item = E>,
-        EntityList: IntoIterator<IntoIter = I>,
+        EntityList: IntoIterator,
     >(
         &'s self,
         entities: EntityList,
         world: &'w World,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> QueryManyIter<'w, 's, Q, QF, F, E, I> {
+    ) -> QueryManyIter<'w, 's, Q, QF, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
         QueryManyIter::new(world, self, entities, last_change_tick, change_tick)
     }
 

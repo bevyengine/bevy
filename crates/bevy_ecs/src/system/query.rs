@@ -1159,14 +1159,13 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_iter<
-        E: Borrow<Entity>,
-        I: Iterator<Item = E>,
-        EntityList: IntoIterator<IntoIter = I>,
-    >(
+    pub fn many_iter<EntityList: IntoIterator>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, '_, Q, ROQueryFetch<'_, Q>, F, E, I> {
+    ) -> QueryManyIter<'_, '_, Q, ROQueryFetch<'_, Q>, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1204,14 +1203,13 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///     }
     /// }
     /// ```
-    pub fn many_iter_mut<
-        E: Borrow<Entity>,
-        I: Iterator<Item = E>,
-        EntityList: IntoIterator<IntoIter = I>,
-    >(
+    pub fn many_iter_mut<EntityList: IntoIterator>(
         &mut self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, '_, Q, QueryFetch<'_, Q>, F, E, I> {
+    ) -> QueryManyIter<'_, '_, Q, QueryFetch<'_, Q>, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {

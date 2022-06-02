@@ -82,9 +82,10 @@ pub struct QueryManyIter<
     Q: WorldQuery,
     QF: Fetch<'w, State = Q::State>,
     F: WorldQuery,
-    E: Borrow<Entity>,
-    I: Iterator<Item = E>,
-> {
+    I: Iterator,
+> where
+    I::Item: Borrow<Entity>,
+{
     entity_iter: I,
     world: &'w World,
     fetch: QF,
@@ -92,15 +93,10 @@ pub struct QueryManyIter<
     query_state: &'s QueryState<Q, F>,
 }
 
-impl<
-        'w,
-        's,
-        Q: WorldQuery,
-        QF: Fetch<'w, State = Q::State>,
-        F: WorldQuery,
-        E: Borrow<Entity>,
-        I: Iterator<Item = E>,
-    > QueryManyIter<'w, 's, Q, QF, F, E, I>
+impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery, I: Iterator>
+    QueryManyIter<'w, 's, Q, QF, F, I>
+where
+    I::Item: Borrow<Entity>,
 {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -113,7 +109,7 @@ impl<
         entity_list: EntityList,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> QueryManyIter<'w, 's, Q, QF, F, E, I> {
+    ) -> QueryManyIter<'w, 's, Q, QF, F, I> {
         let fetch = QF::init(
             world,
             &query_state.fetch_state,
@@ -136,15 +132,10 @@ impl<
     }
 }
 
-impl<
-        'w,
-        's,
-        Q: WorldQuery,
-        QF: Fetch<'w, State = Q::State>,
-        F: WorldQuery,
-        E: Borrow<Entity>,
-        I: Iterator<Item = E>,
-    > Iterator for QueryManyIter<'w, 'w, Q, QF, F, E, I>
+impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery, I: Iterator> Iterator
+    for QueryManyIter<'w, 'w, Q, QF, F, I>
+where
+    I::Item: Borrow<Entity>,
 {
     type Item = QF::Item;
 
