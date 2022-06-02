@@ -741,7 +741,7 @@ impl Default for SkinnedMeshUniform {
 pub fn prepare_skinned_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    extracted_joints: Res<ExtractedJoints>,
+    mut extracted_joints: ResMut<ExtractedJoints>,
     mut skinned_mesh_uniform: ResMut<SkinnedMeshUniform>,
 ) {
     if extracted_joints.buffer.is_empty() {
@@ -752,9 +752,7 @@ pub fn prepare_skinned_meshes(
     skinned_mesh_uniform
         .buffer
         .reserve(extracted_joints.buffer.len(), &render_device);
-    for joint in &extracted_joints.buffer {
-        skinned_mesh_uniform.buffer.push(*joint);
-    }
+    skinned_mesh_uniform.buffer.swap(&mut extracted_joints.buffer);
     skinned_mesh_uniform
         .buffer
         .write_buffer(&render_device, &render_queue);

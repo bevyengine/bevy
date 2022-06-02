@@ -5,6 +5,8 @@ use encase::{
     StorageBuffer as StorageBufferWrapper,
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
+#[cfg(feature="trace")]
+use bevy_utils::tracing::info_span;
 
 pub struct StorageBuffer<T: ShaderType> {
     value: T,
@@ -73,6 +75,8 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
             }));
             self.capacity = size;
         } else if let Some(buffer) = &self.buffer {
+            #[cfg(feature="trace")]
+            let _span = info_span!("StorageBuffer: write buffer").entered();
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
     }
@@ -140,6 +144,8 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
             }));
             self.capacity = size;
         } else if let Some(buffer) = &self.buffer {
+            #[cfg(feature="trace")]
+            let _span = info_span!("DynamicStorageBuffer: write buffer").entered();
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
     }

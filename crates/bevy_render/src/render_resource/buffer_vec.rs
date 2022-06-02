@@ -5,6 +5,8 @@ use crate::{
 use bevy_core::{cast_slice, Pod};
 use copyless::VecHelper;
 use wgpu::BufferUsages;
+#[cfg(feature="trace")]
+use bevy_utils::tracing::info_span;
 
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
@@ -51,6 +53,11 @@ impl<T: Pod> BufferVec<T> {
         index
     }
 
+    /// Swaps the internal [`Vec`] with another of the same type.
+    pub fn swap(&mut self, other: &mut Vec<T>) {
+        std::mem::swap(&mut self.values, other)
+    }
+
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
         if capacity > self.capacity {
             self.capacity = capacity;
@@ -72,6 +79,8 @@ impl<T: Pod> BufferVec<T> {
         if let Some(buffer) = &self.buffer {
             let range = 0..self.item_size * self.values.len();
             let bytes: &[u8] = cast_slice(&self.values);
+            #[cfg(feature="trace")]
+            let _span = info_span!("BufferVec: write buffer").entered();
             queue.write_buffer(buffer, 0, &bytes[range]);
         }
     }
