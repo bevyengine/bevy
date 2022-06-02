@@ -79,7 +79,7 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(TextBundle {
         text: Text::with_section(
             "a",

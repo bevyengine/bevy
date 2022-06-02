@@ -39,6 +39,7 @@ use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    camera::CameraUpdateSystem,
     extract_resource::ExtractResourcePlugin,
     prelude::Color,
     render_graph::RenderGraph,
@@ -107,6 +108,7 @@ impl Plugin for PbrPlugin {
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
+                    .after(CameraUpdateSystem)
                     .after(ModifiesWindows),
             )
             .add_system_to_stage(
@@ -192,19 +194,19 @@ impl Plugin for PbrPlugin {
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
+            .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
         draw_3d_graph
             .add_node_edge(
                 draw_3d_graph::node::SHADOW_PASS,
-                bevy_core_pipeline::draw_3d_graph::node::MAIN_PASS,
+                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
             )
             .unwrap();
         draw_3d_graph
             .add_slot_edge(
                 draw_3d_graph.input_node().unwrap().id,
-                bevy_core_pipeline::draw_3d_graph::input::VIEW_ENTITY,
+                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
                 draw_3d_graph::node::SHADOW_PASS,
                 ShadowPassNode::IN_VIEW,
             )

@@ -14,6 +14,7 @@ fn main() {
             is_continue_available: false,
         })
         .add_state(AppState::Menu)
+        .add_startup_system(setup)
         .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
         .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu))
         .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
@@ -70,7 +71,7 @@ fn setup_menu(
         continue_entity = Some(create_button(&mut commands, &*asset_server, "Continue"));
     } else {
         // ui camera
-        commands.spawn_bundle(UiCameraBundle::default());
+        commands.spawn_bundle(Camera2dBundle::default());
     }
 
     commands.insert_resource(MenuData {

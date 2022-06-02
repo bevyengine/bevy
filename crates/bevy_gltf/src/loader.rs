@@ -3,6 +3,7 @@ use bevy_asset::{
     AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, LoadContext, LoadedAsset,
 };
 use bevy_core::Name;
+use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
@@ -13,7 +14,7 @@ use bevy_pbr::{
 };
 use bevy_render::{
     camera::{
-        Camera, Camera3d, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        Camera, CameraRenderGraph, OrthographicProjection, PerspectiveProjection, Projection,
         ScalingMode,
     },
     color::Color,
@@ -459,6 +460,7 @@ async fn load_gltf<'a, 'b>(
 
     let mut scenes = vec![];
     let mut named_scenes = HashMap::default();
+    let mut active_camera_found = false;
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
@@ -477,6 +479,7 @@ async fn load_gltf<'a, 'b>(
                         &buffer_data,
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
+                        &mut active_camera_found,
                     );
                     if result.is_err() {
                         err = Some(result);
@@ -701,6 +704,7 @@ fn load_node(
     buffer_data: &[Vec<u8>],
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut HashMap<Entity, usize>,
+    active_camera_found: &mut bool,
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
@@ -718,14 +722,7 @@ fn load_node(
 
     // create camera node
     if let Some(camera) = gltf_node.camera() {
-        node.insert_bundle((
-            VisibleEntities {
-                ..Default::default()
-            },
-            Frustum::default(),
-        ));
-
-        match camera.projection() {
+        let projection = match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
                 let xmag = orthographic.xmag();
                 let orthographic_projection: OrthographicProjection = OrthographicProjection {
@@ -736,12 +733,7 @@ fn load_node(
                     ..Default::default()
                 };
 
-                node.insert(Camera {
-                    projection_matrix: orthographic_projection.get_projection_matrix(),
-                    ..Default::default()
-                });
-                node.insert(orthographic_projection);
-                node.insert(Camera3d);
+                Projection::Orthographic(orthographic_projection)
             }
             gltf::camera::Projection::Perspective(perspective) => {
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
@@ -755,14 +747,23 @@ fn load_node(
                 if let Some(aspect_ratio) = perspective.aspect_ratio() {
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
-                node.insert(Camera {
-                    projection_matrix: perspective_projection.get_projection_matrix(),
-                    ..Default::default()
-                });
-                node.insert(perspective_projection);
-                node.insert(Camera3d);
+                Projection::Perspective(perspective_projection)
             }
-        }
+        };
+
+        node.insert_bundle((
+            projection,
+            Camera {
+                is_active: !*active_camera_found,
+                ..Default::default()
+            },
+            VisibleEntities::default(),
+            Frustum::default(),
+            Camera3d::default(),
+            CameraRenderGraph::new(bevy_core_pipeline::core_3d::graph::NAME),
+        ));
+
+        *active_camera_found = true;
     }
 
     // Map node index to entity
@@ -875,6 +876,7 @@ fn load_node(
                 buffer_data,
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
+                active_camera_found,
             ) {
                 gltf_error = Some(err);
                 return;
