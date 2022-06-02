@@ -140,6 +140,7 @@ fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
             .despawn_recursive();
     }
 }
+
 fn cleanup_game(mut commands: Commands, query_to_remove: Query<Entity, With<RemoveWhenGameDone>>) {
     for entity in query_to_remove.iter() {
         commands.entity(entity).despawn();
