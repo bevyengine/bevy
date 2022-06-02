@@ -55,7 +55,7 @@ impl<T: Pod> BufferVec<T> {
 
     /// Swaps the internal [`Vec`] with another of the same type.
     pub fn swap(&mut self, other: &mut Vec<T>) {
-        std::mem::swap(&mut self.values, other)
+        std::mem::swap(&mut self.values, other);
     }
 
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {

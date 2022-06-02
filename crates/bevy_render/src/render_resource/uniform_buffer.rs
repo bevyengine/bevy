@@ -68,7 +68,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
             Some(buffer) => {
                 #[cfg(feature = "trace")]
                 let _span = info_span!("UniformBuffer: write buffer").entered();
-                queue.write_buffer(buffer, 0, self.scratch.as_ref())
+                queue.write_buffer(buffer, 0, self.scratch.as_ref());
             }
             None => {
                 self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
