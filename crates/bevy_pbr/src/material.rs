@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core_pipeline::{AlphaMask3d, Opaque3d, Transparent3d};
+use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::{
     entity::Entity,
     prelude::World,

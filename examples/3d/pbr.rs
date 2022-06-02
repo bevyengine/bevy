@@ -64,12 +64,13 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn_bundle(OrthographicCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
-        orthographic_projection: OrthographicProjection {
+        projection: OrthographicProjection {
             scale: 0.01,
             ..default()
-        },
-        ..OrthographicCameraBundle::new_3d()
+        }
+        .into(),
+        ..default()
     });
 }

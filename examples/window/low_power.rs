@@ -160,12 +160,11 @@ pub(crate) mod test_setup {
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
             ..default()
         });
-        commands.spawn_bundle(PerspectiveCameraBundle {
+        commands.spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         });
         event.send(RequestRedraw);
-        commands.spawn_bundle(UiCameraBundle::default());
         commands
             .spawn_bundle(TextBundle {
                 style: Style {

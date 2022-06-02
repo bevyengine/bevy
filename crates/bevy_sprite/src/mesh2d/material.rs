@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core_pipeline::Transparent2d;
+use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
     entity::Entity,
     prelude::{Bundle, World},
