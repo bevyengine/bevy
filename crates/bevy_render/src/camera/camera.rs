@@ -25,7 +25,10 @@ use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, ops::Range};
 use wgpu::Extent3d;
 
-/// Viewport configuration that sets the "render viewport" for the [`Camera`] component.
+/// Render viewport configuration for the [`Camera`] component.
+///
+/// The viewport defines the area on the screen that the camera renders its image to.
+/// You can overlay multiple cameras in a single window using viewports to create effects like like split screen, minimaps, portals and character viewers.
 // TODO: remove reflect_value when possible
 #[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
 #[reflect_value(Default, Serialize, Deserialize)]
