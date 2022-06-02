@@ -1156,11 +1156,11 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_iter<I, II, E>(&self, entities: II) -> QueryManyIter<'_, '_, I, Q, F, E>
+    pub fn many_iter<I, EntityList, E>(&self, entities: EntityList) -> QueryManyIter<'_, '_, I, Q, F, E>
     where
         E: Borrow<Entity>,
         I: Iterator<Item = E>,
-        II: IntoIterator<IntoIter = I>,
+        EntityList: IntoIterator<IntoIter = I>,
     {
         QueryManyIter {
             entities: entities.into_iter(),
@@ -1195,10 +1195,10 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_for_each<II, E>(&self, entities: II, f: impl Fn(ROQueryItem<'_, Q>))
+    pub fn many_for_each<EntityList, E>(&self, entities: EntityList, f: impl Fn(ROQueryItem<'_, Q>))
     where
         E: Borrow<Entity>,
-        II: IntoIterator<Item = E>,
+        EntityList: IntoIterator<Item = E>,
     {
         entities.into_iter().map(|e| *e.borrow()).for_each(|input| {
             if let Ok(item) = self.get(input) {
@@ -1235,10 +1235,10 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_for_each_mut<II, E>(&mut self, entities: II, mut f: impl FnMut(QueryItem<'_, Q>))
+    pub fn many_for_each_mut<EntityList, E>(&mut self, entities: EntityList, mut f: impl FnMut(QueryItem<'_, Q>))
     where
         E: Borrow<Entity>,
-        II: IntoIterator<Item = E>,
+        EntityList: IntoIterator<Item = E>,
     {
         entities.into_iter().map(|e| *e.borrow()).for_each(|entity| {
             if let Ok(item) = self.get_mut(entity) {
