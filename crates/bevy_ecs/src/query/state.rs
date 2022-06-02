@@ -978,7 +978,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             fetch.set_archetype(&self.fetch_state, archetype, tables);
             filter.set_archetype(&self.filter_state, archetype, tables);
             if filter.archetype_filter_fetch(location.index) {
-                func(fetch.archetype_fetch(location.index))
+                func(fetch.archetype_fetch(location.index));
             }
         }
     }
