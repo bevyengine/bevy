@@ -74,6 +74,7 @@ pub struct ComputedCameraValues {
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
+    /// Cameras with a lower priority will be rendered below cameras with a higher priority
     pub priority: isize,
     pub is_active: bool,
     pub depth_calculation: DepthCalculation,
