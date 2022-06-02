@@ -46,7 +46,7 @@ fn setup(
         ..default()
     });
 
-    // camera
+    // Left Camera
     commands
         .spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(0.0, 200.0, -100.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -54,16 +54,18 @@ fn setup(
         })
         .insert(LeftCamera);
 
-    // camera
+    // Right Camera
     commands
         .spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(100.0, 100., 150.0).looking_at(Vec3::ZERO, Vec3::Y),
-            camera_3d: Camera3d {
-                clear_color: ClearColorConfig::None,
-            },
             camera: Camera {
+                // Renders the right camera after the left camera, which has a default priority of 0
                 priority: 1,
                 ..default()
+            },
+            camera_3d: Camera3d {
+                // dont clear on the second camera because the first camera already cleared the window
+                clear_color: ClearColorConfig::None,
             },
             ..default()
         })
@@ -92,14 +94,14 @@ fn set_camera_viewports(
             left_camera.viewport = Some(Viewport {
                 physical_position: UVec2::new(0, 0),
                 physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
-                depth: 0.0..1.0,
+                ..default()
             });
 
             let mut right_camera = right_camera.single_mut();
             right_camera.viewport = Some(Viewport {
                 physical_position: UVec2::new(window.physical_width() / 2, 0),
                 physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
-                depth: 0.0..1.0,
+                ..default()
             });
         }
     }

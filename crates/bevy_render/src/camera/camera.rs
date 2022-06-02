@@ -74,13 +74,17 @@ pub struct ComputedCameraValues {
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
-    /// Cameras with a lower priority will be rendered below cameras with a higher priority
+    /// Cameras with a lower priority will be rendered before cameras with a higher priority.
     pub priority: isize,
+    /// If this is set to true, this camera will be rendered to its specified [`RenderTarget`]. If false, this
+    /// camera will not be rendered.
     pub is_active: bool,
+    /// The method used to calculate this camera's depth. This will be used for projections and visibility.
     pub depth_calculation: DepthCalculation,
     /// Computed values for this camera, such as the projection matrix and the render target size.
     #[reflect(ignore)]
     pub computed: ComputedCameraValues,
+    /// The "target" that this camera will render to.
     #[reflect(ignore)]
     pub target: RenderTarget,
 }
@@ -211,6 +215,8 @@ impl CameraRenderGraph {
     }
 }
 
+/// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
+/// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
