@@ -1,7 +1,6 @@
 use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::prelude::{Changed, Entity, Or, Query, Res, With, Without};
+use bevy_ecs::prelude::{Changed, Entity, Or, Query, With, Without};
 use bevy_hierarchy::{Children, Parent};
-use bevy_tasks::prelude::ComputeTaskPool;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 pub fn transform_propagate_system_flat(
@@ -18,7 +17,6 @@ pub fn transform_propagate_system_flat(
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
 pub fn transform_propagate_system(
-    task_pool: Res<ComputeTaskPool>,
     mut root_query: Query<
         (
             Entity,
@@ -34,8 +32,7 @@ pub fn transform_propagate_system(
     children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
 ) {
     root_query.par_for_each_mut(
-        &*task_pool,
-        64,
+        1,
         |(entity, children, transform, changed, mut global_transform)| {
             if changed {
                 *global_transform = GlobalTransform::from(*transform);
