@@ -337,6 +337,9 @@ impl<'a> TrackedRenderPass<'a> {
             .set_viewport(x, y, width, height, min_depth, max_depth);
     }
 
+    /// Set the rendering viewport to the given [`Camera`](crate::camera::Viewport) [`Viewport`].
+    ///
+    /// Subsequent draw calls will be projected into that viewport.
     pub fn set_camera_viewport(&mut self, viewport: &Viewport) {
         self.set_viewport(
             viewport.physical_position.x as f32,

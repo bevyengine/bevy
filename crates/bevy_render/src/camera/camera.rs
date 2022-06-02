@@ -25,21 +25,41 @@ use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, ops::Range};
 use wgpu::Extent3d;
 
+/// Viewport configuration that sets the "render viewport" for the [`Camera`] component.
 // TODO: remove reflect_value when possible
-#[derive(Reflect, Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
 #[reflect_value(Default, Serialize, Deserialize)]
 pub struct Viewport {
+    /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
+    /// (0,0) corresponds to the top-left corner
     pub physical_position: UVec2,
+    /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
+    /// The origin of the rectangle is in the top-left corner.
     pub physical_size: UVec2,
+    /// The minimum and maximum depth to render to (on a scale from 0.0 to 1.0).
     pub depth: Range<f32>,
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct RenderTargetInfo {
-    physical_size: UVec2,
-    scale_factor: f64,
+impl Default for Viewport {
+    fn default() -> Self {
+        Self {
+            physical_position: Default::default(),
+            physical_size: Default::default(),
+            depth: 0.0..1.0,
+        }
+    }
 }
 
+/// Information about the current render target.
+#[derive(Default, Debug, Clone)]
+pub struct RenderTargetInfo {
+    /// The physical size of this render target (ignores scale factor).
+    pub physical_size: UVec2,
+    /// The scale factor of this render target.
+    pub scale_factor: f64,
+}
+
+/// Holds internally computed [`Camera`] values.
 #[derive(Default, Debug, Clone)]
 pub struct ComputedCameraValues {
     projection_matrix: Mat4,
@@ -49,10 +69,12 @@ pub struct ComputedCameraValues {
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
+    /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
     pub priority: isize,
     pub is_active: bool,
     pub depth_calculation: DepthCalculation,
+    /// Computed values for this camera, such as the projection matrix and the render target size.
     #[reflect(ignore)]
     pub computed: ComputedCameraValues,
     #[reflect(ignore)]
@@ -73,6 +95,10 @@ impl Default for Camera {
 }
 
 impl Camera {
+    /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
+    /// will be the size of that custom viewport. Otherwise it will default to the full logical size of
+    /// the current [`RenderTarget`].
+    /// For logic that requires the full logical size of the [`RenderTarget`], prefer [`Camera::logical_target_size`].
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
         let target_info = self.computed.target_info.as_ref()?;
@@ -87,6 +113,10 @@ impl Camera {
             .or_else(|| self.logical_target_size())
     }
 
+    /// The physical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
+    /// will be the size of that custom viewport. Otherwise it will default to the full physical size of
+    /// the current [`RenderTarget`].
+    /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
     #[inline]
     pub fn physical_viewport_size(&self) -> Option<UVec2> {
         self.viewport
@@ -95,6 +125,9 @@ impl Camera {
             .or_else(|| self.physical_target_size())
     }
 
+    /// The full logical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
+    /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
+    /// For logic that requires the size of the actually rendered area, prefer [`Camera::logical_viewport_size`].
     #[inline]
     pub fn logical_target_size(&self) -> Option<Vec2> {
         self.computed.target_info.as_ref().map(|t| {
@@ -105,11 +138,15 @@ impl Camera {
         })
     }
 
+    /// The full physical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
+    /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
+    /// For logic that requires the size of the actually rendered area, prefer [`Camera::physical_viewport_size`].
     #[inline]
     pub fn physical_target_size(&self) -> Option<UVec2> {
         self.computed.target_info.as_ref().map(|t| t.physical_size)
     }
 
+    /// The projection matrix computed using this camera's [`CameraProjection`].
     #[inline]
     pub fn projection_matrix(&self) -> Mat4 {
         self.computed.projection_matrix
