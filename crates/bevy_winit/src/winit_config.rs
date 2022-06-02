@@ -69,8 +69,9 @@ pub enum UpdateMode {
     /// no way to force the app to wake and update again, unless a `winit` event (such as user
     /// input, or the window being resized) is received or the time limit is reached.
     Reactive {
-        /// The maximum time to wait before the event loop runs again. Note that if the duration is
-        /// too high, Bevy will wait indefinitely.
+        /// The maximum time to wait before the event loop runs again.
+        ///
+        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
         max_wait: Duration,
     },
     /// The event loop will only update if there is a winit event from direct interaction with the
@@ -90,8 +91,9 @@ pub enum UpdateMode {
     /// not when the mouse moves somewhere else on the screen. This helps to significantly reduce
     /// power consumption by only updated the app when absolutely necessary.
     ReactiveLowPower {
-        /// The maximum time to wait before the event loop runs again. Note that if the duration is
-        /// too high, Bevy will wait indefinitely.
+        /// The maximum time to wait before the event loop runs again.
+        ///
+        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
         max_wait: Duration,
     },
 }
