@@ -82,6 +82,9 @@ fn set_camera_viewports(
     mut left_camera: Query<&mut Camera, (With<LeftCamera>, Without<RightCamera>)>,
     mut right_camera: Query<&mut Camera, With<RightCamera>>,
 ) {
+    // We need to dynamically resize the camera's viewports whenever the window size changes
+    // so then each camera always takes up half the screen.
+    // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
     for resize_event in resize_events.iter() {
         if resize_event.id == WindowId::primary() {
             let window = windows.primary();
