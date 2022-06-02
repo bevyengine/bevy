@@ -31,6 +31,7 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 use bevy_utils::tracing::error;
+use copyless::VecHelper;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -358,6 +359,10 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
             .get_id::<DrawMaterial<M>>()
             .unwrap();
 
+        let inverse_view_matrix = view.transform.compute_matrix().inverse();
+        let inverse_view_row_2 = inverse_view_matrix.row(2);
+        let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+
         let opaque_phase_cell = opaque_phase.get();
         let alpha_mask_phase_cell = alpha_mask_phase.get();
         let transparent_phase_cell = transparent_phase.get();
@@ -365,10 +370,6 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
         let mut opaque_phase_queue = opaque_phase_cell.take();
         let mut alpha_mask_phase_queue = alpha_mask_phase_cell.take();
         let mut transparent_phase_queue = transparent_phase_cell.take();
-
-        let inverse_view_matrix = view.transform.compute_matrix().inverse();
-        let inverse_view_row_2 = inverse_view_matrix.row(2);
-        let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
@@ -409,7 +410,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                         let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3)) + bias;
                         match alpha_mode {
                             AlphaMode::Opaque => {
-                                opaque_phase_queue.push(Opaque3d {
+                                opaque_phase_queue.alloc().init(Opaque3d {
                                     entity: *visible_entity,
                                     draw_function: draw_opaque_pbr,
                                     pipeline: pipeline_id,
@@ -421,7 +422,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                                 });
                             }
                             AlphaMode::Mask(_) => {
-                                alpha_mask_phase_queue.push(AlphaMask3d {
+                                alpha_mask_phase_queue.alloc().init(AlphaMask3d {
                                     entity: *visible_entity,
                                     draw_function: draw_alpha_mask_pbr,
                                     pipeline: pipeline_id,
@@ -433,7 +434,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                                 });
                             }
                             AlphaMode::Blend => {
-                                transparent_phase_queue.push(Transparent3d {
+                                transparent_phase_queue.alloc().init(Transparent3d {
                                     entity: *visible_entity,
                                     draw_function: draw_transparent_pbr,
                                     pipeline: pipeline_id,

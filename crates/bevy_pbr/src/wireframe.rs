@@ -120,51 +120,50 @@ fn queue_wireframes(
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
 
-        let phase_cell = opaque_phase.get();
-        let mut phase_queue = phase_cell.take();
-        let add_render_phase =
-            |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
-                if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key = msaa_key
-                        | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                    let pipeline_id = pipelines.specialize(
-                        &pipeline_cache,
-                        &wireframe_pipeline,
-                        key,
-                        &mesh.layout,
-                    );
-                    let pipeline_id = match pipeline_id {
-                        Ok(id) => id,
-                        Err(err) => {
-                            error!("{}", err);
-                            return;
-                        }
-                    };
-                    phase_queue.push(Opaque3d {
-                        entity,
-                        pipeline: pipeline_id,
-                        draw_function: draw_custom,
-                        distance: view_row_2.dot(mesh_uniform.transform.col(3)),
-                    });
-                }
-            };
+        opaque_phase.phase_scope(|mut phase| {
+            let add_render_phase =
+                |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
+                    if let Some(mesh) = render_meshes.get(mesh_handle) {
+                        let key = msaa_key
+                            | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        let pipeline_id = pipelines.specialize(
+                            &pipeline_cache,
+                            &wireframe_pipeline,
+                            key,
+                            &mesh.layout,
+                        );
+                        let pipeline_id = match pipeline_id {
+                            Ok(id) => id,
+                            Err(err) => {
+                                error!("{}", err);
+                                return;
+                            }
+                        };
+                        phase.add(Opaque3d {
+                            entity,
+                            pipeline: pipeline_id,
+                            draw_function: draw_custom,
+                            distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                        });
+                    }
+                };
 
-        if wireframe_config.global {
-            let query = material_meshes.p0();
-            visible_entities
-                .entities
-                .iter()
-                .filter_map(|visible_entity| query.get(*visible_entity).ok())
-                .for_each(add_render_phase);
-        } else {
-            let query = material_meshes.p1();
-            visible_entities
-                .entities
-                .iter()
-                .filter_map(|visible_entity| query.get(*visible_entity).ok())
-                .for_each(add_render_phase);
-        }
-        phase_cell.set(phase_queue);
+            if wireframe_config.global {
+                let query = material_meshes.p0();
+                visible_entities
+                    .entities
+                    .iter()
+                    .filter_map(|visible_entity| query.get(*visible_entity).ok())
+                    .for_each(add_render_phase);
+            } else {
+                let query = material_meshes.p1();
+                visible_entities
+                    .entities
+                    .iter()
+                    .filter_map(|visible_entity| query.get(*visible_entity).ok())
+                    .for_each(add_render_phase);
+            }
+        });
     }
 }
 

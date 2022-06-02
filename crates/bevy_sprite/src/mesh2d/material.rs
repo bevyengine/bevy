@@ -317,55 +317,55 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
             .unwrap();
 
         let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
-        let phase_cell = transparent_phase.get();
-        let mut phase_queue = phase_cell.take();
+        transparent_phase.phase_scope(|mut phase| {
+            for visible_entity in &visible_entities.entities {
+                if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
+                    material2d_meshes.get(*visible_entity)
+                {
+                    if let Some(material2d) = render_materials.get(material2d_handle) {
+                        if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
+                            let mesh_key = msaa_key
+                                | Mesh2dPipelineKey::from_primitive_topology(
+                                    mesh.primitive_topology,
+                                );
 
-        for visible_entity in &visible_entities.entities {
-            if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
-                material2d_meshes.get(*visible_entity)
-            {
-                if let Some(material2d) = render_materials.get(material2d_handle) {
-                    if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                        let mesh_key = msaa_key
-                            | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                            let material_key = M::key(render_device, material2d);
+                            let pipeline_id = pipelines.specialize(
+                                &pipeline_cache,
+                                &material2d_pipeline,
+                                Material2dKey {
+                                    mesh_key,
+                                    material_key,
+                                },
+                                &mesh.layout,
+                            );
 
-                        let material_key = M::key(render_device, material2d);
-                        let pipeline_id = pipelines.specialize(
-                            &pipeline_cache,
-                            &material2d_pipeline,
-                            Material2dKey {
-                                mesh_key,
-                                material_key,
-                            },
-                            &mesh.layout,
-                        );
+                            let pipeline_id = match pipeline_id {
+                                Ok(id) => id,
+                                Err(err) => {
+                                    error!("{}", err);
+                                    continue;
+                                }
+                            };
 
-                        let pipeline_id = match pipeline_id {
-                            Ok(id) => id,
-                            Err(err) => {
-                                error!("{}", err);
-                                continue;
-                            }
-                        };
-
-                        let mesh_z = mesh2d_uniform.transform.w_axis.z;
-                        phase_queue.push(Transparent2d {
-                            entity: *visible_entity,
-                            draw_function: draw_transparent_pbr,
-                            pipeline: pipeline_id,
-                            // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                            // lowest sort key and getting closer should increase. As we have
-                            // -z in front of the camera, the largest distance is -far with values increasing toward the
-                            // camera. As such we can just use mesh_z as the distance
-                            sort_key: FloatOrd(mesh_z),
-                            // This material is not batched
-                            batch_range: None,
-                        });
+                            let mesh_z = mesh2d_uniform.transform.w_axis.z;
+                            phase.add(Transparent2d {
+                                entity: *visible_entity,
+                                draw_function: draw_transparent_pbr,
+                                pipeline: pipeline_id,
+                                // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                                // lowest sort key and getting closer should increase. As we have
+                                // -z in front of the camera, the largest distance is -far with values increasing toward the
+                                // camera. As such we can just use mesh_z as the distance
+                                sort_key: FloatOrd(mesh_z),
+                                // This material is not batched
+                                batch_range: None,
+                            });
+                        }
                     }
                 }
             }
-        }
-        phase_cell.set(phase_queue);
+        });
     }
 }
 

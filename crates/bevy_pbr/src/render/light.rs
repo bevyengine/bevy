@@ -1355,8 +1355,6 @@ pub fn queue_shadows(
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, shadow_phase) =
                 view_light_shadow_phases.get(view_light_entity).unwrap();
-            let phase_cell = shadow_phase.get();
-            let mut phase_queue = phase_cell.take();
             let visible_entities = match light_entity {
                 LightEntity::Directional { light_entity } => directional_light_entities
                     .get(*light_entity)
@@ -1369,38 +1367,39 @@ pub fn queue_shadows(
                     .expect("Failed to get point light visible entities")
                     .get(*face_index),
             };
-            // NOTE: Lights with shadow mapping disabled will have no visible entities
-            // so no meshes will be queued
-            for entity in visible_entities.iter().copied() {
-                if let Ok(mesh_handle) = casting_meshes.get(entity) {
-                    if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        let key =
-                            ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                        let pipeline_id = pipelines.specialize(
-                            &pipeline_cache,
-                            &shadow_pipeline,
-                            key,
-                            &mesh.layout,
-                        );
+            shadow_phase.phase_scope(|mut phase| {
+                // NOTE: Lights with shadow mapping disabled will have no visible entities
+                // so no meshes will be queued
+                for entity in visible_entities.iter().copied() {
+                    if let Ok(mesh_handle) = casting_meshes.get(entity) {
+                        if let Some(mesh) = render_meshes.get(mesh_handle) {
+                            let key =
+                                ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                            let pipeline_id = pipelines.specialize(
+                                &pipeline_cache,
+                                &shadow_pipeline,
+                                key,
+                                &mesh.layout,
+                            );
 
-                        let pipeline_id = match pipeline_id {
-                            Ok(id) => id,
-                            Err(err) => {
-                                error!("{}", err);
-                                continue;
-                            }
-                        };
+                            let pipeline_id = match pipeline_id {
+                                Ok(id) => id,
+                                Err(err) => {
+                                    error!("{}", err);
+                                    continue;
+                                }
+                            };
 
-                        phase_queue.push(Shadow {
-                            draw_function: draw_shadow_mesh,
-                            pipeline: pipeline_id,
-                            entity,
-                            distance: 0.0, // TODO: sort back-to-front
-                        });
+                            phase.add(Shadow {
+                                draw_function: draw_shadow_mesh,
+                                pipeline: pipeline_id,
+                                entity,
+                                distance: 0.0, // TODO: sort back-to-front
+                            });
+                        }
                     }
                 }
-            }
-            phase_cell.set(phase_queue);
+            });
         }
     }
 }
