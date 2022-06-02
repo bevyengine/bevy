@@ -1,4 +1,4 @@
-name: Release
+name: Post-release version bump
 
 # how to trigger: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
 on:
@@ -16,29 +16,32 @@ jobs:
       - name: Install cargo-release
         run: cargo install cargo-release
 
-      - name: Setup release
+      - name: Setup post-release version bump
         run: |
           # Set the commit author to the github-actions bot. See discussion here for more information:
           # https://github.com/actions/checkout/issues/13#issuecomment-724415212
           # https://github.community/t/github-actions-bot-email-address/17204/6
           git config user.name 'Bevy Auto Releaser'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          # release: remove the dev suffix, like going from 0.X.0-dev to 0.X.0
-          # --workspace: updating all crates in the workspace
-          # --no-publish: do not publish to crates.io
-          # --execute: not a dry run
-          # --no-tag: do not push tag for each new version
-          # --no-push: do not push the update commits
-          # --dependent-version upgrade: change 0.X.0-dev in internal dependencies to 0.X.0
-          # --exclude: ignore those packages
-          cargo release release \
+          # Read the current version from Cargo.toml
+          current_version=$(cargo metadata --format-version 1 --no-deps | \
+            jq --raw-output '.packages | .[] | select(.name == "bevy").version')
+          # Sanity check: current version should be 0.X.Y
+          if ! grep -q '^0\.[0-9]\+\.[0-9]\+$' <<< "${current_version}"; then
+            echo "Invalid version (not in 0.X.Y format): ${current_version}"
+            exit 1
+          fi
+          minor_version=$(sed 's/^0\.\([0-9]\+\).*/\1/' <<< "${current_version}")
+          next_version=0.$((minor_version + 1)).0-dev
+          echo "Bumping version to ${next_version}"
+          # See release.yml for meaning of these arguments
+          cargo release "${next_version}" \
             --workspace \
             --no-publish \
             --execute \
             --no-tag \
             --no-confirm \
             --no-push \
-            --dependent-version upgrade \
             --exclude ci \
             --exclude errors \
             --exclude bevy-ios-example \
@@ -50,7 +53,7 @@ jobs:
         with:
           delete-branch: true
           base: "main"
-          title: "Preparing Next Release"
+          title: "Bump Version after Release"
           body: |
-            Preparing next release
+            Bump version after release
             This PR has been auto-generated
