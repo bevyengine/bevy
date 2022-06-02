@@ -1,11 +1,18 @@
 //! This example illustrates how to use [`States`] to control transitioning from a `Menu` state to
 //! an `InGame` state.
+//!
+//! Use arrow keys to move the bevy icon, then escape key to show the menu again.
+//!
+//! The `Menu` state systems use a `MenuConfiguration` resource to adapt its behaviour and allow for restart or continue.
 
 use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(MenuConfiguration {
+            is_continue_available: false,
+        })
         .add_state(AppState::Menu)
         .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
         .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu))
@@ -27,6 +34,10 @@ enum AppState {
     InGame,
 }
 
+struct MenuConfiguration {
+    is_continue_available: bool,
+}
+
 struct MenuData {
     button_entity: Entity,
     continue_entity: Option<Entity>,
@@ -40,23 +51,26 @@ const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
 fn setup_menu(
-    mut state: ResMut<State<AppState>>,
+    menu_configuration: Res<MenuConfiguration>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let is_first_load = !state.inactives().contains(&AppState::InGame);
     let button_entity = create_button(
         &mut commands,
         &*asset_server,
-        if is_first_load { "Play" } else { "Restart" },
+        if menu_configuration.is_continue_available {
+            "Restart"
+        } else {
+            "Play"
+        },
     );
 
     let mut continue_entity = None;
-    if is_first_load {
+    if menu_configuration.is_continue_available {
+        continue_entity = Some(create_button(&mut commands, &*asset_server, "Continue"));
+    } else {
         // ui camera
         commands.spawn_bundle(UiCameraBundle::default());
-    } else {
-        continue_entity = Some(create_button(&mut commands, &*asset_server, "Continue"));
     }
 
     commands.insert_resource(MenuData {
@@ -65,6 +79,7 @@ fn setup_menu(
     });
 }
 
+/// A utility function to easily create similar looking buttons
 fn create_button(commands: &mut Commands, asset_server: &AssetServer, title: &str) -> Entity {
     commands
         .spawn_bundle(ButtonBundle {
@@ -101,6 +116,7 @@ fn create_button(commands: &mut Commands, asset_server: &AssetServer, title: &st
 fn menu(
     mut state: ResMut<State<AppState>>,
     menu_data: Res<MenuData>,
+    menu_configuration: Res<MenuConfiguration>,
     mut interaction_query: Query<
         (Entity, &Interaction, &mut UiColor),
         (Changed<Interaction>, With<Button>),
@@ -110,16 +126,18 @@ fn menu(
         match *interaction {
             Interaction::Clicked => {
                 *color = PRESSED_BUTTON.into();
-                if state.inactives().contains(&AppState::InGame) {
-                    if menu_data.continue_entity.is_some()
-                        && menu_data.continue_entity.unwrap() == entity
-                    {
-                        state.pop();
+                if menu_configuration.is_continue_available {
+                    if menu_data.continue_entity.unwrap() == entity {
+                        state.pop().expect("Could not modify state.");
                     } else {
-                        state.replace(AppState::InGame);
+                        state
+                            .replace(AppState::InGame)
+                            .expect("Could not modify state.");
                     }
                 } else {
-                    state.set(AppState::InGame).unwrap();
+                    state
+                        .set(AppState::InGame)
+                        .expect("Could not modify state.");
                 }
             }
             Interaction::Hovered => {
@@ -159,12 +177,19 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(RemoveWhenGameDone);
 }
 
-fn back_to_menu(time: Res<Time>, mut state: ResMut<State<AppState>>, input: Res<Input<KeyCode>>) {
+fn back_to_menu(
+    mut menu_configuration: ResMut<MenuConfiguration>,
+    mut state: ResMut<State<AppState>>,
+    input: Res<Input<KeyCode>>,
+) {
     if input.pressed(KeyCode::Escape) {
-        state.push(AppState::Menu);
+        menu_configuration.is_continue_available = true;
+        state.push(AppState::Menu).expect("Could not push state.");
     }
 }
+
 const SPEED: f32 = 100.0;
+
 fn movement(
     time: Res<Time>,
     input: Res<Input<KeyCode>>,
