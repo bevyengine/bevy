@@ -1129,7 +1129,10 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Iterate over this [`Query`] where the entities match.
+    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
+    ///
+    /// This can only return immutable data (mutable data will be cast to an immutable form).
+    /// See [`Self::many_iter_mut`] for queries that contain at least one mutable component.
     ///
     /// # Examples
     /// ```
@@ -1163,14 +1166,20 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     >(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, '_, I, Q, F, E> {
-        QueryManyIter {
-            entities: entities.into_iter(),
-            query: self,
+    ) -> QueryManyIter<'_, '_, Q, ROQueryFetch<'_, Q>, F, E, I> {
+        // SAFETY: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
-    /// Calls a closure on each result of [`Query`] where the entities match.
+    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
     ///
     /// # Examples
     /// ```
@@ -1179,88 +1188,40 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// struct Counter {
     ///     value: i32
     /// }
-    ///
     /// #[derive(Component)]
     /// struct Friends {
     ///     list: Vec<Entity>,
     /// }
-    ///
-    /// fn system(
-    ///     friends_query: Query<&Friends>,
-    ///     counter_query: Query<&Counter>,
-    /// ) {
-    ///     for friends in &friends_query {
-    ///         counter_query.many_for_each(&friends.list, |counter| {
-    ///             println!("Friend's counter: {:?}", counter.value);
-    ///         });
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(system);
-    /// ```
-    pub fn many_for_each<E: Borrow<Entity>, EntityList: IntoIterator<Item = E>>(
-        &self,
-        entities: EntityList,
-        f: impl Fn(ROQueryItem<'_, Q>),
-    ) {
-        // SAFE: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
-        unsafe {
-            self.state
-                .many_for_each_unchecked_manual::<ROQueryFetch<Q>, E, EntityList, _>(
-                    self.world,
-                    entities,
-                    f,
-                    self.last_change_tick,
-                    self.change_tick,
-                );
-        };
-    }
-
-    /// Calls a closure on each result of [`Query`] where the entities match.
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component)]
-    /// struct Counter {
-    ///     value: i32
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Friends {
-    ///     list: Vec<Entity>,
-    /// }
-    ///
     /// fn system(
     ///     friends_query: Query<&Friends>,
     ///     mut counter_query: Query<&mut Counter>,
     /// ) {
     ///     for friends in &friends_query {
-    ///         counter_query.many_for_each_mut(&friends.list, |mut counter| {
+    ///         for mut counter in counter_query.many_iter_mut(&friends.list) {
     ///             println!("Friend's counter: {:?}", counter.value);
     ///             counter.value += 1;
-    ///         });
+    ///         }
     ///     }
     /// }
-    /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_for_each_mut<E: Borrow<Entity>, EntityList: IntoIterator<Item = E>>(
+    pub fn many_iter_mut<
+        E: Borrow<Entity>,
+        I: Iterator<Item = E>,
+        EntityList: IntoIterator<IntoIter = I>,
+    >(
         &mut self,
         entities: EntityList,
-        f: impl FnMut(QueryItem<'_, Q>),
-    ) {
-        // SAFE: system runs without conflicts with other systems.
+    ) -> QueryManyIter<'_, '_, Q, QueryFetch<'_, Q>, F, E, I> {
+        // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state
-                .many_for_each_unchecked_manual::<QueryFetch<Q>, E, EntityList, _>(
-                    self.world,
-                    entities,
-                    f,
-                    self.last_change_tick,
-                    self.change_tick,
-                );
-        };
+            self.state.iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
     }
 }
 

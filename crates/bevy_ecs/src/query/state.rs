@@ -16,7 +16,7 @@ use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt, ops::Deref};
 
-use super::{QueryFetch, QueryItem, ROQueryFetch, ROQueryItem};
+use super::{QueryFetch, QueryItem, QueryManyIter, ROQueryFetch, ROQueryItem};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
@@ -611,6 +611,33 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         QueryIter::new(world, self, last_change_tick, change_tick)
     }
 
+    /// Returns an [`Iterator`] for the given [`World`] and list of [`Entity`]'s, where the last change and
+    /// the current change tick are given.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    #[inline]
+    pub(crate) unsafe fn iter_many_unchecked_manual<
+        'w,
+        's,
+        QF: Fetch<'w, State = Q::State>,
+        E: Borrow<Entity>,
+        I: Iterator<Item = E>,
+        EntityList: IntoIterator<IntoIter = I>,
+    >(
+        &'s self,
+        entities: EntityList,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> QueryManyIter<'w, 's, Q, QF, F, E, I> {
+        QueryManyIter::new(world, self, entities, last_change_tick, change_tick)
+    }
+
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
     /// given [`World`] without repetition.
     /// This can only be called for read-only queries.
@@ -687,93 +714,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         self.update_archetypes(world);
         self.for_each_unchecked_manual::<QueryFetch<Q>, FN>(
             world,
-            func,
-            world.last_change_tick(),
-            world.read_change_tick(),
-        );
-    }
-
-    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
-    ///
-    /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
-    #[inline]
-    pub fn many_for_each<
-        'w,
-        E: Borrow<Entity>,
-        EntityList: IntoIterator<Item = E>,
-        FN: FnMut(ROQueryItem<'w, Q>),
-    >(
-        &mut self,
-        world: &'w World,
-        entities: EntityList,
-        func: FN,
-    ) {
-        // SAFETY: query is read only
-        unsafe {
-            self.update_archetypes(world);
-            self.many_for_each_unchecked_manual::<ROQueryFetch<Q>, E, EntityList, FN>(
-                world,
-                entities,
-                func,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            );
-        }
-    }
-
-    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
-    #[inline]
-    pub fn many_for_each_mut<
-        'w,
-        E: Borrow<Entity>,
-        EntityList: IntoIterator<Item = E>,
-        FN: FnMut(QueryItem<'w, Q>),
-    >(
-        &mut self,
-        world: &'w mut World,
-        entities: EntityList,
-        func: FN,
-    ) {
-        // SAFETY: query has unique world access
-        unsafe {
-            self.update_archetypes(world);
-            self.many_for_each_unchecked_manual::<QueryFetch<Q>, E, EntityList, FN>(
-                world,
-                entities,
-                func,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            );
-        }
-    }
-
-    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
-    ///
-    /// This can only be called for read-only queries.
-    ///
-    /// # Safety
-    ///
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    #[inline]
-    pub unsafe fn many_for_each_unchecked<
-        'w,
-        E: Borrow<Entity>,
-        EntityList: IntoIterator<Item = E>,
-        FN: FnMut(QueryItem<'w, Q>),
-    >(
-        &mut self,
-        world: &'w World,
-        entities: EntityList,
-        func: FN,
-    ) {
-        self.update_archetypes(world);
-        self.many_for_each_unchecked_manual::<QueryFetch<Q>, E, EntityList, FN>(
-            world,
-            entities,
             func,
             world.last_change_tick(),
             world.read_change_tick(),
@@ -922,63 +862,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                     }
                     func(fetch.archetype_fetch(archetype_index));
                 }
-            }
-        }
-    }
-
-    /// Runs `func` on each query result for the given [`World`], where the last change and
-    /// the current change tick are given. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
-    ///
-    /// # Safety
-    ///
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
-    /// with a mismatched [`WorldId`] is unsound.
-    pub(crate) unsafe fn many_for_each_unchecked_manual<
-        'w,
-        QF: Fetch<'w, State = Q::State>,
-        E: Borrow<Entity>,
-        EntityList: IntoIterator<Item = E>,
-        FN: FnMut(QF::Item),
-    >(
-        &self,
-        world: &'w World,
-        entities: EntityList,
-        mut func: FN,
-        last_change_tick: u32,
-        change_tick: u32,
-    ) {
-        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::many_for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter = <QueryFetch<F> as Fetch>::init(
-            world,
-            &self.filter_state,
-            last_change_tick,
-            change_tick,
-        );
-        let archetypes = &world.archetypes;
-        let tables = &world.storages().tables;
-
-        for location in entities
-            .into_iter()
-            .filter_map(|e| world.entities.get(*e.borrow()))
-        {
-            if !self
-                .matched_archetypes
-                .contains(location.archetype_id.index())
-            {
-                continue;
-            }
-
-            let archetype = &archetypes[location.archetype_id];
-
-            fetch.set_archetype(&self.fetch_state, archetype, tables);
-            filter.set_archetype(&self.filter_state, archetype, tables);
-            if filter.archetype_filter_fetch(location.index) {
-                func(fetch.archetype_fetch(location.index));
             }
         }
     }
