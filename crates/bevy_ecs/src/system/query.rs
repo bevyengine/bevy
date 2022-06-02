@@ -1156,12 +1156,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_iter<I, EntityList, E>(&self, entities: EntityList) -> QueryManyIter<'_, '_, I, Q, F, E>
-    where
+    pub fn many_iter<
         E: Borrow<Entity>,
         I: Iterator<Item = E>,
         EntityList: IntoIterator<IntoIter = I>,
-    {
+    >(
+        &self,
+        entities: EntityList,
+    ) -> QueryManyIter<'_, '_, I, Q, F, E> {
         QueryManyIter {
             entities: entities.into_iter(),
             query: self,
@@ -1195,16 +1197,23 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_for_each<EntityList, E>(&self, entities: EntityList, f: impl Fn(ROQueryItem<'_, Q>))
-    where
-        E: Borrow<Entity>,
-        EntityList: IntoIterator<Item = E>,
-    {
-        entities.into_iter().map(|e| *e.borrow()).for_each(|input| {
-            if let Ok(item) = self.get(input) {
-                f(item);
-            }
-        });
+    pub fn many_for_each<E: Borrow<Entity>, EntityList: IntoIterator<Item = E>>(
+        &self,
+        entities: EntityList,
+        f: impl Fn(ROQueryItem<'_, Q>),
+    ) {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state
+                .many_for_each_unchecked_manual::<ROQueryFetch<Q>, E, EntityList, _>(
+                    self.world,
+                    entities,
+                    f,
+                    self.last_change_tick,
+                    self.change_tick,
+                );
+        };
     }
 
     /// Calls a closure on each result of [`Query`] where the entities match.
@@ -1235,16 +1244,23 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_for_each_mut<EntityList, E>(&mut self, entities: EntityList, mut f: impl FnMut(QueryItem<'_, Q>))
-    where
-        E: Borrow<Entity>,
-        EntityList: IntoIterator<Item = E>,
-    {
-        entities.into_iter().map(|e| *e.borrow()).for_each(|entity| {
-            if let Ok(item) = self.get_mut(entity) {
-                f(item);
-            }
-        });
+    pub fn many_for_each_mut<E: Borrow<Entity>, EntityList: IntoIterator<Item = E>>(
+        &mut self,
+        entities: EntityList,
+        f: impl FnMut(QueryItem<'_, Q>),
+    ) {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state
+                .many_for_each_unchecked_manual::<QueryFetch<Q>, E, EntityList, _>(
+                    self.world,
+                    entities,
+                    f,
+                    self.last_change_tick,
+                    self.change_tick,
+                );
+        };
     }
 }
 
