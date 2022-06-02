@@ -53,7 +53,7 @@ impl Default for Viewport {
     }
 }
 
-/// Information about the current render target.
+/// Information about the current [`RenderTarget`].
 #[derive(Default, Debug, Clone)]
 pub struct RenderTargetInfo {
     /// The physical size of this render target (ignores scale factor).
