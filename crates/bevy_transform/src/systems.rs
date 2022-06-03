@@ -1,9 +1,9 @@
 use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::prelude::{Changed, Entity, Or, Query, With, Without};
+use bevy_ecs::prelude::{Changed, Entity, Query, With, Without};
 use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
-pub fn transform_propagate_system_flat(
+pub fn sync_simple_transforms(
     mut query: Query<
         (&Transform, &mut GlobalTransform),
         (Changed<Transform>, Without<Parent>, Without<Children>),
@@ -16,13 +16,14 @@ pub fn transform_propagate_system_flat(
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
-pub fn transform_propagate_system(
+pub fn propagate_transforms(
     mut root_query: Query<
         (
             Entity,
             &Children,
             &Transform,
-            Or<(Changed<Children>, Changed<Transform>)>,
+            Changed<Transform>,
+            Changed<Children>,
             &mut GlobalTransform,
         ),
         Without<Parent>,
@@ -32,11 +33,16 @@ pub fn transform_propagate_system(
     children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
 ) {
     root_query.par_for_each_mut(
+        // The differing depths and sizes of hierarchy trees causes the work for each root to be
+        // different. A batch size of 1 ensures that each tree gets it's own task and multiple
+        // large trees are not clumped together.
         1,
-        |(entity, children, transform, changed, mut global_transform)| {
+        |(entity, children, transform, mut changed, children_changed, mut global_transform)| {
             if changed {
                 *global_transform = GlobalTransform::from(*transform);
             }
+
+            changed |= children_changed;
 
             for child in children.iter() {
                 let _ = propagate_recursive(
@@ -55,7 +61,10 @@ pub fn transform_propagate_system(
 
 fn propagate_recursive(
     parent: &GlobalTransform,
-    transform_query: &Query<(&Transform, Changed<Transform>, &mut GlobalTransform), With<Parent>>,
+    unsafe_transform_query: &Query<
+        (&Transform, Changed<Transform>, &mut GlobalTransform),
+        With<Parent>,
+    >,
     parent_query: &Query<&Parent>,
     children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
     expected_parent: Entity,
@@ -77,7 +86,7 @@ fn propagate_recursive(
     // Any malformed hierarchy will cause a panic due to the above check.
     let global_matrix = unsafe {
         let (transform, transform_changed, mut global_transform) =
-            transform_query.get_unchecked(entity).map_err(drop)?;
+            unsafe_transform_query.get_unchecked(entity).map_err(drop)?;
 
         changed |= transform_changed;
         if changed {
@@ -92,7 +101,7 @@ fn propagate_recursive(
     for child in children.iter() {
         let _ = propagate_recursive(
             &global_matrix,
-            transform_query,
+            unsafe_transform_query,
             parent_query,
             children_query,
             entity,
@@ -109,6 +118,7 @@ mod test {
     use bevy_ecs::prelude::*;
     use bevy_ecs::system::CommandQueue;
     use bevy_math::vec3;
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::components::{GlobalTransform, Transform};
     use crate::systems::*;
@@ -120,11 +130,12 @@ mod test {
     #[test]
     fn did_propagate() {
         let mut world = World::default();
+        world.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system_flat);
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(sync_simple_transforms);
+        update_stage.add_system(propagate_transforms);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
@@ -166,11 +177,12 @@ mod test {
     #[test]
     fn did_propagate_command_buffer() {
         let mut world = World::default();
+        world.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system_flat);
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(sync_simple_transforms);
+        update_stage.add_system(propagate_transforms);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
@@ -210,11 +222,12 @@ mod test {
     #[test]
     fn correct_children() {
         let mut world = World::default();
+        world.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system_flat);
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(sync_simple_transforms);
+        update_stage.add_system(propagate_transforms);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
@@ -297,10 +310,11 @@ mod test {
     #[test]
     fn correct_transforms_when_no_children() {
         let mut app = App::new();
+        app.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         app.add_system(parent_update_system);
-        app.add_system(transform_propagate_system_flat);
-        app.add_system(transform_propagate_system);
+        app.add_system(sync_simple_transforms);
+        app.add_system(propagate_transforms);
 
         let translation = vec3(1.0, 0.0, 0.0);
 
@@ -354,10 +368,11 @@ mod test {
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
         let mut app = App::new();
+        app.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         app.add_system(parent_update_system);
-        app.add_system(transform_propagate_system_flat);
-        app.add_system(transform_propagate_system);
+        app.add_system(sync_simple_transforms);
+        app.add_system(propagate_transforms);
 
         let child = app
             .world
