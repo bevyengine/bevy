@@ -20,7 +20,7 @@ use bevy_utils::{
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
 use wgpu::{
-    BufferBindingType, PipelineLayoutDescriptor, ShaderModule,
+    BufferBindingType, PipelineLayoutDescriptor, PushConstantRange, ShaderModule,
     VertexBufferLayout as RawVertexBufferLayout,
 };
 
@@ -273,7 +273,7 @@ impl ShaderCache {
 
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, wgpu::PipelineLayout>,
+    layouts: HashMap<(Vec<BindGroupLayoutId>, Vec<PushConstantRange>), wgpu::PipelineLayout>,
 }
 
 impl LayoutCache {
@@ -281,18 +281,23 @@ impl LayoutCache {
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
+        push_constant_ranges: &[PushConstantRange],
     ) -> &wgpu::PipelineLayout {
-        let key = bind_group_layouts.iter().map(|l| l.id()).collect();
-        self.layouts.entry(key).or_insert_with(|| {
-            let bind_group_layouts = bind_group_layouts
-                .iter()
-                .map(|l| l.value())
-                .collect::<Vec<_>>();
-            render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                bind_group_layouts: &bind_group_layouts,
-                ..default()
+        let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
+        let push_constant_ranges = push_constant_ranges.to_vec();
+        self.layouts
+            .entry((bind_group_ids, push_constant_ranges))
+            .or_insert_with_key(|key| {
+                let bind_group_layouts = bind_group_layouts
+                    .iter()
+                    .map(|l| l.value())
+                    .collect::<Vec<_>>();
+                render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                    bind_group_layouts: &bind_group_layouts,
+                    push_constant_ranges: &key.1.clone(),
+                    label: None,
+                })
             })
-        })
     }
 }
 
@@ -530,10 +535,13 @@ impl PipelineCache {
             })
             .collect::<Vec<_>>();
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
-            None
+        let layout = match (&descriptor.layout, &descriptor.push_constant_ranges) {
+            (Some(layout), Some(ranges)) => {
+                Some(self.layout_cache.get(&self.device, layout, ranges))
+            }
+            (None, Some(ranges)) => Some(self.layout_cache.get(&self.device, &[], ranges)),
+            (Some(layout), None) => Some(self.layout_cache.get(&self.device, layout, &[])),
+            (None, None) => None,
         };
 
         let descriptor = RawRenderPipelineDescriptor {
@@ -579,10 +587,13 @@ impl PipelineCache {
             }
         };
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
-            None
+        let layout = match (&descriptor.layout, &descriptor.push_constant_ranges) {
+            (Some(layout), Some(ranges)) => {
+                Some(self.layout_cache.get(&self.device, layout, ranges))
+            }
+            (None, Some(ranges)) => Some(self.layout_cache.get(&self.device, &[], ranges)),
+            (Some(layout), None) => Some(self.layout_cache.get(&self.device, layout, &[])),
+            (None, None) => None,
         };
 
         let descriptor = RawComputePipelineDescriptor {

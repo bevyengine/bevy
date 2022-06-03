@@ -642,6 +642,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 })],
             }),
             layout: Some(bind_group_layout),
+            push_constant_ranges: None,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),

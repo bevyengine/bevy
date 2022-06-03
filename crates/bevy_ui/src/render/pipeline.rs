@@ -153,6 +153,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 })],
             }),
             layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
+            push_constant_ranges: None,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

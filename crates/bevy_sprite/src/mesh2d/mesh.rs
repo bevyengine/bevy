@@ -384,6 +384,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 })],
             }),
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
+            push_constant_ranges: None,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),

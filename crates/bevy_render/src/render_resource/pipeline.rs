@@ -4,7 +4,7 @@ use bevy_reflect::Uuid;
 use std::{borrow::Cow, ops::Deref, sync::Arc};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
-    VertexAttribute, VertexFormat, VertexStepMode,
+    PushConstantRange, VertexAttribute, VertexFormat, VertexStepMode,
 };
 
 /// A [`RenderPipeline`] identifier.
@@ -93,6 +93,8 @@ pub struct RenderPipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     /// The layout of bind groups for this pipeline.
     pub layout: Option<Vec<BindGroupLayout>>,
+    /// The push constant ranges for this pipeline.
+    pub push_constant_ranges: Option<Vec<PushConstantRange>>,
     /// The compiled vertex stage, its entry point, and the input buffers layout.
     pub vertex: VertexState,
     /// The properties of the pipeline at the primitive assembly and rasterization level.
@@ -174,6 +176,7 @@ pub struct FragmentState {
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Option<Vec<BindGroupLayout>>,
+    pub push_constant_ranges: Option<Vec<PushConstantRange>>,
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<String>,

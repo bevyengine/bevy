@@ -209,6 +209,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 })],
             }),
             layout: Some(vec![self.view_layout.clone(), self.material_layout.clone()]),
+            push_constant_ranges: None,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

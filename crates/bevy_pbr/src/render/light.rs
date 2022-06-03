@@ -344,6 +344,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
             },
             fragment: None,
             layout: Some(bind_group_layout),
+            push_constant_ranges: None,
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
                 strip_index_format: None,
