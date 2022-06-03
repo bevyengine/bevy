@@ -30,7 +30,7 @@ fn setup(
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
     // Spawn
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(MaterialMesh2dBundle {
         mesh: meshes.add(mesh).into(),
         transform: Transform::default().with_scale(Vec3::splat(128.)),
