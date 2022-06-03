@@ -17,33 +17,23 @@ bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
 
 [[bench]]
-name = "archetype_updates"
-path = "benches/bevy_ecs/archetype_updates.rs"
+name = "archetype_manipulation"
+path = "benches/bevy_ecs/archetype_manipulation/mod.rs"
 harness = false
 
 [[bench]]
-name = "ecs_bench_suite"
-path = "benches/bevy_ecs/ecs_bench_suite/mod.rs"
+name = "get_component"
+path = "benches/bevy_ecs/get_component/mod.rs"
 harness = false
 
 [[bench]]
-name = "run_criteria"
-path = "benches/bevy_ecs/run_criteria.rs"
+name = "query_iteration"
+path = "benches/bevy_ecs/query_iteration/mod.rs"
 harness = false
 
 [[bench]]
-name = "commands"
-path = "benches/bevy_ecs/commands.rs"
-harness = false
-
-[[bench]]
-name = "system_stage"
-path = "benches/bevy_ecs/stages.rs"
-harness = false
-
-[[bench]]
-name = "world_get"
-path = "benches/bevy_ecs/world_get.rs"
+name = "scheduling"
+path = "benches/bevy_ecs/scheduling/scheduling.rs"
 harness = false
 
 [[bench]]
@@ -62,6 +52,6 @@ path = "benches/bevy_reflect/struct.rs"
 harness = false
 
 [[bench]]
-name = "iter"
+name = "tasks_iter"
 path = "benches/bevy_tasks/iter.rs"
 harness = false
