@@ -4,7 +4,7 @@ version = "0.8.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
-exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
+exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
 homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
@@ -142,6 +142,10 @@ path = "examples/2d/mesh2d.rs"
 [[example]]
 name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
+
+[[example]]
+name = "mesh2d_vertex_color_texture"
+path = "examples/2d/mesh2d_vertex_color_texture.rs"
 
 [[example]]
 name = "shapes"

@@ -10,7 +10,6 @@ const DELTA_TIME: f64 = 0.01;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 0.03,
@@ -142,7 +141,7 @@ fn generate_bodies(
                 ..default()
             });
         });
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

@@ -47,6 +47,7 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
                 }
             }
         });
+    let debug_fn = derive_data.traits().get_debug_impl();
 
     let get_type_registration_impl = derive_data.get_type_registration();
     let (impl_generics, ty_generics, where_clause) = derive_data.generics().split_for_impl();
@@ -166,6 +167,8 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
 
             #partial_eq_fn
 
+            #debug_fn
+
             #serialize_fn
         }
     })
@@ -196,6 +199,7 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
                 }
             }
         });
+    let debug_fn = derive_data.traits().get_debug_impl();
 
     let (impl_generics, ty_generics, where_clause) = derive_data.generics().split_for_impl();
     TokenStream::from(quote! {
@@ -291,6 +295,8 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
 
             #partial_eq_fn
 
+            #debug_fn
+
             #serialize_fn
         }
     })
@@ -307,6 +313,7 @@ pub(crate) fn impl_value(
     let hash_fn = reflect_traits.get_hash_impl(bevy_reflect_path);
     let serialize_fn = reflect_traits.get_serialize_impl(bevy_reflect_path);
     let partial_eq_fn = reflect_traits.get_partial_eq_impl(bevy_reflect_path);
+    let debug_fn = reflect_traits.get_debug_impl();
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
@@ -371,6 +378,8 @@ pub(crate) fn impl_value(
             #hash_fn
 
             #partial_eq_fn
+
+            #debug_fn
 
             #serialize_fn
         }

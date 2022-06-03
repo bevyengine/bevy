@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{
     const_vec2, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
@@ -9,7 +8,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
-    prelude::Image,
+    extract_resource::ExtractResource,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
@@ -17,7 +16,6 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::warn;
-use bevy_window::Windows;
 
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
@@ -170,7 +168,7 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Debug)]
+#[derive(Clone, Debug, ExtractResource)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -327,8 +325,7 @@ impl ClusterConfig {
 
     fn first_slice_depth(&self) -> f32 {
         match self {
-            ClusterConfig::None => 0.0,
-            ClusterConfig::Single => 0.0,
+            ClusterConfig::None | ClusterConfig::Single => 0.0,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.first_slice_depth
             }
@@ -637,8 +634,6 @@ impl GlobalVisiblePointLights {
 pub(crate) fn assign_lights_to_clusters(
     mut commands: Commands,
     mut global_lights: ResMut<GlobalVisiblePointLights>,
-    windows: Res<Windows>,
-    images: Res<Assets<Image>>,
     mut views: Query<(
         Entity,
         &GlobalTransform,
@@ -741,13 +736,12 @@ pub(crate) fn assign_lights_to_clusters(
             continue;
         }
 
-        let screen_size =
-            if let Some(screen_size) = camera.target.get_physical_size(&windows, &images) {
-                screen_size
-            } else {
-                clusters.clear();
-                continue;
-            };
+        let screen_size = if let Some(screen_size) = camera.physical_target_size {
+            screen_size
+        } else {
+            clusters.clear();
+            continue;
+        };
 
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
@@ -879,7 +873,7 @@ pub(crate) fn assign_lights_to_clusters(
 
         let inverse_projection = camera.projection_matrix.inverse();
 
-        for lights in clusters.lights.iter_mut() {
+        for lights in &mut clusters.lights {
             lights.entities.clear();
         }
         clusters.lights.resize_with(

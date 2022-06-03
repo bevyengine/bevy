@@ -1,5 +1,5 @@
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::mesh_bindings
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
@@ -29,14 +29,6 @@ struct VertexOutput {
     [[location(4)]] color: vec4<f32>;
 #endif
 };
-
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
-#ifdef SKINNED
-[[group(2), binding(1)]]
-var<uniform> joint_matrices: SkinnedMesh;
-#import bevy_pbr::skinning
-#endif
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
@@ -68,7 +60,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif
 #ifdef VERTEX_COLORS
     out.color = vertex.color;
-#endif 
+#endif
 
     out.uv = vertex.uv;
     out.clip_position = view.view_proj * out.world_position;

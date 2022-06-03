@@ -10,6 +10,7 @@ use bevy_ptr::OwningPtr;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
+    borrow::Cow,
     mem::needs_drop,
 };
 
@@ -164,7 +165,7 @@ impl SparseSetIndex for ComponentId {
 }
 
 pub struct ComponentDescriptor {
-    name: String,
+    name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
     // associated rust component type if one exists.
     storage_type: StorageType,
@@ -195,12 +196,13 @@ impl std::fmt::Debug for ComponentDescriptor {
 impl ComponentDescriptor {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>()
+        x.drop_as::<T>();
     }
 
+    /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
-            name: std::any::type_name::<T>().to_string(),
+            name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type: T::Storage::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
@@ -209,12 +211,33 @@ impl ComponentDescriptor {
         }
     }
 
+    /// Create a new `ComponentDescriptor`.
+    ///
+    /// # Safety
+    /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
+    /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
+    pub unsafe fn new_with_layout(
+        name: impl Into<Cow<'static, str>>,
+        storage_type: StorageType,
+        layout: Layout,
+        drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            storage_type,
+            is_send_and_sync: true,
+            type_id: None,
+            layout,
+            drop,
+        }
+    }
+
     /// Create a new `ComponentDescriptor` for a resource.
     ///
     /// The [`StorageType`] for resources is always [`TableStorage`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
-            name: std::any::type_name::<T>().to_string(),
+            name: Cow::Borrowed(std::any::type_name::<T>()),
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
@@ -227,7 +250,7 @@ impl ComponentDescriptor {
 
     fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            name: std::any::type_name::<T>().to_string(),
+            name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
@@ -248,7 +271,7 @@ impl ComponentDescriptor {
 
     #[inline]
     pub fn name(&self) -> &str {
-        &self.name
+        self.name.as_ref()
     }
 }
 
@@ -263,18 +286,40 @@ impl Components {
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
-        let components = &mut self.components;
-        let index = self.indices.entry(type_id).or_insert_with(|| {
-            let index = components.len();
-            let descriptor = ComponentDescriptor::new::<T>();
-            let info = ComponentInfo::new(ComponentId(index), descriptor);
-            if T::Storage::STORAGE_TYPE == StorageType::SparseSet {
-                storages.sparse_sets.get_or_insert(&info);
-            }
-            components.push(info);
-            index
+
+        let Components {
+            indices,
+            components,
+            ..
+        } = self;
+        let index = indices.entry(type_id).or_insert_with(|| {
+            Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
         });
         ComponentId(*index)
+    }
+
+    pub fn init_component_with_descriptor(
+        &mut self,
+        storages: &mut Storages,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        let index = Components::init_component_inner(&mut self.components, storages, descriptor);
+        ComponentId(index)
+    }
+
+    #[inline]
+    fn init_component_inner(
+        components: &mut Vec<ComponentInfo>,
+        storages: &mut Storages,
+        descriptor: ComponentDescriptor,
+    ) -> usize {
+        let index = components.len();
+        let info = ComponentInfo::new(ComponentId(index), descriptor);
+        if info.descriptor.storage_type == StorageType::SparseSet {
+            storages.sparse_sets.get_or_insert(&info);
+        }
+        components.push(info);
+        index
     }
 
     #[inline]
@@ -351,6 +396,10 @@ impl Components {
         });
 
         ComponentId(*index)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
+        self.components.iter()
     }
 }
 
