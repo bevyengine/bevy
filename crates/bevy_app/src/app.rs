@@ -55,6 +55,10 @@ pub struct App {
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
+    /// The [render init functions](Self::add_render_init) are responsible for completing
+    /// the initialization of plugins once the `runner` has determined that the system is
+    /// ready to support rendering.
+    pub render_inits: Vec<Box<dyn FnOnce(&mut App)>>,
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
@@ -100,6 +104,7 @@ impl App {
             world: Default::default(),
             schedule: Default::default(),
             runner: Box::new(run_once),
+            render_inits: vec![],
             sub_apps: HashMap::default(),
         }
     }
@@ -750,6 +755,59 @@ impl App {
         self
     }
 
+    /// Adds a function that will be called when the runner wants to initialize rendering state
+    ///
+    /// Each renderer init function `init_fn` is called only once by the app runner once it has
+    /// determined that the system is in a suitable state for rendering state to be initialized.
+    ///
+    /// Any number of render init callbacks may be added while building plugins and each added
+    /// function will be called exactly once. The functions are called in the same order that they
+    /// are added, after which all added functions are cleared.
+    ///
+    /// In case there are interdependencies between plugins then `add_render_init` may be called
+    /// before or after adding additional plugins (for dependency or dependant initialization
+    /// respectively).
+    ///
+    /// It can be assumed that the runner will block all system updates for this `App` until
+    /// after all render init functions have been called (as well as updates for any sub
+    /// applications). For example this means that events that are sent while building
+    /// plugins can be assumed to survive until after all render init functions have run.
+    ///
+    /// For example on Android a runner may wait until the application has reached a 'resumed'
+    /// state with an associated surface view before trying to initialize rendering state.
+    ///
+    /// `add_render_init` is typically only used by Bevy-internal plugins (e.g. `RenderPlugin`)
+    /// that need to defer initialization that depends on other render state being initialized.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::{prelude::*, AppLabel};
+    /// # fn find_instance() {}
+    /// # fn open_device() {}
+    /// # fn create_context() {}
+    /// # #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+    /// # pub struct RenderApp;
+    /// fn my_render_init(app: &mut App) {
+    ///     let instance = find_instance();
+    ///     let device = open_device();
+    ///     let context = create_context();
+    ///     let render_app = App::empty();
+    ///     app.add_sub_app(RenderApp, render_app, move |world, render_app| {
+    ///         // prepare
+    ///         // render
+    ///     });
+    /// }
+    ///
+    /// App::new()
+    ///     .add_render_init(my_render_init);
+    /// ```
+    pub fn add_render_init(&mut self, init_fn: impl FnOnce(&mut App) + 'static) -> &mut Self {
+        let init_fn = Box::new(init_fn);
+        self.render_inits.push(init_fn);
+        self
+    }
+
     /// Adds a single [`Plugin`].
     ///
     /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
@@ -925,6 +983,29 @@ impl App {
             .get((&label) as &dyn AppLabel)
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
+    }
+
+    /// Finishes plugin setup once the `App` runner has determined system is ready for rendering
+    ///
+    /// This should be called by the `runner` function once it has determined that the system is
+    /// in a suitable state to be able to initialize render state, such as creating a GPU
+    /// context.
+    ///
+    /// For example, on Android the runner will wait until the application is first 'resumed' and
+    /// it has a valid surface view.
+    ///
+    /// This will invoke all registered [render init functions](Self::add_render_init) in the
+    /// same order that they were added.
+    ///
+    /// All registered callbacks are cleared before returning, so this can only be (meaningfully)
+    /// called once.
+    pub fn render_init(&mut self) {
+        let render_inits = std::mem::take(&mut self.render_inits);
+
+        // Initialize in the same order that render_init callbacks were registered
+        for callback in render_inits.into_iter() {
+            callback(self);
+        }
     }
 }
 
