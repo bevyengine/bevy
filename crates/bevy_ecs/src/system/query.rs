@@ -421,6 +421,29 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         )
     }
 
+    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
+    /// 
+    /// If you want safe mutable access to query results of a list of [`Entity`]'s. See [`Self::many_for_each_mut`].
+    /// 
+    /// # Safety
+    /// This does not check for entity uniqueness and thus allows aliased mutability.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
+    /// Particular care must be taken when collecting the data (rather than iterating over it one item at a time) such as via `[Iterator::collect()]`.
+    pub unsafe fn many_iter_unsafe<EntityList: IntoIterator>(
+        &mut self,
+        entities: EntityList,
+    ) -> QueryManyIter<'_, '_, Q, QueryFetch<'_, Q>, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        self.state.iter_many_unchecked_manual(
+            entities,
+            self.world,
+            self.last_change_tick,
+            self.change_tick,
+        )
+    }
+
     /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
     /// be chained like a normal [`Iterator`].
     ///
