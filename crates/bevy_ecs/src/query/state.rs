@@ -618,6 +618,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    /// this does not check for entity uniqueness
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     #[inline]
@@ -995,6 +996,65 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                     }
                 }
             });
+    }
+
+    /// Runs `func` on each query result for the given [`World`] and list of [`Entity`]'s, where the last change and
+    /// the current change tick are given. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    pub(crate) unsafe fn many_for_each_unchecked_manual<
+        'w,
+        QF: Fetch<'w, State = Q::State>,
+        E: Borrow<Entity>,
+        EntityList: IntoIterator<Item = E>,
+        FN: FnMut(QF::Item),
+    >(
+        &self,
+        world: &'w World,
+        entity_list: EntityList,
+        mut func: FN,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::many_for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter = <QueryFetch<F> as Fetch>::init(
+            world,
+            &self.filter_state,
+            last_change_tick,
+            change_tick,
+        );
+
+        let tables = &world.storages.tables;
+
+        for entity in entity_list.into_iter() {
+            let location = match world.entities.get(*entity.borrow()) {
+                Some(location) => location,
+                None => continue,
+            };
+
+            if !self
+                .matched_archetypes
+                .contains(location.archetype_id.index())
+            {
+                continue;
+            }
+
+            let archetype = &world.archetypes[location.archetype_id];
+
+            fetch.set_archetype(&self.fetch_state, archetype, tables);
+            filter.set_archetype(&self.filter_state, archetype, tables);
+            if filter.archetype_filter_fetch(location.index) {
+                func(fetch.archetype_fetch(location.index));
+            }
+        }
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching

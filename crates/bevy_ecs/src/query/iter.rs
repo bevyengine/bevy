@@ -74,8 +74,7 @@ where
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
-/// This struct is created by the [`Query::many_iter`](crate::system::Query::many_iter) and
-/// [`Query::many_iter_mut`](crate::system::Query::many_iter_mut) methods.
+/// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) method.
 pub struct QueryManyIter<
     'w,
     's,
@@ -143,13 +142,13 @@ where
 {
     type Item = QF::Item;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
             for entity in self.entity_iter.by_ref() {
-                let location = if let Some(location) = self.entities.get(*entity.borrow()) {
-                    location
-                } else {
-                    continue;
+                let location = match self.entities.get(*entity.borrow()) {
+                    Some(location) => location,
+                    None => continue,
                 };
 
                 if !self

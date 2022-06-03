@@ -519,7 +519,7 @@ mod tests {
     }
 
     #[test]
-    fn many_iter() {
+    fn many_entities() {
         let mut world = World::new();
         world.spawn().insert_bundle((A(0), B(0)));
         world.spawn().insert_bundle((A(0), B(0)));
@@ -527,7 +527,7 @@ mod tests {
         world.spawn().insert(B(0));
         {
             fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
-                assert_eq!(has_a_and_b.many_iter(&has_a).count(), 2);
+                assert_eq!(has_a_and_b.iter_many(&has_a).count(), 2);
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
@@ -535,9 +535,9 @@ mod tests {
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
-                for mut b in b_query.many_iter_mut(&has_a) {
+                b_query.many_for_each_mut(&has_a, |mut b| {
                     b.0 = 1;
-                }
+                });
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
