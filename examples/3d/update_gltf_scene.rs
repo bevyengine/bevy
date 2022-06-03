@@ -1,32 +1,20 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
-use bevy::{prelude::*, scene::InstanceId};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<SceneInstance>()
         .add_startup_system(setup)
-        .add_system(scene_update)
         .add_system(move_scene_entities)
         .run();
 }
 
-// Resource to hold the scene `instance_id` until it is loaded
-#[derive(Default)]
-struct SceneInstance(Option<InstanceId>);
-
-// Component that will be used to tag entities in the scene
 #[derive(Component)]
-struct EntityInMyScene;
+struct MovedScene;
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut scene_spawner: ResMut<SceneSpawner>,
-    mut scene_instance: ResMut<SceneInstance>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..default()
@@ -45,47 +33,41 @@ fn setup(
     });
 
     // Spawn a second scene, and keep its `instance_id`
-    let instance_id =
-        scene_spawner.spawn(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
-    scene_instance.0 = Some(instance_id);
+    commands
+        .spawn_bundle(SceneBundle {
+            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            ..default()
+        })
+        .insert(MovedScene);
 }
 
-// This system will wait for the scene to be ready, and then tag entities from
-// the scene with `EntityInMyScene`. All entities from the second scene will be
-// tagged
-fn scene_update(
-    mut commands: Commands,
-    scene_spawner: Res<SceneSpawner>,
-    scene_instance: Res<SceneInstance>,
-    mut done: Local<bool>,
+// This system will move all entities that are descendants of MovedScene (which will be all entities spawned in the scene)
+fn move_scene_entities(
+    time: Res<Time>,
+    moved_scene: Query<Entity, With<MovedScene>>,
+    children: Query<&Children>,
+    mut transforms: Query<&mut Transform>,
 ) {
-    if !*done {
-        if let Some(instance_id) = scene_instance.0 {
-            if let Some(entity_iter) = scene_spawner.iter_instance_entities(instance_id) {
-                entity_iter.for_each(|entity| {
-                    commands.entity(entity).insert(EntityInMyScene);
-                });
-                *done = true;
+    for moved_scene_entity in moved_scene.iter() {
+        let mut offset = 0.;
+        iter_hierarchy(moved_scene_entity, &children, &mut |entity| {
+            if let Ok(mut transform) = transforms.get_mut(entity) {
+                transform.translation = Vec3::new(
+                    offset * time.seconds_since_startup().sin() as f32 / 20.,
+                    0.,
+                    time.seconds_since_startup().cos() as f32 / 20.,
+                );
+                offset += 1.0;
             }
-        }
+        });
     }
 }
 
-// This system will move all entities with component `EntityInMyScene`, so all
-// entities from the second scene
-fn move_scene_entities(
-    time: Res<Time>,
-    mut scene_entities: Query<&mut Transform, With<EntityInMyScene>>,
-) {
-    let mut direction = 1.;
-    let mut scale = 1.;
-    for mut transform in scene_entities.iter_mut() {
-        transform.translation = Vec3::new(
-            scale * direction * time.seconds_since_startup().sin() as f32 / 20.,
-            0.,
-            time.seconds_since_startup().cos() as f32 / 20.,
-        );
-        direction *= -1.;
-        scale += 0.5;
+fn iter_hierarchy(entity: Entity, children_query: &Query<&Children>, f: &mut impl FnMut(Entity)) {
+    (f)(entity);
+    if let Ok(children) = children_query.get(entity) {
+        for child in children.iter().copied() {
+            iter_hierarchy(child, children_query, f);
+        }
     }
 }

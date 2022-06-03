@@ -22,7 +22,7 @@ fn setup(
     // add entities to the world
     commands.spawn_bundle(SceneBundle {
         scene: asset_server.load("models/monkey/Monkey.gltf#Scene0"),
-        ..Default::default()
+        ..default()
     });
     // light
     commands.spawn_bundle(PointLightBundle {

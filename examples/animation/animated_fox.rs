@@ -20,7 +20,6 @@ struct Animations(Vec<Handle<AnimationClip>>);
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut scene_spawner: ResMut<SceneSpawner>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -61,7 +60,10 @@ fn setup(
     });
 
     // Fox
-    scene_spawner.spawn(asset_server.load("models/animated/Fox.glb#Scene0"));
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        ..default()
+    });
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");
