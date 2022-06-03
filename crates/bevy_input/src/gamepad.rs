@@ -30,7 +30,7 @@ impl Gamepads {
         self.gamepads.contains(&gamepad)
     }
 
-    /// Iterates over registered [`Gamepad`]s
+    /// Iterates over the set of currently registered [`Gamepad`]s
     pub fn iter(&self) -> impl Iterator<Item = &Gamepad> + '_ {
         self.gamepads.iter()
     }
