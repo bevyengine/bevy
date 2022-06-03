@@ -16,30 +16,31 @@ impl Gamepad {
 }
 
 #[derive(Default)]
-/// Container of unique connected [`Gamepad`]s
+/// Resource that stores the set of connected [`Gamepad`]s
 ///
-/// [`Gamepad`]s are registered and deregistered in [`gamepad_connection_system`]
+/// [`Gamepad`]s are registered and deregistered in [`gamepad_connection_system`],
+/// based on the [`GamepadEvent`]s provided by the system.
 pub struct Gamepads {
     gamepads: HashSet<Gamepad>,
 }
 
 impl Gamepads {
-    /// Returns true if the [Gamepads] contains a [Gamepad].
+    /// Returns true if the [`Gamepads`] contains the provided [`Gamepad`].
     pub fn contains(&self, gamepad: &Gamepad) -> bool {
         self.gamepads.contains(gamepad)
     }
 
-    /// Iterates over registered [Gamepad]s
+    /// Iterates over registered [`Gamepad`]s
     pub fn iter(&self) -> impl Iterator<Item = &Gamepad> + '_ {
         self.gamepads.iter()
     }
 
-    /// Registers [Gamepad].
+    /// Registers the provided [`Gamepad`].
     pub fn register(&mut self, gamepad: Gamepad) {
         self.gamepads.insert(gamepad);
     }
 
-    /// Deregisters [Gamepad.
+    /// Deregisters [`Gamepad`].
     pub fn deregister(&mut self, gamepad: &Gamepad) {
         self.gamepads.remove(gamepad);
     }
