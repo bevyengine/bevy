@@ -471,9 +471,9 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     }
 
     /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
-    /// 
+    ///
     /// If you want safe mutable access to query results of a list of [`Entity`]'s. See [`Self::many_for_each_mut`].
-    /// 
+    ///
     /// # Safety
     /// This allows aliased mutability and does not check for entity uniqueness.
     /// You must make sure this call does not result in multiple mutable references to the same component.
