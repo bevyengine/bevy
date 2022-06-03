@@ -33,15 +33,17 @@ impl Plugin for ViewPlugin {
             .add_plugin(ExtractResourcePlugin::<Msaa>::default())
             .add_plugin(VisibilityPlugin);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ViewUniforms>()
-                .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_view_targets.after(WindowSystem::Prepare),
-                );
-        }
+        app.add_render_init(move |app| {
+            if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app
+                    .init_resource::<ViewUniforms>()
+                    .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
+                    .add_system_to_stage(
+                        RenderStage::Prepare,
+                        prepare_view_targets.after(WindowSystem::Prepare),
+                    );
+            }
+        });
     }
 }
 

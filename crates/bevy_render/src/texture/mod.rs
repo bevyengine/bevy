@@ -63,11 +63,13 @@ impl Plugin for ImagePlugin {
             .resource_mut::<Assets<Image>>()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<TextureCache>()
-                .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
-        }
+        app.add_render_init(move |app| {
+            if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app
+                    .init_resource::<TextureCache>()
+                    .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
+            }
+        });
     }
 }
 

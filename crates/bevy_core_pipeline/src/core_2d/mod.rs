@@ -37,35 +37,37 @@ impl Plugin for Core2dPlugin {
         app.register_type::<Camera2d>()
             .add_plugin(ExtractComponentPlugin::<Camera2d>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
+        app.add_render_init(move |app| {
+            let render_app = match app.get_sub_app_mut(RenderApp) {
+                Ok(render_app) => render_app,
+                Err(_) => return,
+            };
 
-        render_app
-            .init_resource::<DrawFunctions<Transparent2d>>()
-            .add_system_to_stage(RenderStage::Extract, extract_core_2d_camera_phases)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
-            .add_system_to_stage(RenderStage::PhaseSort, batch_phase_system::<Transparent2d>);
+            render_app
+                .init_resource::<DrawFunctions<Transparent2d>>()
+                .add_system_to_stage(RenderStage::Extract, extract_core_2d_camera_phases)
+                .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
+                .add_system_to_stage(RenderStage::PhaseSort, batch_phase_system::<Transparent2d>);
 
-        let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
+            let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
+            let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-        let mut draw_2d_graph = RenderGraph::default();
-        draw_2d_graph.add_node(graph::node::MAIN_PASS, pass_node_2d);
-        let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
-            graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
+            let mut draw_2d_graph = RenderGraph::default();
+            draw_2d_graph.add_node(graph::node::MAIN_PASS, pass_node_2d);
+            let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
                 graph::input::VIEW_ENTITY,
-                graph::node::MAIN_PASS,
-                MainPass2dNode::IN_VIEW,
-            )
-            .unwrap();
-        graph.add_sub_graph(graph::NAME, draw_2d_graph);
+                SlotType::Entity,
+            )]);
+            draw_2d_graph
+                .add_slot_edge(
+                    input_node_id,
+                    graph::input::VIEW_ENTITY,
+                    graph::node::MAIN_PASS,
+                    MainPass2dNode::IN_VIEW,
+                )
+                .unwrap();
+            graph.add_sub_graph(graph::NAME, draw_2d_graph);
+        });
     }
 }
 

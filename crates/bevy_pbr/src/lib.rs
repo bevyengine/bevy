@@ -149,67 +149,69 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
+        app.add_render_init(move |app| {
+            let render_app = match app.get_sub_app_mut(RenderApp) {
+                Ok(render_app) => render_app,
+                Err(_) => return,
+            };
 
-        render_app
-            .add_system_to_stage(
-                RenderStage::Extract,
-                render::extract_clusters.label(RenderLightSystems::ExtractClusters),
-            )
-            .add_system_to_stage(
-                RenderStage::Extract,
-                render::extract_lights.label(RenderLightSystems::ExtractLights),
-            )
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
-                // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
-                render::prepare_lights
-                    .exclusive_system()
-                    .label(RenderLightSystems::PrepareLights),
-            )
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                // NOTE: This needs to run after prepare_lights. As prepare_lights is an exclusive system,
-                // just adding it to the non-exclusive systems in the Prepare stage means it runs after
-                // prepare_lights.
-                render::prepare_clusters.label(RenderLightSystems::PrepareClusters),
-            )
-            .add_system_to_stage(
-                RenderStage::Queue,
-                render::queue_shadows.label(RenderLightSystems::QueueShadows),
-            )
-            .add_system_to_stage(RenderStage::Queue, render::queue_shadow_view_bind_group)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Shadow>)
-            .init_resource::<ShadowPipeline>()
-            .init_resource::<DrawFunctions<Shadow>>()
-            .init_resource::<LightMeta>()
-            .init_resource::<GlobalLightMeta>()
-            .init_resource::<SpecializedMeshPipelines<ShadowPipeline>>();
+            render_app
+                .add_system_to_stage(
+                    RenderStage::Extract,
+                    render::extract_clusters.label(RenderLightSystems::ExtractClusters),
+                )
+                .add_system_to_stage(
+                    RenderStage::Extract,
+                    render::extract_lights.label(RenderLightSystems::ExtractLights),
+                )
+                .add_system_to_stage(
+                    RenderStage::Prepare,
+                    // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
+                    // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
+                    render::prepare_lights
+                        .exclusive_system()
+                        .label(RenderLightSystems::PrepareLights),
+                )
+                .add_system_to_stage(
+                    RenderStage::Prepare,
+                    // NOTE: This needs to run after prepare_lights. As prepare_lights is an exclusive system,
+                    // just adding it to the non-exclusive systems in the Prepare stage means it runs after
+                    // prepare_lights.
+                    render::prepare_clusters.label(RenderLightSystems::PrepareClusters),
+                )
+                .add_system_to_stage(
+                    RenderStage::Queue,
+                    render::queue_shadows.label(RenderLightSystems::QueueShadows),
+                )
+                .add_system_to_stage(RenderStage::Queue, render::queue_shadow_view_bind_group)
+                .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Shadow>)
+                .init_resource::<ShadowPipeline>()
+                .init_resource::<DrawFunctions<Shadow>>()
+                .init_resource::<LightMeta>()
+                .init_resource::<GlobalLightMeta>()
+                .init_resource::<SpecializedMeshPipelines<ShadowPipeline>>();
 
-        let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
-        render_app.add_render_command::<Shadow, DrawShadowMesh>();
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
-            .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
-        draw_3d_graph
-            .add_node_edge(
-                draw_3d_graph::node::SHADOW_PASS,
-                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
-                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::SHADOW_PASS,
-                ShadowPassNode::IN_VIEW,
-            )
-            .unwrap();
+            let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
+            render_app.add_render_command::<Shadow, DrawShadowMesh>();
+            let mut graph = render_app.world.resource_mut::<RenderGraph>();
+            let draw_3d_graph = graph
+                .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
+                .unwrap();
+            draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
+            draw_3d_graph
+                .add_node_edge(
+                    draw_3d_graph::node::SHADOW_PASS,
+                    bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+                )
+                .unwrap();
+            draw_3d_graph
+                .add_slot_edge(
+                    draw_3d_graph.input_node().unwrap().id,
+                    bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+                    draw_3d_graph::node::SHADOW_PASS,
+                    ShadowPassNode::IN_VIEW,
+                )
+                .unwrap();
+        });
     }
 }

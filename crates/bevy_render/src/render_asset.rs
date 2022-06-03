@@ -82,26 +82,29 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let prepare_asset_system = prepare_assets::<A>.label(self.prepare_asset_label.clone());
+        let label = self.prepare_asset_label.clone();
+        app.add_render_init(move |app| {
+            if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+                let prepare_asset_system = prepare_assets::<A>.label(label.clone());
 
-            let prepare_asset_system = match self.prepare_asset_label {
-                PrepareAssetLabel::PreAssetPrepare => prepare_asset_system,
-                PrepareAssetLabel::AssetPrepare => {
-                    prepare_asset_system.after(PrepareAssetLabel::PreAssetPrepare)
-                }
-                PrepareAssetLabel::PostAssetPrepare => {
-                    prepare_asset_system.after(PrepareAssetLabel::AssetPrepare)
-                }
-            };
+                let prepare_asset_system = match label {
+                    PrepareAssetLabel::PreAssetPrepare => prepare_asset_system,
+                    PrepareAssetLabel::AssetPrepare => {
+                        prepare_asset_system.after(PrepareAssetLabel::PreAssetPrepare)
+                    }
+                    PrepareAssetLabel::PostAssetPrepare => {
+                        prepare_asset_system.after(PrepareAssetLabel::AssetPrepare)
+                    }
+                };
 
-            render_app
-                .init_resource::<ExtractedAssets<A>>()
-                .init_resource::<RenderAssets<A>>()
-                .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>)
-                .add_system_to_stage(RenderStage::Prepare, prepare_asset_system);
-        }
+                render_app
+                    .init_resource::<ExtractedAssets<A>>()
+                    .init_resource::<RenderAssets<A>>()
+                    .init_resource::<PrepareNextFrameAssets<A>>()
+                    .add_system_to_stage(RenderStage::Extract, extract_render_asset::<A>)
+                    .add_system_to_stage(RenderStage::Prepare, prepare_asset_system);
+            }
+        });
     }
 }
 

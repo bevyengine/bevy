@@ -43,39 +43,41 @@ impl Plugin for Core3dPlugin {
         app.register_type::<Camera3d>()
             .add_plugin(ExtractComponentPlugin::<Camera3d>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
+        app.add_render_init(move |app| {
+            let render_app = match app.get_sub_app_mut(RenderApp) {
+                Ok(render_app) => render_app,
+                Err(_) => return,
+            };
 
-        render_app
-            .init_resource::<DrawFunctions<Opaque3d>>()
-            .init_resource::<DrawFunctions<AlphaMask3d>>()
-            .init_resource::<DrawFunctions<Transparent3d>>()
-            .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_phases)
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_depth_textures)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
+            render_app
+                .init_resource::<DrawFunctions<Opaque3d>>()
+                .init_resource::<DrawFunctions<AlphaMask3d>>()
+                .init_resource::<DrawFunctions<Transparent3d>>()
+                .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_phases)
+                .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_depth_textures)
+                .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
+                .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
+                .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
-        let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
+            let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
+            let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-        let mut draw_3d_graph = RenderGraph::default();
-        draw_3d_graph.add_node(graph::node::MAIN_PASS, pass_node_3d);
-        let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
-            graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
+            let mut draw_3d_graph = RenderGraph::default();
+            draw_3d_graph.add_node(graph::node::MAIN_PASS, pass_node_3d);
+            let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
                 graph::input::VIEW_ENTITY,
-                graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
-            )
-            .unwrap();
-        graph.add_sub_graph(graph::NAME, draw_3d_graph);
+                SlotType::Entity,
+            )]);
+            draw_3d_graph
+                .add_slot_edge(
+                    input_node_id,
+                    graph::input::VIEW_ENTITY,
+                    graph::node::MAIN_PASS,
+                    MainPass3dNode::IN_VIEW,
+                )
+                .unwrap();
+            graph.add_sub_graph(graph::NAME, draw_3d_graph);
+        });
     }
 }
 

@@ -283,6 +283,7 @@ impl Default for WinitPersistentState {
 struct WinitCreateWindowReader(ManualEventReader<CreateWindow>);
 
 pub fn winit_runner_with(mut app: App) {
+    app.render_init();
     let mut event_loop = app
         .world
         .remove_non_send_resource::<EventLoop<()>>()

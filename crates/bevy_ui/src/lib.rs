@@ -110,6 +110,8 @@ impl Plugin for UiPlugin {
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             );
 
-        crate::render::build_ui_render(app);
+        app.add_render_init(move |app| {
+            crate::render::build_ui_render(app);
+        });
     }
 }

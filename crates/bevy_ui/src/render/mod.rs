@@ -57,87 +57,89 @@ pub enum RenderUiSystem {
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    let render_app = match app.get_sub_app_mut(RenderApp) {
-        Ok(render_app) => render_app,
-        Err(_) => return,
-    };
+    app.add_render_init(move |app| {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
 
-    render_app
-        .init_resource::<UiPipeline>()
-        .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
-        .init_resource::<UiImageBindGroups>()
-        .init_resource::<UiMeta>()
-        .init_resource::<ExtractedUiNodes>()
-        .init_resource::<DrawFunctions<TransparentUi>>()
-        .add_render_command::<TransparentUi, DrawUi>()
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera2d>,
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera3d>,
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_uinodes.label(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_text_uinodes.after(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
-        .add_system_to_stage(RenderStage::Queue, queue_uinodes)
-        .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
+        render_app
+            .init_resource::<UiPipeline>()
+            .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
+            .init_resource::<UiImageBindGroups>()
+            .init_resource::<UiMeta>()
+            .init_resource::<ExtractedUiNodes>()
+            .init_resource::<DrawFunctions<TransparentUi>>()
+            .add_render_command::<TransparentUi, DrawUi>()
+            .add_system_to_stage(
+                RenderStage::Extract,
+                extract_default_ui_camera_view::<Camera2d>,
+            )
+            .add_system_to_stage(
+                RenderStage::Extract,
+                extract_default_ui_camera_view::<Camera3d>,
+            )
+            .add_system_to_stage(
+                RenderStage::Extract,
+                extract_uinodes.label(RenderUiSystem::ExtractNode),
+            )
+            .add_system_to_stage(
+                RenderStage::Extract,
+                extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+            )
+            .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
+            .add_system_to_stage(RenderStage::Queue, queue_uinodes)
+            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
 
-    // Render graph
-    let ui_graph_2d = get_ui_graph(render_app);
-    let ui_graph_3d = get_ui_graph(render_app);
-    let mut graph = render_app.world.resource_mut::<RenderGraph>();
+        // Render graph
+        let ui_graph_2d = get_ui_graph(render_app);
+        let ui_graph_3d = get_ui_graph(render_app);
+        let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-    if let Some(graph_2d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_2d::graph::NAME) {
-        graph_2d.add_sub_graph(draw_ui_graph::NAME, ui_graph_2d);
-        graph_2d.add_node(
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::new(draw_ui_graph::NAME),
-        );
-        graph_2d
-            .add_node_edge(
-                bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
+        if let Some(graph_2d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_2d::graph::NAME) {
+            graph_2d.add_sub_graph(draw_ui_graph::NAME, ui_graph_2d);
+            graph_2d.add_node(
                 draw_ui_graph::node::UI_PASS,
-            )
-            .unwrap();
-        graph_2d
-            .add_slot_edge(
-                graph_2d.input_node().unwrap().id,
-                bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
-                draw_ui_graph::node::UI_PASS,
-                RunGraphOnViewNode::IN_VIEW,
-            )
-            .unwrap();
-    }
+                RunGraphOnViewNode::new(draw_ui_graph::NAME),
+            );
+            graph_2d
+                .add_node_edge(
+                    bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
+                    draw_ui_graph::node::UI_PASS,
+                )
+                .unwrap();
+            graph_2d
+                .add_slot_edge(
+                    graph_2d.input_node().unwrap().id,
+                    bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
+                    draw_ui_graph::node::UI_PASS,
+                    RunGraphOnViewNode::IN_VIEW,
+                )
+                .unwrap();
+        }
 
-    if let Some(graph_3d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME) {
-        graph_3d.add_sub_graph(draw_ui_graph::NAME, ui_graph_3d);
-        graph_3d.add_node(
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::new(draw_ui_graph::NAME),
-        );
-        graph_3d
-            .add_node_edge(
-                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+        if let Some(graph_3d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME) {
+            graph_3d.add_sub_graph(draw_ui_graph::NAME, ui_graph_3d);
+            graph_3d.add_node(
                 draw_ui_graph::node::UI_PASS,
-            )
-            .unwrap();
-        graph_3d
-            .add_slot_edge(
-                graph_3d.input_node().unwrap().id,
-                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-                draw_ui_graph::node::UI_PASS,
-                RunGraphOnViewNode::IN_VIEW,
-            )
-            .unwrap();
-    }
+                RunGraphOnViewNode::new(draw_ui_graph::NAME),
+            );
+            graph_3d
+                .add_node_edge(
+                    bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+                    draw_ui_graph::node::UI_PASS,
+                )
+                .unwrap();
+            graph_3d
+                .add_slot_edge(
+                    graph_3d.input_node().unwrap().id,
+                    bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+                    draw_ui_graph::node::UI_PASS,
+                    RunGraphOnViewNode::IN_VIEW,
+                )
+                .unwrap();
+        }
+    });
 }
 
 fn get_ui_graph(render_app: &mut App) -> RenderGraph {

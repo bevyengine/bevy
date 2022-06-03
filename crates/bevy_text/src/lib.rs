@@ -52,11 +52,13 @@ impl Plugin for TextPlugin {
                 update_text2d_layout.after(ModifiesWindows),
             );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(
-                RenderStage::Extract,
-                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
-            );
-        }
+        app.add_render_init(move |app| {
+            if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app.add_system_to_stage(
+                    RenderStage::Extract,
+                    extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+                );
+            }
+        });
     }
 }

@@ -74,16 +74,18 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<MeshPipeline>()
-                .init_resource::<SkinnedMeshUniform>()
-                .add_system_to_stage(RenderStage::Extract, extract_meshes)
-                .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
-                .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
-        }
+        app.add_render_init(move |app| {
+            if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app
+                    .init_resource::<MeshPipeline>()
+                    .init_resource::<SkinnedMeshUniform>()
+                    .add_system_to_stage(RenderStage::Extract, extract_meshes)
+                    .add_system_to_stage(RenderStage::Extract, extract_skinned_meshes)
+                    .add_system_to_stage(RenderStage::Prepare, prepare_skinned_meshes)
+                    .add_system_to_stage(RenderStage::Queue, queue_mesh_bind_group)
+                    .add_system_to_stage(RenderStage::Queue, queue_mesh_view_bind_groups);
+            }
+        });
     }
 }
 

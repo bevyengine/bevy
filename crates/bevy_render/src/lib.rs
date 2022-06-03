@@ -114,19 +114,26 @@ struct ScratchRenderWorld(World);
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let options = app
-            .world
-            .get_resource::<settings::WgpuSettings>()
-            .cloned()
-            .unwrap_or_default();
-
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>()
             .register_type::<Color>();
 
-        if let Some(backends) = options.backends {
+        // This renderer_init callback only happens once the top-level runner (e.g. bevy_winit)
+        // has determined that the system is ready for render state to be initialized
+        app.add_render_init(move |app| {
+            let options = app
+                .world
+                .get_resource::<settings::WgpuSettings>()
+                .cloned()
+                .unwrap_or_default();
+
+            let backends = match options.backends {
+                Some(backends) => backends,
+                None => return,
+            };
+
             let instance = wgpu::Instance::new(backends);
             let surface = {
                 let windows = app.world.resource_mut::<bevy_window::Windows>();
@@ -286,14 +293,14 @@ impl Plugin for RenderPlugin {
                     render_app.world.clear_entities();
                 }
             });
-        }
+        });
 
+        // Only add these plugins after adding the above render_init function, to ensure
+        // any render initialization required for these plugins will find the sub RenderApp
         app.add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            // NOTE: Load this after renderer initialization so that it knows about the supported
-            // compressed texture formats
             .add_plugin(ImagePlugin);
     }
 }
