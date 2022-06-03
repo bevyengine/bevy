@@ -35,12 +35,12 @@ impl Gamepads {
     }
 
     /// Registers [Gamepad].
-    fn register(&mut self, gamepad: Gamepad) {
+    pub fn register(&mut self, gamepad: Gamepad) {
         self.gamepads.insert(gamepad);
     }
 
     /// Deregisters [Gamepad.
-    fn deregister(&mut self, gamepad: &Gamepad) {
+    pub fn deregister(&mut self, gamepad: &Gamepad) {
         self.gamepads.remove(gamepad);
     }
 }
