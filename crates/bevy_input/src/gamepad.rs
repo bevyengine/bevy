@@ -26,8 +26,8 @@ pub struct Gamepads {
 
 impl Gamepads {
     /// Returns true if the [`Gamepads`] contains the provided [`Gamepad`].
-    pub fn contains(&self, gamepad: &Gamepad) -> bool {
-        self.gamepads.contains(gamepad)
+    pub fn contains(&self, gamepad: Gamepad) -> bool {
+        self.gamepads.contains(&gamepad)
     }
 
     /// Iterates over registered [`Gamepad`]s
@@ -40,9 +40,9 @@ impl Gamepads {
         self.gamepads.insert(gamepad);
     }
 
-    /// Deregisters [`Gamepad`].
-    pub fn deregister(&mut self, gamepad: &Gamepad) {
-        self.gamepads.remove(gamepad);
+    /// Deregisters the provided [`Gamepad`].
+    pub fn deregister(&mut self, gamepad: Gamepad) {
+        self.gamepads.remove(&gamepad);
     }
 }
 
@@ -311,7 +311,7 @@ pub fn gamepad_connection_system(
                 info!("{:?} Connected", event.gamepad);
             }
             GamepadEventType::Disconnected => {
-                gamepads.deregister(&event.gamepad);
+                gamepads.deregister(event.gamepad);
                 info!("{:?} Disconnected", event.gamepad);
             }
             _ => (),
