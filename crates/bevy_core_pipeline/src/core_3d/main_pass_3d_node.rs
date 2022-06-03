@@ -87,6 +87,7 @@ impl Node for MainPass3dNode {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
+                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
                         load: camera_3d.depth_load_op.clone().into(),
                         store: true,
                     }),
