@@ -233,7 +233,7 @@ fn assert_component_access_compatibility(
 ///         &World
 ///     )>
 /// ) {
-///     //To access the param set's elements do as follows:
+ ///     // To access the ParamSet's elements according to the order they're defined, use the methods p0, p1, ...
 ///     for mut health in set.p0().iter_mut() {
 ///         //Do your fancy stuff here...
 ///     }
