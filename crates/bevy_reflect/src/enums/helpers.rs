@@ -15,16 +15,6 @@ pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
     Some(hasher.finish())
 }
 
-// TODO: Add serializable. How do we handle enums?
-// pub fn enum_serialize<TEnum, S>(value: &TEnum, serializer: S) -> Result<S::Ok, S::Error>
-// where
-//     TEnum: Enum + ?Sized,
-//     S: serde::Serializer,
-// {
-//
-//
-// }
-
 /// Compares an [`Enum`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
