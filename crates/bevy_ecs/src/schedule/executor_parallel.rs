@@ -175,8 +175,9 @@ impl ParallelExecutor {
         for (index, (system_data, system)) in
             self.system_metadata.iter_mut().zip(systems).enumerate()
         {
+            let should_run = system.should_run();
             // Spawn the system task.
-            if system.should_run() {
+            if should_run {
                 self.should_run.set(index, true);
                 let start_receiver = system_data.start_receiver.clone();
                 let finish_sender = self.finish_sender.clone();
@@ -212,7 +213,24 @@ impl ParallelExecutor {
             }
             // Queue the system if it has no dependencies, otherwise reset its dependency counter.
             if system_data.dependencies_total == 0 {
-                self.queued.insert(index);
+                // Non-send systems are considered conflicting with each other.
+                if should_run
+                    && system_data.is_send
+                    && system_data
+                        .archetype_component_access
+                        .is_compatible(&self.active_archetype_component_access)
+                {
+                    system_data
+                        .start_sender
+                        .try_send(())
+                        .unwrap_or_else(|error| unreachable!("{}", error));
+                    self.running.set(index, true);
+                    // Add this system's access information to the active access information.
+                    self.active_archetype_component_access
+                        .extend(&system_data.archetype_component_access);
+                } else {
+                    self.queued.insert(index);
+                }
             } else {
                 system_data.dependencies_now = system_data.dependencies_total;
             }
