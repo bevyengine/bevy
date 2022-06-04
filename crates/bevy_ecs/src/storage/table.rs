@@ -1,7 +1,7 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
-    storage::{BlobVec, SparseSet},
+    storage::{BlobVec, ImmutableSparseSet, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::HashMap;
@@ -186,36 +186,43 @@ impl Column {
     }
 }
 
-pub struct Table {
+pub struct TableBuilder {
     columns: SparseSet<ComponentId, Column>,
-    entities: Vec<Entity>,
+    capacity: usize,
 }
 
-impl Table {
-    pub const fn new() -> Table {
-        Self {
-            columns: SparseSet::new(),
-            entities: Vec::new(),
-        }
-    }
-
-    pub fn with_capacity(capacity: usize, column_capacity: usize) -> Table {
+impl TableBuilder {
+    pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
-            entities: Vec::with_capacity(capacity),
+            capacity,
         }
-    }
-
-    #[inline]
-    pub fn entities(&self) -> &[Entity] {
-        &self.entities
     }
 
     pub fn add_column(&mut self, component_info: &ComponentInfo) {
         self.columns.insert(
             component_info.id(),
-            Column::with_capacity(component_info, self.entities.capacity()),
+            Column::with_capacity(component_info, self.capacity),
         );
+    }
+
+    pub fn build(self) -> Table {
+        Table {
+            columns: self.columns.to_immutable(),
+            entities: Vec::with_capacity(self.capacity),
+        }
+    }
+}
+
+pub struct Table {
+    columns: ImmutableSparseSet<ComponentId, Column>,
+    entities: Vec<Entity>,
+}
+
+impl Table {
+    #[inline]
+    pub fn entities(&self) -> &[Entity] {
+        &self.entities
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
@@ -414,7 +421,7 @@ pub struct Tables {
 
 impl Default for Tables {
     fn default() -> Self {
-        let empty_table = Table::with_capacity(0, 0);
+        let empty_table = TableBuilder::with_capacity(0, 0).build();
         Tables {
             tables: vec![empty_table],
             table_ids: HashMap::default(),
@@ -472,11 +479,11 @@ impl Tables {
             .raw_entry_mut()
             .from_key(component_ids)
             .or_insert_with(|| {
-                let mut table = Table::with_capacity(0, component_ids.len());
+                let mut table = TableBuilder::with_capacity(0, component_ids.len());
                 for component_id in component_ids.iter() {
                     table.add_column(components.get_info_unchecked(*component_id));
                 }
-                tables.push(table);
+                tables.push(table.build());
                 (component_ids.to_vec(), TableId(tables.len() - 1))
             });
 
