@@ -215,7 +215,9 @@ fn assert_component_access_compatibility(
 ///
 /// Access to each individual [`SystemParam`] by using the funcions ```p0()```, ```p1()```, ..., ```p7()```. This ensures that
 /// there's either only one mutable reference to a parameter at a time or an infinite* number of inmutable references.
+///
 /// # Example
+///
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
