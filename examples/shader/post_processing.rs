@@ -1,4 +1,4 @@
-//! A custom post processing effect, using two render passes and a custom shader.
+//! A custom post processing effect, using two camera, with one reusing the rendertexture of the first one.
 //! Here a chromatic aberration is applied to a 3d scene containting a rotating cube.
 //! This example is useful to implement your own post-processing effect such as
 //! edge detection, blur, pixelization, vignette... and countless others.
@@ -11,39 +11,31 @@ use bevy::{
     render::{
         camera::{Camera, RenderTarget},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-        render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
         render_resource::{
             BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
             BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
             Extent3d, SamplerBindingType, ShaderStages, TextureDescriptor, TextureDimension,
             TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
         },
-        renderer::{RenderContext, RenderDevice},
+        renderer::RenderDevice,
         view::RenderLayers,
-        RenderApp,
     },
     sprite::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle},
 };
-
-#[derive(Component, Default)]
-pub struct PostProcessingPassCamera;
-
-/// The name of the final node of the post process pass.
-pub const POST_PROCESS_PASS_DRIVER: &str = "post_process_pass_driver";
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
         .add_startup_system(setup)
-        .add_system(main_pass_cube_rotator_system);
+        .add_system(main_camera_cube_rotator_system);
 
     app.run();
 }
 
-/// Marks the Main pass cube (rendered to a texture.)
+/// Marks the first camera cube (rendered to a texture.)
 #[derive(Component)]
-struct MainPassCube;
+struct MainCube;
 
 fn setup(
     mut commands: Commands,
@@ -97,16 +89,16 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
             ..default()
         })
-        .insert(MainPassCube);
+        .insert(MainCube);
 
     // Light
-    // NOTE: Currently lights are shared between passes - see https://github.com/bevyengine/bevy/issues/3462
+    // NOTE: Currently lights are ignoring render layers - see https://github.com/bevyengine/bevy/issues/3462
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..default()
     });
 
-    // Main pass camera
+    // Main camera, first to render
     commands.spawn_bundle(Camera3dBundle {
         camera_3d: Camera3d {
             clear_color: ClearColorConfig::Custom(Color::WHITE),
@@ -120,7 +112,7 @@ fn setup(
         ..default()
     });
 
-    // This specifies the layer used for the post processing pass, which will be attached to the post processing pass camera and 2d quad.
+    // This specifies the layer used for the post processing camera, which will be attached to the post processing camera and 2d quad.
     let post_processing_pass_layer = RenderLayers::layer((RenderLayers::TOTAL_LAYERS - 1) as u8);
 
     let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
@@ -133,7 +125,7 @@ fn setup(
         source_image: image_handle,
     });
 
-    // Post processing pass 2d quad, with material containing the rendered main pass texture, with a custom shader.
+    // Post processing 2d quad, with material using the render texture done by the main camera, with a custom shader.
     commands
         .spawn_bundle(MaterialMesh2dBundle {
             mesh: quad_handle.into(),
@@ -150,20 +142,19 @@ fn setup(
     commands
         .spawn_bundle(Camera2dBundle {
             camera: Camera {
-                // render after the "main pass" camera
+                // renders after the first main camera which has default value: 0.
                 priority: 1,
                 ..default()
             },
             ..Camera2dBundle::default()
         })
-        .insert(PostProcessingPassCamera)
         .insert(post_processing_pass_layer);
 }
 
-/// Rotates the inner cube (main pass)
-fn main_pass_cube_rotator_system(
+/// Rotates the cube rendered by the main camera
+fn main_camera_cube_rotator_system(
     time: Res<Time>,
-    mut query: Query<&mut Transform, With<MainPassCube>>,
+    mut query: Query<&mut Transform, With<MainCube>>,
 ) {
     for mut transform in query.iter_mut() {
         transform.rotation *= Quat::from_rotation_x(1.5 * time.delta_seconds());
@@ -177,7 +168,7 @@ fn main_pass_cube_rotator_system(
 #[derive(TypeUuid, Clone)]
 #[uuid = "bc2f08eb-a0fb-43f1-a908-54871ea597d5"]
 struct PostProcessingMaterial {
-    /// In this example, this image will be the result of the main pass.
+    /// In this example, this image will be the result of the main camera.
     source_image: Handle<Image>,
 }
 
