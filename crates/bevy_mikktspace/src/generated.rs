@@ -47,12 +47,14 @@
 
 use std::ptr::null_mut;
 
+use bitflags::bitflags;
 use glam::Vec3;
 
 use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometry};
 
 #[derive(Copy, Clone)]
 pub struct STSpace {
+    // Normalised f
     pub vOs: Vec3,
     pub fMagS: f32,
     pub vOt: Vec3,
@@ -99,6 +101,15 @@ impl STSpace {
 // However, this must be used both by the sampler and your tools/rendering pipeline.
 // internal structure
 
+bitflags! {
+    pub struct TriangleFlags: u8 {
+        const DEGENERATE = 0b0000_0001;
+        const QUAD_ONE_DEGENERATE_TRI = 0b0000_0010;
+        const GROUP_WITH_ANY = 0b0000_0100;
+        const ORIENT_PRESERVING = 0b0000_1000;
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct STriInfo {
     pub FaceNeighbors: [i32; 3],
@@ -108,7 +119,7 @@ pub struct STriInfo {
     pub fMagS: f32,
     pub fMagT: f32,
     pub iOrgFaceNumber: i32,
-    pub iFlag: i32,
+    pub iFlag: TriangleFlags,
     pub iTSpacesOffs: i32,
     pub vert_num: [u8; 4],
 }
@@ -123,7 +134,7 @@ impl STriInfo {
             fMagS: 0.0,
             fMagT: 0.0,
             iOrgFaceNumber: 0,
-            iFlag: 0,
+            iFlag: TriangleFlags::empty(),
             iTSpacesOffs: 0,
             vert_num: [0, 0, 0, 0],
         }
@@ -240,7 +251,7 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         let p1 = get_position(geometry, i1 as usize);
         let p2 = get_position(geometry, i2 as usize);
         if p0 == p1 || p0 == p2 || p1 == p2 {
-            pTriInfos[t].iFlag |= 1i32;
+            pTriInfos[t].iFlag.insert(TriangleFlags::DEGENERATE);
             iDegenTriangles += 1
         }
     }
@@ -337,11 +348,9 @@ unsafe fn DegenEpilogue<I: Geometry>(
     let mut i: i32 = 0i32;
     t = iNrTrianglesIn;
     while t < iTotTris {
-        let bSkip: bool = if (*pTriInfos.offset(t as isize)).iFlag & 2i32 != 0i32 {
-            true
-        } else {
-            false
-        };
+        let bSkip: bool = (*pTriInfos.offset(t as isize))
+            .iFlag
+            .contains(TriangleFlags::QUAD_ONE_DEGENERATE_TRI);
         if !bSkip {
             i = 0i32;
             while i < 3i32 {
@@ -374,7 +383,10 @@ unsafe fn DegenEpilogue<I: Geometry>(
     }
     t = 0i32;
     while t < iNrTrianglesIn {
-        if (*pTriInfos.offset(t as isize)).iFlag & 2i32 != 0i32 {
+        if (*pTriInfos.offset(t as isize))
+            .iFlag
+            .contains(TriangleFlags::QUAD_ONE_DEGENERATE_TRI)
+        {
             let mut vDstP = Vec3::new(0.0, 0.0, 0.0);
             let mut iOrgF: i32 = -1i32;
             let mut i_0: i32 = 0i32;
@@ -506,15 +518,9 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                 if VNotZero(vOt2) {
                     vOt2 = Normalize(vOt2)
                 }
-                let bAny: bool = if ((*pTriInfos.offset(f as isize)).iFlag
+                let bAny: bool = ((*pTriInfos.offset(f as isize)).iFlag
                     | (*pTriInfos.offset(t as isize)).iFlag)
-                    & 4i32
-                    != 0i32
-                {
-                    true
-                } else {
-                    false
-                };
+                    .contains(TriangleFlags::GROUP_WITH_ANY);
                 let bSameOrgFace: bool = iOF_1 == iOF_2;
                 let fCosS: f32 = vOs.dot(vOs2);
                 let fCosT: f32 = vOt.dot(vOt2);
@@ -646,7 +652,10 @@ unsafe fn EvalTspace<I: Geometry>(
     face = 0i32;
     while face < iFaces {
         let f: i32 = *face_indices.offset(face as isize);
-        if (*pTriInfos.offset(f as isize)).iFlag & 4i32 == 0i32 {
+        if !(*pTriInfos.offset(f as isize))
+            .iFlag
+            .contains(TriangleFlags::GROUP_WITH_ANY)
+        {
             let mut n = Vec3::new(0.0, 0.0, 0.0);
             let mut vOs = Vec3::new(0.0, 0.0, 0.0);
             let mut vOt = Vec3::new(0.0, 0.0, 0.0);
@@ -810,7 +819,9 @@ unsafe fn Build4RuleGroups(
     while f < iNrTrianglesIn {
         i = 0i32;
         while i < 3i32 {
-            if (*pTriInfos.offset(f as isize)).iFlag & 4i32 == 0i32
+            if !(*pTriInfos.offset(f as isize))
+                .iFlag
+                .contains(TriangleFlags::GROUP_WITH_ANY)
                 && (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize].is_null()
             {
                 let mut bOrPre: bool = false;
@@ -822,18 +833,18 @@ unsafe fn Build4RuleGroups(
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize])
                     .iVertexRepresentitive = vert_index;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).bOrientPreservering =
-                    (*pTriInfos.offset(f as isize)).iFlag & 8i32 != 0i32;
+                    (*pTriInfos.offset(f as isize))
+                        .iFlag
+                        .contains(TriangleFlags::ORIENT_PRESERVING);
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces = 0i32;
                 let ref mut fresh3 =
                     (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).pFaceIndices;
                 *fresh3 = &mut *piGroupTrianglesBuffer.offset(iOffset as isize) as *mut i32;
                 iNrActiveGroups += 1;
                 AddTriToGroup((*pTriInfos.offset(f as isize)).AssignedGroup[i as usize], f);
-                bOrPre = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 != 0i32 {
-                    true
-                } else {
-                    false
-                };
+                bOrPre = (*pTriInfos.offset(f as isize))
+                    .iFlag
+                    .contains(TriangleFlags::ORIENT_PRESERVING);
                 neigh_indexL = (*pTriInfos.offset(f as isize)).FaceNeighbors[i as usize];
                 neigh_indexR = (*pTriInfos.offset(f as isize)).FaceNeighbors
                     [(if i > 0i32 { i - 1i32 } else { 2i32 }) as usize];
@@ -844,12 +855,9 @@ unsafe fn Build4RuleGroups(
                         neigh_indexL,
                         (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize],
                     );
-                    let bOrPre2: bool =
-                        if (*pTriInfos.offset(neigh_indexL as isize)).iFlag & 8i32 != 0i32 {
-                            true
-                        } else {
-                            false
-                        };
+                    let bOrPre2: bool = (*pTriInfos.offset(neigh_indexL as isize))
+                        .iFlag
+                        .contains(TriangleFlags::ORIENT_PRESERVING);
                     let bDiff: bool = if bOrPre != bOrPre2 { true } else { false };
                 }
                 if neigh_indexR >= 0i32 {
@@ -859,12 +867,9 @@ unsafe fn Build4RuleGroups(
                         neigh_indexR,
                         (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize],
                     );
-                    let bOrPre2_0: bool =
-                        if (*pTriInfos.offset(neigh_indexR as isize)).iFlag & 8i32 != 0i32 {
-                            true
-                        } else {
-                            false
-                        };
+                    let bOrPre2_0: bool = (*pTriInfos.offset(neigh_indexR as isize))
+                        .iFlag
+                        .contains(TriangleFlags::ORIENT_PRESERVING);
                     let bDiff_0: bool = if bOrPre != bOrPre2_0 { true } else { false };
                 }
                 iOffset += (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces
@@ -904,24 +909,20 @@ unsafe fn AssignRecur(
             return false;
         }
     }
-    if (*pMyTriInfo).iFlag & 4i32 != 0i32 {
+    if (*pMyTriInfo).iFlag.contains(TriangleFlags::GROUP_WITH_ANY) {
         if (*pMyTriInfo).AssignedGroup[0usize].is_null()
             && (*pMyTriInfo).AssignedGroup[1usize].is_null()
             && (*pMyTriInfo).AssignedGroup[2usize].is_null()
         {
-            (*pMyTriInfo).iFlag &= !8i32;
-            (*pMyTriInfo).iFlag |= if (*pGroup).bOrientPreservering {
-                8i32
-            } else {
-                0i32
-            }
+            (*pMyTriInfo).iFlag.set(
+                TriangleFlags::ORIENT_PRESERVING,
+                (*pGroup).bOrientPreservering,
+            );
         }
     }
-    let bOrient: bool = if (*pMyTriInfo).iFlag & 8i32 != 0i32 {
-        true
-    } else {
-        false
-    };
+    let bOrient: bool = (*pMyTriInfo)
+        .iFlag
+        .contains(TriangleFlags::ORIENT_PRESERVING);
     if bOrient != (*pGroup).bOrientPreservering {
         return false;
     }
@@ -966,7 +967,9 @@ unsafe fn InitTriInfo<I: Geometry>(
             (*pTriInfos.offset(f as isize)).vOt.z = 0.0f32;
             (*pTriInfos.offset(f as isize)).fMagS = 0i32 as f32;
             (*pTriInfos.offset(f as isize)).fMagT = 0i32 as f32;
-            (*pTriInfos.offset(f as isize)).iFlag |= 4i32;
+            (*pTriInfos.offset(f as isize))
+                .iFlag
+                .insert(TriangleFlags::GROUP_WITH_ANY);
             i += 1
         }
         f += 1
@@ -988,16 +991,19 @@ unsafe fn InitTriInfo<I: Geometry>(
         let fSignedAreaSTx2: f32 = t21x * t31y - t21y * t31x;
         let mut vOs = (t31y * d1) - (t21y * d2);
         let mut vOt = (-t31x * d1) + (t21x * d2);
-        (*pTriInfos.offset(f as isize)).iFlag |= if fSignedAreaSTx2 > 0i32 as f32 {
-            8i32
-        } else {
-            0i32
-        };
+        if fSignedAreaSTx2 > 0.0 {
+            (*pTriInfos.offset(f as isize))
+                .iFlag
+                .insert(TriangleFlags::ORIENT_PRESERVING);
+        }
         if NotZero(fSignedAreaSTx2) {
             let fAbsArea: f32 = fSignedAreaSTx2.abs();
             let fLenOs: f32 = vOs.length();
             let fLenOt: f32 = vOt.length();
-            let fS: f32 = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 == 0i32 {
+            let fS: f32 = if (*pTriInfos.offset(f as isize))
+                .iFlag
+                .contains(TriangleFlags::ORIENT_PRESERVING)
+            {
                 -1.0f32
             } else {
                 1.0f32
@@ -1013,7 +1019,9 @@ unsafe fn InitTriInfo<I: Geometry>(
             if NotZero((*pTriInfos.offset(f as isize)).fMagS)
                 && NotZero((*pTriInfos.offset(f as isize)).fMagT)
             {
-                (*pTriInfos.offset(f as isize)).iFlag &= !4i32
+                (*pTriInfos.offset(f as isize))
+                    .iFlag
+                    .remove(TriangleFlags::GROUP_WITH_ANY);
             }
         }
         f += 1
@@ -1022,30 +1030,25 @@ unsafe fn InitTriInfo<I: Geometry>(
         let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
         let iFO_b: i32 = (*pTriInfos.offset((t + 1) as isize)).iOrgFaceNumber;
         if iFO_a == iFO_b {
-            let bIsDeg_a: bool = if (*pTriInfos.offset(t as isize)).iFlag & 1i32 != 0i32 {
-                true
-            } else {
-                false
-            };
-            let bIsDeg_b: bool = if (*pTriInfos.offset((t + 1) as isize)).iFlag & 1i32 != 0i32 {
-                true
-            } else {
-                false
-            };
+            let bIsDeg_a: bool = (*pTriInfos.offset(t as isize))
+                .iFlag
+                .contains(TriangleFlags::DEGENERATE);
+            let bIsDeg_b: bool = (*pTriInfos.offset((t + 1) as isize))
+                .iFlag
+                .contains(TriangleFlags::DEGENERATE);
             if !(bIsDeg_a || bIsDeg_b) {
-                let bOrientA: bool = if (*pTriInfos.offset(t as isize)).iFlag & 8i32 != 0i32 {
-                    true
-                } else {
-                    false
-                };
-                let bOrientB: bool = if (*pTriInfos.offset((t + 1) as isize)).iFlag & 8i32 != 0i32 {
-                    true
-                } else {
-                    false
-                };
+                let bOrientA: bool = (*pTriInfos.offset(t as isize))
+                    .iFlag
+                    .contains(TriangleFlags::ORIENT_PRESERVING);
+                let bOrientB: bool = (*pTriInfos.offset((t + 1) as isize))
+                    .iFlag
+                    .contains(TriangleFlags::ORIENT_PRESERVING);
                 if bOrientA != bOrientB {
                     let mut bChooseOrientFirstTri: bool = false;
-                    if (*pTriInfos.offset((t + 1) as isize)).iFlag & 4i32 != 0i32 {
+                    if (*pTriInfos.offset((t + 1) as isize))
+                        .iFlag
+                        .contains(TriangleFlags::GROUP_WITH_ANY)
+                    {
                         bChooseOrientFirstTri = true
                     } else if CalcTexArea(geometry, &*piTriListIn.offset((t * 3 + 0) as isize))
                         >= CalcTexArea(geometry, &*piTriListIn.offset(((t + 1) * 3 + 0) as isize))
@@ -1054,9 +1057,12 @@ unsafe fn InitTriInfo<I: Geometry>(
                     }
                     let t0 = if bChooseOrientFirstTri { t } else { t + 1 };
                     let t1_0 = if bChooseOrientFirstTri { t + 1 } else { t };
-                    (*pTriInfos.offset(t1_0 as isize)).iFlag &= !8i32;
-                    (*pTriInfos.offset(t1_0 as isize)).iFlag |=
-                        (*pTriInfos.offset(t0 as isize)).iFlag & 8i32
+                    (*pTriInfos.offset(t1_0 as isize)).iFlag.set(
+                        TriangleFlags::ORIENT_PRESERVING,
+                        (*pTriInfos.offset(t0 as isize))
+                            .iFlag
+                            .contains(TriangleFlags::ORIENT_PRESERVING),
+                    );
                 }
             }
             t += 2
@@ -1326,19 +1332,21 @@ unsafe fn DegenPrologue(
         let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
         let iFO_b: i32 = (*pTriInfos.offset((t + 1i32) as isize)).iOrgFaceNumber;
         if iFO_a == iFO_b {
-            let bIsDeg_a: bool = if (*pTriInfos.offset(t as isize)).iFlag & 1i32 != 0i32 {
-                true
-            } else {
-                false
-            };
-            let bIsDeg_b: bool = if (*pTriInfos.offset((t + 1i32) as isize)).iFlag & 1i32 != 0i32 {
-                true
-            } else {
-                false
-            };
-            if bIsDeg_a ^ bIsDeg_b != false {
-                (*pTriInfos.offset(t as isize)).iFlag |= 2i32;
-                (*pTriInfos.offset((t + 1i32) as isize)).iFlag |= 2i32
+            let bIsDeg_a: bool = (*pTriInfos.offset(t as isize))
+                .iFlag
+                .contains(TriangleFlags::DEGENERATE);
+            let bIsDeg_b: bool = (*pTriInfos.offset((t + 1i32) as isize))
+                .iFlag
+                .contains(TriangleFlags::DEGENERATE);
+            // If exactly one is degenerate, mark both as QUAD_ONE_DEGENERATE_TRI, i.e. that the other triangle
+            // (If both are degenerate, this)
+            if bIsDeg_a ^ bIsDeg_b {
+                (*pTriInfos.offset(t as isize))
+                    .iFlag
+                    .insert(TriangleFlags::QUAD_ONE_DEGENERATE_TRI);
+                (*pTriInfos.offset((t + 1i32) as isize))
+                    .iFlag
+                    .insert(TriangleFlags::QUAD_ONE_DEGENERATE_TRI);
             }
             t += 2i32
         } else {
@@ -1349,11 +1357,9 @@ unsafe fn DegenPrologue(
     t = 0i32;
     bStillFindingGoodOnes = true;
     while t < iNrTrianglesIn && bStillFindingGoodOnes {
-        let bIsGood: bool = if (*pTriInfos.offset(t as isize)).iFlag & 1i32 == 0i32 {
-            true
-        } else {
-            false
-        };
+        let bIsGood: bool = !(*pTriInfos.offset(t as isize))
+            .iFlag
+            .contains(TriangleFlags::DEGENERATE);
         if bIsGood {
             if iNextGoodTriangleSearchIndex < t + 2i32 {
                 iNextGoodTriangleSearchIndex = t + 2i32
@@ -1363,14 +1369,9 @@ unsafe fn DegenPrologue(
             let mut t1: i32 = 0;
             let mut bJustADegenerate: bool = true;
             while bJustADegenerate && iNextGoodTriangleSearchIndex < iTotTris {
-                let bIsGood_0: bool =
-                    if (*pTriInfos.offset(iNextGoodTriangleSearchIndex as isize)).iFlag & 1i32
-                        == 0i32
-                    {
-                        true
-                    } else {
-                        false
-                    };
+                let bIsGood_0: bool = !(*pTriInfos.offset(iNextGoodTriangleSearchIndex as isize))
+                    .iFlag
+                    .contains(TriangleFlags::DEGENERATE);
                 if bIsGood_0 {
                     bJustADegenerate = false
                 } else {
@@ -1789,7 +1790,7 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
     }
     t = 0;
     while t < iNrTrianglesIn {
-        pTriInfos[t].iFlag = 0;
+        pTriInfos[t].iFlag = TriangleFlags::empty();
         t += 1
     }
     return iTSpacesOffs;
