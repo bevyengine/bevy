@@ -28,7 +28,8 @@ use wgpu::Extent3d;
 /// Render viewport configuration for the [`Camera`] component.
 ///
 /// The viewport defines the area on the render target to which the camera renders its image.
-/// You can overlay multiple cameras in a single window using viewports to create effects like like split screen, minimaps, portals and character viewers.
+/// You can overlay multiple cameras in a single window using viewports to create effects like
+/// split screen, minimaps, and character viewers.
 // TODO: remove reflect_value when possible
 #[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
 #[reflect_value(Default, Serialize, Deserialize)]

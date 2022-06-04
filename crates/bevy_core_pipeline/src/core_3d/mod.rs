@@ -53,7 +53,7 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
             .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_phases)
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_cameras_system)
+            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_depth_textures)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
@@ -199,7 +199,7 @@ pub fn extract_core_3d_camera_phases(
     }
 }
 
-pub fn prepare_core_3d_cameras_system(
+pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
