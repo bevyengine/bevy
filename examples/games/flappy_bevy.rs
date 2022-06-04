@@ -250,13 +250,12 @@ fn bird_reproduction(
         bird_count += 1;
     }
     for (t, v) in q.iter() {
-        if bird_count < MAX_BIRDS  &&
-             randf() < BIRD_REPRODUCTION_CHANCE * time.delta().as_secs_f32() {
-                spawn_bird_events.send(SpawnBird {
-                    new_bird_pos: t.translation.truncate(),
-                    new_bird_velocity: v.velocity,
-                });
-
+        if bird_count < MAX_BIRDS && randf() < BIRD_REPRODUCTION_CHANCE * time.delta().as_secs_f32()
+        {
+            spawn_bird_events.send(SpawnBird {
+                new_bird_pos: t.translation.truncate(),
+                new_bird_velocity: v.velocity,
+            });
         }
     }
 }
