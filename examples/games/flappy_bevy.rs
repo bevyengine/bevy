@@ -54,7 +54,7 @@ pub fn main() {
     .add_event::<GenerateChunk>()
     .add_event::<SpawnBird>();
 
-    app.run()
+    app.run();
 }
 
 pub struct Art {
@@ -215,7 +215,7 @@ fn velocity(mut q: Query<(&Velocity, &mut Transform)>, time: Res<Time>) {
 
 fn gravity(mut q: Query<&mut Velocity, With<Gravity>>, time: Res<Time>) {
     for mut v in q.iter_mut() {
-        v.velocity.y = v.velocity.y - time.delta().as_secs_f32() * GRAVITY;
+        v.velocity.y -= time.delta().as_secs_f32() * GRAVITY;
     }
 }
 
@@ -249,13 +249,13 @@ fn bird_reproduction(
         bird_count += 1;
     }
     for (t, v) in q.iter() {
-        if bird_count < MAX_BIRDS {
-            if randf() < BIRD_REPRODUCTION_CHANCE * time.delta().as_secs_f32() {
+        if bird_count < MAX_BIRDS  &&
+             randf() < BIRD_REPRODUCTION_CHANCE * time.delta().as_secs_f32() {
                 spawn_bird_events.send(SpawnBird {
                     new_bird_pos: t.translation.truncate(),
                     new_bird_velocity: v.velocity,
                 });
-            }
+
         }
     }
 }
