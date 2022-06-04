@@ -199,48 +199,40 @@ impl STmpVert {
 }
 
 pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32) -> bool {
-    let mut iNrTrianglesIn = 0;
-    let mut f = 0;
-    let mut t = 0;
-    let mut i = 0;
-    let mut iNrTSPaces = 0;
-    let mut iTotTris = 0;
-    let mut iDegenTriangles = 0;
-    let mut iNrMaxGroups = 0;
-    let mut iNrActiveGroups: i32 = 0i32;
-    let mut index = 0;
     let iNrFaces = geometry.num_faces();
     let mut bRes: bool = false;
-    let fThresCos: f32 =
-        ((fAngularThreshold * 3.14159265358979323846f64 as f32 / 180.0f32) as f64).cos() as f32;
-    f = 0;
-    while f < iNrFaces {
+    let fThresCos = (fAngularThreshold.to_radians()).cos();
+
+    let mut iNrTrianglesIn = 0;
+    // The number of triangles here is
+    for f in 0..iNrFaces {
         let verts = geometry.num_vertices_of_face(f);
         if verts == 3 {
             iNrTrianglesIn += 1
         } else if verts == 4 {
             iNrTrianglesIn += 2
         }
-        f += 1
     }
+
     if iNrTrianglesIn <= 0 {
         return false;
     }
-
+    let iNrTrianglesIn = iNrTrianglesIn;
     let mut piTriListIn = vec![0i32; 3 * iNrTrianglesIn];
     let mut pTriInfos = vec![STriInfo::zero(); iNrTrianglesIn];
 
-    iNrTSPaces = GenerateInitialVerticesIndexList(
+    // Make an initial triangle --> face index list
+    // This also produces
+    let iNrTSPaces = GenerateInitialVerticesIndexList(
         &mut pTriInfos,
         &mut piTriListIn,
         geometry,
         iNrTrianglesIn,
     );
     GenerateSharedVerticesIndexList(piTriListIn.as_mut_ptr(), geometry, iNrTrianglesIn);
-    iTotTris = iNrTrianglesIn;
-    iDegenTriangles = 0;
-    t = 0;
-    while t < iTotTris as usize {
+    let iTotTris = iNrTrianglesIn;
+    let mut iDegenTriangles = 0;
+    for t in 0..(iTotTris as usize) {
         let i0 = piTriListIn[t * 3 + 0];
         let i1 = piTriListIn[t * 3 + 1];
         let i2 = piTriListIn[t * 3 + 2];
@@ -253,7 +245,7 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         }
         t += 1
     }
-    iNrTrianglesIn = iTotTris - iDegenTriangles;
+    let iNrTrianglesIn = iTotTris - iDegenTriangles;
     DegenPrologue(
         pTriInfos.as_mut_ptr(),
         piTriListIn.as_mut_ptr(),
@@ -266,12 +258,12 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         geometry,
         iNrTrianglesIn,
     );
-    iNrMaxGroups = iNrTrianglesIn * 3;
+    let iNrMaxGroups = iNrTrianglesIn * 3;
 
     let mut pGroups = vec![SGroup::zero(); iNrMaxGroups];
     let mut piGroupTrianglesBuffer = vec![0; iNrTrianglesIn * 3];
 
-    iNrActiveGroups = Build4RuleGroups(
+    let iNrActiveGroups = Build4RuleGroups(
         pTriInfos.as_mut_ptr(),
         pGroups.as_mut_ptr(),
         piGroupTrianglesBuffer.as_mut_ptr(),
@@ -290,7 +282,7 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         iNrTSPaces
     ];
 
-    bRes = GenerateTSpaces(
+    let bRes = GenerateTSpaces(
         &mut psTspace,
         pTriInfos.as_ptr(),
         pGroups.as_ptr(),
@@ -310,13 +302,11 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         iNrTrianglesIn as i32,
         iTotTris as i32,
     );
-    index = 0;
-    f = 0;
-    while f < iNrFaces {
+    let mut index = 0;
+    for f in 0..iNrFaces {
         let verts_0 = geometry.num_vertices_of_face(f);
         if !(verts_0 != 3 && verts_0 != 4) {
-            i = 0;
-            while i < verts_0 {
+            for i in 0..verts_0 {
                 let mut pTSpace: *const STSpace = &mut psTspace[index] as *mut STSpace;
                 let mut tang = Vec3::new((*pTSpace).vOs.x, (*pTSpace).vOs.y, (*pTSpace).vOs.z);
                 let mut bitang = Vec3::new((*pTSpace).vOt.x, (*pTSpace).vOt.y, (*pTSpace).vOt.z);
@@ -330,10 +320,8 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
                     i,
                 );
                 index += 1;
-                i += 1
             }
         }
-        f += 1
     }
 
     return true;
