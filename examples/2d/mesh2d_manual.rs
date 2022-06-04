@@ -173,6 +173,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
             ]),
+            push_constant_ranges: None,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),

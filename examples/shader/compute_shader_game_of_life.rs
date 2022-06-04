@@ -141,6 +141,7 @@ impl FromWorld for GameOfLifePipeline {
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
             layout: Some(vec![texture_bind_group_layout.clone()]),
+            push_constant_ranges: None,
             shader: shader.clone(),
             shader_defs: vec![],
             entry_point: Cow::from("init"),
@@ -148,6 +149,7 @@ impl FromWorld for GameOfLifePipeline {
         let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
             layout: Some(vec![texture_bind_group_layout.clone()]),
+            push_constant_ranges: None,
             shader,
             shader_defs: vec![],
             entry_point: Cow::from("update"),
