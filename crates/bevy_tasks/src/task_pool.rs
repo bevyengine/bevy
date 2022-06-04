@@ -256,7 +256,7 @@ impl TaskPool {
                     self.executor.try_tick();
                     task_scope_executor.try_tick();
 
-                    future::yield_now().await
+                    future::yield_now().await;
                 }
             };
 
