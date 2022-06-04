@@ -169,6 +169,8 @@ impl ParallelExecutor {
         systems: &'scope mut [ParallelSystemContainer],
         world: &'scope World,
     ) {
+        #[cfg(test)]
+        let mut started_systems = 0;
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("prepare_systems").entered();
         self.should_run.clear();
@@ -215,16 +217,23 @@ impl ParallelExecutor {
             if system_data.dependencies_total == 0 {
                 // Non-send systems are considered conflicting with each other.
                 if should_run
-                    && system_data.is_send
+                    && (!self.non_send_running || system_data.is_send)
                     && system_data
                         .archetype_component_access
                         .is_compatible(&self.active_archetype_component_access)
                 {
+                    #[cfg(test)]
+                    {
+                        started_systems += 1;
+                    }
                     system_data
                         .start_sender
                         .try_send(())
                         .unwrap_or_else(|error| unreachable!("{}", error));
                     self.running.set(index, true);
+                    if !system_data.is_send {
+                        self.non_send_running = true;
+                    }
                     // Add this system's access information to the active access information.
                     self.active_archetype_component_access
                         .extend(&system_data.archetype_component_access);
@@ -234,6 +243,10 @@ impl ParallelExecutor {
             } else {
                 system_data.dependencies_now = system_data.dependencies_total;
             }
+        }
+        #[cfg(test)]
+        if started_systems != 0 {
+            self.emit_event(StartedSystems(started_systems));
         }
     }
 
