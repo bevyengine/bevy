@@ -120,8 +120,6 @@ pub struct Archetype {
     entities: Vec<Entity>,
     edges: Edges,
     table_info: TableInfo,
-    table_components: Box<[ComponentId]>,
-    sparse_set_components: Box<[ComponentId]>,
     pub(crate) unique_components: SparseSet<ComponentId, Column>,
     pub(crate) components: SparseSet<ComponentId, ArchetypeComponentInfo>,
 }
@@ -130,18 +128,15 @@ impl Archetype {
     pub fn new(
         id: ArchetypeId,
         table_id: TableId,
-        table_components: Box<[ComponentId]>,
-        sparse_set_components: Box<[ComponentId]>,
-        table_archetype_components: Vec<ArchetypeComponentId>,
-        sparse_set_archetype_components: Vec<ArchetypeComponentId>,
+        table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
+        sparse_set_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
     ) -> Self {
-        let mut components =
-            SparseSet::with_capacity(table_components.len() + sparse_set_components.len());
-        for (component_id, archetype_component_id) in
-            table_components.iter().zip(table_archetype_components)
-        {
+        let (min_table, _) = table_components.size_hint();
+        let (min_sparse, _) = table_components.size_hint();
+        let mut components = SparseSet::with_capacity(min_table + min_sparse);
+        for (component_id, archetype_component_id) in table_components {
             components.insert(
-                *component_id,
+                component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::Table,
                     archetype_component_id,
@@ -149,12 +144,9 @@ impl Archetype {
             );
         }
 
-        for (component_id, archetype_component_id) in sparse_set_components
-            .iter()
-            .zip(sparse_set_archetype_components)
-        {
+        for (component_id, archetype_component_id) in sparse_set_components {
             components.insert(
-                *component_id,
+                component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
                     archetype_component_id,
@@ -168,8 +160,6 @@ impl Archetype {
                 entity_rows: Default::default(),
             },
             components,
-            table_components,
-            sparse_set_components,
             unique_components: SparseSet::new(),
             entities: Default::default(),
             edges: Default::default(),
@@ -197,13 +187,19 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn table_components(&self) -> &[ComponentId] {
-        &self.table_components
+    pub fn table_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.components
+            .iter()
+            .filter(|(_, component)| component.storage_type == StorageType::Table)
+            .map(|(id, _)| *id)
     }
 
     #[inline]
-    pub fn sparse_set_components(&self) -> &[ComponentId] {
-        &self.sparse_set_components
+    pub fn sparse_set_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.components
+            .iter()
+            .filter(|(_, component)| component.storage_type == StorageType::SparseSet)
+            .map(|(id, _)| *id)
     }
 
     #[inline]
@@ -380,10 +376,8 @@ impl Default for Archetypes {
         archetypes.archetypes.push(Archetype::new(
             ArchetypeId::RESOURCE,
             TableId::empty(),
-            Box::new([]),
-            Box::new([]),
-            Vec::new(),
-            Vec::new(),
+            std::iter::empty(),
+            std::iter::empty(),
         ));
         archetypes
     }
@@ -476,38 +470,33 @@ impl Archetypes {
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
     ) -> ArchetypeId {
-        let table_components = table_components.into_boxed_slice();
-        let sparse_set_components = sparse_set_components.into_boxed_slice();
         let archetype_identity = ArchetypeIdentity {
-            sparse_set_components: sparse_set_components.clone(),
-            table_components: table_components.clone(),
+            sparse_set_components: sparse_set_components.clone().into_boxed_slice(),
+            table_components: table_components.clone().into_boxed_slice(),
         };
 
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
-        let mut next_archetype_component_id = move || {
-            let id = ArchetypeComponentId(*archetype_component_count);
-            *archetype_component_count += 1;
-            id
-        };
         *self
             .archetype_ids
             .entry(archetype_identity)
             .or_insert_with(move || {
                 let id = ArchetypeId(archetypes.len());
-                let table_archetype_components = (0..table_components.len())
-                    .map(|_| next_archetype_component_id())
-                    .collect();
-                let sparse_set_archetype_components = (0..sparse_set_components.len())
-                    .map(|_| next_archetype_component_id())
-                    .collect();
+                let table_start = *archetype_component_count;
+                *archetype_component_count += table_components.len();
+                let table_archetype_components =
+                    (table_start..*archetype_component_count).map(ArchetypeComponentId);
+                let sparse_start = *archetype_component_count;
+                *archetype_component_count += sparse_set_components.len();
+                let sparse_set_archetype_components =
+                    (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
                 archetypes.push(Archetype::new(
                     id,
                     table_id,
-                    table_components,
-                    sparse_set_components,
-                    table_archetype_components,
-                    sparse_set_archetype_components,
+                    table_components.into_iter().zip(table_archetype_components),
+                    sparse_set_components
+                        .into_iter()
+                        .zip(sparse_set_archetype_components),
                 ));
                 id
             })
