@@ -210,7 +210,9 @@ fn assert_component_access_compatibility(
            query_type, filter_type, system_name, accesses);
 }
 
-/// Use to safely access and interact with up to 8 mutually exclusive [`SystemParam`]s such as
+/// A collecton of potentially conflicting [`SystemParam`]s allowed by disjoint access.
+///
+/// Allows to safely access and interact with up to 8 mutually exclusive [`SystemParam`]s such as
 /// two queries that reference the same mutable data  or a mutable query and acess to the ecs world.
 ///
 /// Access to each individual [`SystemParam`] by using the functions `p0()`, `p1()`, ..., `p7()`. This ensures that
@@ -219,34 +221,63 @@ fn assert_component_access_compatibility(
 /// # Example
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
-///
-/// #[derive(Component)]
-/// struct Health(u32);
-///
-/// #[derive(Component)]
-/// struct Enemy;
-///
-/// //Given the following system
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct Ally;
+/// #
+/// // Given the following system
 /// fn fancy_system(
 ///     mut set: ParamSet<(
 ///         Query<&mut Health, With<Enemy>>,
-///         Query<&mut Health, Without<Enemy>>,
+///         Query<&mut Health, With<Ally>>,
 ///         &World
 ///     )>
 /// ) {
- ///     // To access the ParamSet's elements according to the order they're defined, use the methods p0, p1, ...
+///     // To access the ParamSet's elements according to the order they're defined, use the methods p0(), p1(), ..., p7().
 ///     for mut health in set.p0().iter_mut() {
-///         //Do your fancy stuff here...
+///         // Do your fancy stuff here...
 ///     }
 ///
 ///     for mut health in set.p1().iter_mut() {
-///         //Do even fancier stuff here...
+///         // Do even fancier stuff here...
 ///     }
 ///
 ///     let entities = set.p2().entities();
- ///     // Note that you can only mutably access one parameter of the [`ParamSet`] at a time due to Rust's borrowing rules.
+///     // Note that you can only mutably access one parameter of the [`ParamSet`] at a time due to Rust's borrowing rules.
 /// }
+/// ```
+///
+/// # Panics
+///
+/// ```should_panic
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct Ally;
+/// #
+/// // This is an example of a system that panics because of the existance of the mutually exclusive system params.
+/// fn bad_system(mut enemies: Query<&mut Health, With<Enemy>>, mut allies: Query<&mut Health, With<Ally>>) {
+///     // Do your weird stuff here.
+/// }
+///
+/// # let mut bad_system_system = bevy_ecs::system::IntoSystem::into_system(bad_system);
+/// # let mut world = World::new();
+/// # bad_system_system.initialize(&mut world);
+/// # bad_system_system.run((), &mut world);
+///
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::Fetch,
