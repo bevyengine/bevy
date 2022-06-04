@@ -205,6 +205,7 @@ Example | File | Description
 `alien_cake_addict` | [`games/alien_cake_addict.rs`](./games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
 `breakout` | [`games/breakout.rs`](./games/breakout.rs) | An implementation of the classic game "Breakout"
 `contributors` | [`games/contributors.rs`](./games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+`flappy_bevy` | [`games/flappy_bevy.rs`](./games/flappy_bevy.rs) | A flappy bird clone but with many birds
 `game_menu` | [`games/game_menu.rs`](./games/game_menu.rs) | A simple game menu
 
 ## Input
