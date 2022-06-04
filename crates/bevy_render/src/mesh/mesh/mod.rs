@@ -1,5 +1,6 @@
 mod conversions;
 pub mod skinning;
+use bevy_mikktspace::FaceKind;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -883,8 +884,8 @@ impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
         self.indices.len() / 3
     }
 
-    fn num_vertices_of_face(&self, _: usize) -> usize {
-        3
+    fn num_vertices_of_face(&self, _: usize) -> FaceKind {
+        FaceKind::Triangle
     }
 
     fn position(&self, face: usize, vert: usize) -> [f32; 3] {

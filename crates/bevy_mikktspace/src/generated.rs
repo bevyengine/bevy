@@ -50,7 +50,7 @@ use std::ptr::null_mut;
 use bitflags::bitflags;
 use glam::Vec3;
 
-use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometry};
+use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, FaceKind, Geometry};
 
 #[derive(Copy, Clone)]
 pub struct STSpace {
@@ -215,13 +215,11 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
     let fThresCos = (fAngularThreshold.to_radians()).cos();
 
     let mut iNrTrianglesIn = 0;
-    // The number of triangles here is
     for f in 0..iNrFaces {
         let verts = geometry.num_vertices_of_face(f);
-        if verts == 3 {
-            iNrTrianglesIn += 1
-        } else if verts == 4 {
-            iNrTrianglesIn += 2
+        match verts {
+            FaceKind::Triangle => iNrTrianglesIn += 1,
+            FaceKind::Quad => iNrTrianglesIn += 2,
         }
     }
 
@@ -315,22 +313,20 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
     let mut index = 0;
     for f in 0..iNrFaces {
         let verts_0 = geometry.num_vertices_of_face(f);
-        if !(verts_0 != 3 && verts_0 != 4) {
-            for i in 0..verts_0 {
-                let mut pTSpace: *const STSpace = &mut psTspace[index] as *mut STSpace;
-                let mut tang = Vec3::new((*pTSpace).vOs.x, (*pTSpace).vOs.y, (*pTSpace).vOs.z);
-                let mut bitang = Vec3::new((*pTSpace).vOt.x, (*pTSpace).vOt.y, (*pTSpace).vOt.z);
-                geometry.set_tangent(
-                    tang.into(),
-                    bitang.into(),
-                    (*pTSpace).fMagS,
-                    (*pTSpace).fMagT,
-                    (*pTSpace).bOrient,
-                    f,
-                    i,
-                );
-                index += 1;
-            }
+        for i in 0..verts_0.num_vertices() {
+            let mut pTSpace: *const STSpace = &mut psTspace[index] as *mut STSpace;
+            let mut tang = Vec3::new((*pTSpace).vOs.x, (*pTSpace).vOs.y, (*pTSpace).vOs.z);
+            let mut bitang = Vec3::new((*pTSpace).vOt.x, (*pTSpace).vOt.y, (*pTSpace).vOt.z);
+            geometry.set_tangent(
+                tang.into(),
+                bitang.into(),
+                (*pTSpace).fMagS,
+                (*pTSpace).fMagT,
+                (*pTSpace).bOrient,
+                f,
+                i,
+            );
+            index += 1;
         }
     }
 
@@ -1703,89 +1699,89 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
     f = 0;
     while f < geometry.num_faces() {
         let verts = geometry.num_vertices_of_face(f);
-        if !(verts != 3 && verts != 4) {
-            pTriInfos[iDstTriIndex].iOrgFaceNumber = f as i32;
-            pTriInfos[iDstTriIndex].iTSpacesOffs = iTSpacesOffs as i32;
-            if verts == 3 {
-                let mut pVerts = &mut pTriInfos[iDstTriIndex].vert_num;
-                pVerts[0] = 0;
-                pVerts[1] = 1;
-                pVerts[2] = 2;
-                piTriList_out[iDstTriIndex * 3 + 0] = face_vert_to_index(f, 0) as i32;
-                piTriList_out[iDstTriIndex * 3 + 1] = face_vert_to_index(f, 1) as i32;
-                piTriList_out[iDstTriIndex * 3 + 2] = face_vert_to_index(f, 2) as i32;
-                iDstTriIndex += 1
+
+        pTriInfos[iDstTriIndex].iOrgFaceNumber = f as i32;
+        pTriInfos[iDstTriIndex].iTSpacesOffs = iTSpacesOffs as i32;
+        if let FaceKind::Triangle = verts {
+            let mut pVerts = &mut pTriInfos[iDstTriIndex].vert_num;
+            pVerts[0] = 0;
+            pVerts[1] = 1;
+            pVerts[2] = 2;
+            piTriList_out[iDstTriIndex * 3 + 0] = face_vert_to_index(f, 0) as i32;
+            piTriList_out[iDstTriIndex * 3 + 1] = face_vert_to_index(f, 1) as i32;
+            piTriList_out[iDstTriIndex * 3 + 2] = face_vert_to_index(f, 2) as i32;
+            iDstTriIndex += 1
+        } else {
+            pTriInfos[iDstTriIndex + 1].iOrgFaceNumber = f as i32;
+            pTriInfos[iDstTriIndex + 1].iTSpacesOffs = iTSpacesOffs as i32;
+            let i0 = face_vert_to_index(f, 0);
+            let i1 = face_vert_to_index(f, 1);
+            let i2 = face_vert_to_index(f, 2);
+            let i3 = face_vert_to_index(f, 3);
+            let T0 = get_tex_coord(geometry, i0);
+            let T1 = get_tex_coord(geometry, i1);
+            let T2 = get_tex_coord(geometry, i2);
+            let T3 = get_tex_coord(geometry, i3);
+            let distSQ_02: f32 = (T2 - T0).length_squared();
+            let distSQ_13: f32 = (T3 - T1).length_squared();
+            let mut bQuadDiagIs_02: bool = false;
+            if distSQ_02 < distSQ_13 {
+                bQuadDiagIs_02 = true
+            } else if distSQ_13 < distSQ_02 {
+                bQuadDiagIs_02 = false
             } else {
-                pTriInfos[iDstTriIndex + 1].iOrgFaceNumber = f as i32;
-                pTriInfos[iDstTriIndex + 1].iTSpacesOffs = iTSpacesOffs as i32;
-                let i0 = face_vert_to_index(f, 0);
-                let i1 = face_vert_to_index(f, 1);
-                let i2 = face_vert_to_index(f, 2);
-                let i3 = face_vert_to_index(f, 3);
-                let T0 = get_tex_coord(geometry, i0);
-                let T1 = get_tex_coord(geometry, i1);
-                let T2 = get_tex_coord(geometry, i2);
-                let T3 = get_tex_coord(geometry, i3);
-                let distSQ_02: f32 = (T2 - T0).length_squared();
-                let distSQ_13: f32 = (T3 - T1).length_squared();
-                let mut bQuadDiagIs_02: bool = false;
-                if distSQ_02 < distSQ_13 {
-                    bQuadDiagIs_02 = true
-                } else if distSQ_13 < distSQ_02 {
-                    bQuadDiagIs_02 = false
+                let P0 = get_position(geometry, i0);
+                let P1 = get_position(geometry, i1);
+                let P2 = get_position(geometry, i2);
+                let P3 = get_position(geometry, i3);
+                let distSQ_02_0: f32 = (P2 - P0).length_squared();
+                let distSQ_13_0: f32 = (P3 - P1).length_squared();
+                bQuadDiagIs_02 = if distSQ_13_0 < distSQ_02_0 {
+                    false
                 } else {
-                    let P0 = get_position(geometry, i0);
-                    let P1 = get_position(geometry, i1);
-                    let P2 = get_position(geometry, i2);
-                    let P3 = get_position(geometry, i3);
-                    let distSQ_02_0: f32 = (P2 - P0).length_squared();
-                    let distSQ_13_0: f32 = (P3 - P1).length_squared();
-                    bQuadDiagIs_02 = if distSQ_13_0 < distSQ_02_0 {
-                        false
-                    } else {
-                        true
-                    }
-                }
-                if bQuadDiagIs_02 {
-                    let mut pVerts_A = &mut pTriInfos[iDstTriIndex].vert_num;
-                    pVerts_A[0] = 0;
-                    pVerts_A[1] = 1;
-                    pVerts_A[2] = 2;
-                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
-                    piTriList_out[iDstTriIndex * 3 + 1] = i1 as i32;
-                    piTriList_out[iDstTriIndex * 3 + 2] = i2 as i32;
-                    iDstTriIndex += 1;
-
-                    let mut pVerts_B = &mut pTriInfos[iDstTriIndex].vert_num;
-                    pVerts_B[0] = 0;
-                    pVerts_B[1] = 2;
-                    pVerts_B[2] = 3;
-                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
-                    piTriList_out[iDstTriIndex * 3 + 1] = i2 as i32;
-                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
-                    iDstTriIndex += 1
-                } else {
-                    let mut pVerts_A_0 = &mut pTriInfos[iDstTriIndex].vert_num;
-                    pVerts_A_0[0] = 0;
-                    pVerts_A_0[1] = 1;
-                    pVerts_A_0[2] = 3;
-                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
-                    piTriList_out[iDstTriIndex * 3 + 1] = i1 as i32;
-                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
-                    iDstTriIndex += 1;
-
-                    let mut pVerts_B_0 = &mut pTriInfos[iDstTriIndex].vert_num;
-                    pVerts_B_0[0] = 1;
-                    pVerts_B_0[1] = 2;
-                    pVerts_B_0[2] = 3;
-                    piTriList_out[iDstTriIndex * 3 + 0] = i1 as i32;
-                    piTriList_out[iDstTriIndex * 3 + 1] = i2 as i32;
-                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
-                    iDstTriIndex += 1
+                    true
                 }
             }
-            iTSpacesOffs += verts
+            if bQuadDiagIs_02 {
+                let mut pVerts_A = &mut pTriInfos[iDstTriIndex].vert_num;
+                pVerts_A[0] = 0;
+                pVerts_A[1] = 1;
+                pVerts_A[2] = 2;
+                piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
+                piTriList_out[iDstTriIndex * 3 + 1] = i1 as i32;
+                piTriList_out[iDstTriIndex * 3 + 2] = i2 as i32;
+                iDstTriIndex += 1;
+
+                let mut pVerts_B = &mut pTriInfos[iDstTriIndex].vert_num;
+                pVerts_B[0] = 0;
+                pVerts_B[1] = 2;
+                pVerts_B[2] = 3;
+                piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
+                piTriList_out[iDstTriIndex * 3 + 1] = i2 as i32;
+                piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
+                iDstTriIndex += 1
+            } else {
+                let mut pVerts_A_0 = &mut pTriInfos[iDstTriIndex].vert_num;
+                pVerts_A_0[0] = 0;
+                pVerts_A_0[1] = 1;
+                pVerts_A_0[2] = 3;
+                piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
+                piTriList_out[iDstTriIndex * 3 + 1] = i1 as i32;
+                piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
+                iDstTriIndex += 1;
+
+                let mut pVerts_B_0 = &mut pTriInfos[iDstTriIndex].vert_num;
+                pVerts_B_0[0] = 1;
+                pVerts_B_0[1] = 2;
+                pVerts_B_0[2] = 3;
+                piTriList_out[iDstTriIndex * 3 + 0] = i1 as i32;
+                piTriList_out[iDstTriIndex * 3 + 1] = i2 as i32;
+                piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
+                iDstTriIndex += 1
+            }
         }
+        iTSpacesOffs += verts.num_vertices();
+
         f += 1
     }
     t = 0;

@@ -8,7 +8,7 @@
     clippy::map_flatten
 )]
 
-use bevy_mikktspace::{generate_tangents, Geometry};
+use bevy_mikktspace::{generate_tangents, FaceKind, Geometry};
 use glam::{Vec2, Vec3};
 
 pub type Face = [u32; 3];
@@ -73,8 +73,9 @@ impl Geometry for Context {
         self.mesh.faces.len()
     }
 
-    fn num_vertices_of_face(&self, _face: usize) -> usize {
-        3
+    fn num_vertices_of_face(&self, _face: usize) -> FaceKind {
+        // We don't currently support Quads
+        FaceKind::Triangle
     }
 
     fn position(&self, face: usize, vert: usize) -> [f32; 3] {

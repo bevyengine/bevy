@@ -4,13 +4,28 @@ use glam::{Vec2, Vec3};
 
 mod generated;
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum FaceKind {
+    Triangle,
+    Quad,
+}
+
+impl FaceKind {
+    fn num_vertices(&self) -> usize {
+        match self {
+            FaceKind::Triangle => 3,
+            FaceKind::Quad => 4,
+        }
+    }
+}
+
 /// The interface by which mikktspace interacts with your geometry.
 pub trait Geometry {
     /// Returns the number of faces.
     fn num_faces(&self) -> usize;
 
     /// Returns the number of vertices of a face.
-    fn num_vertices_of_face(&self, face: usize) -> usize;
+    fn num_vertices_of_face(&self, face: usize) -> FaceKind;
 
     /// Returns the position of a vertex.
     fn position(&self, face: usize, vert: usize) -> [f32; 3];

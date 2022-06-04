@@ -1,5 +1,6 @@
 #![allow(clippy::bool_assert_comparison, clippy::useless_conversion)]
 
+use bevy_mikktspace::FaceKind;
 use glam::{Vec2, Vec3};
 
 pub type Face = [u32; 3];
@@ -26,8 +27,8 @@ impl bevy_mikktspace::Geometry for Mesh {
         self.faces.len()
     }
 
-    fn num_vertices_of_face(&self, _face: usize) -> usize {
-        3
+    fn num_vertices_of_face(&self, _face: usize) -> FaceKind {
+        FaceKind::Triangle
     }
 
     fn position(&self, face: usize, vert: usize) -> [f32; 3] {
