@@ -211,6 +211,7 @@ impl STmpVert {
 
 pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> bool {
     let iNrFaces = geometry.num_faces();
+    // TODO: Accept in radians by default here?
     let fThresCos = (fAngularThreshold.to_radians()).cos();
 
     let mut iNrTrianglesIn = 0;
