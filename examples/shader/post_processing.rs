@@ -1,4 +1,4 @@
-//! A custom post processing effect, using two camera, with one reusing the rendertexture of the first one.
+//! A custom post processing effect, using two cameras, with one reusing the render texture of the first one.
 //! Here a chromatic aberration is applied to a 3d scene containting a rotating cube.
 //! This example is useful to implement your own post-processing effect such as
 //! edge detection, blur, pixelization, vignette... and countless others.
