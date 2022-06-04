@@ -84,7 +84,7 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> 
             }
             Some(true)
         }
-        _ => Some(false),
+        _ => Some(true),
     }
 }
 
