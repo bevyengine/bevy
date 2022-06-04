@@ -683,28 +683,25 @@ mod tests {
         let info = value.get_type_info();
         assert!(info.is::<MyList>());
 
-        // List (with capacity)
+        // List (SmallVec)
         #[cfg(feature = "smallvec")]
         {
-            type MyListWithCapacity = smallvec::SmallVec<[String; 2]>;
+            type MySmallVec = smallvec::SmallVec<[String; 2]>;
 
-            let info = MyListWithCapacity::type_info();
+            let info = MySmallVec::type_info();
             if let TypeInfo::List(info) = info {
-                assert!(info.is::<MyListWithCapacity>());
+                assert!(info.is::<MySmallVec>());
                 assert!(info.item_is::<String>());
-                assert_eq!(
-                    std::any::type_name::<MyListWithCapacity>(),
-                    info.type_name()
-                );
+                assert_eq!(std::any::type_name::<MySmallVec>(), info.type_name());
                 assert_eq!(std::any::type_name::<String>(), info.item_type_name());
             } else {
                 panic!("Expected `TypeInfo::List`");
             }
 
-            let value: MyListWithCapacity = smallvec::smallvec![String::default(); 2];
+            let value: MySmallVec = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
             let info = value.get_type_info();
-            assert!(info.is::<MyListWithCapacity>());
+            assert!(info.is::<MySmallVec>());
         }
 
         // Array
