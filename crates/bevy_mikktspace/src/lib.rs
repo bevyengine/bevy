@@ -70,23 +70,23 @@ pub trait Geometry {
 ///
 /// Returns `false` if the geometry is unsuitable for tangent generation including,
 /// but not limited to, lack of vertices.
-pub fn generate_tangents<I: Geometry>(geometry: &mut I) -> bool {
+pub fn generate_tangents(geometry: &mut impl Geometry) -> bool {
     unsafe { generated::genTangSpace(geometry, 180.0) }
 }
 
-fn get_position<I: Geometry>(geometry: &mut I, index: usize) -> Vec3 {
+fn get_position(geometry: &impl Geometry, index: usize) -> Vec3 {
     let (face, vert) = index_to_face_vert(index);
     geometry.position(face, vert).into()
 }
 
-fn get_tex_coord<I: Geometry>(geometry: &mut I, index: usize) -> Vec3 {
+fn get_tex_coord(geometry: &impl Geometry, index: usize) -> Vec3 {
     let (face, vert) = index_to_face_vert(index);
     let tex_coord: Vec2 = geometry.tex_coord(face, vert).into();
     let val = tex_coord.extend(1.0);
     val
 }
 
-fn get_normal<I: Geometry>(geometry: &mut I, index: usize) -> Vec3 {
+fn get_normal(geometry: &impl Geometry, index: usize) -> Vec3 {
     let (face, vert) = index_to_face_vert(index);
     geometry.normal(face, vert).into()
 }

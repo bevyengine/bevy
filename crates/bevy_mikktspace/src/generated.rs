@@ -209,9 +209,8 @@ impl STmpVert {
     }
 }
 
-pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32) -> bool {
+pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> bool {
     let iNrFaces = geometry.num_faces();
-    let mut bRes: bool = false;
     let fThresCos = (fAngularThreshold.to_radians()).cos();
 
     let mut iNrTrianglesIn = 0;
@@ -224,6 +223,7 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
     }
 
     if iNrTrianglesIn <= 0 {
+        // Easier if we can assume there's at least one face
         return false;
     }
     let iNrTrianglesIn = iNrTrianglesIn;
@@ -332,11 +332,11 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
 
     return true;
 }
-unsafe fn DegenEpilogue<I: Geometry>(
+unsafe fn DegenEpilogue(
     mut psTspace: *mut STSpace,
     mut pTriInfos: *mut STriInfo,
     mut piTriListIn: *mut i32,
-    geometry: &mut I,
+    geometry: &impl Geometry,
     iNrTrianglesIn: i32,
     iTotTris: i32,
 ) {
@@ -426,14 +426,14 @@ unsafe fn DegenEpilogue<I: Geometry>(
     }
 }
 
-unsafe fn GenerateTSpaces<I: Geometry>(
+unsafe fn GenerateTSpaces(
     psTspace: &mut [STSpace],
     mut pTriInfos: *const STriInfo,
     mut pGroups: *const SGroup,
     iNrActiveGroups: i32,
     mut piTriListIn: *const i32,
     fThresCos: f32,
-    geometry: &mut I,
+    geometry: &impl Geometry,
 ) -> bool {
     let mut iMaxNrFaces: usize = 0;
     let mut iUniqueTspaces = 0;
@@ -619,12 +619,12 @@ unsafe fn NotZero(fX: f32) -> bool {
     fX.abs() > 1.17549435e-38f32
 }
 
-unsafe fn EvalTspace<I: Geometry>(
+unsafe fn EvalTspace(
     mut face_indices: *mut i32,
     iFaces: i32,
     mut piTriListIn: *const i32,
     mut pTriInfos: *const STriInfo,
-    geometry: &mut I,
+    geometry: &impl Geometry,
     iVertexRepresentitive: i32,
 ) -> STSpace {
     let mut res: STSpace = STSpace {
@@ -939,10 +939,10 @@ unsafe fn AddTriToGroup(mut pGroup: *mut SGroup, iTriIndex: i32) {
     *(*pGroup).pFaceIndices.offset((*pGroup).iNrFaces as isize) = iTriIndex;
     (*pGroup).iNrFaces += 1;
 }
-unsafe fn InitTriInfo<I: Geometry>(
+unsafe fn InitTriInfo(
     mut pTriInfos: *mut STriInfo,
     mut piTriListIn: *const i32,
-    geometry: &mut I,
+    geometry: &impl Geometry,
     iNrTrianglesIn: usize,
 ) {
     let mut f = 0;
@@ -1297,7 +1297,7 @@ unsafe fn QuickSortEdges(
 }
 
 // returns the texture area times 2
-unsafe fn CalcTexArea<I: Geometry>(geometry: &mut I, mut indices: *const i32) -> f32 {
+unsafe fn CalcTexArea(geometry: &impl Geometry, mut indices: *const i32) -> f32 {
     let t1 = get_tex_coord(geometry, *indices.offset(0isize) as usize);
     let t2 = get_tex_coord(geometry, *indices.offset(1isize) as usize);
     let t3 = get_tex_coord(geometry, *indices.offset(2isize) as usize);
@@ -1399,9 +1399,9 @@ unsafe fn DegenPrologue(
         }
     }
 }
-unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
+unsafe fn GenerateSharedVerticesIndexList(
     mut piTriList_in_and_out: *mut i32,
-    geometry: &mut I,
+    geometry: &impl Geometry,
     iNrTrianglesIn: usize,
 ) {
     let mut i = 0;
@@ -1537,10 +1537,10 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     }
 }
 
-unsafe fn MergeVertsFast<I: Geometry>(
+unsafe fn MergeVertsFast(
     mut piTriList_in_and_out: *mut i32,
     mut pTmpVert: *mut STmpVert,
-    geometry: &mut I,
+    geometry: &impl Geometry,
     iL_in: i32,
     iR_in: i32,
 ) {
@@ -1686,10 +1686,10 @@ unsafe fn FindGridCell(fMin: f32, fMax: f32, fVal: f32) -> usize {
     };
 }
 
-unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
+unsafe fn GenerateInitialVerticesIndexList(
     pTriInfos: &mut [STriInfo],
     piTriList_out: &mut [i32],
-    geometry: &mut I,
+    geometry: &mut impl Geometry,
     iNrTrianglesIn: usize,
 ) -> usize {
     let mut iTSpacesOffs: usize = 0;
