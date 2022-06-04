@@ -15,7 +15,7 @@ use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_utils::{
     default,
     tracing::{debug, error},
-    Entry, HashMap, HashSet,
+    Entry, HashMap, HashSet, Hashed, PreHashMap,
 };
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
@@ -271,9 +271,11 @@ impl ShaderCache {
     }
 }
 
+type LayoutKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
+
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<(Vec<BindGroupLayoutId>, Vec<PushConstantRange>), wgpu::PipelineLayout>,
+    layouts: PreHashMap<LayoutKey, wgpu::PipelineLayout>,
 }
 
 impl LayoutCache {
@@ -286,7 +288,7 @@ impl LayoutCache {
         let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
         let push_constant_ranges = push_constant_ranges.to_vec();
         self.layouts
-            .entry((bind_group_ids, push_constant_ranges))
+            .entry(Hashed::new((bind_group_ids, push_constant_ranges)))
             .or_insert_with_key(|key| {
                 let bind_group_layouts = bind_group_layouts
                     .iter()
