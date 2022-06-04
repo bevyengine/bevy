@@ -142,7 +142,7 @@ impl GetTupleField for dyn Tuple {
     }
 }
 
-/// A container for compile-time tuple info
+/// A container for compile-time tuple info.
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
     type_name: &'static str,
@@ -151,7 +151,7 @@ pub struct TupleInfo {
 }
 
 impl TupleInfo {
-    /// Create a new [`TupleInfo`]
+    /// Create a new [`TupleInfo`].
     ///
     /// # Arguments
     ///
@@ -165,17 +165,17 @@ impl TupleInfo {
         }
     }
 
-    /// Get a field at the given index
+    /// Get the field at the given index.
     pub fn field_at(&self, index: usize) -> Option<&UnnamedField> {
         self.fields.get(index)
     }
 
-    /// Iterate over the fields of this tuple
+    /// Iterate over the fields of this tuple.
     pub fn iter(&self) -> Iter<'_, UnnamedField> {
         self.fields.iter()
     }
 
-    /// The total number of fields in this tuple
+    /// The total number of fields in this tuple.
     pub fn field_len(&self) -> usize {
         self.fields.len()
     }

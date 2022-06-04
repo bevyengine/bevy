@@ -59,7 +59,7 @@ pub trait TupleStruct: Reflect {
     }
 }
 
-/// A container for compile-time tuple struct info
+/// A container for compile-time tuple struct info.
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
     type_name: &'static str,
@@ -68,7 +68,7 @@ pub struct TupleStructInfo {
 }
 
 impl TupleStructInfo {
-    /// Create a new [`TupleStructInfo`]
+    /// Create a new [`TupleStructInfo`].
     ///
     /// # Arguments
     ///
@@ -82,17 +82,17 @@ impl TupleStructInfo {
         }
     }
 
-    /// Get a field at the given index
+    /// Get the field at the given index.
     pub fn field_at(&self, index: usize) -> Option<&UnnamedField> {
         self.fields.get(index)
     }
 
-    /// Iterate over the fields of this struct
+    /// Iterate over the fields of this struct.
     pub fn iter(&self) -> Iter<'_, UnnamedField> {
         self.fields.iter()
     }
 
-    /// The total number of fields in this struct
+    /// The total number of fields in this struct.
     pub fn field_len(&self) -> usize {
         self.fields.len()
     }

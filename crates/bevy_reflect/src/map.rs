@@ -46,7 +46,7 @@ pub trait Map: Reflect {
     fn clone_dynamic(&self) -> DynamicMap;
 }
 
-/// A container for compile-time map info
+/// A container for compile-time map info.
 #[derive(Clone, Debug)]
 pub struct MapInfo {
     type_name: &'static str,
@@ -58,7 +58,7 @@ pub struct MapInfo {
 }
 
 impl MapInfo {
-    /// Create a new [`MapInfo`]
+    /// Create a new [`MapInfo`].
     pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
         Self {
             type_name: std::any::type_name::<TMap>(),

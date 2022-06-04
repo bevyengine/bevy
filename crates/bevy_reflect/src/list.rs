@@ -24,7 +24,7 @@ pub trait List: Reflect + Array {
     }
 }
 
-/// A container for compile-time list info
+/// A container for compile-time list info.
 #[derive(Clone, Debug)]
 pub struct ListInfo {
     type_name: &'static str,
@@ -35,7 +35,7 @@ pub struct ListInfo {
 }
 
 impl ListInfo {
-    /// Create a new [`ListInfo`]
+    /// Create a new [`ListInfo`].
     pub fn new<TList: List, TItem: FromReflect>(capacity: Option<usize>) -> Self {
         Self {
             type_name: std::any::type_name::<TList>(),

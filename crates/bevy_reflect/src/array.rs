@@ -38,7 +38,7 @@ pub trait Array: Reflect {
     }
 }
 
-/// A container for compile-time array info
+/// A container for compile-time array info.
 #[derive(Clone, Debug)]
 pub struct ArrayInfo {
     type_name: &'static str,
@@ -49,7 +49,12 @@ pub struct ArrayInfo {
 }
 
 impl ArrayInfo {
-    /// Create a new [`ArrayInfo`]
+    /// Create a new [`ArrayInfo`].
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity`: The maximum capacity of the underlying array.
+    ///
     pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
         Self {
             type_name: std::any::type_name::<TArray>(),

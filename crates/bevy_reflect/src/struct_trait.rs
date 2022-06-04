@@ -133,7 +133,7 @@ pub trait Struct: Reflect {
     }
 }
 
-/// A container for compile-time struct info
+/// A container for compile-time struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
     type_name: &'static str,
@@ -143,7 +143,7 @@ pub struct StructInfo {
 }
 
 impl StructInfo {
-    /// Create a new [`StructInfo`]
+    /// Create a new [`StructInfo`].
     ///
     /// # Arguments
     ///
@@ -167,29 +167,29 @@ impl StructInfo {
         }
     }
 
-    /// Get a field with the given name
+    /// Get the field with the given name.
     pub fn field(&self, name: &str) -> Option<&NamedField> {
         self.field_indices
             .get(name)
             .map(|index| &self.fields[*index])
     }
 
-    /// Get a field at the given index
+    /// Get the field at the given index.
     pub fn field_at(&self, index: usize) -> Option<&NamedField> {
         self.fields.get(index)
     }
 
-    /// Get the index of a field with the given name
+    /// Get the index of the field with the given name.
     pub fn index_of(&self, name: &str) -> Option<usize> {
         self.field_indices.get(name).copied()
     }
 
-    /// Iterate over the fields of this struct
+    /// Iterate over the fields of this struct.
     pub fn iter(&self) -> Iter<'_, NamedField> {
         self.fields.iter()
     }
 
-    /// The total number of fields in this struct
+    /// The total number of fields in this struct.
     pub fn field_len(&self) -> usize {
         self.fields.len()
     }

@@ -59,9 +59,10 @@ pub unsafe trait Reflect: Any + Send + Sync {
 
     /// Returns the [`TypeInfo`] of the underlying type.
     ///
-    /// This generates a new [`TypeInfo`] on every call. If this method is called
-    /// frequently, consider using [`TypeRegistry::get_type_info`] to get a cached
-    /// instance instead.
+    /// This method is great if you have an instance of a type or a `dyn Reflect`,
+    /// and want to access its [`TypeInfo`]. However, if this method is to be called
+    /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
+    /// performant for such use cases.
     ///
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_type_info(&self) -> &'static TypeInfo;

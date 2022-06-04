@@ -13,7 +13,7 @@ use std::any::{Any, TypeId};
 ///
 /// ## Non-Generic
 ///
-/// For non-generic types, [`TypeInfoCell`] should be initialized via the [`non_generic`]
+/// For non-generic impls, [`TypeInfoCell`] should be initialized via the [`non_generic`]
 /// method. This should be much more performant than the generic alternative, so favor
 /// this variant whenever possible.
 ///
@@ -51,10 +51,11 @@ use std::any::{Any, TypeId};
 ///
 /// ## Generic
 ///
-/// For generic types, [`TypeInfoCell`] should be initialized via the [`generic`]
+/// For generic impls, [`TypeInfoCell`] should be initialized via the [`generic`]
 /// method. This will store multiple instances of [`TypeInfo`], accessible by [`TypeId`].
 ///
-/// This allows `Foo<T>` to use the same [`TypeInfoCell`] for monomorphized type.
+/// This allows `Foo<T>` to use the same [`TypeInfoCell`] for monomorphized type. The same
+/// applies to blanket impls.
 ///
 /// ```
 /// # use std::any::Any;
