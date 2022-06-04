@@ -675,7 +675,6 @@ mod tests {
             assert!(info.item_is::<usize>());
             assert_eq!(std::any::type_name::<MyList>(), info.type_name());
             assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
-            assert_eq!(None, info.capacity());
         } else {
             panic!("Expected `TypeInfo::List`");
         }
@@ -698,7 +697,6 @@ mod tests {
                     info.type_name()
                 );
                 assert_eq!(std::any::type_name::<String>(), info.item_type_name());
-                assert_eq!(Some(2usize), info.capacity());
             } else {
                 panic!("Expected `TypeInfo::List`");
             }

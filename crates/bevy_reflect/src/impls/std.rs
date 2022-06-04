@@ -168,7 +168,7 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
 impl<T: FromReflect> Typed for Vec<T> {
     fn type_info() -> &'static TypeInfo {
         static CELL: TypeInfoCell = TypeInfoCell::generic();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>(None)))
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
     }
 }
 

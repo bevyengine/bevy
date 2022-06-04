@@ -31,24 +31,17 @@ pub struct ListInfo {
     type_id: TypeId,
     item_type_name: &'static str,
     item_type_id: TypeId,
-    capacity: Option<usize>,
 }
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List, TItem: FromReflect>(capacity: Option<usize>) -> Self {
+    pub fn new<TList: List, TItem: FromReflect>() -> Self {
         Self {
             type_name: std::any::type_name::<TList>(),
             type_id: TypeId::of::<TList>(),
             item_type_name: std::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
-            capacity,
         }
-    }
-
-    /// The compile-time capacity of the list, if any.
-    pub fn capacity(&self) -> Option<usize> {
-        self.capacity
     }
 
     /// The [type name] of the list.

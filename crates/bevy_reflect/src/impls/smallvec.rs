@@ -116,9 +116,7 @@ where
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: TypeInfoCell = TypeInfoCell::generic();
-        CELL.get_or_insert::<Self, _>(|| {
-            TypeInfo::List(ListInfo::new::<Self, T::Item>(Some(T::size())))
-        })
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T::Item>()))
     }
 }
 
