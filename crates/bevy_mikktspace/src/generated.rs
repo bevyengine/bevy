@@ -103,10 +103,10 @@ impl STSpace {
 
 bitflags! {
     pub struct TriangleFlags: u8 {
-        const DEGENERATE = 0b0000_0001;
-        const QUAD_ONE_DEGENERATE_TRI = 0b0000_0010;
-        const GROUP_WITH_ANY = 0b0000_0100;
-        const ORIENT_PRESERVING = 0b0000_1000;
+        const DEGENERATE = 1;
+        const QUAD_ONE_DEGENERATE_TRI = 2;
+        const GROUP_WITH_ANY = 4;
+        const ORIENT_PRESERVING = 8;
     }
 }
 
@@ -1000,7 +1000,7 @@ unsafe fn InitTriInfo<I: Geometry>(
             let fAbsArea: f32 = fSignedAreaSTx2.abs();
             let fLenOs: f32 = vOs.length();
             let fLenOt: f32 = vOt.length();
-            let fS: f32 = if (*pTriInfos.offset(f as isize))
+            let fS: f32 = if !(*pTriInfos.offset(f as isize))
                 .iFlag
                 .contains(TriangleFlags::ORIENT_PRESERVING)
             {
