@@ -533,7 +533,7 @@ mod tests {
     use crate::component::Component;
     use crate::ptr::OwningPtr;
     use crate::storage::Storages;
-    use crate::{component::Components, entity::Entity, storage::Table};
+    use crate::{component::Components, entity::Entity, storage::TableBuilder};
     #[derive(Component)]
     struct W<T>(T);
 
@@ -543,8 +543,9 @@ mod tests {
         let mut storages = Storages::default();
         let component_id = components.init_component::<W<usize>>(&mut storages);
         let columns = &[component_id];
-        let mut table = Table::with_capacity(0, columns.len());
-        table.add_column(components.get_info(component_id).unwrap());
+        let mut builder = TableBuilder::with_capacity(0, columns.len());
+        builder.add_column(components.get_info(component_id).unwrap());
+        let mut table = builder.build();
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
             // SAFE: we allocate and immediately set data afterwards
