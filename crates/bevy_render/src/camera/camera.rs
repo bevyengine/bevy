@@ -27,7 +27,7 @@ use wgpu::Extent3d;
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
-/// The viewport defines the area on the screen that the camera renders its image to.
+/// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like like split screen, minimaps, portals and character viewers.
 // TODO: remove reflect_value when possible
 #[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
@@ -39,7 +39,7 @@ pub struct Viewport {
     /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
     /// The origin of the rectangle is in the top-left corner.
     pub physical_size: UVec2,
-    /// The minimum and maximum depth to render to (on a scale from 0.0 to 1.0).
+    /// The minimum and maximum depth to render (on a scale from 0.0 to 1.0).
     pub depth: Range<f32>,
 }
 
