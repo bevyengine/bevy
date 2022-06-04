@@ -243,7 +243,7 @@ fn assert_component_access_compatibility(
 ///     }
 ///
 ///     let entities = set.p2().entities();
-///     //Note that you can only mutably access one parameter of the [`ParamSet`] at a time due to Rust's borrowing rules,
+ ///     // Note that you can only mutably access one parameter of the [`ParamSet`] at a time due to Rust's borrowing rules.
 /// }
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
