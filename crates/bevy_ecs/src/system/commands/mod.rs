@@ -215,6 +215,20 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+
+    pub fn window<'a>(&'a mut self, entity: Entity) -> WindowCommands<'w, 's, 'a> {
+        assert!(
+            self.entities.contains(entity),
+            "Attempting to create an EntityCommands for entity {:?}, which doesn't exist.",
+            entity
+        );
+
+        WindowCommands { 
+            entity, 
+            commands: self
+        }
+    }
+
     /// Spawns entities to the [`World`] according to the given iterator (or a type that can
     /// be converted to it).
     ///
@@ -592,6 +606,18 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 }
 
+
+/// A list of commmands that will be run to modify a window
+pub struct WindowCommands<'w, 's, 'a> {
+    entity: Entity,
+    commands: &'a mut Commands<'w, 's>,
+}
+
+impl<'w, 's, 'a> WindowCommands <'w, 's, 'a> {
+
+
+}
+
 impl<F> Command for F
 where
     F: FnOnce(&mut World) + Send + Sync + 'static,
@@ -790,6 +816,9 @@ impl<R: Resource> Command for RemoveResource<R> {
         world.remove_resource::<R>();
     }
 }
+
+
+
 
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
