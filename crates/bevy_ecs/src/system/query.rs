@@ -418,6 +418,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
+    #[inline]
     pub fn iter_many<EntityList: IntoIterator>(
         &self,
         entities: EntityList,
@@ -666,22 +667,24 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn many_for_each_mut<E: Borrow<Entity>, EntityList: IntoIterator<Item = E>>(
+    #[inline]
+    pub fn many_for_each_mut<EntityList: IntoIterator>(
         &mut self,
         entities: EntityList,
         f: impl FnMut(QueryItem<'_, Q>),
-    ) {
+    ) where
+        EntityList::Item: Borrow<Entity>,
+    {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state
-                .many_for_each_unchecked_manual::<QueryFetch<Q>, E, EntityList, _>(
-                    self.world,
-                    entities,
-                    f,
-                    self.last_change_tick,
-                    self.change_tick,
-                );
+            self.state.many_for_each_unchecked_manual(
+                self.world,
+                entities,
+                f,
+                self.last_change_tick,
+                self.change_tick,
+            );
         };
     }
 
