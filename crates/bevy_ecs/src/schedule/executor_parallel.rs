@@ -215,7 +215,7 @@ impl ParallelExecutor {
             }
             // Queue the system if it has no dependencies, otherwise reset its dependency counter.
             if system_data.dependencies_total == 0 {
-                // Non-send systems are considered conflicting with each other.
+                // Non-send systems are incompatible, as they must all be executed on the main thread.
                 if should_run
                     && (!self.non_send_running || system_data.is_send)
                     && system_data
