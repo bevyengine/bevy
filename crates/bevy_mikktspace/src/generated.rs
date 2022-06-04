@@ -26,6 +26,9 @@
 //! misrepresented as being the original software.
 //!
 //! 3. This notice may not be removed or altered from any source distribution.
+//!
+// Comments starting with `C:` are copied as-is from the original
+// Note that some comments may originate from the original but not be marked as such
 
 #![allow(
     clippy::all,
@@ -224,24 +227,29 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
     }
 
     if iNrTrianglesIn <= 0 {
-        // Easier if we can assume there's at least one face
+        // Easier if we can assume there's at least one face later
+        // No tangents need to be generated
         return false;
     }
     let iNrTrianglesIn = iNrTrianglesIn;
     let mut piTriListIn = vec![0i32; 3 * iNrTrianglesIn];
     let mut pTriInfos = vec![STriInfo::zero(); iNrTrianglesIn];
 
-    // Make an initial triangle --> face index list
-    // This also produces
+    // C: Make an initial triangle --> face index list
+    // This also handles quads
+    // TODO: Make this return triangle_info and tri_face_map
+    // probably in a single structure.
     let iNrTSPaces = GenerateInitialVerticesIndexList(
         &mut pTriInfos,
         &mut piTriListIn,
         geometry,
         iNrTrianglesIn,
     );
+    // C: Make a welded index list of identical positions and attributes (pos, norm, texc)
     GenerateSharedVerticesIndexList(piTriListIn.as_mut_ptr(), geometry, iNrTrianglesIn);
     let iTotTris = iNrTrianglesIn;
     let mut iDegenTriangles = 0;
+    // C: Mark all degenerate triangles
     for t in 0..(iTotTris as usize) {
         let i0 = piTriListIn[t * 3 + 0];
         let i1 = piTriListIn[t * 3 + 1];
@@ -255,18 +263,26 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
         }
     }
     let iNrTrianglesIn = iTotTris - iDegenTriangles;
+    // C: Mark all triangle pairs that belong to a quad with only one
+    // C: good triangle. These need special treatment in DegenEpilogue().
+    // C: Additionally, move all good triangles to the start of
+    // C: pTriInfos[] and piTriListIn[] without changing order and
+    // C: put the degenerate triangles last.
+    // Note: A quad can have degenerate traignles if two vertices are in the same location
     DegenPrologue(
         pTriInfos.as_mut_ptr(),
         piTriListIn.as_mut_ptr(),
         iNrTrianglesIn as i32,
         iTotTris as i32,
     );
+    // C: Evaluate triangle level attributes and neighbor list
     InitTriInfo(
         pTriInfos.as_mut_ptr(),
         piTriListIn.as_ptr(),
         geometry,
         iNrTrianglesIn,
     );
+    //C: Based on the 4 rules, identify groups based on connectivity
     let iNrMaxGroups = iNrTrianglesIn * 3;
 
     let mut pGroups = vec![SGroup::zero(); iNrMaxGroups];
@@ -1350,6 +1366,15 @@ unsafe fn DegenPrologue(
             t += 1
         }
     }
+
+    // reorder list so all degen triangles are moved to the back
+    // without reordering the good triangles
+    // That is, a semi-stable partition, e.g. as described at
+    // https://dlang.org/library/std/algorithm/sorting/partition.html
+    // TODO: Use `Vec::retain` with a second vec here - not perfect,
+    // but good enough and safe.
+    // TODO: Consider using `sort_by_key` on Vec instead (which is stable) - it might be
+    // technically slower, but it's much easier to reason about
     iNextGoodTriangleSearchIndex = 1i32;
     t = 0i32;
     bStillFindingGoodOnes = true;
@@ -1378,6 +1403,7 @@ unsafe fn DegenPrologue(
             t0 = t;
             t1 = iNextGoodTriangleSearchIndex;
             iNextGoodTriangleSearchIndex += 1;
+            // Swap t0 and t1
             if !bJustADegenerate {
                 let mut i: i32 = 0i32;
                 i = 0i32;
@@ -1401,6 +1427,13 @@ unsafe fn DegenPrologue(
     }
 }
 unsafe fn GenerateSharedVerticesIndexList(
+    // The input vertex index->face/vert mappings
+    // Identical face/verts will have each vertex index
+    // point to the same (arbitrary?) face/vert
+    // TODO: This seems overly complicated - storing vertex properties in a
+    // side channel seems much easier.
+    // Hopefully implementation can be changed to just use a btreemap or
+    // something too.
     mut piTriList_in_and_out: *mut i32,
     geometry: &impl Geometry,
     iNrTrianglesIn: usize,
