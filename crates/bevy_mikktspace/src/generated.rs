@@ -243,7 +243,6 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
             pTriInfos[t].iFlag |= 1i32;
             iDegenTriangles += 1
         }
-        t += 1
     }
     let iNrTrianglesIn = iTotTris - iDegenTriangles;
     DegenPrologue(
