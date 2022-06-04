@@ -213,8 +213,8 @@ fn assert_component_access_compatibility(
 /// Use to safely access and interact with up to 8 mutually exclusive [`SystemParam`]s such as
 /// two queries that reference the same mutable data  or a mutable query and acess to the ecs world.
 ///
-/// Access to each individual [`SystemParam`] by using the funcions ```p0()```, ```p1()```, ..., ```p7()```. This ensures that
-/// there's either only one mutable reference to a parameter at a time or an infinite* number of inmutable references.
+/// Access to each individual [`SystemParam`] by using the functions `p0()`, `p1()`, ..., `p7()`. This ensures that
+/// there's either only one mutable reference to a parameter at a time or any number of immutable references.
 ///
 /// # Example
 ///
