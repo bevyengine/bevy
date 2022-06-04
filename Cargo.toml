@@ -433,6 +433,10 @@ name = "contributors"
 path = "examples/games/contributors.rs"
 
 [[example]]
+name = "flappy_bevy"
+path = "examples/games/flappy_bevy.rs"
+
+[[example]]
 name = "game_menu"
 path = "examples/games/game_menu.rs"
 
