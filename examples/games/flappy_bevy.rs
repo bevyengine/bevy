@@ -46,7 +46,7 @@ pub fn main() {
     .add_system(bird_control.after(gravity))
     .add_system(terrain_gen)
     .add_system(advance_camera)
-    .add_system(chaos)
+    .add_system(brownian_drift)
     .add_system(velocity)
     .add_system(gravity)
     .add_system(terrain_cleanup)
@@ -145,7 +145,7 @@ struct Velocity {
 }
 
 #[derive(Component)]
-struct Chaos;
+struct BrownianDrift;
 
 #[derive(Component)]
 struct Gravity;
@@ -156,6 +156,7 @@ struct Bird;
 #[derive(Component)]
 struct DriftToCenter;
 
+/// Event that causes a new bird to spawn
 struct SpawnBird {
     new_bird_pos: Vec2,
     new_bird_velocity: Vec2,
@@ -190,7 +191,7 @@ fn spawn_bird(
             })
             .insert(Gravity)
             .insert(Bird)
-            .insert(Chaos)
+            .insert(BrownianDrift)
             .insert(DriftToCenter);
     }
 }
@@ -260,7 +261,7 @@ fn bird_reproduction(
     }
 }
 
-fn chaos(mut q: Query<&mut Velocity, With<Chaos>>, time: Res<Time>) {
+fn brownian_drift(mut q: Query<&mut Velocity, With<BrownianDrift>>, time: Res<Time>) {
     for mut v in q.iter_mut() {
         v.velocity += Vec2::new(
             (randf() - 0.5) * CHAOS_AMOUNT_X,
