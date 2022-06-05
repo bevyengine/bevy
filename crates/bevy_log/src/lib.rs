@@ -56,6 +56,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///         .insert_resource(LogSettings {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+///             force: true,
 ///         })
 ///         .add_plugins(DefaultPlugins)
 ///         .run();
@@ -98,6 +99,9 @@ pub struct LogSettings {
     /// Filters out logs that are "less than" the given level.
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
+
+    /// Panic on error.
+    pub force: bool,
 }
 
 impl Default for LogSettings {
@@ -105,6 +109,7 @@ impl Default for LogSettings {
         Self {
             filter: "wgpu=error".to_string(),
             level: Level::INFO,
+            force: true,
         }
     }
 }
@@ -120,11 +125,17 @@ impl Plugin for LogPlugin {
             }));
         }
 
-        let default_filter = {
+        let (default_filter, force) = {
             let settings = app.world.get_resource_or_insert_with(LogSettings::default);
-            format!("{},{}", settings.level, settings.filter)
+            (
+                format!("{},{}", settings.level, settings.filter),
+                settings.force,
+            )
         };
-        LogTracer::init().unwrap();
+        let err = LogTracer::init();
+        if force {
+            err.unwrap();
+        }
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
@@ -175,8 +186,10 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
 
-            bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+            let err = bevy_utils::tracing::subscriber::set_global_default(subscriber);
+            if force {
+                err.expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+            }
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -185,15 +198,41 @@ impl Plugin for LogPlugin {
             let subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
                 tracing_wasm::WASMLayerConfig::default(),
             ));
-            bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+            let err = bevy_utils::tracing::subscriber::set_global_default(subscriber);
+            if force {
+                err.expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+            }
         }
 
         #[cfg(target_os = "android")]
         {
             let subscriber = subscriber.with(android_tracing::AndroidLayer::default());
-            bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+            let err = bevy_utils::tracing::subscriber::set_global_default(subscriber);
+            if force {
+                err.expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn allow_multiple_instances() {
+        {
+            let settings = LogSettings::default();
+            let mut app = App::new();
+            app.insert_resource(settings);
+            app.add_plugin(LogPlugin);
+        }
+        {
+            let mut settings = LogSettings::default();
+            settings.force = false;
+            let mut app = App::new();
+            app.insert_resource(settings);
+            app.add_plugin(LogPlugin);
         }
     }
 }
