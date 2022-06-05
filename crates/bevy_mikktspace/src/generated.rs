@@ -1097,8 +1097,6 @@ unsafe fn DegenPrologue(
     iNrTrianglesIn: i32,
     iTotTris: i32,
 ) {
-    let mut iNextGoodTriangleSearchIndex: i32 = -1i32;
-    let mut bStillFindingGoodOnes: bool = false;
     // locate quads with only one good triangle
     let mut t: i32 = 0i32;
     while t < iTotTris - 1i32 {
@@ -1135,9 +1133,9 @@ unsafe fn DegenPrologue(
     // but good enough and safe.
     // TODO: Consider using `sort_by_key` on Vec instead (which is stable) - it might be
     // technically slower, but it's much easier to reason about
-    iNextGoodTriangleSearchIndex = 1i32;
+    let mut iNextGoodTriangleSearchIndex = 1i32;
     t = 0i32;
-    bStillFindingGoodOnes = true;
+    let mut bStillFindingGoodOnes = true;
     while t < iNrTrianglesIn && bStillFindingGoodOnes {
         let bIsGood: bool = !(*pTriInfos.offset(t as isize))
             .iFlag
@@ -1147,8 +1145,6 @@ unsafe fn DegenPrologue(
                 iNextGoodTriangleSearchIndex = t + 2i32
             }
         } else {
-            let mut t0: i32 = 0;
-            let mut t1: i32 = 0;
             let mut bJustADegenerate: bool = true;
             while bJustADegenerate && iNextGoodTriangleSearchIndex < iTotTris {
                 let bIsGood_0: bool = !(*pTriInfos.offset(iNextGoodTriangleSearchIndex as isize))
@@ -1160,19 +1156,16 @@ unsafe fn DegenPrologue(
                     iNextGoodTriangleSearchIndex += 1
                 }
             }
-            t0 = t;
-            t1 = iNextGoodTriangleSearchIndex;
+            let t0 = t;
+            let t1 = iNextGoodTriangleSearchIndex;
             iNextGoodTriangleSearchIndex += 1;
             // Swap t0 and t1
             if !bJustADegenerate {
-                let mut i: i32 = 0i32;
-                i = 0i32;
-                while i < 3i32 {
+                for i in 0..3i32 {
                     let index: i32 = *piTriList_out.offset((t0 * 3i32 + i) as isize);
                     *piTriList_out.offset((t0 * 3i32 + i) as isize) =
                         *piTriList_out.offset((t1 * 3i32 + i) as isize);
                     *piTriList_out.offset((t1 * 3i32 + i) as isize) = index;
-                    i += 1
                 }
                 let tri_info: STriInfo = *pTriInfos.offset(t0 as isize);
                 *pTriInfos.offset(t0 as isize) = *pTriInfos.offset(t1 as isize);
