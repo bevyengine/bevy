@@ -843,13 +843,8 @@ unsafe fn InitTriInfo(
     geometry: &impl Geometry,
     iNrTrianglesIn: usize,
 ) {
-    let mut f = 0;
-    let mut i = 0;
-    let mut t = 0;
-    f = 0;
-    while f < iNrTrianglesIn {
-        i = 0i32;
-        while i < 3i32 {
+    for f in 0..iNrTrianglesIn {
+        for i in 0..3i32 {
             (*pTriInfos.offset(f as isize)).FaceNeighbors[i as usize] = -1i32;
             let ref mut fresh4 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
             *fresh4 = 0 as *mut SGroup;
@@ -864,12 +859,9 @@ unsafe fn InitTriInfo(
             (*pTriInfos.offset(f as isize))
                 .iFlag
                 .insert(TriangleFlags::GROUP_WITH_ANY);
-            i += 1
         }
-        f += 1
     }
-    f = 0;
-    while f < iNrTrianglesIn {
+    for f in 0..iNrTrianglesIn {
         let v1 = get_position(geometry, *piTriListIn.offset((f * 3 + 0) as isize) as usize);
         let v2 = get_position(geometry, *piTriListIn.offset((f * 3 + 1) as isize) as usize);
         let v3 = get_position(geometry, *piTriListIn.offset((f * 3 + 2) as isize) as usize);
@@ -918,8 +910,8 @@ unsafe fn InitTriInfo(
                     .remove(TriangleFlags::GROUP_WITH_ANY);
             }
         }
-        f += 1
     }
+    let mut t = 0;
     while t < iNrTrianglesIn - 1 {
         let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
         let iFO_b: i32 = (*pTriInfos.offset((t + 1) as isize)).iOrgFaceNumber;
