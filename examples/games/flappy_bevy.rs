@@ -246,10 +246,7 @@ fn bird_reproduction(
     time: Res<Time>,
     mut spawn_bird_events: EventWriter<SpawnBird>,
 ) {
-    let mut bird_count = 0;
-    for (_t, _v) in q.iter() {
-        bird_count += 1;
-    }
+    let bird_count = q.iter().count();
     if bird_count < MAX_BIRDS {
         for (t, v) in q.iter() {
             if random::<f32>() < BIRD_REPRODUCTION_CHANCE * time.delta().as_secs_f32()
