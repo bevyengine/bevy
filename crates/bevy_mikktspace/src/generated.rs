@@ -985,6 +985,8 @@ unsafe fn BuildNeighborsFast(
     }
     pEdges.sort();
 
+    let iEntries = iNrTrianglesIn * 3i32;
+
     for i in 0..iEntries {
         let edge = pEdges[i as usize];
         let i0_0: i32 = edge.i0;
