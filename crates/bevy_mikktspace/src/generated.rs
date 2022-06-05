@@ -958,17 +958,12 @@ unsafe fn InitTriInfo(
     }
 
     let mut pEdges = vec![SEdge::zero(); iNrTrianglesIn * 3];
-    BuildNeighborsFast(
-        pTriInfos,
-        pEdges.as_mut_ptr(),
-        piTriListIn,
-        iNrTrianglesIn as i32,
-    );
+    BuildNeighborsFast(pTriInfos, &mut pEdges, piTriListIn, iNrTrianglesIn as i32);
 }
 
 unsafe fn BuildNeighborsFast(
     mut pTriInfos: *mut STriInfo,
-    mut pEdges: *mut SEdge,
+    mut pEdges: &mut [SEdge],
     mut piTriListIn: *const i32,
     iNrTrianglesIn: i32,
 ) {
@@ -977,58 +972,25 @@ unsafe fn BuildNeighborsFast(
     let mut uSeed: u32 = 39871946i32 as u32;
     let mut iEntries: i32 = 0i32;
     let mut iCurStartIndex: i32 = -1i32;
-    let mut f: i32 = 0i32;
-    let mut i: i32 = 0i32;
-    f = 0i32;
-    while f < iNrTrianglesIn {
-        i = 0i32;
-        while i < 3i32 {
+
+    for f in 0..iNrTrianglesIn {
+        for i in 0..3i32 {
             let i0: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
             let i1: i32 =
                 *piTriListIn.offset((f * 3i32 + if i < 2i32 { i + 1i32 } else { 0i32 }) as isize);
-            (*pEdges.offset((f * 3i32 + i) as isize)).unnamed.i0 = if i0 < i1 { i0 } else { i1 };
-            (*pEdges.offset((f * 3i32 + i) as isize)).unnamed.i1 = if !(i0 < i1) { i0 } else { i1 };
-            (*pEdges.offset((f * 3i32 + i) as isize)).unnamed.f = f;
-            i += 1
+            pEdges[((f * 3i32 + i) as usize)].i0 = if i0 < i1 { i0 } else { i1 }; // put minimum index in i0
+            (pEdges[(f * 3i32 + i) as usize]).i1 = if !(i0 < i1) { i0 } else { i1 }; // put maximum index in i1
+            (pEdges[(f * 3i32 + i) as usize]).f = f; // record face number
         }
-        f += 1
     }
-    QuickSortEdges(pEdges, 0i32, iNrTrianglesIn * 3i32 - 1i32, 0i32, uSeed);
-    iEntries = iNrTrianglesIn * 3i32;
-    iCurStartIndex = 0i32;
-    i = 1i32;
-    while i < iEntries {
-        if (*pEdges.offset(iCurStartIndex as isize)).unnamed.i0
-            != (*pEdges.offset(i as isize)).unnamed.i0
-        {
-            let iL: i32 = iCurStartIndex;
-            let iR: i32 = i - 1i32;
-            iCurStartIndex = i;
-            QuickSortEdges(pEdges, iL, iR, 1i32, uSeed);
-        }
-        i += 1
-    }
-    iCurStartIndex = 0i32;
-    i = 1i32;
-    while i < iEntries {
-        if (*pEdges.offset(iCurStartIndex as isize)).unnamed.i0
-            != (*pEdges.offset(i as isize)).unnamed.i0
-            || (*pEdges.offset(iCurStartIndex as isize)).unnamed.i1
-                != (*pEdges.offset(i as isize)).unnamed.i1
-        {
-            let iL_0: i32 = iCurStartIndex;
-            let iR_0: i32 = i - 1i32;
-            iCurStartIndex = i;
-            QuickSortEdges(pEdges, iL_0, iR_0, 2i32, uSeed);
-        }
-        i += 1
-    }
-    i = 0i32;
-    while i < iEntries {
-        let i0_0: i32 = (*pEdges.offset(i as isize)).unnamed.i0;
-        let i1_0: i32 = (*pEdges.offset(i as isize)).unnamed.i1;
-        let f_0: i32 = (*pEdges.offset(i as isize)).unnamed.f;
-        let mut bUnassigned_A: bool = false;
+    pEdges.sort();
+
+    for i in 0..iEntries {
+        let edge = pEdges[i as usize];
+        let i0_0: i32 = edge.i0;
+        let i1_0: i32 = edge.i1;
+        let f_0: i32 = edge.f;
+
         let mut i0_A: i32 = 0;
         let mut i1_A: i32 = 0;
         let mut edgenum_A: i32 = 0;
@@ -1041,34 +1003,29 @@ unsafe fn BuildNeighborsFast(
             i0_0,
             i1_0,
         );
-        bUnassigned_A =
-            if (*pTriInfos.offset(f_0 as isize)).FaceNeighbors[edgenum_A as usize] == -1i32 {
-                true
-            } else {
-                false
-            };
+        let bUnassigned_A =
+            (*pTriInfos.offset(f_0 as isize)).FaceNeighbors[edgenum_A as usize] == -1i32;
         if bUnassigned_A {
             let mut j: i32 = i + 1i32;
-            let mut t: i32 = 0;
+
             let mut bNotFound: bool = true;
             while j < iEntries
-                && i0_0 == (*pEdges.offset(j as isize)).unnamed.i0
-                && i1_0 == (*pEdges.offset(j as isize)).unnamed.i1
+                && i0_0 == pEdges[j as usize].i0
+                && i1_0 == pEdges[j as usize].i1
                 && bNotFound
             {
-                let mut bUnassigned_B: bool = false;
                 let mut i0_B: i32 = 0;
                 let mut i1_B: i32 = 0;
-                t = (*pEdges.offset(j as isize)).unnamed.f;
+                let t = pEdges[j as usize].f;
                 GetEdge(
                     &mut i1_B,
                     &mut i0_B,
                     &mut edgenum_B,
                     &*piTriListIn.offset((t * 3i32) as isize),
-                    (*pEdges.offset(j as isize)).unnamed.i0,
-                    (*pEdges.offset(j as isize)).unnamed.i1,
+                    pEdges[j as usize].i0,
+                    pEdges[j as usize].i1,
                 );
-                bUnassigned_B =
+                let bUnassigned_B =
                     if (*pTriInfos.offset(t as isize)).FaceNeighbors[edgenum_B as usize] == -1i32 {
                         true
                     } else {
@@ -1081,12 +1038,11 @@ unsafe fn BuildNeighborsFast(
                 }
             }
             if !bNotFound {
-                let mut t_0: i32 = (*pEdges.offset(j as isize)).unnamed.f;
+                let mut t_0: i32 = pEdges[j as usize].f;
                 (*pTriInfos.offset(f_0 as isize)).FaceNeighbors[edgenum_A as usize] = t_0;
                 (*pTriInfos.offset(t_0 as isize)).FaceNeighbors[edgenum_B as usize] = f_0
             }
         }
-        i += 1
     }
 }
 unsafe fn GetEdge(
@@ -1116,75 +1072,6 @@ unsafe fn GetEdge(
 }
 // ///////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-unsafe fn QuickSortEdges(
-    mut pSortBuffer: *mut SEdge,
-    mut iLeft: i32,
-    mut iRight: i32,
-    channel: i32,
-    mut uSeed: u32,
-) {
-    let mut t: u32 = 0;
-    let mut iL: i32 = 0;
-    let mut iR: i32 = 0;
-    let mut n: i32 = 0;
-    let mut index: i32 = 0;
-    let mut iMid: i32 = 0;
-    // early out
-    let mut sTmp: SEdge = SEdge {
-        unnamed: unnamed { i0: 0, i1: 0, f: 0 },
-    };
-    let iElems: i32 = iRight - iLeft + 1i32;
-    if iElems < 2i32 {
-        return;
-    } else {
-        if iElems == 2i32 {
-            if (*pSortBuffer.offset(iLeft as isize)).array[channel as usize]
-                > (*pSortBuffer.offset(iRight as isize)).array[channel as usize]
-            {
-                sTmp = *pSortBuffer.offset(iLeft as isize);
-                *pSortBuffer.offset(iLeft as isize) = *pSortBuffer.offset(iRight as isize);
-                *pSortBuffer.offset(iRight as isize) = sTmp
-            }
-            return;
-        }
-    }
-
-    // Random
-    t = uSeed & 31i32 as u32;
-    t = uSeed.rotate_left(t) | uSeed.rotate_right((32i32 as u32).wrapping_sub(t));
-    uSeed = uSeed.wrapping_add(t).wrapping_add(3i32 as u32);
-    // Random end
-
-    iL = iLeft;
-    iR = iRight;
-    n = iR - iL + 1i32;
-    index = uSeed.wrapping_rem(n as u32) as i32;
-    iMid = (*pSortBuffer.offset((index + iL) as isize)).array[channel as usize];
-    loop {
-        while (*pSortBuffer.offset(iL as isize)).array[channel as usize] < iMid {
-            iL += 1
-        }
-        while (*pSortBuffer.offset(iR as isize)).array[channel as usize] > iMid {
-            iR -= 1
-        }
-        if iL <= iR {
-            sTmp = *pSortBuffer.offset(iL as isize);
-            *pSortBuffer.offset(iL as isize) = *pSortBuffer.offset(iR as isize);
-            *pSortBuffer.offset(iR as isize) = sTmp;
-            iL += 1;
-            iR -= 1
-        }
-        if !(iL <= iR) {
-            break;
-        }
-    }
-    if iLeft < iR {
-        QuickSortEdges(pSortBuffer, iLeft, iR, channel, uSeed);
-    }
-    if iL < iRight {
-        QuickSortEdges(pSortBuffer, iL, iRight, channel, uSeed);
-    };
-}
 
 // returns the texture area times 2
 unsafe fn CalcTexArea(geometry: &impl Geometry, mut indices: *const i32) -> f32 {
