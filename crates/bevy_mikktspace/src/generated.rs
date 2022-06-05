@@ -1191,18 +1191,10 @@ unsafe fn GenerateSharedVerticesIndexList(
     geometry: &impl Geometry,
     iNrTrianglesIn: usize,
 ) {
-    let mut i = 0;
-    let mut iChannel: i32 = 0i32;
-    let mut k = 0;
-    let mut e = 0;
-    let mut iMaxCount = 0;
     let mut vMin = get_position(geometry, 0);
     let mut vMax = vMin;
-    let mut vDim = Vec3::new(0.0, 0.0, 0.0);
-    let mut fMin: f32 = 0.;
-    let mut fMax: f32 = 0.;
-    i = 1;
-    while i < iNrTrianglesIn * 3 {
+
+    for i in 0..(iNrTrianglesIn * 3) {
         let index: i32 = *piTriList_in_and_out.offset(i as isize);
         let vP = get_position(geometry, index as usize);
         if vMin.x > vP.x {
@@ -1220,12 +1212,11 @@ unsafe fn GenerateSharedVerticesIndexList(
         } else if vMax.z < vP.z {
             vMax.z = vP.z
         }
-        i += 1
     }
-    vDim = vMax - vMin;
-    iChannel = 0i32;
-    fMin = vMin.x;
-    fMax = vMax.x;
+    let vDim = vMax - vMin;
+    let iChannel;
+    let fMin;
+    let fMax;
     if vDim.y > vDim.x && vDim.y > vDim.z {
         iChannel = 1i32;
         fMin = vMin.y;
@@ -1234,6 +1225,10 @@ unsafe fn GenerateSharedVerticesIndexList(
         iChannel = 2i32;
         fMin = vMin.z;
         fMax = vMax.z
+    } else {
+        iChannel = 0i32;
+        fMin = vMin.x;
+        fMax = vMax.x;
     }
 
     let mut piHashTable = vec![0i32; iNrTrianglesIn * 3];
@@ -1241,8 +1236,7 @@ unsafe fn GenerateSharedVerticesIndexList(
     let mut piHashCount = vec![0i32; g_iCells];
     let mut piHashCount2 = vec![0i32; g_iCells];
 
-    i = 0;
-    while i < iNrTrianglesIn * 3 {
+    for i in 0..(iNrTrianglesIn * 3) {
         let index_0: i32 = *piTriList_in_and_out.offset(i as isize);
         let vP_0 = get_position(geometry, index_0 as usize);
         let fVal: f32 = if iChannel == 0i32 {
@@ -1254,16 +1248,13 @@ unsafe fn GenerateSharedVerticesIndexList(
         };
         let iCell = FindGridCell(fMin, fMax, fVal);
         piHashCount[iCell] += 1;
-        i += 1
     }
     piHashOffsets[0] = 0i32;
-    k = 1;
-    while k < g_iCells {
+
+    for k in 1..g_iCells {
         piHashOffsets[k] = piHashOffsets[k - 1] + piHashCount[k - 1];
-        k += 1
     }
-    i = 0;
-    while i < iNrTrianglesIn * 3 {
+    for i in 0..(iNrTrianglesIn * 3) {
         let index_1: i32 = *piTriList_in_and_out.offset(i as isize);
         let vP_1 = get_position(geometry, index_1 as usize);
         let fVal_0: f32 = if iChannel == 0i32 {
@@ -1275,32 +1266,26 @@ unsafe fn GenerateSharedVerticesIndexList(
         };
         let iCell_0 = FindGridCell(fMin, fMax, fVal_0);
         let mut pTable: *mut i32 = 0 as *mut i32;
-        pTable = &mut piHashTable[piHashOffsets[iCell_0] as usize] as *mut i32;
+        let pTable = piHashTable
+            .as_mut_ptr()
+            .offset(piHashOffsets[iCell_0] as isize);
         *pTable.offset(piHashCount2[iCell_0] as isize) = i as i32;
         piHashCount2[iCell_0] += 1;
-        i += 1
     }
-    k = 0;
-    while k < g_iCells {
-        k += 1
-    }
-    iMaxCount = piHashCount[0] as usize;
-    k = 1;
-    while k < g_iCells {
-        if iMaxCount < piHashCount[k] as usize {
-            iMaxCount = piHashCount[k] as usize
-        }
-        k += 1
-    }
+
+    debug_assert_eq!(piHashCount, piHashCount2);
+    drop(piHashCount2);
+
+    let iMaxCount = piHashCount.iter().max().copied().unwrap() as usize;
+
     let mut pTmpVert = vec![STmpVert::zero(); iMaxCount];
-    k = 0;
-    while k < g_iCells {
+
+    for k in 0..g_iCells {
         // extract table of cell k and amount of entries in it
         let mut pTable_0 = &mut piHashTable[piHashOffsets[k] as usize] as *mut i32;
         let iEntries = piHashCount[k] as usize;
         if !(iEntries < 2) {
-            e = 0;
-            while e < iEntries {
+            for e in 0..iEntries {
                 let mut i_0: i32 = *pTable_0.offset(e as isize);
                 let vP_2 = get_position(
                     geometry,
@@ -1310,7 +1295,6 @@ unsafe fn GenerateSharedVerticesIndexList(
                 pTmpVert[e].vert[1usize] = vP_2.y;
                 pTmpVert[e].vert[2usize] = vP_2.z;
                 pTmpVert[e].index = i_0;
-                e += 1
             }
             MergeVertsFast(
                 piTriList_in_and_out,
@@ -1320,7 +1304,6 @@ unsafe fn GenerateSharedVerticesIndexList(
                 (iEntries - 1) as i32,
             );
         }
-        k += 1
     }
 }
 
