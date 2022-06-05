@@ -1,29 +1,25 @@
-//! A simplified Flappy Bird but with many birds
+//! A simplified Flappy Bird but with many birds. Press space to flap.
 
 use bevy::prelude::*;
 
-use bevy::sprite::collide_aabb::collide;
+use bevy::sprite::collide_aabb::{collide, Collision};
 use bevy::window::PresentMode;
 
-use rand::Rng;
+use rand::random;
 
 const CHUNK_SIZE: f32 = 300.0;
 const CAMERA_SPEED: f32 = 120.0;
 const GAME_HEIGHT: f32 = 500.0;
 const SCREEN_HEIGHT: f32 = 1500.0;
 const CLEANUP_X_DIST: f32 = 1500.0;
-const CHAOS_AMOUNT_X: f32 = 250.0;
-const CHAOS_AMOUNT_Y: f32 = 600.0;
-const DRIFT_TO_CENTER_AMOUNT: f32 = 0.01;
-const FLAP_STRENGTH: f32 = 250.0;
+const BROWNIAN_DRIFT_AMOUNT_X: f32 = 250.0;
+const BROWNIAN_DRIFT_AMOUNT_Y: f32 = 600.0;
+const DRIFT_TO_CENTER_AMOUNT: f32 = 0.1;
+const FLAP_STRENGTH: f32 = 240.0;
 const BIRD_SIZE: f32 = 24.0;
 const BIRD_REPRODUCTION_CHANCE: f32 = 1.0;
 const MAX_BIRDS: usize = 500;
 const GRAVITY: f32 = 400.0;
-
-fn randf() -> f32 {
-    rand::thread_rng().gen::<f32>()
-}
 
 pub fn main() {
     let mut app = App::new();
@@ -79,7 +75,9 @@ fn advance_camera(
         let chunk_index = (transform.translation.x / CHUNK_SIZE).floor() as i32;
         transform.translation.x += time.delta().as_secs_f32() * CAMERA_SPEED;
         let new_chunk_index = (transform.translation.x / CHUNK_SIZE).floor() as i32;
+        // if the camera has moved over a chunk boundary
         if chunk_index != new_chunk_index {
+            // generate a new chunk offscreen to the right
             outgoing_generate_chunk_events.send(GenerateChunk {
                 new_chunk_index: new_chunk_index + 3,
             });
@@ -97,6 +95,7 @@ fn terrain_cleanup(
 ) {
     let cam_x = cam.single().translation.x;
     for (e, t) in q.iter() {
+        // remove obstacles at the left
         if t.translation.x < cam_x - CLEANUP_X_DIST {
             commands.entity(e).despawn();
         }
@@ -110,10 +109,10 @@ fn terrain_gen(
     for ev in incoming_generate_chunk_events.iter() {
         let x_pos = CHUNK_SIZE * ev.new_chunk_index as f32;
         // generate some terrain within x_pos..x_pos+width
-        let gap_y_pos = GAME_HEIGHT * (randf() - 0.5);
-        let pillar_width = 50.0 + 110.0 * randf();
+        let gap_y_pos = GAME_HEIGHT * (random::<f32>() - 0.5) * 0.9;
+        let pillar_width = 50.0 + 110.0 * random::<f32>();
         // make the gap no narrower than the pillar is wide
-        let gap_size = (50.0 + 250.0 * randf()).max(pillar_width);
+        let gap_size = (65.0 + 250.0 * random::<f32>()).max(pillar_width);
         for (top_y_pos, bottom_y_pos) in [
             (-SCREEN_HEIGHT * 0.5, gap_y_pos - gap_size * 0.5),
             (gap_y_pos + gap_size * 0.5, SCREEN_HEIGHT * 0.5),
@@ -178,12 +177,12 @@ fn spawn_bird(
         commands
             .spawn_bundle(SpriteBundle {
                 sprite: Sprite {
-                    color: Color::rgb(randf(), randf(), randf()),
+                    color: Color::rgb(random::<f32>(), random::<f32>(), random::<f32>()),
                     custom_size: Some(Vec2::splat(BIRD_SIZE)),
                     ..default()
                 },
                 texture: art.bird_icon.clone(),
-                transform: Transform::from_translation(ev.new_bird_pos.extend(randf() * 100.0)),
+                transform: Transform::from_translation(ev.new_bird_pos.extend(random::<f32>() * 100.0)),
                 ..default()
             })
             .insert(Velocity {
@@ -196,6 +195,7 @@ fn spawn_bird(
     }
 }
 
+/// The flock has a tendency to drift offscreen - gently bring it back to the center
 fn drift_to_center(
     mut q: Query<(&mut Velocity, &Transform)>,
     cam: Query<&Transform, With<Camera>>,
@@ -226,16 +226,17 @@ fn bird_collision(
     obstacles: Query<(&Sprite, &Transform), With<Obstacle>>,
 ) {
     for (bird_entity, bird_sprite, bird_transform) in birds.iter() {
+        let mut collision_result: Option<Collision> = None;
         for (obstacle_sprite, obstacle_transform) in obstacles.iter() {
-            let collision_result = collide(
+            collision_result = collision_result.or(collide(
                 bird_transform.translation,
                 bird_sprite.custom_size.unwrap(),
                 obstacle_transform.translation,
                 obstacle_sprite.custom_size.unwrap(),
-            );
-            if collision_result.is_some() {
-                commands.entity(bird_entity).despawn();
-            }
+            ));
+        }
+        if collision_result.is_some() || bird_transform.translation.y < -SCREEN_HEIGHT * 0.5 {
+            commands.entity(bird_entity).despawn();
         }
     }
 }
@@ -249,13 +250,15 @@ fn bird_reproduction(
     for (_t, _v) in q.iter() {
         bird_count += 1;
     }
-    for (t, v) in q.iter() {
-        if bird_count < MAX_BIRDS && randf() < BIRD_REPRODUCTION_CHANCE * time.delta().as_secs_f32()
-        {
-            spawn_bird_events.send(SpawnBird {
-                new_bird_pos: t.translation.truncate(),
-                new_bird_velocity: v.velocity,
-            });
+    if bird_count < MAX_BIRDS {
+        for (t, v) in q.iter() {
+            if random::<f32>() < BIRD_REPRODUCTION_CHANCE * time.delta().as_secs_f32()
+            {
+                spawn_bird_events.send(SpawnBird {
+                    new_bird_pos: t.translation.truncate(),
+                    new_bird_velocity: v.velocity,
+                });
+            }
         }
     }
 }
@@ -263,8 +266,8 @@ fn bird_reproduction(
 fn brownian_drift(mut q: Query<&mut Velocity, With<BrownianDrift>>, time: Res<Time>) {
     for mut v in q.iter_mut() {
         v.velocity += Vec2::new(
-            (randf() - 0.5) * CHAOS_AMOUNT_X,
-            (randf() - 0.5) * CHAOS_AMOUNT_Y,
+            (random::<f32>() - 0.5) * BROWNIAN_DRIFT_AMOUNT_X,
+            (random::<f32>() - 0.5) * BROWNIAN_DRIFT_AMOUNT_Y,
         ) * time.delta().as_secs_f32();
     }
 }
