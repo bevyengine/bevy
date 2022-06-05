@@ -129,12 +129,12 @@ impl<T: Asset> Assets<T> {
     ///
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
     /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
-    pub fn get<H: Into<HandleId>>(&self, handle: H) -> Option<&T> {
+    pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
         self.assets.get(&handle.into())
     }
 
     /// Checks if an asset exists for the given handle
-    pub fn contains<H: Into<HandleId>>(&self, handle: H) -> bool {
+    pub fn contains(&self, handle: &Handle<T>) -> bool {
         self.assets.contains_key(&handle.into())
     }
 
@@ -142,7 +142,7 @@ impl<T: Asset> Assets<T> {
     ///
     /// This is the main method for mutably accessing asset data from an [Assets] collection. If you
     /// do not need mutable access to the asset, you may also use [get](Assets::get).
-    pub fn get_mut<H: Into<HandleId>>(&mut self, handle: H) -> Option<&mut T> {
+    pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
         let id: HandleId = handle.into();
         self.events.send(AssetEvent::Modified {
             handle: Handle::weak(id),
@@ -398,6 +398,6 @@ mod tests {
         let handle = assets_before.add(MyAsset);
         app.add_asset::<MyAsset>(); // Ensure this doesn't overwrite the Asset
         let assets_after = app.world.resource_mut::<Assets<MyAsset>>();
-        assert!(assets_after.get(handle).is_some());
+        assert!(assets_after.get(&handle).is_some());
     }
 }

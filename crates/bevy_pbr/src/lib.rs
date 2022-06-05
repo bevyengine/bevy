@@ -39,6 +39,8 @@ use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    camera::CameraUpdateSystem,
+    extract_resource::ExtractResourcePlugin,
     prelude::Color,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
@@ -48,6 +50,10 @@ use bevy_render::{
 };
 use bevy_transform::TransformSystem;
 
+pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
+pub const PBR_BINDINGS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5635987986427308186);
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
@@ -59,6 +65,18 @@ pub struct PbrPlugin;
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            PBR_TYPES_SHADER_HANDLE,
+            "render/pbr_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PBR_BINDINGS_SHADER_HANDLE,
+            "render/pbr_bindings.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
@@ -76,6 +94,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
+            .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 // NOTE: Clusters need to have been added before update_clusters is run so
@@ -89,6 +108,7 @@ impl Plugin for PbrPlugin {
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
+                    .after(CameraUpdateSystem)
                     .after(ModifiesWindows),
             )
             .add_system_to_stage(
@@ -174,19 +194,19 @@ impl Plugin for PbrPlugin {
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
+            .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
         draw_3d_graph
             .add_node_edge(
                 draw_3d_graph::node::SHADOW_PASS,
-                bevy_core_pipeline::draw_3d_graph::node::MAIN_PASS,
+                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
             )
             .unwrap();
         draw_3d_graph
             .add_slot_edge(
                 draw_3d_graph.input_node().unwrap().id,
-                bevy_core_pipeline::draw_3d_graph::input::VIEW_ENTITY,
+                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
                 draw_3d_graph::node::SHADOW_PASS,
                 ShadowPassNode::IN_VIEW,
             )

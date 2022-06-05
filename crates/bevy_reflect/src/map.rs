@@ -1,8 +1,9 @@
 use std::any::Any;
+use std::fmt::{Debug, Formatter};
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{Reflect, ReflectMut, ReflectRef};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -186,16 +187,20 @@ unsafe impl Reflect for DynamicMap {
         Box::new(self.clone_dynamic())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicMap(")?;
+        map_debug(self, f)?;
+        write!(f, ")")
+    }
+}
+
+impl Debug for DynamicMap {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.debug(f)
     }
 }
 
@@ -261,6 +266,32 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`Map`] types.
+///
+/// # Example
+/// ```
+/// # use bevy_utils::HashMap;
+/// use bevy_reflect::Reflect;
+///
+/// let mut my_map = HashMap::new();
+/// my_map.insert(123, String::from("Hello"));
+/// println!("{:#?}", &my_map as &dyn Reflect);
+///
+/// // Output:
+///
+/// // {
+/// //   123: "Hello",
+/// // }
+/// ```
+#[inline]
+pub fn map_debug(dyn_map: &dyn Map, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_map();
+    for (key, value) in dyn_map.iter() {
+        debug.entry(&key as &dyn Debug, &value as &dyn Debug);
+    }
+    debug.finish()
 }
 
 #[cfg(test)]

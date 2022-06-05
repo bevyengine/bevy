@@ -4,7 +4,7 @@ version = "0.8.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
-exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
+exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
 homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
@@ -13,7 +13,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "errors"]
+members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "tools/build-wasm-example", "errors"]
 
 [features]
 default = [
@@ -144,6 +144,10 @@ name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
 
 [[example]]
+name = "mesh2d_vertex_color_texture"
+path = "examples/2d/mesh2d_vertex_color_texture.rs"
+
+[[example]]
 name = "shapes"
 path = "examples/2d/shapes.rs"
 
@@ -171,6 +175,10 @@ path = "examples/2d/texture_atlas.rs"
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
+
+[[example]]
+name = "3d_shapes"
+path = "examples/3d/shapes.rs"
 
 [[example]]
 name = "lighting"
@@ -205,16 +213,16 @@ name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
 
 [[example]]
-name = "3d_shapes"
-path = "examples/3d/shapes.rs"
-
-[[example]]
 name = "shadow_caster_receiver"
 path = "examples/3d/shadow_caster_receiver.rs"
 
 [[example]]
 name = "spherical_area_lights"
 path = "examples/3d/spherical_area_lights.rs"
+
+[[example]]
+name = "split_screen"
+path = "examples/3d/split_screen.rs"
 
 [[example]]
 name = "texture"

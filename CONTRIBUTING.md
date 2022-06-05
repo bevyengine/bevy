@@ -2,7 +2,6 @@
 
 Hey, so you're interested in contributing to Bevy!
 Feel free to pitch in on whatever interests you and we'll be happy to help you contribute.
-Ultimately @cart has final say on which changes are merged, but you're welcome to try and convince him.
 
 Check out our community's [Code of Conduct](https://github.com/bevyengine/bevy/blob/main/CODE_OF_CONDUCT.md) and feel free to say hi on [Discord](https://discord.gg/bevy) if you'd like.
 It's a nice place to chat about Bevy development, ask questions, and get to know the other contributors and users in a less formal setting.
@@ -199,7 +198,7 @@ Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/d
 
 ### Fixing bugs
 
-Bugs in Bevy (or the associated website / book) are filed on the issue tracker using the [`bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3Abug) label.
+Bugs in Bevy (or the associated website / book) are filed on the issue tracker using the [`C-Bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3AC-Bug) label.
 
 If you're looking for an easy place to start, take a look at the [`E-Good-First-Issue`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AE-Good-First-Issue) label, and feel free to ask questions on that issue's thread in question or on Discord.
 You don't need anyone's permission to try fixing a bug or adding a simple feature, but stating that you'd like to tackle an issue can be helpful to avoid duplicated work.

@@ -7,11 +7,11 @@ use bevy_ecs::{
 use bevy_math::{Mat4, Vec2};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -35,28 +35,44 @@ impl From<Handle<Mesh>> for Mesh2dHandle {
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 
-pub const MESH2D_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
+pub const MESH2D_VIEW_TYPES_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12677582416765805110);
+pub const MESH2D_VIEW_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6901431444735842434);
-pub const MESH2D_STRUCT_HANDLE: HandleUntyped =
+pub const MESH2D_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8994673400261890424);
+pub const MESH2D_BINDINGS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8983617858458862856);
 pub const MESH2D_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2971387252468633715);
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        load_internal_asset!(
+            app,
+            MESH2D_VIEW_TYPES_HANDLE,
+            "mesh2d_view_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH2D_VIEW_BINDINGS_HANDLE,
+            "mesh2d_view_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH2D_TYPES_HANDLE,
+            "mesh2d_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH2D_BINDINGS_HANDLE,
+            "mesh2d_bindings.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            MESH2D_STRUCT_HANDLE,
-            "mesh2d_struct.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_VIEW_BIND_GROUP_HANDLE,
-            "mesh2d_view_bind_group.wgsl",
-            Shader::from_wgsl
-        );
 
         app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
 
@@ -71,7 +87,7 @@ impl Plugin for Mesh2dRenderPlugin {
     }
 }
 
-#[derive(Component, AsStd140, Clone)]
+#[derive(Component, ShaderType, Clone)]
 pub struct Mesh2dUniform {
     pub transform: Mat4,
     pub inverse_transpose_model: Mat4,
@@ -134,7 +150,7 @@ impl FromWorld for Mesh2dPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                        min_binding_size: Some(ViewUniform::min_size()),
                     },
                     count: None,
                 },
@@ -149,7 +165,7 @@ impl FromWorld for Mesh2dPipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(Mesh2dUniform::std140_size_static() as u64),
+                    min_binding_size: Some(Mesh2dUniform::min_size()),
                 },
                 count: None,
             }],

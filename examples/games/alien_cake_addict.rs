@@ -1,4 +1,6 @@
-use bevy::{core::FixedTimestep, ecs::schedule::SystemSet, prelude::*, render::camera::Camera3d};
+//! Eat the cakes. Eat them all. An example 3D game.
+
+use bevy::{ecs::schedule::SystemSet, prelude::*, time::FixedTimestep};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -9,7 +11,6 @@ enum GameState {
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
@@ -78,7 +79,7 @@ const RESET_FOCUS: [f32; 3] = [
 fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     game.camera_should_focus = Vec3::from(RESET_FOCUS);
     game.camera_is_focus = game.camera_should_focus;
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(
             -(BOARD_SIZE_I as f32 / 2.0),
             2.0 * BOARD_SIZE_J as f32 / 3.0,
@@ -87,7 +88,6 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
         .looking_at(game.camera_is_focus, Vec3::Y),
         ..default()
     });
-    commands.spawn_bundle(UiCameraBundle::default());
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
@@ -268,12 +268,12 @@ fn focus_camera(
                 .translation
                 .lerp(bonus_transform.translation, 0.5);
         }
-    // otherwise, if there is only a player, target the player
+        // otherwise, if there is only a player, target the player
     } else if let Some(player_entity) = game.player.entity {
         if let Ok(player_transform) = transforms.p1().get(player_entity) {
             game.camera_should_focus = player_transform.translation;
         }
-    // otherwise, target the middle
+        // otherwise, target the middle
     } else {
         game.camera_should_focus = Vec3::from(RESET_FOCUS);
     }

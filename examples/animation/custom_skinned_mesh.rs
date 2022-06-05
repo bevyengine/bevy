@@ -1,3 +1,6 @@
+//! Skinned mesh example with mesh and joints data defined in code.
+//! Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
+
 use std::f32::consts::PI;
 
 use bevy::{
@@ -10,8 +13,6 @@ use bevy::{
 };
 use rand::Rng;
 
-/// Skinned mesh example with mesh and joints data defined in code.
-/// Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -38,7 +39,7 @@ fn setup(
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
     // Create a camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

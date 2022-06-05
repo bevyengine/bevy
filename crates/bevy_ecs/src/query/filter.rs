@@ -47,6 +47,7 @@ pub struct With<T>(PhantomData<T>);
 impl<T: Component> WorldQuery for With<T> {
     type State = WithState<T>;
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: super::QueryItem<'wlong, Self>,
     ) -> super::QueryItem<'wshort, Self> {
@@ -90,12 +91,8 @@ unsafe impl<T: Component> FetchState for WithState<T> {
     ) {
     }
 
-    fn matches_archetype(&self, archetype: &Archetype) -> bool {
-        archetype.contains(self.component_id)
-    }
-
-    fn matches_table(&self, table: &Table) -> bool {
-        table.has_column(self.component_id)
+    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        set_contains_id(self.component_id)
     }
 }
 
@@ -190,6 +187,7 @@ pub struct Without<T>(PhantomData<T>);
 impl<T: Component> WorldQuery for Without<T> {
     type State = WithoutState<T>;
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: super::QueryItem<'wlong, Self>,
     ) -> super::QueryItem<'wshort, Self> {
@@ -232,13 +230,8 @@ unsafe impl<T: Component> FetchState for WithoutState<T> {
         _access: &mut Access<ArchetypeComponentId>,
     ) {
     }
-
-    fn matches_archetype(&self, archetype: &Archetype) -> bool {
-        !archetype.contains(self.component_id)
-    }
-
-    fn matches_table(&self, table: &Table) -> bool {
-        !table.has_column(self.component_id)
+    fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        !set_contains_id(self.component_id)
     }
 }
 
@@ -390,7 +383,7 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
-                    $filter.matches = $state.matches_table(table);
+                    $filter.matches = $state.matches_component_set(&|id| table.has_column(id));
                     if $filter.matches {
                         $filter.fetch.set_table($state, table);
                     }
@@ -402,7 +395,7 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
-                    $filter.matches = $state.matches_archetype(archetype);
+                    $filter.matches = $state.matches_component_set(&|id| archetype.contains(id));
                     if $filter.matches {
                         $filter.fetch.set_archetype($state, archetype, tables);
                     }
@@ -442,7 +435,34 @@ macro_rules! impl_query_filter_tuple {
 
             fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = &self.0;
-                $($filter.update_component_access(access);)*
+
+                // We do not unconditionally add `$filter`'s `with`/`without` accesses to `access`
+                // as this would be unsound. For example the following two queries should conflict:
+                // - Query<&mut B, Or<(With<A>, ())>>
+                // - Query<&mut B, Without<A>>
+                //
+                // If we were to unconditionally add `$name`'s `with`/`without` accesses then `Or<(With<A>, ())>`
+                // would have a `With<A>` access which is incorrect as this `WorldQuery` will match entities that
+                // do not have the `A` component. This is the same logic as the `AnyOf<...>: WorldQuery` impl.
+                //
+                // The correct thing to do here is to only add a `with`/`without` access to `_access` if all
+                // `$filter` params have that `with`/`without` access. More jargony put- we add the intersection
+                // of all `with`/`without` accesses of the `$filter` params to `access`.
+                let mut _intersected_access = access.clone();
+                let mut _not_first = false;
+                $(
+                    if _not_first {
+                        let mut intermediate = access.clone();
+                        $filter.update_component_access(&mut intermediate);
+                        _intersected_access.extend_intersect_filter(&intermediate);
+                        _intersected_access.extend_access(&intermediate);
+                    } else {
+                        $filter.update_component_access(&mut _intersected_access);
+                        _not_first = true;
+                    }
+                )*
+
+                *access = _intersected_access;
             }
 
             fn update_archetype_component_access(&self, archetype: &Archetype, access: &mut Access<ArchetypeComponentId>) {
@@ -450,14 +470,9 @@ macro_rules! impl_query_filter_tuple {
                 $($filter.update_archetype_component_access(archetype, access);)*
             }
 
-            fn matches_archetype(&self, archetype: &Archetype) -> bool {
+            fn matches_component_set(&self, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = &self.0;
-                false $(|| $filter.matches_archetype(archetype))*
-            }
-
-            fn matches_table(&self, table: &Table) -> bool {
-                let ($($filter,)*) = &self.0;
-                false $(|| $filter.matches_table(table))*
+                false $(|| $filter.matches_component_set(_set_contains_id))*
             }
         }
 
@@ -537,12 +552,8 @@ macro_rules! impl_tick_filter {
                 }
             }
 
-            fn matches_archetype(&self, archetype: &Archetype) -> bool {
-                archetype.contains(self.component_id)
-            }
-
-            fn matches_table(&self, table: &Table) -> bool {
-                table.has_column(self.component_id)
+            fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+                set_contains_id(self.component_id)
             }
         }
 

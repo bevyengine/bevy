@@ -93,8 +93,7 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
     let (changed_shaders, handle_map, debug_assets) = state.get_mut(world);
     for changed in changed_shaders.iter_current_update_events() {
         let debug_handle = match changed {
-            AssetEvent::Created { handle } => handle,
-            AssetEvent::Modified { handle } => handle,
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
             AssetEvent::Removed { .. } => continue,
         };
         if let Some(handle) = handle_map.handles.get(debug_handle) {

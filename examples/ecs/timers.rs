@@ -1,3 +1,5 @@
+//! Illustrates how `Timer`s can be used both as resources and components.
+
 use bevy::{log::info, prelude::*};
 
 fn main() {

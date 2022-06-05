@@ -1,5 +1,10 @@
+//! This example shows how to manually render 2d items using "mid level render apis" with a custom
+//! pipeline for 2d meshes.
+//! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
+//! Check out the "mesh2d" example for simpler / higher level 2d meshes.
+
 use bevy::{
-    core_pipeline::Transparent2d,
+    core_pipeline::core_2d::Transparent2d,
     prelude::*,
     reflect::TypeUuid,
     render::{
@@ -23,9 +28,6 @@ use bevy::{
     utils::FloatOrd,
 };
 
-/// This example shows how to manually render 2d items using "mid level render apis" with a custom pipeline for 2d meshes
-/// It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color
-/// Check out the "mesh2d" example for simpler / higher level 2d meshes
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -106,7 +108,7 @@ fn star(
     ));
     commands
         // And use an orthographic projection
-        .spawn_bundle(OrthographicCameraBundle::new_2d());
+        .spawn_bundle(Camera2dBundle::default());
 }
 
 /// A marker component for colored 2d meshes
@@ -207,10 +209,9 @@ type DrawColoredMesh2d = (
 // using `include_str!()`, or loaded like any other asset with `asset_server.load()`.
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_view_bind_group
-[[group(0), binding(0)]]
-var<uniform> view: View;
-#import bevy_sprite::mesh2d_struct
+#import bevy_sprite::mesh2d_types
+#import bevy_sprite::mesh2d_view_bindings
+
 [[group(1), binding(0)]]
 var<uniform> mesh: Mesh2d;
 

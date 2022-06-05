@@ -1,3 +1,5 @@
+//! Plays animations from a skinned glTF.
+
 use bevy::prelude::*;
 
 fn main() {
@@ -30,7 +32,7 @@ fn setup(
     ]));
 
     // Camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(100.0, 100.0, 150.0)
             .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
         ..Default::default()

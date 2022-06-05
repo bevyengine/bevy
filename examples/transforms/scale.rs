@@ -1,3 +1,5 @@
+//! Illustrates how to scale an object in each direction.
+
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use std::f32::consts::PI;
@@ -49,7 +51,7 @@ fn setup(
         .insert(Scaling::new());
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });

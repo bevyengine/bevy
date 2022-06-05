@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core_pipeline::Transparent2d;
+use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
     entity::Entity,
     prelude::{Bundle, World},
@@ -12,9 +12,9 @@ use bevy_ecs::{
 };
 use bevy_log::error;
 use bevy_render::{
+    extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_component::ExtractComponentPlugin,
     render_phase::{
         AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
         SetItemPipeline, TrackedRenderPass,

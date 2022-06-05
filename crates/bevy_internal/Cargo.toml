@@ -78,6 +78,7 @@ bevy_math = { path = "../bevy_math", version = "0.8.0-dev" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.8.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev", features = ["bevy"] }
 bevy_scene = { path = "../bevy_scene", version = "0.8.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.8.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.8.0-dev" }
@@ -97,4 +98,6 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.8.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.8.0-dev" }
 
 [target.'cfg(target_os = "android")'.dependencies]
+# This version *must* be the same as the version used by winit,
+# or Android will break: https://github.com/rust-windowing/winit#android
 ndk-glue = {version = "0.5", features = ["logger"]}

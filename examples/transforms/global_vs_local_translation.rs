@@ -1,3 +1,6 @@
+//! Illustrates the difference between direction of a translation in respect to local object or
+//! global object Transform.
+
 use bevy::prelude::*;
 
 // Define a marker for entities that should be changed via their global transform.
@@ -86,7 +89,7 @@ fn setup(
     });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
@@ -97,8 +100,7 @@ fn setup(
         ..Default::default()
     });
 
-    // Add a UI cam and text to explain inputs and what is happening.
-    commands.spawn_bundle(UiCameraBundle::default());
+    // Add text to explain inputs and what is happening.
     commands.spawn_bundle(TextBundle {
         text: Text::with_section(
             "Press the arrow keys to move the cubes. Toggle movement for yellow (1), red (2) and green (3) cubes via number keys.
@@ -114,9 +116,10 @@ The red cube is moved through its GlobalTransform and thus is unaffected by the 
             TextAlignment {
                 horizontal: HorizontalAlign::Left,
                 ..Default::default()
-            }
+            },
         ),
-        ..Default::default()});
+        ..Default::default()
+    });
 }
 
 // This system will move all cubes that are marked as ChangeGlobal according to their global transform.

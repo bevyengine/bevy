@@ -1,3 +1,6 @@
+//! This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
+//! to spawn, poll, and complete tasks across systems and system ticks.
+
 use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
@@ -6,11 +9,8 @@ use futures_lite::future;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
-/// This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
-/// to spawn, poll, and complete tasks across systems and system ticks.
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_env)
         .add_startup_system(add_assets)
@@ -117,7 +117,7 @@ fn setup_env(mut commands: Commands) {
     });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
         ..default()
