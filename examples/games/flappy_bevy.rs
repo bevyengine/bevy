@@ -230,12 +230,14 @@ fn bird_collision(
     for (bird_entity, bird_sprite, bird_transform) in birds.iter() {
         let mut collision_result: Option<Collision> = None;
         for (obstacle_sprite, obstacle_transform) in obstacles.iter() {
-            collision_result = collision_result.or(collide(
-                bird_transform.translation,
-                bird_sprite.custom_size.unwrap(),
-                obstacle_transform.translation,
-                obstacle_sprite.custom_size.unwrap(),
-            ));
+            if collision_result.is_none() {
+                collision_result = collide(
+                    bird_transform.translation,
+                    bird_sprite.custom_size.unwrap(),
+                    obstacle_transform.translation,
+                    obstacle_sprite.custom_size.unwrap(),
+                );
+            }
         }
         if collision_result.is_some() || bird_transform.translation.y < -SCREEN_HEIGHT * 0.5 {
             commands.entity(bird_entity).despawn();
