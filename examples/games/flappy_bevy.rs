@@ -182,7 +182,9 @@ fn spawn_bird(
                     ..default()
                 },
                 texture: art.bird_icon.clone(),
-                transform: Transform::from_translation(ev.new_bird_pos.extend(random::<f32>() * 100.0)),
+                transform: Transform::from_translation(
+                    ev.new_bird_pos.extend(random::<f32>() * 100.0),
+                ),
                 ..default()
             })
             .insert(Velocity {
@@ -249,8 +251,7 @@ fn bird_reproduction(
     let bird_count = q.iter().count();
     if bird_count < MAX_BIRDS {
         for (t, v) in q.iter() {
-            if random::<f32>() < BIRD_REPRODUCTION_CHANCE * time.delta().as_secs_f32()
-            {
+            if random::<f32>() < BIRD_REPRODUCTION_CHANCE * time.delta().as_secs_f32() {
                 spawn_bird_events.send(SpawnBird {
                     new_bird_pos: t.translation.truncate(),
                     new_bird_velocity: v.velocity,
