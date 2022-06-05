@@ -391,7 +391,7 @@ pub fn extract_cameras(
             camera.physical_viewport_size(),
             camera.physical_target_size(),
         ) {
-            if target_size.x == 0 && target_size.y == 0 {
+            if target_size.x == 0 || target_size.y == 0 {
                 continue;
             }
             commands.get_or_spawn(entity).insert_bundle((
