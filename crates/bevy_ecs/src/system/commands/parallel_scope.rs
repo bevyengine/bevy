@@ -31,10 +31,9 @@ pub struct ParallelCommandsState {
 /// # impl Velocity { fn magnitude(&self) -> f32 { 42.0 } }
 /// fn parallel_command_system(
 ///     mut query: Query<(Entity, &Velocity)>,
-///     pool: Res<ComputeTaskPool>,
 ///     par_commands: ParallelCommands
 /// ) {
-///     query.par_for_each(&pool, 32, |(entity, velocity)| {
+///     query.par_for_each(32, |(entity, velocity)| {
 ///         if velocity.magnitude() > 10.0 {
 ///             par_commands.command_scope(|mut commands| {
 ///                 commands.entity(entity).despawn();
