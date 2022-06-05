@@ -441,14 +441,10 @@ unsafe fn GenerateTSpaces(
 ) -> bool {
     let mut iMaxNrFaces: usize = 0;
     let mut iUniqueTspaces = 0;
-    let mut g: i32 = 0i32;
-    let mut i: i32 = 0i32;
-    g = 0i32;
-    while g < iNrActiveGroups {
+    for g in 0..iNrActiveGroups {
         if iMaxNrFaces < (*pGroups.offset(g as isize)).iNrFaces as usize {
             iMaxNrFaces = (*pGroups.offset(g as isize)).iNrFaces as usize
         }
-        g += 1
     }
     if iMaxNrFaces == 0 {
         return true;
@@ -459,26 +455,19 @@ unsafe fn GenerateTSpaces(
     let mut pTmpMembers = vec![0i32; iMaxNrFaces];
 
     iUniqueTspaces = 0;
-    g = 0i32;
-    while g < iNrActiveGroups {
+
+    for g in 0..iNrActiveGroups {
         let mut pGroup: *const SGroup = &*pGroups.offset(g as isize) as *const SGroup;
         let mut iUniqueSubGroups = 0;
         let mut s = 0;
-        i = 0i32;
-        while i < (*pGroup).iNrFaces {
+
+        for i in 0..(*pGroup).iNrFaces {
             let f: i32 = *(*pGroup).pFaceIndices.offset(i as isize);
             let mut index: i32 = -1i32;
-            let mut iVertIndex: i32 = -1i32;
-            let mut iOF_1: i32 = -1i32;
-            let mut iMembers: usize = 0;
-            let mut j: i32 = 0i32;
-            let mut l: usize = 0;
             let mut tmp_group: SSubGroup = SSubGroup {
                 iNrFaces: 0,
                 pTriMembers: Vec::new(),
             };
-            let mut bFound: bool = false;
-            let mut n = Vec3::new(0.0, 0.0, 0.0);
             let mut vOs = Vec3::new(0.0, 0.0, 0.0);
             let mut vOt = Vec3::new(0.0, 0.0, 0.0);
             if (*pTriInfos.offset(f as isize)).AssignedGroup[0usize] == pGroup as *mut SGroup {
@@ -490,8 +479,8 @@ unsafe fn GenerateTSpaces(
             {
                 index = 2i32
             }
-            iVertIndex = *piTriListIn.offset((f * 3i32 + index) as isize);
-            n = get_normal(geometry, iVertIndex as usize);
+            let iVertIndex = *piTriListIn.offset((f * 3i32 + index) as isize);
+            let n = get_normal(geometry, iVertIndex as usize);
             let mut vOs = (*pTriInfos.offset(f as isize)).vOs
                 - (n.dot((*pTriInfos.offset(f as isize)).vOs) * n);
             let mut vOt = (*pTriInfos.offset(f as isize)).vOt
@@ -502,10 +491,10 @@ unsafe fn GenerateTSpaces(
             if VNotZero(vOt) {
                 vOt = Normalize(vOt)
             }
-            iOF_1 = (*pTriInfos.offset(f as isize)).iOrgFaceNumber;
-            iMembers = 0;
-            j = 0i32;
-            while j < (*pGroup).iNrFaces {
+            let iOF_1 = (*pTriInfos.offset(f as isize)).iOrgFaceNumber;
+            let mut iMembers = 0;
+
+            for j in 0..(*pGroup).iNrFaces {
                 let t: i32 = *(*pGroup).pFaceIndices.offset(j as isize);
                 let iOF_2: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
                 let mut vOs2 = (*pTriInfos.offset(t as isize)).vOs
@@ -529,23 +518,26 @@ unsafe fn GenerateTSpaces(
                     iMembers = iMembers + 1;
                     pTmpMembers[fresh0] = t
                 }
-                j += 1
             }
             if iMembers > 1 {
-                let mut uSeed: u32 = 39871946i32 as u32;
-                QuickSort(pTmpMembers.as_mut_ptr(), 0i32, (iMembers - 1) as i32, uSeed);
+                pTmpMembers[0..(iMembers - 1)].sort();
             }
             tmp_group.iNrFaces = iMembers as i32;
             tmp_group.pTriMembers = pTmpMembers.clone();
-            bFound = false;
-            l = 0;
-            while l < iUniqueSubGroups && !bFound {
-                bFound = CompareSubGroups(&mut tmp_group, &mut pUniSubGroups[l]);
-                if !bFound {
-                    l += 1
+
+            let mut found = None;
+            for l in 0..iUniqueSubGroups {
+                if tmp_group == pUniSubGroups[l] {
+                    found = Some(l);
+                    break;
                 }
             }
-            if !bFound {
+            let idx;
+            if let Some(it) = found {
+                idx = it;
+            } else {
+                idx = iUniqueSubGroups;
+                // C: if no match was found we allocate a new subgroup
                 pUniSubGroups[iUniqueSubGroups].iNrFaces = iMembers as i32;
                 pUniSubGroups[iUniqueSubGroups].pTriMembers = tmp_group.pTriMembers.clone();
 
@@ -563,18 +555,16 @@ unsafe fn GenerateTSpaces(
             let iVert = (*pTriInfos.offset(f as isize)).vert_num[index as usize] as usize;
             let mut pTS_out: *mut STSpace = &mut psTspace[iOffs + iVert] as *mut STSpace;
             if (*pTS_out).iCounter == 1i32 {
-                *pTS_out = AvgTSpace(pTS_out, &mut pSubGroupTspace[l]);
+                *pTS_out = AvgTSpace(pTS_out, &mut pSubGroupTspace[idx]);
                 (*pTS_out).iCounter = 2i32;
                 (*pTS_out).bOrient = (*pGroup).bOrientPreservering
             } else {
-                *pTS_out = pSubGroupTspace[l];
+                *pTS_out = pSubGroupTspace[idx];
                 (*pTS_out).iCounter = 1i32;
                 (*pTS_out).bOrient = (*pGroup).bOrientPreservering
             }
-            i += 1
         }
         iUniqueTspaces += iUniqueSubGroups;
-        g += 1
     }
     return true;
 }
