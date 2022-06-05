@@ -37,24 +37,6 @@ pub struct ImagePlugin;
 
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(any(
-            feature = "png",
-            feature = "dds",
-            feature = "tga",
-            feature = "jpeg",
-            feature = "bmp",
-            feature = "basis-universal",
-            feature = "ktx2",
-        ))]
-        {
-            app.init_asset_loader::<ImageTextureLoader>();
-        }
-
-        #[cfg(feature = "hdr")]
-        {
-            app.init_asset_loader::<HdrTextureLoader>();
-        }
-
         app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
             PrepareAssetLabel::PreAssetPrepare,
         ))
@@ -64,6 +46,24 @@ impl Plugin for ImagePlugin {
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
         app.add_render_init(move |app| {
+            #[cfg(any(
+                feature = "png",
+                feature = "dds",
+                feature = "tga",
+                feature = "jpeg",
+                feature = "bmp",
+                feature = "basis-universal",
+                feature = "ktx2",
+            ))]
+            {
+                app.init_asset_loader::<ImageTextureLoader>();
+            }
+
+            #[cfg(feature = "hdr")]
+            {
+                app.init_asset_loader::<HdrTextureLoader>();
+            }
+
             if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
                 render_app
                     .init_resource::<TextureCache>()
