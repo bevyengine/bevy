@@ -44,7 +44,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_mut,
-    unused_assignments,
     unused_variables
 )]
 
@@ -163,7 +162,7 @@ impl SGroup {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SSubGroup {
     pub iNrFaces: i32,
     pub pTriMembers: Vec<i32>,
@@ -178,15 +177,16 @@ impl SSubGroup {
     }
 }
 
-#[derive(Copy, Clone)]
-pub union SEdge {
-    pub unnamed: unnamed,
-    pub array: [i32; 3],
+#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SEdge {
+    pub i0: i32,
+    pub i1: i32,
+    pub f: i32,
 }
 
 impl SEdge {
     fn zero() -> Self {
-        Self { array: [0, 0, 0] }
+        Self::default()
     }
 }
 
@@ -1452,11 +1452,8 @@ unsafe fn GenerateInitialVerticesIndexList(
     iNrTrianglesIn: usize,
 ) -> usize {
     let mut iTSpacesOffs: usize = 0;
-    let mut f = 0;
-    let mut t: usize = 0;
     let mut iDstTriIndex = 0;
-    f = 0;
-    while f < geometry.num_faces() {
+    for f in 0..geometry.num_faces() {
         let verts = geometry.num_vertices_of_face(f);
 
         pTriInfos[iDstTriIndex].iOrgFaceNumber = f as i32;
@@ -1483,7 +1480,7 @@ unsafe fn GenerateInitialVerticesIndexList(
             let T3 = get_tex_coord(geometry, i3);
             let distSQ_02: f32 = (T2 - T0).length_squared();
             let distSQ_13: f32 = (T3 - T1).length_squared();
-            let mut bQuadDiagIs_02: bool = false;
+            let bQuadDiagIs_02: bool;
             if distSQ_02 < distSQ_13 {
                 bQuadDiagIs_02 = true
             } else if distSQ_13 < distSQ_02 {
@@ -1540,13 +1537,10 @@ unsafe fn GenerateInitialVerticesIndexList(
             }
         }
         iTSpacesOffs += verts.num_vertices();
-
-        f += 1
     }
-    t = 0;
-    while t < iNrTrianglesIn {
+
+    for t in 0..iNrTrianglesIn {
         pTriInfos[t].iFlag = TriangleFlags::empty();
-        t += 1
     }
     return iTSpacesOffs;
 }
