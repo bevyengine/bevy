@@ -228,8 +228,10 @@ mod tests {
             app.add_plugin(LogPlugin);
         }
         {
-            let mut settings = LogSettings::default();
-            settings.force = false;
+            let settings = LogSettings {
+                force: false,
+                ..LogSettings::default()
+            };
             let mut app = App::new();
             app.insert_resource(settings);
             app.add_plugin(LogPlugin);
