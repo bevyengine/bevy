@@ -705,68 +705,6 @@ unsafe fn EvalTspace(
     return res;
 }
 
-unsafe fn CompareSubGroups(mut pg1: *const SSubGroup, mut pg2: *const SSubGroup) -> bool {
-    let mut bStillSame: bool = true;
-    let mut i = 0;
-    if (*pg1).iNrFaces != (*pg2).iNrFaces {
-        return false;
-    }
-    while i < (*pg1).iNrFaces as usize && bStillSame {
-        bStillSame = if (*pg1).pTriMembers[i] == (*pg2).pTriMembers[i] {
-            true
-        } else {
-            false
-        };
-        if bStillSame {
-            i += 1
-        }
-    }
-    return bStillSame;
-}
-unsafe fn QuickSort(mut pSortBuffer: *mut i32, mut iLeft: i32, mut iRight: i32, mut uSeed: u32) {
-    let mut iL: i32 = 0;
-    let mut iR: i32 = 0;
-    let mut n: i32 = 0;
-    let mut index: i32 = 0;
-    let mut iMid: i32 = 0;
-    let mut iTmp: i32 = 0;
-
-    // Random
-    let mut t: u32 = uSeed & 31i32 as u32;
-    t = uSeed.rotate_left(t) | uSeed.rotate_right((32i32 as u32).wrapping_sub(t));
-    uSeed = uSeed.wrapping_add(t).wrapping_add(3i32 as u32);
-    // Random end
-
-    iL = iLeft;
-    iR = iRight;
-    n = iR - iL + 1i32;
-    index = uSeed.wrapping_rem(n as u32) as i32;
-    iMid = *pSortBuffer.offset((index + iL) as isize);
-    loop {
-        while *pSortBuffer.offset(iL as isize) < iMid {
-            iL += 1
-        }
-        while *pSortBuffer.offset(iR as isize) > iMid {
-            iR -= 1
-        }
-        if iL <= iR {
-            iTmp = *pSortBuffer.offset(iL as isize);
-            *pSortBuffer.offset(iL as isize) = *pSortBuffer.offset(iR as isize);
-            *pSortBuffer.offset(iR as isize) = iTmp;
-            iL += 1;
-            iR -= 1
-        }
-        if !(iL <= iR) {
-            break;
-        }
-    }
-    if iLeft < iR {
-        QuickSort(pSortBuffer, iLeft, iR, uSeed);
-    }
-    if iL < iRight {
-        QuickSort(pSortBuffer, iL, iRight, uSeed);
-    };
-}
 unsafe fn Build4RuleGroups(
     mut pTriInfos: *mut STriInfo,
     mut pGroups: *mut SGroup,
@@ -777,20 +715,14 @@ unsafe fn Build4RuleGroups(
     let iNrMaxGroups: i32 = iNrTrianglesIn * 3i32;
     let mut iNrActiveGroups: i32 = 0i32;
     let mut iOffset: i32 = 0i32;
-    let mut f: i32 = 0i32;
-    let mut i: i32 = 0i32;
-    f = 0i32;
-    while f < iNrTrianglesIn {
-        i = 0i32;
-        while i < 3i32 {
+
+    for f in 0..iNrTrianglesIn {
+        for i in 0..3i32 {
             if !(*pTriInfos.offset(f as isize))
                 .iFlag
                 .contains(TriangleFlags::GROUP_WITH_ANY)
                 && (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize].is_null()
             {
-                let mut bOrPre: bool = false;
-                let mut neigh_indexL: i32 = 0;
-                let mut neigh_indexR: i32 = 0;
                 let vert_index: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
                 let ref mut fresh2 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
                 *fresh2 = &mut *pGroups.offset(iNrActiveGroups as isize) as *mut SGroup;
@@ -806,11 +738,11 @@ unsafe fn Build4RuleGroups(
                 *fresh3 = &mut *piGroupTrianglesBuffer.offset(iOffset as isize) as *mut i32;
                 iNrActiveGroups += 1;
                 AddTriToGroup((*pTriInfos.offset(f as isize)).AssignedGroup[i as usize], f);
-                bOrPre = (*pTriInfos.offset(f as isize))
+                let bOrPre = (*pTriInfos.offset(f as isize))
                     .iFlag
                     .contains(TriangleFlags::ORIENT_PRESERVING);
-                neigh_indexL = (*pTriInfos.offset(f as isize)).FaceNeighbors[i as usize];
-                neigh_indexR = (*pTriInfos.offset(f as isize)).FaceNeighbors
+                let mut neigh_indexL = (*pTriInfos.offset(f as isize)).FaceNeighbors[i as usize];
+                let mut neigh_indexR = (*pTriInfos.offset(f as isize)).FaceNeighbors
                     [(if i > 0i32 { i - 1i32 } else { 2i32 }) as usize];
                 if neigh_indexL >= 0i32 {
                     let bAnswer: bool = AssignRecur(
@@ -838,9 +770,7 @@ unsafe fn Build4RuleGroups(
                 }
                 iOffset += (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces
             }
-            i += 1
         }
-        f += 1
     }
     return iNrActiveGroups;
 }
