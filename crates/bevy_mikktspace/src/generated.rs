@@ -621,48 +621,21 @@ unsafe fn EvalTspace(
     geometry: &impl Geometry,
     iVertexRepresentitive: i32,
 ) -> STSpace {
-    let mut res: STSpace = STSpace {
-        vOs: Vec3::new(0.0, 0.0, 0.0),
-        fMagS: 0.,
-        vOt: Vec3::new(0.0, 0.0, 0.0),
-        fMagT: 0.,
-        iCounter: 0,
-        bOrient: false,
-    };
+    let mut res: STSpace = STSpace::zero();
     let mut fAngleSum: f32 = 0i32 as f32;
-    let mut face: i32 = 0i32;
-    res.vOs.x = 0.0f32;
-    res.vOs.y = 0.0f32;
-    res.vOs.z = 0.0f32;
-    res.vOt.x = 0.0f32;
-    res.vOt.y = 0.0f32;
-    res.vOt.z = 0.0f32;
-    res.fMagS = 0i32 as f32;
-    res.fMagT = 0i32 as f32;
-    face = 0i32;
-    while face < iFaces {
+
+    for face in 0..iFaces {
         let f: i32 = *face_indices.offset(face as isize);
         if !(*pTriInfos.offset(f as isize))
             .iFlag
             .contains(TriangleFlags::GROUP_WITH_ANY)
         {
-            let mut n = Vec3::new(0.0, 0.0, 0.0);
             let mut vOs = Vec3::new(0.0, 0.0, 0.0);
             let mut vOt = Vec3::new(0.0, 0.0, 0.0);
-            let mut p0 = Vec3::new(0.0, 0.0, 0.0);
-            let mut p1 = Vec3::new(0.0, 0.0, 0.0);
-            let mut p2 = Vec3::new(0.0, 0.0, 0.0);
-            let mut v1 = Vec3::new(0.0, 0.0, 0.0);
-            let mut v2 = Vec3::new(0.0, 0.0, 0.0);
+
             let mut fCos: f32 = 0.;
-            let mut fAngle: f32 = 0.;
-            let mut fMagS: f32 = 0.;
-            let mut fMagT: f32 = 0.;
             let mut i: i32 = -1i32;
-            let mut index: i32 = -1i32;
-            let mut i0: i32 = -1i32;
-            let mut i1: i32 = -1i32;
-            let mut i2: i32 = -1i32;
+
             if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentitive {
                 i = 0i32
             } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentitive {
@@ -670,8 +643,8 @@ unsafe fn EvalTspace(
             } else if *piTriListIn.offset((3i32 * f + 2i32) as isize) == iVertexRepresentitive {
                 i = 2i32
             }
-            index = *piTriListIn.offset((3i32 * f + i) as isize);
-            n = get_normal(geometry, index as usize);
+            let index = *piTriListIn.offset((3i32 * f + i) as isize);
+            let n = get_normal(geometry, index as usize);
             let mut vOs = (*pTriInfos.offset(f as isize)).vOs
                 - (n.dot((*pTriInfos.offset(f as isize)).vOs) * n);
             let mut vOt = (*pTriInfos.offset(f as isize)).vOt
@@ -682,14 +655,16 @@ unsafe fn EvalTspace(
             if VNotZero(vOt) {
                 vOt = Normalize(vOt)
             }
-            i2 = *piTriListIn.offset((3i32 * f + if i < 2i32 { i + 1i32 } else { 0i32 }) as isize);
-            i1 = *piTriListIn.offset((3i32 * f + i) as isize);
-            i0 = *piTriListIn.offset((3i32 * f + if i > 0i32 { i - 1i32 } else { 2i32 }) as isize);
-            p0 = get_position(geometry, i0 as usize);
-            p1 = get_position(geometry, i1 as usize);
-            p2 = get_position(geometry, i2 as usize);
-            v1 = p0 - p1;
-            v2 = p2 - p1;
+            let i2 =
+                *piTriListIn.offset((3i32 * f + if i < 2i32 { i + 1i32 } else { 0i32 }) as isize);
+            let i1 = *piTriListIn.offset((3i32 * f + i) as isize);
+            let i0 =
+                *piTriListIn.offset((3i32 * f + if i > 0i32 { i - 1i32 } else { 2i32 }) as isize);
+            let p0 = get_position(geometry, i0 as usize);
+            let p1 = get_position(geometry, i1 as usize);
+            let p2 = get_position(geometry, i2 as usize);
+            let v1 = p0 - p1;
+            let v2 = p2 - p1;
             let mut v1 = v1 - (n.dot(v1) * n);
             if VNotZero(v1) {
                 v1 = Normalize(v1)
@@ -707,16 +682,15 @@ unsafe fn EvalTspace(
             } else {
                 fCos
             };
-            fAngle = (fCos as f64).acos() as f32;
-            fMagS = (*pTriInfos.offset(f as isize)).fMagS;
-            fMagT = (*pTriInfos.offset(f as isize)).fMagT;
+            let fAngle = (fCos as f64).acos() as f32;
+            let fMagS = (*pTriInfos.offset(f as isize)).fMagS;
+            let fMagT = (*pTriInfos.offset(f as isize)).fMagT;
             res.vOs = res.vOs + (fAngle * vOs);
             res.vOt = res.vOt + (fAngle * vOt);
             res.fMagS += fAngle * fMagS;
             res.fMagT += fAngle * fMagT;
             fAngleSum += fAngle
         }
-        face += 1
     }
     if VNotZero(res.vOs) {
         res.vOs = Normalize(res.vOs)
