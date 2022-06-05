@@ -20,6 +20,7 @@ const BIRD_SIZE: f32 = 24.0;
 const BIRD_REPRODUCTION_CHANCE: f32 = 1.0;
 const MAX_BIRDS: usize = 500;
 const GRAVITY: f32 = 400.0;
+const GAP_VARIABILITY: f32 = 0.9;
 
 pub fn main() {
     let mut app = App::new();
@@ -109,7 +110,7 @@ fn terrain_gen(
     for ev in incoming_generate_chunk_events.iter() {
         let x_pos = CHUNK_SIZE * ev.new_chunk_index as f32;
         // generate some terrain within x_pos..x_pos+width
-        let gap_y_pos = GAME_HEIGHT * (random::<f32>() - 0.5) * 0.9;
+        let gap_y_pos = GAME_HEIGHT * (random::<f32>() - 0.5) * GAP_VARIABILITY;
         let pillar_width = 50.0 + 110.0 * random::<f32>();
         // make the gap no narrower than the pillar is wide
         let gap_size = (65.0 + 250.0 * random::<f32>()).max(pillar_width);
