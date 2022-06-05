@@ -38,9 +38,8 @@ pub mod prelude {
             StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
-            NonSendMut, ParamSet, Query, RemovedComponents, Res, ResMut, System,
-            SystemParamFunction,
+            chain, Commands, In, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut,
+            ParamSet, Query, RemovedComponents, Res, ResMut, System, SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };

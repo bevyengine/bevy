@@ -85,9 +85,9 @@ pub use system_param::*;
 
 /// Ensure that a given function is a system
 ///
-/// This should be used when writing doc examples,
-/// to confirm that systems used in an example are
-/// valid systems
+/// This should be used when writing doc examples, such as for
+/// custom [`SystemParam`]s, to confirm that systems used in an
+/// example are valid systems
 pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
     if false {
         // Check it can be converted into a system

@@ -7,7 +7,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .insert_resource(Message("42".to_string()))
-        .add_system(parse_message_system.chain(handler_system))
+        .add_system(chain(parse_message_system, handler_system))
         .run();
 }
 
