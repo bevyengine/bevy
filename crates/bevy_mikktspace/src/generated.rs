@@ -1315,47 +1315,37 @@ unsafe fn MergeVertsFast(
     iR_in: i32,
 ) {
     // make bbox
-    let mut c: i32 = 0i32;
-    let mut l: i32 = 0i32;
-    let mut channel: i32 = 0i32;
     let mut fvMin: [f32; 3] = [0.; 3];
     let mut fvMax: [f32; 3] = [0.; 3];
-    let mut dx: f32 = 0i32 as f32;
-    let mut dy: f32 = 0i32 as f32;
-    let mut dz: f32 = 0i32 as f32;
-    let mut fSep: f32 = 0i32 as f32;
-    c = 0i32;
-    while c < 3i32 {
+
+    for c in 0..3i32 {
         fvMin[c as usize] = (*pTmpVert.offset(iL_in as isize)).vert[c as usize];
         fvMax[c as usize] = fvMin[c as usize];
-        c += 1
     }
-    l = iL_in + 1i32;
-    while l <= iR_in {
-        c = 0i32;
-        while c < 3i32 {
+
+    for l in (iL_in + 1i32)..=iR_in {
+        for c in 0..3i32 {
             if fvMin[c as usize] > (*pTmpVert.offset(l as isize)).vert[c as usize] {
                 fvMin[c as usize] = (*pTmpVert.offset(l as isize)).vert[c as usize]
             } else if fvMax[c as usize] < (*pTmpVert.offset(l as isize)).vert[c as usize] {
                 fvMax[c as usize] = (*pTmpVert.offset(l as isize)).vert[c as usize]
             }
-            c += 1
         }
-        l += 1
     }
-    dx = fvMax[0usize] - fvMin[0usize];
-    dy = fvMax[1usize] - fvMin[1usize];
-    dz = fvMax[2usize] - fvMin[2usize];
-    channel = 0i32;
+    let dx = fvMax[0usize] - fvMin[0usize];
+    let dy = fvMax[1usize] - fvMin[1usize];
+    let dz = fvMax[2usize] - fvMin[2usize];
+    let channel;
     if dy > dx && dy > dz {
         channel = 1i32
     } else if dz > dx {
         channel = 2i32
+    } else {
+        channel = 0i32
     }
-    fSep = 0.5f32 * (fvMax[channel as usize] + fvMin[channel as usize]);
+    let fSep = 0.5f32 * (fvMax[channel as usize] + fvMin[channel as usize]);
     if fSep >= fvMax[channel as usize] || fSep <= fvMin[channel as usize] {
-        l = iL_in;
-        while l <= iR_in {
+        for l in iL_in..=iR_in {
             let mut i: i32 = (*pTmpVert.offset(l as isize)).index;
             let index: i32 = *piTriList_in_and_out.offset(i as isize);
             let vP = get_position(geometry, index as usize);
@@ -1390,7 +1380,6 @@ unsafe fn MergeVertsFast(
                 *piTriList_in_and_out.offset(i as isize) =
                     *piTriList_in_and_out.offset(i2rec as isize)
             }
-            l += 1
         }
     } else {
         let mut iL: i32 = iL_in;
