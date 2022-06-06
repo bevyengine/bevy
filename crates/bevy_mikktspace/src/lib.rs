@@ -96,5 +96,6 @@ fn index_to_face_vert(index: usize) -> (usize, usize) {
 }
 
 fn face_vert_to_index(face: usize, vert: usize) -> usize {
+    assert!(vert < 4);
     face << 2 | vert & 0x3
 }

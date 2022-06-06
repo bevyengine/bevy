@@ -458,21 +458,25 @@ unsafe fn GenerateTSpaces(
 
         for i in 0..(*pGroup).iNrFaces {
             let f: i32 = *(*pGroup).pFaceIndices.offset(i as isize);
-            let mut index: i32 = -1i32;
             let mut tmp_group: SSubGroup = SSubGroup {
                 iNrFaces: 0,
                 pTriMembers: Vec::new(),
             };
-            if (*pTriInfos.offset(f as isize)).AssignedGroup[0usize] == pGroup as *mut SGroup {
-                index = 0i32
+            let index = if (*pTriInfos.offset(f as isize)).AssignedGroup[0usize]
+                == pGroup as *mut SGroup
+            {
+                0i32
             } else if (*pTriInfos.offset(f as isize)).AssignedGroup[1usize] == pGroup as *mut SGroup
             {
-                index = 1i32
+                1i32
             } else if (*pTriInfos.offset(f as isize)).AssignedGroup[2usize] == pGroup as *mut SGroup
             {
-                index = 2i32
-            }
+                2i32
+            } else {
+                panic!()
+            };
             let iVertIndex = *piTriListIn.offset((f * 3i32 + index) as isize);
+            assert!(iVertIndex == (*pGroup).iVertexRepresentitive);
             let n = get_normal(geometry, iVertIndex as usize);
             let mut vOs = (*pTriInfos.offset(f as isize)).vOs
                 - (n.dot((*pTriInfos.offset(f as isize)).vOs) * n);
@@ -506,6 +510,7 @@ unsafe fn GenerateTSpaces(
                 let bSameOrgFace: bool = iOF_1 == iOF_2;
                 let fCosS: f32 = vOs.dot(vOs2);
                 let fCosT: f32 = vOt.dot(vOt2);
+                debug_assert!(f != t || bSameOrgFace); // sanity check
                 if bAny || bSameOrgFace || fCosS > fThresCos && fCosT > fThresCos {
                     let fresh0 = iMembers;
                     iMembers = iMembers + 1;
@@ -546,12 +551,20 @@ unsafe fn GenerateTSpaces(
             }
             let iOffs = (*pTriInfos.offset(f as isize)).iTSpacesOffs as usize;
             let iVert = (*pTriInfos.offset(f as isize)).vert_num[index as usize] as usize;
-            let mut pTS_out: *mut STSpace = &mut psTspace[iOffs + iVert] as *mut STSpace;
+            let mut pTS_out = &mut psTspace[iOffs + iVert];
+            assert!(pTS_out.iCounter < 2);
+            debug_assert!(
+                (*pGroup).bOrientPreservering
+                    == (*pTriInfos.offset(f as isize))
+                        .iFlag
+                        .contains(TriangleFlags::ORIENT_PRESERVING)
+            );
             if (*pTS_out).iCounter == 1i32 {
                 *pTS_out = AvgTSpace(pTS_out, &mut pSubGroupTspace[idx]);
                 (*pTS_out).iCounter = 2i32;
                 (*pTS_out).bOrient = (*pGroup).bOrientPreservering
             } else {
+                debug_assert!(pTS_out.iCounter == 0);
                 *pTS_out = pSubGroupTspace[idx];
                 (*pTS_out).iCounter = 1i32;
                 (*pTS_out).bOrient = (*pGroup).bOrientPreservering
@@ -618,15 +631,16 @@ unsafe fn EvalTspace(
             .iFlag
             .contains(TriangleFlags::GROUP_WITH_ANY)
         {
-            let mut i: i32 = -1i32;
-
-            if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentitive {
-                i = 0i32
+            let i: i32 = if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentitive
+            {
+                0i32
             } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentitive {
-                i = 1i32
+                1i32
             } else if *piTriListIn.offset((3i32 * f + 2i32) as isize) == iVertexRepresentitive {
-                i = 2i32
-            }
+                2i32
+            } else {
+                panic!();
+            };
             let index = *piTriListIn.offset((3i32 * f + i) as isize);
             let n = get_normal(geometry, index as usize);
             let mut vOs = (*pTriInfos.offset(f as isize)).vOs
@@ -698,6 +712,7 @@ unsafe fn Build4RuleGroups(
 ) -> i32 {
     let mut iNrActiveGroups: i32 = 0i32;
     let mut iOffset: i32 = 0i32;
+    let iNrMaxGroups = iNrTrianglesIn * 3;
 
     for f in 0..iNrTrianglesIn {
         for i in 0..3i32 {
@@ -708,6 +723,7 @@ unsafe fn Build4RuleGroups(
             {
                 let vert_index: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
                 let ref mut fresh2 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
+                debug_assert!(iNrActiveGroups < iNrMaxGroups);
                 *fresh2 = &mut *pGroups.offset(iNrActiveGroups as isize) as *mut SGroup;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize])
                     .iVertexRepresentitive = vert_index;
@@ -753,7 +769,11 @@ unsafe fn Build4RuleGroups(
                     let bDiff_0: bool = if bOrPre != bOrPre2_0 { true } else { false };
                     debug_assert!(bAnswer_0 || bDiff_0)
                 }
-                iOffset += (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces
+                iOffset += (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces;
+                // since the groups are disjoint a triangle can never
+                // belong to more than 3 groups. Subsequently something
+                // is completely screwed if this assertion ever hits.
+                debug_assert!(iOffset <= iNrMaxGroups);
             }
         }
     }
@@ -773,14 +793,15 @@ unsafe fn AssignRecur(
     let iVertRep: i32 = (*pGroup).iVertexRepresentitive;
     let mut pVerts: *const i32 =
         &*piTriListIn.offset((3i32 * iMyTriIndex + 0i32) as isize) as *const i32;
-    let mut i: i32 = -1i32;
-    if *pVerts.offset(0isize) == iVertRep {
-        i = 0i32
+    let i = if *pVerts.offset(0isize) == iVertRep {
+        0i32
     } else if *pVerts.offset(1isize) == iVertRep {
-        i = 1i32
+        1i32
     } else if *pVerts.offset(2isize) == iVertRep {
-        i = 2i32
-    }
+        2i32
+    } else {
+        panic!();
+    };
     if (*pMyTriInfo).AssignedGroup[i as usize] == pGroup {
         return true;
     } else {
@@ -1141,6 +1162,7 @@ unsafe fn DegenPrologue(
             let t0 = t;
             let t1 = iNextGoodTriangleSearchIndex;
             iNextGoodTriangleSearchIndex += 1;
+            debug_assert!(iNextGoodTriangleSearchIndex > (t + 1));
             // Swap t0 and t1
             if !bJustADegenerate {
                 for i in 0..3i32 {
@@ -1160,6 +1182,8 @@ unsafe fn DegenPrologue(
             t += 1
         }
     }
+    debug_assert!(iNrTrianglesIn == t);
+    debug_assert!(bStillFindingGoodOnes);
 }
 unsafe fn GenerateSharedVerticesIndexList(
     // The input vertex index->face/vert mappings
@@ -1365,29 +1389,35 @@ unsafe fn MergeVertsFast(
     } else {
         let mut iL: i32 = iL_in;
         let mut iR: i32 = iR_in;
+        debug_assert!(iR_in > iL_in);
         while iL < iR {
             let mut bReadyLeftSwap: bool = false;
             let mut bReadyRightSwap: bool = false;
             while !bReadyLeftSwap && iL < iR {
+                debug_assert!(iL >= iL_in && iL <= iR_in);
                 bReadyLeftSwap = !((*pTmpVert.offset(iL as isize)).vert[channel as usize] < fSep);
                 if !bReadyLeftSwap {
                     iL += 1
                 }
             }
             while !bReadyRightSwap && iL < iR {
+                debug_assert!(iR >= iL_in && iR <= iR_in);
                 bReadyRightSwap = (*pTmpVert.offset(iR as isize)).vert[channel as usize] < fSep;
                 if !bReadyRightSwap {
                     iR -= 1
                 }
             }
+            debug_assert!((iL < iR) || !(bReadyLeftSwap && bReadyRightSwap));
             if bReadyLeftSwap && bReadyRightSwap {
                 let sTmp: STmpVert = *pTmpVert.offset(iL as isize);
+                debug_assert!(iL < iR);
                 *pTmpVert.offset(iL as isize) = *pTmpVert.offset(iR as isize);
                 *pTmpVert.offset(iR as isize) = sTmp;
                 iL += 1;
                 iR -= 1
             }
         }
+        debug_assert!(iL == (iR + 1) || (iL == iR));
         if iL == iR {
             let bReadyRightSwap_0: bool =
                 (*pTmpVert.offset(iR as isize)).vert[channel as usize] < fSep;
@@ -1412,7 +1442,7 @@ const g_iCells: usize = 2048;
 // inlining could potentially reorder instructions and generate different
 // results for the same effective input value fVal.
 #[inline(never)]
-unsafe fn FindGridCell(fMin: f32, fMax: f32, fVal: f32) -> usize {
+fn FindGridCell(fMin: f32, fMax: f32, fVal: f32) -> usize {
     let fIndex = g_iCells as f32 * ((fVal - fMin) / (fMax - fMin));
     let iIndex = fIndex as isize;
     return if iIndex < g_iCells as isize {
@@ -1518,6 +1548,7 @@ unsafe fn GenerateInitialVerticesIndexList(
             }
         }
         iTSpacesOffs += verts.num_vertices();
+        assert!(iDstTriIndex <= iNrTrianglesIn);
     }
 
     for t in 0..iNrTrianglesIn {
