@@ -1,8 +1,22 @@
-use crate::{Window, WindowCloseRequested, WindowFocused, WindowId, Windows};
+use crate::{
+    window, PrimaryWindow, Window, WindowCloseRequested, WindowClosed, WindowCommandsExtension,
+    WindowCurrentlyFocused, WindowDescriptor,
+};
 
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
 use bevy_input::{keyboard::KeyCode, Input};
+
+pub fn create_primary_window(mut commands: Commands, mut primary: ResMut<PrimaryWindow>) {
+    let entity = commands.spawn().id();
+
+    commands
+        .window(entity)
+        .create_window(WindowDescriptor::default());
+
+    // TODO: Maybe this should be controlled by window backend
+    primary.window = Some(entity);
+}
 
 /// Exit the application when there are no open windows.
 ///
@@ -11,9 +25,28 @@ use bevy_input::{keyboard::KeyCode, Input};
 /// Ensure that you read the caveats documented on that field if doing so.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
-pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Res<Windows>) {
+pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Query<&Window>) {
     if windows.iter().count() == 0 {
         app_exit_events.send(AppExit);
+    }
+}
+
+/// Exit the application when the primary window has been closed
+///
+/// This system is added by the [`WindowPlugin`]
+// TODO: More docs
+pub fn exit_on_primary_closed(
+    mut app_exit_events: EventWriter<AppExit>,
+    primary: Res<PrimaryWindow>,
+    mut window_close: EventReader<WindowClosed>,
+) {
+    for window in window_close.iter() {
+        if let Some(primary_window) = primary.window {
+            if primary_window == window.entity {
+                // Primary window has been closed
+                app_exit_events.send(AppExit);
+            }
+        }
     }
 }
 
@@ -24,12 +57,9 @@ pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Re
 /// Ensure that you read the caveats documented on that field if doing so.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
-pub fn close_when_requested(
-    mut windows: ResMut<Windows>,
-    mut closed: EventReader<WindowCloseRequested>,
-) {
+pub fn close_when_requested(mut commands: Commands, mut closed: EventReader<WindowCloseRequested>) {
     for event in closed.iter() {
-        windows.get_mut(event.id).map(Window::close);
+        commands.window(event.entity).close();
     }
 }
 
@@ -37,21 +67,20 @@ pub fn close_when_requested(
 ///
 /// This is useful for examples or prototyping.
 pub fn close_on_esc(
-    mut focused: Local<Option<WindowId>>,
-    mut focused_events: EventReader<WindowFocused>,
-    mut windows: ResMut<Windows>,
+    mut commands: Commands,
+    focused_windows: Query<Entity, With<WindowCurrentlyFocused>>,
+    // mut focused: Local<Option<WindowId>>,
     input: Res<Input<KeyCode>>,
 ) {
+    // TODO: Not quite sure what this is about
     // TODO: Track this in e.g. a resource to ensure consistent behaviour across similar systems
-    for event in focused_events.iter() {
-        *focused = event.focused.then(|| event.id);
-    }
+    // for event in focused_events.iter() {
+    //     *focused = event.focused.then(|| event.id);
+    // }
 
-    if let Some(focused) = &*focused {
+    for focused_window in focused_windows.iter() {
         if input.just_pressed(KeyCode::Escape) {
-            if let Some(window) = windows.get_mut(*focused) {
-                window.close();
-            }
+            commands.window(focused_window).close();
         }
     }
 }

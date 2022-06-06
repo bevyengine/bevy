@@ -60,7 +60,8 @@ impl Default for WindowPlugin {
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<WindowResized>()
-            .add_event::<CreateWindow>()
+            // TODO: This is now moved to a command and no longer needed
+            // .add_event::<CreateWindow>()
             .add_event::<WindowCreated>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
@@ -74,19 +75,42 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
-            .init_resource::<Windows>();
+            // Command events
+            .add_event::<CreateWindowCommand>()
+            .add_event::<SetWindowModeCommand>()
+            .add_event::<SetTitleCommand>()
+            .add_event::<SetScaleFactorCommand>()
+            .add_event::<SetResolutionCommand>()
+            .add_event::<SetPresentModeCommand>()
+            .add_event::<SetResizableCommand>()
+            .add_event::<SetDecorationsCommand>()
+            .add_event::<SetCursorLockModeCommand>()
+            .add_event::<SetCursorIconCommand>()
+            .add_event::<SetCursorVisibilityCommand>()
+            .add_event::<SetCursorPositionCommand>()
+            .add_event::<SetMaximizedCommand>()
+            .add_event::<SetMinimizedCommand>()
+            .add_event::<SetPositionCommand>()
+            .add_event::<SetResizeConstraintsCommand>()
+            .add_event::<CloseWindowCommand>()
+            .insert_resource(PrimaryWindow::default());
 
         if self.add_primary_window {
-            let window_descriptor = app
-                .world
-                .get_resource::<WindowDescriptor>()
-                .map(|descriptor| (*descriptor).clone())
-                .unwrap_or_default();
-            let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
-            create_window_event.send(CreateWindow {
-                id: WindowId::primary(),
-                descriptor: window_descriptor,
-            });
+            // TODO: Creating window should be done through commands as entities instead of old way
+            app.add_startup_system(create_primary_window);
+
+            // let window_descriptor = app
+            //     .world
+            //     .get_resource::<WindowDescriptor>()
+            //     .map(|descriptor| (*descriptor).clone())
+            //     .unwrap_or_default();
+            // let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
+
+            // // TODO: Replace with commands
+            // create_window_event.send(CreateWindow {
+            //     entity: WindowId::primary(),
+            //     descriptor: window_descriptor,
+            // });
         }
 
         match self.exit_condition {
@@ -105,6 +129,7 @@ impl Plugin for WindowPlugin {
     }
 }
 
+/// System Label marking when changes are applied to windows
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub struct ModifiesWindows;
 
@@ -115,4 +140,21 @@ pub enum ExitCondition {
     OnAllClosed,
     /// Keep application running headless even after closing all windows
     DontExit,
+}
+
+/// Resource containing the Entity that is currently considered the primary window
+pub struct PrimaryWindow {
+    // TODO: 
+    // Should this be Option?
+    // should this be allowed to change?
+    // If yes, what should be responsible for updating it?
+    pub window: Option<Entity>,
+}
+
+impl Default for PrimaryWindow {
+    fn default() -> Self {
+        Self {
+            window: Option::None,
+        }
+    }
 }
