@@ -1445,11 +1445,11 @@ unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
     }
 
     fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        self.0.new_archetype(archetype, system_meta)
+        self.0.new_archetype(archetype, system_meta);
     }
 
     fn apply(&mut self, world: &mut World) {
-        self.0.apply(world)
+        self.0.apply(world);
     }
 }
 

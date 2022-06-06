@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{
     const_vec2, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
@@ -9,7 +8,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
-    prelude::Image,
+    extract_resource::ExtractResource,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
@@ -17,7 +16,6 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::warn;
-use bevy_window::Windows;
 
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
@@ -170,7 +168,7 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Debug)]
+#[derive(Clone, Debug, ExtractResource)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -327,8 +325,7 @@ impl ClusterConfig {
 
     fn first_slice_depth(&self) -> f32 {
         match self {
-            ClusterConfig::None => 0.0,
-            ClusterConfig::Single => 0.0,
+            ClusterConfig::None | ClusterConfig::Single => 0.0,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.first_slice_depth
             }
@@ -637,8 +634,6 @@ impl GlobalVisiblePointLights {
 pub(crate) fn assign_lights_to_clusters(
     mut commands: Commands,
     mut global_lights: ResMut<GlobalVisiblePointLights>,
-    windows: Res<Windows>,
-    images: Res<Assets<Image>>,
     mut views: Query<(
         Entity,
         &GlobalTransform,
@@ -741,19 +736,18 @@ pub(crate) fn assign_lights_to_clusters(
             continue;
         }
 
-        let screen_size =
-            if let Some(screen_size) = camera.target.get_physical_size(&windows, &images) {
-                screen_size
-            } else {
-                clusters.clear();
-                continue;
-            };
+        let screen_size = if let Some(screen_size) = camera.physical_viewport_size() {
+            screen_size
+        } else {
+            clusters.clear();
+            continue;
+        };
 
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
         let view_transform = camera_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
-        let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
+        let is_orthographic = camera.projection_matrix().w_axis.w == 1.0;
 
         let far_z = match config.far_z_mode() {
             ClusterFarZMode::MaxLightRange => {
@@ -778,7 +772,7 @@ pub(crate) fn assign_lights_to_clusters(
                 // 3,2 = r * far and 2,2 = r where r = 1.0 / (far - near)
                 // rearranging r = 1.0 / (far - near), r * (far - near) = 1.0, r * far - 1.0 = r * near, near = (r * far - 1.0) / r
                 // = (3,2 - 1.0) / 2,2
-                (camera.projection_matrix.w_axis.z - 1.0) / camera.projection_matrix.z_axis.z
+                (camera.projection_matrix().w_axis.z - 1.0) / camera.projection_matrix().z_axis.z
             }
             (false, 1) => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
@@ -810,7 +804,7 @@ pub(crate) fn assign_lights_to_clusters(
                 // it can overestimate more significantly when light ranges are only partially in view
                 let (light_aabb_min, light_aabb_max) = cluster_space_light_aabb(
                     inverse_view_transform,
-                    camera.projection_matrix,
+                    camera.projection_matrix(),
                     &light_sphere,
                 );
 
@@ -877,9 +871,9 @@ pub(crate) fn assign_lights_to_clusters(
             clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
         );
 
-        let inverse_projection = camera.projection_matrix.inverse();
+        let inverse_projection = camera.projection_matrix().inverse();
 
-        for lights in clusters.lights.iter_mut() {
+        for lights in &mut clusters.lights {
             lights.entities.clear();
         }
         clusters.lights.resize_with(
@@ -964,7 +958,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let (light_aabb_xy_ndc_z_view_min, light_aabb_xy_ndc_z_view_max) =
                     cluster_space_light_aabb(
                         inverse_view_transform,
-                        camera.projection_matrix,
+                        camera.projection_matrix(),
                         &light_sphere,
                     );
 
@@ -997,7 +991,7 @@ pub(crate) fn assign_lights_to_clusters(
                     radius: light_sphere.radius,
                 };
                 let light_center_clip =
-                    camera.projection_matrix * view_light_sphere.center.extend(1.0);
+                    camera.projection_matrix() * view_light_sphere.center.extend(1.0);
                 let light_center_ndc = light_center_clip.xyz() / light_center_clip.w;
                 let cluster_coordinates = ndc_position_to_cluster(
                     clusters.dimensions,

@@ -3,11 +3,10 @@ use crate::{
     entity::Entity,
     query::{
         NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
-        QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
+        QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
     },
     world::{Mut, World},
 };
-use bevy_tasks::TaskPool;
 use std::{any::TypeId, fmt::Debug};
 
 /// Provides scoped access to components in a [`World`].
@@ -493,7 +492,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each query result in parallel using the given [`TaskPool`].
+    /// Runs `f` on each query result in parallel using the [`World`]'s [`ComputeTaskPool`].
     ///
     /// This can only be called for immutable data, see [`Self::par_for_each_mut`] for
     /// mutable access.
@@ -502,7 +501,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// The items in the query get sorted into batches.
     /// Internally, this function spawns a group of futures that each take on a `batch_size` sized section of the items (or less if the division is not perfect).
-    /// Then, the tasks in the [`TaskPool`] work through these futures.
+    /// Then, the tasks in the [`ComputeTaskPool`] work through these futures.
     ///
     /// You can use this value to tune between maximum multithreading ability (many small batches) and minimum parallelization overhead (few big batches).
     /// Rule of thumb: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
@@ -510,13 +509,17 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # Arguments
     ///
-    ///* `task_pool` - The [`TaskPool`] to use
     ///* `batch_size` - The number of batches to spawn
     ///* `f` - The function to run on each item in the query
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     #[inline]
     pub fn par_for_each<'this>(
         &'this self,
-        task_pool: &TaskPool,
         batch_size: usize,
         f: impl Fn(ROQueryItem<'this, Q>) + Send + Sync + Clone,
     ) {
@@ -526,7 +529,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
             self.state
                 .par_for_each_unchecked_manual::<ROQueryFetch<Q>, _>(
                     self.world,
-                    task_pool,
                     batch_size,
                     f,
                     self.last_change_tick,
@@ -535,12 +537,17 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each query result in parallel using the given [`TaskPool`].
+    /// Runs `f` on each query result in parallel using the [`World`]'s [`ComputeTaskPool`].
     /// See [`Self::par_for_each`] for more details.
+    ///
+    /// # Panics
+    /// [`ComputeTaskPool`] was not stored in the world at initialzation. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     #[inline]
     pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, Q>) + Send + Sync + Clone>(
         &'a mut self,
-        task_pool: &TaskPool,
         batch_size: usize,
         f: FN,
     ) {
@@ -550,12 +557,11 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
             self.state
                 .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                     self.world,
-                    task_pool,
                     batch_size,
                     f,
                     self.last_change_tick,
                     self.change_tick,
-                )
+                );
         };
     }
 
@@ -968,7 +974,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::system::QuerySingleError;
+    /// # use bevy_ecs::query::QuerySingleError;
     /// # #[derive(Component)]
     /// # struct PlayerScore(i32);
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
@@ -986,17 +992,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(player_scoring_system);
     /// ```
+    #[inline]
     pub fn get_single(&self) -> Result<ROQueryItem<'_, Q>, QuerySingleError> {
-        let mut query = self.iter();
-        let first = query.next();
-        let extra = query.next().is_some();
-
-        match (first, extra) {
-            (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
-                Self,
-            >())),
+        unsafe {
+            self.state.get_single_unchecked_manual::<ROQueryFetch<Q>>(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
@@ -1051,17 +1054,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
     /// ```
+    #[inline]
     pub fn get_single_mut(&mut self) -> Result<QueryItem<'_, Q>, QuerySingleError> {
-        let mut query = self.iter_mut();
-        let first = query.next();
-        let extra = query.next().is_some();
-
-        match (first, extra) {
-            (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
-                Self,
-            >())),
+        unsafe {
+            self.state.get_single_unchecked_manual::<QueryFetch<Q>>(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
@@ -1183,26 +1183,6 @@ impl std::fmt::Display for QueryComponentError {
     }
 }
 
-/// An error that occurs when evaluating a [`Query`] as a single expected resulted via
-/// [`Query::single`] or [`Query::single_mut`].
-#[derive(Debug)]
-pub enum QuerySingleError {
-    NoEntities(&'static str),
-    MultipleEntities(&'static str),
-}
-
-impl std::error::Error for QuerySingleError {}
-
-impl std::fmt::Display for QuerySingleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {}", query),
-            QuerySingleError::MultipleEntities(query) => {
-                write!(f, "Multiple entities fit the query {}!", query)
-            }
-        }
-    }
-}
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
 where
     QueryFetch<'w, Q>: ReadOnlyFetch,

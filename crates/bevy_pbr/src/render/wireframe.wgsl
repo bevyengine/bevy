@@ -1,5 +1,5 @@
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_types
+#import bevy_pbr::mesh_view_bindings
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;

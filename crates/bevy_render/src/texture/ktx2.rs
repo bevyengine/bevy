@@ -85,7 +85,7 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Rgb8 => {
                     let (mut original_width, mut original_height) = (width, height);
 
-                    for level_data in levels.iter() {
+                    for level_data in &levels {
                         let n_pixels = (original_width * original_height) as usize;
 
                         let mut rgba = vec![255u8; n_pixels * 4];
@@ -766,25 +766,19 @@ pub fn ktx2_dfd_to_texture_format(
                 }
             }
         }
-        Some(ColorModel::YUVSDA) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::YIQSDA) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::LabSDA) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::CMYKA) => {
+        Some(ColorModel::YUVSDA)
+        | Some(ColorModel::YIQSDA)
+        | Some(ColorModel::LabSDA)
+        | Some(ColorModel::CMYKA)
+        | Some(ColorModel::HSVAAng)
+        | Some(ColorModel::HSLAAng)
+        | Some(ColorModel::HSVAHex)
+        | Some(ColorModel::HSLAHex)
+        | Some(ColorModel::YCgCoA)
+        | Some(ColorModel::YcCbcCrc)
+        | Some(ColorModel::ICtCp)
+        | Some(ColorModel::CIEXYZ)
+        | Some(ColorModel::CIEXYY) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
                 data_format_descriptor.color_model
@@ -896,60 +890,6 @@ pub fn ktx2_dfd_to_texture_format(
                     )));
                 }
             }
-        }
-        Some(ColorModel::HSVAAng) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::HSLAAng) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::HSVAHex) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::HSLAHex) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::YCgCoA) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::YcCbcCrc) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::ICtCp) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::CIEXYZ) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
-        }
-        Some(ColorModel::CIEXYY) => {
-            return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                data_format_descriptor.color_model
-            )));
         }
         Some(ColorModel::BC1A) => {
             if is_srgb {
@@ -1281,53 +1221,31 @@ pub fn ktx2_format_to_texture_format(
     is_srgb: bool,
 ) -> Result<TextureFormat, TextureError> {
     Ok(match ktx2_format {
-        ktx2::Format::R8_UNORM => {
+        ktx2::Format::R8_UNORM | ktx2::Format::R8_SRGB => {
             if is_srgb {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
                     "{:?}",
                     ktx2_format
                 )));
-            } else {
-                TextureFormat::R8Unorm
             }
+            TextureFormat::R8Unorm
         }
         ktx2::Format::R8_SNORM => TextureFormat::R8Snorm,
         ktx2::Format::R8_UINT => TextureFormat::R8Uint,
         ktx2::Format::R8_SINT => TextureFormat::R8Sint,
-        ktx2::Format::R8_SRGB => {
+        ktx2::Format::R8G8_UNORM | ktx2::Format::R8G8_SRGB => {
             if is_srgb {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
                     "{:?}",
                     ktx2_format
                 )));
-            } else {
-                TextureFormat::R8Unorm
             }
-        }
-        ktx2::Format::R8G8_UNORM => {
-            if is_srgb {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{:?}",
-                    ktx2_format
-                )));
-            } else {
-                TextureFormat::Rg8Unorm
-            }
+            TextureFormat::Rg8Unorm
         }
         ktx2::Format::R8G8_SNORM => TextureFormat::Rg8Snorm,
         ktx2::Format::R8G8_UINT => TextureFormat::Rg8Uint,
         ktx2::Format::R8G8_SINT => TextureFormat::Rg8Sint,
-        ktx2::Format::R8G8_SRGB => {
-            if is_srgb {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{:?}",
-                    ktx2_format
-                )));
-            } else {
-                TextureFormat::Rg8Unorm
-            }
-        }
-        ktx2::Format::R8G8B8A8_UNORM => {
+        ktx2::Format::R8G8B8A8_UNORM | ktx2::Format::R8G8B8A8_SRGB => {
             if is_srgb {
                 TextureFormat::Rgba8UnormSrgb
             } else {
@@ -1337,21 +1255,7 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R8G8B8A8_SNORM => TextureFormat::Rgba8Snorm,
         ktx2::Format::R8G8B8A8_UINT => TextureFormat::Rgba8Uint,
         ktx2::Format::R8G8B8A8_SINT => TextureFormat::Rgba8Sint,
-        ktx2::Format::R8G8B8A8_SRGB => {
-            if is_srgb {
-                TextureFormat::Rgba8UnormSrgb
-            } else {
-                TextureFormat::Rgba8Unorm
-            }
-        }
-        ktx2::Format::B8G8R8A8_UNORM => {
-            if is_srgb {
-                TextureFormat::Bgra8UnormSrgb
-            } else {
-                TextureFormat::Bgra8Unorm
-            }
-        }
-        ktx2::Format::B8G8R8A8_SRGB => {
+        ktx2::Format::B8G8R8A8_UNORM | ktx2::Format::B8G8R8A8_SRGB => {
             if is_srgb {
                 TextureFormat::Bgra8UnormSrgb
             } else {
@@ -1395,56 +1299,24 @@ pub fn ktx2_format_to_texture_format(
 
         ktx2::Format::D24_UNORM_S8_UINT => TextureFormat::Depth24PlusStencil8,
 
-        ktx2::Format::BC1_RGB_UNORM_BLOCK => {
+        ktx2::Format::BC1_RGB_UNORM_BLOCK
+        | ktx2::Format::BC1_RGB_SRGB_BLOCK
+        | ktx2::Format::BC1_RGBA_UNORM_BLOCK
+        | ktx2::Format::BC1_RGBA_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Bc1RgbaUnormSrgb
             } else {
                 TextureFormat::Bc1RgbaUnorm
             }
         }
-        ktx2::Format::BC1_RGB_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Bc1RgbaUnormSrgb
-            } else {
-                TextureFormat::Bc1RgbaUnorm
-            }
-        }
-        ktx2::Format::BC1_RGBA_UNORM_BLOCK => {
-            if is_srgb {
-                TextureFormat::Bc1RgbaUnormSrgb
-            } else {
-                TextureFormat::Bc1RgbaUnorm
-            }
-        }
-        ktx2::Format::BC1_RGBA_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Bc1RgbaUnormSrgb
-            } else {
-                TextureFormat::Bc1RgbaUnorm
-            }
-        }
-        ktx2::Format::BC2_UNORM_BLOCK => {
+        ktx2::Format::BC2_UNORM_BLOCK | ktx2::Format::BC2_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Bc2RgbaUnormSrgb
             } else {
                 TextureFormat::Bc2RgbaUnorm
             }
         }
-        ktx2::Format::BC2_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Bc2RgbaUnormSrgb
-            } else {
-                TextureFormat::Bc2RgbaUnorm
-            }
-        }
-        ktx2::Format::BC3_UNORM_BLOCK => {
-            if is_srgb {
-                TextureFormat::Bc3RgbaUnormSrgb
-            } else {
-                TextureFormat::Bc3RgbaUnorm
-            }
-        }
-        ktx2::Format::BC3_SRGB_BLOCK => {
+        ktx2::Format::BC3_UNORM_BLOCK | ktx2::Format::BC3_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Bc3RgbaUnormSrgb
             } else {
@@ -1457,56 +1329,28 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::BC5_SNORM_BLOCK => TextureFormat::Bc5RgSnorm,
         ktx2::Format::BC6H_UFLOAT_BLOCK => TextureFormat::Bc6hRgbUfloat,
         ktx2::Format::BC6H_SFLOAT_BLOCK => TextureFormat::Bc6hRgbSfloat,
-        ktx2::Format::BC7_UNORM_BLOCK => {
+        ktx2::Format::BC7_UNORM_BLOCK | ktx2::Format::BC7_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Bc7RgbaUnormSrgb
             } else {
                 TextureFormat::Bc7RgbaUnorm
             }
         }
-        ktx2::Format::BC7_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Bc7RgbaUnormSrgb
-            } else {
-                TextureFormat::Bc7RgbaUnorm
-            }
-        }
-        ktx2::Format::ETC2_R8G8B8_UNORM_BLOCK => {
+        ktx2::Format::ETC2_R8G8B8_UNORM_BLOCK | ktx2::Format::ETC2_R8G8B8_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Etc2Rgb8UnormSrgb
             } else {
                 TextureFormat::Etc2Rgb8Unorm
             }
         }
-        ktx2::Format::ETC2_R8G8B8_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Etc2Rgb8UnormSrgb
-            } else {
-                TextureFormat::Etc2Rgb8Unorm
-            }
-        }
-        ktx2::Format::ETC2_R8G8B8A1_UNORM_BLOCK => {
+        ktx2::Format::ETC2_R8G8B8A1_UNORM_BLOCK | ktx2::Format::ETC2_R8G8B8A1_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Etc2Rgb8A1UnormSrgb
             } else {
                 TextureFormat::Etc2Rgb8A1Unorm
             }
         }
-        ktx2::Format::ETC2_R8G8B8A1_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Etc2Rgb8A1UnormSrgb
-            } else {
-                TextureFormat::Etc2Rgb8A1Unorm
-            }
-        }
-        ktx2::Format::ETC2_R8G8B8A8_UNORM_BLOCK => {
-            if is_srgb {
-                TextureFormat::Etc2Rgba8UnormSrgb
-            } else {
-                TextureFormat::Etc2Rgba8Unorm
-            }
-        }
-        ktx2::Format::ETC2_R8G8B8A8_SRGB_BLOCK => {
+        ktx2::Format::ETC2_R8G8B8A8_UNORM_BLOCK | ktx2::Format::ETC2_R8G8B8A8_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Etc2Rgba8UnormSrgb
             } else {
@@ -1517,196 +1361,98 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::EAC_R11_SNORM_BLOCK => TextureFormat::EacR11Snorm,
         ktx2::Format::EAC_R11G11_UNORM_BLOCK => TextureFormat::EacRg11Unorm,
         ktx2::Format::EAC_R11G11_SNORM_BLOCK => TextureFormat::EacRg11Snorm,
-        ktx2::Format::ASTC_4x4_UNORM_BLOCK => {
+        ktx2::Format::ASTC_4x4_UNORM_BLOCK | ktx2::Format::ASTC_4x4_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc4x4RgbaUnormSrgb
             } else {
                 TextureFormat::Astc4x4RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_4x4_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc4x4RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc4x4RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_5x4_UNORM_BLOCK => {
+        ktx2::Format::ASTC_5x4_UNORM_BLOCK | ktx2::Format::ASTC_5x4_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc5x4RgbaUnormSrgb
             } else {
                 TextureFormat::Astc5x4RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_5x4_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc5x4RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc5x4RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_5x5_UNORM_BLOCK => {
+        ktx2::Format::ASTC_5x5_UNORM_BLOCK | ktx2::Format::ASTC_5x5_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc5x5RgbaUnormSrgb
             } else {
                 TextureFormat::Astc5x5RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_5x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc5x5RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc5x5RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_6x5_UNORM_BLOCK => {
+        ktx2::Format::ASTC_6x5_UNORM_BLOCK | ktx2::Format::ASTC_6x5_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc6x5RgbaUnormSrgb
             } else {
                 TextureFormat::Astc6x5RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_6x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc6x5RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc6x5RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_6x6_UNORM_BLOCK => {
+        ktx2::Format::ASTC_6x6_UNORM_BLOCK | ktx2::Format::ASTC_6x6_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc6x6RgbaUnormSrgb
             } else {
                 TextureFormat::Astc6x6RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_6x6_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc6x6RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc6x6RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_8x5_UNORM_BLOCK => {
+        ktx2::Format::ASTC_8x5_UNORM_BLOCK | ktx2::Format::ASTC_8x5_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc8x5RgbaUnormSrgb
             } else {
                 TextureFormat::Astc8x5RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_8x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc8x5RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc8x5RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_8x6_UNORM_BLOCK => {
+        ktx2::Format::ASTC_8x6_UNORM_BLOCK | ktx2::Format::ASTC_8x6_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc8x6RgbaUnormSrgb
             } else {
                 TextureFormat::Astc8x6RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_8x6_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc8x6RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc8x6RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_8x8_UNORM_BLOCK => {
+        ktx2::Format::ASTC_8x8_UNORM_BLOCK | ktx2::Format::ASTC_8x8_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc8x8RgbaUnormSrgb
             } else {
                 TextureFormat::Astc8x8RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_8x8_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc8x8RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc8x8RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_10x5_UNORM_BLOCK => {
+        ktx2::Format::ASTC_10x5_UNORM_BLOCK | ktx2::Format::ASTC_10x5_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc10x5RgbaUnormSrgb
             } else {
                 TextureFormat::Astc10x5RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_10x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc10x5RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc10x5RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_10x6_UNORM_BLOCK => {
+        ktx2::Format::ASTC_10x6_UNORM_BLOCK | ktx2::Format::ASTC_10x6_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc10x6RgbaUnormSrgb
             } else {
                 TextureFormat::Astc10x6RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_10x6_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc10x6RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc10x6RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_10x8_UNORM_BLOCK => {
+        ktx2::Format::ASTC_10x8_UNORM_BLOCK | ktx2::Format::ASTC_10x8_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc10x8RgbaUnormSrgb
             } else {
                 TextureFormat::Astc10x8RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_10x8_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc10x8RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc10x8RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_10x10_UNORM_BLOCK => {
+        ktx2::Format::ASTC_10x10_UNORM_BLOCK | ktx2::Format::ASTC_10x10_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc10x10RgbaUnormSrgb
             } else {
                 TextureFormat::Astc10x10RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_10x10_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc10x10RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc10x10RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_12x10_UNORM_BLOCK => {
+        ktx2::Format::ASTC_12x10_UNORM_BLOCK | ktx2::Format::ASTC_12x10_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc12x10RgbaUnormSrgb
             } else {
                 TextureFormat::Astc12x10RgbaUnorm
             }
         }
-        ktx2::Format::ASTC_12x10_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc12x10RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc12x10RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_12x12_UNORM_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc12x12RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc12x12RgbaUnorm
-            }
-        }
-        ktx2::Format::ASTC_12x12_SRGB_BLOCK => {
+        ktx2::Format::ASTC_12x12_UNORM_BLOCK | ktx2::Format::ASTC_12x12_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Astc12x12RgbaUnormSrgb
             } else {

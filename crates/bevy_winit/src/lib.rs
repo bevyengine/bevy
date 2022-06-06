@@ -591,7 +591,11 @@ pub fn winit_runner_with(mut app: App) {
                     *control_flow = match winit_config.update_mode(focused) {
                         Continuous => ControlFlow::Poll,
                         Reactive { max_wait } | ReactiveLowPower { max_wait } => {
-                            ControlFlow::WaitUntil(now + *max_wait)
+                            if let Some(instant) = now.checked_add(*max_wait) {
+                                ControlFlow::WaitUntil(instant)
+                            } else {
+                                ControlFlow::Wait
+                            }
                         }
                     };
                 }

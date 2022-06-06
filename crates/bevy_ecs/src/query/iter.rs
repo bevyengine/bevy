@@ -162,7 +162,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
 
         let ptr = values.as_mut_ptr().cast::<QueryItem<'w, Q>>();
         for (offset, cursor) in self.cursors.iter_mut().enumerate() {
-            ptr.add(offset).write(cursor.peek_last().unwrap())
+            ptr.add(offset).write(cursor.peek_last().unwrap());
         }
 
         Some(values.assume_init())
@@ -258,7 +258,7 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::Stat
     filter: QueryFetch<'w, F>,
     current_len: usize,
     current_index: usize,
-    phantom: PhantomData<&'w Q>,
+    phantom: PhantomData<(&'w (), Q)>,
 }
 
 impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, QF, F>
