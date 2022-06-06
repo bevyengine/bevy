@@ -1,9 +1,20 @@
 mod converters;
+mod system;
 #[cfg(target_arch = "wasm32")]
 mod web_resize;
 mod winit_config;
 mod winit_windows;
 
+use core::panic;
+
+use bevy_ecs::system::Command;
+use system::{
+    destroy_windows, update_cursor_icon, update_cursor_lock_mode, update_cursor_position,
+    update_cursor_visibility, update_decorations, update_maximized, update_minimized,
+    update_position, update_present_mode, update_resizable, update_resize_contraints,
+    update_resolution, update_scale_factor, update_title, update_window_mode, window_destroyed,
+};
+use winit::window;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -25,9 +36,9 @@ use bevy_utils::{
 };
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
-    ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
-    WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
-    WindowScaleFactorChanged, Windows,
+    ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
+    WindowCloseRequested, WindowCreated, WindowCurrentlyFocused, WindowCursorPosition,
+    WindowFocused, WindowMoved, WindowResized, WindowResolution, WindowScaleFactorChanged, PrimaryWindow, WindowPosition,
 };
 
 use winit::{
@@ -44,155 +55,39 @@ impl Plugin for WinitPlugin {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows));
+            // TODO: Verify that this actually works and does not cause any race-conditions or strange ordering issues
+            .add_system_set_to_stage(
+                CoreStage::PostUpdate,
+                SystemSet::new()
+                    .label(ModifiesWindows)
+                    .with_system(update_title)
+                    .with_system(update_window_mode)
+                    .with_system(update_decorations)
+                    .with_system(update_scale_factor)
+                    .with_system(update_resizable)
+                    .with_system(update_position)
+                    .with_system(update_minimized)
+                    .with_system(update_maximized)
+                    .with_system(update_resolution)
+                    .with_system(update_cursor_icon)
+                    .with_system(update_cursor_lock_mode)
+                    .with_system(update_cursor_visibility)
+                    .with_system(update_cursor_position)
+                    .with_system(update_resize_contraints)
+                    .with_system(update_present_mode)
+                    .with_system(destroy_windows), // TODO: This should probably go last?
+                                                   // .with_system(window_destroyed) // TODO: Unsure if this is the correct approach
+            );
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);
         let event_loop = EventLoop::new();
         let mut create_window_reader = WinitCreateWindowReader::default();
+        // TODO: Test if any issues has been caused here
         // Note that we create a window here "early" because WASM/WebGL requires the window to exist prior to initializing
         // the renderer.
         handle_create_window_events(&mut app.world, &event_loop, &mut create_window_reader.0);
         app.insert_resource(create_window_reader)
             .insert_non_send_resource(event_loop);
-    }
-}
-
-fn change_window(
-    mut winit_windows: NonSendMut<WinitWindows>,
-    mut windows: ResMut<Windows>,
-    mut window_dpi_changed_events: EventWriter<WindowScaleFactorChanged>,
-    mut window_close_events: EventWriter<WindowClosed>,
-) {
-    let mut removed_windows = vec![];
-    for bevy_window in windows.iter_mut() {
-        let id = bevy_window.id();
-        for command in bevy_window.drain_commands() {
-            match command {
-                bevy_window::WindowCommand::SetWindowMode {
-                    mode,
-                    resolution: (width, height),
-                } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    match mode {
-                        bevy_window::WindowMode::BorderlessFullscreen => {
-                            window
-                                .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
-                        }
-                        bevy_window::WindowMode::Fullscreen => {
-                            window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(
-                                get_best_videomode(&window.current_monitor().unwrap()),
-                            )));
-                        }
-                        bevy_window::WindowMode::SizedFullscreen => window.set_fullscreen(Some(
-                            winit::window::Fullscreen::Exclusive(get_fitting_videomode(
-                                &window.current_monitor().unwrap(),
-                                width,
-                                height,
-                            )),
-                        )),
-                        bevy_window::WindowMode::Windowed => window.set_fullscreen(None),
-                    }
-                }
-                bevy_window::WindowCommand::SetTitle { title } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_title(&title);
-                }
-                bevy_window::WindowCommand::SetScaleFactor { scale_factor } => {
-                    window_dpi_changed_events.send(WindowScaleFactorChanged { id, scale_factor });
-                }
-                bevy_window::WindowCommand::SetResolution {
-                    logical_resolution: (width, height),
-                    scale_factor,
-                } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_inner_size(
-                        winit::dpi::LogicalSize::new(width, height)
-                            .to_physical::<f64>(scale_factor),
-                    );
-                }
-                bevy_window::WindowCommand::SetPresentMode { .. } => (),
-                bevy_window::WindowCommand::SetResizable { resizable } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_resizable(resizable);
-                }
-                bevy_window::WindowCommand::SetDecorations { decorations } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_decorations(decorations);
-                }
-                bevy_window::WindowCommand::SetCursorIcon { icon } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_cursor_icon(converters::convert_cursor_icon(icon));
-                }
-                bevy_window::WindowCommand::SetCursorLockMode { locked } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window
-                        .set_cursor_grab(locked)
-                        .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
-                }
-                bevy_window::WindowCommand::SetCursorVisibility { visible } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_cursor_visible(visible);
-                }
-                bevy_window::WindowCommand::SetCursorPosition { position } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
-                    window
-                        .set_cursor_position(winit::dpi::LogicalPosition::new(
-                            position.x,
-                            inner_size.height - position.y,
-                        ))
-                        .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
-                }
-                bevy_window::WindowCommand::SetMaximized { maximized } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_maximized(maximized);
-                }
-                bevy_window::WindowCommand::SetMinimized { minimized } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_minimized(minimized);
-                }
-                bevy_window::WindowCommand::SetPosition { position } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_outer_position(PhysicalPosition {
-                        x: position[0],
-                        y: position[1],
-                    });
-                }
-                bevy_window::WindowCommand::SetResizeConstraints { resize_constraints } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    let constraints = resize_constraints.check_constraints();
-                    let min_inner_size = LogicalSize {
-                        width: constraints.min_width,
-                        height: constraints.min_height,
-                    };
-                    let max_inner_size = LogicalSize {
-                        width: constraints.max_width,
-                        height: constraints.max_height,
-                    };
-
-                    window.set_min_inner_size(Some(min_inner_size));
-                    if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                        window.set_max_inner_size(Some(max_inner_size));
-                    }
-                }
-                bevy_window::WindowCommand::Close => {
-                    // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
-                    // Add the removal requests to a queue to solve this
-                    removed_windows.push(id);
-                    // No need to run any further commands - this drops the rest of the commands, although the `bevy_window::Window` will be dropped later anyway
-                    break;
-                }
-            }
-        }
-    }
-    if !removed_windows.is_empty() {
-        for id in removed_windows {
-            // Close the OS window. (The `Drop` impl actually closes the window)
-            let _ = winit_windows.remove_window(id);
-            // Clean up our own data structures
-            windows.remove(id);
-            window_close_events.send(WindowClosed { id });
-        }
     }
 }
 
