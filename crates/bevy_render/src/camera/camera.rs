@@ -111,14 +111,26 @@ impl Camera {
         Some((input.as_dvec2() / scale).as_vec2())
     }
 
-    /// The logical dimensions of the viewport, the (minimum, maximum) points of the viewport,
-    /// measured from the top-left.
+    /// The rendered physical bounds (minimum, maximum) of the camera. If the `viewport` field is
+    /// set to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to
+    /// the full physical rect of the current [`RenderTarget`].
+    #[inline]
+    pub fn physical_viewport_rect(&self) -> Option<(UVec2, UVec2)> {
+        let min = self.viewport.as_ref()?.physical_position;
+        let max = min + self.physical_viewport_size()?;
+        Some((min, max))
+    }
+
+    /// The rendered logical bounds (minimum, maximum) of the camera. If the `viewport` field is set
+    /// to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to the
+    /// full logical rect of the current [`RenderTarget`].
     #[inline]
     pub fn logical_viewport_rect(&self) -> Option<(Vec2, Vec2)> {
-        let vp_position = self.viewport.as_ref()?.physical_position;
-        let min = self.physical_to_logical(vp_position)?;
-        let max = self.logical_viewport_size()?;
-        Some((min, max))
+        let (min, max) = self.physical_viewport_rect()?;
+        Some((
+            self.physical_to_logical(min)?,
+            self.physical_to_logical(max)?,
+        ))
     }
 
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
@@ -130,8 +142,7 @@ impl Camera {
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
         self.viewport
             .as_ref()
-            .map(|v| self.physical_to_logical(v.physical_size))
-            .flatten()
+            .and_then(|v| self.physical_to_logical(v.physical_size))
             .or_else(|| self.logical_target_size())
     }
 
@@ -155,8 +166,7 @@ impl Camera {
         self.computed
             .target_info
             .as_ref()
-            .map(|t| self.physical_to_logical(t.physical_size))
-            .flatten()
+            .and_then(|t| self.physical_to_logical(t.physical_size))
     }
 
     /// The full physical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
