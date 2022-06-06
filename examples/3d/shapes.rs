@@ -78,7 +78,7 @@ fn setup(
         ..Default::default()
     });
 
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         ..Default::default()
     });
@@ -87,7 +87,7 @@ fn setup(
 fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
     for mut transform in query.iter_mut() {
         transform.rotation = Quat::from_rotation_y(time.seconds_since_startup() as f32 / 2.)
-            * Quat::from_rotation_x(-std::f32::consts::PI / 4.)
+            * Quat::from_rotation_x(-std::f32::consts::PI / 4.);
     }
 }
 

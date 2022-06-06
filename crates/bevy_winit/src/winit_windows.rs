@@ -126,8 +126,7 @@ impl WinitWindows {
 
         if window_descriptor.cursor_locked {
             match winit_window.set_cursor_grab(true) {
-                Ok(_) => {}
-                Err(winit::error::ExternalError::NotSupported(_)) => {}
+                Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
                 Err(err) => Err(err).unwrap(),
             }
         }

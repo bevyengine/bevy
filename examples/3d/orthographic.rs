@@ -1,6 +1,6 @@
 //! Shows how to create a 3D orthographic view (for isometric-look games or CAD applications).
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::ScalingMode};
 
 fn main() {
     App::new()
@@ -15,13 +15,17 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // set up the camera
-    let mut camera = OrthographicCameraBundle::new_3d();
-    camera.orthographic_projection.scale = 3.0;
-    camera.transform = Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y);
-
     // camera
-    commands.spawn_bundle(camera);
+    commands.spawn_bundle(Camera3dBundle {
+        projection: OrthographicProjection {
+            scale: 3.0,
+            scaling_mode: ScalingMode::FixedVertical(2.0),
+            ..default()
+        }
+        .into(),
+        transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
 
     // plane
     commands.spawn_bundle(PbrBundle {

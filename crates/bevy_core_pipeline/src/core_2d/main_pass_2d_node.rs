@@ -1,4 +1,7 @@
-use crate::Transparent2d;
+use crate::{
+    clear_color::{ClearColor, ClearColorConfig},
+    core_2d::{camera_2d::Camera2d, Transparent2d},
+};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -9,8 +12,14 @@ use bevy_render::{
 };
 
 pub struct MainPass2dNode {
-    query:
-        QueryState<(&'static RenderPhase<Transparent2d>, &'static ViewTarget), With<ExtractedView>>,
+    query: QueryState<
+        (
+            &'static RenderPhase<Transparent2d>,
+            &'static ViewTarget,
+            &'static Camera2d,
+        ),
+        With<ExtractedView>,
+    >,
 }
 
 impl MainPass2dNode {
@@ -18,7 +27,7 @@ impl MainPass2dNode {
 
     pub fn new(world: &mut World) -> Self {
         Self {
-            query: QueryState::new(world),
+            query: world.query_filtered(),
         }
     }
 }
@@ -39,20 +48,24 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        // If there is no view entity, do not try to process the render phase for the view
-        let (transparent_phase, target) = match self.query.get_manual(world, view_entity) {
-            Ok(it) => it,
-            _ => return Ok(()),
-        };
-
-        if transparent_phase.items.is_empty() {
-            return Ok(());
-        }
+        let (transparent_phase, target, camera_2d) =
+            if let Ok(result) = self.query.get_manual(world, view_entity) {
+                result
+            } else {
+                // no target
+                return Ok(());
+            };
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("main_pass_2d"),
             color_attachments: &[target.get_color_attachment(Operations {
-                load: LoadOp::Load,
+                load: match camera_2d.clear_color {
+                    ClearColorConfig::Default => {
+                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                    }
+                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                    ClearColorConfig::None => LoadOp::Load,
+                },
                 store: true,
             })],
             depth_stencil_attachment: None,

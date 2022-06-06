@@ -49,14 +49,12 @@ pub enum ImageFormat {
 impl ImageFormat {
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
-            "image/bmp" => ImageFormat::Bmp,
-            "image/x-bmp" => ImageFormat::Bmp,
+            "image/bmp" | "image/x-bmp" => ImageFormat::Bmp,
             "image/vnd-ms.dds" => ImageFormat::Dds,
             "image/jpeg" => ImageFormat::Jpeg,
             "image/ktx2" => ImageFormat::Ktx2,
             "image/png" => ImageFormat::Png,
-            "image/x-targa" => ImageFormat::Tga,
-            "image/x-tga" => ImageFormat::Tga,
+            "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
             _ => return None,
         })
     }
@@ -85,7 +83,6 @@ impl ImageFormat {
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         Some(match self {
             ImageFormat::Avif => image::ImageFormat::Avif,
-            ImageFormat::Basis => return None,
             ImageFormat::Bmp => image::ImageFormat::Bmp,
             ImageFormat::Dds => image::ImageFormat::Dds,
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
@@ -93,12 +90,12 @@ impl ImageFormat {
             ImageFormat::Hdr => image::ImageFormat::Hdr,
             ImageFormat::Ico => image::ImageFormat::Ico,
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
-            ImageFormat::Ktx2 => return None,
             ImageFormat::Png => image::ImageFormat::Png,
             ImageFormat::Pnm => image::ImageFormat::Pnm,
             ImageFormat::Tga => image::ImageFormat::Tga,
             ImageFormat::Tiff => image::ImageFormat::Tiff,
             ImageFormat::WebP => image::ImageFormat::WebP,
+            ImageFormat::Basis | ImageFormat::Ktx2 => return None,
         })
     }
 }
@@ -423,6 +420,7 @@ pub trait TextureFormatPixelInfo {
 }
 
 impl TextureFormatPixelInfo for TextureFormat {
+    #[allow(clippy::match_same_arms)]
     fn pixel_info(&self) -> PixelInfo {
         let type_size = match self {
             // 8bit
@@ -634,62 +632,58 @@ impl CompressedImageFormats {
 
     pub fn supports(&self, format: TextureFormat) -> bool {
         match format {
-            TextureFormat::Bc1RgbaUnorm => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc1RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc2RgbaUnorm => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc2RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc3RgbaUnorm => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc3RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc4RUnorm => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc4RSnorm => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc5RgUnorm => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc5RgSnorm => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc6hRgbUfloat => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc6hRgbSfloat => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc7RgbaUnorm => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Bc7RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
-            TextureFormat::Etc2Rgb8Unorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Etc2Rgb8UnormSrgb => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Etc2Rgb8A1Unorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Etc2Rgb8A1UnormSrgb => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Etc2Rgba8Unorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Etc2Rgba8UnormSrgb => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::EacR11Unorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::EacR11Snorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::EacRg11Unorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Astc4x4RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc4x4RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc5x4RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc5x4RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc5x5RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc5x5RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc6x5RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc6x5RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc6x6RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc6x6RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc8x5RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc8x5RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc8x6RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc8x6RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc10x5RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc10x5RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc10x6RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc10x6RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc8x8RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc8x8RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc10x8RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc10x8RgbaUnormSrgb => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc10x10RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc10x10RgbaUnormSrgb => {
-                self.contains(CompressedImageFormats::ASTC_LDR)
-            }
-            TextureFormat::Astc12x10RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc12x10RgbaUnormSrgb => {
-                self.contains(CompressedImageFormats::ASTC_LDR)
-            }
-            TextureFormat::Astc12x12RgbaUnorm => self.contains(CompressedImageFormats::ASTC_LDR),
-            TextureFormat::Astc12x12RgbaUnormSrgb => {
+            TextureFormat::Bc1RgbaUnorm
+            | TextureFormat::Bc1RgbaUnormSrgb
+            | TextureFormat::Bc2RgbaUnorm
+            | TextureFormat::Bc2RgbaUnormSrgb
+            | TextureFormat::Bc3RgbaUnorm
+            | TextureFormat::Bc3RgbaUnormSrgb
+            | TextureFormat::Bc4RUnorm
+            | TextureFormat::Bc4RSnorm
+            | TextureFormat::Bc5RgUnorm
+            | TextureFormat::Bc5RgSnorm
+            | TextureFormat::Bc6hRgbUfloat
+            | TextureFormat::Bc6hRgbSfloat
+            | TextureFormat::Bc7RgbaUnorm
+            | TextureFormat::Bc7RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
+            TextureFormat::Etc2Rgb8Unorm
+            | TextureFormat::Etc2Rgb8UnormSrgb
+            | TextureFormat::Etc2Rgb8A1Unorm
+            | TextureFormat::Etc2Rgb8A1UnormSrgb
+            | TextureFormat::Etc2Rgba8Unorm
+            | TextureFormat::Etc2Rgba8UnormSrgb
+            | TextureFormat::EacR11Unorm
+            | TextureFormat::EacR11Snorm
+            | TextureFormat::EacRg11Unorm
+            | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Astc4x4RgbaUnorm
+            | TextureFormat::Astc4x4RgbaUnormSrgb
+            | TextureFormat::Astc5x4RgbaUnorm
+            | TextureFormat::Astc5x4RgbaUnormSrgb
+            | TextureFormat::Astc5x5RgbaUnorm
+            | TextureFormat::Astc5x5RgbaUnormSrgb
+            | TextureFormat::Astc6x5RgbaUnorm
+            | TextureFormat::Astc6x5RgbaUnormSrgb
+            | TextureFormat::Astc6x6RgbaUnorm
+            | TextureFormat::Astc6x6RgbaUnormSrgb
+            | TextureFormat::Astc8x5RgbaUnorm
+            | TextureFormat::Astc8x5RgbaUnormSrgb
+            | TextureFormat::Astc8x6RgbaUnorm
+            | TextureFormat::Astc8x6RgbaUnormSrgb
+            | TextureFormat::Astc10x5RgbaUnorm
+            | TextureFormat::Astc10x5RgbaUnormSrgb
+            | TextureFormat::Astc10x6RgbaUnorm
+            | TextureFormat::Astc10x6RgbaUnormSrgb
+            | TextureFormat::Astc8x8RgbaUnorm
+            | TextureFormat::Astc8x8RgbaUnormSrgb
+            | TextureFormat::Astc10x8RgbaUnorm
+            | TextureFormat::Astc10x8RgbaUnormSrgb
+            | TextureFormat::Astc10x10RgbaUnorm
+            | TextureFormat::Astc10x10RgbaUnormSrgb
+            | TextureFormat::Astc12x10RgbaUnorm
+            | TextureFormat::Astc12x10RgbaUnormSrgb
+            | TextureFormat::Astc12x12RgbaUnorm
+            | TextureFormat::Astc12x12RgbaUnormSrgb => {
                 self.contains(CompressedImageFormats::ASTC_LDR)
             }
             _ => true,

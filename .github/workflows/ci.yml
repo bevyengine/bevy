@@ -135,6 +135,7 @@ jobs:
         toolchain: [stable, nightly]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    needs: build
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -157,31 +158,6 @@ jobs:
           command: check
           args: --target wasm32-unknown-unknown --no-default-features --features bevy_winit,x11,hdr,bevy_gltf
 
-  build-android:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
-      - name: Uninstall android-31
-        run: $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --uninstall "platforms;android-31"
-      - name: Install Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi
-      - name: Install Cargo APK
-        run: cargo install --force cargo-apk
-      - name: Build APK
-        run: cargo apk build --example android
-
   markdownlint:
     runs-on: ubuntu-latest
     needs: check-missing-examples-in-docs
@@ -202,6 +178,7 @@ jobs:
 
   run-examples:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Install Bevy dependencies
         run: |
@@ -229,13 +206,13 @@ jobs:
           toolchain: stable
       - name: Build bevy
         run: |
-          cargo build --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_winit,render,png,hdr,x11,bevy_ci_testing,trace,trace_chrome,bevy_audio,vorbis"
+          cargo build --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_winit,render,png,hdr,x11,bevy_ci_testing,trace,trace_chrome,bevy_audio,vorbis"
+            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
           done
           zip traces.zip trace*.json

@@ -11,5 +11,5 @@ fn main() {
 }
 
 fn setup_system(mut commands: Commands) {
-    commands.spawn_bundle(PerspectiveCameraBundle::default());
+    commands.spawn_bundle(Camera3dBundle::default());
 }

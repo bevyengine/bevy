@@ -1,104 +1,24 @@
 //! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
 
 use bevy::{
-    core_pipeline::{
-        draw_3d_graph, node, AlphaMask3d, Opaque3d, RenderTargetClearColors, Transparent3d,
-    },
+    core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
     render::{
-        camera::{ActiveCamera, Camera, CameraTypePlugin, RenderTarget},
-        render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
-        render_phase::RenderPhase,
+        camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        renderer::RenderContext,
         view::RenderLayers,
-        RenderApp, RenderStage,
     },
 };
 
-#[derive(Component, Default)]
-pub struct FirstPassCamera;
-
-// The name of the final node of the first pass.
-pub const FIRST_PASS_DRIVER: &str = "first_pass_driver";
-
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
-        .add_plugin(CameraTypePlugin::<FirstPassCamera>::default())
+    App::new()
+        .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(cube_rotator_system)
-        .add_system(rotator_system);
-
-    let render_app = app.sub_app_mut(RenderApp);
-    let driver = FirstPassCameraDriver::new(&mut render_app.world);
-    // This will add 3D render phases for the new camera.
-    render_app.add_system_to_stage(RenderStage::Extract, extract_first_pass_camera_phases);
-
-    let mut graph = render_app.world.resource_mut::<RenderGraph>();
-
-    // Add a node for the first pass.
-    graph.add_node(FIRST_PASS_DRIVER, driver);
-
-    // The first pass's dependencies include those of the main pass.
-    graph
-        .add_node_edge(node::MAIN_PASS_DEPENDENCIES, FIRST_PASS_DRIVER)
-        .unwrap();
-
-    // Insert the first pass node: CLEAR_PASS_DRIVER -> FIRST_PASS_DRIVER -> MAIN_PASS_DRIVER
-    graph
-        .add_node_edge(node::CLEAR_PASS_DRIVER, FIRST_PASS_DRIVER)
-        .unwrap();
-    graph
-        .add_node_edge(FIRST_PASS_DRIVER, node::MAIN_PASS_DRIVER)
-        .unwrap();
-    app.run();
-}
-
-// Add 3D render phases for FIRST_PASS_CAMERA.
-fn extract_first_pass_camera_phases(
-    mut commands: Commands,
-    active: Res<ActiveCamera<FirstPassCamera>>,
-) {
-    if let Some(entity) = active.get() {
-        commands.get_or_spawn(entity).insert_bundle((
-            RenderPhase::<Opaque3d>::default(),
-            RenderPhase::<AlphaMask3d>::default(),
-            RenderPhase::<Transparent3d>::default(),
-        ));
-    }
-}
-
-// A node for the first pass camera that runs draw_3d_graph with this camera.
-struct FirstPassCameraDriver {
-    query: QueryState<Entity, With<FirstPassCamera>>,
-}
-
-impl FirstPassCameraDriver {
-    pub fn new(render_world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(render_world),
-        }
-    }
-}
-impl Node for FirstPassCameraDriver {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
-
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        for camera in self.query.iter_manual(world) {
-            graph.run_sub_graph(draw_3d_graph::NAME, vec![SlotValue::Entity(camera)])?;
-        }
-        Ok(())
-    }
+        .add_system(rotator_system)
+        .run();
 }
 
 // Marks the first pass cube (rendered to a texture.)
@@ -114,7 +34,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    mut clear_colors: ResMut<RenderTargetClearColors>,
 ) {
     let size = Extent3d {
         width: 512,
@@ -172,33 +91,22 @@ fn setup(
         ..default()
     });
 
-    // First pass camera
-    let render_target = RenderTarget::Image(image_handle.clone());
-    clear_colors.insert(render_target.clone(), Color::WHITE);
     commands
-        .spawn_bundle(PerspectiveCameraBundle::<FirstPassCamera> {
+        .spawn_bundle(Camera3dBundle {
+            camera_3d: Camera3d {
+                clear_color: ClearColorConfig::Custom(Color::WHITE),
+            },
             camera: Camera {
-                target: render_target,
+                // render before the "main pass" camera
+                priority: -1,
+                target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
                 .looking_at(Vec3::default(), Vec3::Y),
-            ..PerspectiveCameraBundle::new()
+            ..default()
         })
         .insert(first_pass_layer);
-    // NOTE: omitting the RenderLayers component for this camera may cause a validation error:
-    //
-    // thread 'main' panicked at 'wgpu error: Validation Error
-    //
-    //    Caused by:
-    //        In a RenderPass
-    //          note: encoder = `<CommandBuffer-(0, 1, Metal)>`
-    //        In a pass parameter
-    //          note: command buffer = `<CommandBuffer-(0, 1, Metal)>`
-    //        Attempted to use texture (5, 1, Metal) mips 0..1 layers 0..1 as a combination of COLOR_TARGET within a usage scope.
-    //
-    // This happens because the texture would be written and read in the same frame, which is not allowed.
-    // So either render layers must be used to avoid this, or the texture must be double buffered.
 
     let cube_size = 4.0;
     let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));
@@ -226,7 +134,7 @@ fn setup(
         .insert(MainPassCube);
 
     // The main pass camera.
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
             .looking_at(Vec3::default(), Vec3::Y),
         ..default()
