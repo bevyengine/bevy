@@ -231,10 +231,10 @@ fn movement(
     for mut transform in query.iter_mut() {
         let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Up) {
-            direction.z -= 1.0;
+            direction.y += 1.0;
         }
         if input.pressed(KeyCode::Down) {
-            direction.z += 1.0;
+            direction.y -= 1.0;
         }
         if input.pressed(KeyCode::Left) {
             direction.x -= 1.0;

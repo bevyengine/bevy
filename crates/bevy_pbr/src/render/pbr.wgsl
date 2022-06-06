@@ -399,19 +399,23 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
         // view matrix z_axis is the reverse of transform.forward()
         let fwd = -spot_dir;
         let distance_to_light = dot(fwd, surface_to_light);
-        let offset_position = -surface_to_light + (light.shadow_depth_bias * normalize(surface_to_light)) + (surface_normal.xyz * light.shadow_normal_bias) * distance_to_light;
+        let offset_position = 
+            -surface_to_light 
+            + (light.shadow_depth_bias * normalize(surface_to_light)) 
+            + (surface_normal.xyz * light.shadow_normal_bias) * distance_to_light;
 
         // the construction of the up and right vectors needs to precisely mirror the code 
         // in render/light.rs:spotlight_view_matrix
-        var sign = -1.0;
-        if (fwd.z >= 0.0) {
-            sign = 1.0;
-        }
+        let sign = sign(fwd.z);
         let a = -1.0 / (fwd.z + sign);
         let b = fwd.x * fwd.y * a;
         let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
         let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
         let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+
+        // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate 
+        // the product of the transpose with a vector we can just post-multiply instead of pre-multplying. 
+        // this allows us to keep the matrix construction code identical between CPU and GPU.
         let projected_position = offset_position * light_inv_rot;
 
         // divide xy by perspective matrix "f" and by -projected.z (projected.z is -projection matrix's w)
@@ -425,9 +429,11 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
         let depth = 0.1 / -projected_position.z;
 
         #ifdef NO_ARRAY_TEXTURES_SUPPORT
-            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, shadow_uv, depth);
+            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
+                shadow_uv, depth);
         #else
-            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, shadow_uv, i32(light_id) + lights.spotlight_shadowmap_offset, depth);
+            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
+                shadow_uv, i32(light_id) + lights.spotlight_shadowmap_offset, depth);
         #endif
     }
 

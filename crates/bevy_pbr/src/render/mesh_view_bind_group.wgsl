@@ -11,8 +11,7 @@ struct View {
 };
 
 struct PointLight {
-    // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
-    //  NOTE: [2][2] [2][3] [3][2] [3][3]
+    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spotlights: the direction (x,y), spot_scale and spot_offset
     light_custom_data: vec4<f32>;
     color_inverse_square_range: vec4<f32>;
@@ -63,7 +62,7 @@ struct Lights {
 
 #ifdef NO_STORAGE_BUFFERS_SUPPORT
 struct PointLights {
-    data: array<PointLight, 256>;
+    data: array<PointLight, 256u>;
 };
 struct ClusterLightIndexLists {
     // each u32 contains 4 u8 indices into the PointLights array

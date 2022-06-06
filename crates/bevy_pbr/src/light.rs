@@ -55,6 +55,12 @@ pub struct PointLight {
     /// shadow map's texel size so that it can be small close to the camera and gets larger further
     /// away.
     pub shadow_normal_bias: f32,
+    /// Angles defining the distance from the spotlight direction to the inner and outer limits
+    /// of the light's cone of effect.
+    /// `inner` should be <= `outer`, and `outer` should be < PI / 2.0.
+    /// PI / 2.0 defines a hemispherical spot light, but shadows become very blocky as the angle
+    /// approaches this limit.
+    /// Defaults to `None` which makes this a point light.
     pub spotlight_angles: Option<(f32, f32)>,
 }
 
@@ -686,9 +692,9 @@ fn compute_aabb_for_cluster(
     Aabb::from_min_max(cluster_min, cluster_max)
 }
 
-// Sort point lights with shadows enabled first, then by a stable key so that the index
-// can be used to limit the number of point light shadows to render based on the device and
-// we keep a stable set of lights visible
+// Sort point lights with shadows enabled first, then by point-light vs spot-light,
+// then by a stable key so that the index can be used to render at most
+// `point_light_shadow_maps_count` point light shadows and `spot_shadow_maps_count` spotlight shadow maps.
 pub(crate) fn point_light_order(
     (entity_1, shadows_enabled_1, is_spotlight_1): (&Entity, &bool, &bool),
     (entity_2, shadows_enabled_2, is_spotlight_2): (&Entity, &bool, &bool),
@@ -1109,11 +1115,12 @@ pub(crate) fn assign_lights_to_clusters(
                     radius: light_sphere.radius,
                 };
                 let spotlight_dir_sin_cos = light.spotlight_angle.map(|angle| {
+                    let (angle_sin, angle_cos) = angle.sin_cos();
                     (
                         (inverse_view_transform * (light.rotation * Vec3::Z).extend(0.0))
                             .truncate(),
-                        angle.sin(),
-                        angle.cos(),
+                        angle_sin,
+                        angle_cos,
                     )
                 });
                 let light_center_clip =
@@ -1210,11 +1217,11 @@ pub(crate) fn assign_lights_to_clusters(
                             * clusters.dimensions.z
                             + z) as usize;
 
-                        for x in min_x..=max_x {
-                            // further culling for spotlights
-                            if let Some((view_light_direction, angle_sin, angle_cos)) =
-                                spotlight_dir_sin_cos
-                            {
+                        if let Some((view_light_direction, angle_sin, angle_cos)) =
+                            spotlight_dir_sin_cos
+                        {
+                            for x in min_x..=max_x {
+                                // further culling for spotlights
                                 // get or initialize cluster bounding sphere
                                 let cluster_aabb_sphere = &mut cluster_aabb_spheres[cluster_index];
                                 let cluster_aabb_sphere = if let Some(sphere) = cluster_aabb_sphere
@@ -1259,11 +1266,14 @@ pub(crate) fn assign_lights_to_clusters(
                                     // this cluster is affected by the spotlight
                                     clusters.lights[cluster_index].entities.push(light.entity);
                                 }
-                            } else {
+                                cluster_index += clusters.dimensions.z as usize;
+                            }
+                        } else {
+                            for _ in min_x..=max_x {
                                 // all clusters within range are affected by point lights
                                 clusters.lights[cluster_index].entities.push(light.entity);
+                                cluster_index += clusters.dimensions.z as usize;
                             }
-                            cluster_index += clusters.dimensions.z as usize;
                         }
                     }
                 }

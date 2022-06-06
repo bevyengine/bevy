@@ -84,7 +84,7 @@ pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 #[repr(C)]
 #[derive(Copy, Clone, AsStd140, AsStd430, Default, Debug)]
 pub struct GpuPointLight {
-    // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
+    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spotlights: 2 components of the direction (x,y), spot_scale and spot_offset
     light_custom_data: Vec4,
     color_inverse_square_range: Vec4,
@@ -761,8 +761,8 @@ pub fn prepare_lights(
         .min(max_texture_array_layers - directional_shadow_maps_count);
 
     // Sort point lights with shadows enabled first, then by point-light vs spot-light,
-    // then by a stable key so that the index can be used
-    // to render at most `max_point_light_shadow_maps` point light shadows and spot_shadow_maps spotlight shadow maps.
+    // then by a stable key so that the index can be used to render at most
+    // `point_light_shadow_maps_count` point light shadows and `spot_shadow_maps_count` spotlight shadow maps.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         point_light_order(
             (
@@ -818,7 +818,7 @@ pub fn prepare_lights(
             }
             None => {
                 (
-                    // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
+                    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
                     Vec4::new(
                         cube_face_projection.z_axis.z,
                         cube_face_projection.z_axis.w,
@@ -912,6 +912,9 @@ pub fn prepare_lights(
             ),
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
+            // spotlight shadow maps are stored in the directional light array, starting at directional_shadow_maps_count.
+            // the spotlights themselves start in the light array at point_light_shadow_maps_count. so to go from light
+            // index to shadow map index, we need to subtract point light shadowmap count and add directional shadowmap count.
             spotlight_shadowmap_offset: directional_shadow_maps_count as i32
                 - point_light_shadow_maps_count as i32,
         };
@@ -985,7 +988,8 @@ pub fn prepare_lights(
             let spot_view_matrix = spotlight_view_matrix(&light.transform);
             let spot_view_transform = GlobalTransform::from_matrix(spot_view_matrix);
 
-            let angle = light.spotlight_angles.expect("lights should be sorted so that [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_shadow_maps_count] are spotlights").1;
+            let angle = light.spotlight_angles.expect("lights should be sorted so that \
+                [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_shadow_maps_count] are spotlights").1;
             let spot_projection = spotlight_projection_matrix(angle);
 
             let depth_texture_view =
