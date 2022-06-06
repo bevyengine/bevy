@@ -335,7 +335,7 @@ impl WorldData {
 
     /// # Safety
     ///
-    /// `id` must be a valid [DataId]
+    /// `id` must be a valid [`DataId`]
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: DataId) -> &DataInfo {
         debug_assert!(id.index() < self.data.len());

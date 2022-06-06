@@ -150,7 +150,7 @@ impl World {
         &self.archetypes
     }
 
-    /// Retrieves this world's [WorldData] collection
+    /// Retrieves this world's [`WorldData`] collection
     #[inline]
     pub fn data(&self) -> &WorldData {
         &self.data
