@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
-    // Spawn a second scene, and keep its `instance_id`
+    // Spawn a second scene, and add a tag component to be able to target it later
     commands
         .spawn_bundle(SceneBundle {
             scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
