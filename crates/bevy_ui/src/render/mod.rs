@@ -237,9 +237,10 @@ pub fn extract_default_ui_camera_view<T: Component>(
         {
             continue;
         }
-        if let (Some(logical_size), Some(physical_size)) =
-            (camera.logical_target_size, camera.physical_target_size)
-        {
+        if let (Some(logical_size), Some(physical_size)) = (
+            camera.logical_viewport_size(),
+            camera.physical_viewport_size(),
+        ) {
             let mut projection = OrthographicProjection {
                 far: UI_CAMERA_FAR,
                 window_origin: WindowOrigin::BottomLeft,
