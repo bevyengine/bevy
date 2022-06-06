@@ -16,11 +16,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut scene_spawner: ResMut<SceneSpawner>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load our mesh:
     let scene_handle = asset_server.load("models/monkey/Monkey.gltf#Scene0");
 
@@ -28,7 +24,10 @@ fn setup(
     // You should see the changes immediately show up in your app.
 
     // mesh
-    scene_spawner.spawn(scene_handle);
+    commands.spawn_bundle(SceneBundle {
+        scene: scene_handle,
+        ..default()
+    });
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
