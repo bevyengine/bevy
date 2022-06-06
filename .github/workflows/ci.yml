@@ -37,8 +37,8 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           override: true
-      - name: Install deps
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libvulkan1 mesa-vulkan-drivers vulkan-utils
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
         if: runner.os == 'linux'
       - name: Build & run tests
         # See tools/ci/src/main.rs for the commands this runs

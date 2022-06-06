@@ -1,14 +1,9 @@
 use bevy::{
-    asset::AssetPlugin,
-    core::CorePlugin,
-    core_pipeline::CorePipelinePlugin,
     ecs::event::Events,
     input::InputPlugin,
     input::{keyboard::KeyboardInput, ButtonState},
-    pbr::PbrPlugin,
     prelude::{App, Entity},
     prelude::{Commands, Component, EventReader, KeyCode},
-    render::RenderPlugin,
     utils::HashSet,
     window::{ReceivedCharacter, WindowId, WindowPlugin},
 };
@@ -51,19 +46,11 @@ macro_rules! send_event {
     };
 }
 
-#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_received_character_single_button() {
     let mut app = App::new();
-
-    app.add_plugin(CorePlugin::default());
-    app.add_plugin(WindowPlugin::default());
-    app.add_plugin(AssetPlugin::default());
-    app.add_plugin(RenderPlugin::default());
-    app.add_plugin(CorePipelinePlugin::default());
-    app.add_plugin(PbrPlugin::default());
-
-    app.add_system(spawn_entity_at_char_event_system);
+    app.add_plugin(WindowPlugin::default())
+        .add_system(spawn_entity_at_char_event_system);
 
     app.update();
 
@@ -105,19 +92,11 @@ fn test_input_received_character_single_button() {
     assert_eq!(chars, HashSet::<_>::from_iter(['a', 'B'].into_iter()));
 }
 
-#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_received_character_multiple_buttons_at_once() {
     let mut app = App::new();
-
-    app.add_plugin(CorePlugin::default());
-    app.add_plugin(WindowPlugin::default());
-    app.add_plugin(AssetPlugin::default());
-    app.add_plugin(RenderPlugin::default());
-    app.add_plugin(CorePipelinePlugin::default());
-    app.add_plugin(PbrPlugin::default());
-
-    app.add_system(spawn_entity_at_char_event_system);
+    app.add_plugin(WindowPlugin::default())
+        .add_system(spawn_entity_at_char_event_system);
 
     app.update();
 
@@ -150,20 +129,12 @@ fn test_input_received_character_multiple_buttons_at_once() {
     assert_eq!(chars, HashSet::<_>::from_iter(['a', 'B'].into_iter()));
 }
 
-#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_received_keyboard_single_button() {
     let mut app = App::new();
 
-    app.add_plugin(CorePlugin::default());
-    app.add_plugin(WindowPlugin::default());
-    app.add_plugin(AssetPlugin::default());
-    app.add_plugin(RenderPlugin::default());
-    app.add_plugin(CorePipelinePlugin::default());
-    app.add_plugin(PbrPlugin::default());
-    app.add_plugin(InputPlugin::default());
-
-    app.add_system(spawn_entity_at_keyboard_event_system);
+    app.add_plugin(InputPlugin::default())
+        .add_system(spawn_entity_at_keyboard_event_system);
 
     app.update();
 
@@ -193,20 +164,12 @@ fn test_input_received_keyboard_single_button() {
     );
 }
 
-#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_received_keyboard_multiple_button_at_once() {
     let mut app = App::new();
 
-    app.add_plugin(CorePlugin::default());
-    app.add_plugin(WindowPlugin::default());
-    app.add_plugin(AssetPlugin::default());
-    app.add_plugin(RenderPlugin::default());
-    app.add_plugin(CorePipelinePlugin::default());
-    app.add_plugin(PbrPlugin::default());
-    app.add_plugin(InputPlugin::default());
-
-    app.add_system(spawn_entity_at_keyboard_event_system);
+    app.add_plugin(InputPlugin::default())
+        .add_system(spawn_entity_at_keyboard_event_system);
 
     app.update();
 
@@ -251,21 +214,13 @@ fn test_input_received_keyboard_multiple_button_at_once() {
     );
 }
 
-#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_event_should_be_handler_just_once() {
     let mut app = App::new();
-
-    app.add_plugin(CorePlugin::default());
-    app.add_plugin(WindowPlugin::default());
-    app.add_plugin(AssetPlugin::default());
-    app.add_plugin(RenderPlugin::default());
-    app.add_plugin(CorePipelinePlugin::default());
-    app.add_plugin(PbrPlugin::default());
-    app.add_plugin(InputPlugin::default());
-
-    app.add_system(spawn_entity_at_keyboard_event_system);
-    app.add_system(spawn_entity_at_char_event_system);
+    app.add_plugin(WindowPlugin::default())
+        .add_plugin(InputPlugin::default())
+        .add_system(spawn_entity_at_keyboard_event_system)
+        .add_system(spawn_entity_at_char_event_system);
 
     app.update();
 
@@ -296,4 +251,7 @@ fn test_input_event_should_be_handler_just_once() {
     assert_eq!(entities.len(), 2);
 
     (0..10).for_each(|_| app.update());
+
+    let entities: Vec<_> = get_entities!(app, Entity);
+    assert_eq!(entities.len(), 2);
 }
