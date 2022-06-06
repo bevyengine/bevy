@@ -33,7 +33,8 @@ impl DerefMut for SceneInstance {
 
 /// A component bundle for a [`Scene`] root.
 ///
-/// Once the scene is spawned, the entity will have a [`SceneInstance`] component.
+/// The scene from `scene` will be spawn as a child of the entity with this component.
+/// Once it's spawned, the entity will have a [`SceneInstance`] component.
 #[derive(Default, Bundle)]
 pub struct SceneBundle {
     /// Handle to the scene to spawn
@@ -64,7 +65,8 @@ pub fn scene_spawner(
 
 /// A component bundle for a [`DynamicScene`] root.
 ///
-/// Once the dynamic scene is spawned, the entity will have a [`SceneInstance`] component.
+/// The dynamic scene from `scene` will be spawn as a child of the entity with this component.
+/// Once it's spawned, the entity will have a [`SceneInstance`] component.
 #[derive(Default, Bundle)]
 pub struct DynamicSceneBundle {
     /// Handle to the scene to spawn
