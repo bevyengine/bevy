@@ -23,10 +23,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 margin: UiRect::all(Val::Auto),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
             color: Color::rgb(0.1, 0.5, 0.1).into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     Default::default(),
                 ),
-                ..Default::default()
+                ..default()
             });
         });
 
@@ -53,10 +53,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 margin: UiRect::all(Val::Auto),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
             color: Color::rgb(0.5, 0.1, 0.5).into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     Default::default(),
                 ),
-                ..Default::default()
+                ..default()
             });
         });
 }
