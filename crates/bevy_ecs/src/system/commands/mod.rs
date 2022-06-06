@@ -62,6 +62,12 @@ impl<'w, 's> Commands<'w, 's> {
         Self { queue, entities }
     }
 
+    // TODO: Can this be solved in any other way?
+    /// Returns true if this commands has the entity present
+    pub fn has_entity(&self, entity: Entity) -> bool {
+        return self.entities.contains(entity);
+    }
+
     /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
     ///
     /// To directly spawn an entity with a [`Bundle`] included, you can use
