@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
+use std::iter::FusedIterator;
 
 use bevy_utils::{Entry, HashMap};
 
@@ -235,6 +236,7 @@ impl IntoIterator for DynamicMap {
 }
 
 impl<'a> ExactSizeIterator for MapIter<'a> {}
+impl<'a> FusedIterator for MapIter<'a> {}
 
 /// Compares a [`Map`] with a [`Reflect`] value.
 ///

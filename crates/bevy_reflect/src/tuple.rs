@@ -5,6 +5,7 @@ use crate::{
 use serde::Deserialize;
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
+use std::iter::FusedIterator;
 
 /// A reflected Rust tuple.
 ///
@@ -74,6 +75,7 @@ impl<'a> Iterator for TupleFieldIter<'a> {
 }
 
 impl<'a> ExactSizeIterator for TupleFieldIter<'a> {}
+impl<'a> FusedIterator for TupleFieldIter<'a> {}
 
 /// A convenience trait which combines fetching and downcasting of tuple
 /// fields.
