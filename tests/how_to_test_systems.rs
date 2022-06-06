@@ -164,12 +164,12 @@ fn update_score_on_event() {
     // Get `EnemyDied` event reader
     let enemy_died_events = app.world.resource::<Events<EnemyDied>>();
     let mut enemy_died_reader = enemy_died_events.get_reader();
-    let enemy_died = enemy_died_reader.iter(&enemy_died_events).next().unwrap();
+    let enemy_died = enemy_died_reader.iter(enemy_died_events).next().unwrap();
 
     // Check the event has been sent
     assert_eq!(enemy_died.0, 3);
 
-    // Run to let the event be processed
+    // Run systems again to let the event be processed
     app.update();
 
     // Check resulting changes
