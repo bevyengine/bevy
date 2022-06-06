@@ -107,12 +107,8 @@ impl Camera {
     /// Converts a physical size in this `Camera` to a logical size.
     #[inline]
     pub fn physical_to_logical(&self, input: UVec2) -> Option<Vec2> {
-        self.computed.target_info.as_ref().map(|target_info| {
-            Vec2::new(
-                (input.x as f64 / target_info.scale_factor) as f32,
-                (input.y as f64 / target_info.scale_factor) as f32,
-            )
-        })
+        let scale = self.computed.target_info.as_ref()?.scale_factor;
+        Some((input.as_dvec2() / scale).as_vec2())
     }
 
     /// The logical dimensions of the viewport, the (minimum, maximum) points of the viewport,
