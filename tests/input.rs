@@ -1,20 +1,24 @@
-
 use bevy::{
     asset::AssetPlugin,
     core::CorePlugin,
     core_pipeline::CorePipelinePlugin,
-    pbr::PbrPlugin,
-    input::InputPlugin,
-    prelude::{App, Entity},
-    render::{ RenderPlugin},
-    window::{WindowPlugin, WindowId, ReceivedCharacter}, utils::{HashSet},
     ecs::event::Events,
-    prelude::{EventReader, Component, Commands, KeyCode}, input::{keyboard::KeyboardInput, ButtonState},
+    input::InputPlugin,
+    input::{keyboard::KeyboardInput, ButtonState},
+    pbr::PbrPlugin,
+    prelude::{App, Entity},
+    prelude::{Commands, Component, EventReader, KeyCode},
+    render::RenderPlugin,
+    utils::HashSet,
+    window::{ReceivedCharacter, WindowId, WindowPlugin},
 };
 
 #[derive(Component)]
 struct CharComponent(char);
-fn spawn_entity_at_char_event_system(mut commands: Commands, mut char_input_events: EventReader<ReceivedCharacter>) {
+fn spawn_entity_at_char_event_system(
+    mut commands: Commands,
+    mut char_input_events: EventReader<ReceivedCharacter>,
+) {
     for event in char_input_events.iter() {
         commands.spawn().insert(CharComponent(event.char));
     }
@@ -22,20 +26,21 @@ fn spawn_entity_at_char_event_system(mut commands: Commands, mut char_input_even
 
 #[derive(Component)]
 struct KeyComponent(KeyboardInput);
-fn spawn_entity_at_keyboard_event_system(mut commands: Commands, mut char_input_events: EventReader<KeyboardInput>) {
+fn spawn_entity_at_keyboard_event_system(
+    mut commands: Commands,
+    mut char_input_events: EventReader<KeyboardInput>,
+) {
     for event in char_input_events.iter() {
         commands.spawn().insert(KeyComponent(event.clone()));
     }
 }
 
 macro_rules! get_entities {
-    ($app: ident, $query: tt) => {
-        {
-            let world = &mut $app.world;
-            let mut query = world.query::<$query>();
-            query.iter(world).collect::<Vec<_>>()
-        }
-    };
+    ($app: ident, $query: tt) => {{
+        let world = &mut $app.world;
+        let mut query = world.query::<$query>();
+        query.iter(world).collect::<Vec<_>>()
+    }};
 }
 
 macro_rules! send_event {
@@ -64,10 +69,14 @@ fn test_input_received_character_single_button() {
     let entities: Vec<_> = get_entities!(app, Entity);
     assert_eq!(entities.len(), 0);
 
-    send_event!(app, ReceivedCharacter, ReceivedCharacter {
-        id: WindowId::primary(),
-        char: 'a',
-    });
+    send_event!(
+        app,
+        ReceivedCharacter,
+        ReceivedCharacter {
+            id: WindowId::primary(),
+            char: 'a',
+        }
+    );
 
     app.update();
 
@@ -77,10 +86,14 @@ fn test_input_received_character_single_button() {
         .collect();
     assert_eq!(chars, HashSet::<_>::from_iter(['a'].into_iter()));
 
-    send_event!(app, ReceivedCharacter, ReceivedCharacter {
-        id: WindowId::primary(),
-        char: 'B',
-    });
+    send_event!(
+        app,
+        ReceivedCharacter,
+        ReceivedCharacter {
+            id: WindowId::primary(),
+            char: 'B',
+        }
+    );
 
     app.update();
 
@@ -109,14 +122,22 @@ fn test_input_received_character_multiple_buttons_at_once() {
     let entities: Vec<_> = get_entities!(app, Entity);
     assert_eq!(entities.len(), 0);
 
-    send_event!(app, ReceivedCharacter, ReceivedCharacter {
-        id: WindowId::primary(),
-        char: 'a',
-    });
-    send_event!(app, ReceivedCharacter, ReceivedCharacter {
-        id: WindowId::primary(),
-        char: 'B',
-    });
+    send_event!(
+        app,
+        ReceivedCharacter,
+        ReceivedCharacter {
+            id: WindowId::primary(),
+            char: 'a',
+        }
+    );
+    send_event!(
+        app,
+        ReceivedCharacter,
+        ReceivedCharacter {
+            id: WindowId::primary(),
+            char: 'B',
+        }
+    );
 
     app.update();
 
@@ -146,11 +167,15 @@ fn test_input_received_keyboard_single_button() {
     let entities: Vec<_> = get_entities!(app, Entity);
     assert_eq!(entities.len(), 0);
 
-    send_event!(app, KeyboardInput, KeyboardInput {
-        key_code: Some(KeyCode::A),
-        scan_code: 0,
-        state: ButtonState::Pressed,
-    });
+    send_event!(
+        app,
+        KeyboardInput,
+        KeyboardInput {
+            key_code: Some(KeyCode::A),
+            scan_code: 0,
+            state: ButtonState::Pressed,
+        }
+    );
 
     app.update();
 
@@ -159,7 +184,10 @@ fn test_input_received_keyboard_single_button() {
         .into_iter()
         .map(|(_, c)| (c.0.key_code, c.0.state))
         .collect();
-    assert_eq!(keys, HashSet::<_>::from_iter([(Some(KeyCode::A), ButtonState::Pressed)].into_iter()));
+    assert_eq!(
+        keys,
+        HashSet::<_>::from_iter([(Some(KeyCode::A), ButtonState::Pressed)].into_iter())
+    );
 }
 
 #[test]
@@ -181,16 +209,24 @@ fn test_input_received_keyboard_multiple_button_at_once() {
     let entities: Vec<_> = get_entities!(app, Entity);
     assert_eq!(entities.len(), 0);
 
-    send_event!(app, KeyboardInput, KeyboardInput {
-        key_code: Some(KeyCode::A),
-        scan_code: 0,
-        state: ButtonState::Pressed,
-    });
-    send_event!(app, KeyboardInput, KeyboardInput {
-        key_code: Some(KeyCode::B),
-        scan_code: 0,
-        state: ButtonState::Released,
-    });
+    send_event!(
+        app,
+        KeyboardInput,
+        KeyboardInput {
+            key_code: Some(KeyCode::A),
+            scan_code: 0,
+            state: ButtonState::Pressed,
+        }
+    );
+    send_event!(
+        app,
+        KeyboardInput,
+        KeyboardInput {
+            key_code: Some(KeyCode::B),
+            scan_code: 0,
+            state: ButtonState::Released,
+        }
+    );
 
     app.update();
 
@@ -199,9 +235,17 @@ fn test_input_received_keyboard_multiple_button_at_once() {
         .into_iter()
         .map(|(_, c)| (c.0.key_code, c.0.state))
         .collect();
-    assert_eq!(keys, HashSet::<_>::from_iter([(Some(KeyCode::A), ButtonState::Pressed), (Some(KeyCode::B), ButtonState::Released)].into_iter()));
+    assert_eq!(
+        keys,
+        HashSet::<_>::from_iter(
+            [
+                (Some(KeyCode::A), ButtonState::Pressed),
+                (Some(KeyCode::B), ButtonState::Released)
+            ]
+            .into_iter()
+        )
+    );
 }
-
 
 #[test]
 fn test_input_event_should_be_handler_just_once() {
@@ -219,25 +263,32 @@ fn test_input_event_should_be_handler_just_once() {
     app.add_system(spawn_entity_at_char_event_system);
 
     app.update();
-    
+
     let entities: Vec<_> = get_entities!(app, Entity);
     assert_eq!(entities.len(), 0);
-    
-    send_event!(app, KeyboardInput, KeyboardInput {
-        key_code: Some(KeyCode::A),
-        scan_code: 0,
-        state: ButtonState::Pressed,
-    });
-    send_event!(app, ReceivedCharacter, ReceivedCharacter {
-        id: WindowId::primary(),
-        char: 'B',
-    });
-    
+
+    send_event!(
+        app,
+        KeyboardInput,
+        KeyboardInput {
+            key_code: Some(KeyCode::A),
+            scan_code: 0,
+            state: ButtonState::Pressed,
+        }
+    );
+    send_event!(
+        app,
+        ReceivedCharacter,
+        ReceivedCharacter {
+            id: WindowId::primary(),
+            char: 'B',
+        }
+    );
+
     app.update();
 
     let entities: Vec<_> = get_entities!(app, Entity);
     assert_eq!(entities.len(), 2);
 
     (0..10).for_each(|_| app.update());
-
 }
