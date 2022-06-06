@@ -1,7 +1,6 @@
 use crate::{Reflect, ReflectMut, ReflectRef};
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
-use std::iter::FusedIterator;
 
 /// A reflected Rust tuple struct.
 ///
@@ -76,7 +75,6 @@ impl<'a> Iterator for TupleStructFieldIter<'a> {
 }
 
 impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
-impl<'a> FusedIterator for TupleStructFieldIter<'a> {}
 
 /// A convenience trait which combines fetching and downcasting of tuple
 /// struct fields.

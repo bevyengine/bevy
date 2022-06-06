@@ -1,7 +1,7 @@
 use crate::{Reflect, ReflectMut, ReflectRef};
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
-use std::{any::Any, borrow::Cow, iter::FusedIterator};
+use std::{any::Any, borrow::Cow};
 
 /// A reflected Rust regular struct type.
 ///
@@ -92,7 +92,6 @@ impl<'a> Iterator for FieldIter<'a> {
 }
 
 impl<'a> ExactSizeIterator for FieldIter<'a> {}
-impl<'a> FusedIterator for FieldIter<'a> {}
 
 /// A convenience trait which combines fetching and downcasting of struct
 /// fields.

@@ -3,7 +3,6 @@ use std::{
     any::Any,
     fmt::Debug,
     hash::{Hash, Hasher},
-    iter::FusedIterator,
 };
 
 /// A static-sized array of [`Reflect`] items.
@@ -210,7 +209,6 @@ impl<'a> Iterator for ArrayIter<'a> {
 }
 
 impl<'a> ExactSizeIterator for ArrayIter<'a> {}
-impl<'a> FusedIterator for ArrayIter<'a> {}
 
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]
