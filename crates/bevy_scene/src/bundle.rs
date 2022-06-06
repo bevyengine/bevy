@@ -5,7 +5,7 @@ use bevy_ecs::{
     bundle::Bundle,
     change_detection::ResMut,
     entity::Entity,
-    prelude::{Changed, Component},
+    prelude::{Changed, Component, Without},
     system::{Commands, Query},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -43,26 +43,6 @@ pub struct SceneBundle {
     pub global_transform: GlobalTransform,
 }
 
-/// System that will spawn scenes from [`SceneBundle`].
-pub fn scene_spawner(
-    mut commands: Commands,
-    mut scene_to_spawn: Query<
-        (Entity, &Handle<Scene>, Option<&mut SceneInstance>),
-        Changed<Handle<Scene>>,
-    >,
-    mut scene_spawner: ResMut<SceneSpawner>,
-) {
-    for (entity, scene, instance) in scene_to_spawn.iter_mut() {
-        let new_instance = scene_spawner.spawn_as_child(scene.clone(), entity);
-        if let Some(mut old_instance) = instance {
-            scene_spawner.despawn_instance(**old_instance);
-            *old_instance = SceneInstance(new_instance);
-        } else {
-            commands.entity(entity).insert(SceneInstance(new_instance));
-        }
-    }
-}
-
 /// A component bundle for a [`DynamicScene`] root.
 ///
 /// The dynamic scene from `scene` will be spawn as a child of the entity with this component.
@@ -75,15 +55,28 @@ pub struct DynamicSceneBundle {
     pub global_transform: GlobalTransform,
 }
 
-/// System that will spawn scenes from [`DynamicSceneBundle`].
-pub fn dynamic_scene_spawner(
+/// System that will spawn scenes from [`SceneBundle`].
+pub fn scene_spawner(
     mut commands: Commands,
+    mut scene_to_spawn: Query<
+        (Entity, &Handle<Scene>, Option<&mut SceneInstance>),
+        (Changed<Handle<Scene>>, Without<Handle<DynamicScene>>),
+    >,
     mut dynamic_scene_to_spawn: Query<
         (Entity, &Handle<DynamicScene>, Option<&mut SceneInstance>),
-        Changed<Handle<DynamicScene>>,
+        (Changed<Handle<DynamicScene>>, Without<Handle<Scene>>),
     >,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
+    for (entity, scene, instance) in scene_to_spawn.iter_mut() {
+        let new_instance = scene_spawner.spawn_as_child(scene.clone(), entity);
+        if let Some(mut old_instance) = instance {
+            scene_spawner.despawn_instance(**old_instance);
+            *old_instance = SceneInstance(new_instance);
+        } else {
+            commands.entity(entity).insert(SceneInstance(new_instance));
+        }
+    }
     for (entity, dynamic_scene, instance) in dynamic_scene_to_spawn.iter_mut() {
         let new_instance = scene_spawner.spawn_dynamic_as_child(dynamic_scene.clone(), entity);
         if let Some(mut old_instance) = instance {

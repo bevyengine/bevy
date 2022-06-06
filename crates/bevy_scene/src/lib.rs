@@ -34,7 +34,6 @@ impl Plugin for ScenePlugin {
                 scene_spawner_system.exclusive_system().at_end(),
             )
             // Systems `*_bundle_spawner` must run before `scene_spawner_system`
-            .add_system_to_stage(CoreStage::PreUpdate, scene_spawner)
-            .add_system_to_stage(CoreStage::PreUpdate, dynamic_scene_spawner);
+            .add_system_to_stage(CoreStage::PreUpdate, scene_spawner);
     }
 }
