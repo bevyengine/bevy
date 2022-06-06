@@ -88,7 +88,7 @@ where
 
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
 where
-    I: FusedIterator,
+    I: FusedIterator<Item = T>,
     T: Bundle,
 {
 }
