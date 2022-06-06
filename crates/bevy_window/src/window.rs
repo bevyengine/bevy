@@ -7,7 +7,7 @@ use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
-use crate::raw_window_handle::RawWindowHandleWrapper;
+use crate::{raw_window_handle::RawWindowHandleWrapper, WindowFocused};
 use crate::CursorIcon;
 
 /// Presentation mode for a window.
@@ -70,6 +70,9 @@ pub struct WindowBundle {
     position: WindowPosition,
     resolution: WindowResolution,
     title: WindowTitle,
+    canvas: WindowCanvas,
+    resize_constraints: WindowResizeConstraints,
+    focused: WindowCurrentlyFocused,
 }
 
 /// The size limits on a window.
@@ -201,7 +204,14 @@ impl WindowCursorPosition {
 // TODO: Figure out how this connects to everything
 #[derive(Component)]
 pub struct WindowHandle {
+    // TODo: What should be creating and setting this?
     raw_window_handle: RawWindowHandleWrapper,
+}
+
+impl WindowHandle {
+    pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
+        self.raw_window_handle.clone()
+    }
 }
 
 // TODO: Find better name
@@ -398,12 +408,12 @@ pub struct WindowMinimized;
 pub struct WindowMaximized;
 
 #[derive(Component)]
-pub struct WindowsCanvas {
+pub struct WindowCanvas {
     canvas: Option<String>,
     fit_canvas_to_parent: bool,
 }
 
-impl WindowsCanvas {
+impl WindowCanvas {
     /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
     /// rather than creating a new one.   
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).

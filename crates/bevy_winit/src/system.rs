@@ -2,8 +2,9 @@ use bevy_ecs::{
     entity::Entity,
     event::{EventReader, EventWriter},
     prelude::{Added, With},
-    system::{Commands, NonSendMut, Query, RemovedComponents},
+    system::{Commands, NonSendMut, Query, RemovedComponents}, schedule::IntoRunCriteria,
 };
+use bevy_math::IVec2;
 use bevy_utils::tracing::error;
 use bevy_window::{
     CloseWindowCommand, CreateWindow, SetCursorIconCommand, SetCursorLockModeCommand,
@@ -13,8 +14,9 @@ use bevy_window::{
     SetTitleCommand, SetWindowModeCommand, Window, WindowBundle, WindowClosed, WindowCreated,
     WindowCursor, WindowCursorPosition, WindowDecorated, WindowMaximized, WindowMinimized,
     WindowModeComponent, WindowPosition, WindowPresentation, WindowResizable, WindowResolution,
-    WindowScaleFactorChanged, WindowTitle, WindowTransparent,
+    WindowScaleFactorChanged, WindowTitle, WindowTransparent, CursorIcon, WindowCurrentlyFocused, PresentMode, WindowHandle, RawWindowHandleWrapper, WindowCanvas, WindowResizeConstraints,
 };
+use raw_window_handle::HasRawWindowHandle;
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     event_loop::EventLoop,
@@ -26,11 +28,10 @@ use crate::{converters, get_best_videomode, get_fitting_videomode, WinitWindows}
 /// System responsible for creating new windows whenever the Event<CreateWindow> has been sent
 pub(crate) fn create_windows(
     mut commands: Commands,
-    mut event_loop: NonSendMut<EventLoop<()>>, //  &EventLoopWindowTarget<()>, // TODO: Not sure how this would work
+    event_loop: NonSendMut<EventLoop<()>>, //  &EventLoopWindowTarget<()>, // TODO: Not sure how this would work
     mut create_window_events: EventReader<CreateWindow>,
     mut window_created_events: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
-    mut windows: Query<Entity, With<Window>>,
 ) {
     for event in create_window_events.iter() {
         // TODO: This should be about spawning the WinitWindow that corresponds
@@ -39,24 +40,43 @@ pub(crate) fn create_windows(
 
         let mut entity_commands = commands.entity(event.entity);
 
-        // TODO: Spawn the window bundle
+        // Prepare data
+        let position = winit_window
+        .outer_position()
+        .ok()
+        .map(|position| IVec2::new(position.x, position.y));
+        let inner_size = winit_window.inner_size();
 
         entity_commands.insert_bundle(WindowBundle {
             window: Window,
-            cursor: WindowCursor {
-                cursor_icon: todo!(),
-                cursor_visible: todo!(),
-                cursor_locked: todo!(),
+            handle: WindowHandle { raw_window_handle: RawWindowHandleWrapper::new(winit_window.raw_window_handle()) },
+            presentation: WindowPresentation { present_mode: event.descriptor.present_mode },
+            mode: WindowModeComponent { mode: event.descriptor.mode },
+            position: WindowPosition { position },
+            resolution: WindowResolution {
+                requested_width: event.descriptor.width,
+                requested_height: event.descriptor.height,
+                physical_width: inner_size.width,
+                physical_height: inner_size.height,
+                scale_factor_override: event.descriptor.scale_factor_override,
+                backend_scale_factor: winit_window.scale_factor(),
             },
-            cursor_position: todo!(),
-            handle: todo!(),
-            presentation: todo!(),
-            mode: todo!(),
-            position: todo!(),
-            resolution: todo!(),
             title: WindowTitle {
-                title: event.descriptor.title,
+                title: event.descriptor.title.clone(),
             },
+            cursor_position: WindowCursorPosition { physical_cursor_position: None }, 
+            cursor: WindowCursor {
+                cursor_icon: CursorIcon::Default,
+                cursor_visible: event.descriptor.cursor_visible,
+                cursor_locked: event.descriptor.cursor_locked,
+            },
+            canvas: WindowCanvas {
+                canvas: event.descriptor.canvas.clone(),
+                fit_canvas_to_parent: event.descriptor.fit_canvas_to_parent
+            },
+            resize_constraints: event.descriptor.resize_constraints,
+            // TODO: All new windows must be focused?
+            focused: WindowCurrentlyFocused, 
         });
 
         // Optional marker components
@@ -71,10 +91,6 @@ pub(crate) fn create_windows(
         if event.descriptor.transparent {
             entity_commands.insert(WindowTransparent);
         }
-
-        // TODO: Window minimized
-
-        // TODO: Window Maximized
 
         // TODO: Replace with separete `window_added`-system? See below
         window_created_events.send(WindowCreated {
@@ -155,7 +171,8 @@ pub(crate) fn update_title(
         winit_window.set_title(&event.title);
         // Set the title in the component
         if let Ok(mut window_title) = titles.get_mut(event.entity) {
-            window_title.update_title_from_backend(event.title);
+            // TODO: Remove the clone and somehow appease the borrow-checker instead
+            window_title.update_title_from_backend(event.title.clone());
         } else {
             panic!("No WindowTitle on the entity in question");
         }
@@ -371,7 +388,7 @@ pub(crate) fn update_present_mode(
         let winit_window = winit_windows.get_window(event.entity).unwrap();
 
         // Update Winit
-        // TODO: Is there nothing that should happen here?
+        // Present mode is only relevant for the renderer, so no need to do anything to Winit at this point
 
         // Update components
         if let Ok(mut window_presentation) = components.get_mut(event.entity) {

@@ -1,8 +1,6 @@
 use bevy_ecs::entity::Entity;
-use bevy_math::IVec2;
 use bevy_utils::HashMap;
 use bevy_window::{WindowDescriptor, WindowMode};
-use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::LogicalSize;
 
 #[derive(Debug, Default)]
@@ -22,7 +20,7 @@ impl WinitWindows {
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         entity: Entity,
         window_descriptor: &WindowDescriptor,
-    ) -> winit::window::Window {
+    ) -> &winit::window::Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
         winit_window_builder = match window_descriptor.mode {
@@ -153,39 +151,28 @@ impl WinitWindows {
             }
         }
 
-        let position = winit_window
-            .outer_position()
-            .ok()
-            .map(|position| IVec2::new(position.x, position.y));
-        let inner_size = winit_window.inner_size();
-        let scale_factor = winit_window.scale_factor();
-        let raw_window_handle = winit_window.raw_window_handle();
+        // TODO: Might be more elegant ways to get return the reference of the winit-window
+        let id = winit_window.id();
         self.windows.insert(winit_window.id(), winit_window);
+        let created_window = self.windows.get(&id).expect("Winit should alway have the window it just created");
 
-        winit_window
-        // TODO: This should happen through commands
-        // Window::new(
-        //     entity,
-        //     window_descriptor,
-        //     inner_size.width,
-        //     inner_size.height,
-        //     scale_factor,
-        //     position,
-        //     raw_window_handle,
-        // )
+        created_window
+
     }
 
-    // TODO: This might not be as useful anymore? If this is a marker component?
+    // TODO: Docs
     pub fn get_window(&self, entity: Entity) -> Option<&winit::window::Window> {
         self.window_id_to_winit
             .get(&entity)
             .and_then(|winit_id| self.windows.get(winit_id))
     }
 
+    // TODO: Docs
     pub fn get_window_entity(&self, winit_id: winit::window::WindowId) -> Option<Entity> {
         self.winit_to_window_id.get(&winit_id).cloned()
     }
 
+    // TODO: Docs
     pub fn remove_window(&mut self, entity: Entity) -> Option<winit::window::Window> {
         let winit_id = self.window_id_to_winit.remove(&entity)?;
         // Don't remove from winit_to_window_id, to track that we used to know about this winit window
