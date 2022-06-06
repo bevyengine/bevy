@@ -14,13 +14,13 @@ use bevy_ecs::{
     event::EventReader,
     query::Added,
     reflect::ReflectComponent,
-    system::{Commands, ParamSet, Query, Res},
+    system::{Commands, ParamSet, Query, Res}, prelude::With,
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
-use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
+use bevy_window::{WindowCreated, WindowResized, Window, WindowResolution};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, ops::Range};
 use wgpu::Extent3d;
@@ -97,7 +97,7 @@ impl Default for Camera {
             priority: 0,
             viewport: None,
             computed: Default::default(),
-            target: Default::default(),
+            target: Default::default(), // TODO: Fix default of camera
             depth_calculation: Default::default(),
         }
     }
@@ -221,13 +221,19 @@ impl CameraRenderGraph {
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
-    Window(WindowId),
+    Window(Entity),
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
 }
 
 impl Default for RenderTarget {
+    // TODO: Default window ID no longer makes sense, so this can no longer impl Default
     fn default() -> Self {
+        // TODO: 
+        // There is no longer 1 fixed id that corresponds to a valid window
+        // This should probably be the Entity of the PrimaryWindow
+        // but that is generated in runtime
+        // so not quite sure how to approach this
         Self::Window(Default::default())
     }
 }
@@ -250,16 +256,21 @@ impl RenderTarget {
 
     pub fn get_render_target_info(
         &self,
-        windows: &Windows,
+        windows: Query<(Entity, &WindowResolution), With<Window>>, // TODO: Maybe this could just be a Vec?
         images: &Assets<Image>,
     ) -> Option<RenderTargetInfo> {
         Some(match self {
             RenderTarget::Window(window_id) => {
-                let window = windows.get(*window_id)?;
-                RenderTargetInfo {
-                    physical_size: UVec2::new(window.physical_width(), window.physical_height()),
-                    scale_factor: window.scale_factor(),
+                if let Ok((entity, resolution)) = windows.get(*window_id) {
+                    RenderTargetInfo {
+                        physical_size: UVec2::new(resolution.physical_width(), resolution.physical_height()),
+                        scale_factor: resolution.scale_factor(),
+                    }
+                } else {
+                    // TODO: Helpful panic comment
+                    panic!("Render target does not point to a valid window");
                 }
+                
             }
             RenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
@@ -274,7 +285,7 @@ impl RenderTarget {
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
         &self,
-        changed_window_ids: &[WindowId],
+        changed_window_ids: &[Entity],
         changed_image_handles: &HashSet<&Handle<Image>>,
     ) -> bool {
         match self {
@@ -303,32 +314,32 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut image_asset_events: EventReader<AssetEvent<Image>>,
-    windows: Res<Windows>,
+    windows: Query<(Entity, &WindowResolution), With<Window>>,
     images: Res<Assets<Image>>,
     mut queries: ParamSet<(
         Query<(Entity, &mut Camera, &mut T)>,
         Query<Entity, Added<Camera>>,
     )>,
 ) {
-    let mut changed_window_ids = Vec::new();
+    let mut changed_window_ids: Vec<Entity> = Vec::new();
     // handle resize events. latest events are handled first because we only want to resize each
     // window once
     for event in window_resized_events.iter().rev() {
-        if changed_window_ids.contains(&event.id) {
+        if changed_window_ids.contains(&event.entity) {
             continue;
         }
 
-        changed_window_ids.push(event.id);
+        changed_window_ids.push(event.entity);
     }
 
     // handle resize events. latest events are handled first because we only want to resize each
     // window once
     for event in window_created_events.iter().rev() {
-        if changed_window_ids.contains(&event.id) {
+        if changed_window_ids.contains(&event.entity) {
             continue;
         }
 
-        changed_window_ids.push(event.id);
+        changed_window_ids.push(event.entity);
     }
 
     let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
@@ -353,7 +364,7 @@ pub fn camera_system<T: CameraProjection + Component>(
             || added_cameras.contains(&entity)
             || camera_projection.is_changed()
         {
-            camera.computed.target_info = camera.target.get_render_target_info(&windows, &images);
+            camera.computed.target_info = camera.target.get_render_target_info(windows, &images);
             if let Some(size) = camera.logical_viewport_size() {
                 camera_projection.update(size.x, size.y);
                 camera.computed.projection_matrix = camera_projection.get_projection_matrix();
