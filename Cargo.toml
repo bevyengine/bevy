@@ -171,6 +171,10 @@ path = "examples/2d/text2d.rs"
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
+[[example]]
+name = "transparency_2d"
+path = "examples/2d/transparency_2d.rs"
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
@@ -227,6 +231,10 @@ path = "examples/3d/split_screen.rs"
 [[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
+
+[[example]]
+name = "transparency_3d"
+path = "examples/3d/transparency_3d.rs"
 
 [[example]]
 name = "two_passes"
@@ -613,6 +621,10 @@ path = "examples/ui/text.rs"
 [[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
+
+[[example]]
+name = "transparency_ui"
+path = "examples/ui/transparency_ui.rs"
 
 [[example]]
 name = "ui"
