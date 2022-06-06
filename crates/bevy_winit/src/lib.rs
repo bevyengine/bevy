@@ -177,7 +177,9 @@ impl Default for WinitPersistentState {
 #[derive(Default)]
 struct WinitCreateWindowReader(ManualEventReader<CreateWindow>);
 
+// TODO: Refactor this to work with new pattern
 pub fn winit_runner_with(mut app: App) {
+    // TODO: Understand what removing and adding this does
     let mut event_loop = app
         .world
         .remove_non_send_resource::<EventLoop<()>>()
@@ -203,8 +205,21 @@ pub fn winit_runner_with(mut app: App) {
         match event {
             event::Event::NewEvents(start) => {
                 let winit_config = app.world.resource::<WinitSettings>();
-                let windows = app.world.resource::<Windows>();
-                let focused = windows.iter().any(|w| w.is_focused());
+
+                // Collection of windows
+                let mut windows_query = app.world.query_filtered::<Entity, With<Window>>();
+                let windows: Vec<Entity> = windows_query.iter(&app.world).collect();
+
+                // True if _any_ windows are currently being focused
+                let mut windows_focused_query = app
+                    .world
+                    .query_filtered::<Entity, (With<Window>, With<WindowCurrentlyFocused>)>();
+                let focused = windows_focused_query
+                    .iter(&app.world)
+                    .collect::<Vec<Entity>>()
+                    .len()
+                    > 0;
+
                 // Check if either the `WaitUntil` timeout was triggered by winit, or that same
                 // amount of time has elapsed since the last app update. This manual check is needed
                 // because we don't know if the criteria for an app update were met until the end of
@@ -227,13 +242,19 @@ pub fn winit_runner_with(mut app: App) {
                 window_id: winit_window_id,
                 ..
             } => {
+                // TODO: Should the queries happen on the world cell from this point onwards instead of app.world?
                 let world = app.world.cell();
                 let winit_windows = world.non_send_resource_mut::<WinitWindows>();
-                let mut windows = world.resource_mut::<Windows>();
-                let window_id =
-                    if let Some(window_id) = winit_windows.get_window_id(winit_window_id) {
-                        window_id
+
+                // Query windows from world
+                let mut windows_query = app.world.query_filtered::<Entity, With<Window>>();
+                let mut windows: Vec<Entity> = windows_query.iter(&app.world).collect();
+
+                let window_entity =
+                    if let Some(entity) = winit_windows.get_window_entity(winit_window_id) {
+                        entity
                     } else {
+                        // TODO: This seems like it can cause problems now
                         warn!(
                             "Skipped event for unknown winit Window Id {:?}",
                             winit_window_id
@@ -241,29 +262,44 @@ pub fn winit_runner_with(mut app: App) {
                         return;
                     };
 
-                let window = if let Some(window) = windows.get_mut(window_id) {
-                    window
-                } else {
-                    // If we're here, this window was previously opened
-                    info!("Skipped event for closed window: {:?}", window_id);
-                    return;
-                };
+                // TODO: Is there an edge-case introduced by removing this?
+                // let window = if let Some(window) = windows.get_mut(window_entity) {
+                //     window
+                // } else {
+                //     // If we're here, this window was previously opened
+                //     info!("Skipped event for closed window: {:?}", window_entity);
+                //     return;
+                // };
                 winit_state.low_power_event = true;
 
                 match event {
                     WindowEvent::Resized(size) => {
-                        window.update_actual_size_from_backend(size.width, size.height);
-                        let mut resize_events = world.resource_mut::<Events<WindowResized>>();
-                        resize_events.send(WindowResized {
-                            id: window_id,
-                            width: window.width(),
-                            height: window.height(),
-                        });
+                        // TODO:
+                        if let Some(mut resolution_component) =
+                            app.world.get_mut::<WindowResolution>(window_entity)
+                        {
+                            // Update component
+                            resolution_component
+                                .update_actual_size_from_backend(size.width, size.height);
+
+                            // Send event to notify change
+                            let mut resize_events = world.resource_mut::<Events<WindowResized>>();
+                            resize_events.send(WindowResized {
+                                entity: window_entity,
+                                width: resolution_component.width(),
+                                height: resolution_component.height(),
+                            });
+                        } else {
+                            // TODO: Helpful panic comment
+                            panic!("Window does not have a valid WindowResolution component");
+                        }
                     }
                     WindowEvent::CloseRequested => {
                         let mut window_close_requested_events =
                             world.resource_mut::<Events<WindowCloseRequested>>();
-                        window_close_requested_events.send(WindowCloseRequested { id: window_id });
+                        window_close_requested_events.send(WindowCloseRequested {
+                            entity: window_entity,
+                        });
                     }
                     WindowEvent::KeyboardInput { ref input, .. } => {
                         let mut keyboard_input_events =
@@ -272,30 +308,54 @@ pub fn winit_runner_with(mut app: App) {
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let mut cursor_moved_events = world.resource_mut::<Events<CursorMoved>>();
-                        let winit_window = winit_windows.get_window(window_id).unwrap();
+                        let winit_window = winit_windows.get_window(window_entity).unwrap();
                         let inner_size = winit_window.inner_size();
 
+                        // Components
+                        // Need WindowResolution component
+                        let window_resolution = app
+                            .world
+                            .get::<WindowResolution>(window_entity)
+                            .expect("Window should have a WindowResolution component");
+
+                        // Need cursorposition component
+                        let mut cursor_position = app
+                            .world
+                            .get_mut::<WindowCursorPosition>(window_entity)
+                            .expect("Window should have a WindowCursorPosition component");
+
+                        // TODO: Why is this necessary? Improve comment as to why
                         // move origin to bottom left
                         let y_position = inner_size.height as f64 - position.y;
 
                         let physical_position = DVec2::new(position.x, y_position);
-                        window
-                            .update_cursor_physical_position_from_backend(Some(physical_position));
 
+                        cursor_position.update_position_from_backend(Some(physical_position));
+
+                        // Event
                         cursor_moved_events.send(CursorMoved {
-                            id: window_id,
-                            position: (physical_position / window.scale_factor()).as_vec2(),
+                            entity: window_entity,
+                            position: (physical_position / window_resolution.scale_factor())
+                                .as_vec2(),
                         });
                     }
                     WindowEvent::CursorEntered { .. } => {
                         let mut cursor_entered_events =
                             world.resource_mut::<Events<CursorEntered>>();
-                        cursor_entered_events.send(CursorEntered { id: window_id });
+                        cursor_entered_events.send(CursorEntered {
+                            entity: window_entity,
+                        });
                     }
                     WindowEvent::CursorLeft { .. } => {
+                        // Component
+                        let mut cursor_position = app.world.get_mut::<WindowCursorPosition>(window_entity).expect("Window should have a WindowCursorComponent component");
+                        cursor_position.update_position_from_backend(None);
+
+                        // Event
                         let mut cursor_left_events = world.resource_mut::<Events<CursorLeft>>();
-                        window.update_cursor_physical_position_from_backend(None);
-                        cursor_left_events.send(CursorLeft { id: window_id });
+                        cursor_left_events.send(CursorLeft {
+                            entity: window_entity,
+                        });
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
                         let mut mouse_button_input_events =
@@ -327,14 +387,21 @@ pub fn winit_runner_with(mut app: App) {
                     },
                     WindowEvent::Touch(touch) => {
                         let mut touch_input_events = world.resource_mut::<Events<TouchInput>>();
+                        
+                        let window_resolution = app
+                            .world
+                            .get::<WindowResolution>(window_entity)
+                            .expect("Window should have a WindowResolution component");
 
-                        let mut location = touch.location.to_logical(window.scale_factor());
+                        let mut location = touch.location.to_logical(window_resolution.scale_factor());
 
                         // On a mobile window, the start is from the top while on PC/Linux/OSX from
                         // bottom
                         if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                            let window_height = windows.primary().height();
-                            location.y = window_height - location.y;
+                            // Get windows_resolution of the entity currently set as primary window
+                            let primary_window = world.resource::<PrimaryWindow>().window.expect("There should be a primary window but it seems that it is not"); // TODO: Update panic comment
+                            let primary_window_resolution = app.world.get::<WindowResolution>(primary_window).expect("Primary window should have a valid WindowResolution component");
+                            location.y = primary_window_resolution.height() - location.y;
                         }
                         touch_input_events.send(converters::convert_touch_input(touch, location));
                     }
@@ -343,7 +410,7 @@ pub fn winit_runner_with(mut app: App) {
                             world.resource_mut::<Events<ReceivedCharacter>>();
 
                         char_input_events.send(ReceivedCharacter {
-                            id: window_id,
+                            entity: window_entity,
                             char: c,
                         });
                     }
@@ -354,81 +421,112 @@ pub fn winit_runner_with(mut app: App) {
                         let mut backend_scale_factor_change_events =
                             world.resource_mut::<Events<WindowBackendScaleFactorChanged>>();
                         backend_scale_factor_change_events.send(WindowBackendScaleFactorChanged {
-                            id: window_id,
+                            entity: window_entity,
                             scale_factor,
                         });
-                        let prior_factor = window.scale_factor();
-                        window.update_scale_factor_from_backend(scale_factor);
-                        let new_factor = window.scale_factor();
-                        if let Some(forced_factor) = window.scale_factor_override() {
+
+                        // Components
+                        let mut window_resolution = app
+                            .world
+                            .get_mut::<WindowResolution>(window_entity)
+                            .expect("Window should have a WindowResolution component");
+
+                        let prior_factor = window_resolution.scale_factor();
+                        window_resolution.update_scale_factor_from_backend(scale_factor);
+                        let new_factor = window_resolution.scale_factor();
+
+                        if let Some(forced_factor) = window_resolution.scale_factor_override() {
                             // If there is a scale factor override, then force that to be used
                             // Otherwise, use the OS suggested size
                             // We have already told the OS about our resize constraints, so
                             // the new_inner_size should take those into account
                             *new_inner_size = winit::dpi::LogicalSize::new(
-                                window.requested_width(),
-                                window.requested_height(),
+                                window_resolution.requested_width(),
+                                window_resolution.requested_height(),
                             )
                             .to_physical::<u32>(forced_factor);
+                            // TODO: Should this not trigger a WindowsScaleFactorChanged?
                         } else if approx::relative_ne!(new_factor, prior_factor) {
+                            // TODO: Trigger event with new scale_factor if they are approximately the same? 
+                            // Is this correct? Should it not be reversed?
                             let mut scale_factor_change_events =
                                 world.resource_mut::<Events<WindowScaleFactorChanged>>();
 
                             scale_factor_change_events.send(WindowScaleFactorChanged {
-                                id: window_id,
+                                entity: window_entity,
                                 scale_factor,
                             });
                         }
 
                         let new_logical_width = new_inner_size.width as f64 / new_factor;
                         let new_logical_height = new_inner_size.height as f64 / new_factor;
-                        if approx::relative_ne!(window.width() as f64, new_logical_width)
-                            || approx::relative_ne!(window.height() as f64, new_logical_height)
+                        if approx::relative_ne!(window_resolution.width() as f64, new_logical_width)
+                            || approx::relative_ne!(window_resolution.height() as f64, new_logical_height)
                         {
                             let mut resize_events = world.resource_mut::<Events<WindowResized>>();
                             resize_events.send(WindowResized {
-                                id: window_id,
+                                entity: window_entity,
                                 width: new_logical_width as f32,
                                 height: new_logical_height as f32,
                             });
                         }
-                        window.update_actual_size_from_backend(
+                        window_resolution.update_actual_size_from_backend(
                             new_inner_size.width,
                             new_inner_size.height,
                         );
                     }
                     WindowEvent::Focused(focused) => {
-                        window.update_focused_status_from_backend(focused);
+                        
+                        // Component
+                        let mut entity_mut = app.world.get_entity_mut(window_entity).expect("Entity for window should exist");
+
+                        if focused {
+                            entity_mut.insert(WindowCurrentlyFocused);
+                        } else {
+                            entity_mut.remove::<WindowCurrentlyFocused>();
+                        }
+
+                        // Event
                         let mut focused_events = world.resource_mut::<Events<WindowFocused>>();
                         focused_events.send(WindowFocused {
-                            id: window_id,
+                            entity: window_entity,
                             focused,
                         });
                     }
                     WindowEvent::DroppedFile(path_buf) => {
                         let mut events = world.resource_mut::<Events<FileDragAndDrop>>();
                         events.send(FileDragAndDrop::DroppedFile {
-                            id: window_id,
+                            entity: window_entity,
                             path_buf,
                         });
                     }
                     WindowEvent::HoveredFile(path_buf) => {
                         let mut events = world.resource_mut::<Events<FileDragAndDrop>>();
                         events.send(FileDragAndDrop::HoveredFile {
-                            id: window_id,
+                            entity: window_entity,
                             path_buf,
                         });
                     }
                     WindowEvent::HoveredFileCancelled => {
                         let mut events = world.resource_mut::<Events<FileDragAndDrop>>();
-                        events.send(FileDragAndDrop::HoveredFileCancelled { id: window_id });
+                        events.send(FileDragAndDrop::HoveredFileCancelled {
+                            entity: window_entity,
+                        });
                     }
                     WindowEvent::Moved(position) => {
                         let position = ivec2(position.x, position.y);
-                        window.update_actual_position_from_backend(position);
+                        // Component
+                        let mut window_position = app
+                            .world
+                            .get_mut::<WindowPosition>(window_entity)
+                            .expect("Window should have a WindowPosition component");
+
+                            window_position.update_actual_position_from_backend(position);
+
+                        // Event
                         let mut events = world.resource_mut::<Events<WindowMoved>>();
                         events.send(WindowMoved {
-                            id: window_id,
+                            entity: window_entity,
                             position,
                         });
                     }
@@ -458,8 +556,15 @@ pub fn winit_runner_with(mut app: App) {
                 );
                 let winit_config = app.world.resource::<WinitSettings>();
                 let update = if winit_state.active {
-                    let windows = app.world.resource::<Windows>();
-                    let focused = windows.iter().any(|w| w.is_focused());
+                    // True if _any_ windows are currently being focused
+                    let mut windows_focused_query = app
+                        .world
+                        .query_filtered::<Entity, (With<Window>, With<WindowCurrentlyFocused>)>();
+                    let focused = windows_focused_query
+                        .iter(&app.world)
+                        .collect::<Vec<Entity>>()
+                        .len()
+                        > 0;
                     match winit_config.update_mode(focused) {
                         UpdateMode::Continuous | UpdateMode::Reactive { .. } => true,
                         UpdateMode::ReactiveLowPower { .. } => {
@@ -479,8 +584,17 @@ pub fn winit_runner_with(mut app: App) {
             Event::RedrawEventsCleared => {
                 {
                     let winit_config = app.world.resource::<WinitSettings>();
-                    let windows = app.world.resource::<Windows>();
-                    let focused = windows.iter().any(|w| w.is_focused());
+
+                    // True if _any_ windows are currently being focused
+                    let mut windows_focused_query = app
+                        .world
+                        .query_filtered::<Entity, (With<Window>, With<WindowCurrentlyFocused>)>();
+                    let focused = windows_focused_query
+                        .iter(&app.world)
+                        .collect::<Vec<Entity>>()
+                        .len()
+                        > 0;
+
                     let now = Instant::now();
                     use UpdateMode::*;
                     *control_flow = match winit_config.update_mode(focused) {
@@ -494,6 +608,7 @@ pub fn winit_runner_with(mut app: App) {
                         }
                     };
                 }
+
                 // This block needs to run after `app.update()` in `MainEventsCleared`. Otherwise,
                 // we won't be able to see redraw requests until the next event, defeating the
                 // purpose of a redraw request!
@@ -515,6 +630,7 @@ pub fn winit_runner_with(mut app: App) {
         }
     };
 
+    // If true, returns control from Winit back to the main Bevy loop
     if return_from_run {
         run_return(&mut event_loop, event_handler);
     } else {
@@ -522,37 +638,47 @@ pub fn winit_runner_with(mut app: App) {
     }
 }
 
+// TODO: Remove this is favour of the create_window system, if possible
 fn handle_create_window_events(
     world: &mut World,
     event_loop: &EventLoopWindowTarget<()>,
     create_window_event_reader: &mut ManualEventReader<CreateWindow>,
 ) {
-    let world = world.cell();
-    let mut winit_windows = world.non_send_resource_mut::<WinitWindows>();
-    let mut windows = world.resource_mut::<Windows>();
-    let create_window_events = world.resource::<Events<CreateWindow>>();
-    let mut window_created_events = world.resource_mut::<Events<WindowCreated>>();
+    // TODO: It's probably worng to be using the world directly here instead of the world-cell
+    // So figure out what should be the correct approach
+    let world_cell = world.cell();
+    let mut winit_windows = world_cell.non_send_resource_mut::<WinitWindows>();
+
+    // Query windows from world
+    // let mut windows_query = world.query_filtered::<Entity, With<Window>>();
+    // let mut windows: Vec<Entity> = windows_query.iter(world).collect();
+
+    let create_window_events = world_cell.resource::<Events<CreateWindow>>();
+    let mut window_created_events = world_cell.resource_mut::<Events<WindowCreated>>();
+
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
-        let window = winit_windows.create_window(
+        let winit_windows = winit_windows.create_window(
             event_loop,
-            create_window_event.id,
+            create_window_event.entity,
             &create_window_event.descriptor,
         );
-        windows.add(window);
+
+        // TODO: Spawn all components required on the window-entity
+
         window_created_events.send(WindowCreated {
-            id: create_window_event.id,
+            entity: create_window_event.entity,
         });
 
         #[cfg(target_arch = "wasm32")]
         {
-            let channel = world.resource_mut::<web_resize::CanvasParentResizeEventChannel>();
+            let channel = world_cell.resource_mut::<web_resize::CanvasParentResizeEventChannel>();
             if create_window_event.descriptor.fit_canvas_to_parent {
                 let selector = if let Some(selector) = &create_window_event.descriptor.canvas {
                     selector
                 } else {
                     web_resize::WINIT_CANVAS_SELECTOR
                 };
-                channel.listen_to_selector(create_window_event.id, selector);
+                channel.listen_to_selector(create_window_event.entity, selector);
             }
         }
     }
