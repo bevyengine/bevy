@@ -312,8 +312,13 @@ fn point_light(
             spot_dir.z = -spot_dir.z;
         }
 
-        let angle: f32 = acos(dot(spot_dir, -light_to_frag) / length(light_to_frag));
-        spot_attenuation = 1.0 - saturate((angle - light.light_custom_data.z) / (light.light_custom_data.w - light.light_custom_data.z));
+        // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
+        // spot_scale and spot_offset have been precomputed
+
+        // note we normalize "l" from the filament listing, not lightDir - it looks like a typo in their listing
+        let cd = dot(-spot_dir, normalize(light_to_frag));
+        let attenuation = saturate(cd * light.light_custom_data.z + light.light_custom_data.w);
+        spot_attenuation = attenuation * attenuation;
     }
 
     // Specular.
@@ -411,7 +416,7 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
 
         // divide xy by perspective matrix "f" and by -projected.z (projected.z is -projection matrix's w)
         // to get ndc coordinates
-        let f_div_minus_z = 1.0 / (tan(light.light_custom_data.w) * -projected_position.z);
+        let f_div_minus_z = 1.0 / (light.spotlight_tan_angle * -projected_position.z);
         let shadow_xy_ndc = projected_position.xy * f_div_minus_z;
         // convert to uv coordinates
         let shadow_uv = shadow_xy_ndc * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);

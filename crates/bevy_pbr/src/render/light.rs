@@ -85,14 +85,14 @@ pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 #[derive(Copy, Clone, AsStd140, AsStd430, Default, Debug)]
 pub struct GpuPointLight {
     // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
-    // For spotlights: 2 components of the direction (x,y), and inner angle
+    // For spotlights: 2 components of the direction (x,y), spot_scale and spot_offset
     light_custom_data: Vec4,
     color_inverse_square_range: Vec4,
     position_radius: Vec4,
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
-    // spot_angle_outer: f32,
+    spotlight_tan_angle: f32,
 }
 
 pub enum GpuPointLights {
@@ -797,7 +797,7 @@ pub fn prepare_lights(
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
 
-        let light_custom_data = match light.spotlight_angles {
+        let (light_custom_data, spotlight_tan_angle) = match light.spotlight_angles {
             Some((inner, outer)) => {
                 flags |= PointLightFlags::IS_SPOTLIGHT;
 
@@ -806,16 +806,27 @@ pub fn prepare_lights(
                     flags |= PointLightFlags::SPOTLIGHT_Z_NEGATIVE;
                 }
 
-                // For spotlights: the direction (x,y) and angles (inner,outer)
-                light_direction.xy().extend(inner).extend(outer)
+                let cos_outer = outer.cos();
+                let spot_scale = 1.0 / f32::max(inner.cos() - cos_outer, 1e-4);
+                let spot_offset = -cos_outer * spot_scale;
+
+                (
+                    // For spotlights: the direction (x,y), spot_scale and spot_offset
+                    light_direction.xy().extend(spot_scale).extend(spot_offset),
+                    outer.tan(),
+                )
             }
             None => {
-                // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
-                Vec4::new(
-                    cube_face_projection.z_axis.z,
-                    cube_face_projection.z_axis.w,
-                    cube_face_projection.w_axis.z,
-                    cube_face_projection.w_axis.w,
+                (
+                    // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
+                    Vec4::new(
+                        cube_face_projection.z_axis.z,
+                        cube_face_projection.z_axis.w,
+                        cube_face_projection.w_axis.z,
+                        cube_face_projection.w_axis.w,
+                    ),
+                    // unused
+                    0.0,
                 )
             }
         };
@@ -832,6 +843,7 @@ pub fn prepare_lights(
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
+            spotlight_tan_angle,
         });
         global_light_meta.entity_to_index.insert(entity, index);
     }
