@@ -1,14 +1,15 @@
+use bevy_ecs::entity::Entity;
 use bevy_math::IVec2;
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
+use bevy_window::{WindowDescriptor, WindowMode};
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::LogicalSize;
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
-    pub window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
-    pub winit_to_window_id: HashMap<winit::window::WindowId, WindowId>,
+    pub window_id_to_winit: HashMap<Entity, winit::window::WindowId>,
+    pub winit_to_window_id: HashMap<winit::window::WindowId, Entity>,
     // Some winit functions, such as `set_window_icon` can only be used from the main thread. If
     // they are used in another thread, the app will hang. This marker ensures `WinitWindows` is
     // only ever accessed with bevy's non-send functions and in NonSend systems.
@@ -19,9 +20,9 @@ impl WinitWindows {
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
-        window_id: WindowId,
+        entity: Entity,
         window_descriptor: &WindowDescriptor,
-    ) -> Window {
+    ) -> winit::window::Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
         winit_window_builder = match window_descriptor.mode {
@@ -133,8 +134,8 @@ impl WinitWindows {
 
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);
 
-        self.window_id_to_winit.insert(window_id, winit_window.id());
-        self.winit_to_window_id.insert(winit_window.id(), window_id);
+        self.window_id_to_winit.insert(entity, winit_window.id());
+        self.winit_to_window_id.insert(winit_window.id(), entity);
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -160,29 +161,33 @@ impl WinitWindows {
         let scale_factor = winit_window.scale_factor();
         let raw_window_handle = winit_window.raw_window_handle();
         self.windows.insert(winit_window.id(), winit_window);
-        Window::new(
-            window_id,
-            window_descriptor,
-            inner_size.width,
-            inner_size.height,
-            scale_factor,
-            position,
-            raw_window_handle,
-        )
+
+        winit_window
+        // TODO: This should happen through commands
+        // Window::new(
+        //     entity,
+        //     window_descriptor,
+        //     inner_size.width,
+        //     inner_size.height,
+        //     scale_factor,
+        //     position,
+        //     raw_window_handle,
+        // )
     }
 
-    pub fn get_window(&self, id: WindowId) -> Option<&winit::window::Window> {
+    // TODO: This might not be as useful anymore? If this is a marker component?
+    pub fn get_window(&self, entity: Entity) -> Option<&winit::window::Window> {
         self.window_id_to_winit
-            .get(&id)
-            .and_then(|id| self.windows.get(id))
+            .get(&entity)
+            .and_then(|winit_id| self.windows.get(winit_id))
     }
 
-    pub fn get_window_id(&self, id: winit::window::WindowId) -> Option<WindowId> {
-        self.winit_to_window_id.get(&id).cloned()
+    pub fn get_window_entity(&self, winit_id: winit::window::WindowId) -> Option<Entity> {
+        self.winit_to_window_id.get(&winit_id).cloned()
     }
 
-    pub fn remove_window(&mut self, id: WindowId) -> Option<winit::window::Window> {
-        let winit_id = self.window_id_to_winit.remove(&id)?;
+    pub fn remove_window(&mut self, entity: Entity) -> Option<winit::window::Window> {
+        let winit_id = self.window_id_to_winit.remove(&entity)?;
         // Don't remove from winit_to_window_id, to track that we used to know about this winit window
         self.windows.remove(&winit_id)
     }

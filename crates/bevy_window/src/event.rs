@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
-use super::{WindowDescriptor, WindowId};
+use super::WindowDescriptor;
+use bevy_ecs::entity::Entity;
 use bevy_math::{IVec2, Vec2};
 
 /// A window event that is sent whenever a windows logical size has changed
 #[derive(Debug, Clone)]
 pub struct WindowResized {
-    pub id: WindowId,
+    pub entity: Entity,
     /// The new logical width of the window
     pub width: f32,
     /// The new logical height of the window
@@ -16,10 +17,11 @@ pub struct WindowResized {
 /// An event that indicates that a new window should be created.
 #[derive(Debug, Clone)]
 pub struct CreateWindow {
-    pub id: WindowId,
+    pub entity: Entity,
     pub descriptor: WindowDescriptor,
 }
 
+// TODO: This would redraw all windows ? If yes, update docs to reflect this
 /// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
 /// there have been no window events.
 #[derive(Debug, Clone)]
@@ -31,7 +33,7 @@ pub struct RequestRedraw;
 /// event will be sent in the handler for that event.
 #[derive(Debug, Clone)]
 pub struct WindowCreated {
-    pub id: WindowId,
+    pub entity: Entity,
 }
 
 /// An event that is sent whenever the operating systems requests that a window
@@ -47,7 +49,7 @@ pub struct WindowCreated {
 /// [closing]: crate::Window::close
 #[derive(Debug, Clone)]
 pub struct WindowCloseRequested {
-    pub id: WindowId,
+    pub entity: Entity,
 }
 
 /// An event that is sent whenever a window is closed. This will be sent by the
@@ -56,65 +58,65 @@ pub struct WindowCloseRequested {
 /// [`Window::close`]: crate::Window::close
 #[derive(Debug, Clone)]
 pub struct WindowClosed {
-    pub id: WindowId,
+    pub entity: Entity,
 }
 
 #[derive(Debug, Clone)]
 pub struct CursorMoved {
-    pub id: WindowId,
+    pub entity: Entity,
     pub position: Vec2,
 }
 
 #[derive(Debug, Clone)]
 pub struct CursorEntered {
-    pub id: WindowId,
+    pub entity: Entity,
 }
 
 #[derive(Debug, Clone)]
 pub struct CursorLeft {
-    pub id: WindowId,
+    pub entity: Entity,
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
 #[derive(Debug, Clone)]
 pub struct ReceivedCharacter {
-    pub id: WindowId,
+    pub entity: Entity,
     pub char: char,
 }
 
 /// An event that indicates a window has received or lost focus.
 #[derive(Debug, Clone)]
 pub struct WindowFocused {
-    pub id: WindowId,
+    pub entity: Entity,
     pub focused: bool,
 }
 
 /// An event that indicates a window's scale factor has changed.
 #[derive(Debug, Clone)]
 pub struct WindowScaleFactorChanged {
-    pub id: WindowId,
+    pub entity: Entity,
     pub scale_factor: f64,
 }
 /// An event that indicates a window's OS-reported scale factor has changed.
 #[derive(Debug, Clone)]
 pub struct WindowBackendScaleFactorChanged {
-    pub id: WindowId,
+    pub entity: Entity,
     pub scale_factor: f64,
 }
 
 /// Events related to files being dragged and dropped on a window.
 #[derive(Debug, Clone)]
 pub enum FileDragAndDrop {
-    DroppedFile { id: WindowId, path_buf: PathBuf },
+    DroppedFile { entity: Entity, path_buf: PathBuf },
 
-    HoveredFile { id: WindowId, path_buf: PathBuf },
+    HoveredFile { entity: Entity, path_buf: PathBuf },
 
-    HoveredFileCancelled { id: WindowId },
+    HoveredFileCancelled { entity: Entity },
 }
 
 /// An event that is sent when a window is repositioned in physical pixels.
 #[derive(Debug, Clone)]
 pub struct WindowMoved {
-    pub id: WindowId,
+    pub entity: Entity,
     pub position: IVec2,
 }

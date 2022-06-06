@@ -32,11 +32,12 @@ fn setup(
         ..default()
     });
 
+    // TODO: This needs to be re-done
     let window_id = WindowId::new();
 
     // sends out a "CreateWindow" event, which will be received by the windowing backend
     create_window_events.send(CreateWindow {
-        id: window_id,
+        entity: window_id,
         descriptor: WindowDescriptor {
             width: 800.,
             height: 600.,
