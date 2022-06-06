@@ -51,6 +51,7 @@ macro_rules! send_event {
     };
 }
 
+#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_received_character_single_button() {
     let mut app = App::new();
@@ -104,6 +105,7 @@ fn test_input_received_character_single_button() {
     assert_eq!(chars, HashSet::<_>::from_iter(['a', 'B'].into_iter()));
 }
 
+#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_received_character_multiple_buttons_at_once() {
     let mut app = App::new();
@@ -148,6 +150,7 @@ fn test_input_received_character_multiple_buttons_at_once() {
     assert_eq!(chars, HashSet::<_>::from_iter(['a', 'B'].into_iter()));
 }
 
+#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_received_keyboard_single_button() {
     let mut app = App::new();
@@ -190,6 +193,7 @@ fn test_input_received_keyboard_single_button() {
     );
 }
 
+#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_received_keyboard_multiple_button_at_once() {
     let mut app = App::new();
@@ -247,6 +251,7 @@ fn test_input_received_keyboard_multiple_button_at_once() {
     );
 }
 
+#[cfg_attr(target_os = "linux")]
 #[test]
 fn test_input_event_should_be_handler_just_once() {
     let mut app = App::new();
