@@ -315,7 +315,7 @@ fn point_light(
         // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
         // spot_scale and spot_offset have been precomputed
 
-        // note we normalize "l" from the filament listing, not lightDir - it looks like a typo in their listing
+        // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
         let cd = dot(-spot_dir, normalize(light_to_frag));
         let attenuation = saturate(cd * light.light_custom_data.z + light.light_custom_data.w);
         spot_attenuation = attenuation * attenuation;

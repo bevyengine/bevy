@@ -20,8 +20,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        bundle::{DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle},
-        light::{AmbientLight, DirectionalLight, PointLight},
+        bundle::{DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle, SpotlightBundle},
+        light::{AmbientLight, DirectionalLight, PointLight, SpotlightAngles},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
     };
@@ -94,13 +94,20 @@ impl Plugin for PbrPlugin {
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_directional_light_frusta
-                    .label(SimulationLightSystems::UpdateDirectionalLightFrusta)
+                    .label(SimulationLightSystems::UpdateLightFrusta)
                     .after(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_point_light_frusta
-                    .label(SimulationLightSystems::UpdatePointLightFrusta)
+                    .label(SimulationLightSystems::UpdateLightFrusta)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::AssignLightsToClusters),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_spotlight_frusta
+                    .label(SimulationLightSystems::UpdateLightFrusta)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
@@ -110,8 +117,7 @@ impl Plugin for PbrPlugin {
                     .label(SimulationLightSystems::CheckLightVisibility)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CalculateBounds)
-                    .after(SimulationLightSystems::UpdateDirectionalLightFrusta)
-                    .after(SimulationLightSystems::UpdatePointLightFrusta)
+                    .after(SimulationLightSystems::UpdateLightFrusta)
                     // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                     // because that resets entity ComputedVisibility for the first view
                     // which would override any results from this otherwise

@@ -1,7 +1,8 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
-    PointLight, PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
+    PointLight, PointLightShadowMap, SetMeshBindGroup, SpotlightAngles, VisiblePointLights,
+    SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core_pipeline::Transparent3d;
@@ -428,14 +429,24 @@ pub fn extract_lights(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     global_point_lights: Res<GlobalVisiblePointLights>,
     mut point_lights: Query<(&PointLight, &mut CubemapVisibleEntities, &GlobalTransform)>,
-    mut directional_lights: Query<(
-        Entity,
-        &DirectionalLight,
+    mut spotlights: Query<(
+        &PointLight,
         &mut VisibleEntities,
         &GlobalTransform,
-        &Visibility,
+        &SpotlightAngles,
     )>,
+    mut directional_lights: Query<
+        (
+            Entity,
+            &DirectionalLight,
+            &mut VisibleEntities,
+            &GlobalTransform,
+            &Visibility,
+        ),
+        Without<SpotlightAngles>,
+    >,
     mut previous_point_lights_len: Local<usize>,
+    mut previous_spotlights_len: Local<usize>,
 ) {
     commands.insert_resource(ExtractedAmbientLight {
         color: ambient_light.color,
@@ -454,6 +465,30 @@ pub fn extract_lights(
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
 
+    let extracted_point_light = |point_light: &PointLight,
+                                 transform: &GlobalTransform,
+                                 spotlight_angles: Option<(f32, f32)>,
+                                 texel_size: f32|
+     -> ExtractedPointLight {
+        ExtractedPointLight {
+            color: point_light.color,
+            // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+            // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+            // for details.
+            intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+            range: point_light.range,
+            radius: point_light.radius,
+            transform: *transform,
+            shadows_enabled: point_light.shadows_enabled,
+            shadow_depth_bias: point_light.shadow_depth_bias,
+            // The factor of SQRT_2 is for the worst-case diagonal offset
+            shadow_normal_bias: point_light.shadow_normal_bias
+                * texel_size
+                * std::f32::consts::SQRT_2,
+            spotlight_angles,
+        }
+    };
+
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
         if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get_mut(entity)
@@ -463,23 +498,7 @@ pub fn extract_lights(
             point_lights_values.push((
                 entity,
                 (
-                    ExtractedPointLight {
-                        color: point_light.color,
-                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                        // for details.
-                        intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
-                        range: point_light.range,
-                        radius: point_light.radius,
-                        transform: *transform,
-                        shadows_enabled: point_light.shadows_enabled,
-                        shadow_depth_bias: point_light.shadow_depth_bias,
-                        // The factor of SQRT_2 is for the worst-case diagonal offset
-                        shadow_normal_bias: point_light.shadow_normal_bias
-                            * point_light_texel_size
-                            * std::f32::consts::SQRT_2,
-                        spotlight_angles: point_light.spotlight_angles,
-                    },
+                    extracted_point_light(point_light, transform, None, point_light_texel_size),
                     render_cubemap_visible_entities,
                 ),
             ));
@@ -487,6 +506,31 @@ pub fn extract_lights(
     }
     *previous_point_lights_len = point_lights_values.len();
     commands.insert_or_spawn_batch(point_lights_values);
+
+    let mut spotlights_values = Vec::with_capacity(*previous_spotlights_len);
+    for entity in global_point_lights.iter().copied() {
+        if let Ok((point_light, visible_entities, transform, spotlight_angles)) =
+            spotlights.get_mut(entity)
+        {
+            let render_visible_entities = std::mem::take(visible_entities.into_inner());
+            let texel_size = 2.0 * spotlight_angles.outer.tan() / directional_light_shadow_map.size as f32;
+
+            spotlights_values.push((
+                entity,
+                (
+                    extracted_point_light(
+                        point_light,
+                        transform,
+                        Some((spotlight_angles.inner, spotlight_angles.outer)),
+                        texel_size
+                    ),
+                    render_visible_entities,
+                ),
+            ));
+        }
+    }
+    *previous_spotlights_len = spotlights_values.len();
+    commands.insert_or_spawn_batch(spotlights_values);
 
     for (entity, directional_light, visible_entities, transform, visibility) in
         directional_lights.iter_mut()
@@ -651,6 +695,9 @@ pub enum LightEntity {
         light_entity: Entity,
         face_index: usize,
     },
+    Spot {
+        light_entity: Entity,
+    },
 }
 pub fn calculate_cluster_factors(
     near: f32,
@@ -697,6 +744,7 @@ pub(crate) fn spotlight_view_matrix(transform: &GlobalTransform) -> Mat4 {
 }
 
 pub(crate) fn spotlight_projection_matrix(angle: f32) -> Mat4 {
+    // spotlight projection FOV is 2x the angle from spotlight centre to outer edge
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
 
@@ -1020,10 +1068,7 @@ pub fn prepare_lights(
                         projection: spot_projection,
                     },
                     RenderPhase::<Shadow>::default(),
-                    LightEntity::Point {
-                        light_entity,
-                        face_index: 0,
-                    },
+                    LightEntity::Spot { light_entity },
                 ))
                 .id();
 
@@ -1463,6 +1508,7 @@ pub fn queue_shadows(
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&VisibleEntities, With<ExtractedDirectionalLight>>,
+    spotlight_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
 ) {
     for view_lights in view_lights.iter() {
         let draw_shadow_mesh = shadow_draw_functions
@@ -1483,6 +1529,9 @@ pub fn queue_shadows(
                     .get(*light_entity)
                     .expect("Failed to get point light visible entities")
                     .get(*face_index),
+                LightEntity::Spot { light_entity } => spotlight_entities
+                    .get(*light_entity)
+                    .expect("Failed to get spotlight visible entities"),
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued

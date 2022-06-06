@@ -67,18 +67,18 @@ fn setup(
             let z = z as f32 - 2.0;
             // red spotlight
             commands
-                .spawn_bundle(PointLightBundle {
+                .spawn_bundle(SpotlightBundle {
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     point_light: PointLight {
                         intensity: 200.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
-                        spotlight_angles: Some((
-                            std::f32::consts::PI / 4.0 * 0.85,
-                            std::f32::consts::PI / 4.0,
-                        )),
                         ..default()
+                    },
+                    spotlight_angles: SpotlightAngles {
+                        inner: std::f32::consts::PI / 4.0 * 0.85,
+                        outer: std::f32::consts::PI / 4.0,
                     },
                     ..default()
                 })
@@ -121,8 +121,8 @@ fn setup(
     });
 }
 
-fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut PointLight)>) {
-    for (mut transform, mut light) in query.iter_mut() {
+fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotlightAngles)>) {
+    for (mut transform, mut angles) in query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
             -std::f32::consts::FRAC_PI_2
@@ -132,7 +132,8 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut PointLight
         );
         let angle = ((time.seconds_since_startup() * 1.2).sin() as f32 + 1.0)
             * (std::f32::consts::FRAC_PI_4 - 0.1);
-        light.spotlight_angles = Some((angle * 0.8, angle));
+        angles.inner = angle * 0.8;
+        angles.outer = angle;
     }
 }
 

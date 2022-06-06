@@ -123,15 +123,18 @@ fn setup(
 
     // green spot light
     commands
-        .spawn_bundle(PointLightBundle {
+        .spawn_bundle(SpotlightBundle {
             transform: Transform::from_xyz(-1.0, 2.0, 0.0)
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             point_light: PointLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::GREEN,
                 shadows_enabled: true,
-                spotlight_angles: Some((0.6, 0.8)),
                 ..default()
+            },
+            spotlight_angles: SpotlightAngles {
+                inner: 0.6,
+                outer: 0.8,
             },
             ..default()
         })

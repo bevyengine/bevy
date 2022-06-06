@@ -55,13 +55,6 @@ pub struct PointLight {
     /// shadow map's texel size so that it can be small close to the camera and gets larger further
     /// away.
     pub shadow_normal_bias: f32,
-    /// Angles defining the distance from the spotlight direction to the inner and outer limits
-    /// of the light's cone of effect.
-    /// `inner` should be <= `outer`, and `outer` should be < PI / 2.0.
-    /// PI / 2.0 defines a hemispherical spot light, but shadows become very blocky as the angle
-    /// approaches this limit.
-    /// Defaults to `None` which makes this a point light.
-    pub spotlight_angles: Option<(f32, f32)>,
 }
 
 impl Default for PointLight {
@@ -75,7 +68,6 @@ impl Default for PointLight {
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-            spotlight_angles: None,
         }
     }
 }
@@ -93,6 +85,28 @@ pub struct PointLightShadowMap {
 impl Default for PointLightShadowMap {
     fn default() -> Self {
         Self { size: 1024 }
+    }
+}
+
+/// Angles defining the distance from the spotlight direction to the inner and outer limits
+/// of the light's cone of effect.
+/// `inner` should be <= `outer`, and `outer` should be < PI / 2.0.
+/// PI / 2.0 defines a hemispherical spot light, but shadows become very blocky as the angle
+/// approaches this limit.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
+pub struct SpotlightAngles {
+    pub inner: f32,
+    pub outer: f32,
+}
+
+impl Default for SpotlightAngles {
+    fn default() -> Self {
+        // a quarter arc attenuating from the centre
+        Self {
+            inner: 0.0,
+            outer: std::f32::consts::FRAC_PI_4,
+        }
     }
 }
 
@@ -207,8 +221,7 @@ pub struct NotShadowReceiver;
 pub enum SimulationLightSystems {
     AddClusters,
     AssignLightsToClusters,
-    UpdateDirectionalLightFrusta,
-    UpdatePointLightFrusta,
+    UpdateLightFrusta,
     CheckLightVisibility,
 }
 
@@ -750,7 +763,13 @@ pub(crate) fn assign_lights_to_clusters(
         &mut Clusters,
         Option<&mut VisiblePointLights>,
     )>,
-    lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
+    lights_query: Query<(
+        Entity,
+        &GlobalTransform,
+        &PointLight,
+        Option<&SpotlightAngles>,
+        &Visibility,
+    )>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_point_lights_warning_emitted: Local<bool>,
@@ -769,13 +788,15 @@ pub(crate) fn assign_lights_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.is_visible)
             .map(
-                |(entity, transform, light, _visibility)| PointLightAssignmentData {
-                    entity,
-                    translation: transform.translation,
-                    rotation: transform.rotation,
-                    shadows_enabled: light.shadows_enabled,
-                    range: light.range,
-                    spotlight_angle: light.spotlight_angles.map(|(_inner, outer)| outer),
+                |(entity, transform, light, maybe_spotlight_angles, _visibility)| {
+                    PointLightAssignmentData {
+                        entity,
+                        translation: transform.translation,
+                        rotation: transform.rotation,
+                        shadows_enabled: light.shadows_enabled,
+                        range: light.range,
+                        spotlight_angle: maybe_spotlight_angles.map(|angles| angles.outer),
+                    }
                 },
             ),
     );
@@ -1407,30 +1428,62 @@ pub fn update_point_light_frusta(
         let view_translation = GlobalTransform::from_translation(transform.translation);
         let view_backward = transform.back();
 
-        if let Some((_inner_angle, angle)) = point_light.spotlight_angles {
-            let spot_view = spotlight_view_matrix(transform);
-            let spot_projection = spotlight_projection_matrix(angle);
-            let view_projection = spot_projection * spot_view.inverse();
+        for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
+            let view = view_translation * *view_rotation;
+            let view_projection = projection * view.compute_matrix().inverse();
 
-            cubemap_frusta.frusta[0] = Frustum::from_view_projection(
+            *frustum = Frustum::from_view_projection(
                 &view_projection,
-                &view_translation.translation,
+                &transform.translation,
                 &view_backward,
                 point_light.range,
             );
-        } else {
-            for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
-                let view = view_translation * *view_rotation;
-                let view_projection = projection * view.compute_matrix().inverse();
-
-                *frustum = Frustum::from_view_projection(
-                    &view_projection,
-                    &transform.translation,
-                    &view_backward,
-                    point_light.range,
-                );
-            }
         }
+    }
+}
+
+pub fn update_spotlight_frusta(
+    global_lights: Res<GlobalVisiblePointLights>,
+    mut views: Query<
+        (
+            Entity,
+            &GlobalTransform,
+            &PointLight,
+            &SpotlightAngles,
+            &mut Frustum,
+        ),
+        Or<(
+            Changed<GlobalTransform>,
+            Changed<PointLight>,
+            Changed<SpotlightAngles>,
+        )>,
+    >,
+) {
+    for (entity, transform, point_light, spotlight_angles, mut frustum) in views.iter_mut() {
+        // The frusta are used for culling meshes to the light for shadow mapping
+        // so if shadow mapping is disabled for this light, then the frusta are
+        // not needed.
+        // Also, if the light is not relevant for any cluster, it will not be in the
+        // global lights set and so there is no need to update its frusta.
+        if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+            continue;
+        }
+
+        // ignore scale because we don't want to effectively scale light radius and range
+        // by applying those as a view transform to shadow map rendering of objects
+        let view_translation = GlobalTransform::from_translation(transform.translation);
+        let view_backward = transform.back();
+
+        let spot_view = spotlight_view_matrix(transform);
+        let spot_projection = spotlight_projection_matrix(spotlight_angles.outer);
+        let view_projection = spot_projection * spot_view.inverse();
+
+        *frustum = Frustum::from_view_projection(
+            &view_projection,
+            &view_translation.translation,
+            &view_backward,
+            point_light.range,
+        );
     }
 }
 
@@ -1443,13 +1496,26 @@ pub fn check_light_mesh_visibility(
         &mut CubemapVisibleEntities,
         Option<&RenderLayers>,
     )>,
-    mut directional_lights: Query<(
-        &DirectionalLight,
-        &Frustum,
-        &mut VisibleEntities,
-        Option<&RenderLayers>,
-        &Visibility,
-    )>,
+    mut spotlights: Query<
+        (
+            &PointLight,
+            &GlobalTransform,
+            &Frustum,
+            &mut VisibleEntities,
+            Option<&RenderLayers>,
+        ),
+        With<SpotlightAngles>,
+    >,
+    mut directional_lights: Query<
+        (
+            &DirectionalLight,
+            &Frustum,
+            &mut VisibleEntities,
+            Option<&RenderLayers>,
+            &Visibility,
+        ),
+        Without<PointLight>,
+    >,
     mut visible_entity_query: Query<
         (
             Entity,
@@ -1508,9 +1574,9 @@ pub fn check_light_mesh_visibility(
         // to prevent holding unneeded memory
     }
 
-    // Point lights
     for visible_lights in visible_point_lights.iter() {
         for light_entity in visible_lights.entities.iter().copied() {
+            // Point lights
             if let Ok((
                 point_light,
                 transform,
@@ -1560,34 +1626,77 @@ pub fn check_light_mesh_visibility(
                             continue;
                         }
 
-                        if point_light.spotlight_angles.is_some() {
-                            // spotlights only use the first array entry
-                            if cubemap_frusta.frusta[0].intersects_obb(aabb, &model_to_world, true)
-                            {
+                        for (frustum, visible_entities) in cubemap_frusta
+                            .iter()
+                            .zip(cubemap_visible_entities.iter_mut())
+                        {
+                            if frustum.intersects_obb(aabb, &model_to_world, true) {
                                 computed_visibility.is_visible = true;
-                                cubemap_visible_entities.get_mut(0).entities.push(entity);
-                            }
-                        } else {
-                            for (frustum, visible_entities) in cubemap_frusta
-                                .iter()
-                                .zip(cubemap_visible_entities.iter_mut())
-                            {
-                                if frustum.intersects_obb(aabb, &model_to_world, true) {
-                                    computed_visibility.is_visible = true;
-                                    visible_entities.entities.push(entity);
-                                }
+                                visible_entities.entities.push(entity);
                             }
                         }
                     } else {
                         computed_visibility.is_visible = true;
-                        if point_light.spotlight_angles.is_some() {
-                            // spotlights only use the first array entry
-                            cubemap_visible_entities.get_mut(0).entities.push(entity);
-                        } else {
-                            for visible_entities in cubemap_visible_entities.iter_mut() {
-                                visible_entities.entities.push(entity);
-                            }
+                        for visible_entities in cubemap_visible_entities.iter_mut() {
+                            visible_entities.entities.push(entity);
                         }
+                    }
+                }
+
+                // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
+                // to prevent holding unneeded memory
+            }
+
+            // spotlights
+            if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask)) =
+                spotlights.get_mut(light_entity)
+            {
+                visible_entities.entities.clear();
+
+                // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
+                if !point_light.shadows_enabled {
+                    continue;
+                }
+
+                let view_mask = maybe_view_mask.copied().unwrap_or_default();
+                let light_sphere = Sphere {
+                    center: Vec3A::from(transform.translation),
+                    radius: point_light.range,
+                };
+
+                for (
+                    entity,
+                    visibility,
+                    mut computed_visibility,
+                    maybe_entity_mask,
+                    maybe_aabb,
+                    maybe_transform,
+                ) in visible_entity_query.iter_mut()
+                {
+                    if !visibility.is_visible {
+                        continue;
+                    }
+
+                    let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                    if !view_mask.intersects(&entity_mask) {
+                        continue;
+                    }
+
+                    // If we have an aabb and transform, do frustum culling
+                    if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
+                        let model_to_world = transform.compute_matrix();
+                        // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
+                        if !light_sphere.intersects_obb(aabb, &model_to_world) {
+                            continue;
+                        }
+
+                        if frustum.intersects_obb(aabb, &model_to_world, true) {
+                            computed_visibility.is_visible = true;
+                            visible_entities.entities.push(entity);
+                        }
+                    } else {
+                        computed_visibility.is_visible = true;
+                        visible_entities.entities.push(entity);
                     }
                 }
 
