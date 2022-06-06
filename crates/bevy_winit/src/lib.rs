@@ -199,6 +199,8 @@ pub fn winit_runner_with(mut app: App) {
 
     trace!("Entering winit event loop");
 
+    
+
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
@@ -211,6 +213,7 @@ pub fn winit_runner_with(mut app: App) {
                 let windows: Vec<Entity> = windows_query.iter(&app.world).collect();
 
                 // True if _any_ windows are currently being focused
+                // TODO: Borrow checker complains
                 let mut windows_focused_query = app
                     .world
                     .query_filtered::<Entity, (With<Window>, With<WindowCurrentlyFocused>)>();
@@ -243,10 +246,12 @@ pub fn winit_runner_with(mut app: App) {
                 ..
             } => {
                 // TODO: Should the queries happen on the world cell from this point onwards instead of app.world?
+                // TODO: Borrow checker complains
                 let world = app.world.cell();
                 let winit_windows = world.non_send_resource_mut::<WinitWindows>();
 
                 // Query windows from world
+                // TODO: Borrow checker complains
                 let mut windows_query = app.world.query_filtered::<Entity, With<Window>>();
                 let mut windows: Vec<Entity> = windows_query.iter(&app.world).collect();
 
@@ -276,6 +281,7 @@ pub fn winit_runner_with(mut app: App) {
                     WindowEvent::Resized(size) => {
                         // TODO:
                         if let Some(mut resolution_component) =
+                        // TODO: Borrow checker complains
                             app.world.get_mut::<WindowResolution>(window_entity)
                         {
                             // Update component
@@ -313,11 +319,13 @@ pub fn winit_runner_with(mut app: App) {
 
                         // Components
                         // Need WindowResolution component
+                        // TODO: Borrow checker complains
                         let window_resolution = app
                             .world
                             .get::<WindowResolution>(window_entity)
                             .expect("Window should have a WindowResolution component");
 
+                        // TODO: Borrow checker complains
                         // Need cursorposition component
                         let mut cursor_position = app
                             .world
@@ -348,6 +356,7 @@ pub fn winit_runner_with(mut app: App) {
                     }
                     WindowEvent::CursorLeft { .. } => {
                         // Component
+                        // TODO: Borrow checker complains
                         let mut cursor_position = app.world.get_mut::<WindowCursorPosition>(window_entity).expect("Window should have a WindowCursorComponent component");
                         cursor_position.update_position_from_backend(None);
 
@@ -388,6 +397,7 @@ pub fn winit_runner_with(mut app: App) {
                     WindowEvent::Touch(touch) => {
                         let mut touch_input_events = world.resource_mut::<Events<TouchInput>>();
                         
+                        // TODO: Borrow checker complains
                         let window_resolution = app
                             .world
                             .get::<WindowResolution>(window_entity)
@@ -426,6 +436,7 @@ pub fn winit_runner_with(mut app: App) {
                         });
 
                         // Components
+                        // TODO: Borrow checker complains
                         let mut window_resolution = app
                             .world
                             .get_mut::<WindowResolution>(window_entity)
@@ -478,6 +489,7 @@ pub fn winit_runner_with(mut app: App) {
                     WindowEvent::Focused(focused) => {
                         
                         // Component
+                        // TODO: Borrow checker complains
                         let mut entity_mut = app.world.get_entity_mut(window_entity).expect("Entity for window should exist");
 
                         if focused {
@@ -516,6 +528,7 @@ pub fn winit_runner_with(mut app: App) {
                     WindowEvent::Moved(position) => {
                         let position = ivec2(position.x, position.y);
                         // Component
+                        // TODO: Borrow checker complains
                         let mut window_position = app
                             .world
                             .get_mut::<WindowPosition>(window_entity)
@@ -557,6 +570,7 @@ pub fn winit_runner_with(mut app: App) {
                 let winit_config = app.world.resource::<WinitSettings>();
                 let update = if winit_state.active {
                     // True if _any_ windows are currently being focused
+                    // TODO: Borrow checker complains
                     let mut windows_focused_query = app
                         .world
                         .query_filtered::<Entity, (With<Window>, With<WindowCurrentlyFocused>)>();
@@ -586,6 +600,7 @@ pub fn winit_runner_with(mut app: App) {
                     let winit_config = app.world.resource::<WinitSettings>();
 
                     // True if _any_ windows are currently being focused
+                    // TODO: Borrow checker complains
                     let mut windows_focused_query = app
                         .world
                         .query_filtered::<Entity, (With<Window>, With<WindowCurrentlyFocused>)>();
