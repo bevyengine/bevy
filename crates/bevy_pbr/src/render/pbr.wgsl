@@ -305,9 +305,15 @@ fn point_light(
 
     var spot_attenuation = 1.0;
     if ((light.flags & POINT_LIGHT_FLAGS_IS_SPOTLIGHT_BIT) != 0u) {
-        let spot_dir = light.light_custom_data.xyz;
+        var spot_dir = vec3<f32>(light.light_custom_data.xy, 0.0);
+        // reconstruct spot dir from x/y and z-direction flag
+        spot_dir.z = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.y * spot_dir.y);
+        if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Z_NEGATIVE) != 0u) {
+            spot_dir.z = -spot_dir.z;
+        }
+
         let angle: f32 = acos(dot(spot_dir, -light_to_frag) / length(light_to_frag));
-        spot_attenuation = 1.0 - saturate((angle - light.light_custom_data.w) / (light.spot_angle_outer - light.light_custom_data.w));
+        spot_attenuation = 1.0 - saturate((angle - light.light_custom_data.z) / (light.light_custom_data.w - light.light_custom_data.z));
     }
 
     // Specular.
@@ -378,8 +384,15 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
 
     if ((light.flags & POINT_LIGHT_FLAGS_IS_SPOTLIGHT_BIT) != 0u) {
         // construct the light view matrix
+        var spot_dir = vec3<f32>(light.light_custom_data.xy, 0.0);
+        // reconstruct spot dir from x/y and z-direction flag
+        spot_dir.z = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.y * spot_dir.y);
+        if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Z_NEGATIVE) != 0u) {
+            spot_dir.z = -spot_dir.z;
+        }
+
         // view matrix z_axis is the reverse of transform.forward()
-        let fwd = -light.light_custom_data.xyz;
+        let fwd = -spot_dir;
         let distance_to_light = dot(fwd, surface_to_light);
         let offset_position = -surface_to_light + (light.shadow_depth_bias * normalize(surface_to_light)) + (surface_normal.xyz * light.shadow_normal_bias) * distance_to_light;
 
@@ -398,7 +411,7 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
 
         // divide xy by perspective matrix "f" and by -projected.z (projected.z is -projection matrix's w)
         // to get ndc coordinates
-        let f_div_minus_z = 1.0 / (tan(light.spot_angle_outer) * -projected_position.z);
+        let f_div_minus_z = 1.0 / (tan(light.light_custom_data.w) * -projected_position.z);
         let shadow_xy_ndc = projected_position.xy * f_div_minus_z;
         // convert to uv coordinates
         let shadow_uv = shadow_xy_ndc * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);

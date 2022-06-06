@@ -9,7 +9,9 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{
+    const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
+};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -83,14 +85,14 @@ pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 #[derive(Copy, Clone, AsStd140, AsStd430, Default, Debug)]
 pub struct GpuPointLight {
     // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
-    // For spotlights: the direction and inner angle
+    // For spotlights: 2 components of the direction (x,y), and inner angle
     light_custom_data: Vec4,
     color_inverse_square_range: Vec4,
     position_radius: Vec4,
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
-    spot_angle_outer: f32,
+    // spot_angle_outer: f32,
 }
 
 pub enum GpuPointLights {
@@ -179,6 +181,7 @@ bitflags::bitflags! {
     struct PointLightFlags: u32 {
         const SHADOWS_ENABLED            = (1 << 0);
         const IS_SPOTLIGHT               = (1 << 1);
+        const SPOTLIGHT_Z_NEGATIVE       = (1 << 2);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -794,31 +797,31 @@ pub fn prepare_lights(
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
 
-        let (light_data, spot_angle_outer) = match light.spotlight_angles {
+        let light_custom_data = match light.spotlight_angles {
             Some((inner, outer)) => {
                 flags |= PointLightFlags::IS_SPOTLIGHT;
-                (
-                    // For spotlights: the direction and inner angle
-                    light.transform.forward().extend(inner),
-                    outer,
-                )
+
+                let light_direction = light.transform.forward();
+                if light_direction.z < 0.0 {
+                    flags |= PointLightFlags::SPOTLIGHT_Z_NEGATIVE;
+                }
+
+                // For spotlights: the direction (x,y) and angles (inner,outer)
+                light_direction.xy().extend(inner).extend(outer)
             }
             None => {
-                (
-                    // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
-                    Vec4::new(
-                        cube_face_projection.z_axis.z,
-                        cube_face_projection.z_axis.w,
-                        cube_face_projection.w_axis.z,
-                        cube_face_projection.w_axis.w,
-                    ),
-                    0.0,
+                // For pointlights: the lower-right 2x2 values of the projection matrix 22 23 32 33
+                Vec4::new(
+                    cube_face_projection.z_axis.z,
+                    cube_face_projection.z_axis.w,
+                    cube_face_projection.w_axis.z,
+                    cube_face_projection.w_axis.w,
                 )
             }
         };
 
         gpu_point_lights.push(GpuPointLight {
-            light_custom_data: light_data,
+            light_custom_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
             color_inverse_square_range: (Vec4::from_slice(&light.color.as_linear_rgba_f32())
@@ -829,7 +832,6 @@ pub fn prepare_lights(
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
-            spot_angle_outer,
         });
         global_light_meta.entity_to_index.insert(entity, index);
     }
