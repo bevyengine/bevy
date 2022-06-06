@@ -43,8 +43,7 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_mut,
-    unused_variables
+    unused_mut
 )]
 
 use std::ptr::null_mut;
@@ -440,7 +439,6 @@ unsafe fn GenerateTSpaces(
     geometry: &impl Geometry,
 ) -> bool {
     let mut iMaxNrFaces: usize = 0;
-    let mut iUniqueTspaces = 0;
     for g in 0..iNrActiveGroups {
         if iMaxNrFaces < (*pGroups.offset(g as isize)).iNrFaces as usize {
             iMaxNrFaces = (*pGroups.offset(g as isize)).iNrFaces as usize
@@ -454,12 +452,9 @@ unsafe fn GenerateTSpaces(
     let mut pUniSubGroups = vec![SSubGroup::zero(); iMaxNrFaces];
     let mut pTmpMembers = vec![0i32; iMaxNrFaces];
 
-    iUniqueTspaces = 0;
-
     for g in 0..iNrActiveGroups {
         let mut pGroup: *const SGroup = &*pGroups.offset(g as isize) as *const SGroup;
         let mut iUniqueSubGroups = 0;
-        let mut s = 0;
 
         for i in 0..(*pGroup).iNrFaces {
             let f: i32 = *(*pGroup).pFaceIndices.offset(i as isize);
@@ -468,8 +463,6 @@ unsafe fn GenerateTSpaces(
                 iNrFaces: 0,
                 pTriMembers: Vec::new(),
             };
-            let mut vOs = Vec3::new(0.0, 0.0, 0.0);
-            let mut vOt = Vec3::new(0.0, 0.0, 0.0);
             if (*pTriInfos.offset(f as isize)).AssignedGroup[0usize] == pGroup as *mut SGroup {
                 index = 0i32
             } else if (*pTriInfos.offset(f as isize)).AssignedGroup[1usize] == pGroup as *mut SGroup
@@ -486,10 +479,10 @@ unsafe fn GenerateTSpaces(
             let mut vOt = (*pTriInfos.offset(f as isize)).vOt
                 - (n.dot((*pTriInfos.offset(f as isize)).vOt) * n);
             if VNotZero(vOs) {
-                vOs = Normalize(vOs)
+                vOs = vOs.normalize()
             }
             if VNotZero(vOt) {
-                vOt = Normalize(vOt)
+                vOt = vOt.normalize()
             }
             let iOF_1 = (*pTriInfos.offset(f as isize)).iOrgFaceNumber;
             let mut iMembers = 0;
@@ -502,10 +495,10 @@ unsafe fn GenerateTSpaces(
                 let mut vOt2 = (*pTriInfos.offset(t as isize)).vOt
                     - (n.dot((*pTriInfos.offset(t as isize)).vOt) * n);
                 if VNotZero(vOs2) {
-                    vOs2 = Normalize(vOs2)
+                    vOs2 = vOs2.normalize()
                 }
                 if VNotZero(vOt2) {
-                    vOt2 = Normalize(vOt2)
+                    vOt2 = vOt2.normalize()
                 }
                 let bAny: bool = ((*pTriInfos.offset(f as isize)).iFlag
                     | (*pTriInfos.offset(t as isize)).iFlag)
@@ -564,7 +557,6 @@ unsafe fn GenerateTSpaces(
                 (*pTS_out).bOrient = (*pGroup).bOrientPreservering
             }
         }
-        iUniqueTspaces += iUniqueSubGroups;
     }
     return true;
 }
@@ -592,24 +584,20 @@ unsafe fn AvgTSpace(mut pTS0: *const STSpace, mut pTS1: *const STSpace) -> STSpa
         ts_res.vOs = (*pTS0).vOs + (*pTS1).vOs;
         ts_res.vOt = (*pTS0).vOt + (*pTS1).vOt;
         if VNotZero(ts_res.vOs) {
-            ts_res.vOs = Normalize(ts_res.vOs)
+            ts_res.vOs = ts_res.vOs.normalize();
         }
         if VNotZero(ts_res.vOt) {
-            ts_res.vOt = Normalize(ts_res.vOt)
+            ts_res.vOt = ts_res.vOt.normalize();
         }
     }
     return ts_res;
 }
 
-unsafe fn Normalize(v: Vec3) -> Vec3 {
-    return (1.0 / v.length()) * v;
-}
-
-unsafe fn VNotZero(v: Vec3) -> bool {
+fn VNotZero(v: Vec3) -> bool {
     NotZero(v.x) || NotZero(v.y) || NotZero(v.z)
 }
 
-unsafe fn NotZero(fX: f32) -> bool {
+fn NotZero(fX: f32) -> bool {
     fX.abs() > 1.17549435e-38f32
 }
 
@@ -630,10 +618,6 @@ unsafe fn EvalTspace(
             .iFlag
             .contains(TriangleFlags::GROUP_WITH_ANY)
         {
-            let mut vOs = Vec3::new(0.0, 0.0, 0.0);
-            let mut vOt = Vec3::new(0.0, 0.0, 0.0);
-
-            let mut fCos: f32 = 0.;
             let mut i: i32 = -1i32;
 
             if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentitive {
@@ -650,10 +634,10 @@ unsafe fn EvalTspace(
             let mut vOt = (*pTriInfos.offset(f as isize)).vOt
                 - (n.dot((*pTriInfos.offset(f as isize)).vOt) * n);
             if VNotZero(vOs) {
-                vOs = Normalize(vOs)
+                vOs = vOs.normalize();
             }
             if VNotZero(vOt) {
-                vOt = Normalize(vOt)
+                vOt = vOt.normalize()
             }
             let i2 =
                 *piTriListIn.offset((3i32 * f + if i < 2i32 { i + 1i32 } else { 0i32 }) as isize);
@@ -667,11 +651,11 @@ unsafe fn EvalTspace(
             let v2 = p2 - p1;
             let mut v1 = v1 - (n.dot(v1) * n);
             if VNotZero(v1) {
-                v1 = Normalize(v1)
+                v1 = v1.normalize()
             }
             let mut v2 = v2 - (n.dot(v2) * n);
             if VNotZero(v2) {
-                v2 = Normalize(v2)
+                v2 = v2.normalize()
             }
             let fCos = v1.dot(v2);
 
@@ -693,10 +677,10 @@ unsafe fn EvalTspace(
         }
     }
     if VNotZero(res.vOs) {
-        res.vOs = Normalize(res.vOs)
+        res.vOs = res.vOs.normalize()
     }
     if VNotZero(res.vOt) {
-        res.vOt = Normalize(res.vOt)
+        res.vOt = res.vOt.normalize()
     }
     if fAngleSum > 0i32 as f32 {
         res.fMagS /= fAngleSum;
@@ -712,7 +696,6 @@ unsafe fn Build4RuleGroups(
     mut piTriListIn: *const i32,
     iNrTrianglesIn: i32,
 ) -> i32 {
-    let iNrMaxGroups: i32 = iNrTrianglesIn * 3i32;
     let mut iNrActiveGroups: i32 = 0i32;
     let mut iOffset: i32 = 0i32;
 
@@ -755,6 +738,7 @@ unsafe fn Build4RuleGroups(
                         .iFlag
                         .contains(TriangleFlags::ORIENT_PRESERVING);
                     let bDiff: bool = if bOrPre != bOrPre2 { true } else { false };
+                    debug_assert!(bAnswer || bDiff)
                 }
                 if neigh_indexR >= 0i32 {
                     let bAnswer_0: bool = AssignRecur(
@@ -767,6 +751,7 @@ unsafe fn Build4RuleGroups(
                         .iFlag
                         .contains(TriangleFlags::ORIENT_PRESERVING);
                     let bDiff_0: bool = if bOrPre != bOrPre2_0 { true } else { false };
+                    debug_assert!(bAnswer_0 || bDiff_0)
                 }
                 iOffset += (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces
             }
@@ -968,11 +953,6 @@ unsafe fn BuildNeighborsFast(
     iNrTrianglesIn: i32,
 ) {
     // build array of edges
-    // could replace with a random seed?
-    let mut uSeed: u32 = 39871946i32 as u32;
-    let mut iEntries: i32 = 0i32;
-    let mut iCurStartIndex: i32 = -1i32;
-
     for f in 0..iNrTrianglesIn {
         for i in 0..3i32 {
             let i0: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
@@ -1267,7 +1247,6 @@ unsafe fn GenerateSharedVerticesIndexList(
             vP_1.z
         };
         let iCell_0 = FindGridCell(fMin, fMax, fVal_0);
-        let mut pTable: *mut i32 = 0 as *mut i32;
         let pTable = piHashTable
             .as_mut_ptr()
             .offset(piHashOffsets[iCell_0] as isize);
