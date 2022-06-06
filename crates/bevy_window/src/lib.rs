@@ -3,25 +3,25 @@ mod event;
 mod raw_window_handle;
 mod system;
 mod window;
-mod windows;
+mod window_commands;
 
 pub use crate::raw_window_handle::*;
 pub use cursor::*;
 pub use event::*;
 pub use system::*;
 pub use window::*;
-pub use windows::*;
+pub use window_commands::*;
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-        Window, WindowDescriptor, WindowMoved, Windows,
+        Window, WindowCommands, WindowCommandsExtension, WindowDescriptor, WindowMoved,
     };
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{event::Events, schedule::SystemLabel};
+use bevy_ecs::{entity::Entity, event::Events, schedule::SystemLabel};
 
 pub struct WindowPlugin {
     /// Whether to create a window when added.
@@ -36,7 +36,8 @@ pub struct WindowPlugin {
     /// surprise your users. It is recommended to leave this setting as `true`.
     ///
     /// If true, this plugin will add [`exit_on_all_closed`] to [`CoreStage::Update`].
-    pub exit_on_all_closed: bool,
+    // TODO: Update documentation here
+    pub exit_condition: ExitCondition,
     /// Whether to close windows when they are requested to be closed (i.e.
     /// when the close button is pressed)
     ///
@@ -50,7 +51,7 @@ impl Default for WindowPlugin {
     fn default() -> Self {
         WindowPlugin {
             add_primary_window: true,
-            exit_on_all_closed: true,
+            exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,
         }
     }
@@ -88,9 +89,16 @@ impl Plugin for WindowPlugin {
             });
         }
 
-        if self.exit_on_all_closed {
-            app.add_system(exit_on_all_closed);
+        match self.exit_condition {
+            ExitCondition::OnPrimaryClosed => {
+                app.add_system(exit_on_primary_closed);
+            }
+            ExitCondition::OnAllClosed => {
+                app.add_system(exit_on_all_closed);
+            }
+            ExitCondition::DontExit => {}
         }
+
         if self.close_when_requested {
             app.add_system(close_when_requested);
         }
@@ -99,3 +107,12 @@ impl Plugin for WindowPlugin {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub struct ModifiesWindows;
+
+pub enum ExitCondition {
+    /// Close application when the primary window is closed
+    OnPrimaryClosed,
+    /// Close application when all windows are closed
+    OnAllClosed,
+    /// Keep application running headless even after closing all windows
+    DontExit,
+}
