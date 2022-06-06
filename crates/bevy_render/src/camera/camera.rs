@@ -106,9 +106,9 @@ impl Default for Camera {
 impl Camera {
     /// Converts a physical size in this `Camera` to a logical size.
     #[inline]
-    pub fn physical_to_logical(&self, input: UVec2) -> Option<Vec2> {
+    pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
         let scale = self.computed.target_info.as_ref()?.scale_factor;
-        Some((input.as_dvec2() / scale).as_vec2())
+        Some((physical_size.as_dvec2() / scale).as_vec2())
     }
 
     /// The rendered physical bounds (minimum, maximum) of the camera. If the `viewport` field is
@@ -127,10 +127,7 @@ impl Camera {
     #[inline]
     pub fn logical_viewport_rect(&self) -> Option<(Vec2, Vec2)> {
         let (min, max) = self.physical_viewport_rect()?;
-        Some((
-            self.physical_to_logical(min)?,
-            self.physical_to_logical(max)?,
-        ))
+        Some((self.to_logical(min)?, self.to_logical(max)?))
     }
 
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
@@ -142,7 +139,7 @@ impl Camera {
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
         self.viewport
             .as_ref()
-            .and_then(|v| self.physical_to_logical(v.physical_size))
+            .and_then(|v| self.to_logical(v.physical_size))
             .or_else(|| self.logical_target_size())
     }
 
@@ -166,7 +163,7 @@ impl Camera {
         self.computed
             .target_info
             .as_ref()
-            .and_then(|t| self.physical_to_logical(t.physical_size))
+            .and_then(|t| self.to_logical(t.physical_size))
     }
 
     /// The full physical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
