@@ -1161,6 +1161,7 @@ impl<'a> SystemParam for Components<'a> {
 }
 
 /// The [`SystemParamState`] of [`Components`].
+#[doc(hidden)]
 pub struct ComponentsState;
 
 // SAFE: no component value access

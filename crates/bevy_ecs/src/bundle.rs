@@ -77,7 +77,7 @@ use std::{any::TypeId, collections::HashMap};
 /// - [`Bundle::from_components`] must call `func` exactly once for each [`DataId`] returned by
 ///   [`Bundle::component_ids`].
 pub unsafe trait Bundle: Send + Sync + 'static {
-    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`WorldData`]s
+    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`DataId`]s
     fn component_ids(components: &mut WorldData, storages: &mut Storages) -> Vec<DataId>;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
@@ -85,13 +85,13 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     ///
     /// # Safety
     /// Caller must return data for each component in the bundle, in the order of this bundle's
-    /// [`WorldData`]s
+    /// [`DataId`]s
     unsafe fn from_components<T, F>(ctx: &mut T, func: F) -> Self
     where
         F: FnMut(&mut T) -> OwningPtr<'_>,
         Self: Sized;
 
-    /// Calls `func` on each value, in the order of this bundle's [`WorldData`]s. This will
+    /// Calls `func` on each value, in the order of this bundle's [`DataId`]s. This will
     /// [`std::mem::forget`] the bundle fields, so callers are responsible for dropping the fields
     /// if that is desirable.
     fn get_components(self, func: impl FnMut(OwningPtr<'_>));
