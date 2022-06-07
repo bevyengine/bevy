@@ -1,3 +1,4 @@
+use crate::executor::{Executor, LocalExecutor};
 use std::{
     future::Future,
     mem,
@@ -5,7 +6,6 @@ use std::{
     sync::Arc,
     thread::{self, JoinHandle},
 };
-use crate::executor::{Executor, LocalExecutor};
 
 use futures_lite::{future, pin};
 
@@ -185,8 +185,7 @@ impl TaskPool {
             // validate safety.
             let executor: &Executor = &*self.executor;
             let executor: &'scope Executor = unsafe { mem::transmute(executor) };
-            let local_executor: &'scope LocalExecutor =
-                unsafe { mem::transmute(local_executor) };
+            let local_executor: &'scope LocalExecutor = unsafe { mem::transmute(local_executor) };
             let mut scope = Scope {
                 executor,
                 local_executor,

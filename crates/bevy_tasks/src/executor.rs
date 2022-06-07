@@ -20,7 +20,7 @@ pub use async_task::Task;
 #[derive(Debug)]
 pub struct Executor<'a> {
     /// The executor state.
-    state: once_cell::sync::OnceCell<Arc<State>>,
+    state: Arc<State>,
 
     /// Makes the `'a` lifetime invariant.
     _marker: PhantomData<std::cell::UnsafeCell<&'a ()>>,
@@ -34,25 +34,20 @@ impl RefUnwindSafe for Executor<'_> {}
 
 impl<'a> Executor<'a> {
     /// Creates a new executor.
-    pub const fn new() -> Executor<'a> {
+    pub fn new() -> Executor<'a> {
         Executor {
-            state: once_cell::sync::OnceCell::new(),
+            state: Arc::new(State::new()),
             _marker: PhantomData,
         }
     }
 
-    /// Returns `true` if there are no unfinished tasks.
-    pub fn is_empty(&self) -> bool {
-        self.state().active.lock().unwrap().is_empty()
-    }
-
     /// Spawns a task onto the executor.
     pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
-        let mut active = self.state().active.lock().unwrap();
+        let mut active = self.state.active.lock().unwrap();
 
         // Remove the task from the set of active tasks when the future finishes.
         let index = active.vacant_entry().key();
-        let state = self.state().clone();
+        let state = self.state.clone();
         let future = async move {
             let _guard = CallOnDrop(move || drop(state.active.lock().unwrap().try_remove(index)));
             future.await
@@ -68,12 +63,12 @@ impl<'a> Executor<'a> {
 
     /// Attempts to run a task if at least one is scheduled.
     pub fn try_tick(&self) -> bool {
-        match self.state().queue.pop() {
+        match self.state.queue.pop() {
             Err(_) => false,
             Ok(runnable) => {
                 // Notify another ticker now to pick up where this ticker left off, just in case
                 // running the task takes a long time.
-                self.state().notify();
+                self.state.notify();
 
                 // Run the task.
                 runnable.run();
@@ -88,14 +83,13 @@ impl<'a> Executor<'a> {
     ///
     /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
     pub async fn tick(&self) {
-        let state = self.state();
-        let runnable = Ticker::new(state).runnable().await;
+        let runnable = Ticker::new(&self.state).runnable().await;
         runnable.run();
     }
 
     /// Runs the executor until the given future completes.
     pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
-        let runner = Runner::new(self.state());
+        let runner = Runner::new(&self.state);
 
         // A future that runs tasks forever.
         let run_forever = async {
@@ -114,7 +108,7 @@ impl<'a> Executor<'a> {
 
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule(&self) -> impl Fn(Runnable) + Send + Sync + 'static {
-        let state = self.state().clone();
+        let state = self.state.clone();
 
         // TODO(stjepang): If possible, push into the current local queue and notify the ticker.
         move |runnable| {
@@ -122,24 +116,17 @@ impl<'a> Executor<'a> {
             state.notify();
         }
     }
-
-    /// Returns a reference to the inner state.
-    fn state(&self) -> &Arc<State> {
-        self.state.get_or_init(|| Arc::new(State::new()))
-    }
 }
 
 impl Drop for Executor<'_> {
     fn drop(&mut self) {
-        if let Some(state) = self.state.get() {
-            let mut active = state.active.lock().unwrap();
-            for w in active.drain() {
-                w.wake();
-            }
-            drop(active);
-
-            while state.queue.pop().is_ok() {}
+        let mut active = self.state.active.lock().unwrap();
+        for w in active.drain() {
+            w.wake();
         }
+        drop(active);
+
+        while self.state.queue.pop().is_ok() {}
     }
 }
 
@@ -155,7 +142,7 @@ impl<'a> Default for Executor<'a> {
 #[derive(Debug)]
 pub struct LocalExecutor<'a> {
     /// The inner executor.
-    inner: once_cell::unsync::OnceCell<Executor<'a>>,
+    inner: Executor<'a>,
 
     /// Makes the type `!Send` and `!Sync`.
     _marker: PhantomData<Rc<()>>,
@@ -166,25 +153,20 @@ impl RefUnwindSafe for LocalExecutor<'_> {}
 
 impl<'a> LocalExecutor<'a> {
     /// Creates a single-threaded executor.
-    pub const fn new() -> LocalExecutor<'a> {
+    pub fn new() -> LocalExecutor<'a> {
         LocalExecutor {
-            inner: once_cell::unsync::OnceCell::new(),
+            inner: Executor::new(),
             _marker: PhantomData,
         }
     }
 
-    /// Returns `true` if there are no unfinished tasks.
-    pub fn is_empty(&self) -> bool {
-        self.inner().is_empty()
-    }
-
     /// Spawns a task onto the executor.
     pub fn spawn<T: 'a>(&self, future: impl Future<Output = T> + 'a) -> Task<T> {
-        let mut active = self.inner().state().active.lock().unwrap();
+        let mut active = self.inner.state.active.lock().unwrap();
 
         // Remove the task from the set of active tasks when the future finishes.
         let index = active.vacant_entry().key();
-        let state = self.inner().state().clone();
+        let state = self.inner.state.clone();
         let future = async move {
             let _guard = CallOnDrop(move || drop(state.active.lock().unwrap().try_remove(index)));
             future.await
@@ -202,7 +184,7 @@ impl<'a> LocalExecutor<'a> {
     ///
     /// Running a scheduled task means simply polling its future once.
     pub fn try_tick(&self) -> bool {
-        self.inner().try_tick()
+        self.inner.try_tick()
     }
 
     /// Runs a single task.
@@ -211,27 +193,22 @@ impl<'a> LocalExecutor<'a> {
     ///
     /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
     pub async fn tick(&self) {
-        self.inner().tick().await
+        self.inner.tick().await
     }
 
     /// Runs the executor until the given future completes.
     pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
-        self.inner().run(future).await
+        self.inner.run(future).await
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule(&self) -> impl Fn(Runnable) + Send + Sync + 'static {
-        let state = self.inner().state().clone();
+        let state = self.inner.state.clone();
 
         move |runnable| {
             state.queue.push(runnable).unwrap();
             state.notify();
         }
-    }
-
-    /// Returns a reference to the inner executor.
-    fn inner(&self) -> &Executor<'a> {
-        self.inner.get_or_init(Executor::new)
     }
 }
 

@@ -12,7 +12,6 @@ keywords = ["bevy"]
 futures-lite = "1.4.0"
 event-listener = "2.5.2"
 async-channel = "1.4.2"
-once_cell = "1.0"
 num_cpus = "1.0.1"
 concurrent-queue = "1.2"
 slab = "0.4"
