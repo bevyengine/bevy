@@ -16,7 +16,7 @@ use crate::{
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, WorldQuery},
-    storage::{Column, SparseSet, Storages},
+    storage::{Column, ResourceInfo, SparseSet, Storages},
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -1195,22 +1195,25 @@ impl World {
     unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
         // SAFE: resource archetype always exists
         let resources = &mut self.storages.resources;
-        let resource_components = &mut resources.components;
         let resources = &mut resources.resources;
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
         let components = &self.components;
-        resources.get_or_insert_with(component_id, || {
-            resource_components.insert(
-                component_id,
-                ArchetypeComponentInfo {
-                    archetype_component_id: ArchetypeComponentId::new(*archetype_component_count),
-                    storage_type: StorageType::Table,
-                },
-            );
-            *archetype_component_count += 1;
-            let component_info = components.get_info_unchecked(component_id);
-            Column::with_capacity(component_info, 1)
-        })
+        &mut resources
+            .get_or_insert_with(component_id, || {
+                let component_info = components.get_info_unchecked(component_id);
+                let info = ResourceInfo {
+                    data: Column::with_capacity(component_info, 1),
+                    component_info: ArchetypeComponentInfo {
+                        archetype_component_id: ArchetypeComponentId::new(
+                            *archetype_component_count,
+                        ),
+                        storage_type: StorageType::Table,
+                    },
+                };
+                *archetype_component_count += 1;
+                info
+            })
+            .data
     }
 
     pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
