@@ -1,6 +1,6 @@
 // Forked from async_executor
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::panic::{RefUnwindSafe, UnwindSafe};
@@ -36,9 +36,9 @@ impl RefUnwindSafe for Executor<'_> {}
 impl<'a> Executor<'a> {
     /// Creates a new executor.
     #[inline]
-    pub fn new(priorities: usize) -> Executor<'a> {
+    pub fn new(thread_counts: &[usize]) -> Executor<'a> {
         Executor {
-            state: Arc::new(State::new(priorities)),
+            state: Arc::new(State::new(thread_counts)),
             _marker: PhantomData,
         }
     }
@@ -85,8 +85,8 @@ impl<'a> Executor<'a> {
     }
 
     /// Runs the executor until the given future completes.
-    pub async fn run<T>(&self, priority: usize, future: impl Future<Output = T>) -> T {
-        let runner = Runner::new(priority, &self.state);
+    pub async fn run<T>(&self, priority: usize, thread_id: usize, future: impl Future<Output = T>) -> T {
+        let runner = Runner::new(priority, thread_id, &self.state);
 
         // A future that runs tasks forever.
         let run_forever = async {
@@ -148,7 +148,7 @@ impl<'a> LocalExecutor<'a> {
     /// Creates a single-threaded executor.
     pub fn new() -> LocalExecutor<'a> {
         LocalExecutor {
-            inner: Executor::new(1),
+            inner: Executor::new(&[1]),
             _marker: PhantomData,
         }
     }
@@ -204,7 +204,7 @@ struct State {
     queues: Box<[ConcurrentQueue<Runnable>]>,
 
     /// Local queues created by runners.
-    local_queues: Box<[RwLock<Vec<Arc<ConcurrentQueue<Runnable>>>>]>,
+    local_queues: Box<[Box<[Arc<ConcurrentQueue<Runnable>>]>]>,
 
     /// Set to `true` when a sleeping ticker is notified or no tickers are sleeping.
     notified: AtomicBool,
@@ -218,12 +218,21 @@ struct State {
 
 impl State {
     /// Creates state for a new executor.
-    fn new(priorities: usize) -> State {
-        let queues = (0..priorities)
+    fn new(thread_counts: &[usize]) -> State {
+        let queues = thread_counts
+            .iter()
             .map(|_| ConcurrentQueue::unbounded())
             .collect::<Vec<_>>();
-        let local_queues = (0..priorities)
-            .map(|_| RwLock::new(Vec::new()))
+        let local_queues = thread_counts
+            .iter()
+            .copied()
+            .map(|count| {
+                (0..count)
+                    .map(|_| ConcurrentQueue::bounded(512))
+                    .map(Arc::new)
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice()
+            })
             .collect::<Vec<_>>();
         State {
             queues: queues.into_boxed_slice(),
@@ -467,17 +476,15 @@ struct Runner<'a> {
 
 impl Runner<'_> {
     /// Creates a runner and registers it in the executor state.
-    fn new(priority: usize, state: &State) -> Runner<'_> {
+    fn new(priority: usize, thread_id: usize, state: &State) -> Runner<'_> {
+        let local = state.local_queues[priority][thread_id].clone();
         let runner = Runner {
             priority,
             state,
             ticker: Ticker::new(state),
-            local: Arc::new(ConcurrentQueue::bounded(512)),
+            local, // Arc::new(ConcurrentQueue::bounded(512)),
             ticks: AtomicUsize::new(0),
         };
-        state.local_queues[priority]
-            .write()
-            .push(runner.local.clone());
         runner
     }
 
@@ -506,7 +513,7 @@ impl Runner<'_> {
 
                 // // Try stealing from other runners local queues.
                 for priority in self.priority_iter() {
-                    let local_queues = self.state.local_queues[priority].read();
+                    let local_queues = &self.state.local_queues[priority];
 
                     // // Pick a random starting point in the iterator list and rotate the list.
                     let n = local_queues.len();
@@ -550,11 +557,6 @@ impl Runner<'_> {
 
 impl Drop for Runner<'_> {
     fn drop(&mut self) {
-        // Remove the local queue.
-        self.state.local_queues[self.priority]
-            .write()
-            .retain(|local| !Arc::ptr_eq(local, &self.local));
-
         // Re-schedule remaining tasks in the local queue.
         while let Ok(r) = self.local.pop() {
             r.schedule();

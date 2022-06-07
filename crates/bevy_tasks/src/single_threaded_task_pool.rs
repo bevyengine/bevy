@@ -1,6 +1,6 @@
+use crate::executor::LocalExecutor;
 pub use crate::task_pool_builder::TaskPoolBuilder;
 use crate::TaskGroup;
-use crate::executor::LocalExecutor;
 use std::{
     future::Future,
     mem,
@@ -53,8 +53,7 @@ impl TaskPool {
         T: Send + 'static,
     {
         let executor = &LocalExecutor::new();
-        let executor: &'scope LocalExecutor<'scope> =
-            unsafe { mem::transmute(executor) };
+        let executor: &'scope LocalExecutor<'scope> = unsafe { mem::transmute(executor) };
 
         let mut scope = Scope {
             executor,

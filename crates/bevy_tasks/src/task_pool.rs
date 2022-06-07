@@ -113,14 +113,18 @@ impl TaskPool {
             .get_number_of_threads(remaining_threads, total_threads);
         tracing::trace!("Compute Threads: {}", groups.compute);
 
-        let executor = Arc::new(Executor::new(TaskGroup::MAX_PRIORITY));
+        let mut thread_counts = vec![0; TaskGroup::MAX_PRIORITY];
+        thread_counts[TaskGroup::Compute.to_priority()] = groups.compute;
+        thread_counts[TaskGroup::IO.to_priority()] = groups.io;
+        thread_counts[TaskGroup::AsyncCompute.to_priority()] = groups.async_compute;
+        let executor = Arc::new(Executor::new(&thread_counts));
         let mut threads = Vec::with_capacity(total_threads);
         threads.extend((0..groups.compute).map(|i| {
             let shutdown_rx = shutdown_rx.clone();
             let executor = executor.clone();
             make_thread_builder(&builder, "Compute", i)
                 .spawn(move || {
-                    let future = executor.run(TaskGroup::Compute.to_priority(), shutdown_rx.recv());
+                    let future = executor.run(TaskGroup::Compute.to_priority(), i, shutdown_rx.recv());
                     // Use unwrap_err because we expect a Closed error
                     future::block_on(future).unwrap_err();
                 })
@@ -131,7 +135,7 @@ impl TaskPool {
             let executor = executor.clone();
             make_thread_builder(&builder, "IO", i)
                 .spawn(move || {
-                    let future = executor.run(TaskGroup::IO.to_priority(), shutdown_rx.recv());
+                    let future = executor.run(TaskGroup::IO.to_priority(), i, shutdown_rx.recv());
                     // Use unwrap_err because we expect a Closed error
                     future::block_on(future).unwrap_err();
                 })
@@ -143,7 +147,7 @@ impl TaskPool {
             make_thread_builder(&builder, "Async Compute", i)
                 .spawn(move || {
                     let future =
-                        executor.run(TaskGroup::AsyncCompute.to_priority(), shutdown_rx.recv());
+                        executor.run(TaskGroup::AsyncCompute.to_priority(), i, shutdown_rx.recv());
                     // Use unwrap_err because we expect a Closed error
                     future::block_on(future).unwrap_err();
                 })
