@@ -1,5 +1,6 @@
 pub use crate::task_pool_builder::TaskPoolBuilder;
 use crate::TaskGroup;
+use crate::executor::LocalExecutor;
 use std::{
     future::Future,
     mem,
@@ -51,8 +52,8 @@ impl TaskPool {
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
-        let executor = &async_executor::LocalExecutor::new();
-        let executor: &'scope async_executor::LocalExecutor<'scope> =
+        let executor = &LocalExecutor::new();
+        let executor: &'scope LocalExecutor<'scope> =
             unsafe { mem::transmute(executor) };
 
         let mut scope = Scope {
@@ -74,7 +75,7 @@ impl TaskPool {
 
     /// Spawns a static future onto the JS event loop. For now it is returning FakeTask
     /// instance with no-op detach method. Returning real Task is possible here, but tricky:
-    /// future is running on JS event loop, Task is running on async_executor::LocalExecutor
+    /// future is running on JS event loop, Task is running on LocalExecutor
     /// so some proxy future is needed. Moreover currently we don't have long-living
     /// LocalExecutor here (above `spawn` implementation creates temporary one)
     /// But for typical use cases it seems that current implementation should be sufficient:
@@ -114,7 +115,7 @@ impl FakeTask {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::LocalExecutor<'scope>,
+    executor: &'scope LocalExecutor<'scope>,
     // Vector to gather results of all futures spawned during scope run
     results: Vec<Arc<Mutex<Option<T>>>>,
 }
