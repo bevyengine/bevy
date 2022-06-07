@@ -481,9 +481,9 @@ impl Runner<'_> {
         runner
     }
 
-    fn priority_iter(&self) -> impl Iterator<Item=usize> {
-	// Prioritize the immediate responsibility of the runner, then search in reverse order
-	std::iter::once(self.priority).chain((self.priority + 1..self.state.queues.len()).rev())
+    fn priority_iter(&self) -> impl Iterator<Item = usize> {
+        // Prioritize the immediate responsibility of the runner, then search in reverse order
+        std::iter::once(self.priority).chain((self.priority + 1..self.state.queues.len()).rev())
     }
 
     /// Waits for the next runnable task to run.
@@ -510,6 +510,9 @@ impl Runner<'_> {
 
                     // // Pick a random starting point in the iterator list and rotate the list.
                     let n = local_queues.len();
+                    if n == 0 {
+                        continue;
+                    }
                     let start = fastrand::usize(..n);
                     let iter = local_queues
                         .iter()

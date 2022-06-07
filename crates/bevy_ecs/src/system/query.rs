@@ -566,7 +566,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each query result in parallel using the [`World`]'s [`ComputeTaskPool`].
+    /// Runs `f` on each query result in parallel using the [`World`]'s [`TaskPool`].
     ///
     /// This can only be called for immutable data, see [`Self::par_for_each_mut`] for
     /// mutable access.
@@ -575,7 +575,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// The items in the query get sorted into batches.
     /// Internally, this function spawns a group of futures that each take on a `batch_size` sized section of the items (or less if the division is not perfect).
-    /// Then, the tasks in the [`ComputeTaskPool`] work through these futures.
+    /// Then, the tasks in the [`TaskPool`] work through these futures.
     ///
     /// You can use this value to tune between maximum multithreading ability (many small batches) and minimum parallelization overhead (few big batches).
     /// Rule of thumb: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
@@ -587,10 +587,10 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///* `f` - The function to run on each item in the query
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
+    /// The [`TaskPool`] resource must be added to the `World` before using this method. If using this from a query
     /// that is being initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
     pub fn par_for_each<'this>(
         &'this self,
@@ -611,14 +611,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each query result in parallel using the [`World`]'s [`ComputeTaskPool`].
+    /// Runs `f` on each query result in parallel using the [`World`]'s [`TaskPool`].
     /// See [`Self::par_for_each`] for more details.
     ///
     /// # Panics
-    /// [`ComputeTaskPool`] was not stored in the world at initialzation. If using this from a query
+    /// [`TaskPool`] was not stored in the world at initialzation. If using this from a query
     /// that is being initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
     pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, Q>) + Send + Sync + Clone>(
         &'a mut self,

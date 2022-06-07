@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_tasks::{ComputeTaskPool, TaskPool};
+use bevy_tasks::TaskPool;
 use glam::*;
 
 #[derive(Component, Copy, Clone)]
@@ -39,7 +39,7 @@ impl Benchmark {
             });
         }
 
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
+        world.insert_resource(TaskPool::default());
         let mut system = IntoSystem::into_system(sys);
         system.initialize(&mut world);
         system.update_archetype_component_access(&world);

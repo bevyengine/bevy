@@ -24,7 +24,6 @@ pub struct ParallelCommandsState {
 /// Example:
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_tasks::ComputeTaskPool;
 /// #
 /// # #[derive(Component)]
 /// # struct Velocity;
