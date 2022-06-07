@@ -13,16 +13,16 @@ use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
+use sprawl::{number::Number, Sprawl};
 use std::fmt;
-use stretch2::{number::Number, Stretch};
 
 pub struct FlexSurface {
-    entity_to_stretch: HashMap<Entity, stretch2::node::Node>,
-    window_nodes: HashMap<WindowId, stretch2::node::Node>,
-    stretch: Stretch,
+    entity_to_sprawl: HashMap<Entity, sprawl::node::Node>,
+    window_nodes: HashMap<WindowId, sprawl::node::Node>,
+    sprawl: Sprawl,
 }
 
-// SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/stretch/issues/69
+// SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/sprawl/issues/69
 // TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
 #[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
@@ -30,16 +30,16 @@ unsafe impl Sync for FlexSurface {}
 
 fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<HashMap<Entity, stretch2::node::Node>>();
-    _assert_send_sync::<HashMap<WindowId, stretch2::node::Node>>();
-    // FIXME https://github.com/vislyhq/stretch/issues/69
-    // _assert_send_sync::<Stretch>();
+    _assert_send_sync::<HashMap<Entity, sprawl::node::Node>>();
+    _assert_send_sync::<HashMap<WindowId, sprawl::node::Node>>();
+    // FIXME https://github.com/vislyhq/sprawl/issues/69
+    // _assert_send_sync::<sprawl>();
 }
 
 impl fmt::Debug for FlexSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("FlexSurface")
-            .field("entity_to_stretch", &self.entity_to_stretch)
+            .field("entity_to_sprawl", &self.entity_to_sprawl)
             .field("window_nodes", &self.window_nodes)
             .finish()
     }
@@ -48,9 +48,9 @@ impl fmt::Debug for FlexSurface {
 impl Default for FlexSurface {
     fn default() -> Self {
         Self {
-            entity_to_stretch: Default::default(),
+            entity_to_sprawl: Default::default(),
             window_nodes: Default::default(),
-            stretch: Stretch::new(),
+            sprawl: Sprawl::new(),
         }
     }
 }
@@ -58,17 +58,15 @@ impl Default for FlexSurface {
 impl FlexSurface {
     pub fn upsert_node(&mut self, entity: Entity, style: &Style, scale_factor: f64) {
         let mut added = false;
-        let stretch = &mut self.stretch;
-        let stretch_style = convert::from_style(scale_factor, style);
-        let stretch_node = self.entity_to_stretch.entry(entity).or_insert_with(|| {
+        let sprawl = &mut self.sprawl;
+        let sprawl_style = convert::from_style(scale_factor, style);
+        let sprawl_node = self.entity_to_sprawl.entry(entity).or_insert_with(|| {
             added = true;
-            stretch.new_node(stretch_style, &Vec::new()).unwrap()
+            sprawl.new_node(sprawl_style, &Vec::new()).unwrap()
         });
 
         if !added {
-            self.stretch
-                .set_style(*stretch_node, stretch_style)
-                .unwrap();
+            self.sprawl.set_style(*sprawl_node, sprawl_style).unwrap();
         }
     }
 
@@ -79,10 +77,10 @@ impl FlexSurface {
         calculated_size: CalculatedSize,
         scale_factor: f64,
     ) {
-        let stretch = &mut self.stretch;
-        let stretch_style = convert::from_style(scale_factor, style);
-        let measure = stretch2::node::MeasureFunc::Boxed(Box::new(
-            move |constraints: stretch2::geometry::Size<Number>| {
+        let sprawl = &mut self.sprawl;
+        let sprawl_style = convert::from_style(scale_factor, style);
+        let measure = sprawl::node::MeasureFunc::Boxed(Box::new(
+            move |constraints: sprawl::geometry::Size<Number>| {
                 let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
                 match (constraints.width, constraints.height) {
                     (Number::Undefined, Number::Undefined) => {}
@@ -103,24 +101,22 @@ impl FlexSurface {
             },
         ));
 
-        if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
-            self.stretch
-                .set_style(*stretch_node, stretch_style)
-                .unwrap();
-            self.stretch
-                .set_measure(*stretch_node, Some(measure))
+        if let Some(sprawl_node) = self.entity_to_sprawl.get(&entity) {
+            self.sprawl.set_style(*sprawl_node, sprawl_style).unwrap();
+            self.sprawl
+                .set_measure(*sprawl_node, Some(measure))
                 .unwrap();
         } else {
-            let stretch_node = stretch.new_leaf(stretch_style, measure).unwrap();
-            self.entity_to_stretch.insert(entity, stretch_node);
+            let sprawl_node = sprawl.new_leaf(sprawl_style, measure).unwrap();
+            self.entity_to_sprawl.insert(entity, sprawl_node);
         }
     }
 
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
-        let mut stretch_children = Vec::with_capacity(children.len());
+        let mut sprawl_children = Vec::with_capacity(children.len());
         for child in children.iter() {
-            if let Some(stretch_node) = self.entity_to_stretch.get(child) {
-                stretch_children.push(*stretch_node);
+            if let Some(sprawl_node) = self.entity_to_sprawl.get(child) {
+                sprawl_children.push(*sprawl_node);
             } else {
                 warn!(
                     "Unstyled child in a UI entity hierarchy. You are using an entity \
@@ -129,27 +125,27 @@ without UI components as a child of an entity with UI components, results may be
             }
         }
 
-        let stretch_node = self.entity_to_stretch.get(&entity).unwrap();
-        self.stretch
-            .set_children(*stretch_node, &stretch_children)
+        let sprawl_node = self.entity_to_sprawl.get(&entity).unwrap();
+        self.sprawl
+            .set_children(*sprawl_node, &sprawl_children)
             .unwrap();
     }
 
     pub fn update_window(&mut self, window: &Window) {
-        let stretch = &mut self.stretch;
+        let sprawl = &mut self.sprawl;
         let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
-            stretch
-                .new_node(stretch2::style::Style::default(), &Vec::new())
+            sprawl
+                .new_node(sprawl::style::Style::default(), &Vec::new())
                 .unwrap()
         });
 
-        stretch
+        sprawl
             .set_style(
                 *node,
-                stretch2::style::Style {
-                    size: stretch2::geometry::Size {
-                        width: stretch2::style::Dimension::Points(window.physical_width() as f32),
-                        height: stretch2::style::Dimension::Points(window.physical_height() as f32),
+                sprawl::style::Style {
+                    size: sprawl::geometry::Size {
+                        width: sprawl::style::Dimension::Points(window.physical_width() as f32),
+                        height: sprawl::style::Dimension::Points(window.physical_height() as f32),
                     },
                     ..Default::default()
                 },
@@ -162,28 +158,28 @@ without UI components as a child of an entity with UI components, results may be
         window_id: WindowId,
         children: impl Iterator<Item = Entity>,
     ) {
-        let stretch_node = self.window_nodes.get(&window_id).unwrap();
+        let sprawl_node = self.window_nodes.get(&window_id).unwrap();
         let child_nodes = children
-            .map(|e| *self.entity_to_stretch.get(&e).unwrap())
-            .collect::<Vec<stretch2::node::Node>>();
-        self.stretch
-            .set_children(*stretch_node, &child_nodes)
+            .map(|e| *self.entity_to_sprawl.get(&e).unwrap())
+            .collect::<Vec<sprawl::node::Node>>();
+        self.sprawl
+            .set_children(*sprawl_node, &child_nodes)
             .unwrap();
     }
 
     pub fn compute_window_layouts(&mut self) {
         for window_node in self.window_nodes.values() {
-            self.stretch
-                .compute_layout(*window_node, stretch2::geometry::Size::undefined())
+            self.sprawl
+                .compute_layout(*window_node, sprawl::geometry::Size::undefined())
                 .unwrap();
         }
     }
 
-    pub fn get_layout(&self, entity: Entity) -> Result<&stretch2::result::Layout, FlexError> {
-        if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
-            self.stretch
-                .layout(*stretch_node)
-                .map_err(FlexError::StretchError)
+    pub fn get_layout(&self, entity: Entity) -> Result<&sprawl::result::Layout, FlexError> {
+        if let Some(sprawl_node) = self.entity_to_sprawl.get(&entity) {
+            self.sprawl
+                .layout(*sprawl_node)
+                .map_err(FlexError::SprawlError)
         } else {
             warn!(
                 "Styled child in a non-UI entity hierarchy. You are using an entity \
@@ -197,7 +193,7 @@ with UI components as a child of an entity without UI components, results may be
 #[derive(Debug)]
 pub enum FlexError {
     InvalidHierarchy,
-    StretchError(stretch2::Error),
+    SprawlError(sprawl::Error),
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
