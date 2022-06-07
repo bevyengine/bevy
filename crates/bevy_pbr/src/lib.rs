@@ -20,7 +20,10 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        bundle::{DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle, SpotlightBundle},
+        bundle::{
+            DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
+            SpotlightBundle,
+        },
         light::{AmbientLight, DirectionalLight, PointLight, SpotlightAngles},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
