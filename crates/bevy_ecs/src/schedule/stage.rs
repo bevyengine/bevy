@@ -7,8 +7,8 @@ use crate::{
         BoxedRunCriteria, DuplicateLabelStrategy, ExclusiveSystemContainer, GraphNode,
         InsertionPoint, ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
         RunCriteriaContainer, RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel,
-        RunCriteriaInner, RunCriteriaLabel, ShouldRun, SingleThreadedExecutor, SystemContainer,
-        SystemDescriptor, SystemLabel, SystemSet,
+        RunCriteriaInner, RunCriteriaLabelId, ShouldRun, SingleThreadedExecutor, SystemContainer,
+        SystemDescriptor, SystemLabelId, SystemSet,
     },
     world::{World, WorldId},
 };
@@ -621,7 +621,7 @@ impl SystemStage {
     /// Returns a map of run criteria labels to their indices.
     fn process_run_criteria(
         &mut self,
-    ) -> Result<HashMap<RunCriteriaLabel, usize>, DependencyGraphError<HashSet<RunCriteriaLabel>>>
+    ) -> Result<HashMap<RunCriteriaLabelId, usize>, DependencyGraphError<HashSet<RunCriteriaLabelId>>>
     {
         let graph = graph_utils::build_dependency_graph(&self.run_criteria);
         let order = graph_utils::topological_order(&graph)?;
@@ -678,8 +678,8 @@ impl SystemStage {
 /// and run criteria.
 fn process_systems(
     systems: &mut Vec<impl SystemContainer>,
-    run_criteria_labels: &HashMap<RunCriteriaLabel, usize>,
-) -> Result<(), DependencyGraphError<HashSet<SystemLabel>>> {
+    run_criteria_labels: &HashMap<RunCriteriaLabelId, usize>,
+) -> Result<(), DependencyGraphError<HashSet<SystemLabelId>>> {
     let mut graph = graph_utils::build_dependency_graph(systems);
     let order = graph_utils::topological_order(&graph)?;
     let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
@@ -972,9 +972,9 @@ impl Stage for SystemStage {
 mod tests {
     use crate::{
         schedule::{
-            ExclusiveSystemDescriptorCoercion, IntoSystemLabel, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage,
-            SystemLabel, SystemSet, SystemStage,
+            ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, RunCriteria,
+            RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage, SystemLabel,
+            SystemLabelId, SystemSet, SystemStage,
         },
         system::{In, IntoExclusiveSystem, Local, Query, ResMut},
         world::World,
@@ -1607,7 +1607,7 @@ mod tests {
 
         fn find_ambiguities_first_str_labels(
             systems: &[impl SystemContainer],
-        ) -> Vec<(SystemLabel, SystemLabel)> {
+        ) -> Vec<(SystemLabelId, SystemLabelId)> {
             find_ambiguities(systems)
                 .drain(..)
                 .map(|(index_a, index_b, _conflicts)| {

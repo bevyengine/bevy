@@ -27,7 +27,7 @@ pub mod prelude {
 
 use crate::Size;
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{IntoSystemLabel, ParallelSystemDescriptorCoercion};
+use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
@@ -40,7 +40,7 @@ use crate::prelude::UiCameraConfig;
 pub struct UiPlugin;
 
 /// The label enum labeling the types of systems in the Bevy UI
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoSystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiSystem {
     /// After this label, the ui flex state has been updated
     Flex,

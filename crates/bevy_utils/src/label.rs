@@ -53,7 +53,7 @@ where
 ///
 /// ```
 /// # use bevy_utils::define_label;
-/// define_label!(MyNewLabelTrait, IntoMyNewLabelTrait);
+/// define_label!(MyNewLabelTraitId, MyNewLabelTrait);
 /// ```
 #[macro_export]
 macro_rules! define_label {
@@ -68,7 +68,7 @@ macro_rules! define_label {
             }
         }
 
-        /// Types that can be coerced into [`$label_type_name`].
+        /// Types that can be coerced into a `LabelId`.
         pub trait $as_label: 'static {
             /// Converts this type into an opaque, strongly-typed label.
             fn as_label(&self) -> $label_type_name {

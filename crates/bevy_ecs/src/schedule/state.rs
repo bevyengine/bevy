@@ -1,6 +1,6 @@
 use crate::{
     schedule::{
-        IntoRunCriteriaLabel, RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, ShouldRun,
+        RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
     },
     system::{In, IntoChainSystem, Local, Res, ResMut},
@@ -85,7 +85,7 @@ where
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct DriverLabel(TypeId, &'static str);
-impl IntoRunCriteriaLabel for DriverLabel {
+impl RunCriteriaLabel for DriverLabel {
     fn type_id(&self) -> core::any::TypeId {
         self.0
     }

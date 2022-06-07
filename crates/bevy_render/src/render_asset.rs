@@ -39,7 +39,7 @@ pub trait RenderAsset: Asset {
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
-#[derive(Clone, Hash, Debug, Default, PartialEq, Eq, IntoSystemLabel)]
+#[derive(Clone, Hash, Debug, Default, PartialEq, Eq, SystemLabel)]
 pub enum PrepareAssetLabel {
     PreAssetPrepare,
     #[default]

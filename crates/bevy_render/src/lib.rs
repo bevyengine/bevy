@@ -44,7 +44,7 @@ use crate::{
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, IntoAppLabel, Plugin};
+use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
 use bevy_utils::tracing::debug;
@@ -58,7 +58,7 @@ use std::{
 pub struct RenderPlugin;
 
 /// The labels of the default App rendering stages.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoStageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderStage {
     /// Extract data from the "app world" and insert it into the "render world".
     /// This step should be kept as short as possible to increase the "pipelining potential" for
@@ -113,7 +113,7 @@ pub mod main_graph {
 }
 
 /// A Label for the rendering sub-app.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, IntoAppLabel)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
 impl Plugin for RenderPlugin {

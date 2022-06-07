@@ -20,13 +20,13 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{prelude::*, schedule::IntoSystemLabel};
+use bevy_ecs::{prelude::*, schedule::SystemLabel};
 
 /// Adds time functionality to Apps.
 #[derive(Default)]
 pub struct TimePlugin;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, IntoSystemLabel)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
 /// Updates the elapsed time. Any system that interacts with [Time] component should run after
 /// this.
 pub struct TimeSystem;

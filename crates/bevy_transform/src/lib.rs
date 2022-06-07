@@ -13,7 +13,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{prelude::*, schedule::IntoSystemLabel};
+use bevy_ecs::{prelude::*, schedule::SystemLabel};
 use prelude::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
@@ -77,7 +77,7 @@ impl From<Transform> for TransformBundle {
     }
 }
 /// Label enum for the systems relating to transform propagation
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoSystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum TransformSystem {
     /// Propagates changes in transform to childrens' [`GlobalTransform`](crate::components::GlobalTransform)
     TransformPropagate,

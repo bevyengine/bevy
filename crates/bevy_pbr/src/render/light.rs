@@ -38,7 +38,7 @@ use bevy_utils::{
 };
 use std::num::{NonZeroU32, NonZeroU64};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoSystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum RenderLightSystems {
     ExtractClusters,
     ExtractLights,

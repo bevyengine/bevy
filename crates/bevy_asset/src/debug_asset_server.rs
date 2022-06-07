@@ -37,7 +37,6 @@ impl DerefMut for DebugAssetApp {
     }
 }
 
-/// A label describing the system that runs [`DebugAssetApp`].
 #[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DebugAssetAppRun;
 

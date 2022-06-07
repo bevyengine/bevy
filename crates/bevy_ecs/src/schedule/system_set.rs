@@ -1,6 +1,6 @@
 use crate::schedule::{
-    AmbiguitySetLabel, IntoAmbiguitySetLabel, IntoRunCriteria, IntoSystemDescriptor,
-    IntoSystemLabel, RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel,
+    AmbiguitySetLabel, AmbiguitySetLabelId, IntoRunCriteria, IntoSystemDescriptor,
+    RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel, SystemLabelId,
 };
 use crate::system::AsSystemLabel;
 
@@ -9,10 +9,10 @@ use crate::system::AsSystemLabel;
 pub struct SystemSet {
     pub(crate) systems: Vec<SystemDescriptor>,
     pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
-    pub(crate) labels: Vec<SystemLabel>,
-    pub(crate) before: Vec<SystemLabel>,
-    pub(crate) after: Vec<SystemLabel>,
-    pub(crate) ambiguity_sets: Vec<AmbiguitySetLabel>,
+    pub(crate) labels: Vec<SystemLabelId>,
+    pub(crate) before: Vec<SystemLabelId>,
+    pub(crate) after: Vec<SystemLabelId>,
+    pub(crate) ambiguity_sets: Vec<AmbiguitySetLabelId>,
 }
 
 impl SystemSet {
@@ -70,7 +70,7 @@ impl SystemSet {
     }
 
     #[must_use]
-    pub fn in_ambiguity_set(mut self, set: impl IntoAmbiguitySetLabel) -> Self {
+    pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
         self.ambiguity_sets.push(set.as_label());
         self
     }
@@ -88,7 +88,7 @@ impl SystemSet {
     }
 
     #[must_use]
-    pub fn label(mut self, label: impl IntoSystemLabel) -> Self {
+    pub fn label(mut self, label: impl SystemLabel) -> Self {
         self.labels.push(label.as_label());
         self
     }

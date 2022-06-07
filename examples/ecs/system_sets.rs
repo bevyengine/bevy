@@ -29,10 +29,10 @@ use bevy::{app::AppExit, ecs::schedule::ShouldRun, prelude::*};
 /// some label.
 /// `Clone`, `Hash`, `Debug`, `PartialEq`, `Eq`, are all required to derive
 /// [`SystemLabel`].
-#[derive(Clone, Hash, Debug, PartialEq, Eq, IntoSystemLabel)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 struct Physics;
 
-#[derive(Clone, Hash, Debug, PartialEq, Eq, IntoSystemLabel)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 struct PostPhysics;
 
 /// Resource used to stop our example.
