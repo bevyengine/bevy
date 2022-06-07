@@ -30,13 +30,13 @@ pub enum TaskGroup {
 }
 
 impl TaskGroup {
-    pub(crate) const MAX_PRIORITY: usize = Self::Compute.to_priority();
+    pub(crate) const MAX_PRIORITY: usize = Self::Compute.to_priority() + 1;
 
     pub(crate) const fn to_priority(self) -> usize {
         match self {
             Self::AsyncCompute => 0,
-            Self::IO => 0,
-            Self::Compute => 0,
+            Self::IO => 1,
+            Self::Compute => 2,
         }
     }
 }

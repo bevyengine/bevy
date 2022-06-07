@@ -84,16 +84,6 @@ impl<'a> Executor<'a> {
         }
     }
 
-    /// Runs a single task.
-    ///
-    /// Running a task means simply polling its future once.
-    ///
-    /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
-    pub async fn tick(&self, priority: usize) {
-        let runnable = Ticker::new(&self.state).runnable(priority).await;
-        runnable.run();
-    }
-
     /// Runs the executor until the given future completes.
     pub async fn run<T>(&self, priority: usize, future: impl Future<Output = T>) -> T {
         let runner = Runner::new(priority, &self.state);
@@ -158,7 +148,7 @@ impl<'a> LocalExecutor<'a> {
     /// Creates a single-threaded executor.
     pub fn new() -> LocalExecutor<'a> {
         LocalExecutor {
-            inner: Executor::new(0),
+            inner: Executor::new(1),
             _marker: PhantomData,
         }
     }
@@ -188,20 +178,6 @@ impl<'a> LocalExecutor<'a> {
     /// Running a scheduled task means simply polling its future once.
     pub fn try_tick(&self) -> bool {
         self.inner.try_tick(0)
-    }
-
-    /// Runs a single task.
-    ///
-    /// Running a task means simply polling its future once.
-    ///
-    /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
-    pub async fn tick(&self) {
-        self.inner.tick(0).await
-    }
-
-    /// Runs the executor until the given future completes.
-    pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
-        self.inner.run(0, future).await
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
@@ -419,12 +395,6 @@ impl Ticker<'_> {
         }
     }
 
-    /// Waits for the next runnable task to run.
-    async fn runnable(&self, priority: usize) -> Runnable {
-        self.runnable_with(|| self.state.queues[priority].pop().ok())
-            .await
-    }
-
     /// Waits for the next runnable task to run, given a function that searches for a task.
     async fn runnable_with(&self, mut search: impl FnMut() -> Option<Runnable>) -> Runnable {
         future::poll_fn(|cx| {
@@ -511,6 +481,11 @@ impl Runner<'_> {
         runner
     }
 
+    fn priority_iter(&self) -> impl Iterator<Item=usize> {
+	// Prioritize the immediate responsibility of the runner, then search in reverse order
+	std::iter::once(self.priority).chain((self.priority + 1..self.state.queues.len()).rev())
+    }
+
     /// Waits for the next runnable task to run.
     async fn runnable(&self) -> Runnable {
         let runnable = self
@@ -521,32 +496,36 @@ impl Runner<'_> {
                     return Some(r);
                 }
 
-                // Try stealing from the global queue.
-                if let Ok(r) = self.state.queues[self.priority].pop() {
-                    steal(&self.state.queues[self.priority], &self.local);
-                    return Some(r);
+                // Try stealing from the global queue then try stealing from higher priority global queues.
+                for priority in self.priority_iter() {
+                    if let Ok(r) = self.state.queues[priority].pop() {
+                        steal(&self.state.queues[priority], &self.local);
+                        return Some(r);
+                    }
                 }
 
-                // Try stealing from other runners.
-                let local_queues = self.state.local_queues[self.priority].read();
+                // // Try stealing from other runners local queues.
+                for priority in self.priority_iter() {
+                    let local_queues = self.state.local_queues[priority].read();
 
-                // Pick a random starting point in the iterator list and rotate the list.
-                let n = local_queues.len();
-                let start = fastrand::usize(..n);
-                let iter = local_queues
-                    .iter()
-                    .chain(local_queues.iter())
-                    .skip(start)
-                    .take(n);
+                    // // Pick a random starting point in the iterator list and rotate the list.
+                    let n = local_queues.len();
+                    let start = fastrand::usize(..n);
+                    let iter = local_queues
+                        .iter()
+                        .chain(local_queues.iter())
+                        .skip(start)
+                        .take(n);
 
-                // Remove this runner's local queue.
-                let iter = iter.filter(|local| !Arc::ptr_eq(local, &self.local));
+                    // // Remove this runner's local queue.
+                    let iter = iter.filter(|local| !Arc::ptr_eq(local, &self.local));
 
-                // Try stealing from each local queue in the list.
-                for local in iter {
-                    steal(local, &self.local);
-                    if let Ok(r) = self.local.pop() {
-                        return Some(r);
+                    // Try stealing from each local queue in the list.
+                    for local in iter {
+                        steal(local, &self.local);
+                        if let Ok(r) = self.local.pop() {
+                            return Some(r);
+                        }
                     }
                 }
 

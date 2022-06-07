@@ -8,7 +8,7 @@ use std::{
 };
 
 pub use crate::task_pool_builder::*;
-use futures_lite::{future, pin, FutureExt};
+use futures_lite::{future, pin};
 
 use crate::{Task, TaskGroup};
 
@@ -17,16 +17,6 @@ struct Groups {
     compute: usize,
     async_compute: usize,
     io: usize,
-}
-
-impl Groups {
-    fn thread_count(&self, group: TaskGroup) -> usize {
-        match group {
-            TaskGroup::Compute => self.compute,
-            TaskGroup::AsyncCompute => self.async_compute,
-            TaskGroup::IO => self.io,
-        }
-    }
 }
 
 #[derive(Debug)]
