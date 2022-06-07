@@ -1,3 +1,4 @@
+use crate::executor::{Executor, LocalExecutor};
 use std::{
     future::Future,
     mem,
@@ -13,7 +14,7 @@ use crate::{Task, TaskGroup};
 
 #[derive(Debug, Default)]
 struct GroupInfo {
-    executor: async_executor::Executor<'static>,
+    executor: Executor<'static>,
     threads: usize,
 }
 
@@ -85,7 +86,7 @@ pub struct TaskPool {
 
 impl TaskPool {
     thread_local! {
-        static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
+        static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
     }
 
     /// Get a [`TaskPoolBuilder`] for custom configuration.
@@ -222,11 +223,10 @@ impl TaskPool {
         // before this function returns. However, rust has no way of knowing
         // this so we must convert to 'static here to appease the compiler as it is unable to
         // validate safety.
-        let executor: &async_executor::Executor = &self.groups.get(group).executor;
-        let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
+        let executor: &Executor = &self.groups.get(group).executor;
+        let executor: &'scope Executor = unsafe { mem::transmute(executor) };
         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-            let local_executor: &'scope async_executor::LocalExecutor =
-                unsafe { mem::transmute(local_executor) };
+            let local_executor: &'scope LocalExecutor = unsafe { mem::transmute(local_executor) };
             let mut scope = Scope {
                 executor,
                 local_executor,
@@ -323,9 +323,9 @@ impl Default for TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::Executor<'scope>,
-    local_executor: &'scope async_executor::LocalExecutor<'scope>,
-    spawned: Vec<async_executor::Task<T>>,
+    executor: &'scope Executor<'scope>,
+    local_executor: &'scope LocalExecutor<'scope>,
+    spawned: Vec<crate::executor::Task<T>>,
 }
 
 impl<'scope, T: Send + 'scope> Scope<'scope, T> {

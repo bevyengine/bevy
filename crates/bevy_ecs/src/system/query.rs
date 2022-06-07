@@ -3,11 +3,12 @@ use crate::{
     entity::Entity,
     query::{
         NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
-        QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch, WorldQuery,
+        QueryManyIter, QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch,
+        WorldQuery,
     },
     world::{Mut, World},
 };
-use std::{any::TypeId, fmt::Debug};
+use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 
 /// Provides scoped access to components in a [`World`].
 ///
@@ -387,6 +388,56 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
+    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
+    ///
+    /// This can only return immutable data (mutable data will be cast to an immutable form).
+    /// See [`Self::many_for_each_mut`] for queries that contain at least one mutable component.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Counter {
+    ///     value: i32
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     list: Vec<Entity>,
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     counter_query: Query<&Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         for counter in counter_query.iter_many(&friends.list) {
+    ///             println!("Friend's counter: {:?}", counter.value);
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn iter_many<EntityList: IntoIterator>(
+        &self,
+        entities: EntityList,
+    ) -> QueryManyIter<'_, '_, Q, ROQueryFetch<'_, Q>, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // SAFETY: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
     /// Returns an [`Iterator`] over the query results.
     ///
     /// # Safety
@@ -414,6 +465,29 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         // SEMI-SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state.iter_combinations_unchecked_manual(
+            self.world,
+            self.last_change_tick,
+            self.change_tick,
+        )
+    }
+
+    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
+    ///
+    /// If you want safe mutable access to query results of a list of [`Entity`]'s. See [`Self::many_for_each_mut`].
+    ///
+    /// # Safety
+    /// This allows aliased mutability and does not check for entity uniqueness.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
+    /// Particular care must be taken when collecting the data (rather than iterating over it one item at a time) such as via `[Iterator::collect()]`.
+    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator>(
+        &self,
+        entities: EntityList,
+    ) -> QueryManyIter<'_, '_, Q, QueryFetch<'_, Q>, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        self.state.iter_many_unchecked_manual(
+            entities,
             self.world,
             self.last_change_tick,
             self.change_tick,
@@ -562,6 +636,55 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
                     self.last_change_tick,
                     self.change_tick,
                 );
+        };
+    }
+
+    /// Calls a closure on each result of [`Query`] where the entities match.
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Counter {
+    ///     value: i32
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     list: Vec<Entity>,
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     mut counter_query: Query<&mut Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         counter_query.many_for_each_mut(&friends.list, |mut counter| {
+    ///             println!("Friend's counter: {:?}", counter.value);
+    ///             counter.value += 1;
+    ///         });
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn many_for_each_mut<EntityList: IntoIterator>(
+        &mut self,
+        entities: EntityList,
+        f: impl FnMut(QueryItem<'_, Q>),
+    ) where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // SAFE: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.many_for_each_unchecked_manual(
+                self.world,
+                entities,
+                f,
+                self.last_change_tick,
+                self.change_tick,
+            );
         };
     }
 

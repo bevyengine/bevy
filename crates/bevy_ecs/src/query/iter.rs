@@ -1,10 +1,11 @@
 use crate::{
     archetype::{ArchetypeId, Archetypes},
+    entity::{Entities, Entity},
+    prelude::World,
     query::{Fetch, QueryState, WorldQuery},
     storage::{TableId, Tables},
-    world::World,
 };
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::{borrow::Borrow, marker::PhantomData, mem::MaybeUninit};
 
 use super::{QueryFetch, QueryItem, ReadOnlyFetch};
 
@@ -68,6 +69,113 @@ where
         let archetype_query = F::Fetch::IS_ARCHETYPAL && QF::IS_ARCHETYPAL;
         let min_size = if archetype_query { max_size } else { 0 };
         (min_size, Some(max_size))
+    }
+}
+
+/// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
+///
+/// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) method.
+pub struct QueryManyIter<
+    'w,
+    's,
+    Q: WorldQuery,
+    QF: Fetch<'w, State = Q::State>,
+    F: WorldQuery,
+    I: Iterator,
+> where
+    I::Item: Borrow<Entity>,
+{
+    entity_iter: I,
+    entities: &'w Entities,
+    tables: &'w Tables,
+    archetypes: &'w Archetypes,
+    fetch: QF,
+    filter: QueryFetch<'w, F>,
+    query_state: &'s QueryState<Q, F>,
+}
+
+impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery, I: Iterator>
+    QueryManyIter<'w, 's, Q, QF, F, I>
+where
+    I::Item: Borrow<Entity>,
+{
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
+    pub(crate) unsafe fn new<EntityList: IntoIterator<IntoIter = I>>(
+        world: &'w World,
+        query_state: &'s QueryState<Q, F>,
+        entity_list: EntityList,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> QueryManyIter<'w, 's, Q, QF, F, I> {
+        let fetch = QF::init(
+            world,
+            &query_state.fetch_state,
+            last_change_tick,
+            change_tick,
+        );
+        let filter = QueryFetch::<F>::init(
+            world,
+            &query_state.filter_state,
+            last_change_tick,
+            change_tick,
+        );
+        QueryManyIter {
+            query_state,
+            entities: &world.entities,
+            archetypes: &world.archetypes,
+            tables: &world.storages.tables,
+            fetch,
+            filter,
+            entity_iter: entity_list.into_iter(),
+        }
+    }
+}
+
+impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery, I: Iterator> Iterator
+    for QueryManyIter<'w, 'w, Q, QF, F, I>
+where
+    I::Item: Borrow<Entity>,
+{
+    type Item = QF::Item;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            for entity in self.entity_iter.by_ref() {
+                let location = match self.entities.get(*entity.borrow()) {
+                    Some(location) => location,
+                    None => continue,
+                };
+
+                if !self
+                    .query_state
+                    .matched_archetypes
+                    .contains(location.archetype_id.index())
+                {
+                    continue;
+                }
+
+                let archetype = &self.archetypes[location.archetype_id];
+
+                self.fetch
+                    .set_archetype(&self.query_state.fetch_state, archetype, self.tables);
+                self.filter
+                    .set_archetype(&self.query_state.filter_state, archetype, self.tables);
+                if self.filter.archetype_filter_fetch(location.index) {
+                    return Some(self.fetch.archetype_fetch(location.index));
+                }
+            }
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_, max_size) = self.entity_iter.size_hint();
+        (0, max_size)
     }
 }
 
