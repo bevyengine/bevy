@@ -434,45 +434,47 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(ast)
 }
 
-#[proc_macro_derive(SystemLabel)]
+#[proc_macro_derive(IntoSystemLabel)]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
-        .push(format_ident!("SystemLabel").into());
+        .push(format_ident!("IntoSystemLabel").into());
     derive_label(input, &trait_path)
 }
 
-#[proc_macro_derive(StageLabel)]
+#[proc_macro_derive(IntoStageLabel)]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
-    trait_path.segments.push(format_ident!("StageLabel").into());
+    trait_path
+        .segments
+        .push(format_ident!("IntoStageLabel").into());
     derive_label(input, &trait_path)
 }
 
-#[proc_macro_derive(AmbiguitySetLabel)]
+#[proc_macro_derive(IntoAmbiguitySetLabel)]
 pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
-        .push(format_ident!("AmbiguitySetLabel").into());
+        .push(format_ident!("IntoAmbiguitySetLabel").into());
     derive_label(input, &trait_path)
 }
 
-#[proc_macro_derive(RunCriteriaLabel)]
+#[proc_macro_derive(IntoRunCriteriaLabel)]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
-        .push(format_ident!("RunCriteriaLabel").into());
+        .push(format_ident!("IntoRunCriteriaLabel").into());
     derive_label(input, &trait_path)
 }
 
