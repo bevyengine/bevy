@@ -169,9 +169,6 @@ fn update_score_on_event() {
     // Run systems
     app.update();
 
-    // Run systems again to let the event be processed
-    app.update();
-
     // Check resulting changes
     assert_eq!(app.world.resource::<Score>().0, 3);
 }
