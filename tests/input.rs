@@ -35,7 +35,6 @@ fn spawn_entity_at_keyboard_event_system(
 
 #[test]
 fn test_input_received_character_single_button() {
-    // Check if 
     let mut app = App::new();
     app.add_plugin(WindowPlugin::default())
         .add_system(spawn_entity_at_char_event_system);
