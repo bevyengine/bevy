@@ -127,7 +127,7 @@ impl Default for ImageSampler {
 
 /// Resource used as the global default image sampler for [`Image`]s with their `sampler_descriptor`
 /// set to [`ImageSampler::Default`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ExtractResource)]
 pub struct DefaultImageSampler(pub wgpu::SamplerDescriptor<'static>);
 impl DefaultImageSampler {
     pub fn linear() -> Self {
@@ -145,13 +145,7 @@ impl DefaultImageSampler {
         })
     }
 }
-impl ExtractResource for DefaultImageSampler {
-    type Source = DefaultImageSampler;
 
-    fn extract_resource(source: &Self::Source) -> Self {
-        source.to_owned()
-    }
-}
 impl Default for DefaultImageSampler {
     fn default() -> Self {
         Self::linear()
