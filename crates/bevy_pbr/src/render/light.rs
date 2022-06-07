@@ -86,7 +86,7 @@ pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
 #[derive(Copy, Clone, AsStd140, AsStd430, Default, Debug)]
 pub struct GpuPointLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
-    // For spotlights: 2 components of the direction (x,y), spot_scale and spot_offset
+    // For spotlights: 2 components of the direction (x,z), spot_scale and spot_offset
     light_custom_data: Vec4,
     color_inverse_square_range: Vec4,
     position_radius: Vec4,
@@ -182,7 +182,7 @@ bitflags::bitflags! {
     struct PointLightFlags: u32 {
         const SHADOWS_ENABLED            = (1 << 0);
         const IS_SPOTLIGHT               = (1 << 1);
-        const SPOTLIGHT_Z_NEGATIVE       = (1 << 2);
+        const SPOTLIGHT_Y_NEGATIVE       = (1 << 2);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -513,7 +513,8 @@ pub fn extract_lights(
             spotlights.get_mut(entity)
         {
             let render_visible_entities = std::mem::take(visible_entities.into_inner());
-            let texel_size = 2.0 * spotlight_angles.outer.tan() / directional_light_shadow_map.size as f32;
+            let texel_size =
+                2.0 * spotlight_angles.outer.tan() / directional_light_shadow_map.size as f32;
 
             spotlights_values.push((
                 entity,
@@ -522,7 +523,7 @@ pub fn extract_lights(
                         point_light,
                         transform,
                         Some((spotlight_angles.inner, spotlight_angles.outer)),
-                        texel_size
+                        texel_size,
                     ),
                     render_visible_entities,
                 ),
@@ -850,8 +851,8 @@ pub fn prepare_lights(
                 flags |= PointLightFlags::IS_SPOTLIGHT;
 
                 let light_direction = light.transform.forward();
-                if light_direction.z < 0.0 {
-                    flags |= PointLightFlags::SPOTLIGHT_Z_NEGATIVE;
+                if light_direction.y.is_sign_negative() {
+                    flags |= PointLightFlags::SPOTLIGHT_Y_NEGATIVE;
                 }
 
                 let cos_outer = outer.cos();
@@ -859,8 +860,8 @@ pub fn prepare_lights(
                 let spot_offset = -cos_outer * spot_scale;
 
                 (
-                    // For spotlights: the direction (x,y), spot_scale and spot_offset
-                    light_direction.xy().extend(spot_scale).extend(spot_offset),
+                    // For spotlights: the direction (x,z), spot_scale and spot_offset
+                    light_direction.xz().extend(spot_scale).extend(spot_offset),
                     outer.tan(),
                 )
             }

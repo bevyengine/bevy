@@ -305,11 +305,11 @@ fn point_light(
 
     var spot_attenuation = 1.0;
     if ((light.flags & POINT_LIGHT_FLAGS_IS_SPOTLIGHT_BIT) != 0u) {
-        var spot_dir = vec3<f32>(light.light_custom_data.xy, 0.0);
-        // reconstruct spot dir from x/y and z-direction flag
-        spot_dir.z = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.y * spot_dir.y);
-        if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Z_NEGATIVE) != 0u) {
-            spot_dir.z = -spot_dir.z;
+        var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
+        // reconstruct spot dir from x/z and y-direction flag
+        spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
+        if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Y_NEGATIVE) != 0u) {
+            spot_dir.y = -spot_dir.y;
         }
 
         // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
@@ -389,11 +389,11 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
 
     if ((light.flags & POINT_LIGHT_FLAGS_IS_SPOTLIGHT_BIT) != 0u) {
         // construct the light view matrix
-        var spot_dir = vec3<f32>(light.light_custom_data.xy, 0.0);
-        // reconstruct spot dir from x/y and z-direction flag
-        spot_dir.z = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.y * spot_dir.y);
-        if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Z_NEGATIVE) != 0u) {
-            spot_dir.z = -spot_dir.z;
+        var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
+        // reconstruct spot dir from x/z and y-direction flag
+        spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
+        if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Y_NEGATIVE) != 0u) {
+            spot_dir.y = -spot_dir.y;
         }
 
         // view matrix z_axis is the reverse of transform.forward()
@@ -406,7 +406,10 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
 
         // the construction of the up and right vectors needs to precisely mirror the code 
         // in render/light.rs:spotlight_view_matrix
-        let sign = sign(fwd.z);
+        var sign = -1.0;
+        if (fwd.z >= 0.0) {
+            sign = 1.0;
+        }
         let a = -1.0 / (fwd.z + sign);
         let b = fwd.x * fwd.y * a;
         let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
