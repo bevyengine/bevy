@@ -119,32 +119,31 @@ fn did_despawn_enemy() {
 
 #[test]
 fn spawn_enemy_using_input_resource() {
-    // Setup world
-    let mut world = World::default();
+    // Setup app
+    let mut app = App::new();
 
-    // Setup stage with a system
-    let mut update_stage = SystemStage::parallel();
-    update_stage.add_system(spawn_enemy);
+    // Add our systems
+    app.add_system(spawn_enemy);
 
     // Setup test resource
     let mut input = Input::<KeyCode>::default();
     input.press(KeyCode::Space);
-    world.insert_resource(input);
+    app.insert_resource(input);
 
     // Run systems
-    update_stage.run(&mut world);
+    app.update();
 
     // Check resulting changes, one entity has been spawned with `Enemy` component
-    assert_eq!(world.query::<&Enemy>().iter(&world).len(), 1);
+    assert_eq!(app.world.query::<&Enemy>().iter(&app.world).len(), 1);
 
     // Clear the `just_pressed` status for all `KeyCode`s
-    world.resource_mut::<Input<KeyCode>>().clear();
+    app.world.resource_mut::<Input<KeyCode>>().clear();
 
     // Run systems
-    update_stage.run(&mut world);
+    app.update();
 
     // Check resulting changes, no new entity has been spawned
-    assert_eq!(world.query::<&Enemy>().iter(&world).len(), 1);
+    assert_eq!(app.world.query::<&Enemy>().iter(&app.world).len(), 1);
 }
 
 #[test]
