@@ -17,6 +17,7 @@ concurrent-queue = "1.2"
 slab = "0.4"
 async-task = "4.2"
 fastrand = "1.1"
+parking_lot = "0.11"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
