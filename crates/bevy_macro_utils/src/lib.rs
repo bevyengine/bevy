@@ -128,7 +128,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                 let lit = ident.to_string();
                 quote! { #lit }
             }
-            _ => panic!("only unit structs can be Labels"),
+            _ => panic!("Labels cannot contain data."),
         },
         syn::Data::Enum(d) => {
             let arms = d.variants.iter().map(|v| match v.fields {
@@ -138,7 +138,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                     let lit = format!("{ident}::{}", v.ident.clone());
                     quote! { #path => #lit }
                 }
-                _ => panic!("only unit variants can be Labels"),
+                _ => panic!("Label variants cannot contain data."),
             });
             quote! {
                 match self {
@@ -146,7 +146,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                 }
             }
         }
-        syn::Data::Union(_) => panic!("unions are not supported"),
+        syn::Data::Union(_) => panic!("Unions cannot be used as labels."),
     };
 
     (quote! {
