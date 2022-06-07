@@ -281,11 +281,8 @@ struct Sleepers {
 impl Sleepers {
     /// Inserts a new sleeping ticker.
     fn insert(&mut self, waker: &Waker) -> usize {
-        let id = match self.free_ids.pop() {
-            Some(id) => id,
-            None => self.count + 1,
-        };
         self.count += 1;
+        let id = self.free_ids.pop().unwrap_or(self.count);
         self.wakers.push((id, waker.clone()));
         id
     }
