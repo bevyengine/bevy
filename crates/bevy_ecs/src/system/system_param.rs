@@ -210,12 +210,12 @@ fn assert_component_access_compatibility(
            query_type, filter_type, system_name, accesses);
 }
 
-/// A collecton of potentially conflicting [`SystemParam`]s allowed by disjoint access.
+/// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
 ///
-/// Allows to safely access and interact with up to 8 mutually exclusive [`SystemParam`]s such as
-/// two queries that reference the same mutable data  or a mutable query and acess to the ecs world.
+/// Allows systems to safely access and interact with up to 8 mutually exclusive [`SystemParam`]s such as
+/// two queries that reference the same mutable data or an event reader and writer of the same type.
 ///
-/// Access to each individual [`SystemParam`] by using the functions `p0()`, `p1()`, ..., `p7()`. This ensures that
+/// Each individual [`SystemParam`] can be accessed by using the functions `p0()`, `p1()`, ..., `p7()`, according to the order they are defined in the `ParamSet`. This ensures that
 /// there's either only one mutable reference to a parameter at a time or any number of immutable references.
 ///
 /// # Example
@@ -237,7 +237,7 @@ fn assert_component_access_compatibility(
 ///     mut set: ParamSet<(
 ///         Query<&mut Health, With<Enemy>>,
 ///         Query<&mut Health, With<Ally>>,
-///         &World
+///         &World,
 ///     )>
 /// ) {
 ///     // To access the ParamSet's elements according to the order they're defined, use the methods p0(), p1(), ..., p7().
@@ -268,16 +268,19 @@ fn assert_component_access_compatibility(
 /// # #[derive(Component)]
 /// # struct Ally;
 /// #
-/// // This is an example of a system that panics because of the existance of the mutually exclusive system params.
-/// fn bad_system(mut enemies: Query<&mut Health, With<Enemy>>, mut allies: Query<&mut Health, With<Ally>>) {
+/// // This is an example of a system that panics because of the existence of the mutually exclusive system params.
+/// // An entity may have both the Enemy and Ally components, causing two mutable references to the same Health component to be active at once.
+/// fn bad_system(
+///     mut enemies: Query<&mut Health, With<Enemy>>,
+///     mut allies: Query<&mut Health, With<Ally>>,
+/// ) {
 ///     // Do your weird stuff here.
 /// }
-///
+/// #
 /// # let mut bad_system_system = bevy_ecs::system::IntoSystem::into_system(bad_system);
 /// # let mut world = World::new();
 /// # bad_system_system.initialize(&mut world);
 /// # bad_system_system.run((), &mut world);
-///
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::Fetch,
