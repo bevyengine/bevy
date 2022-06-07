@@ -875,13 +875,11 @@ impl World {
 
     // Shorthand helper function for getting the data and change ticks for a resource.
     #[inline]
-    pub(crate) fn get_resource_with_ticks_unchecked(
+    pub(crate) fn get_resource_with_ticks(
         &self,
         component_id: ComponentId,
     ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
-        self.storages
-            .resources
-            .get_with_ticks_unchecked(component_id)
+        self.storages.resources.get_with_ticks(component_id)
     }
 
     // Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
@@ -1104,7 +1102,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<Mut<'_, R>> {
-        let (ptr, ticks) = self.get_resource_with_ticks_unchecked(component_id)?;
+        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
             ticks: Ticks {
@@ -1312,9 +1310,7 @@ impl World {
         if !info.is_send_and_sync() {
             self.validate_non_send_access_untyped(info.name());
         }
-
-        let column = self.get_populated_resource_column(component_id)?;
-        Some(column.get_data_ptr())
+        self.storages.resources.get(component_id)
     }
 
     /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
@@ -1330,20 +1326,18 @@ impl World {
             self.validate_non_send_access_untyped(info.name());
         }
 
-        let column = self.get_populated_resource_column(component_id)?;
+        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
-        // SAFE: get_data_ptr requires that the mutability rules are not violated, and the caller promises
-        // to only modify the resource while the mutable borrow of the world is valid
+        // SAFE: This funtion xclusive access to the world. The ptr must have unique access.
         let ticks = Ticks {
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            component_ticks: unsafe { &mut *column.get_ticks_unchecked(0).get() },
+            component_ticks: unsafe { ticks.deref_mut() },
             last_change_tick: self.last_change_tick(),
             change_tick: self.read_change_tick(),
         };
 
         Some(MutUntyped {
-            value: unsafe { column.get_data_ptr().assert_unique() },
+            // SAFE: This funtion xclusive access to the world. The ptr must have unique access.
+            value: unsafe { ptr.assert_unique() },
             ticks,
         })
     }
@@ -1357,17 +1351,7 @@ impl World {
         if !info.is_send_and_sync() {
             self.validate_non_send_access_untyped(info.name());
         }
-
-        let resource_archetype = self.archetypes.resource_mut();
-        let unique_components = resource_archetype.unique_components_mut();
-        let column = unique_components.get_mut(component_id)?;
-        if column.is_empty() {
-            return None;
-        }
-        // SAFE: if a resource column exists, row 0 exists as well
-        unsafe { column.swap_remove_unchecked(0) };
-
-        Some(())
+        self.storages.resources.remove_and_drop(component_id)
     }
 
     /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
