@@ -102,6 +102,7 @@ fn setup(
     commands.spawn_bundle(Camera3dBundle {
         camera_3d: Camera3d {
             clear_color: ClearColorConfig::Custom(Color::WHITE),
+            ..default()
         },
         camera: Camera {
             target: RenderTarget::Image(image_handle.clone()),
