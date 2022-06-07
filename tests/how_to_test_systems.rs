@@ -74,6 +74,7 @@ fn did_hurt_enemy() {
 
     // Check resulting changes
     assert!(app.world.get::<Enemy>(enemy_id).is_some());
+    assert_eq!(app.world.get::<Enemy>(enemy_id).unwrap().hit_points, 4);
 }
 
 #[test]
@@ -105,7 +106,6 @@ fn did_despawn_enemy() {
     app.update();
 
     // Check resulting changes
-    assert!(app.world.get::<Enemy>(enemy_id).is_none());
     assert!(app.world.get::<Enemy>(enemy_id).is_none());
 }
 
