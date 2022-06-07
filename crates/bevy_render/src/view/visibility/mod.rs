@@ -6,19 +6,20 @@ pub use render_layers::*;
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 
 use crate::{
-    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
+    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection},
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
 
 /// User indication of whether an entity is visible
 #[derive(Component, Clone, Reflect, Debug)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Visibility {
     pub is_visible: bool,
 }
@@ -72,6 +73,7 @@ pub enum VisibilitySystems {
     CalculateBounds,
     UpdateOrthographicFrusta,
     UpdatePerspectiveFrusta,
+    UpdateProjectionFrusta,
     CheckVisibility,
 }
 
@@ -99,11 +101,18 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
+            update_frusta::<Projection>
+                .label(UpdateProjectionFrusta)
+                .after(TransformSystem::TransformPropagate),
+        )
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
             check_visibility
                 .label(CheckVisibility)
                 .after(CalculateBounds)
                 .after(UpdateOrthographicFrusta)
                 .after(UpdatePerspectiveFrusta)
+                .after(UpdateProjectionFrusta)
                 .after(TransformSystem::TransformPropagate),
         );
     }

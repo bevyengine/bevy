@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+#[cfg(target_pointer_width = "16")]
+compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
+
 pub mod archetype;
 pub mod bundle;
 pub mod change_detection;
@@ -13,6 +16,8 @@ pub mod schedule;
 pub mod storage;
 pub mod system;
 pub mod world;
+
+pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
@@ -34,7 +39,7 @@ pub mod prelude {
         },
         system::{
             Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
-            NonSendMut, ParamSet, Query, RemovedComponents, Res, ResMut, System,
+            NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut, System,
             SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
@@ -46,22 +51,20 @@ pub use bevy_ecs_macros::all_tuples;
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::prelude::Or;
     use crate::{
         bundle::Bundle,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{
-            Added, ChangeTrackers, Changed, FilterFetch, FilteredAccess, With, Without, WorldQuery,
-        },
+        query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
         world::{Mut, World},
     };
-    use bevy_tasks::TaskPool;
-    use parking_lot::Mutex;
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
         any::TypeId,
         sync::{
             atomic::{AtomicUsize, Ordering},
-            Arc,
+            Arc, Mutex,
         },
     };
 
@@ -373,7 +376,7 @@ mod tests {
     #[test]
     fn par_for_each_dense() {
         let mut world = World::new();
-        let task_pool = TaskPool::default();
+        world.insert_resource(ComputeTaskPool(TaskPool::default()));
         let e1 = world.spawn().insert(A(1)).id();
         let e2 = world.spawn().insert(A(2)).id();
         let e3 = world.spawn().insert(A(3)).id();
@@ -382,12 +385,12 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         world
             .query::<(Entity, &A)>()
-            .par_for_each(&world, &task_pool, 2, |(e, &A(i))| {
-                results.lock().push((e, i));
+            .par_for_each(&world, 2, |(e, &A(i))| {
+                results.lock().unwrap().push((e, i));
             });
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }
@@ -395,8 +398,7 @@ mod tests {
     #[test]
     fn par_for_each_sparse() {
         let mut world = World::new();
-
-        let task_pool = TaskPool::default();
+        world.insert_resource(ComputeTaskPool(TaskPool::default()));
         let e1 = world.spawn().insert(SparseStored(1)).id();
         let e2 = world.spawn().insert(SparseStored(2)).id();
         let e3 = world.spawn().insert(SparseStored(3)).id();
@@ -405,13 +407,12 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         world.query::<(Entity, &SparseStored)>().par_for_each(
             &world,
-            &task_pool,
             2,
-            |(e, &SparseStored(i))| results.lock().push((e, i)),
+            |(e, &SparseStored(i))| results.lock().unwrap().push((e, i)),
         );
-        results.lock().sort();
+        results.lock().unwrap().sort();
         assert_eq!(
-            &*results.lock(),
+            &*results.lock().unwrap(),
             &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
         );
     }
@@ -899,10 +900,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity>
-        where
-            F::Fetch: FilterFetch,
-        {
+        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
@@ -1401,6 +1399,40 @@ mod tests {
             0,
             "world should still contain resources"
         );
+    }
+
+    #[test]
+    fn test_is_archetypal_size_hints() {
+        let mut world = World::default();
+        macro_rules! query_min_size {
+            ($query:ty, $filter:ty) => {
+                world
+                    .query_filtered::<$query, $filter>()
+                    .iter(&world)
+                    .size_hint()
+                    .0
+            };
+        }
+
+        world.spawn().insert_bundle((A(1), B(1), C));
+        world.spawn().insert_bundle((A(1), C));
+        world.spawn().insert_bundle((A(1), B(1)));
+        world.spawn().insert_bundle((B(1), C));
+        world.spawn().insert(A(1));
+        world.spawn().insert(C);
+        assert_eq!(2, query_min_size![(), (With<A>, Without<B>)],);
+        assert_eq!(3, query_min_size![&B, Or<(With<A>, With<C>)>],);
+        assert_eq!(1, query_min_size![&B, (With<A>, With<C>)],);
+        assert_eq!(1, query_min_size![(&A, &B), With<C>],);
+        assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
+        assert_eq!(4, query_min_size![ChangeTrackers<A>, ()],);
+        // All the following should set minimum size to 0, as it's impossible to predict
+        // how many entites the filters will trim.
+        assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");
+        assert_eq!(0, query_min_size![(), Changed<A>], "Simple Changed");
+        assert_eq!(0, query_min_size![(&A, &B), Changed<A>],);
+        assert_eq!(0, query_min_size![&A, (Changed<A>, With<B>)],);
+        assert_eq!(0, query_min_size![(&A, &B), Or<(Changed<A>, Changed<B>)>],);
     }
 
     #[test]

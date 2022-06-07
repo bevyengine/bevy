@@ -1,6 +1,8 @@
+//! This example illustrates how to override the window scale factor imposed by the
+//! operating system.
+
 use bevy::prelude::*;
 
-/// This example illustrates how to customize the default window settings
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -16,8 +18,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // ui camera
-    commands.spawn_bundle(UiCameraBundle::default());
+    // camera
+    commands.spawn_bundle(Camera2dBundle::default());
     // root node
     commands
         .spawn_bundle(NodeBundle {
@@ -35,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn_bundle(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: Rect::all(Val::Px(2.0)),
+                        border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
                     color: Color::rgb(0.65, 0.65, 0.65).into(),

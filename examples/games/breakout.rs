@@ -1,10 +1,10 @@
-//! A simplified implementation of the classic game "Breakout"
+//! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
-    core::FixedTimestep,
     math::{const_vec2, const_vec3},
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
+    time::FixedTimestep,
 };
 
 // Defines the amount of time that should elapse between each physics step.
@@ -58,15 +58,17 @@ fn main() {
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
+        .add_event::<CollisionEvent>()
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(check_for_collisions)
                 .with_system(move_paddle.before(check_for_collisions))
-                .with_system(apply_velocity.before(check_for_collisions)),
+                .with_system(apply_velocity.before(check_for_collisions))
+                .with_system(play_collision_sound.after(check_for_collisions)),
         )
         .add_system(update_scoreboard)
-        .add_system(bevy::input::system::exit_on_esc_system)
+        .add_system(bevy::window::close_on_esc)
         .run();
 }
 
@@ -82,8 +84,13 @@ struct Velocity(Vec2);
 #[derive(Component)]
 struct Collider;
 
+#[derive(Default)]
+struct CollisionEvent;
+
 #[derive(Component)]
 struct Brick;
+
+struct CollisionSound(Handle<AudioSource>);
 
 // This bundle is a collection of the components that define a "wall" in our game
 #[derive(Bundle)]
@@ -121,10 +128,12 @@ impl WallLocation {
         assert!(arena_width > 0.0);
 
         match self {
-            WallLocation::Left => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
-            WallLocation::Right => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
-            WallLocation::Bottom => Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS),
-            WallLocation::Top => Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS),
+            WallLocation::Left | WallLocation::Right => {
+                Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS)
+            }
+            WallLocation::Bottom | WallLocation::Top => {
+                Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS)
+            }
         }
     }
 }
@@ -163,9 +172,12 @@ struct Scoreboard {
 
 // Add the game's entities to our world
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Cameras
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
+    // Camera
+    commands.spawn_bundle(Camera2dBundle::default());
+
+    // Sound
+    let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
+    commands.insert_resource(CollisionSound(ball_collision_sound));
 
     // Paddle
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
@@ -230,7 +242,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         style: Style {
             position_type: PositionType::Absolute,
-            position: Rect {
+            position: UiRect {
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,
                 ..default()
@@ -268,7 +280,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // the space on the top and sides of the bricks only captures a lower bound, not an exact value
     let center_of_bricks = (LEFT_WALL + RIGHT_WALL) / 2.0;
     let left_edge_of_bricks = center_of_bricks
-        // Space taken up by the bricks    
+        // Space taken up by the bricks
         - (n_columns as f32 / 2.0 * BRICK_SIZE.x)
         // Space taken up by the gaps
         - n_vertical_gaps as f32 / 2.0 * GAP_BETWEEN_BRICKS;
@@ -349,6 +361,7 @@ fn check_for_collisions(
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
+    mut collision_events: EventWriter<CollisionEvent>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.single_mut();
     let ball_size = ball_transform.scale.truncate();
@@ -362,6 +375,9 @@ fn check_for_collisions(
             transform.scale.truncate(),
         );
         if let Some(collision) = collision {
+            // Sends a collision event so that other systems can react to the collision
+            collision_events.send_default();
+
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {
                 scoreboard.score += 1;
@@ -392,5 +408,18 @@ fn check_for_collisions(
                 ball_velocity.y = -ball_velocity.y;
             }
         }
+    }
+}
+
+fn play_collision_sound(
+    collision_events: EventReader<CollisionEvent>,
+    audio: Res<Audio>,
+    sound: Res<CollisionSound>,
+) {
+    // Play a sound once per frame if a collision occurred.
+    if !collision_events.is_empty() {
+        // This prevents events staying active on the next frame.
+        collision_events.clear();
+        audio.play(sound.0.clone());
     }
 }

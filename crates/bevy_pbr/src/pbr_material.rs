@@ -8,10 +8,7 @@ use bevy_render::{
     mesh::MeshVertexBufferLayout,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{
-        std140::{AsStd140, Std140},
-        *,
-    },
+    render_resource::*,
     renderer::RenderDevice,
     texture::Image,
 };
@@ -62,6 +59,7 @@ pub struct StandardMaterial {
     pub cull_mode: Option<Face>,
     pub unlit: bool,
     pub alpha_mode: AlphaMode,
+    pub depth_bias: f32,
 }
 
 impl Default for StandardMaterial {
@@ -92,6 +90,7 @@ impl Default for StandardMaterial {
             cull_mode: Some(Face::Back),
             unlit: false,
             alpha_mode: AlphaMode::Opaque,
+            depth_bias: 0.0,
         }
     }
 }
@@ -100,6 +99,11 @@ impl From<Color> for StandardMaterial {
     fn from(color: Color) -> Self {
         StandardMaterial {
             base_color: color,
+            alpha_mode: if color.a() < 1.0 {
+                AlphaMode::Blend
+            } else {
+                AlphaMode::Opaque
+            },
             ..Default::default()
         }
     }
@@ -114,7 +118,7 @@ impl From<Handle<Image>> for StandardMaterial {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct StandardMaterialFlags: u32 {
@@ -135,7 +139,7 @@ bitflags::bitflags! {
 }
 
 /// The GPU representation of the uniform data of a [`StandardMaterial`].
-#[derive(Clone, Default, AsStd140)]
+#[derive(Clone, Default, ShaderType)]
 pub struct StandardMaterialUniformData {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
@@ -169,6 +173,7 @@ pub struct GpuStandardMaterial {
     pub flags: StandardMaterialFlags,
     pub base_color_texture: Option<Handle<Image>>,
     pub alpha_mode: AlphaMode,
+    pub depth_bias: f32,
     pub cull_mode: Option<Face>,
 }
 
@@ -263,7 +268,7 @@ impl RenderAsset for StandardMaterial {
                 | TextureFormat::Rg16Unorm
                 | TextureFormat::Bc5RgUnorm
                 | TextureFormat::EacRg11Unorm => {
-                    flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP
+                    flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP;
                 }
                 _ => {}
             }
@@ -291,12 +296,15 @@ impl RenderAsset for StandardMaterial {
             flags: flags.bits(),
             alpha_cutoff,
         };
-        let value_std140 = value.as_std140();
+
+        let byte_buffer = [0u8; StandardMaterialUniformData::SIZE.get() as usize];
+        let mut buffer = encase::UniformBuffer::new(byte_buffer);
+        buffer.write(&value).unwrap();
 
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("pbr_standard_material_uniform_buffer"),
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            contents: value_std140.as_bytes(),
+            contents: buffer.as_ref(),
         });
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
@@ -356,6 +364,7 @@ impl RenderAsset for StandardMaterial {
             has_normal_map,
             base_color_texture: material.base_color_texture,
             alpha_mode: material.alpha_mode,
+            depth_bias: material.depth_bias,
             cull_mode: material.cull_mode,
         })
     }
@@ -418,9 +427,7 @@ impl SpecializedMaterial for StandardMaterial {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(
-                            StandardMaterialUniformData::std140_size_static() as u64,
-                        ),
+                        min_binding_size: Some(StandardMaterialUniformData::min_size()),
                     },
                     count: None,
                 },
@@ -522,5 +529,10 @@ impl SpecializedMaterial for StandardMaterial {
     #[inline]
     fn alpha_mode(render_asset: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
         render_asset.alpha_mode
+    }
+
+    #[inline]
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        material.depth_bias
     }
 }

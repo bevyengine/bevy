@@ -1,15 +1,16 @@
+//! Skinned mesh example with mesh and joints data loaded from a glTF file.
+//! Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
+
 use std::f32::consts::PI;
 
 use bevy::{pbr::AmbientLight, prelude::*, render::mesh::skinning::SkinnedMesh};
 
-/// Skinned mesh example with mesh and joints data loaded from a glTF file.
-/// Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 1.0,
-            ..Default::default()
+            ..default()
         })
         .add_startup_system(setup)
         .add_system(joint_animation)
@@ -18,7 +19,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create a camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -27,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_scene(asset_server.load::<Scene, _>("models/SimpleSkin/SimpleSkin.gltf#Scene0"));
 }
 
-/// The scene hierachy currently looks somewhat like this:
+/// The scene hierarchy currently looks somewhat like this:
 ///
 /// ```ignore
 /// <Parent entity>

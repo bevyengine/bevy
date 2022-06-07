@@ -32,57 +32,9 @@
 //
 // The above integration needs to be approximated.
 
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
-
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
-
-struct StandardMaterial {
-    base_color: vec4<f32>;
-    emissive: vec4<f32>;
-    perceptual_roughness: f32;
-    metallic: f32;
-    reflectance: f32;
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
-    flags: u32;
-    alpha_cutoff: f32;
-};
-
-let STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
-let STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT: u32           = 2u;
-let STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT: u32 = 4u;
-let STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT: u32          = 8u;
-let STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT: u32               = 16u;
-let STANDARD_MATERIAL_FLAGS_UNLIT_BIT: u32                      = 32u;
-let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 64u;
-let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 128u;
-let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 256u;
-let STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP: u32       = 512u;
-let STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y: u32              = 1024u;
-
-[[group(1), binding(0)]]
-var<uniform> material: StandardMaterial;
-[[group(1), binding(1)]]
-var base_color_texture: texture_2d<f32>;
-[[group(1), binding(2)]]
-var base_color_sampler: sampler;
-[[group(1), binding(3)]]
-var emissive_texture: texture_2d<f32>;
-[[group(1), binding(4)]]
-var emissive_sampler: sampler;
-[[group(1), binding(5)]]
-var metallic_roughness_texture: texture_2d<f32>;
-[[group(1), binding(6)]]
-var metallic_roughness_sampler: sampler;
-[[group(1), binding(7)]]
-var occlusion_texture: texture_2d<f32>;
-[[group(1), binding(8)]]
-var occlusion_sampler: sampler;
-[[group(1), binding(9)]]
-var normal_map_texture: texture_2d<f32>;
-[[group(1), binding(10)]]
-var normal_map_sampler: sampler;
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::pbr_bindings
+#import bevy_pbr::mesh_bindings
 
 let PI: f32 = 3.141592653589793;
 
@@ -240,17 +192,19 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
     return change_luminance(color, l_new);
 }
 
+// NOTE: Keep in sync with bevy_pbr/src/light.rs
 fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
+    var z_slice: u32 = 0u;
     if (is_orthographic) {
         // NOTE: view_z is correct in the orthographic case
-        return u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
+        z_slice = u32(floor((view_z - lights.cluster_factors.z) * lights.cluster_factors.w));
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        return min(
-            u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0),
-            lights.cluster_dimensions.z - 1u
-        );
+        z_slice = u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0);
     }
+    // NOTE: We use min as we may limit the far z plane used for clustering to be closeer than
+    // the furthest thing being drawn. This means that we need to limit to the maximum cluster.
+    return min(z_slice, lights.cluster_dimensions.z - 1u);
 }
 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
@@ -463,11 +417,17 @@ struct FragmentInput {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
 #endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] color: vec4<f32>;
+#endif
 };
 
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     var output_color: vec4<f32> = material.base_color;
+    #ifdef VERTEX_COLORS
+    output_color = output_color * in.color;
+    #endif
     if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
@@ -500,8 +460,12 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
 
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-        var T: vec3<f32> = normalize(in.world_tangent.xyz - N * dot(in.world_tangent.xyz, N));
-        var B: vec3<f32> = cross(N, T) * in.world_tangent.w;
+        // NOTE: The mikktspace method of normal mapping explicitly requires that these NOT be
+        // normalized nor any Gram-Schmidt applied to ensure the vertex normal is orthogonal to the
+        // vertex tangent! Do not change this code unless you really know what you are doing.
+        // http://www.mikktspace.com/
+        var T: vec3<f32> = in.world_tangent.xyz;
+        var B: vec3<f32> = in.world_tangent.w * cross(N, T);
 #endif
 #endif
 
@@ -533,7 +497,12 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         if ((material.flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
             Nt.y = -Nt.y;
         }
-        N = normalize(TBN * Nt);
+        // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
+        // the normal map texture in this way to be an EXACT inverse of how the normal map baker
+        // calculates the normal maps so there is no error introduced. Do not change this code
+        // unless you really know what you are doing.
+        // http://www.mikktspace.com/
+        N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
 #endif
 #endif
 

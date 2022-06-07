@@ -1,8 +1,9 @@
+//! Hot reloading allows you to modify assets files to be immediately reloaded while your game is
+//! running. This lets you immediately see the results of your changes without restarting the game.
+//! This example illustrates hot reloading mesh changes.
+
 use bevy::{asset::AssetServerSettings, prelude::*};
 
-/// Hot reloading allows you to modify assets on disk and they will be "live reloaded" while your
-/// game is running. This lets you immediately see the results of your changes without restarting
-/// the game. This example illustrates hot reloading mesh changes.
 fn main() {
     App::new()
         // Tell the asset server to watch for asset changes on disk:
@@ -30,7 +31,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

@@ -1,7 +1,9 @@
+//! Demonstrates rotating entities in 2D using quaternions.
+
 use bevy::{
-    core::FixedTimestep,
     math::{const_vec2, Vec3Swizzles},
     prelude::*,
+    time::FixedTimestep,
 };
 
 const TIME_STEP: f32 = 1.0 / 60.0;
@@ -18,7 +20,7 @@ fn main() {
                 .with_system(snap_to_player_system)
                 .with_system(rotate_to_player_system),
         )
-        .add_system(bevy::input::system::exit_on_esc_system)
+        .add_system(bevy::window::close_on_esc)
         .run();
 }
 
@@ -57,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
 
     // 2D orthographic camera
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
 
     let horizontal_margin = BOUNDS.x / 4.0;
     let vertical_margin = BOUNDS.y / 4.0;

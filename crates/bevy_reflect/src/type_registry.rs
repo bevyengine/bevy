@@ -6,7 +6,6 @@ use serde::Deserialize;
 use std::{any::TypeId, fmt::Debug, sync::Arc};
 
 /// A registry of reflected types.
-#[derive(Default)]
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
     short_name_to_id: HashMap<String, TypeId>,
@@ -35,7 +34,44 @@ pub trait GetTypeRegistration {
     fn get_type_registration() -> TypeRegistration;
 }
 
+impl Default for TypeRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TypeRegistry {
+    /// Create a type registry with *no* registered types.
+    pub fn empty() -> Self {
+        Self {
+            registrations: Default::default(),
+            short_name_to_id: Default::default(),
+            full_name_to_id: Default::default(),
+            ambiguous_names: Default::default(),
+        }
+    }
+
+    /// Create a type registry with default registrations for primitive types.
+    pub fn new() -> Self {
+        let mut registry = Self::empty();
+        registry.register::<bool>();
+        registry.register::<u8>();
+        registry.register::<u16>();
+        registry.register::<u32>();
+        registry.register::<u64>();
+        registry.register::<u128>();
+        registry.register::<usize>();
+        registry.register::<i8>();
+        registry.register::<i16>();
+        registry.register::<i32>();
+        registry.register::<i64>();
+        registry.register::<i128>();
+        registry.register::<isize>();
+        registry.register::<f32>();
+        registry.register::<f64>();
+        registry
+    }
+
     /// Registers the type `T`.
     pub fn register<T>(&mut self)
     where
@@ -104,7 +140,7 @@ impl TypeRegistry {
             .and_then(move |id| self.get_mut(id))
     }
 
-    /// Returns a mutable reference to the [`TypeRegistration`] of the type with
+    /// Returns a reference to the [`TypeRegistration`] of the type with
     /// the given short name.
     ///
     /// If the short name is ambiguous, or if no type with the given short name
@@ -115,7 +151,21 @@ impl TypeRegistry {
             .and_then(|id| self.registrations.get(id))
     }
 
-    /// Returns the [`TypeData`] of type `T` associated with the given `TypeId`.
+    /// Returns a mutable reference to the [`TypeRegistration`] of the type with
+    /// the given short name.
+    ///
+    /// If the short name is ambiguous, or if no type with the given short name
+    /// has been registered, returns `None`.
+    pub fn get_with_short_name_mut(
+        &mut self,
+        short_type_name: &str,
+    ) -> Option<&mut TypeRegistration> {
+        self.short_name_to_id
+            .get(short_type_name)
+            .and_then(|id| self.registrations.get_mut(id))
+    }
+
+    /// Returns a reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
     ///
     /// The returned value may be used to downcast [`Reflect`] trait objects to
     /// trait objects of the trait used to generate `T`, provided that the
@@ -129,10 +179,25 @@ impl TypeRegistry {
             .and_then(|registration| registration.data::<T>())
     }
 
-    /// Returns an iterator overed the [`TypeRegistration`]s of the registered
+    /// Returns a mutable reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
+    ///
+    /// If the specified type has not been registered, or if `T` is not present
+    /// in its type registration, returns `None`.
+    pub fn get_type_data_mut<T: TypeData>(&mut self, type_id: TypeId) -> Option<&mut T> {
+        self.get_mut(type_id)
+            .and_then(|registration| registration.data_mut::<T>())
+    }
+
+    /// Returns an iterator over the [`TypeRegistration`]s of the registered
     /// types.
     pub fn iter(&self) -> impl Iterator<Item = &TypeRegistration> {
         self.registrations.values()
+    }
+
+    /// Returns a mutable iterator over the [`TypeRegistration`]s of the registered
+    /// types.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TypeRegistration> {
+        self.registrations.values_mut()
     }
 }
 
@@ -320,7 +385,6 @@ pub trait FromType<T> {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectDeserialize {
-    #[allow(clippy::type_complexity)]
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
