@@ -151,8 +151,20 @@ impl BlobVec {
         let ptr = self.get_unchecked_mut(index).promote().as_ptr();
         self.len = 0;
         // Drop the old value, then write back, justifying the promotion
+        // If the drop impl for the old value panics then we run the drop impl for `value` too.
         if let Some(drop) = self.drop {
+            struct OnDrop<F: FnMut()>(F);
+            impl<F: FnMut()> Drop for OnDrop<F> {
+                fn drop(&mut self) {
+                    (self.0)();
+                }
+            }
+            let value = value.as_ptr();
+            let on_unwind = OnDrop(|| (drop)(OwningPtr::new(NonNull::new_unchecked(value))));
+
             (drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
+
+            core::mem::forget(on_unwind);
         }
         std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
         self.len = old_len;
