@@ -16,7 +16,7 @@ fn build_schedule(criterion: &mut Criterion) {
         group.bench_function(format!("{graph_size}_schedule_noconstraints"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
-                for i in 0..graph_size {
+                for _ in 0..graph_size {
                     // empty system
                     fn sys() {}
                     app.add_system(sys);
@@ -57,7 +57,7 @@ fn build_schedule(criterion: &mut Criterion) {
                             sys.after(OddLabel(a))
                         }
                     }
-                    for b in 0..i {
+                    for b in i + 1..graph_size {
                         sys = if b % 2 == 0 {
                             sys.before(EvenLabel(b))
                         } else {
@@ -66,6 +66,7 @@ fn build_schedule(criterion: &mut Criterion) {
                     }
                     app.add_system(sys);
                 }
+                app.run();
             });
         });
     }
