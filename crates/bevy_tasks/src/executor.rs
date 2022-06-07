@@ -85,7 +85,12 @@ impl<'a> Executor<'a> {
     }
 
     /// Runs the executor until the given future completes.
-    pub async fn run<T>(&self, priority: usize, thread_id: usize, future: impl Future<Output = T>) -> T {
+    pub async fn run<T>(
+        &self,
+        priority: usize,
+        thread_id: usize,
+        future: impl Future<Output = T>,
+    ) -> T {
         let runner = Runner::new(priority, thread_id, &self.state);
 
         // A future that runs tasks forever.

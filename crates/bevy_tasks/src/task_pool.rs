@@ -124,7 +124,8 @@ impl TaskPool {
             let executor = executor.clone();
             make_thread_builder(&builder, "Compute", i)
                 .spawn(move || {
-                    let future = executor.run(TaskGroup::Compute.to_priority(), i, shutdown_rx.recv());
+                    let future =
+                        executor.run(TaskGroup::Compute.to_priority(), i, shutdown_rx.recv());
                     // Use unwrap_err because we expect a Closed error
                     future::block_on(future).unwrap_err();
                 })
