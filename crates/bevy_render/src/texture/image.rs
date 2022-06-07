@@ -13,7 +13,7 @@ use crate::{
     texture::BevyDefault,
 };
 use bevy_asset::HandleUntyped;
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::system::{lifetimeless::SRes, Commands, Res, SystemParamItem};
 use bevy_math::{Size, Vec2};
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
@@ -109,7 +109,45 @@ pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
-    pub sampler_descriptor: wgpu::SamplerDescriptor<'static>,
+    pub sampler_descriptor: ImageSampler,
+}
+
+#[derive(Debug, Clone)]
+pub enum ImageSampler {
+    Default,
+    Descriptor(wgpu::SamplerDescriptor<'static>),
+}
+impl Default for ImageSampler {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+/// Resource used as the global default image sampler for [`Image`]s with their `sampler_descriptor`
+/// set to [`ImageSampler::Default`]. Otherwise, the specified sampler in
+/// [`ImageSampler::Descriptor`] will be used.
+#[derive(Debug, Clone)]
+pub struct DefaultImageSampler(pub wgpu::SamplerDescriptor<'static>);
+impl DefaultImageSampler {
+    pub fn linear() -> Self {
+        DefaultImageSampler(wgpu::SamplerDescriptor {
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        })
+    }
+    pub fn nearest() -> Self {
+        DefaultImageSampler(wgpu::SamplerDescriptor {
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        })
+    }
+}
+
+pub fn extract_image_sampler(mut commands: Commands, sampler: Res<DefaultImageSampler>) {
+    // NOTE: windows.is_changed() handles cases where a window was resized
+    commands.insert_resource(sampler.clone());
 }
 
 impl Default for Image {
@@ -131,15 +169,7 @@ impl Default for Image {
                 sample_count: 1,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
-            sampler_descriptor: wgpu::SamplerDescriptor {
-                // At the time of writing, wgpu defaults to `Nearest` filtering. This causes
-                // artifacts when the image is scaled. Using `Linear` results in a more uniform,
-                // though potentially blurry image.
-                // See issue for details: https://github.com/bevyengine/bevy/issues/4464
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Linear,
-                ..Default::default()
-            },
+            sampler_descriptor: ImageSampler::Default,
         }
     }
 }
@@ -554,7 +584,11 @@ pub struct GpuImage {
 impl RenderAsset for Image {
     type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
-    type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderQueue>,
+        SRes<DefaultImageSampler>,
+    );
 
     /// Clones the Image.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -564,7 +598,7 @@ impl RenderAsset for Image {
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::ExtractedAsset,
-        (render_device, render_queue): &mut SystemParamItem<Self::Param>,
+        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let texture = if image.texture_descriptor.mip_level_count > 1 || image.is_compressed() {
             render_device.create_texture_with_data(
@@ -607,7 +641,11 @@ impl RenderAsset for Image {
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         );
-        let sampler = render_device.create_sampler(&image.sampler_descriptor);
+        let descriptor = match image.sampler_descriptor {
+            ImageSampler::Default => &default_sampler.0,
+            ImageSampler::Descriptor(ref d) => d,
+        };
+        let sampler = render_device.create_sampler(descriptor);
         Ok(GpuImage {
             texture,
             texture_view,

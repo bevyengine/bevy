@@ -1,8 +1,9 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::texture::DefaultImageSampler};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(DefaultImageSampler::nearest()) // prevents blurry sprites
         .add_startup_system(setup)
         .add_system(animate_sprite)
         .run();

@@ -26,7 +26,7 @@ use bevy_render::{
     primitives::{Aabb, Frustum},
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
     renderer::RenderDevice,
-    texture::{CompressedImageFormats, Image, ImageType, TextureError},
+    texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
@@ -600,7 +600,7 @@ async fn load_texture<'a>(
             )?
         }
     };
-    texture.sampler_descriptor = texture_sampler(&gltf_texture);
+    texture.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
 
     Ok((texture, texture_label(&gltf_texture)))
 }

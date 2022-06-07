@@ -31,6 +31,7 @@ pub mod prelude {
 
 use bevy_utils::tracing::debug;
 pub use once_cell;
+use texture::{extract_image_sampler, DefaultImageSampler};
 
 use crate::{
     camera::CameraPlugin,
@@ -147,7 +148,8 @@ impl Plugin for RenderPlugin {
                 .insert_resource(adapter_info.clone())
                 .init_resource::<ScratchRenderWorld>()
                 .register_type::<Frustum>()
-                .register_type::<CubemapFrusta>();
+                .register_type::<CubemapFrusta>()
+                .insert_resource(DefaultImageSampler::linear());
 
             let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
@@ -176,7 +178,9 @@ impl Plugin for RenderPlugin {
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server)
-                .init_resource::<RenderGraph>();
+                .init_resource::<RenderGraph>()
+                .insert_resource(DefaultImageSampler::linear())
+                .add_system_to_stage(RenderStage::Extract, extract_image_sampler);
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]

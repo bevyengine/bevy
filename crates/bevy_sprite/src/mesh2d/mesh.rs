@@ -13,7 +13,9 @@ use bevy_render::{
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{std140::AsStd140, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
+    texture::{
+        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+    },
     view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
@@ -164,7 +166,10 @@ impl FromWorld for Mesh2dPipeline {
                 TextureFormat::bevy_default(),
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = render_device.create_sampler(&image.sampler_descriptor);
+            let sampler = render_device.create_sampler(match image.sampler_descriptor {
+                ImageSampler::Default => &world.resource::<DefaultImageSampler>().0,
+                ImageSampler::Descriptor(ref d) => d,
+            });
 
             let format_size = image.texture_descriptor.format.pixel_size();
             let render_queue = world.resource_mut::<RenderQueue>();
