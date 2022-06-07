@@ -25,6 +25,7 @@ pub use image_texture_loader::*;
 pub use texture_cache::*;
 
 use crate::{
+    extract_resource::ExtractResourcePlugin,
     render_asset::{PrepareAssetLabel, RenderAssetPlugin},
     RenderApp, RenderStage,
 };
@@ -58,6 +59,8 @@ impl Plugin for ImagePlugin {
         app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
             PrepareAssetLabel::PreAssetPrepare,
         ))
+        .init_resource::<DefaultImageSampler>()
+        .add_plugin(ExtractResourcePlugin::<DefaultImageSampler>::default())
         .add_asset::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
@@ -65,6 +68,7 @@ impl Plugin for ImagePlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<DefaultImageSampler>()
                 .init_resource::<TextureCache>()
                 .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
         }

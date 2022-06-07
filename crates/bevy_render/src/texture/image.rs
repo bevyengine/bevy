@@ -7,13 +7,14 @@ use super::ktx2::*;
 
 use super::image_texture_conversion::image_to_texture;
 use crate::{
+    extract_resource::ExtractResource,
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
 };
 use bevy_asset::HandleUntyped;
-use bevy_ecs::system::{lifetimeless::SRes, Commands, Res, SystemParamItem};
+use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use thiserror::Error;
@@ -109,6 +110,10 @@ pub struct Image {
     pub sampler_descriptor: ImageSampler,
 }
 
+/// Used in `Image`, this determines what image sampler to use when rendering. The default setting,
+/// [`ImageSampler::Default`], will result in reading the sampler set in the [`DefaultImageSampler`]
+/// resource - the global default sampler - at runtime. Setting this to [`ImageSampler::Descriptor`]
+/// will override the global default descriptor for this [`Image`].
 #[derive(Debug, Clone)]
 pub enum ImageSampler {
     Default,
@@ -121,8 +126,7 @@ impl Default for ImageSampler {
 }
 
 /// Resource used as the global default image sampler for [`Image`]s with their `sampler_descriptor`
-/// set to [`ImageSampler::Default`]. Otherwise, the specified sampler in
-/// [`ImageSampler::Descriptor`] will be used.
+/// set to [`ImageSampler::Default`].
 #[derive(Debug, Clone)]
 pub struct DefaultImageSampler(pub wgpu::SamplerDescriptor<'static>);
 impl DefaultImageSampler {
@@ -141,10 +145,17 @@ impl DefaultImageSampler {
         })
     }
 }
+impl ExtractResource for DefaultImageSampler {
+    type Source = DefaultImageSampler;
 
-pub fn extract_image_sampler(mut commands: Commands, sampler: Res<DefaultImageSampler>) {
-    // NOTE: windows.is_changed() handles cases where a window was resized
-    commands.insert_resource(sampler.clone());
+    fn extract_resource(source: &Self::Source) -> Self {
+        source.to_owned()
+    }
+}
+impl Default for DefaultImageSampler {
+    fn default() -> Self {
+        Self::linear()
+    }
 }
 
 impl Default for Image {
