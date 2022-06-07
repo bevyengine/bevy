@@ -47,62 +47,70 @@ where
     }
 }
 
+#[doc(hidden)]
+pub use concat_idents::concat_idents;
+
 /// Macro to define a new label trait
 ///
 /// # Example
 ///
 /// ```
 /// # use bevy_utils::define_label;
-/// define_label!(MyNewLabelTraitId, MyNewLabelTrait);
+/// define_label!(MyNewLabelTrait);
 /// ```
 #[macro_export]
 macro_rules! define_label {
-    ($label_type_name:ident, $as_label:ident) => {
-        /// Stores one of a set of strongly-typed labels for a class of objects.
-        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-        pub struct $label_type_name(::core::any::TypeId, &'static str);
+    ($label_name:ident) => {
+        $crate::label::concat_idents!(id_name = $label_name, Id {
 
-        impl ::core::fmt::Debug for $label_type_name {
-            fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                write!(f, "{}", self.1)
-            }
-        }
+            /// Stores one of a set of strongly-typed labels for a class of objects.
+            #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+            pub struct id_name(::core::any::TypeId, &'static str);
 
-        /// Types that can be coerced into a `LabelId`.
-        pub trait $as_label: 'static {
-            /// Converts this type into an opaque, strongly-typed label.
-            fn as_label(&self) -> $label_type_name {
-                let id = self.type_id();
-                let label = self.as_str();
-                $label_type_name(id, label)
+            impl ::core::fmt::Debug for id_name {
+                fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                    write!(f, "{}", self.1)
+                }
             }
-            /// Returns the [`TypeId`] used to differentiate labels.
-            fn type_id(&self) -> ::core::any::TypeId {
-                ::core::any::TypeId::of::<Self>()
-            }
-            /// Returns the representation of this label as a string literal.
+
+            /// Types that can be converted to a(n) [`id_name`].
             ///
-            /// In cases where you absolutely need a label to be determined at runtime,
-            /// you can use [`Box::leak`] to get a `'static` reference.
-            fn as_str(&self) -> &'static str;
-        }
+            /// Check the docs for [`define_label`](bevy_ecs::define_label) for more info.
+            pub trait $label_name: 'static {
+                /// Converts this type into an opaque, strongly-typed label.
+                fn as_label(&self) -> id_name {
+                    let id = self.type_id();
+                    let label = self.as_str();
+                    id_name(id, label)
+                }
+                /// Returns the [`TypeId`] used to differentiate labels.
+                fn type_id(&self) -> ::core::any::TypeId {
+                    ::core::any::TypeId::of::<Self>()
+                }
+                /// Returns the representation of this label as a string literal.
+                ///
+                /// In cases where you absolutely need a label to be determined at runtime,
+                /// you can use [`Box::leak`] to get a `'static` reference.
+                fn as_str(&self) -> &'static str;
+            }
 
-        impl $as_label for $label_type_name {
-            fn as_label(&self) -> Self {
-                *self
+            impl $label_name for id_name {
+                fn as_label(&self) -> Self {
+                    *self
+                }
+                fn type_id(&self) -> ::core::any::TypeId {
+                    self.0
+                }
+                fn as_str(&self) -> &'static str {
+                    self.1
+                }
             }
-            fn type_id(&self) -> ::core::any::TypeId {
-                self.0
-            }
-            fn as_str(&self) -> &'static str {
-                self.1
-            }
-        }
 
-        impl $as_label for &'static str {
-            fn as_str(&self) -> Self {
-                self
+            impl $label_name for &'static str {
+                fn as_str(&self) -> Self {
+                    self
+                }
             }
-        }
+        });
     };
 }
