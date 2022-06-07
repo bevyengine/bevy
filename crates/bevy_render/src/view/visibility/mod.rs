@@ -1,10 +1,12 @@
 mod render_layers;
+
+use bevy_math::Vec3A;
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_math::Vec3A;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
@@ -146,7 +148,6 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 }
 
 pub fn check_visibility(
-    thread_pool: Res<bevy_tasks::prelude::ComputeTaskPool>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
     mut visible_entity_query: Query<(
         Entity,
@@ -163,7 +164,6 @@ pub fn check_visibility(
         let (visible_entity_sender, visible_entity_receiver) = crossbeam_channel::unbounded();
 
         visible_entity_query.par_for_each_mut(
-            &thread_pool,
             1024,
             |(
                 entity,
