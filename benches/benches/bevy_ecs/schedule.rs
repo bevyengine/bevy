@@ -11,7 +11,7 @@ fn build_schedule(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(15));
 
     // Benchmark graphs of different sizes.
-    for graph_size in [100, 500, 1000, 5000] {
+    for graph_size in [100, 500, 1000] {
         // Basic benchmark without constraints.
         group.bench_function(format!("{graph_size}_schedule_noconstraints"), |bencher| {
             bencher.iter(|| {
