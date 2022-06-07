@@ -29,6 +29,18 @@ pub enum TaskGroup {
     AsyncCompute,
 }
 
+impl TaskGroup {
+    pub(crate) const MAX_PRIORITY: usize = Self::Compute.to_priority();
+
+    pub(crate) const fn to_priority(self) -> usize {
+        match self {
+            Self::AsyncCompute => 0,
+            Self::IO => 0,
+            Self::Compute => 0,
+        }
+    }
+}
+
 /// Wraps `async_executor::Task`, a spawned future.
 ///
 /// Tasks are also futures themselves and yield the output of the spawned future.

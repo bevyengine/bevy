@@ -35,15 +35,20 @@ impl RefUnwindSafe for Executor<'_> {}
 
 impl<'a> Executor<'a> {
     /// Creates a new executor.
-    pub fn new() -> Executor<'a> {
+    #[inline]
+    pub fn new(priorities: usize) -> Executor<'a> {
         Executor {
-            state: Arc::new(State::new()),
+            state: Arc::new(State::new(priorities)),
             _marker: PhantomData,
         }
     }
 
     /// Spawns a task onto the executor.
-    pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
+    pub fn spawn<T: Send + 'a>(
+        &self,
+        priority: usize,
+        future: impl Future<Output = T> + Send + 'a,
+    ) -> Task<T> {
         let mut active = self.state.active.lock();
 
         // Remove the task from the set of active tasks when the future finishes.
@@ -55,7 +60,8 @@ impl<'a> Executor<'a> {
         };
 
         // Create the task and register it in the set of active tasks.
-        let (runnable, task) = unsafe { async_task::spawn_unchecked(future, self.schedule()) };
+        let (runnable, task) =
+            unsafe { async_task::spawn_unchecked(future, self.schedule(priority)) };
         active.insert(runnable.waker());
 
         runnable.schedule();
@@ -63,8 +69,8 @@ impl<'a> Executor<'a> {
     }
 
     /// Attempts to run a task if at least one is scheduled.
-    pub fn try_tick(&self) -> bool {
-        match self.state.queue.pop() {
+    pub fn try_tick(&self, priority: usize) -> bool {
+        match self.state.queues[priority].pop() {
             Err(_) => false,
             Ok(runnable) => {
                 // Notify another ticker now to pick up where this ticker left off, just in case
@@ -83,14 +89,14 @@ impl<'a> Executor<'a> {
     /// Running a task means simply polling its future once.
     ///
     /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
-    pub async fn tick(&self) {
-        let runnable = Ticker::new(&self.state).runnable().await;
+    pub async fn tick(&self, priority: usize) {
+        let runnable = Ticker::new(&self.state).runnable(priority).await;
         runnable.run();
     }
 
     /// Runs the executor until the given future completes.
-    pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
-        let runner = Runner::new(&self.state);
+    pub async fn run<T>(&self, priority: usize, future: impl Future<Output = T>) -> T {
+        let runner = Runner::new(priority, &self.state);
 
         // A future that runs tasks forever.
         let run_forever = async {
@@ -108,12 +114,12 @@ impl<'a> Executor<'a> {
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
-    fn schedule(&self) -> impl Fn(Runnable) + Send + Sync + 'static {
+    fn schedule(&self, priority: usize) -> impl Fn(Runnable) + Send + Sync + 'static {
         let state = self.state.clone();
 
         // TODO(stjepang): If possible, push into the current local queue and notify the ticker.
         move |runnable| {
-            state.queue.push(runnable).unwrap();
+            state.queues[priority].push(runnable).unwrap();
             state.notify();
         }
     }
@@ -127,13 +133,9 @@ impl Drop for Executor<'_> {
         }
         drop(active);
 
-        while self.state.queue.pop().is_ok() {}
-    }
-}
-
-impl<'a> Default for Executor<'a> {
-    fn default() -> Executor<'a> {
-        Executor::new()
+        for queue in self.state.queues.iter() {
+            while queue.pop().is_ok() {}
+        }
     }
 }
 
@@ -156,7 +158,7 @@ impl<'a> LocalExecutor<'a> {
     /// Creates a single-threaded executor.
     pub fn new() -> LocalExecutor<'a> {
         LocalExecutor {
-            inner: Executor::new(),
+            inner: Executor::new(0),
             _marker: PhantomData,
         }
     }
@@ -185,7 +187,7 @@ impl<'a> LocalExecutor<'a> {
     ///
     /// Running a scheduled task means simply polling its future once.
     pub fn try_tick(&self) -> bool {
-        self.inner.try_tick()
+        self.inner.try_tick(0)
     }
 
     /// Runs a single task.
@@ -194,12 +196,12 @@ impl<'a> LocalExecutor<'a> {
     ///
     /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
     pub async fn tick(&self) {
-        self.inner.tick().await
+        self.inner.tick(0).await
     }
 
     /// Runs the executor until the given future completes.
     pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
-        self.inner.run(future).await
+        self.inner.run(0, future).await
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
@@ -207,7 +209,7 @@ impl<'a> LocalExecutor<'a> {
         let state = self.inner.state.clone();
 
         move |runnable| {
-            state.queue.push(runnable).unwrap();
+            state.queues[0].push(runnable).unwrap();
             state.notify();
         }
     }
@@ -223,10 +225,10 @@ impl<'a> Default for LocalExecutor<'a> {
 #[derive(Debug)]
 struct State {
     /// The global queue.
-    queue: ConcurrentQueue<Runnable>,
+    queues: Box<[ConcurrentQueue<Runnable>]>,
 
     /// Local queues created by runners.
-    local_queues: RwLock<Vec<Arc<ConcurrentQueue<Runnable>>>>,
+    local_queues: Box<[RwLock<Vec<Arc<ConcurrentQueue<Runnable>>>>]>,
 
     /// Set to `true` when a sleeping ticker is notified or no tickers are sleeping.
     notified: AtomicBool,
@@ -240,10 +242,16 @@ struct State {
 
 impl State {
     /// Creates state for a new executor.
-    fn new() -> State {
+    fn new(priorities: usize) -> State {
+        let queues = (0..priorities)
+            .map(|_| ConcurrentQueue::unbounded())
+            .collect::<Vec<_>>();
+        let local_queues = (0..priorities)
+            .map(|_| RwLock::new(Vec::new()))
+            .collect::<Vec<_>>();
         State {
-            queue: ConcurrentQueue::unbounded(),
-            local_queues: RwLock::new(Vec::new()),
+            queues: queues.into_boxed_slice(),
+            local_queues: local_queues.into_boxed_slice(),
             notified: AtomicBool::new(true),
             sleepers: Mutex::new(Sleepers {
                 count: 0,
@@ -412,8 +420,9 @@ impl Ticker<'_> {
     }
 
     /// Waits for the next runnable task to run.
-    async fn runnable(&self) -> Runnable {
-        self.runnable_with(|| self.state.queue.pop().ok()).await
+    async fn runnable(&self, priority: usize) -> Runnable {
+        self.runnable_with(|| self.state.queues[priority].pop().ok())
+            .await
     }
 
     /// Waits for the next runnable task to run, given a function that searches for a task.
@@ -471,6 +480,8 @@ impl Drop for Ticker<'_> {
 /// This is just a ticker that also has an associated local queue for improved cache locality.
 #[derive(Debug)]
 struct Runner<'a> {
+    priority: usize,
+
     /// The executor state.
     state: &'a State,
 
@@ -486,14 +497,17 @@ struct Runner<'a> {
 
 impl Runner<'_> {
     /// Creates a runner and registers it in the executor state.
-    fn new(state: &State) -> Runner<'_> {
+    fn new(priority: usize, state: &State) -> Runner<'_> {
         let runner = Runner {
+            priority,
             state,
             ticker: Ticker::new(state),
             local: Arc::new(ConcurrentQueue::bounded(512)),
             ticks: AtomicUsize::new(0),
         };
-        state.local_queues.write().push(runner.local.clone());
+        state.local_queues[priority]
+            .write()
+            .push(runner.local.clone());
         runner
     }
 
@@ -508,13 +522,13 @@ impl Runner<'_> {
                 }
 
                 // Try stealing from the global queue.
-                if let Ok(r) = self.state.queue.pop() {
-                    steal(&self.state.queue, &self.local);
+                if let Ok(r) = self.state.queues[self.priority].pop() {
+                    steal(&self.state.queues[self.priority], &self.local);
                     return Some(r);
                 }
 
                 // Try stealing from other runners.
-                let local_queues = self.state.local_queues.read();
+                let local_queues = self.state.local_queues[self.priority].read();
 
                 // Pick a random starting point in the iterator list and rotate the list.
                 let n = local_queues.len();
@@ -545,7 +559,7 @@ impl Runner<'_> {
 
         if ticks % 64 == 0 {
             // Steal tasks from the global queue to ensure fair task scheduling.
-            steal(&self.state.queue, &self.local);
+            steal(&self.state.queues[self.priority], &self.local);
         }
 
         runnable
@@ -555,8 +569,7 @@ impl Runner<'_> {
 impl Drop for Runner<'_> {
     fn drop(&mut self) {
         // Remove the local queue.
-        self.state
-            .local_queues
+        self.state.local_queues[self.priority]
             .write()
             .retain(|local| !Arc::ptr_eq(local, &self.local));
 

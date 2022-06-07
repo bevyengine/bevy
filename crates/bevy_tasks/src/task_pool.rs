@@ -13,30 +13,30 @@ use futures_lite::{future, pin, FutureExt};
 use crate::{Task, TaskGroup};
 
 #[derive(Debug, Default)]
-struct GroupInfo {
-    executor: Executor<'static>,
-    threads: usize,
-}
-
-#[derive(Debug, Default)]
 struct Groups {
-    compute: GroupInfo,
-    async_compute: GroupInfo,
-    io: GroupInfo,
+    compute: usize,
+    async_compute: usize,
+    io: usize,
 }
 
 impl Groups {
-    fn get(&self, group: TaskGroup) -> &GroupInfo {
+    fn thread_count(&self, group: TaskGroup) -> usize {
         match group {
-            TaskGroup::Compute => &self.compute,
-            TaskGroup::AsyncCompute => &self.async_compute,
-            TaskGroup::IO => &self.io,
+            TaskGroup::Compute => self.compute,
+            TaskGroup::AsyncCompute => self.async_compute,
+            TaskGroup::IO => self.io,
         }
     }
 }
 
 #[derive(Debug)]
 struct TaskPoolInner {
+    /// The groups for the pool
+    ///
+    /// This has to be separate from TaskPoolInner because we have to create an Arc to
+    /// pass into the worker threads, and we must create the worker threads before we can create
+    /// the Vec<JoinHandle<()>> contained within TaskPoolInner
+    groups: Groups,
     threads: Vec<JoinHandle<()>>,
     shutdown_tx: async_channel::Sender<()>,
 }
@@ -73,15 +73,11 @@ impl Drop for TaskPoolInner {
 /// via [`TaskPoolBuilder`] when constructing the pool.
 #[derive(Debug, Clone)]
 pub struct TaskPool {
-    /// The groups for the pool
-    ///
-    /// This has to be separate from TaskPoolInner because we have to create an Arc to
-    /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the Vec<JoinHandle<()>> contained within TaskPoolInner
-    groups: Arc<Groups>,
+    /// Inner state of the pool
+    executor: Arc<Executor<'static>>,
 
     /// Inner state of the pool
-    _inner: Arc<TaskPoolInner>,
+    inner: Arc<TaskPoolInner>,
 }
 
 impl TaskPool {
@@ -105,85 +101,69 @@ impl TaskPool {
         let mut remaining_threads = total_threads;
 
         // Determine the number of IO threads we will use
-        groups.io.threads = builder
+        groups.io = builder
             .io
             .get_number_of_threads(remaining_threads, total_threads);
 
-        tracing::trace!("IO Threads: {}", groups.io.threads);
-        remaining_threads = remaining_threads.saturating_sub(groups.io.threads);
+        tracing::trace!("IO Threads: {}", groups.io);
+        remaining_threads = remaining_threads.saturating_sub(groups.io);
 
         // Determine the number of async compute threads we will use
-        groups.async_compute.threads = builder
+        groups.async_compute = builder
             .async_compute
             .get_number_of_threads(remaining_threads, total_threads);
 
-        tracing::trace!("Async Compute Threads: {}", groups.async_compute.threads);
-        remaining_threads = remaining_threads.saturating_sub(groups.async_compute.threads);
+        tracing::trace!("Async Compute Threads: {}", groups.async_compute);
+        remaining_threads = remaining_threads.saturating_sub(groups.async_compute);
 
         // Determine the number of compute threads we will use
         // This is intentionally last so that an end user can specify 1.0 as the percent
-        groups.compute.threads = builder
+        groups.compute = builder
             .compute
             .get_number_of_threads(remaining_threads, total_threads);
-        tracing::trace!("Compute Threads: {}", groups.compute.threads);
+        tracing::trace!("Compute Threads: {}", groups.compute);
 
-        let groups = Arc::new(groups);
+        let executor = Arc::new(Executor::new(TaskGroup::MAX_PRIORITY));
         let mut threads = Vec::with_capacity(total_threads);
-        threads.extend((0..groups.compute.threads).map(|i| {
-            let groups = Arc::clone(&groups);
+        threads.extend((0..groups.compute).map(|i| {
             let shutdown_rx = shutdown_rx.clone();
+            let executor = executor.clone();
             make_thread_builder(&builder, "Compute", i)
                 .spawn(move || {
-                    let compute = &groups.compute.executor;
-                    let future = async {
-                        loop {
-                            compute.tick().await;
-                        }
-                    };
+                    let future = executor.run(TaskGroup::Compute.to_priority(), shutdown_rx.recv());
                     // Use unwrap_err because we expect a Closed error
-                    future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
+                    future::block_on(future).unwrap_err();
                 })
                 .expect("Failed to spawn thread.")
         }));
-        threads.extend((0..groups.io.threads).map(|i| {
-            let groups = Arc::clone(&groups);
+        threads.extend((0..groups.io).map(|i| {
             let shutdown_rx = shutdown_rx.clone();
+            let executor = executor.clone();
             make_thread_builder(&builder, "IO", i)
                 .spawn(move || {
-                    let compute = &groups.compute.executor;
-                    let io = &groups.io.executor;
-                    let future = async {
-                        loop {
-                            io.tick().or(compute.tick()).await;
-                        }
-                    };
+                    let future = executor.run(TaskGroup::IO.to_priority(), shutdown_rx.recv());
                     // Use unwrap_err because we expect a Closed error
-                    future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
+                    future::block_on(future).unwrap_err();
                 })
                 .expect("Failed to spawn thread.")
         }));
-        threads.extend((0..groups.async_compute.threads).map(|i| {
-            let groups = Arc::clone(&groups);
+        threads.extend((0..groups.async_compute).map(|i| {
             let shutdown_rx = shutdown_rx.clone();
+            let executor = executor.clone();
             make_thread_builder(&builder, "Async Compute", i)
                 .spawn(move || {
-                    let compute = &groups.compute.executor;
-                    let async_compute = &groups.async_compute.executor;
-                    let io = &groups.io.executor;
-                    let future = async {
-                        loop {
-                            async_compute.tick().or(compute.tick()).or(io.tick()).await;
-                        }
-                    };
+                    let future =
+                        executor.run(TaskGroup::AsyncCompute.to_priority(), shutdown_rx.recv());
                     // Use unwrap_err because we expect a Closed error
-                    future::block_on(shutdown_rx.recv().or(future)).unwrap_err();
+                    future::block_on(future).unwrap_err();
                 })
                 .expect("Failed to spawn thread.")
         }));
 
         Self {
-            groups,
-            _inner: Arc::new(TaskPoolInner {
+            executor,
+            inner: Arc::new(TaskPoolInner {
+                groups,
                 threads,
                 shutdown_tx,
             }),
@@ -192,15 +172,16 @@ impl TaskPool {
 
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
-        self._inner.threads.len()
+        self.inner.threads.len()
     }
 
     /// Return the number of threads that can run a given [`TaskGroup`] in the task pool
     pub fn thread_count_for(&self, group: TaskGroup) -> usize {
+        let groups = &self.inner.groups;
         match group {
             TaskGroup::Compute => self.thread_num(),
-            TaskGroup::IO => self.groups.io.threads + self.groups.async_compute.threads,
-            TaskGroup::AsyncCompute => self.groups.async_compute.threads,
+            TaskGroup::IO => groups.io + groups.async_compute,
+            TaskGroup::AsyncCompute => groups.async_compute,
         }
     }
 
@@ -223,11 +204,12 @@ impl TaskPool {
         // before this function returns. However, rust has no way of knowing
         // this so we must convert to 'static here to appease the compiler as it is unable to
         // validate safety.
-        let executor: &Executor = &self.groups.get(group).executor;
+        let executor: &Executor = &self.executor;
         let executor: &'scope Executor = unsafe { mem::transmute(executor) };
         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
             let local_executor: &'scope LocalExecutor = unsafe { mem::transmute(local_executor) };
             let mut scope = Scope {
+                group,
                 executor,
                 local_executor,
                 spawned: Vec::new(),
@@ -270,7 +252,7 @@ impl TaskPool {
                             break result;
                         };
 
-                        executor.try_tick();
+                        executor.try_tick(group.to_priority());
                         local_executor.try_tick();
                     }
                 }
@@ -296,7 +278,7 @@ impl TaskPool {
             tracing::error!("Attempted to use TaskPool::spawn with the {:?} task group, but there are no threads for it!",
                             group);
         }
-        Task::new(self.groups.get(group).executor.spawn(future))
+        Task::new(self.executor.spawn(group.to_priority(), future))
     }
 
     /// Spawns a static future on the thread-local async executor for the current thread. The task
@@ -323,6 +305,7 @@ impl Default for TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, T> {
+    group: TaskGroup,
     executor: &'scope Executor<'scope>,
     local_executor: &'scope LocalExecutor<'scope>,
     spawned: Vec<crate::executor::Task<T>>,
@@ -338,7 +321,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        let task = self.executor.spawn(f);
+        let task = self.executor.spawn(self.group.to_priority(), f);
         self.spawned.push(task);
     }
 
