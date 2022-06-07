@@ -22,7 +22,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{event::Events, schedule::SystemLabel};
+use bevy_ecs::{event::Events, schedule::IntoSystemLabel};
 
 /// The configuration information for the [`WindowPlugin`].
 ///
@@ -114,5 +114,5 @@ impl Plugin for WindowPlugin {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoSystemLabel)]
 pub struct ModifiesWindows;

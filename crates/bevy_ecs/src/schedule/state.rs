@@ -1,6 +1,6 @@
 use crate::{
     schedule::{
-        RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
+        IntoRunCriteriaLabel, RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, ShouldRun,
         SystemSet,
     },
     system::{In, IntoChainSystem, Local, Res, ResMut},
@@ -74,26 +74,29 @@ impl StateCallback {
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct StateRunCriteriaLabel<T>(T, StateCallback);
-impl<T> RunCriteriaLabel for StateRunCriteriaLabel<T>
+impl<T> IntoRunCriteriaLabel for StateRunCriteriaLabel<T>
 where
     T: StateData,
 {
-    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
-        Box::new(self.clone())
+    fn as_str(&self) -> &'static str {
+        todo!()
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-struct DriverLabel(TypeId);
-impl RunCriteriaLabel for DriverLabel {
-    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
-        Box::new(self.clone())
+struct DriverLabel(TypeId, &'static str);
+impl IntoRunCriteriaLabel for DriverLabel {
+    fn type_id(&self) -> core::any::TypeId {
+        self.0
+    }
+    fn as_str(&self) -> &'static str {
+        self.1
     }
 }
 
 impl DriverLabel {
     fn of<T: 'static>() -> Self {
-        Self(TypeId::of::<T>())
+        Self(TypeId::of::<T>(), std::any::type_name::<T>())
     }
 }
 

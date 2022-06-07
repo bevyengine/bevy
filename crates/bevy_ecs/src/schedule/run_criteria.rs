@@ -1,5 +1,5 @@
 use crate::{
-    schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
+    schedule::{GraphNode, IntoRunCriteriaLabel, RunCriteriaLabel},
     system::{BoxedSystem, IntoSystem, Local},
     world::World,
 };
@@ -94,9 +94,9 @@ pub(crate) enum RunCriteriaInner {
 pub(crate) struct RunCriteriaContainer {
     pub(crate) should_run: ShouldRun,
     pub(crate) inner: RunCriteriaInner,
-    pub(crate) label: Option<BoxedRunCriteriaLabel>,
-    pub(crate) before: Vec<BoxedRunCriteriaLabel>,
-    pub(crate) after: Vec<BoxedRunCriteriaLabel>,
+    pub(crate) label: Option<RunCriteriaLabel>,
+    pub(crate) before: Vec<RunCriteriaLabel>,
+    pub(crate) after: Vec<RunCriteriaLabel>,
 }
 
 impl RunCriteriaContainer {
@@ -129,7 +129,7 @@ impl RunCriteriaContainer {
 }
 
 impl GraphNode for RunCriteriaContainer {
-    type Label = BoxedRunCriteriaLabel;
+    type Label = RunCriteriaLabel;
 
     fn name(&self) -> Cow<'static, str> {
         match &self.inner {
@@ -138,7 +138,7 @@ impl GraphNode for RunCriteriaContainer {
         }
     }
 
-    fn labels(&self) -> &[BoxedRunCriteriaLabel] {
+    fn labels(&self) -> &[RunCriteriaLabel] {
         if let Some(ref label) = self.label {
             std::slice::from_ref(label)
         } else {
@@ -146,18 +146,18 @@ impl GraphNode for RunCriteriaContainer {
         }
     }
 
-    fn before(&self) -> &[BoxedRunCriteriaLabel] {
+    fn before(&self) -> &[RunCriteriaLabel] {
         &self.before
     }
 
-    fn after(&self) -> &[BoxedRunCriteriaLabel] {
+    fn after(&self) -> &[RunCriteriaLabel] {
         &self.after
     }
 }
 
 pub enum RunCriteriaDescriptorOrLabel {
     Descriptor(RunCriteriaDescriptor),
-    Label(BoxedRunCriteriaLabel),
+    Label(RunCriteriaLabel),
 }
 
 #[derive(Clone, Copy)]
@@ -168,10 +168,10 @@ pub(crate) enum DuplicateLabelStrategy {
 
 pub struct RunCriteriaDescriptor {
     pub(crate) system: RunCriteriaSystem,
-    pub(crate) label: Option<BoxedRunCriteriaLabel>,
+    pub(crate) label: Option<RunCriteriaLabel>,
     pub(crate) duplicate_label_strategy: DuplicateLabelStrategy,
-    pub(crate) before: Vec<BoxedRunCriteriaLabel>,
-    pub(crate) after: Vec<BoxedRunCriteriaLabel>,
+    pub(crate) before: Vec<RunCriteriaLabel>,
+    pub(crate) after: Vec<RunCriteriaLabel>,
 }
 
 pub(crate) enum RunCriteriaSystem {
@@ -212,12 +212,12 @@ where
     }
 }
 
-impl<L> IntoRunCriteria<BoxedRunCriteriaLabel> for L
+impl<L> IntoRunCriteria<RunCriteriaLabel> for L
 where
-    L: RunCriteriaLabel,
+    L: IntoRunCriteriaLabel,
 {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
-        RunCriteriaDescriptorOrLabel::Label(Box::new(self))
+        RunCriteriaDescriptorOrLabel::Label(self.as_label())
     }
 }
 
@@ -229,39 +229,42 @@ impl IntoRunCriteria<RunCriteria> for RunCriteria {
 
 pub trait RunCriteriaDescriptorCoercion<Param> {
     /// Assigns a label to the criteria. Must be unique.
-    fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
+    fn label(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor;
 
     /// Assigns a label to the criteria. If the given label is already in use,
     /// this criteria will be discarded before initialization.
-    fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
+    fn label_discard_if_duplicate(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor;
 
     /// Specifies that this criteria must be evaluated before a criteria with the given label.
-    fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
+    fn before(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor;
 
     /// Specifies that this criteria must be evaluated after a criteria with the given label.
-    fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor;
+    fn after(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor;
 }
 
 impl RunCriteriaDescriptorCoercion<()> for RunCriteriaDescriptor {
-    fn label(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.label = Some(Box::new(label));
+    fn label(mut self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
+        self.label = Some(label.as_label());
         self.duplicate_label_strategy = DuplicateLabelStrategy::Panic;
         self
     }
 
-    fn label_discard_if_duplicate(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.label = Some(Box::new(label));
+    fn label_discard_if_duplicate(
+        mut self,
+        label: impl IntoRunCriteriaLabel,
+    ) -> RunCriteriaDescriptor {
+        self.label = Some(label.as_label());
         self.duplicate_label_strategy = DuplicateLabelStrategy::Discard;
         self
     }
 
-    fn before(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.before.push(Box::new(label));
+    fn before(mut self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
+        self.before.push(label.as_label());
         self
     }
 
-    fn after(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.after.push(Box::new(label));
+    fn after(mut self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
+        self.after.push(label.as_label());
         self
     }
 }
@@ -277,19 +280,19 @@ fn new_run_criteria_descriptor(system: BoxedSystem<(), ShouldRun>) -> RunCriteri
 }
 
 impl RunCriteriaDescriptorCoercion<()> for BoxedSystem<(), ShouldRun> {
-    fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+    fn label(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(self).label(label)
     }
 
-    fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+    fn label_discard_if_duplicate(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(self).label_discard_if_duplicate(label)
     }
 
-    fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+    fn before(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(self).before(label)
     }
 
-    fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+    fn after(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(self).after(label)
     }
 }
@@ -298,33 +301,33 @@ impl<S, Param> RunCriteriaDescriptorCoercion<Param> for S
 where
     S: IntoSystem<(), ShouldRun, Param>,
 {
-    fn label(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+    fn label(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).label(label)
     }
 
-    fn label_discard_if_duplicate(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+    fn label_discard_if_duplicate(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self)))
             .label_discard_if_duplicate(label)
     }
 
-    fn before(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+    fn before(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).before(label)
     }
 
-    fn after(self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
+    fn after(self, label: impl IntoRunCriteriaLabel) -> RunCriteriaDescriptor {
         new_run_criteria_descriptor(Box::new(IntoSystem::into_system(self))).after(label)
     }
 }
 
 pub struct RunCriteria {
-    label: BoxedRunCriteriaLabel,
+    label: RunCriteriaLabel,
 }
 
 impl RunCriteria {
     /// Constructs a new run criteria that will retrieve the result of the criteria `label`
     /// and pipe it as input to `system`.
     pub fn pipe<P>(
-        label: impl RunCriteriaLabel,
+        label: impl IntoRunCriteriaLabel,
         system: impl IntoSystem<ShouldRun, ShouldRun, P>,
     ) -> RunCriteriaDescriptor {
         RunCriteriaDescriptor {
@@ -332,7 +335,7 @@ impl RunCriteria {
             label: None,
             duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
-            after: vec![Box::new(label)],
+            after: vec![label.as_label()],
         }
     }
 }

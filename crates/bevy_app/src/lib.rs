@@ -24,12 +24,12 @@ pub mod prelude {
     };
 }
 
-use bevy_ecs::schedule::StageLabel;
+use bevy_ecs::schedule::IntoStageLabel;
 
 /// The names of the default [`App`] stages.
 ///
 /// The relative [`Stages`](bevy_ecs::schedule::Stage) are added by [`App::add_default_stages`].
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoStageLabel)]
 pub enum CoreStage {
     /// The [`Stage`](bevy_ecs::schedule::Stage) that runs before all other app stages.
     First,
@@ -48,11 +48,11 @@ pub enum CoreStage {
 ///
 /// When targeting a [`Stage`](bevy_ecs::schedule::Stage) inside this [`Schedule`](bevy_ecs::schedule::Schedule),
 /// you need to use [`StartupStage`] instead.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoStageLabel)]
 pub struct StartupSchedule;
 
 /// The names of the default [`App`] startup stages.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoStageLabel)]
 pub enum StartupStage {
     /// The [`Stage`](bevy_ecs::schedule::Stage) that runs once before [`StartupStage::Startup`].
     PreStartup,

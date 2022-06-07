@@ -7,7 +7,7 @@ use bevy::{
 
 const LABEL: &str = "my_fixed_timestep";
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoStageLabel)]
 struct FixedUpdateStage;
 
 fn main() {

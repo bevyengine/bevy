@@ -16,7 +16,7 @@ use bevy::{
 
 use std::f32::consts::TAU;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoSystemLabel)]
 struct CameraControllerCheckSystem;
 
 fn main() {

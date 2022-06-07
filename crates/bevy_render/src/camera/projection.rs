@@ -19,7 +19,7 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
     }
 }
 
-#[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(IntoSystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {

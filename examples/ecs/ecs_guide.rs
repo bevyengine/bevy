@@ -238,7 +238,7 @@ fn print_at_end_round(mut counter: Local<u32>) {
     println!();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoStageLabel)]
 enum MyStage {
     BeforeRound,
     AfterRound,

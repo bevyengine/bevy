@@ -42,10 +42,10 @@ pub use loader::*;
 pub use path::*;
 
 use bevy_app::{prelude::Plugin, App};
-use bevy_ecs::schedule::{StageLabel, SystemStage};
+use bevy_ecs::schedule::{IntoStageLabel, SystemStage};
 
-/// The names of asset stages in an [`App`] schedule.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+/// The names of asset stages in an App Schedule
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoStageLabel)]
 pub enum AssetStage {
     /// The stage where asset storages are updated.
     LoadAssets,

@@ -82,7 +82,7 @@ impl VisibleEntities {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoSystemLabel)]
 pub enum VisibilitySystems {
     CalculateBounds,
     UpdateOrthographicFrusta,

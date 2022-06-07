@@ -56,7 +56,7 @@ pub trait System: Send + Sync + 'static {
     fn update_archetype_component_access(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
     /// The default labels for the system
-    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+    fn default_labels(&self) -> Vec<SystemLabel> {
         Vec::new()
     }
 }

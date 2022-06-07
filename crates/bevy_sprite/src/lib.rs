@@ -31,7 +31,7 @@ pub use texture_atlas_builder::*;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, HandleUntyped};
 use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::schedule::{IntoSystemLabel, ParallelSystemDescriptorCoercion};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_phase::AddRenderCommand,
@@ -45,7 +45,7 @@ pub struct SpritePlugin;
 pub const SPRITE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2763343953151597127);
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoSystemLabel)]
 pub enum SpriteSystem {
     ExtractSprites,
 }

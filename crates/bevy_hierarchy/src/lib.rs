@@ -23,10 +23,18 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_ecs::chedule::IntoSystemLabel;
 
 /// The base plugin for handling [`Parent`] and [`Children`] components
 #[derive(Default)]
 pub struct HierarchyPlugin;
+
+/// Label enum for the systems relating to hierarchy upkeep
+#[derive(Debug, Hash, PartialEq, Eq, Clone, IntoSystemLabel)]
+pub enum HierarchySystem {
+    /// Updates [`Parent`] when changes in the hierarchy occur
+    ParentUpdate,
+}
 
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {

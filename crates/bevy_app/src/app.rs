@@ -1,11 +1,11 @@
 use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
-pub use bevy_derive::AppLabel;
+pub use bevy_derive::IntoAppLabel;
 use bevy_ecs::{
     event::{Event, Events},
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
-        IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
-        SystemStage,
+        IntoStageLabel, IntoSystemDescriptor, Schedule, ShouldRun, Stage, State, StateData,
+        SystemSet, SystemStage,
     },
     system::Resource,
     world::World,
@@ -15,7 +15,7 @@ use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-bevy_utils::define_label!(AppLabel);
+bevy_utils::define_label!(AppLabel, IntoAppLabel);
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -56,7 +56,7 @@ pub struct App {
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
-    sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
+    sub_apps: HashMap<AppLabel, SubApp>,
 }
 
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
@@ -142,7 +142,7 @@ impl App {
     /// #
     /// app.add_stage("my_stage", SystemStage::parallel());
     /// ```
-    pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
+    pub fn add_stage<S: Stage>(&mut self, label: impl IntoStageLabel, stage: S) -> &mut Self {
         self.schedule.add_stage(label, stage);
         self
     }
@@ -161,8 +161,8 @@ impl App {
     /// ```
     pub fn add_stage_after<S: Stage>(
         &mut self,
-        target: impl StageLabel,
-        label: impl StageLabel,
+        target: impl IntoStageLabel,
+        label: impl IntoStageLabel,
         stage: S,
     ) -> &mut Self {
         self.schedule.add_stage_after(target, label, stage);
@@ -183,8 +183,8 @@ impl App {
     /// ```
     pub fn add_stage_before<S: Stage>(
         &mut self,
-        target: impl StageLabel,
-        label: impl StageLabel,
+        target: impl IntoStageLabel,
+        label: impl IntoStageLabel,
         stage: S,
     ) -> &mut Self {
         self.schedule.add_stage_before(target, label, stage);
@@ -203,7 +203,11 @@ impl App {
     /// #
     /// app.add_startup_stage("my_startup_stage", SystemStage::parallel());
     /// ```
-    pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
+    pub fn add_startup_stage<S: Stage>(
+        &mut self,
+        label: impl IntoStageLabel,
+        stage: S,
+    ) -> &mut Self {
         self.schedule
             .stage(StartupSchedule, |schedule: &mut Schedule| {
                 schedule.add_stage(label, stage)
@@ -231,8 +235,8 @@ impl App {
     /// ```
     pub fn add_startup_stage_after<S: Stage>(
         &mut self,
-        target: impl StageLabel,
-        label: impl StageLabel,
+        target: impl IntoStageLabel,
+        label: impl IntoStageLabel,
         stage: S,
     ) -> &mut Self {
         self.schedule
@@ -262,8 +266,8 @@ impl App {
     /// ```
     pub fn add_startup_stage_before<S: Stage>(
         &mut self,
-        target: impl StageLabel,
-        label: impl StageLabel,
+        target: impl IntoStageLabel,
+        label: impl IntoStageLabel,
         stage: S,
     ) -> &mut Self {
         self.schedule
@@ -299,7 +303,7 @@ impl App {
     /// ```
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
-        label: impl StageLabel,
+        label: impl IntoStageLabel,
         func: F,
     ) -> &mut Self {
         self.schedule.stage(label, func);
@@ -365,7 +369,7 @@ impl App {
     /// ```
     pub fn add_system_to_stage<Params>(
         &mut self,
-        stage_label: impl StageLabel,
+        stage_label: impl IntoStageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
         use std::any::TypeId;
@@ -400,7 +404,7 @@ impl App {
     /// ```
     pub fn add_system_set_to_stage(
         &mut self,
-        stage_label: impl StageLabel,
+        stage_label: impl IntoStageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
         use std::any::TypeId;
@@ -480,7 +484,7 @@ impl App {
     /// ```
     pub fn add_startup_system_to_stage<Params>(
         &mut self,
-        stage_label: impl StageLabel,
+        stage_label: impl IntoStageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
         self.schedule
@@ -516,7 +520,7 @@ impl App {
     /// ```
     pub fn add_startup_system_set_to_stage(
         &mut self,
-        stage_label: impl StageLabel,
+        stage_label: impl IntoStageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
         self.schedule
@@ -543,7 +547,7 @@ impl App {
     /// Each stage that uses `State<T>` for system run criteria needs a driver. If you need to use
     /// your state in more than one stage, consider manually adding [`State::get_driver`] to the
     /// stages you need it in.
-    pub fn add_state_to_stage<T>(&mut self, stage: impl StageLabel, initial: T) -> &mut Self
+    pub fn add_state_to_stage<T>(&mut self, stage: impl IntoStageLabel, initial: T) -> &mut Self
     where
         T: StateData,
     {
@@ -874,12 +878,12 @@ impl App {
     /// reference to the `SubApp` itself.
     pub fn add_sub_app(
         &mut self,
-        label: impl AppLabel,
+        label: impl IntoAppLabel,
         app: App,
         sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
-            Box::new(label),
+            label.as_label(),
             SubApp {
                 app,
                 runner: Box::new(sub_app_runner),
@@ -893,18 +897,19 @@ impl App {
     /// # Panics
     ///
     /// Panics if the `SubApp` doesn't exist.
-    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
+    pub fn sub_app_mut(&mut self, label: impl IntoAppLabel) -> &mut App {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
         }
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
-    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+    pub fn get_sub_app_mut(&mut self, label: impl IntoAppLabel) -> Result<&mut App, AppLabel> {
+        let label = label.as_label();
         self.sub_apps
-            .get_mut((&label) as &dyn AppLabel)
+            .get_mut(&label)
             .map(|sub_app| &mut sub_app.app)
             .ok_or(label)
     }
@@ -914,18 +919,18 @@ impl App {
     /// # Panics
     ///
     /// Panics if the `SubApp` doesn't exist.
-    pub fn sub_app(&self, label: impl AppLabel) -> &App {
+    pub fn sub_app(&self, label: impl IntoAppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
         }
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
-    pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
+    pub fn get_sub_app(&self, label: impl IntoAppLabel) -> Result<&App, impl IntoAppLabel> {
         self.sub_apps
-            .get((&label) as &dyn AppLabel)
+            .get(&label.as_label())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }

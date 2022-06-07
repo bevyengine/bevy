@@ -4,7 +4,7 @@ use crate::{
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
-    schedule::SystemLabel,
+    schedule::{IntoSystemLabel, SystemLabel},
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
         SystemParamItem, SystemParamState,
@@ -444,8 +444,8 @@ where
             self.system_meta.name.as_ref(),
         );
     }
-    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
-        vec![Box::new(self.func.as_system_label())]
+    fn default_labels(&self) -> Vec<SystemLabel> {
+        vec![self.func.as_system_label().as_label()]
     }
 }
 
@@ -481,9 +481,9 @@ impl<T> PartialEq for SystemTypeIdLabel<T> {
 }
 impl<T> Eq for SystemTypeIdLabel<T> {}
 
-impl<T> SystemLabel for SystemTypeIdLabel<T> {
-    fn dyn_clone(&self) -> Box<dyn SystemLabel> {
-        Box::new(*self)
+impl<T> IntoSystemLabel for SystemTypeIdLabel<T> {
+    fn as_str(&self) -> &'static str {
+        std::any::type_name::<T>()
     }
 }
 
@@ -612,7 +612,7 @@ all_tuples!(impl_system_function, 0, 16, F);
 /// Used to implicitly convert systems to their default labels. For example, it will convert
 /// "system functions" to their [`SystemTypeIdLabel`].
 pub trait AsSystemLabel<Marker> {
-    type SystemLabel: SystemLabel;
+    type SystemLabel: IntoSystemLabel;
     fn as_system_label(&self) -> Self::SystemLabel;
 }
 
@@ -626,7 +626,7 @@ impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param,
     }
 }
 
-impl<T: SystemLabel + Clone> AsSystemLabel<()> for T {
+impl<T: IntoSystemLabel + Clone> AsSystemLabel<()> for T {
     type SystemLabel = T;
 
     fn as_system_label(&self) -> Self::SystemLabel {

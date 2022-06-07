@@ -6,7 +6,7 @@ pub mod mouse;
 pub mod touch;
 
 pub use axis::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::schedule::{IntoSystemLabel, ParallelSystemDescriptorCoercion};
 pub use input::*;
 
 pub mod prelude {
@@ -38,7 +38,7 @@ use gamepad::{
 #[derive(Default)]
 pub struct InputPlugin;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, IntoSystemLabel)]
 pub struct InputSystem;
 
 impl Plugin for InputPlugin {

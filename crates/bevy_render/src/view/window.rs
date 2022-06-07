@@ -17,7 +17,7 @@ pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
 
-#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(IntoSystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum WindowSystem {
     Prepare,
 }

@@ -1,6 +1,6 @@
 use crate::{
     schedule::{
-        AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
+        AmbiguitySetLabel, IntoAmbiguitySetLabel, IntoRunCriteria, IntoSystemLabel,
         RunCriteriaDescriptorOrLabel, SystemLabel,
     },
     system::{
@@ -29,7 +29,7 @@ use crate::{
 /// # fn do_something() {}
 /// # fn do_the_other_thing() {}
 /// # fn do_something_else() {}
-/// #[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
+/// #[derive(IntoSystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
 /// struct Something;
 ///
 /// SystemStage::parallel()
@@ -98,10 +98,10 @@ impl IntoSystemDescriptor<()> for ExclusiveSystemCoerced {
 pub struct ParallelSystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
     pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
-    pub(crate) labels: Vec<BoxedSystemLabel>,
-    pub(crate) before: Vec<BoxedSystemLabel>,
-    pub(crate) after: Vec<BoxedSystemLabel>,
-    pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
+    pub(crate) labels: Vec<SystemLabel>,
+    pub(crate) before: Vec<SystemLabel>,
+    pub(crate) after: Vec<SystemLabel>,
+    pub(crate) ambiguity_sets: Vec<AmbiguitySetLabel>,
 }
 
 fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> ParallelSystemDescriptor {
@@ -124,7 +124,7 @@ pub trait ParallelSystemDescriptorCoercion<Params> {
     ) -> ParallelSystemDescriptor;
 
     /// Assigns a label to the system; there can be more than one, and it doesn't have to be unique.
-    fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
+    fn label(self, label: impl IntoSystemLabel) -> ParallelSystemDescriptor;
 
     /// Specifies that the system should run before systems with the given label.
     fn before<Marker>(self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor;
@@ -134,7 +134,7 @@ pub trait ParallelSystemDescriptorCoercion<Params> {
 
     /// Specifies that the system is exempt from execution order ambiguity detection
     /// with other systems in this set.
-    fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor;
+    fn in_ambiguity_set(self, set: impl IntoAmbiguitySetLabel) -> ParallelSystemDescriptor;
 }
 
 impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
@@ -146,23 +146,23 @@ impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
         self
     }
 
-    fn label(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
-        self.labels.push(Box::new(label));
+    fn label(mut self, label: impl IntoSystemLabel) -> ParallelSystemDescriptor {
+        self.labels.push(label.as_label());
         self
     }
 
     fn before<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
-        self.before.push(Box::new(label.as_system_label()));
+        self.before.push(label.as_system_label().as_label());
         self
     }
 
     fn after<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
-        self.after.push(Box::new(label.as_system_label()));
+        self.after.push(label.as_system_label().as_label());
         self
     }
 
-    fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor {
-        self.ambiguity_sets.push(Box::new(set));
+    fn in_ambiguity_set(mut self, set: impl IntoAmbiguitySetLabel) -> ParallelSystemDescriptor {
+        self.ambiguity_sets.push(set.as_label());
         self
     }
 }
@@ -179,7 +179,7 @@ where
             .with_run_criteria(run_criteria)
     }
 
-    fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+    fn label(self, label: impl IntoSystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).label(label)
     }
 
@@ -191,7 +191,7 @@ where
         new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).after(label)
     }
 
-    fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor {
+    fn in_ambiguity_set(self, set: impl IntoAmbiguitySetLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).in_ambiguity_set(set)
     }
 }
@@ -204,7 +204,7 @@ impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
         new_parallel_descriptor(self).with_run_criteria(run_criteria)
     }
 
-    fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+    fn label(self, label: impl IntoSystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).label(label)
     }
 
@@ -216,7 +216,7 @@ impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
         new_parallel_descriptor(self).after(label)
     }
 
-    fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ParallelSystemDescriptor {
+    fn in_ambiguity_set(self, set: impl IntoAmbiguitySetLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).in_ambiguity_set(set)
     }
 }
@@ -232,10 +232,10 @@ pub(crate) enum InsertionPoint {
 pub struct ExclusiveSystemDescriptor {
     pub(crate) system: Box<dyn ExclusiveSystem>,
     pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
-    pub(crate) labels: Vec<BoxedSystemLabel>,
-    pub(crate) before: Vec<BoxedSystemLabel>,
-    pub(crate) after: Vec<BoxedSystemLabel>,
-    pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
+    pub(crate) labels: Vec<SystemLabel>,
+    pub(crate) before: Vec<SystemLabel>,
+    pub(crate) after: Vec<SystemLabel>,
+    pub(crate) ambiguity_sets: Vec<AmbiguitySetLabel>,
     pub(crate) insertion_point: InsertionPoint,
 }
 
@@ -260,17 +260,17 @@ pub trait ExclusiveSystemDescriptorCoercion {
     ) -> ExclusiveSystemDescriptor;
 
     /// Assigns a label to the system; there can be more than one, and it doesn't have to be unique.
-    fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
+    fn label(self, label: impl IntoSystemLabel) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system should run before systems with the given label.
-    fn before(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
+    fn before(self, label: impl IntoSystemLabel) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system should run after systems with the given label.
-    fn after(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
+    fn after(self, label: impl IntoSystemLabel) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system is exempt from execution order ambiguity detection
     /// with other systems in this set.
-    fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ExclusiveSystemDescriptor;
+    fn in_ambiguity_set(self, set: impl IntoAmbiguitySetLabel) -> ExclusiveSystemDescriptor;
 
     /// Specifies that the system should run with other exclusive systems at the start of stage.
     fn at_start(self) -> ExclusiveSystemDescriptor;
@@ -292,23 +292,23 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
         self
     }
 
-    fn label(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        self.labels.push(Box::new(label));
+    fn label(mut self, label: impl IntoSystemLabel) -> ExclusiveSystemDescriptor {
+        self.labels.push(label.as_label());
         self
     }
 
-    fn before(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        self.before.push(Box::new(label));
+    fn before(mut self, label: impl IntoSystemLabel) -> ExclusiveSystemDescriptor {
+        self.before.push(label.as_label());
         self
     }
 
-    fn after(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
-        self.after.push(Box::new(label));
+    fn after(mut self, label: impl IntoSystemLabel) -> ExclusiveSystemDescriptor {
+        self.after.push(label.as_label());
         self
     }
 
-    fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> ExclusiveSystemDescriptor {
-        self.ambiguity_sets.push(Box::new(set));
+    fn in_ambiguity_set(mut self, set: impl IntoAmbiguitySetLabel) -> ExclusiveSystemDescriptor {
+        self.ambiguity_sets.push(set.as_label());
         self
     }
 
@@ -339,19 +339,19 @@ where
         new_exclusive_descriptor(Box::new(self)).with_run_criteria(run_criteria)
     }
 
-    fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+    fn label(self, label: impl IntoSystemLabel) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).label(label)
     }
 
-    fn before(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+    fn before(self, label: impl IntoSystemLabel) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).before(label)
     }
 
-    fn after(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+    fn after(self, label: impl IntoSystemLabel) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).after(label)
     }
 
-    fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> ExclusiveSystemDescriptor {
+    fn in_ambiguity_set(self, set: impl IntoAmbiguitySetLabel) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).in_ambiguity_set(set)
     }
 
