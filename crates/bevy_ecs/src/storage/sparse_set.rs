@@ -143,7 +143,7 @@ impl ComponentSparseSet {
     ///
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
-    /// inside the [`ComponentInfo`] given when constructing this sparse set.
+    /// inside the [`DataInfo`] given when constructing this sparse set.
     pub unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity.id()) {
             #[cfg(debug_assertions)]
@@ -449,7 +449,7 @@ macro_rules! impl_sparse_set_index {
 
 impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
-/// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
+/// A collection of [`ComponentSparseSet`] storages, indexed by [`DataId`]
 ///
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 #[derive(Default)]

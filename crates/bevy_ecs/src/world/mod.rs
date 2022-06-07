@@ -1168,7 +1168,7 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
+    /// The value referenced by `value` must be valid for the given [`DataId`] of this world
     pub unsafe fn insert_resource_by_id(&mut self, component_id: DataId, value: OwningPtr<'_>) {
         let change_tick = self.change_tick();
 

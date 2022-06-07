@@ -112,7 +112,7 @@ impl<'w> EntityRef<'w> {
 }
 
 impl<'w> EntityRef<'w> {
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Gets the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
     /// use this in cases where the actual component types are not known at
@@ -506,7 +506,7 @@ impl<'w> EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Gets the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -521,7 +521,7 @@ impl<'w> EntityMut<'w> {
         unsafe { get_component(self.world, component_id, self.entity, self.location) }
     }
 
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    /// Gets a [`MutUntyped`] of the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
