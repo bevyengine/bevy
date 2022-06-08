@@ -342,11 +342,11 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
         &VisibleEntities,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
-        &mut RenderPhase<Transparent3d>,
         &mut RenderPhase<HashedAlpha3d>,
+        &mut RenderPhase<Transparent3d>,
     )>,
 ) {
-    for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase, mut hashed_alpha_phase) in
+    for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut hashed_alpha_phase, mut transparent_phase) in
         views.iter_mut()
     {
         let draw_opaque_pbr = opaque_draw_functions
@@ -357,11 +357,11 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
             .read()
             .get_id::<DrawMaterial<M>>()
             .unwrap();
-        let draw_transparent_pbr = transparent_draw_functions
+        let draw_hashed_alpha_pbr = hashed_alpha_draw_functions
             .read()
             .get_id::<DrawMaterial<M>>()
             .unwrap();
-        let draw_hashed_alpha_pbr = hashed_alpha_draw_functions
+        let draw_transparent_pbr = transparent_draw_functions
             .read()
             .get_id::<DrawMaterial<M>>()
             .unwrap();
@@ -432,6 +432,18 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                                     distance: -mesh_z,
                                 });
                             }
+                            AlphaMode::Hashed => {
+                                hashed_alpha_phase.add(HashedAlpha3d {
+                                    entity: *visible_entity,
+                                    draw_function: draw_hashed_alpha_pbr,
+                                    pipeline: pipeline_id,
+                                    // NOTE: Front-to-back ordering for hashed alpha with ascending sort means near should have the
+                                    // lowest sort key and getting further away should increase. As we have
+                                    // -z in front of the camera, values in view space decrease away from the
+                                    // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                    distance: -mesh_z,
+                                });
+                            }
                             AlphaMode::Blend => {
                                 transparent_phase.add(Transparent3d {
                                     entity: *visible_entity,
@@ -444,18 +456,6 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                                     distance: mesh_z,
                                 });
                             }
-                            AlphaMode::Hashed => {
-                                hashed_alpha_phase.add(HashedAlpha3d {
-                                    entity: *visible_entity,
-                                    draw_function: draw_hashed_alpha_pbr,
-                                    pipeline: pipeline_id,
-                                    // NOTE: Front-to-back ordering for hashed alpha with ascending sort means near should have the
-                                    // lowest sort key and getting further away should increase. As we have
-                                    // -z in front of the camera, values in view space decrease away from the
-                                    // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
-                                    distance: -mesh_z,
-                                });
-                            },
                         }
                     }
                 }

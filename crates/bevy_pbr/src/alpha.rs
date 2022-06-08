@@ -11,8 +11,8 @@ pub enum AlphaMode {
     /// An alpha cutoff must be supplied where alpha values >= the cutoff
     /// will be fully opaque and < will be fully transparent
     Mask(f32),
-    Blend,
     Hashed,
+    Blend,
 }
 
 impl Eq for AlphaMode {}
