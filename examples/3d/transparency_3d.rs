@@ -18,13 +18,13 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Opaque plane
+    // opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 6.0 })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
-    // transparent sphere, using alpha_mode: Mask
+    // transparent sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Icosphere {
             radius: 0.5,
@@ -44,7 +44,7 @@ fn setup(
         transform: Transform::from_xyz(1.0, 0.5, -1.5),
         ..default()
     });
-    // transparent cube, using alpha_mode: Blend
+    // transparent cube, uses `alpha_mode: Blend`
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         // Notice how there is no need to set the `alpha_mode` explicitly here.
@@ -54,7 +54,7 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
-    // sphere
+    // opaque sphere
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Icosphere {
             radius: 0.5,
