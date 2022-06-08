@@ -136,6 +136,7 @@ pub struct Mesh2dPipeline {
     pub mesh_layout: BindGroupLayout,
     // This dummy white texture is to be used in place of optional textures
     pub dummy_white_gpu_image: GpuImage,
+    pub clustered_forward_buffer_binding_type: BufferBindingType,
 }
 
 impl FromWorld for Mesh2dPipeline {
@@ -157,6 +158,10 @@ impl FromWorld for Mesh2dPipeline {
             ],
             label: Some("mesh2d_view_layout"),
         });
+
+        // 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT that is declared in bevy_pbr
+        let clustered_forward_buffer_binding_type =
+            render_device.get_supported_read_only_binding_type(3);
 
         let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -221,6 +226,7 @@ impl FromWorld for Mesh2dPipeline {
             view_layout,
             mesh_layout,
             dummy_white_gpu_image,
+            clustered_forward_buffer_binding_type,
         }
     }
 }
@@ -318,6 +324,13 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         #[cfg(feature = "webgl")]
         shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
+
+        if !matches!(
+            self.clustered_forward_buffer_binding_type,
+            BufferBindingType::Storage { .. }
+        ) {
+            shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
+        }
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
