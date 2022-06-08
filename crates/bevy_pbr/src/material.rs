@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d};
+use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d, HashedAlpha3d};
 use bevy_ecs::{
     entity::Entity,
     prelude::World,
@@ -231,6 +231,7 @@ impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
+                .add_render_command::<HashedAlpha3d, DrawMaterial<M>>()
                 .init_resource::<MaterialPipeline<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
@@ -328,6 +329,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
+    hashed_alpha_draw_functions: Res<DrawFunctions<HashedAlpha3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     mut pipeline_cache: ResMut<PipelineCache>,
@@ -341,9 +343,10 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
+        &mut RenderPhase<HashedAlpha3d>,
     )>,
 ) {
-    for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
+    for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase, mut hashed_alpha_phase) in
         views.iter_mut()
     {
         let draw_opaque_pbr = opaque_draw_functions
@@ -355,6 +358,10 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
             .get_id::<DrawMaterial<M>>()
             .unwrap();
         let draw_transparent_pbr = transparent_draw_functions
+            .read()
+            .get_id::<DrawMaterial<M>>()
+            .unwrap();
+        let draw_hashed_alpha_pbr = hashed_alpha_draw_functions
             .read()
             .get_id::<DrawMaterial<M>>()
             .unwrap();
@@ -437,6 +444,18 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                                     distance: mesh_z,
                                 });
                             }
+                            AlphaMode::Hashed => {
+                                hashed_alpha_phase.add(HashedAlpha3d {
+                                    entity: *visible_entity,
+                                    draw_function: draw_hashed_alpha_pbr,
+                                    pipeline: pipeline_id,
+                                    // NOTE: Front-to-back ordering for hashed alpha with ascending sort means near should have the
+                                    // lowest sort key and getting further away should increase. As we have
+                                    // -z in front of the camera, values in view space decrease away from the
+                                    // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                                    distance: -mesh_z,
+                                });
+                            },
                         }
                     }
                 }

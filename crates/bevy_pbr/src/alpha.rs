@@ -12,6 +12,7 @@ pub enum AlphaMode {
     /// will be fully opaque and < will be fully transparent
     Mask(f32),
     Blend,
+    Hashed,
 }
 
 impl Eq for AlphaMode {}

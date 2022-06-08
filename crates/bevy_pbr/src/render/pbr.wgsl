@@ -519,6 +519,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 discard;
             }
         }
+        //  else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_HASHED) != 0u) {
+        //     if (output_color.a >= )
+        // }
 
         var V: vec3<f32>;
         // If the projection is not orthographic

@@ -52,11 +52,13 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
+            .init_resource::<DrawFunctions<HashedAlpha3d>>()
             .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_phases)
             .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_depth_textures)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
+            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>)
+            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<HashedAlpha3d>);
 
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -178,6 +180,41 @@ impl EntityPhaseItem for Transparent3d {
 }
 
 impl CachedRenderPipelinePhaseItem for Transparent3d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.pipeline
+    }
+}
+
+pub struct HashedAlpha3d {
+    pub distance: f32,
+    pub pipeline: CachedRenderPipelineId,
+    pub entity: Entity,
+    pub draw_function: DrawFunctionId,
+}
+
+impl PhaseItem for HashedAlpha3d {
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        FloatOrd(self.distance)
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.draw_function
+    }
+}
+
+impl EntityPhaseItem for HashedAlpha3d {
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for HashedAlpha3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline

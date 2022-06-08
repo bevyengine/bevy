@@ -131,8 +131,9 @@ bitflags::bitflags! {
         const ALPHA_MODE_OPAQUE          = (1 << 6);
         const ALPHA_MODE_MASK            = (1 << 7);
         const ALPHA_MODE_BLEND           = (1 << 8);
-        const TWO_COMPONENT_NORMAL_MAP   = (1 << 9);
-        const FLIP_NORMAL_MAP_Y          = (1 << 10);
+        const ALPHA_MODE_HASHED          = (1 << 9);
+        const TWO_COMPONENT_NORMAL_MAP   = (1 << 10);
+        const FLIP_NORMAL_MAP_Y          = (1 << 11);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -285,6 +286,7 @@ impl RenderAsset for StandardMaterial {
                 flags |= StandardMaterialFlags::ALPHA_MODE_MASK;
             }
             AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
+            AlphaMode::Hashed => todo!(),
         };
 
         let value = StandardMaterialUniformData {
