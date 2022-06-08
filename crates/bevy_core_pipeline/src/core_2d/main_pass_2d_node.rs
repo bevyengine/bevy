@@ -94,7 +94,8 @@ impl Node for MainPass2dNode {
             }
         }
 
-        // If there was a camera with a viewport, finish with a renderpass without a custom viewport in webgl
+        // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
+        // resetted for the next render pass so add an empty render pass without a custom viewport
         #[cfg(feature = "webgl")]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]

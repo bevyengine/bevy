@@ -194,11 +194,12 @@ impl Node for MainPass3dNode {
             }
         }
 
-        // If there was a camera with a viewport, finish with a renderpass without a custom viewport in webgl2
+        // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
+        // resetted for the next render pass so add an empty render pass without a custom viewport
         #[cfg(feature = "webgl")]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]
-            let _main_transparent_pass_3d_span = info_span!("reset_viewport_pass_3d").entered();
+            let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_3d"),
                 color_attachments: &[target.get_color_attachment(Operations {
