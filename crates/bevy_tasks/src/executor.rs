@@ -588,7 +588,8 @@ impl Runner<'_> {
             // Steal tasks.
             for _ in 0..count {
                 if let Ok(t) = src.pop() {
-                    assert!(self.local.push(t).is_ok());
+                    let res = self.local.push(t);
+                    debug_assert!(res.is_ok());
                 } else {
                     break;
                 }
