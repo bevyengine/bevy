@@ -484,7 +484,7 @@ impl Runner<'_> {
             priority,
             state,
             ticker: Ticker::new(state),
-            local, // Arc::new(ConcurrentQueue::bounded(512)),
+            local,
             ticks: AtomicUsize::new(0),
         };
         runner
@@ -523,17 +523,12 @@ impl Runner<'_> {
                         continue;
                     }
                     let start = fastrand::usize(..n);
-                    let iter = local_queues
-                        .iter()
-                        .chain(local_queues.iter())
-                        .skip(start)
-                        .take(n);
-
-                    // // Remove this runner's local queue.
-                    let iter = iter.filter(|local| !Arc::ptr_eq(local, &self.local));
-
                     // Try stealing from each local queue in the list.
-                    for local in iter {
+                    for idx in (start..start + local_queues.len()) {
+                        let local = local_queues[idx % local_queues.len()];
+                        if Arc::ptr_eq(local, &self.local) {
+                            continue;
+                        }
                         steal(local, &self.local);
                         if let Ok(r) = self.local.pop() {
                             return Some(r);
