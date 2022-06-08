@@ -408,6 +408,11 @@ fn random1D(s: f32) -> f32 {
     return fract(sin(s * 12.9898) * 43758.5453123);
 }
 
+// Hashed Alpha (https://casual-effects.com/research/Wyman2017Hashed/index.html)
+fn hash(in: vec2<f32>) -> f32 {
+    return fract(1.0e4 * sin(17.0 * in.x + 0.1 * in.y) * (0.1 + abs(sin(13.0 * in.y + in.x))));
+}
+
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
     [[builtin(position)]] frag_coord: vec4<f32>;
@@ -514,14 +519,19 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
                 output_color.a = 1.0;
             } else {
-                // NOTE: output_color.a < material.alpha_cutoff should not is not rendered
+                // NOTE: output_color.a < material.alpha_cutoff should not be rendered
                 // NOTE: This and any other discards mean that early-z testing cannot be done!
                 discard;
             }
+        } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_HASHED) != 0u) {
+            if (output_color.a >= hash(in.uv)) {
+                // NOTE: If rendering as hashed alpha and >= the hash of the uv position, render as fully opaque
+                output_color.a = 1.0;
+            } else {
+                // NOTE: output_color.a < hash(in.uv) should not be rendered
+                discard;
+            }
         }
-        //  else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_HASHED) != 0u) {
-        //     if (output_color.a >= )
-        // }
 
         var V: vec3<f32>;
         // If the projection is not orthographic

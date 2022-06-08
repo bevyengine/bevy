@@ -39,7 +39,7 @@ fn setup(
             // `fade_transparency` function.
             // Note that the transparency has no effect on the objects shadow.
             base_color: Color::rgba(0.2, 0.7, 0.1, 0.0),
-            // Maks sets a cutoff for transparency. Alpha values below are fully transparent,
+            // Mask sets a cutoff for transparency. Alpha values below are fully transparent,
             // alpha values above are fully opaque.
             alpha_mode: AlphaMode::Mask(0.5),
             ..default()
@@ -55,6 +55,19 @@ fn setup(
         // automatically set to `Blend` if the alpha channel is anything lower than 1.0.
         material: materials.add(Color::rgba(0.5, 0.5, 1.0, 0.0).into()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        ..default()
+    });
+    // transparent torus, using alpha_mode: Hashed
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Torus { radius: 0.5, ring_radius: 0.25, subdivisions_segments: 16, subdivisions_sides: 16 })),
+        material: materials.add(StandardMaterial {
+            base_color: Color::rgba(0.8, 0.2, 0.9, 1.0),
+            // Hashed generates a cutoff from the texture coordinates. Alpha values below are fully transparent,
+            // alpha values above are fully opaque.
+            alpha_mode: AlphaMode::Hashed,
+            ..default()
+        }),
+        transform: Transform::from_xyz(1.0, 0.5, 0.0),
         ..default()
     });
     // sphere
@@ -90,6 +103,7 @@ fn setup(
 /// - `Mask(f32)`: Object appears when the alpha value goes above the mask's threshold, disappears
 ///                when the alpha value goes back below the threshold.
 /// - `Blend`: Object fades in and out smoothly.
+/// - 'Hashed': 
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let alpha = (time.time_since_startup().as_secs_f32().sin() / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {

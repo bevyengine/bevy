@@ -286,7 +286,7 @@ impl RenderAsset for StandardMaterial {
                 flags |= StandardMaterialFlags::ALPHA_MODE_MASK;
             }
             AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
-            AlphaMode::Hashed => todo!(),
+            AlphaMode::Hashed => flags |= StandardMaterialFlags::ALPHA_MODE_HASHED,
         };
 
         let value = StandardMaterialUniformData {

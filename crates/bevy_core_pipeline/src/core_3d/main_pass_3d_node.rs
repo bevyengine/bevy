@@ -1,6 +1,6 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
-    core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
+    core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d, HashedAlpha3d},
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -21,6 +21,7 @@ pub struct MainPass3dNode {
             &'static RenderPhase<Opaque3d>,
             &'static RenderPhase<AlphaMask3d>,
             &'static RenderPhase<Transparent3d>,
+            &'static RenderPhase<HashedAlpha3d>,
             &'static Camera3d,
             &'static ViewTarget,
             &'static ViewDepthTexture,
@@ -55,7 +56,7 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth) =
+        let (camera, opaque_phase, alpha_mask_phase, transparent_phase, hashed_alpha_phase, camera_3d, target, depth) =
             match self.query.get_manual(world, view_entity) {
                 Ok(query) => query,
                 Err(_) => {
@@ -189,6 +190,45 @@ impl Node for MainPass3dNode {
                 tracked_pass.set_camera_viewport(viewport);
             }
             for item in &transparent_phase.items {
+                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+                draw_function.draw(world, &mut tracked_pass, view_entity, item);
+            }
+        }
+
+        if !hashed_alpha_phase.items.is_empty() {
+            // Run the alpha mask pass, sorted front-to-back
+            // NOTE: Scoped to drop the mutable borrow of render_context
+            #[cfg(feature = "trace")]
+            let _main_hashed_alpha_phase_3d_span = info_span!("main_hashed_alpha_phase_3d").entered();
+            let pass_descriptor = RenderPassDescriptor {
+                label: Some("main_hashed_alpha_phase_3d"),
+                // NOTE: The hashed_alpha pass loads the color buffer as well as overwriting it where appropriate.
+                color_attachments: &[target.get_color_attachment(Operations {
+                    load: LoadOp::Load,
+                    store: true,
+                })],
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &depth.view,
+                    // NOTE: The hashed alpha pass loads the depth buffer and possibly overwrites it
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Load,
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            };
+
+            let draw_functions = world.resource::<DrawFunctions<HashedAlpha3d>>();
+
+            let render_pass = render_context
+                .command_encoder
+                .begin_render_pass(&pass_descriptor);
+            let mut draw_functions = draw_functions.write();
+            let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            if let Some(viewport) = camera.viewport.as_ref() {
+                tracked_pass.set_camera_viewport(viewport);
+            }
+            for item in &hashed_alpha_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
             }

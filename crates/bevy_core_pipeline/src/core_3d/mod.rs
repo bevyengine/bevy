@@ -231,6 +231,7 @@ pub fn extract_core_3d_camera_phases(
                 RenderPhase::<Opaque3d>::default(),
                 RenderPhase::<AlphaMask3d>::default(),
                 RenderPhase::<Transparent3d>::default(),
+                RenderPhase::<HashedAlpha3d>::default(),
             ));
         }
     }
@@ -247,6 +248,7 @@ pub fn prepare_core_3d_depth_textures(
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
             With<RenderPhase<Transparent3d>>,
+            With<RenderPhase<HashedAlpha3d>>,
         ),
     >,
 ) {
