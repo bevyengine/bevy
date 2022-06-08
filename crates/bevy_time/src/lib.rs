@@ -45,12 +45,12 @@ impl Plugin for TimePlugin {
     }
 }
 
-/// channel resource used to receive time from render world
+/// Channel resource used to receive time from render world
 pub struct TimeReceiver(pub Receiver<Instant>);
-/// channel resource used to send time from render world
+/// Channel resource used to send time from render world
 pub struct TimeSender(pub Sender<Instant>);
 
-/// create channels used for sending time between render world and app world
+/// Creates channels used for sending time between render world and app world
 pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
     // bound the channel to 2 since when pipelined the render phase can finish before
     // the time system runs.
@@ -59,7 +59,7 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 }
 
 /// The system used to update the [`Time`] used by app logic. If there is a render world the time is sent from
-/// there to this system through channels. Otherwise the time is updated in this system.]
+/// there to this system through channels. Otherwise the time is updated in this system.
 fn time_system(
     mut time: ResMut<Time>,
     time_recv: Option<Res<TimeReceiver>>,
