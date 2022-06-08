@@ -39,7 +39,7 @@ fn setup(
             // `fade_transparency` function.
             // Note that the transparency has no effect on the objects shadow.
             base_color: Color::rgba(0.2, 0.7, 0.1, 0.0),
-            // Maks sets a cutoff for transparency. Alpha values below are fully transparent,
+            // Mask sets a cutoff for transparency. Alpha values below are fully transparent,
             // alpha values above are fully opaque.
             alpha_mode: AlphaMode::Mask(0.5),
             ..default()
@@ -90,7 +90,10 @@ fn setup(
 /// - `Mask(f32)`: Object appears when the alpha value goes above the mask's threshold, disappears
 ///                when the alpha value goes back below the threshold.
 /// - `Blend`: Object fades in and out smoothly.
-pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
+pub fn fade_transparency(
+    time: Res<Time>,
+    mut materials: ResMut<Assets<StandardMaterial>>
+) {
     let alpha = (time.time_since_startup().as_secs_f32().sin() / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {
         material.base_color.set_a(alpha);
