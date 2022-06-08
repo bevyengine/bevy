@@ -222,7 +222,6 @@ impl State {
                 queue: ConcurrentQueue::unbounded(),
                 local_queues: (0..*count)
                     .map(|_| ConcurrentQueue::bounded(512))
-                    .map(Arc::new)
                     .collect::<Vec<_>>()
                     .into_boxed_slice(),
                 notified: AtomicBool::new(true),
@@ -246,7 +245,7 @@ struct GroupState {
     queue: ConcurrentQueue<Runnable>,
 
     /// Local queues created by runners.
-    local_queues: Box<[Arc<ConcurrentQueue<Runnable>>]>,
+    local_queues: Box<[ConcurrentQueue<Runnable>]>,
 
     /// Set to `true` when a sleeping ticker is notified or no tickers are sleeping.
     notified: AtomicBool,
@@ -475,7 +474,7 @@ struct Runner<'a> {
     ticker: Ticker<'a>,
 
     /// The local queue.
-    local: Arc<ConcurrentQueue<Runnable>>,
+    local: &'a ConcurrentQueue<Runnable>,
 
     /// Bumped every time a runnable task is found.
     ticks: AtomicUsize,
@@ -484,7 +483,7 @@ struct Runner<'a> {
 impl Runner<'_> {
     /// Creates a runner and registers it in the executor state.
     fn new(priority: usize, thread_id: usize, state: &State) -> Runner<'_> {
-        let local = state.groups[priority].local_queues[thread_id].clone();
+        let local = &state.groups[priority].local_queues[thread_id];
         let runner = Runner {
             state,
             ticker: Ticker::new(priority, state),
@@ -536,7 +535,7 @@ impl Runner<'_> {
                     // Try stealing from each local queue in the list.
                     for idx in start..start + local_queues.len() {
                         let local = &local_queues[idx % local_queues.len()];
-                        if Arc::ptr_eq(local, &self.local) {
+                        if std::ptr::eq(local, self.local) {
                             continue;
                         }
                         self.steal(local);
