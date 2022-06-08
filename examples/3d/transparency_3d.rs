@@ -13,9 +13,6 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
-pub struct FadeTransparency;
-
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
