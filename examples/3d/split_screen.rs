@@ -1,10 +1,8 @@
 //! Renders two cameras to the same window to accomplish "split screen".
 
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    prelude::*,
-    render::camera::Viewport,
-    window::{WindowId, WindowResized},
+    core_pipeline::clear_color::ClearColorConfig, prelude::*, render::camera::Viewport,
+    window::WindowResized,
 };
 
 fn main() {
@@ -83,26 +81,25 @@ fn set_camera_viewports(
     mut resize_events: EventReader<WindowResized>,
     mut left_camera: Query<&mut Camera, (With<LeftCamera>, Without<RightCamera>)>,
     mut right_camera: Query<&mut Camera, With<RightCamera>>,
+    mut setup_done: Local<bool>,
 ) {
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
-    // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
-    for resize_event in resize_events.iter() {
-        if resize_event.id == WindowId::primary() {
-            let window = windows.primary();
-            let mut left_camera = left_camera.single_mut();
-            left_camera.viewport = Some(Viewport {
-                physical_position: UVec2::new(0, 0),
-                physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
-                ..default()
-            });
+    if resize_events.iter().next().is_some() || !*setup_done {
+        let window = windows.primary();
+        let mut left_camera = left_camera.single_mut();
+        left_camera.viewport = Some(Viewport {
+            physical_position: UVec2::new(0, 0),
+            physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
+            ..default()
+        });
 
-            let mut right_camera = right_camera.single_mut();
-            right_camera.viewport = Some(Viewport {
-                physical_position: UVec2::new(window.physical_width() / 2, 0),
-                physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
-                ..default()
-            });
-        }
+        let mut right_camera = right_camera.single_mut();
+        right_camera.viewport = Some(Viewport {
+            physical_position: UVec2::new(window.physical_width() / 2, 0),
+            physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
+            ..default()
+        });
+        *setup_done = true;
     }
 }
