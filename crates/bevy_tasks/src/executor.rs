@@ -225,11 +225,11 @@ impl State {
                     .collect::<Vec<_>>()
                     .into_boxed_slice(),
                 notified: AtomicBool::new(true),
-                sleepers:  Mutex::new(Sleepers {
+                sleepers: Mutex::new(Sleepers {
                     count: 0,
                     wakers: Vec::new(),
                     free_ids: Vec::new(),
-                })
+                }),
             })
             .collect::<Vec<_>>();
         State {
@@ -391,7 +391,8 @@ impl Ticker<'_> {
                 }
             }
         }
-        group.notified
+        group
+            .notified
             .swap(sleepers.is_notified(), Ordering::SeqCst);
 
         true
@@ -467,9 +468,6 @@ impl Drop for Ticker<'_> {
 /// This is just a ticker that also has an associated local queue for improved cache locality.
 #[derive(Debug)]
 struct Runner<'a> {
-    /// The executor state.
-    state: &'a State,
-
     /// Inner ticker.
     ticker: Ticker<'a>,
 
@@ -485,7 +483,6 @@ impl Runner<'_> {
     fn new(priority: usize, thread_id: usize, state: &State) -> Runner<'_> {
         let local = &state.groups[priority].local_queues[thread_id];
         let runner = Runner {
-            state,
             ticker: Ticker::new(priority, state),
             local,
             ticks: AtomicUsize::new(0),
@@ -498,9 +495,14 @@ impl Runner<'_> {
         self.ticker.priority
     }
 
+    #[inline]
+    fn state(&self) -> &State {
+        self.ticker.state
+    }
+
     fn priority_iter(&self) -> impl Iterator<Item = usize> {
         // Prioritize the immediate responsibility of the runner, then search in reverse order
-        std::iter::once(self.priority()).chain((self.priority() + 1..self.state.groups.len()).rev())
+        std::iter::once(self.priority()).chain((self.priority() + 1..self.state().groups.len()).rev())
     }
 
     /// Waits for the next runnable task to run.
@@ -515,7 +517,7 @@ impl Runner<'_> {
 
                 // Try stealing from global queues.
                 for priority in self.priority_iter() {
-                    let group = &self.state.groups[priority];
+                    let group = &self.state().groups[priority];
                     if let Ok(r) = group.queue.pop() {
                         self.steal(&group.queue);
                         return Some(r);
@@ -524,7 +526,7 @@ impl Runner<'_> {
 
                 // // Try stealing from other runners local queues.
                 for priority in self.priority_iter() {
-                    let local_queues = &self.state.groups[priority].local_queues;
+                    let local_queues = &self.state().groups[priority].local_queues;
 
                     // // Pick a random starting point in the iterator list and rotate the list.
                     let n = local_queues.len();
@@ -554,7 +556,7 @@ impl Runner<'_> {
 
         if ticks % 64 == 0 {
             // Steal tasks from the global queue to ensure fair task scheduling.
-            self.steal(&self.state.groups[self.priority()].queue);
+            self.steal(&self.state().groups[self.priority()].queue);
         }
 
         runnable
