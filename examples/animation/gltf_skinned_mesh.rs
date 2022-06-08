@@ -10,7 +10,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 1.0,
-            ..Default::default()
+            ..default()
         })
         .add_startup_system(setup)
         .add_system(joint_animation)
