@@ -123,7 +123,9 @@ impl ShaderCache {
                     &self.shaders,
                     &self.import_path_shaders,
                 )?;
-                let module_descriptor = match processed.get_module_descriptor() {
+                let module_descriptor = match processed
+                    .get_module_descriptor(render_device.features())
+                {
                     Ok(module_descriptor) => module_descriptor,
                     Err(err) => {
                         return Err(PipelineCacheError::AsModuleDescriptorError(err, processed));

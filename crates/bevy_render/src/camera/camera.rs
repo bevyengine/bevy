@@ -22,21 +22,72 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Range};
 use wgpu::Extent3d;
+
+/// Render viewport configuration for the [`Camera`] component.
+///
+/// The viewport defines the area on the render target to which the camera renders its image.
+/// You can overlay multiple cameras in a single window using viewports to create effects like
+/// split screen, minimaps, and character viewers.
+// TODO: remove reflect_value when possible
+#[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
+#[reflect_value(Default, Serialize, Deserialize)]
+pub struct Viewport {
+    /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
+    /// (0,0) corresponds to the top-left corner
+    pub physical_position: UVec2,
+    /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
+    /// The origin of the rectangle is in the top-left corner.
+    pub physical_size: UVec2,
+    /// The minimum and maximum depth to render (on a scale from 0.0 to 1.0).
+    pub depth: Range<f32>,
+}
+
+impl Default for Viewport {
+    fn default() -> Self {
+        Self {
+            physical_position: Default::default(),
+            physical_size: Default::default(),
+            depth: 0.0..1.0,
+        }
+    }
+}
+
+/// Information about the current [`RenderTarget`].
+#[derive(Default, Debug, Clone)]
+pub struct RenderTargetInfo {
+    /// The physical size of this render target (ignores scale factor).
+    pub physical_size: UVec2,
+    /// The scale factor of this render target.
+    pub scale_factor: f64,
+}
+
+/// Holds internally computed [`Camera`] values.
+#[derive(Default, Debug, Clone)]
+pub struct ComputedCameraValues {
+    projection_matrix: Mat4,
+    target_info: Option<RenderTargetInfo>,
+}
 
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
-    pub projection_matrix: Mat4,
-    pub logical_target_size: Option<Vec2>,
-    pub physical_target_size: Option<UVec2>,
+    /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
+    pub viewport: Option<Viewport>,
+    /// Cameras with a lower priority will be rendered before cameras with a higher priority.
     pub priority: isize,
+    /// If this is set to true, this camera will be rendered to its specified [`RenderTarget`]. If false, this
+    /// camera will not be rendered.
     pub is_active: bool,
+    /// The method used to calculate this camera's depth. This will be used for projections and visibility.
+    pub depth_calculation: DepthCalculation,
+    /// Computed values for this camera, such as the projection matrix and the render target size.
+    #[reflect(ignore)]
+    pub computed: ComputedCameraValues,
+    /// The "target" that this camera will render to.
     #[reflect(ignore)]
     pub target: RenderTarget,
-    #[reflect(ignore)]
-    pub depth_calculation: DepthCalculation,
 }
 
 impl Default for Camera {
@@ -44,9 +95,8 @@ impl Default for Camera {
         Self {
             is_active: true,
             priority: 0,
-            projection_matrix: Default::default(),
-            logical_target_size: Default::default(),
-            physical_target_size: Default::default(),
+            viewport: None,
+            computed: Default::default(),
             target: Default::default(),
             depth_calculation: Default::default(),
         }
@@ -54,6 +104,63 @@ impl Default for Camera {
 }
 
 impl Camera {
+    /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
+    /// will be the size of that custom viewport. Otherwise it will default to the full logical size of
+    /// the current [`RenderTarget`].
+    /// For logic that requires the full logical size of the [`RenderTarget`], prefer [`Camera::logical_target_size`].
+    #[inline]
+    pub fn logical_viewport_size(&self) -> Option<Vec2> {
+        let target_info = self.computed.target_info.as_ref()?;
+        self.viewport
+            .as_ref()
+            .map(|v| {
+                Vec2::new(
+                    (v.physical_size.x as f64 / target_info.scale_factor) as f32,
+                    (v.physical_size.y as f64 / target_info.scale_factor) as f32,
+                )
+            })
+            .or_else(|| self.logical_target_size())
+    }
+
+    /// The physical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
+    /// will be the size of that custom viewport. Otherwise it will default to the full physical size of
+    /// the current [`RenderTarget`].
+    /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
+    #[inline]
+    pub fn physical_viewport_size(&self) -> Option<UVec2> {
+        self.viewport
+            .as_ref()
+            .map(|v| v.physical_size)
+            .or_else(|| self.physical_target_size())
+    }
+
+    /// The full logical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
+    /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
+    /// For logic that requires the size of the actually rendered area, prefer [`Camera::logical_viewport_size`].
+    #[inline]
+    pub fn logical_target_size(&self) -> Option<Vec2> {
+        self.computed.target_info.as_ref().map(|t| {
+            Vec2::new(
+                (t.physical_size.x as f64 / t.scale_factor) as f32,
+                (t.physical_size.y as f64 / t.scale_factor) as f32,
+            )
+        })
+    }
+
+    /// The full physical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
+    /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
+    /// For logic that requires the size of the actually rendered area, prefer [`Camera::physical_viewport_size`].
+    #[inline]
+    pub fn physical_target_size(&self) -> Option<UVec2> {
+        self.computed.target_info.as_ref().map(|t| t.physical_size)
+    }
+
+    /// The projection matrix computed using this camera's [`CameraProjection`].
+    #[inline]
+    pub fn projection_matrix(&self) -> Mat4 {
+        self.computed.projection_matrix
+    }
+
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
@@ -63,7 +170,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Option<Vec2> {
-        let target_size = self.logical_target_size?;
+        let target_size = self.logical_viewport_size()?;
         let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
         // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
@@ -86,7 +193,7 @@ impl Camera {
     ) -> Option<Vec3> {
         // Build a transform to convert from world to NDC using camera data
         let world_to_ndc: Mat4 =
-            self.projection_matrix * camera_transform.compute_matrix().inverse();
+            self.computed.projection_matrix * camera_transform.compute_matrix().inverse();
         let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
 
         if !ndc_space_coords.is_nan() {
@@ -109,6 +216,8 @@ impl CameraRenderGraph {
     }
 }
 
+/// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
+/// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
@@ -138,28 +247,29 @@ impl RenderTarget {
             }
         }
     }
-    pub fn get_physical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<UVec2> {
-        match self {
-            RenderTarget::Window(window_id) => windows
-                .get(*window_id)
-                .map(|window| UVec2::new(window.physical_width(), window.physical_height())),
-            RenderTarget::Image(image_handle) => images.get(image_handle).map(|image| {
+
+    pub fn get_render_target_info(
+        &self,
+        windows: &Windows,
+        images: &Assets<Image>,
+    ) -> Option<RenderTargetInfo> {
+        Some(match self {
+            RenderTarget::Window(window_id) => {
+                let window = windows.get(*window_id)?;
+                RenderTargetInfo {
+                    physical_size: UVec2::new(window.physical_width(), window.physical_height()),
+                    scale_factor: window.scale_factor(),
+                }
+            }
+            RenderTarget::Image(image_handle) => {
+                let image = images.get(image_handle)?;
                 let Extent3d { width, height, .. } = image.texture_descriptor.size;
-                UVec2::new(width, height)
-            }),
-        }
-        .filter(|size| size.x > 0 && size.y > 0)
-    }
-    pub fn get_logical_size(&self, windows: &Windows, images: &Assets<Image>) -> Option<Vec2> {
-        match self {
-            RenderTarget::Window(window_id) => windows
-                .get(*window_id)
-                .map(|window| Vec2::new(window.width(), window.height())),
-            RenderTarget::Image(image_handle) => images.get(image_handle).map(|image| {
-                let Extent3d { width, height, .. } = image.texture_descriptor.size;
-                Vec2::new(width as f32, height as f32)
-            }),
-        }
+                RenderTargetInfo {
+                    physical_size: UVec2::new(width, height),
+                    scale_factor: 1.0,
+                }
+            }
+        })
     }
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
@@ -243,11 +353,10 @@ pub fn camera_system<T: CameraProjection + Component>(
             || added_cameras.contains(&entity)
             || camera_projection.is_changed()
         {
-            camera.logical_target_size = camera.target.get_logical_size(&windows, &images);
-            camera.physical_target_size = camera.target.get_physical_size(&windows, &images);
-            if let Some(size) = camera.logical_target_size {
+            camera.computed.target_info = camera.target.get_render_target_info(&windows, &images);
+            if let Some(size) = camera.logical_viewport_size() {
                 camera_projection.update(size.x, size.y);
-                camera.projection_matrix = camera_projection.get_projection_matrix();
+                camera.computed.projection_matrix = camera_projection.get_projection_matrix();
                 camera.depth_calculation = camera_projection.depth_calculation();
             }
         }
@@ -257,7 +366,9 @@ pub fn camera_system<T: CameraProjection + Component>(
 #[derive(Component, Debug)]
 pub struct ExtractedCamera {
     pub target: RenderTarget,
-    pub physical_size: Option<UVec2>,
+    pub physical_viewport_size: Option<UVec2>,
+    pub physical_target_size: Option<UVec2>,
+    pub viewport: Option<Viewport>,
     pub render_graph: Cow<'static, str>,
     pub priority: isize,
 }
@@ -276,19 +387,27 @@ pub fn extract_cameras(
         if !camera.is_active {
             continue;
         }
-        if let Some(size) = camera.physical_target_size {
+        if let (Some(viewport_size), Some(target_size)) = (
+            camera.physical_viewport_size(),
+            camera.physical_target_size(),
+        ) {
+            if target_size.x == 0 || target_size.y == 0 {
+                continue;
+            }
             commands.get_or_spawn(entity).insert_bundle((
                 ExtractedCamera {
                     target: camera.target.clone(),
-                    physical_size: Some(size),
+                    viewport: camera.viewport.clone(),
+                    physical_viewport_size: Some(viewport_size),
+                    physical_target_size: Some(target_size),
                     render_graph: camera_render_graph.0.clone(),
                     priority: camera.priority,
                 },
                 ExtractedView {
-                    projection: camera.projection_matrix,
+                    projection: camera.projection_matrix(),
                     transform: *transform,
-                    width: size.x,
-                    height: size.y,
+                    width: viewport_size.x,
+                    height: viewport_size.y,
                 },
                 visible_entities.clone(),
             ));

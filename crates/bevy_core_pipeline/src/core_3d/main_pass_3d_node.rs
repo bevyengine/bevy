@@ -4,6 +4,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
@@ -16,6 +17,7 @@ use bevy_utils::tracing::info_span;
 pub struct MainPass3dNode {
     query: QueryState<
         (
+            &'static ExtractedCamera,
             &'static RenderPhase<Opaque3d>,
             &'static RenderPhase<AlphaMask3d>,
             &'static RenderPhase<Transparent3d>,
@@ -53,7 +55,7 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth) =
+        let (camera, opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth) =
             match self.query.get_manual(world, view_entity) {
                 Ok(query) => query,
                 Err(_) => {
@@ -100,6 +102,9 @@ impl Node for MainPass3dNode {
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            if let Some(viewport) = camera.viewport.as_ref() {
+                tracked_pass.set_camera_viewport(viewport);
+            }
             for item in &opaque_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
@@ -136,6 +141,9 @@ impl Node for MainPass3dNode {
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            if let Some(viewport) = camera.viewport.as_ref() {
+                tracked_pass.set_camera_viewport(viewport);
+            }
             for item in &alpha_mask_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
@@ -177,6 +185,9 @@ impl Node for MainPass3dNode {
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            if let Some(viewport) = camera.viewport.as_ref() {
+                tracked_pass.set_camera_viewport(viewport);
+            }
             for item in &transparent_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);

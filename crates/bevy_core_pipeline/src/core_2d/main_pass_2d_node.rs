@@ -4,6 +4,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassDescriptor},
@@ -14,6 +15,7 @@ use bevy_render::{
 pub struct MainPass2dNode {
     query: QueryState<
         (
+            &'static ExtractedCamera,
             &'static RenderPhase<Transparent2d>,
             &'static ViewTarget,
             &'static Camera2d,
@@ -48,7 +50,7 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (transparent_phase, target, camera_2d) =
+        let (camera, transparent_phase, target, camera_2d) =
             if let Ok(result) = self.query.get_manual(world, view_entity) {
                 result
             } else {
@@ -79,6 +81,9 @@ impl Node for MainPass2dNode {
 
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
+        if let Some(viewport) = camera.viewport.as_ref() {
+            tracked_pass.set_camera_viewport(viewport);
+        }
         for item in &transparent_phase.items {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
