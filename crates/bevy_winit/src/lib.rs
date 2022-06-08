@@ -637,12 +637,18 @@ fn handle_create_window_events(
     let mut windows = world.resource_mut::<Windows>();
     let create_window_events = world.resource::<Events<CreateWindow>>();
     let mut window_created_events = world.resource_mut::<Events<WindowCreated>>();
+    let mut window_resized_events = world.resource_mut::<Events<WindowResized>>();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
         let window = winit_windows.create_window(
             event_loop,
             create_window_event.id,
             &create_window_event.descriptor,
         );
+        window_resized_events.send(WindowResized {
+            id: create_window_event.id,
+            width: window.width(),
+            height: window.height(),
+        });
         windows.add(window);
         window_created_events.send(WindowCreated {
             id: create_window_event.id,
