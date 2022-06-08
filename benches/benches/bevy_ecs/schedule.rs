@@ -7,7 +7,7 @@ criterion_main!(benches);
 
 fn build_schedule(criterion: &mut Criterion) {
     // empty system
-    fn sys() {}
+    fn empty_system() {}
 
     // Use multiple different kinds of label to ensure that dynamic dispatch
     // doesn't somehow get optimized away.
@@ -32,7 +32,7 @@ fn build_schedule(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut app = App::new();
                 for _ in 0..graph_size {
-                    app.add_system(sys);
+                    app.add_system(empty_system);
                 }
                 app.update();
             });
@@ -42,9 +42,12 @@ fn build_schedule(criterion: &mut Criterion) {
         group.bench_function(format!("{graph_size}_schedule"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
-                app.add_system(sys.label(DummyLabel));
+                app.add_system(empty_system.label(DummyLabel));
+
+                // Build a fully-connected dependency graph describing the One True Ordering.
+                // Not particularly realistic but this can be refined later.
                 for i in 0..graph_size {
-                    let mut sys = sys.label(labels[i]).before(DummyLabel);
+                    let mut sys = empty_system.label(labels[i]).before(DummyLabel);
                     for a in 0..i {
                         sys = sys.after(labels[a]);
                     }
@@ -53,6 +56,10 @@ fn build_schedule(criterion: &mut Criterion) {
                     }
                     app.add_system(sys);
                 }
+                // Run the app for a single frame.
+                // This is necessary since dependency resolution does not occur until the game runs.
+                // FIXME: Running the game clutters up the benchmarks, so ideally we'd be
+                // able to benchmark the dependency resolution directly.
                 app.update();
             });
         });
