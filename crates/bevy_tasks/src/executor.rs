@@ -470,10 +470,9 @@ impl Drop for Ticker<'_> {
 struct Runner<'a> {
     /// Inner ticker.
     ticker: Ticker<'a>,
-
     /// The local queue.
     local: &'a ConcurrentQueue<Runnable>,
-
+    rng: fastrand::Rng,
     /// Bumped every time a runnable task is found.
     ticks: AtomicUsize,
 }
@@ -485,6 +484,7 @@ impl Runner<'_> {
         let runner = Runner {
             ticker: Ticker::new(priority, state),
             local,
+            rng: fastrand::Rng::new(),
             ticks: AtomicUsize::new(0),
         };
         runner
@@ -533,7 +533,7 @@ impl Runner<'_> {
                     if n == 0 {
                         continue;
                     }
-                    let start = fastrand::usize(..n);
+                    let start = self.rng.usize(..n);
                     // Try stealing from each local queue in the list.
                     for idx in start..start + local_queues.len() {
                         let local = &local_queues[idx % local_queues.len()];
