@@ -14,9 +14,13 @@ use crate::{
     texture::BevyDefault,
 };
 use bevy_asset::HandleUntyped;
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::system::{
+    lifetimeless::{SRes, SResMut},
+    SystemParamItem,
+};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
+use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
@@ -128,21 +132,47 @@ impl Default for ImageSampler {
 /// Resource used as the global default image sampler for [`Image`]s with their `sampler_descriptor`
 /// set to [`ImageSampler::Default`].
 #[derive(Debug, Clone, ExtractResource)]
-pub struct DefaultImageSampler(pub wgpu::SamplerDescriptor<'static>);
+pub struct DefaultImageSampler {
+    descriptor: wgpu::SamplerDescriptor<'static>,
+    cache: Option<Sampler>,
+}
 impl DefaultImageSampler {
+    /// Get the [`Sampler`] from the cache or compute if empty.
+    pub fn get_or_create_sampler(&mut self, render_device: &RenderDevice) -> Sampler {
+        match &self.cache {
+            Some(sampler) => sampler.to_owned(),
+            None => {
+                let sampler = render_device.create_sampler(&self.descriptor);
+                self.cache = Some(sampler.clone());
+                sampler
+            }
+        }
+    }
+    pub fn new(descriptor: wgpu::SamplerDescriptor<'static>) -> Self {
+        Self {
+            descriptor,
+            cache: None,
+        }
+    }
     pub fn linear() -> Self {
-        DefaultImageSampler(wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        })
+        DefaultImageSampler {
+            descriptor: wgpu::SamplerDescriptor {
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                ..Default::default()
+            },
+            cache: None,
+        }
     }
     pub fn nearest() -> Self {
-        DefaultImageSampler(wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        })
+        DefaultImageSampler {
+            descriptor: wgpu::SamplerDescriptor {
+                mag_filter: wgpu::FilterMode::Nearest,
+                min_filter: wgpu::FilterMode::Nearest,
+                ..Default::default()
+            },
+            cache: None,
+        }
     }
 }
 
@@ -586,7 +616,7 @@ impl RenderAsset for Image {
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
-        SRes<DefaultImageSampler>,
+        SResMut<DefaultImageSampler>,
     );
 
     /// Clones the Image.
@@ -597,7 +627,7 @@ impl RenderAsset for Image {
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::ExtractedAsset,
-        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
+        (render_device, render_queue, ref mut default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let texture = if image.texture_descriptor.mip_level_count > 1 || image.is_compressed() {
             render_device.create_texture_with_data(
@@ -640,11 +670,11 @@ impl RenderAsset for Image {
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         );
-        let descriptor = match image.sampler_descriptor {
-            ImageSampler::Default => &default_sampler.0,
-            ImageSampler::Descriptor(ref d) => d,
+        let sampler = match image.sampler_descriptor {
+            ImageSampler::Default => default_sampler.get_or_create_sampler(render_device),
+            ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
         };
-        let sampler = render_device.create_sampler(descriptor);
+
         Ok(GpuImage {
             texture,
             texture_view,

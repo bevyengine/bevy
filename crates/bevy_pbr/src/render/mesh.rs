@@ -7,7 +7,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::*, SystemParamItem},
+    system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat4, Vec2};
 use bevy_reflect::TypeUuid;
@@ -277,7 +277,12 @@ pub struct MeshPipeline {
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let mut system_state: SystemState<(
+            Res<RenderDevice>,
+            ResMut<DefaultImageSampler>,
+            Res<RenderQueue>,
+        )> = SystemState::new(world);
+        let (render_device, mut default_sampler, render_queue) = system_state.get_mut(world);
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
@@ -437,13 +442,12 @@ impl FromWorld for MeshPipeline {
                 TextureFormat::bevy_default(),
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = render_device.create_sampler(match image.sampler_descriptor {
-                ImageSampler::Default => &world.resource::<DefaultImageSampler>().0,
-                ImageSampler::Descriptor(ref d) => d,
-            });
+            let sampler = match image.sampler_descriptor {
+                ImageSampler::Default => default_sampler.get_or_create_sampler(&*render_device),
+                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world.resource_mut::<RenderQueue>();
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,

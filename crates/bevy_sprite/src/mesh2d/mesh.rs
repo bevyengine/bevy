@@ -2,7 +2,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::*, SystemParamItem},
+    system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat4, Vec2};
 use bevy_reflect::{Reflect, TypeUuid};
@@ -142,7 +142,9 @@ pub struct Mesh2dPipeline {
 
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let mut system_state: SystemState<(Res<RenderDevice>, ResMut<DefaultImageSampler>)> =
+            SystemState::new(world);
+        let (render_device, mut default_sampler) = system_state.get_mut(world);
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -182,10 +184,10 @@ impl FromWorld for Mesh2dPipeline {
                 TextureFormat::bevy_default(),
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = render_device.create_sampler(match image.sampler_descriptor {
-                ImageSampler::Default => &world.resource::<DefaultImageSampler>().0,
-                ImageSampler::Descriptor(ref d) => d,
-            });
+            let sampler = match image.sampler_descriptor {
+                ImageSampler::Default => default_sampler.get_or_create_sampler(&*render_device),
+                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            };
 
             let format_size = image.texture_descriptor.format.pixel_size();
             let render_queue = world.resource_mut::<RenderQueue>();
