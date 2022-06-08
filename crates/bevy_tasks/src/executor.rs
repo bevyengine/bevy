@@ -70,12 +70,13 @@ impl<'a> Executor<'a> {
 
     /// Attempts to run a task if at least one is scheduled.
     pub fn try_tick(&self, priority: usize) -> bool {
-        match self.state.queues[priority].pop() {
+        let group = &self.state.groups[priority];
+        match group.queue.pop() {
             Err(_) => false,
             Ok(runnable) => {
                 // Notify another ticker now to pick up where this ticker left off, just in case
                 // running the task takes a long time.
-                self.state.notify();
+                group.notify();
 
                 // Run the task.
                 runnable.run();
@@ -114,8 +115,9 @@ impl<'a> Executor<'a> {
 
         // TODO(stjepang): If possible, push into the current local queue and notify the ticker.
         move |runnable| {
-            state.queues[priority].push(runnable).unwrap();
-            state.notify();
+            let group = &state.groups[priority];
+            group.queue.push(runnable).unwrap();
+            group.notify();
         }
     }
 }
@@ -128,8 +130,8 @@ impl Drop for Executor<'_> {
         }
         drop(active);
 
-        for queue in self.state.queues.iter() {
-            while queue.pop().is_ok() {}
+        for group in self.state.groups.iter() {
+            while group.queue.pop().is_ok() {}
         }
     }
 }
@@ -190,8 +192,9 @@ impl<'a> LocalExecutor<'a> {
         let state = self.inner.state.clone();
 
         move |runnable| {
-            state.queues[0].push(runnable).unwrap();
-            state.notify();
+            let group = &state.groups[0];
+            group.queue.push(runnable).unwrap();
+            group.notify();
         }
     }
 }
@@ -205,18 +208,7 @@ impl<'a> Default for LocalExecutor<'a> {
 /// The state of a executor.
 #[derive(Debug)]
 struct State {
-    /// The global queue.
-    queues: Box<[ConcurrentQueue<Runnable>]>,
-
-    /// Local queues created by runners.
-    local_queues: Box<[Box<[Arc<ConcurrentQueue<Runnable>>]>]>,
-
-    /// Set to `true` when a sleeping ticker is notified or no tickers are sleeping.
-    notified: AtomicBool,
-
-    /// A list of sleeping tickers.
-    sleepers: Mutex<Sleepers>,
-
+    groups: Box<[GroupState]>,
     /// Currently active tasks.
     active: Mutex<Slab<Waker>>,
 }
@@ -224,34 +216,45 @@ struct State {
 impl State {
     /// Creates state for a new executor.
     fn new(thread_counts: &[usize]) -> State {
-        let queues = thread_counts
+        let groups = thread_counts
             .iter()
-            .map(|_| ConcurrentQueue::unbounded())
-            .collect::<Vec<_>>();
-        let local_queues = thread_counts
-            .iter()
-            .copied()
-            .map(|count| {
-                (0..count)
+            .map(|count| GroupState {
+                queue: ConcurrentQueue::unbounded(),
+                local_queues: (0..*count)
                     .map(|_| ConcurrentQueue::bounded(512))
                     .map(Arc::new)
                     .collect::<Vec<_>>()
-                    .into_boxed_slice()
+                    .into_boxed_slice(),
+                notified: AtomicBool::new(true),
+                sleepers:  Mutex::new(Sleepers {
+                    count: 0,
+                    wakers: Vec::new(),
+                    free_ids: Vec::new(),
+                })
             })
             .collect::<Vec<_>>();
         State {
-            queues: queues.into_boxed_slice(),
-            local_queues: local_queues.into_boxed_slice(),
-            notified: AtomicBool::new(true),
-            sleepers: Mutex::new(Sleepers {
-                count: 0,
-                wakers: Vec::new(),
-                free_ids: Vec::new(),
-            }),
+            groups: groups.into(),
             active: Mutex::new(Slab::new()),
         }
     }
+}
 
+#[derive(Debug)]
+struct GroupState {
+    /// The global queue.
+    queue: ConcurrentQueue<Runnable>,
+
+    /// Local queues created by runners.
+    local_queues: Box<[Arc<ConcurrentQueue<Runnable>>]>,
+
+    /// Set to `true` when a sleeping ticker is notified or no tickers are sleeping.
+    notified: AtomicBool,
+
+    sleepers: Mutex<Sleepers>,
+}
+
+impl GroupState {
     /// Notifies a sleeping ticker.
     #[inline]
     fn notify(&self) {
@@ -345,6 +348,8 @@ impl Sleepers {
 /// Runs task one by one.
 #[derive(Debug)]
 struct Ticker<'a> {
+    priority: usize,
+
     /// The executor state.
     state: &'a State,
 
@@ -359,8 +364,9 @@ struct Ticker<'a> {
 
 impl Ticker<'_> {
     /// Creates a ticker.
-    fn new(state: &State) -> Ticker<'_> {
+    fn new(priority: usize, state: &State) -> Ticker<'_> {
         Ticker {
+            priority,
             state,
             sleeping: AtomicUsize::new(0),
         }
@@ -370,7 +376,8 @@ impl Ticker<'_> {
     ///
     /// Returns `false` if the ticker was already sleeping and unnotified.
     fn sleep(&self, waker: &Waker) -> bool {
-        let mut sleepers = self.state.sleepers.lock();
+        let group = &self.state.groups[self.priority];
+        let mut sleepers = group.sleepers.lock();
 
         match self.sleeping.load(Ordering::SeqCst) {
             // Move to sleeping state.
@@ -385,9 +392,7 @@ impl Ticker<'_> {
                 }
             }
         }
-
-        self.state
-            .notified
+        group.notified
             .swap(sleepers.is_notified(), Ordering::SeqCst);
 
         true
@@ -395,12 +400,13 @@ impl Ticker<'_> {
 
     /// Moves the ticker into woken state.
     fn wake(&self) {
+        let group = &self.state.groups[self.priority];
         let id = self.sleeping.swap(0, Ordering::SeqCst);
         if id != 0 {
-            let mut sleepers = self.state.sleepers.lock();
+            let mut sleepers = group.sleepers.lock();
             sleepers.remove(id);
 
-            self.state
+            group
                 .notified
                 .swap(sleepers.is_notified(), Ordering::SeqCst);
         }
@@ -418,15 +424,15 @@ impl Ticker<'_> {
                             return Poll::Pending;
                         }
                     }
-                    Some(r) => {
+                    Some(runnable) => {
                         // Wake up.
                         self.wake();
 
                         // Notify another ticker now to pick up where this ticker left off, just in
                         // case running the task takes a long time.
-                        self.state.notify();
+                        self.state.groups[self.priority].notify();
 
-                        return Poll::Ready(r);
+                        return Poll::Ready(runnable);
                     }
                 }
             }
@@ -440,17 +446,18 @@ impl Drop for Ticker<'_> {
         // If this ticker is in sleeping state, it must be removed from the sleepers list.
         let id = self.sleeping.swap(0, Ordering::SeqCst);
         if id != 0 {
-            let mut sleepers = self.state.sleepers.lock();
+            let group = &self.state.groups[self.priority];
+            let mut sleepers = group.sleepers.lock();
             let notified = sleepers.remove(id);
 
-            self.state
+            group
                 .notified
                 .swap(sleepers.is_notified(), Ordering::SeqCst);
 
             // If this ticker was notified, then notify another ticker.
             if notified {
                 drop(sleepers);
-                self.state.notify();
+                group.notify();
             }
         }
     }
@@ -461,8 +468,6 @@ impl Drop for Ticker<'_> {
 /// This is just a ticker that also has an associated local queue for improved cache locality.
 #[derive(Debug)]
 struct Runner<'a> {
-    priority: usize,
-
     /// The executor state.
     state: &'a State,
 
@@ -479,20 +484,24 @@ struct Runner<'a> {
 impl Runner<'_> {
     /// Creates a runner and registers it in the executor state.
     fn new(priority: usize, thread_id: usize, state: &State) -> Runner<'_> {
-        let local = state.local_queues[priority][thread_id].clone();
+        let local = state.groups[priority].local_queues[thread_id].clone();
         let runner = Runner {
-            priority,
             state,
-            ticker: Ticker::new(state),
+            ticker: Ticker::new(priority, state),
             local,
             ticks: AtomicUsize::new(0),
         };
         runner
     }
 
+    #[inline]
+    fn priority(&self) -> usize {
+        self.ticker.priority
+    }
+
     fn priority_iter(&self) -> impl Iterator<Item = usize> {
         // Prioritize the immediate responsibility of the runner, then search in reverse order
-        std::iter::once(self.priority).chain((self.priority + 1..self.state.queues.len()).rev())
+        std::iter::once(self.priority()).chain((self.priority() + 1..self.state.groups.len()).rev())
     }
 
     /// Waits for the next runnable task to run.
@@ -505,17 +514,18 @@ impl Runner<'_> {
                     return Some(r);
                 }
 
-                // Try stealing from the global queue then try stealing from higher priority global queues.
+                // Try stealing from global queues.
                 for priority in self.priority_iter() {
-                    if let Ok(r) = self.state.queues[priority].pop() {
-                        steal(&self.state.queues[priority], &self.local);
+                    let group = &self.state.groups[priority];
+                    if let Ok(r) = group.queue.pop() {
+                        self.steal(&group.queue);
                         return Some(r);
                     }
                 }
 
                 // // Try stealing from other runners local queues.
                 for priority in self.priority_iter() {
-                    let local_queues = &self.state.local_queues[priority];
+                    let local_queues = &self.state.groups[priority].local_queues;
 
                     // // Pick a random starting point in the iterator list and rotate the list.
                     let n = local_queues.len();
@@ -524,12 +534,12 @@ impl Runner<'_> {
                     }
                     let start = fastrand::usize(..n);
                     // Try stealing from each local queue in the list.
-                    for idx in (start..start + local_queues.len()) {
-                        let local = local_queues[idx % local_queues.len()];
+                    for idx in start..start + local_queues.len() {
+                        let local = &local_queues[idx % local_queues.len()];
                         if Arc::ptr_eq(local, &self.local) {
                             continue;
                         }
-                        steal(local, &self.local);
+                        self.steal(local);
                         if let Ok(r) = self.local.pop() {
                             return Some(r);
                         }
@@ -545,10 +555,32 @@ impl Runner<'_> {
 
         if ticks % 64 == 0 {
             // Steal tasks from the global queue to ensure fair task scheduling.
-            steal(&self.state.queues[self.priority], &self.local);
+            self.steal(&self.state.groups[self.priority()].queue);
         }
 
         runnable
+    }
+
+    /// Steals some items from one queue into another the local queue.
+    fn steal(&self, src: &ConcurrentQueue<Runnable>) {
+        // Half of `src`'s length rounded up.
+        let mut count = (src.len() + 1) / 2;
+
+        if count > 0 {
+            // Don't steal more than fits into the queue.
+            if let Some(cap) = self.local.capacity() {
+                count = count.min(cap - self.local.len());
+            }
+
+            // Steal tasks.
+            for _ in 0..count {
+                if let Ok(t) = src.pop() {
+                    assert!(self.local.push(t).is_ok());
+                } else {
+                    break;
+                }
+            }
+        }
     }
 }
 
@@ -557,28 +589,6 @@ impl Drop for Runner<'_> {
         // Re-schedule remaining tasks in the local queue.
         while let Ok(r) = self.local.pop() {
             r.schedule();
-        }
-    }
-}
-
-/// Steals some items from one queue into another.
-fn steal<T>(src: &ConcurrentQueue<T>, dest: &ConcurrentQueue<T>) {
-    // Half of `src`'s length rounded up.
-    let mut count = (src.len() + 1) / 2;
-
-    if count > 0 {
-        // Don't steal more than fits into the queue.
-        if let Some(cap) = dest.capacity() {
-            count = count.min(cap - dest.len());
-        }
-
-        // Steal tasks.
-        for _ in 0..count {
-            if let Ok(t) = src.pop() {
-                assert!(dest.push(t).is_ok());
-            } else {
-                break;
-            }
         }
     }
 }
