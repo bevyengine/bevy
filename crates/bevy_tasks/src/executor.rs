@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::task::{Poll, Waker};
 
 use async_task::Runnable;
-use concurrent_queue::ConcurrentQueue;
+use concurrent_queue::{ConcurrentQueue, PushError};
 use futures_lite::{future, prelude::*};
 use slab::Slab;
 
@@ -113,10 +113,21 @@ impl<'a> Executor<'a> {
     fn schedule(&self, priority: usize) -> impl Fn(Runnable) + Send + Sync + 'static {
         let state = self.state.clone();
 
-        // TODO(stjepang): If possible, push into the current local queue and notify the ticker.
         move |runnable| {
             let group = &state.groups[priority];
-            group.queue.push(runnable).unwrap();
+            let local_queues = &group.local_queues;
+            let idx = fastrand::usize(..local_queues.len());
+            // Try pushing to a local queue first, then defer to the global queue.
+            //
+            // TODO(james7132): Notify the exact thread when the local queue is pushed to
+            // instead of any thread in the group
+            match local_queues[idx].push(runnable) {
+                Ok(()) => {}
+                Err(PushError::Full(r)) => {
+                    group.queue.push(r).unwrap();
+                }
+                Err(PushError::Closed(_)) => unreachable!(),
+            }
             group.notify();
         }
     }
@@ -502,7 +513,8 @@ impl Runner<'_> {
 
     fn priority_iter(&self) -> impl Iterator<Item = usize> {
         // Prioritize the immediate responsibility of the runner, then search in reverse order
-        std::iter::once(self.priority()).chain((self.priority() + 1..self.state().groups.len()).rev())
+        std::iter::once(self.priority())
+            .chain((self.priority() + 1..self.state().groups.len()).rev())
     }
 
     /// Waits for the next runnable task to run.
