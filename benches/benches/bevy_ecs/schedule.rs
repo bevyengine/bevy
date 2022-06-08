@@ -34,7 +34,7 @@ fn build_schedule(criterion: &mut Criterion) {
                 for _ in 0..graph_size {
                     app.add_system(sys);
                 }
-                app.run();
+                app.update();
             });
         });
 
@@ -53,7 +53,7 @@ fn build_schedule(criterion: &mut Criterion) {
                     }
                     app.add_system(sys);
                 }
-                app.run();
+                app.update();
             });
         });
     }
