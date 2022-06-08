@@ -240,7 +240,7 @@ fn assert_component_access_compatibility(
 ///         &World,
 ///     )>
 /// ) {
-///     // To access the ParamSet's elements according to the order they're defined, use the methods p0(), p1(), ..., p7().
+///     // This will access the first [`SystemParam`], likewise, the second, third and all other SystemParams can be accessed in a similar manner.
 ///     for mut health in set.p0().iter_mut() {
 ///         // Do your fancy stuff here...
 ///     }
