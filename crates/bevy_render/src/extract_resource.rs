@@ -3,7 +3,6 @@ use std::{any::type_name, marker::PhantomData};
 use bevy_app::{App, Plugin};
 use bevy_ecs::system::{Commands, Res, Resource};
 pub use bevy_render_macros::ExtractResource;
-use bevy_utils::tracing::error;
 
 use crate::{RenderApp, RenderStage};
 
@@ -32,16 +31,11 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
-        } else {
-            error!(
-                "Render app did not exist when trying to add the system extract_resource::<{}>. 
-                Ensure the ExtractResourcePlugin is being added after 
-                the render world is created.",
-                type_name::<R>()
-            )
-        }
+        let render_app = app.get_sub_app_mut(RenderApp).expect(&format!(
+            "Render app does not exist when adding `extract_resource` for <{}>.",
+            type_name::<R>()
+        ));
+        render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
     }
 }
 
