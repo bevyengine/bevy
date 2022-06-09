@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs_compile_fail_tests"
-version = "0.8.0-dev"
+version = "0.1.0"
 edition = "2021"
 description = "Compile fail tests for Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
@@ -9,5 +9,5 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dev-dependencies]
-bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
+bevy_ecs = { path = "../bevy_ecs" }
 trybuild = "1.0"

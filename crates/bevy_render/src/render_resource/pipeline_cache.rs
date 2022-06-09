@@ -13,7 +13,7 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::event::EventReader;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{default, tracing::error, Entry, HashMap, HashSet};
-use std::{hash::Hash, mem, ops::Deref, sync::Arc};
+use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
 use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout as RawVertexBufferLayout};
 
@@ -123,7 +123,9 @@ impl ShaderCache {
                     &self.shaders,
                     &self.import_path_shaders,
                 )?;
-                let module_descriptor = match processed.get_module_descriptor() {
+                let module_descriptor = match processed
+                    .get_module_descriptor(render_device.features())
+                {
                     Ok(module_descriptor) => module_descriptor,
                     Err(err) => {
                         return Err(PipelineCacheError::AsModuleDescriptorError(err, processed));
@@ -670,3 +672,5 @@ impl<'a> Iterator for ErrorSources<'a> {
         current
     }
 }
+
+impl<'a> FusedIterator for ErrorSources<'a> {}

@@ -111,11 +111,7 @@ pub struct ViewTarget {
 impl ViewTarget {
     pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
         RenderPassColorAttachment {
-            view: if let Some(sampled_target) = &self.sampled_target {
-                sampled_target
-            } else {
-                &self.view
-            },
+            view: self.sampled_target.as_ref().unwrap_or(&self.view),
             resolve_target: if self.sampled_target.is_some() {
                 Some(&self.view)
             } else {
@@ -176,7 +172,7 @@ fn prepare_view_targets(
 ) {
     let mut sampled_textures = HashMap::default();
     for (entity, camera) in cameras.iter() {
-        if let Some(size) = camera.physical_size {
+        if let Some(target_size) = camera.physical_target_size {
             if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
                 let sampled_target = if msaa.samples > 1 {
                     let sampled_texture = sampled_textures
@@ -187,8 +183,8 @@ fn prepare_view_targets(
                                 TextureDescriptor {
                                     label: Some("sampled_color_attachment_texture"),
                                     size: Extent3d {
-                                        width: size.x,
-                                        height: size.y,
+                                        width: target_size.x,
+                                        height: target_size.y,
                                         depth_or_array_layers: 1,
                                     },
                                     mip_level_count: 1,

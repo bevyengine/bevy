@@ -133,13 +133,8 @@ where
         let pred_clone = pred.clone();
         (move |state: Res<State<T>>, mut is_in_stack: Local<bool>| match &state.transition {
             Some(StateTransition::Entering(ref relevant, _))
-            | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
-                if relevant == &pred {
-                    *is_in_stack = !*is_in_stack;
-                }
-                false
-            }
-            Some(StateTransition::ExitingFull(_, ref relevant)) => {
+            | Some(StateTransition::ExitingToResume(_, ref relevant))
+            | Some(StateTransition::ExitingFull(_, ref relevant)) => {
                 if relevant == &pred {
                     *is_in_stack = !*is_in_stack;
                 }
