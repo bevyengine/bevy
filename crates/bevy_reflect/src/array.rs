@@ -1,6 +1,9 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
+use crate::{
+    serde::Serializable, utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut,
+    ReflectRef, TypeInfo, Typed,
+};
 use std::{
-    any::Any,
+    any::{Any, TypeId},
     fmt::Debug,
     hash::{Hash, Hasher},
 };
@@ -34,6 +37,73 @@ pub trait Array: Reflect {
             name: self.type_name().to_string(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
+    }
+}
+
+/// A container for compile-time array info.
+#[derive(Clone, Debug)]
+pub struct ArrayInfo {
+    type_name: &'static str,
+    type_id: TypeId,
+    item_type_name: &'static str,
+    item_type_id: TypeId,
+    capacity: usize,
+}
+
+impl ArrayInfo {
+    /// Create a new [`ArrayInfo`].
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity`: The maximum capacity of the underlying array.
+    ///
+    pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
+        Self {
+            type_name: std::any::type_name::<TArray>(),
+            type_id: TypeId::of::<TArray>(),
+            item_type_name: std::any::type_name::<TItem>(),
+            item_type_id: TypeId::of::<TItem>(),
+            capacity,
+        }
+    }
+
+    /// The compile-time capacity of the array.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// The [type name] of the array.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
+    }
+
+    /// The [`TypeId`] of the array.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the array type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [type name] of the array item.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn item_type_name(&self) -> &'static str {
+        self.item_type_name
+    }
+
+    /// The [`TypeId`] of the array item.
+    pub fn item_type_id(&self) -> TypeId {
+        self.item_type_id
+    }
+
+    /// Check if the given type matches the array item type.
+    pub fn item_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.item_type_id
     }
 }
 
@@ -87,6 +157,11 @@ unsafe impl Reflect for DynamicArray {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()
+    }
+
+    #[inline]
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
     }
 
     #[inline]
@@ -182,6 +257,13 @@ impl Array for DynamicArray {
                 .map(|value| value.clone_value())
                 .collect(),
         }
+    }
+}
+
+impl Typed for DynamicArray {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 
