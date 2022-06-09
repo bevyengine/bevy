@@ -183,7 +183,7 @@ By helping others with their issues, and teaching them about Bevy, you will natu
 
 Some of the best ways to do this are:
 
-* Answering questions on [GitHub Discussions], [Discord](https://discord.gg/bevy), and [reddit](https://www.reddit.com/r/bevy).
+* Answering questions on [GitHub Discussions], [Discord], and [reddit](https://www.reddit.com/r/bevy).
 * Writing tutorials, guides, and other informal documentation and sharing them on [Bevy Assets](https://github.com/bevyengine/bevy-assets).
 * Streaming, writing blog posts about creating your game, and creating videos. Share these in the `#devlogs` channel on [Discord]!
 
