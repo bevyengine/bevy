@@ -578,7 +578,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 x < (1.0 - a)
             );
 
-            // Avoid threshold == 0
+            //  Make sure the threshold is always above 0.0 to avoid difficulties with floating point accuracy
             threshold = clamp(threshold, 1.0e-6, 1.0);
             
             if (output_color.a >= threshold) {
