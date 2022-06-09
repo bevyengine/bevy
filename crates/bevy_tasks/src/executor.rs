@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::task::{Poll, Waker};
 
 use async_task::Runnable;
-use concurrent_queue::{ConcurrentQueue, PushError};
+use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, prelude::*};
 use slab::Slab;
 
@@ -529,11 +529,10 @@ impl Runner<'_> {
                     let local_queues = &self.state().groups[priority].local_queues;
 
                     // // Pick a random starting point in the iterator list and rotate the list.
-                    let n = local_queues.len();
-                    if n == 0 {
+                    if local_queues.is_empty() {
                         continue;
                     }
-                    let start = self.rng.usize(..n);
+                    let start = self.rng.usize(..local_queues.len());
                     // Try stealing from each local queue in the list.
                     for idx in start..start + local_queues.len() {
                         let local = &local_queues[idx % local_queues.len()];
