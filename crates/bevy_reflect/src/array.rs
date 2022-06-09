@@ -1,7 +1,7 @@
 use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
-use std::fmt::Debug;
 use std::{
     any::Any,
+    fmt::Debug,
     hash::{Hash, Hasher},
 };
 

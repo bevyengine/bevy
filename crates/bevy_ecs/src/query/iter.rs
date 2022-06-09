@@ -5,7 +5,7 @@ use crate::{
     query::{Fetch, QueryState, WorldQuery},
     storage::{TableId, Tables},
 };
-use std::{borrow::Borrow, marker::PhantomData, mem::MaybeUninit};
+use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
 
 use super::{QueryFetch, QueryItem, ReadOnlyFetch};
 
@@ -70,6 +70,12 @@ where
         let min_size = if archetype_query { max_size } else { 0 };
         (min_size, Some(max_size))
     }
+}
+
+// This is correct as [`QueryIter`] always returns `None` once exhausted.
+impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q, QF, F> where
+    QF: Fetch<'w, State = Q::State>
+{
 }
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
@@ -357,6 +363,15 @@ where
             .map(|id| self.archetypes[*id].len())
             .sum()
     }
+}
+
+// This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
+impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> FusedIterator
+    for QueryCombinationIter<'w, 's, Q, F, K>
+where
+    QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
+    QueryFetch<'w, F>: Clone + ReadOnlyFetch,
+{
 }
 
 struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
