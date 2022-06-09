@@ -81,10 +81,15 @@ impl Plugin for Core3dPlugin {
     }
 }
 
+/// Object that is rendered in `main_opaque_pass_3d`.
 pub struct Opaque3d {
+    /// For front-to-back sorting.
     pub distance: f32,
+    /// ID of pipeline specialized for `AlphaMode::Opaque` material and mesh.
     pub pipeline: CachedRenderPipelineId,
+    /// [Entity] associated with rendered object.
     pub entity: Entity,
+    /// [DrawFunctionId] from [DrawFunctions<Opaque3d>] for `SpecializedMaterial`.
     pub draw_function: DrawFunctionId,
 }
 
@@ -116,10 +121,15 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
     }
 }
 
+/// Object that is rendered in `main_alpha_mask_pass_3d`.
 pub struct AlphaMask3d {
+    /// For front-to-back sorting.
     pub distance: f32,
+    /// ID of pipeline specialized for `AlphaMode::Mask(f32)` material and mesh.
     pub pipeline: CachedRenderPipelineId,
+    /// [Entity] associated with rendered object.
     pub entity: Entity,
+    /// [DrawFunctionId] from [DrawFunctions<AlphaMask3d>] for `SpecializedMaterial`.
     pub draw_function: DrawFunctionId,
 }
 
@@ -151,10 +161,15 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     }
 }
 
+/// Object that is rendered in `main_hashed_alpha_phase_3d`.
 pub struct HashedAlpha3d {
+    /// For front-to-back sorting.
     pub distance: f32,
+    /// ID of pipeline specialized for `AlphaMode::Hashed` material and mesh.
     pub pipeline: CachedRenderPipelineId,
+    /// [Entity] associated with rendered object.
     pub entity: Entity,
+    /// [DrawFunctionId] from [DrawFunctions<AlphaMask3d>] for `SpecializedMaterial`.
     pub draw_function: DrawFunctionId,
 }
 
@@ -186,10 +201,15 @@ impl CachedRenderPipelinePhaseItem for HashedAlpha3d {
     }
 }
 
+/// Object that is rendered in `main_transparent_pass_3d`.
 pub struct Transparent3d {
+    /// For back-to-front sorting.
     pub distance: f32,
+    /// ID of pipeline specialized for `AlphaMode::Blend` material and mesh.
     pub pipeline: CachedRenderPipelineId,
+    /// [Entity] associated with rendered object.
     pub entity: Entity,
+    /// [DrawFunctionId] from [DrawFunctions<Transparent3d>] for `SpecializedMaterial`.
     pub draw_function: DrawFunctionId,
 }
 
