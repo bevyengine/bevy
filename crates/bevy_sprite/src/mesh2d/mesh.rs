@@ -142,9 +142,9 @@ pub struct Mesh2dPipeline {
 
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(Res<RenderDevice>, ResMut<DefaultImageSampler>)> =
+        let mut system_state: SystemState<(Res<RenderDevice>, Res<DefaultImageSampler>)> =
             SystemState::new(world);
-        let (render_device, mut default_sampler) = system_state.get_mut(world);
+        let (render_device, default_sampler) = system_state.get_mut(world);
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -185,7 +185,7 @@ impl FromWorld for Mesh2dPipeline {
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
-                ImageSampler::Default => default_sampler.get_or_create_sampler(&*render_device),
+                ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
             };
 

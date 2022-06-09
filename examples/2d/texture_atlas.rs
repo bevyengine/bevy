@@ -1,13 +1,13 @@
 //! In this example we generate a new texture atlas (sprite sheet) from a folder containing
 //! individual sprites.
 
-use bevy::{asset::LoadState, prelude::*, render::texture::DefaultImageSampler};
+use bevy::{asset::LoadState, prelude::*, render::texture::ImageSettings};
 
 fn main() {
     App::new()
         .init_resource::<RpgSpriteHandles>()
+        .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
         .add_plugins(DefaultPlugins)
-        .insert_resource(DefaultImageSampler::nearest()) // prevents blurry sprites
         .add_state(AppState::Setup)
         .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(load_textures))
         .add_system_set(SystemSet::on_update(AppState::Setup).with_system(check_textures))
