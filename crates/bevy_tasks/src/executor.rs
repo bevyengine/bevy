@@ -115,19 +115,7 @@ impl<'a> Executor<'a> {
 
         move |runnable| {
             let group = &state.groups[priority];
-            let local_queues = &group.local_queues;
-            let idx = fastrand::usize(..local_queues.len());
-            // Try pushing to a local queue first, then defer to the global queue.
-            //
-            // TODO(james7132): Notify the exact thread when the local queue is pushed to
-            // instead of any thread in the group
-            match local_queues[idx].push(runnable) {
-                Ok(()) => {}
-                Err(PushError::Full(r)) => {
-                    group.queue.push(r).unwrap();
-                }
-                Err(PushError::Closed(_)) => unreachable!(),
-            }
+            group.queue.push(runnable).unwrap();
             group.notify();
         }
     }
