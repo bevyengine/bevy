@@ -67,7 +67,7 @@ fn setup(
         })),
         material: materials.add(StandardMaterial {
             base_color: Color::rgba(0.8, 0.2, 0.9, 1.0),
-            // Hashed generates a cutoff from the texture coordinates. Alpha values below are fully transparent,
+            // Hashed generates a cutoff from object space coordinates. Alpha values below are fully transparent,
             // alpha values above are fully opaque.
             alpha_mode: AlphaMode::Hashed,
             ..default()
