@@ -47,6 +47,8 @@ pub enum Color {
     },
 }
 
+// List of HTML colors sourced from https://www.w3schools.com/tags/ref_colornames.asp.
+// Extended color keywords license: https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document.
 impl Color {
     /// <div style="background-color:rgb(94%, 97%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const ALICE_BLUE: Color = Color::rgb(0.94, 0.97, 1.0);
