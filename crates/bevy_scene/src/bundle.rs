@@ -1,6 +1,5 @@
-use std::ops::{Deref, DerefMut};
-
 use bevy_asset::Handle;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
     change_detection::ResMut,
@@ -14,22 +13,8 @@ use crate::{DynamicScene, InstanceId, Scene, SceneSpawner};
 
 /// [`InstanceId`] of a spawned scene. It can be used with the [`SceneSpawner`] to
 /// interact with the spawned scene.
-#[derive(Component)]
+#[derive(Component, Deref, DerefMut)]
 pub struct SceneInstance(InstanceId);
-
-impl Deref for SceneInstance {
-    type Target = InstanceId;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for SceneInstance {
-    fn deref_mut(&mut self) -> &mut <Self as Deref>::Target {
-        &mut self.0
-    }
-}
 
 /// A component bundle for a [`Scene`] root.
 ///
