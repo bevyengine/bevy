@@ -7,14 +7,17 @@ use bevy_reflect::Reflect;
 #[derive(Component, Debug, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Component, Default)]
 pub enum AlphaMode {
-    /// Completely opaque; alpha values disregarded
+    /// Completely opaque texture/color; alpha values disregarded.
     Opaque,
     /// An alpha cutoff must be supplied where alpha values >= the cutoff
-    /// will be fully opaque and < will be fully transparent
+    /// will be fully opaque and < will be fully transparent.
     Mask(f32),
-    /// Dithers between color and background using alpha values as the "chance" that pixels will be rendered
+    /// A middle ground between [AlphaMode::Mask] and [AlphaMode::Blend].
+    /// Dithers between texture/color and background by hashing object space coordinates.
+    /// Pixels where alpha values >= hash will be fully opaque and < will be fully transparent.
+    /// Ideal for textures with noisy alpha values (ex: hair and foliage).
     Hashed,
-    /// Alpha values mix color with background
+    /// Alpha values mix texture/color with background.
     Blend,
 }
 
