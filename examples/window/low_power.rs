@@ -162,7 +162,7 @@ pub(crate) mod test_setup {
         });
         commands.spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default()
+            ..default()
         });
         event.send(RequestRedraw);
         commands
@@ -173,9 +173,9 @@ pub(crate) mod test_setup {
                     position: UiRect {
                         top: Val::Px(5.0),
                         left: Val::Px(5.0),
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
+                    ..default()
                 },
                 text: Text {
                     sections: vec![
@@ -214,7 +214,7 @@ pub(crate) mod test_setup {
                     ],
                     alignment: TextAlignment::default(),
                 },
-                ..Default::default()
+                ..default()
             })
             .insert(ModeText);
     }

@@ -8,6 +8,7 @@ status = [
     "build-android",
     "markdownlint",
     "run-examples",
+    "run-examples-on-wasm",
     "check-doc",
     "check-missing-examples-in-docs",
     "check-unused-dependencies",
