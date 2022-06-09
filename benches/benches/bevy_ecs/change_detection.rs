@@ -39,7 +39,7 @@ fn added_detection(criterion: &mut Criterion) {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             bencher.iter_batched(
                 || {
-                    let mut world = setup::<Table>(entity_count);
+                    let world = setup::<Table>(entity_count);
                     world
                 },
                 |mut world| {
@@ -64,7 +64,7 @@ fn added_detection(criterion: &mut Criterion) {
 }
 
 fn changed_detection(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("change_detection");
+    let mut group = criterion.benchmark_group("changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
