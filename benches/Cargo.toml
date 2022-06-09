@@ -23,6 +23,11 @@ path = "benches/bevy_ecs/archetype_updates.rs"
 harness = false
 
 [[bench]]
+name = "change_detection"
+path = "benches/bevy_ecs/change_detection.rs"
+harness = false
+
+[[bench]]
 name = "ecs_bench_suite"
 path = "benches/bevy_ecs/ecs_bench_suite/mod.rs"
 harness = false
