@@ -22,6 +22,11 @@ opt-level = 3
 lto = true
 
 [[bench]]
+name = "change_detection"
+path = "benches/bevy_ecs/change_detection.rs"
+harness = false
+
+[[bench]]
 name = "ecs"
 path = "benches/bevy_ecs/benches.rs"
 harness = false
