@@ -6,7 +6,7 @@ use once_cell::race::OnceBox;
 use parking_lot::RwLock;
 use std::any::{Any, TypeId};
 
-/// A container for [`TypeInfo`], allowing instances to be stored statically.
+/// A container for [`TypeInfo`] over non-generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with _non_-generic types. If your type _is_ generic,
 /// then use [`GenericTypeInfoCell`] instead. Otherwise, it will not take into account all
@@ -51,7 +51,7 @@ use std::any::{Any, TypeId};
 pub struct NonGenericTypeInfoCell(OnceBox<TypeInfo>);
 
 impl NonGenericTypeInfoCell {
-    /// Initialize a [`NonGenericTypeInfoCell`] for non-generic impls.
+    /// Initialize a [`NonGenericTypeInfoCell`] for non-generic types.
     pub const fn new() -> Self {
         Self(OnceBox::new())
     }
@@ -69,7 +69,7 @@ impl NonGenericTypeInfoCell {
     }
 }
 
-/// A container for [`TypeInfo`], allowing instances to be stored statically.
+/// A container for [`TypeInfo`] over generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with generic types. If your type isn't generic,
 /// then use [`NonGenericTypeInfoCell`] instead as it should be much more performant.
@@ -111,7 +111,7 @@ impl NonGenericTypeInfoCell {
 pub struct GenericTypeInfoCell(OnceBox<RwLock<HashMap<TypeId, &'static TypeInfo>>>);
 
 impl GenericTypeInfoCell {
-    /// Initialize a [`GenericTypeInfoCell`] for generic impls.
+    /// Initialize a [`GenericTypeInfoCell`] for generic types.
     pub const fn new() -> Self {
         Self(OnceBox::new())
     }
