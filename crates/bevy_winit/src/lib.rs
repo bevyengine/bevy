@@ -447,7 +447,7 @@ pub fn winit_runner_with(mut app: App) {
                             });
 
                         // Components
-                        let (_, mut window_resolution, _) = window_query.get_mut(window_entity).expect("Window should have a WindowResolution component");
+                        let (_, mut window_resolution, _, _) = window_query.get_mut(window_entity).expect("Window should have a WindowResolution component");
 
                         let prior_factor = window_resolution.scale_factor();
                         window_resolution.update_scale_factor_from_backend(scale_factor);
