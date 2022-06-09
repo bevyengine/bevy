@@ -10,12 +10,17 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
-use bevy_utils::{tracing::debug, HashMap};
-use std::fmt::Debug;
+use bevy_utils::{
+    tracing::{debug, warn},
+    HashMap, HashSet,
+};
+use std::{any::TypeId, fmt::Debug};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 bevy_utils::define_label!(AppLabel);
+
+pub(crate) struct AddedPluginsRegistry(pub HashSet<TypeId>);
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -368,7 +373,6 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
-        use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
             "add systems to a startup stage using App::add_startup_system_to_stage"
@@ -403,7 +407,6 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
-        use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
             "add system sets to a startup stage using App::add_startup_system_set_to_stage"
@@ -768,6 +771,14 @@ impl App {
         T: Plugin,
     {
         debug!("added plugin: {}", plugin.name());
+        if !self
+            .world
+            .get_resource_or_insert_with(|| AddedPluginsRegistry(HashSet::new()))
+            .0
+            .insert(TypeId::of::<T>())
+        {
+            warn!("Plugin {} inserted twice!", plugin.name());
+        }
         plugin.build(self);
         self
     }

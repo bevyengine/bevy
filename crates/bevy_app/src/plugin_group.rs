@@ -1,6 +1,6 @@
-use crate::{App, Plugin};
-use bevy_utils::{tracing::debug, tracing::warn, HashMap};
-use std::any::TypeId;
+use crate::{AddedPluginsRegistry, App, Plugin};
+use bevy_utils::{tracing::debug, tracing::warn, HashMap, HashSet};
+use std::any::{Any, TypeId};
 
 /// Combines multiple [`Plugin`]s into a single unit.
 pub trait PluginGroup {
@@ -132,6 +132,14 @@ impl PluginGroupBuilder {
             if let Some(entry) = self.plugins.get(ty) {
                 if entry.enabled {
                     debug!("added plugin: {}", entry.plugin.name());
+                    if !app
+                        .world
+                        .get_resource_or_insert_with(|| AddedPluginsRegistry(HashSet::new()))
+                        .0
+                        .insert(entry.type_id())
+                    {
+                        warn!("Plugin {} inserted twice!", entry.plugin.name());
+                    }
                     entry.plugin.build(app);
                 }
             }
