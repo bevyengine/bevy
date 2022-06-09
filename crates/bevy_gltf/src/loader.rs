@@ -29,9 +29,9 @@ use bevy_render::{
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
-use bevy_tasks::TaskGroup;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_tasks::{TaskGroup, TaskPool};
 use bevy_transform::{components::Transform, TransformBundle};
-
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,
@@ -411,8 +411,7 @@ async fn load_gltf<'a, 'b>(
         }
     } else {
         #[cfg(not(target_arch = "wasm32"))]
-        load_context
-            .task_pool()
+        TaskPool::get()
             .scope(TaskGroup::IO, |scope| {
                 gltf.textures().for_each(|gltf_texture| {
                     let linear_textures = &linear_textures;

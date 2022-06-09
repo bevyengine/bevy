@@ -58,13 +58,14 @@ impl<T: Asset> Default for HandleMap<T> {
 
 impl Plugin for DebugAssetServerPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        TaskPool::init(|| {
+            TaskPool::build()
+                .max_threads(2)
+                .thread_name("Debug Asset Server IO Task Pool".to_string())
+                .build()
+        });
         let mut debug_asset_app = App::new();
         debug_asset_app
-            .insert_resource(
-                TaskPool::build()
-                    .thread_name("Debug Asset Server IO Task Pool")
-                    .build(),
-            )
             .insert_resource(AssetServerSettings {
                 asset_folder: "crates".to_string(),
                 watch_for_changes: true,

@@ -587,8 +587,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///* `f` - The function to run on each item in the query
     ///
     /// # Panics
-    /// The [`TaskPool`] resource must be added to the `World` before using this method. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`TaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
@@ -615,8 +615,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// See [`Self::par_for_each`] for more details.
     ///
     /// # Panics
-    /// [`TaskPool`] was not stored in the world at initialzation. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`TaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]

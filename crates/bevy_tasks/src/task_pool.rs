@@ -1,4 +1,7 @@
 use crate::executor::{Executor, LocalExecutor};
+pub use crate::task_pool_builder::*;
+use futures_lite::{future, pin};
+use once_cell::sync::OnceCell;
 use std::{
     future::Future,
     mem,
@@ -7,42 +10,15 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-pub use crate::task_pool_builder::*;
-use futures_lite::{future, pin};
-
 use crate::{Task, TaskGroup};
+
+static GLOBAL_TASK_POOL: OnceCell<TaskPool> = OnceCell::new();
 
 #[derive(Debug, Default)]
 struct Groups {
     compute: usize,
     async_compute: usize,
     io: usize,
-}
-
-#[derive(Debug)]
-struct TaskPoolInner {
-    /// The groups for the pool
-    ///
-    /// This has to be separate from TaskPoolInner because we have to create an Arc to
-    /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the Vec<JoinHandle<()>> contained within TaskPoolInner
-    groups: Groups,
-    threads: Vec<JoinHandle<()>>,
-    shutdown_tx: async_channel::Sender<()>,
-}
-
-impl Drop for TaskPoolInner {
-    fn drop(&mut self) {
-        self.shutdown_tx.close();
-
-        let panicking = thread::panicking();
-        for join_handle in self.threads.drain(..) {
-            let res = join_handle.join();
-            if !panicking {
-                res.expect("Task thread panicked while executing.");
-            }
-        }
-    }
 }
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
@@ -61,18 +37,36 @@ impl Drop for TaskPoolInner {
 ///
 /// By default, all threads in the pool are dedicated to compute group. Thread counts can be altered
 /// via [`TaskPoolBuilder`] when constructing the pool.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TaskPool {
     /// Inner state of the pool
     executor: Arc<Executor<'static>>,
 
     /// Inner state of the pool
-    inner: Arc<TaskPoolInner>,
+    groups: Groups,
+    threads: Vec<JoinHandle<()>>,
+    shutdown_tx: async_channel::Sender<()>,
 }
 
 impl TaskPool {
     thread_local! {
         static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
+    }
+
+    /// Initializes the global [`TaskPool`] instance.
+    pub fn init(f: impl FnOnce() -> TaskPool) -> &'static Self {
+        GLOBAL_TASK_POOL.get_or_init(f)
+    }
+
+    /// Gets the global [`TaskPool`] instance.
+    ///
+    /// # Panics
+    /// Panics if no pool has been initialized yet.
+    pub fn get() -> &'static Self {
+        GLOBAL_TASK_POOL.get().expect(
+            "A TaskPool has not been initialized yet. Please call \
+             TaskPool::init beforehand.",
+        )
     }
 
     /// Get a [`TaskPoolBuilder`] for custom configuration.
@@ -157,22 +151,20 @@ impl TaskPool {
 
         Self {
             executor,
-            inner: Arc::new(TaskPoolInner {
-                groups,
-                threads,
-                shutdown_tx,
-            }),
+            groups,
+            threads,
+            shutdown_tx,
         }
     }
 
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
-        self.inner.threads.len()
+        self.threads.len()
     }
 
     /// Return the number of threads that can run a given [`TaskGroup`] in the task pool
     pub fn thread_count_for(&self, group: TaskGroup) -> usize {
-        let groups = &self.inner.groups;
+        let groups = &self.groups;
         match group {
             TaskGroup::Compute => self.thread_num(),
             TaskGroup::IO => groups.io + groups.async_compute,
@@ -292,6 +284,20 @@ impl TaskPool {
 impl Default for TaskPool {
     fn default() -> Self {
         TaskPoolBuilder::new().build()
+    }
+}
+
+impl Drop for TaskPool {
+    fn drop(&mut self) {
+        self.shutdown_tx.close();
+
+        let panicking = thread::panicking();
+        for join_handle in self.threads.drain(..) {
+            let res = join_handle.join();
+            if !panicking {
+                res.expect("Task thread panicked while executing.");
+            }
+        }
     }
 }
 

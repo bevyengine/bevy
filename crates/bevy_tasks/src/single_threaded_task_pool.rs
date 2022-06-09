@@ -1,11 +1,14 @@
 use crate::executor::LocalExecutor;
 pub use crate::task_pool_builder::TaskPoolBuilder;
 use crate::TaskGroup;
+use once_cell::sync::OnceCell;
 use std::{
     future::Future,
     mem,
     sync::{Arc, Mutex},
 };
+
+static GLOBAL_TASK_POOL: OnceCell<TaskPool> = OnceCell::new();
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool. In this case - main thread only.
@@ -27,6 +30,22 @@ use std::{
 pub struct TaskPool {}
 
 impl TaskPool {
+    /// Initializes the global [`TaskPool`] instance.
+    pub fn init(f: impl FnOnce() -> TaskPool) -> &'static Self {
+        GLOBAL_TASK_POOL.get_or_init(f)
+    }
+
+    /// Gets the global [`ComputeTaskPool`] instance.
+    ///
+    /// # Panics
+    /// Panics if no pool has been initialized yet.
+    pub fn get() -> &'static Self {
+        GLOBAL_TASK_POOL.get().expect(
+            "A TaskPool has not been initialized yet. Please call \
+             TaskPool::init beforehand.",
+        )
+    }
+
     /// Create a `TaskPool` with the default configuration.
     pub fn new() -> Self {
         TaskPoolBuilder::new().build()

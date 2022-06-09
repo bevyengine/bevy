@@ -123,8 +123,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             }
         }
 
-        let task_pool = world.get_resource_or_insert_with(TaskPool::default).clone();
-        task_pool.scope(TaskGroup::Compute, |scope| {
+        TaskPool::init(TaskPool::default).scope(TaskGroup::Compute, |scope| {
             self.prepare_systems(scope, systems, world);
             let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.
