@@ -36,6 +36,10 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 /// [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort) stage and
 /// [`RenderStage::Render`](crate::RenderStage::Render) stage, respectively.
 pub trait PhaseItem: Send + Sync + 'static {
+    /// If set to true, the sort phase will use an unstable sort instead of a stable one
+    /// which can result in higher performance. Enable only if rendering correctness does
+    /// not strictly rely on relative sort order.
+    const ALLOWS_UNSTABLE_SORT: bool;
     /// The type used for ordering the items. The smallest values are drawn first.
     type SortKey: Ord;
     /// Determines the order in which the items are drawn during the corresponding [`RenderPhase`](super::RenderPhase).
