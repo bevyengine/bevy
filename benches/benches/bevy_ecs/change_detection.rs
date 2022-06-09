@@ -36,27 +36,24 @@ fn added_detection(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(
-            format!("added_{}_entities_table", entity_count),
-            |bencher| {
-                bencher.iter_batched(
-                    || {
-                        let mut world = setup::<Table>(entity_count);
-                        world
-                    },
-                    |mut world| {
-                        let mut count = 0;
-                        let mut query = world.query_filtered::<Entity, Added<Table>>();
-                        for entity in query.iter(&world) {
-                            black_box(entity);
-                            count += 1;
-                        }
-                        assert_eq!(entity_count, count);
-                    },
-                    criterion::BatchSize::LargeInput,
-                );
-            },
-        );
+        group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
+            bencher.iter_batched(
+                || {
+                    let mut world = setup::<Table>(entity_count);
+                    world
+                },
+                |mut world| {
+                    let mut count = 0;
+                    let mut query = world.query_filtered::<Entity, Added<Table>>();
+                    for entity in query.iter(&world) {
+                        black_box(entity);
+                        count += 1;
+                    }
+                    assert_eq!(entity_count, count);
+                },
+                criterion::BatchSize::LargeInput,
+            );
+        });
         // TODO: Sparse test
         /*
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
@@ -72,32 +69,29 @@ fn changed_detection(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(
-            format!("changed_{}_entities_table", entity_count),
-            |bencher| {
-                bencher.iter_batched(
-                    || {
-                        let mut world = setup::<Table>(entity_count);
-                        world.clear_trackers();
-                        let mut query = world.query::<&mut Table>();
-                        for mut table in query.iter_mut(&mut world) {
-                            black_box(&mut *table);
-                        }
-                        world
-                    },
-                    |mut world| {
-                        let mut count = 0;
-                        let mut query = world.query_filtered::<Entity, Changed<Table>>();
-                        for entity in query.iter(&world) {
-                            black_box(entity);
-                            count += 1;
-                        }
-                        assert_eq!(entity_count, count);
-                    },
-                    criterion::BatchSize::LargeInput,
-                );
-            },
-        );
+        group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
+            bencher.iter_batched(
+                || {
+                    let mut world = setup::<Table>(entity_count);
+                    world.clear_trackers();
+                    let mut query = world.query::<&mut Table>();
+                    for mut table in query.iter_mut(&mut world) {
+                        black_box(&mut *table);
+                    }
+                    world
+                },
+                |mut world| {
+                    let mut count = 0;
+                    let mut query = world.query_filtered::<Entity, Changed<Table>>();
+                    for entity in query.iter(&world) {
+                        black_box(entity);
+                        count += 1;
+                    }
+                    assert_eq!(entity_count, count);
+                },
+                criterion::BatchSize::LargeInput,
+            );
+        });
         // TODO: Sparse test
         /*
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
