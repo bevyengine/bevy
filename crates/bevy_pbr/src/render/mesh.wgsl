@@ -19,14 +19,15 @@ struct Vertex {
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
+    [[location(0)]] object_position: vec3<f32>;
+    [[location(1)]] world_position: vec4<f32>;
+    [[location(2)]] world_normal: vec3<f32>;
+    [[location(3)]] uv: vec2<f32>;
 #ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
+    [[location(4)]] world_tangent: vec4<f32>;
 #endif
 #ifdef VERTEX_COLORS
-    [[location(4)]] color: vec4<f32>;
+    [[location(5)]] color: vec4<f32>;
 #endif
 };
 
@@ -41,6 +42,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.world_tangent = skin_tangents(model, vertex.tangent);
 #endif
 #else
+    out.object_position = vertex.position;
     out.world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
     out.world_normal = mat3x3<f32>(
         mesh.inverse_transpose_model[0].xyz,
@@ -69,14 +71,15 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
+    [[location(0)]] object_position: vec3<f32>;
+    [[location(1)]] world_position: vec4<f32>;
+    [[location(2)]] world_normal: vec3<f32>;
+    [[location(3)]] uv: vec2<f32>;
 #ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
+    [[location(4)]] world_tangent: vec4<f32>;
 #endif
 #ifdef VERTEX_COLORS
-    [[location(4)]] color: vec4<f32>;
+    [[location(5)]] color: vec4<f32>;
 #endif
 };
 

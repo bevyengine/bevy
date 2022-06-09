@@ -409,21 +409,26 @@ fn random1D(s: f32) -> f32 {
 }
 
 // Hashed Alpha (https://casual-effects.com/research/Wyman2017Hashed/index.html)
-fn hash(in: vec2<f32>) -> f32 {
+fn hash2D(in: vec2<f32>) -> f32 {
     return fract(1.0e4 * sin(17.0 * in.x + 0.1 * in.y) * (0.1 + abs(sin(13.0 * in.y + in.x))));
+}
+
+fn hash3D(in: vec3<f32>) -> f32 {
+    return hash2D(vec2<f32>(hash2D(in.xy), in.z));
 }
 
 struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
     [[builtin(position)]] frag_coord: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
+    [[location(0)]] object_position: vec3<f32>;
+    [[location(1)]] world_position: vec4<f32>;
+    [[location(2)]] world_normal: vec3<f32>;
+    [[location(3)]] uv: vec2<f32>;
 #ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
+    [[location(4)]] world_tangent: vec4<f32>;
 #endif
 #ifdef VERTEX_COLORS
-    [[location(4)]] color: vec4<f32>;
+    [[location(5)]] color: vec4<f32>;
 #endif
 };
 
@@ -524,7 +529,57 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 discard;
             }
         } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_HASHED) != 0u) {
-            if (output_color.a >= hash(in.uv)) {
+            // Get coordinates
+            let coords: vec3<f32> = in.object_position;
+
+            // Find the discretized derivatives of our coordinates
+            let max_deriv: f32 = max(
+                length(dpdx(coords)),
+                length(dpdy(coords))
+            );
+            let pix_scale: f32 = 1.0/max_deriv;
+
+            // Find two nearest log-discretized noise scales
+            let pix_scales: vec2<f32> = vec2<f32>(
+                exp2(floor(log2(pix_scale))),
+                exp2(ceil(log2(pix_scale)))
+            );
+
+            // Compute alpha thresholds at our two noise scales
+            let alpha: vec2<f32> = vec2<f32>(
+                hash3D(floor(pix_scales.x * coords)),
+                hash3D(floor(pix_scales.y * coords))
+            );
+
+            // Factor to interpolate lerp with
+            let lerp_factor: f32 = fract(log2(pix_scale));
+
+            // Interpolate alpha threshold from noise at two scales
+            let x: f32 = (1.0 - lerp_factor) * alpha.x + lerp_factor * alpha.y;
+
+            // Pass into CDF to compute uniformly from noise at two scales
+            let a: f32 = min(lerp_factor, 1.0 - lerp_factor);
+            let cases: vec3<f32> = vec3<f32>(
+                x * x / (2.0 * a * (1.0 - a)),
+                (x - 0.5 * a) / (1.0 - a),
+                1.0 - ((1.0 - x) * (1.0 - x) / (2.0 * a * (1.0 - a)))
+            );
+
+            // Find our final, uniformly distributed alpha threshold
+            var threshold: f32 = select(
+                cases.z,
+                select(
+                    cases.y,
+                    cases.x,
+                    x < a
+                ),
+                x < (1.0 - a)
+            );
+
+            // Avoid threshold == 0
+            threshold = clamp(threshold, 1.0e-6, 1.0);
+            
+            if (output_color.a >= threshold) {
                 // NOTE: If rendering as hashed alpha and >= the hash of the uv position, render as fully opaque
                 output_color.a = 1.0;
             } else {
