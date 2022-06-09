@@ -36,27 +36,14 @@ pub trait TupleStruct: Reflect {
     /// as a `&mut dyn Reflect`.
     fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
 
+    /// Returns the number of fields in the tuple struct.
+    fn field_len(&self) -> usize;
+
     /// Returns an iterator over the values of the tuple struct's fields.
     fn iter_fields(&self) -> TupleStructFieldIter;
 
     /// Clones the struct into a [`DynamicTupleStruct`].
     fn clone_dynamic(&self) -> DynamicTupleStruct;
-
-    /// Returns the number of fields in the tuple struct.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the [`TypeInfo`] returned by [`Reflect::get_type_info()`] is not
-    /// [`TypeInfo::TupleStruct`]— which should almost never be the case. Notable exceptions
-    /// include [`DynamicTupleStruct`] which uses its own implementation of this method to
-    /// prevent the panic.
-    fn field_len(&self) -> usize {
-        if let TypeInfo::TupleStruct(info) = self.get_type_info() {
-            info.field_len()
-        } else {
-            0
-        }
-    }
 }
 
 /// A container for compile-time tuple struct info.

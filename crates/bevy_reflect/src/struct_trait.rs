@@ -1,7 +1,6 @@
 use crate::utility::TypeInfoCell;
 use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 use bevy_utils::{Entry, HashMap};
-use std::borrow::Borrow;
 use std::fmt::{Debug, Formatter};
 use std::{
     any::{Any, TypeId},
@@ -46,91 +45,25 @@ pub trait Struct: Reflect {
     /// `&mut dyn Reflect`.
     fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
 
+    /// Returns a reference to the value of the field with index `index` as a
+    /// `&dyn Reflect`.
+    fn field_at(&self, index: usize) -> Option<&dyn Reflect>;
+
+    /// Returns a mutable reference to the value of the field with index `index`
+    /// as a `&mut dyn Reflect`.
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+
+    /// Returns the name of the field with index `index`.
+    fn name_at(&self, index: usize) -> Option<&str>;
+
+    /// Returns the number of fields in the struct.
+    fn field_len(&self) -> usize;
+
     /// Returns an iterator over the values of the struct's fields.
     fn iter_fields(&self) -> FieldIter;
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
-
-    /// Returns the number of fields in the struct.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the [`TypeInfo`] returned by [`Reflect::get_type_info()`] is not
-    /// [`TypeInfo::Struct`]— which should almost never be the case. Notable exceptions
-    /// include [`DynamicStruct`] which uses its own implementation of this method to
-    /// prevent the panic.
-    fn field_len(&self) -> usize {
-        if let TypeInfo::Struct(info) = self.get_type_info() {
-            info.field_len()
-        } else {
-            panic!(
-                "tuple `{:?}` is not `TypeInfo::Struct`",
-                std::any::type_name::<Self>()
-            );
-        }
-    }
-
-    /// Returns the name of the field with index `index`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the [`TypeInfo`] returned by [`Reflect::get_type_info()`] is not
-    /// [`TypeInfo::Struct`]— which should almost never be the case. Notable exceptions
-    /// include [`DynamicStruct`] which uses its own implementation of this method to
-    /// prevent the panic.
-    fn name_at(&self, index: usize) -> Option<&str> {
-        if let TypeInfo::Struct(info) = self.get_type_info() {
-            info.field_at(index).map(|field| field.name().borrow())
-        } else {
-            panic!(
-                "tuple `{:?}` is not `TypeInfo::Struct`",
-                std::any::type_name::<Self>()
-            );
-        }
-    }
-
-    /// Returns a reference to the value of the field with index `index` as a
-    /// `&dyn Reflect`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the [`TypeInfo`] returned by [`Reflect::get_type_info()`] is not
-    /// [`TypeInfo::Struct`]— which should almost never be the case. Notable exceptions
-    /// include [`DynamicStruct`] which uses its own implementation of this method to
-    /// prevent the panic.
-    fn field_at(&self, index: usize) -> Option<&dyn Reflect> {
-        if let TypeInfo::Struct(info) = self.get_type_info() {
-            let name = info.field_at(index)?.name();
-            self.field(name)
-        } else {
-            panic!(
-                "tuple `{:?}` is not `TypeInfo::Struct`",
-                std::any::type_name::<Self>()
-            );
-        }
-    }
-
-    /// Returns a mutable reference to the value of the field with index `index`
-    /// as a `&mut dyn Reflect`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the [`TypeInfo`] returned by [`Reflect::get_type_info()`] is not
-    /// [`TypeInfo::Struct`]— which should almost never be the case. Notable exceptions
-    /// include [`DynamicStruct`] which uses its own implementation of this method to
-    /// prevent the panic.
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-        if let TypeInfo::Struct(info) = self.get_type_info() {
-            let name = info.field_at(index)?.name();
-            self.field_mut(name)
-        } else {
-            panic!(
-                "tuple `{:?}` is not `TypeInfo::Struct`",
-                std::any::type_name::<Self>()
-            );
-        }
-    }
 }
 
 /// A container for compile-time struct info.

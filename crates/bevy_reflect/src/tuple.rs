@@ -35,30 +35,14 @@ pub trait Tuple: Reflect {
     /// as a `&mut dyn Reflect`.
     fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
 
+    /// Returns the number of fields in the tuple.
+    fn field_len(&self) -> usize;
+
     /// Returns an iterator over the values of the tuple's fields.
     fn iter_fields(&self) -> TupleFieldIter;
 
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
-
-    /// Returns the number of fields in the tuple.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the [`TypeInfo`] returned by [`Reflect::get_type_info()`] is not
-    /// [`TypeInfo::Tuple`]— which should almost never be the case. Notable exceptions
-    /// include [`DynamicTuple`] which uses its own implementation of this method to
-    /// prevent the panic.
-    fn field_len(&self) -> usize {
-        if let TypeInfo::Tuple(info) = self.get_type_info() {
-            info.field_len()
-        } else {
-            panic!(
-                "tuple `{:?}` is not `TypeInfo::Tuple`",
-                std::any::type_name::<Self>()
-            );
-        }
-    }
 }
 
 /// An iterator over the field values of a tuple.
@@ -446,6 +430,12 @@ macro_rules! impl_reflect_tuple {
                     $($index => Some(&mut self.$index as &mut dyn Reflect),)*
                     _ => None,
                 }
+            }
+
+            #[inline]
+            fn field_len(&self) -> usize {
+                let indices: &[usize] = &[$($index as usize),*];
+                indices.len()
             }
 
             #[inline]

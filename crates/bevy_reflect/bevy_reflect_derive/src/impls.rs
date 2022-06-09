@@ -36,6 +36,8 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
         .active_fields()
         .map(|field| field.data.ty.clone())
         .collect::<Vec<_>>();
+    let field_count = field_idents.len();
+    let field_indices = (0..field_count).collect::<Vec<usize>>();
 
     let hash_fn = derive_data.traits().get_hash_impl(bevy_reflect_path);
     let serialize_fn = derive_data.traits().get_serialize_impl(bevy_reflect_path);
@@ -55,7 +57,7 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
         struct_name,
         derive_data.generics(),
         quote! {
-           let fields = [
+           let fields: [#bevy_reflect_path::NamedField; #field_count] = [
                 #(#bevy_reflect_path::NamedField::new::<#field_types, _>(#field_names),)*
             ];
             let info = #bevy_reflect_path::StructInfo::new::<Self>(&fields);
@@ -85,6 +87,31 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
                     #(#field_names => Some(&mut self.#field_idents),)*
                     _ => None,
                 }
+            }
+
+            fn field_at(&self, index: usize) -> Option<&dyn #bevy_reflect_path::Reflect> {
+                match index {
+                    #(#field_indices => Some(&self.#field_idents),)*
+                    _ => None,
+                }
+            }
+
+            fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn #bevy_reflect_path::Reflect> {
+                match index {
+                    #(#field_indices => Some(&mut self.#field_idents),)*
+                    _ => None,
+                }
+            }
+
+            fn name_at(&self, index: usize) -> Option<&str> {
+                match index {
+                    #(#field_indices => Some(#field_names),)*
+                    _ => None,
+                }
+            }
+
+            fn field_len(&self) -> usize {
+                #field_count
             }
 
             fn iter_fields(&self) -> #bevy_reflect_path::FieldIter {
@@ -185,6 +212,8 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
         .active_fields()
         .map(|field| field.data.ty.clone())
         .collect::<Vec<_>>();
+    let field_count = field_idents.len();
+    let field_indices = (0..field_count).collect::<Vec<usize>>();
 
     let hash_fn = derive_data.traits().get_hash_impl(bevy_reflect_path);
     let serialize_fn = derive_data.traits().get_serialize_impl(bevy_reflect_path);
@@ -204,8 +233,8 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
         struct_name,
         derive_data.generics(),
         quote! {
-            let fields = [
-                #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents),)*
+            let fields: [#bevy_reflect_path::UnnamedField; #field_count] = [
+                #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_indices),)*
             ];
             let info = #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields);
             #bevy_reflect_path::TypeInfo::TupleStruct(info)
@@ -222,16 +251,20 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
         impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_name #ty_generics #where_clause {
             fn field(&self, index: usize) -> Option<&dyn #bevy_reflect_path::Reflect> {
                 match index {
-                    #(#field_idents => Some(&self.#field_idents),)*
+                    #(#field_indices => Some(&self.#field_idents),)*
                     _ => None,
                 }
             }
 
             fn field_mut(&mut self, index: usize) -> Option<&mut dyn #bevy_reflect_path::Reflect> {
                 match index {
-                    #(#field_idents => Some(&mut self.#field_idents),)*
+                    #(#field_indices => Some(&mut self.#field_idents),)*
                     _ => None,
                 }
+            }
+
+            fn field_len(&self) -> usize {
+                #field_count
             }
 
             fn iter_fields(&self) -> #bevy_reflect_path::TupleStructFieldIter {
