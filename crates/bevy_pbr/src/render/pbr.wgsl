@@ -415,6 +415,8 @@ fn hash2D(in: vec2<f32>) -> f32 {
 }
 
 // Hashes a 3D coordinate (used for generating thresholds for hashed alphas from object-space coordinates)
+// Generating purely random thresholds would result in temporal instability (flickering),
+// by taking a hash, the "random" values are kept between frames, preserving stability
 fn hash3D(in: vec3<f32>) -> f32 {
     return hash2D(vec2<f32>(hash2D(in.xy), in.z));
 }
@@ -531,7 +533,16 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
                 discard;
             }
         } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_HASHED) != 0u) {
-            // Get coordinates
+            // NOTE: The basic idea behind hashed alphas is that transparency can be faked
+            // by showing a portion of pixels randomly distributed across the area.
+
+            // Ex: 40% opacity would result in 40% rendered and 60% background pixels
+
+            // A similar effect can be made by creating a dithered alpha mask,
+            // but what alpha hashed offers over alpha mask is scaling noise,
+            // which can help preserve details when viewing at a distance.
+
+            // Get object-space coordinates
             let coords: vec3<f32> = in.object_position;
 
             // Find the discretized derivatives of our coordinates
