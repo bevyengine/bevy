@@ -175,7 +175,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    pub fn get_layout(&self, entity: Entity) -> Result<&sprawl::result::Layout, FlexError> {
+    pub fn get_layout(&self, entity: Entity) -> Result<&sprawl::layout::Layout, FlexError> {
         if let Some(sprawl_node) = self.entity_to_sprawl.get(&entity) {
             self.sprawl
                 .layout(*sprawl_node)
