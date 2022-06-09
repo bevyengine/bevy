@@ -5,7 +5,7 @@ use crate::{
     query::{Fetch, QueryState, WorldQuery},
     storage::{TableId, Tables},
 };
-use std::{iter::FusedIterator, borrow::Borrow, marker::PhantomData, mem::MaybeUninit};
+use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
 
 use super::{QueryFetch, QueryItem, ReadOnlyFetch};
 
