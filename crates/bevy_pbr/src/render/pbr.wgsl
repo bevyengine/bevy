@@ -409,10 +409,12 @@ fn random1D(s: f32) -> f32 {
 }
 
 // Hashed Alpha (https://casual-effects.com/research/Wyman2017Hashed/index.html)
+// Hashes a 2D coordinate and returns a value between [0,1]
 fn hash2D(in: vec2<f32>) -> f32 {
     return fract(1.0e4 * sin(17.0 * in.x + 0.1 * in.y) * (0.1 + abs(sin(13.0 * in.y + in.x))));
 }
 
+// Hashes a 3D coordinate (used for generating thresholds for hashed alphas from object-space coordinates)
 fn hash3D(in: vec3<f32>) -> f32 {
     return hash2D(vec2<f32>(hash2D(in.xy), in.z));
 }
