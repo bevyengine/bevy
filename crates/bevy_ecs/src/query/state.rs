@@ -10,18 +10,17 @@ use crate::{
     storage::TableId,
     world::{World, WorldId},
 };
-use bevy_tasks::{ComputeTaskPool, TaskPool};
+use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
-use std::{borrow::Borrow, fmt, ops::Deref};
+use std::{borrow::Borrow, fmt};
 
 use super::{QueryFetch, QueryItem, QueryManyIter, ROQueryFetch, ROQueryItem};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
     world_id: WorldId,
-    task_pool: Option<TaskPool>,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
@@ -62,9 +61,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
         let mut state = Self {
             world_id: world.id(),
-            task_pool: world
-                .get_resource::<ComputeTaskPool>()
-                .map(|task_pool| task_pool.deref().clone()),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
             matched_archetype_ids: Vec::new(),
@@ -754,8 +750,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// write-queries.
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
     pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
@@ -779,8 +775,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
     pub fn par_for_each_mut<'w, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
@@ -806,8 +802,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// This can only be called for read-only queries.
     ///
     /// # Panics
-    /// [`ComputeTaskPool`] was not stored in the world at initialzation. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
     ///
@@ -922,8 +918,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Panics
-    /// [`ComputeTaskPool`] was not stored in the world at initialzation. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
     ///
@@ -945,106 +941,95 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::many_for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        self.task_pool
-            .as_ref()
-            .expect("Cannot iterate query in parallel. No ComputeTaskPool initialized.")
-            .scope(|scope| {
-                if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
-                    let tables = &world.storages().tables;
-                    for table_id in &self.matched_table_ids {
-                        let table = &tables[*table_id];
-                        let mut offset = 0;
-                        while offset < table.len() {
-                            let func = func.clone();
-                            let len = batch_size.min(table.len() - offset);
-                            let task = async move {
-                                let mut fetch = QF::init(
-                                    world,
-                                    &self.fetch_state,
-                                    last_change_tick,
-                                    change_tick,
-                                );
-                                let mut filter = <QueryFetch<F> as Fetch>::init(
-                                    world,
-                                    &self.filter_state,
-                                    last_change_tick,
-                                    change_tick,
-                                );
-                                let tables = &world.storages().tables;
-                                let table = &tables[*table_id];
-                                fetch.set_table(&self.fetch_state, table);
-                                filter.set_table(&self.filter_state, table);
-                                for table_index in offset..offset + len {
-                                    if !filter.table_filter_fetch(table_index) {
-                                        continue;
-                                    }
-                                    let item = fetch.table_fetch(table_index);
-                                    func(item);
-                                }
-                            };
-                            #[cfg(feature = "trace")]
-                            let span = bevy_utils::tracing::info_span!(
-                                "par_for_each",
-                                query = std::any::type_name::<Q>(),
-                                filter = std::any::type_name::<F>(),
-                                count = len,
+        ComputeTaskPool::get().scope(|scope| {
+            if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
+                let tables = &world.storages().tables;
+                for table_id in &self.matched_table_ids {
+                    let table = &tables[*table_id];
+                    let mut offset = 0;
+                    while offset < table.len() {
+                        let func = func.clone();
+                        let len = batch_size.min(table.len() - offset);
+                        let task = async move {
+                            let mut fetch =
+                                QF::init(world, &self.fetch_state, last_change_tick, change_tick);
+                            let mut filter = <QueryFetch<F> as Fetch>::init(
+                                world,
+                                &self.filter_state,
+                                last_change_tick,
+                                change_tick,
                             );
-                            #[cfg(feature = "trace")]
-                            let task = task.instrument(span);
-                            scope.spawn(task);
-                            offset += batch_size;
-                        }
-                    }
-                } else {
-                    let archetypes = &world.archetypes;
-                    for archetype_id in &self.matched_archetype_ids {
-                        let mut offset = 0;
-                        let archetype = &archetypes[*archetype_id];
-                        while offset < archetype.len() {
-                            let func = func.clone();
-                            let len = batch_size.min(archetype.len() - offset);
-                            let task = async move {
-                                let mut fetch = QF::init(
-                                    world,
-                                    &self.fetch_state,
-                                    last_change_tick,
-                                    change_tick,
-                                );
-                                let mut filter = <QueryFetch<F> as Fetch>::init(
-                                    world,
-                                    &self.filter_state,
-                                    last_change_tick,
-                                    change_tick,
-                                );
-                                let tables = &world.storages().tables;
-                                let archetype = &world.archetypes[*archetype_id];
-                                fetch.set_archetype(&self.fetch_state, archetype, tables);
-                                filter.set_archetype(&self.filter_state, archetype, tables);
-
-                                for archetype_index in offset..offset + len {
-                                    if !filter.archetype_filter_fetch(archetype_index) {
-                                        continue;
-                                    }
-                                    func(fetch.archetype_fetch(archetype_index));
+                            let tables = &world.storages().tables;
+                            let table = &tables[*table_id];
+                            fetch.set_table(&self.fetch_state, table);
+                            filter.set_table(&self.filter_state, table);
+                            for table_index in offset..offset + len {
+                                if !filter.table_filter_fetch(table_index) {
+                                    continue;
                                 }
-                            };
-
-                            #[cfg(feature = "trace")]
-                            let span = bevy_utils::tracing::info_span!(
-                                "par_for_each",
-                                query = std::any::type_name::<Q>(),
-                                filter = std::any::type_name::<F>(),
-                                count = len,
-                            );
-                            #[cfg(feature = "trace")]
-                            let task = task.instrument(span);
-
-                            scope.spawn(task);
-                            offset += batch_size;
-                        }
+                                let item = fetch.table_fetch(table_index);
+                                func(item);
+                            }
+                        };
+                        #[cfg(feature = "trace")]
+                        let span = bevy_utils::tracing::info_span!(
+                            "par_for_each",
+                            query = std::any::type_name::<Q>(),
+                            filter = std::any::type_name::<F>(),
+                            count = len,
+                        );
+                        #[cfg(feature = "trace")]
+                        let task = task.instrument(span);
+                        scope.spawn(task);
+                        offset += batch_size;
                     }
                 }
-            });
+            } else {
+                let archetypes = &world.archetypes;
+                for archetype_id in &self.matched_archetype_ids {
+                    let mut offset = 0;
+                    let archetype = &archetypes[*archetype_id];
+                    while offset < archetype.len() {
+                        let func = func.clone();
+                        let len = batch_size.min(archetype.len() - offset);
+                        let task = async move {
+                            let mut fetch =
+                                QF::init(world, &self.fetch_state, last_change_tick, change_tick);
+                            let mut filter = <QueryFetch<F> as Fetch>::init(
+                                world,
+                                &self.filter_state,
+                                last_change_tick,
+                                change_tick,
+                            );
+                            let tables = &world.storages().tables;
+                            let archetype = &world.archetypes[*archetype_id];
+                            fetch.set_archetype(&self.fetch_state, archetype, tables);
+                            filter.set_archetype(&self.filter_state, archetype, tables);
+
+                            for archetype_index in offset..offset + len {
+                                if !filter.archetype_filter_fetch(archetype_index) {
+                                    continue;
+                                }
+                                func(fetch.archetype_fetch(archetype_index));
+                            }
+                        };
+
+                        #[cfg(feature = "trace")]
+                        let span = bevy_utils::tracing::info_span!(
+                            "par_for_each",
+                            query = std::any::type_name::<Q>(),
+                            filter = std::any::type_name::<F>(),
+                            count = len,
+                        );
+                        #[cfg(feature = "trace")]
+                        let task = task.instrument(span);
+
+                        scope.spawn(task);
+                        offset += batch_size;
+                    }
+                }
+            }
+        });
     }
 
     /// Runs `func` on each query result for the given [`World`] and list of [`Entity`]'s, where the last change and
