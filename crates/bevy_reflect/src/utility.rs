@@ -8,28 +8,28 @@ use std::any::{Any, TypeId};
 
 /// A container for [`TypeInfo`], allowing instances to be stored statically.
 ///
-/// Under the hood, this manages a [`once_cell`] for either of the two possible types:
-/// `Generic` and `NonGeneric`.
+/// This is specifically meant for use with _non_-generic types. If your type _is_ generic,
+/// then use [`GenericTypeInfoCell`] instead. Otherwise, it will not take into account all
+/// monomorphizations of your type.
 ///
-/// ## Non-Generic
-///
-/// For non-generic impls, [`TypeInfoCell`] should be initialized via the [`non_generic`]
-/// method. This should be much more performant than the generic alternative, so favor
-/// this variant whenever possible.
+/// ## Example
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, Typed, TypeInfo, ValueInfo};
-/// use bevy_reflect::utility::TypeInfoCell;
+/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, Typed, TypeInfo};
+/// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
-/// struct Foo;
+/// struct Foo {
+///   bar: i32
+/// }
 ///
 /// impl Typed for Foo {
 ///   fn type_info() -> &'static TypeInfo {
-///     static CELL: TypeInfoCell = TypeInfoCell::non_generic();
-///     CELL.get_or_insert::<Self, _>(|| {
-///       let info = ValueInfo::new::<Self>();
-///       TypeInfo::Value(info)
+///     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+///     CELL.get_or_set(|| {
+///       let fields = [NamedField::new::<i32, _>("bar")];
+///       let info = StructInfo::new::<Self>(&fields);
+///       TypeInfo::Struct(info)
 ///     })
 ///   }
 /// }
@@ -48,29 +48,48 @@ use std::any::{Any, TypeId};
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
+pub struct NonGenericTypeInfoCell(OnceBox<TypeInfo>);
+
+impl NonGenericTypeInfoCell {
+    /// Initialize a [`NonGenericTypeInfoCell`] for non-generic impls.
+    pub const fn new() -> Self {
+        Self(OnceBox::new())
+    }
+
+    /// Returns a reference to the [`TypeInfo`] stored in the cell.
+    ///
+    /// If there is no [`TypeInfo`] found, a new one will be generated from the given function.
+    ///
+    /// [`TypeInfos`]: TypeInfo
+    pub fn get_or_set<F>(&self, f: F) -> &TypeInfo
+    where
+        F: FnOnce() -> TypeInfo,
+    {
+        self.0.get_or_init(|| Box::new(f()))
+    }
+}
+
+/// A container for [`TypeInfo`], allowing instances to be stored statically.
 ///
-/// ## Generic
+/// This is specifically meant for use with generic types. If your type isn't generic,
+/// then use [`NonGenericTypeInfoCell`] instead as it should be much more performant.
 ///
-/// For generic impls, [`TypeInfoCell`] should be initialized via the [`generic`]
-/// method. This will store multiple instances of [`TypeInfo`], accessible by [`TypeId`].
-///
-/// This allows `Foo<T>` to use the same [`TypeInfoCell`] for monomorphized type. The same
-/// applies to blanket impls.
+/// ## Example
 ///
 /// ```
 /// # use std::any::Any;
-/// # use std::marker::PhantomData;
-/// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, Typed, TypeInfo, ValueInfo};
-/// use bevy_reflect::utility::TypeInfoCell;
+/// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
+/// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
-/// struct Foo<T: Reflect>(PhantomData<T>);
+/// struct Foo<T: Reflect>(T);
 ///
 /// impl<T: Reflect> Typed for Foo<T> {
 ///   fn type_info() -> &'static TypeInfo {
-///     static CELL: TypeInfoCell = TypeInfoCell::generic();
+///     static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///     CELL.get_or_insert::<Self, _>(|| {
-///       let info = ValueInfo::new::<Self>();
-///       TypeInfo::Value(info)
+///       let fields = [UnnamedField::new::<T>(0)];
+///       let info = TupleStructInfo::new::<Self>(&fields);
+///       TypeInfo::TupleStruct(info)
 ///     })
 ///   }
 /// }
@@ -89,61 +108,35 @@ use std::any::{Any, TypeId};
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
-///
-/// [`once_cell`]: https://docs.rs/once_cell/latest/once_cell/
-/// [`non_generic`]: TypeInfoCell::non_generic
-/// [`generic`]: TypeInfoCell::generic
-pub struct TypeInfoCell(TypeInfoCellType);
+pub struct GenericTypeInfoCell(OnceBox<RwLock<HashMap<TypeId, &'static TypeInfo>>>);
 
-impl TypeInfoCell {
-    /// Initialize a [`TypeInfoCell`] for non-generic types.
-    pub const fn non_generic() -> Self {
-        Self(TypeInfoCellType::NonGeneric(OnceBox::new()))
-    }
-
-    /// Initialize a [`TypeInfoCell`] for generic types.
-    pub const fn generic() -> Self {
-        Self(TypeInfoCellType::Generic(OnceBox::new()))
+impl GenericTypeInfoCell {
+    /// Initialize a [`GenericTypeInfoCell`] for generic impls.
+    pub const fn new() -> Self {
+        Self(OnceBox::new())
     }
 
     /// Returns a reference to the [`TypeInfo`] stored in the cell.
     ///
+    /// This method will then return the correct [`TypeInfo`] reference for the given type `T`.
     /// If there is no [`TypeInfo`] found, a new one will be generated from the given function.
-    ///
-    /// # Generics
-    ///
-    /// Generic types, such as `Vec<T>`, store a mapping of [`TypeIds`] to [`TypeInfos`]. This
-    /// method will then return the correct [`TypeInfo`] reference for the given type `T`.
-    ///
-    /// [`TypeIds`]: std::any::TypeId
-    /// [`TypeInfos`]: TypeInfo
     pub fn get_or_insert<T, F>(&self, f: F) -> &TypeInfo
     where
         T: Any + ?Sized,
         F: FnOnce() -> TypeInfo,
     {
-        match &self.0 {
-            TypeInfoCellType::NonGeneric(once) => once.get_or_init(|| Box::new(f())),
-            TypeInfoCellType::Generic(once) => {
-                let type_id = TypeId::of::<T>();
-                let mapping = once.get_or_init(|| Box::new(RwLock::default()));
-                if let Some(info) = mapping.read().get(&type_id) {
-                    return info;
-                }
-
-                mapping.write().entry(type_id).or_insert_with(|| {
-                    // We leak here in order to obtain a `&'static` reference.
-                    // Otherwise, we won't be able to return a reference due to the `RwLock`.
-                    // This should be okay, though, since we expect it to remain statically
-                    // available over the course of the application.
-                    Box::leak(Box::new(f()))
-                })
-            }
+        let type_id = TypeId::of::<T>();
+        let mapping = self.0.get_or_init(|| Box::new(RwLock::default()));
+        if let Some(info) = mapping.read().get(&type_id) {
+            return info;
         }
-    }
-}
 
-enum TypeInfoCellType {
-    NonGeneric(OnceBox<TypeInfo>),
-    Generic(OnceBox<RwLock<HashMap<TypeId, &'static TypeInfo>>>),
+        mapping.write().entry(type_id).or_insert_with(|| {
+            // We leak here in order to obtain a `&'static` reference.
+            // Otherwise, we won't be able to return a reference due to the `RwLock`.
+            // This should be okay, though, since we expect it to remain statically
+            // available over the course of the application.
+            Box::leak(Box::new(f()))
+        })
+    }
 }

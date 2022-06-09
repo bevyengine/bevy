@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 use std::any::Any;
 
-use crate::utility::TypeInfoCell;
+use crate::utility::GenericTypeInfoCell;
 use crate::{
     Array, ArrayIter, FromReflect, List, ListInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
 };
@@ -115,7 +115,7 @@ where
     T::Item: FromReflect + Clone,
 {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::generic();
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T::Item>()))
     }
 }

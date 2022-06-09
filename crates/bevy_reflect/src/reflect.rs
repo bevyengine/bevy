@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{any::Any, fmt::Debug};
 
-use crate::utility::TypeInfoCell;
+use crate::utility::NonGenericTypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
 
 /// An immutable enumeration of "kinds" of reflected type.
@@ -205,8 +205,8 @@ impl Debug for dyn Reflect {
 
 impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
 

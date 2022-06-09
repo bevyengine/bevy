@@ -5,7 +5,7 @@ use crate::{
     ReflectDeserialize, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, ValueInfo,
 };
 
-use crate::utility::TypeInfoCell;
+use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
@@ -167,7 +167,7 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
 
 impl<T: FromReflect> Typed for Vec<T> {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::generic();
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
     }
 }
@@ -296,7 +296,7 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
 
 impl<K: Reflect + Eq + Hash, V: Reflect> Typed for HashMap<K, V> {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::generic();
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
     }
 }
@@ -443,7 +443,7 @@ impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
 
 impl<T: Reflect, const N: usize> Typed for [T; N] {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::generic();
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(N)))
     }
 }
@@ -549,8 +549,8 @@ unsafe impl Reflect for Cow<'static, str> {
 
 impl Typed for Cow<'static, str> {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
 

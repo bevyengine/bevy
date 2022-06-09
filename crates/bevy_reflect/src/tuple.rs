@@ -1,4 +1,4 @@
-use crate::utility::TypeInfoCell;
+use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
     ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
@@ -336,8 +336,8 @@ unsafe impl Reflect for DynamicTuple {
 
 impl Typed for DynamicTuple {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 
@@ -514,7 +514,7 @@ macro_rules! impl_reflect_tuple {
 
         impl <$($name: Reflect),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
-                static CELL: $crate::utility::TypeInfoCell = $crate::utility::TypeInfoCell::generic();
+                static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     let fields = [
                         $(UnnamedField::new::<$name>($index),)*

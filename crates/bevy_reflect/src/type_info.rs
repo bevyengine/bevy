@@ -14,15 +14,15 @@ use std::any::{Any, TypeId};
 /// rely on this trait may fail in unexpected ways.
 ///
 /// Implementors may have difficulty in generating a reference to [`TypeInfo`] with a static
-/// lifetime. Luckily, this crate comes with a utility struct, [`TypeInfoCell`], to make
-/// generating these statics much simpler.
+/// lifetime. Luckily, this crate comes with some [utility] structs, to make generating these
+/// statics much simpler.
 ///
 /// # Example
 ///
 /// ```
 /// # use std::any::Any;
 /// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, TypeInfo, ValueInfo};
-/// # use bevy_reflect::utility::TypeInfoCell;
+/// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
 /// struct MyStruct {
@@ -32,8 +32,8 @@ use std::any::{Any, TypeId};
 ///
 /// impl Typed for MyStruct {
 ///   fn type_info() -> &'static TypeInfo {
-///     static CELL: TypeInfoCell = TypeInfoCell::non_generic();
-///     CELL.get_or_insert::<Self, _>(|| {
+///     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+///     CELL.get_or_set(|| {
 ///       let fields = [
 ///         NamedField::new::<usize, _>("foo"),
 ///         NamedField::new::<(f32, f32), _>("bar"),
@@ -60,7 +60,7 @@ use std::any::{Any, TypeId};
 /// # }
 /// ```
 ///
-/// [`TypeInfoCell`]: crate::utility::TypeInfoCell
+/// [utility]: crate::utility
 pub trait Typed: Reflect {
     /// Returns the compile-time [info] for the underlying type.
     ///

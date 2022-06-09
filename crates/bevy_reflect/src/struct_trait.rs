@@ -1,4 +1,4 @@
-use crate::utility::TypeInfoCell;
+use crate::utility::NonGenericTypeInfoCell;
 use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
@@ -421,8 +421,8 @@ impl Debug for DynamicStruct {
 
 impl Typed for DynamicStruct {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

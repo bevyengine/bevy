@@ -1,7 +1,7 @@
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 
-use crate::utility::TypeInfoCell;
+use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     serde::Serializable, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect,
     ReflectMut, ReflectRef, TypeInfo, Typed,
@@ -248,8 +248,8 @@ impl Debug for DynamicList {
 
 impl Typed for DynamicList {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

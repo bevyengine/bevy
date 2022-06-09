@@ -1,4 +1,4 @@
-use crate::utility::TypeInfoCell;
+use crate::utility::NonGenericTypeInfoCell;
 use crate::{serde::Serializable, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 use std::{
     any::{Any, TypeId},
@@ -260,8 +260,8 @@ impl Array for DynamicArray {
 
 impl Typed for DynamicArray {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::utility::TypeInfoCell;
+use crate::utility::NonGenericTypeInfoCell;
 use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed, UnnamedField};
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -334,8 +334,8 @@ impl Debug for DynamicTupleStruct {
 
 impl Typed for DynamicTupleStruct {
     fn type_info() -> &'static TypeInfo {
-        static CELL: TypeInfoCell = TypeInfoCell::non_generic();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 
