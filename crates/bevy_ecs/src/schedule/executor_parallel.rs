@@ -56,7 +56,6 @@ pub struct ParallelExecutor {
 
 impl Default for ParallelExecutor {
     fn default() -> Self {
-        let _ = ComputeTaskPool::init(TaskPool::default());
         let (finish_sender, finish_receiver) = async_channel::unbounded();
         Self {
             system_metadata: Default::default(),
@@ -124,7 +123,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             }
         }
 
-        ComputeTaskPool::get().scope(|scope| {
+        ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             self.prepare_systems(scope, systems, world);
             let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.

@@ -18,8 +18,8 @@ pub struct Benchmark(World, Box<dyn System<In = (), Out = ()>>);
 
 impl Benchmark {
     pub fn new() -> Self {
-        let _ = ComputeTaskPool::init(TaskPool::default());
-        
+        ComputeTaskPool::init(TaskPool::default);
+
         let mut world = World::default();
 
         world.spawn_batch((0..1000).map(|_| {

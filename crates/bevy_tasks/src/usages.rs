@@ -25,13 +25,8 @@ pub struct ComputeTaskPool(TaskPool);
 
 impl ComputeTaskPool {
     /// Initializes the global [`ComputeTaskPool`] instance.
-    ///
-    /// Returns the provided `[TaskPool]` if the global instance has already been initialized.
-    pub fn init(task_pool: TaskPool) -> Result<&'static Self, TaskPool> {
-        COMPUTE_TASK_POOL
-            .set(Self(task_pool))
-            .map(|_| Self::get())
-            .map_err(|pool| pool.0)
+    pub fn init(f: impl FnOnce() -> TaskPool) -> &'static Self {
+        COMPUTE_TASK_POOL.get_or_init(|| Self(f()))
     }
 
     /// Gets the global [`ComputeTaskPool`] instance.
@@ -60,13 +55,8 @@ pub struct AsyncComputeTaskPool(TaskPool);
 
 impl AsyncComputeTaskPool {
     /// Initializes the global [`AsyncComputeTaskPool`] instance.
-    ///
-    /// Returns the provided `[TaskPool]` if the global instance has already been initialized.
-    pub fn init(task_pool: TaskPool) -> Result<&'static Self, TaskPool> {
-        ASYNC_COMPUTE_TASK_POOL
-            .set(Self(task_pool))
-            .map(|_| Self::get())
-            .map_err(|pool| pool.0)
+    pub fn init(f: impl FnOnce() -> TaskPool) -> &'static Self {
+        ASYNC_COMPUTE_TASK_POOL.get_or_init(|| Self(f()))
     }
 
     /// Gets the global [`AsyncComputeTaskPool`] instance.
@@ -96,13 +86,8 @@ pub struct IoTaskPool(TaskPool);
 
 impl IoTaskPool {
     /// Initializes the global [`IoTaskPool`] instance.
-    ///
-    /// Returns the provided `[TaskPool]` if the global instance has already been initialized.
-    pub fn init(task_pool: TaskPool) -> Result<&'static Self, TaskPool> {
-        IO_TASK_POOL
-            .set(Self(task_pool))
-            .map(|_| Self::get())
-            .map_err(|pool| pool.0)
+    pub fn init(f: impl FnOnce() -> TaskPool) -> &'static Self {
+        IO_TASK_POOL.get_or_init(|| Self(f()))
     }
 
     /// Gets the global [`IoTaskPool`] instance.

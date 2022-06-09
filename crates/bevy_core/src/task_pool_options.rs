@@ -108,14 +108,12 @@ impl DefaultTaskPoolOptions {
             trace!("IO Threads: {}", io_threads);
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
-            let task_pool = TaskPoolBuilder::default()
-                .num_threads(io_threads)
-                .thread_name("IO Task Pool".to_string())
-                .build();
-
-            if IoTaskPool::init(task_pool).is_err() {
-                warn!("IoTaskPool already initialized.");
-            }
+            IoTaskPool::init(|| {
+                TaskPoolBuilder::default()
+                    .num_threads(io_threads)
+                    .thread_name("IO Task Pool".to_string())
+                    .build()
+            });
         }
 
         {
@@ -127,14 +125,12 @@ impl DefaultTaskPoolOptions {
             trace!("Async Compute Threads: {}", async_compute_threads);
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
-            let task_pool = TaskPoolBuilder::default()
-                .num_threads(async_compute_threads)
-                .thread_name("Async Compute Task Pool".to_string())
-                .build();
-
-            if AsyncComputeTaskPool::init(task_pool).is_err() {
-                warn!("AsynComputeTaskPool already initialized.");
-            }
+            AsyncComputeTaskPool::init(|| {
+                TaskPoolBuilder::default()
+                    .num_threads(async_compute_threads)
+                    .thread_name("Async Compute Task Pool".to_string())
+                    .build()
+            });
         }
 
         {
@@ -146,14 +142,12 @@ impl DefaultTaskPoolOptions {
 
             trace!("Compute Threads: {}", compute_threads);
 
-            let task_pool = TaskPoolBuilder::default()
-                .num_threads(compute_threads)
-                .thread_name("Compute Task Pool".to_string())
-                .build();
-
-            if ComputeTaskPool::init(task_pool).is_err() {
-                warn!("ComputeTaskPool already initialized.");
-            }
+            ComputeTaskPool::init(|| {
+                TaskPoolBuilder::default()
+                    .num_threads(compute_threads)
+                    .thread_name("Compute Task Pool".to_string())
+                    .build()
+            });
         }
     }
 }

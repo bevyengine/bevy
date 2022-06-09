@@ -58,12 +58,12 @@ impl<T: Asset> Default for HandleMap<T> {
 
 impl Plugin for DebugAssetServerPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        let _ = IoTaskPool::init(
+        IoTaskPool::init(|| {
             TaskPoolBuilder::default()
                 .num_threads(2)
                 .thread_name("Debug Asset Server IO Task Pool".to_string())
                 .build(),
-        );
+        });
         let mut debug_asset_app = App::new();
         debug_asset_app
             .insert_resource(AssetServerSettings {
