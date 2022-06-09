@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d, HashedAlpha3d};
+use bevy_core_pipeline::core_3d::{AlphaMask3d, HashedAlpha3d, Opaque3d, Transparent3d};
 use bevy_ecs::{
     entity::Entity,
     prelude::World,
@@ -346,8 +346,14 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
         &mut RenderPhase<Transparent3d>,
     )>,
 ) {
-    for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut hashed_alpha_phase, mut transparent_phase) in
-        views.iter_mut()
+    for (
+        view,
+        visible_entities,
+        mut opaque_phase,
+        mut alpha_mask_phase,
+        mut hashed_alpha_phase,
+        mut transparent_phase,
+    ) in views.iter_mut()
     {
         let draw_opaque_pbr = opaque_draw_functions
             .read()

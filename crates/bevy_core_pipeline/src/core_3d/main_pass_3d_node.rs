@@ -1,6 +1,6 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
-    core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d, HashedAlpha3d},
+    core_3d::{AlphaMask3d, Camera3d, HashedAlpha3d, Opaque3d, Transparent3d},
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -56,13 +56,21 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, opaque_phase, alpha_mask_phase, hashed_alpha_phase, transparent_phase, camera_3d, target, depth) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(query) => query,
-                Err(_) => {
-                    return Ok(());
-                } // No window
-            };
+        let (
+            camera,
+            opaque_phase,
+            alpha_mask_phase,
+            hashed_alpha_phase,
+            transparent_phase,
+            camera_3d,
+            target,
+            depth,
+        ) = match self.query.get_manual(world, view_entity) {
+            Ok(query) => query,
+            Err(_) => {
+                return Ok(());
+            } // No window
+        };
 
         // Always run opaque pass to ensure screen is cleared
         {
@@ -155,7 +163,8 @@ impl Node for MainPass3dNode {
             // Run the alpha mask pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
-            let _main_hashed_alpha_phase_3d_span = info_span!("main_hashed_alpha_phase_3d").entered();
+            let _main_hashed_alpha_phase_3d_span =
+                info_span!("main_hashed_alpha_phase_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_hashed_alpha_phase_3d"),
                 // NOTE: The hashed_alpha pass loads the color buffer as well as overwriting it where appropriate.

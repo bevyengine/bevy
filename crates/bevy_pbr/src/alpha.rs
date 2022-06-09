@@ -7,11 +7,14 @@ use bevy_reflect::Reflect;
 #[derive(Component, Debug, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Component, Default)]
 pub enum AlphaMode {
+    /// Completely opaque; alpha values disregarded
     Opaque,
     /// An alpha cutoff must be supplied where alpha values >= the cutoff
     /// will be fully opaque and < will be fully transparent
     Mask(f32),
+    /// Dithers between color and background using alpha values as the "chance" that pixels will be rendered
     Hashed,
+    /// Alpha values mix color with background
     Blend,
 }
 
