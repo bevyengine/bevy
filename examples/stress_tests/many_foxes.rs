@@ -148,7 +148,7 @@ fn setup(
     commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // Plane
