@@ -48,7 +48,7 @@ impl Default for Text2dBounds {
     }
 }
 
-/// The bundle of components needed to draw text in a 2D scene via a 2D `OrthographicCameraBundle`.
+/// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
@@ -127,7 +127,7 @@ pub fn extract_text2d_sprite(
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<HashSet<Entity>>,

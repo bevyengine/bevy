@@ -42,9 +42,8 @@ fn main() {
         .run();
 }
 
-// As there isn't an actual game, setup is just adding a `UiCameraBundle`
 fn setup(mut commands: Commands) {
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
 }
 
 mod splash {
@@ -359,10 +358,9 @@ mod menu {
     ) {
         for (interaction, mut color, selected) in interaction_query.iter_mut() {
             *color = match (*interaction, selected) {
-                (Interaction::Clicked, _) => PRESSED_BUTTON.into(),
+                (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
                 (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
-                (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::None, None) => NORMAL_BUTTON.into(),
             }
         }

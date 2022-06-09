@@ -47,6 +47,7 @@ pub struct With<T>(PhantomData<T>);
 impl<T: Component> WorldQuery for With<T> {
     type State = WithState<T>;
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: super::QueryItem<'wlong, Self>,
     ) -> super::QueryItem<'wshort, Self> {
@@ -186,6 +187,7 @@ pub struct Without<T>(PhantomData<T>);
 impl<T: Component> WorldQuery for Without<T> {
     type State = WithoutState<T>;
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: super::QueryItem<'wlong, Self>,
     ) -> super::QueryItem<'wshort, Self> {

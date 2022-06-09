@@ -319,7 +319,6 @@ where
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    #[allow(clippy::type_complexity)]
     marker: PhantomData<fn() -> (In, Out, Marker)>,
 }
 

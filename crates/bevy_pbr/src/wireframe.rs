@@ -2,7 +2,7 @@ use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
-use bevy_core_pipeline::Opaque3d;
+use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
@@ -97,7 +97,6 @@ impl SpecializedMeshPipeline for WireframePipeline {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::type_complexity)]
 fn queue_wireframes(
     opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
     render_meshes: Res<RenderAssets<Mesh>>,
