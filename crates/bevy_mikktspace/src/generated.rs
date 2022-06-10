@@ -178,8 +178,11 @@ impl SSubGroup {
 
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SEdge {
+    // The first vertex's (global) index. This is the minimum index
     pub i0: i32,
+    // The second vertex's (global) index
     pub i1: i32,
+    // The face this edge is associated with
     pub f: i32,
 }
 
