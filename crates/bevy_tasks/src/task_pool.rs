@@ -3,11 +3,11 @@ use std::{
     marker::PhantomData,
     mem,
     sync::Arc,
-    thread::{self, JoinHandle},
+    thread::{self, JoinHandle}, pin::Pin,
 };
 
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::{future, FutureExt};
+use futures_lite::{future, pin};
 
 use crate::Task;
 
@@ -241,7 +241,9 @@ impl TaskPool {
 
         f(scope_ref);
 
-        future::block_on(async move {
+        if spawned.is_empty() {
+            Vec::new()
+        } else {
             let get_results = async move {
                 let mut results = Vec::with_capacity(spawned.len());
                 while let Ok(task) = spawned.pop() {
@@ -251,17 +253,33 @@ impl TaskPool {
                 results
             };
 
-            let tick_forever = async move {
-                loop {
-                    self.executor.try_tick();
-                    task_scope_executor.try_tick();
+                // Pin the futures on the stack.
+            pin!(get_results);
 
-                    future::yield_now().await;
-                }
-            };
+            // SAFETY: This function blocks until all futures complete, so we do not read/write
+            // the data from futures outside of the 'scope lifetime. However,
+            // rust has no way of knowing this so we must convert to 'static
+            // here to appease the compiler as it is unable to validate safety.
+            let get_results: Pin<&mut (dyn Future<Output = Vec<T>> + 'static + Send)> = get_results;
+            let get_results: Pin<&'static mut (dyn Future<Output = Vec<T>> + 'static + Send)> =
+                unsafe { mem::transmute(get_results) };
 
-            get_results.or(tick_forever).await
-        })
+            // The thread that calls scope() will participate in driving tasks in the pool
+            // forward until the tasks that are spawned by this scope() call
+            // complete. (If the caller of scope() happens to be a thread in
+            // this thread pool, and we only have one thread in the pool, then
+            // simply calling future::block_on(spawned) would deadlock.)
+            let mut spawned = task_scope_executor.spawn(get_results);
+
+            loop {
+                if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
+                    break result;
+                };
+    
+                self.executor.try_tick();
+                task_scope_executor.try_tick();
+            }
+        }
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
