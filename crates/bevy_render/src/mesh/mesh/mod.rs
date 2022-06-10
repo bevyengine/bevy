@@ -1,4 +1,6 @@
 mod conversions;
+pub mod skinning;
+pub use wgpu::PrimitiveTopology;
 
 use crate::{
     primitives::Aabb,
@@ -7,15 +9,16 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_core::cast_slice;
+use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use bevy_utils::{EnumVariantMeta, Hashed};
-use std::{collections::BTreeMap, hash::Hash};
+use bevy_utils::Hashed;
+use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, PrimitiveTopology, VertexAttribute,
-    VertexFormat, VertexStepMode,
+    util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
+    VertexStepMode,
 };
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -71,14 +74,14 @@ impl Mesh {
 
     /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Uint32);
+        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointWeight", 5, VertexFormat::Float32x4);
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint32);
+        MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint16x4);
 
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
@@ -200,7 +203,7 @@ impl Mesh {
     /// Panics if the attributes have different vertex counts.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
-        for (attribute_id, attribute_data) in self.attributes.iter() {
+        for (attribute_id, attribute_data) in &self.attributes {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 assert_eq!(previous_vertex_count, attribute_len,
@@ -250,23 +253,17 @@ impl Mesh {
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
-    ///
-    /// # Panics
-    /// If the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    #[allow(clippy::match_same_arms)]
     pub fn duplicate_vertices(&mut self) {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
             indices.map(|i| values[i]).collect()
         }
 
-        assert!(
-            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
-            "can only duplicate vertices for `TriangleList`s"
-        );
-
         let indices = match self.indices.take() {
             Some(indices) => indices,
             None => return,
         };
+
         for attributes in self.attributes.values_mut() {
             let indices = indices.iter();
             match &mut attributes.values {
@@ -305,10 +302,16 @@ impl Mesh {
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
     ///
     /// # Panics
-    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or
+    /// if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Consider calling [`Mesh::duplicate_vertices`] or export your mesh with normal attributes.
     pub fn compute_flat_normals(&mut self) {
         assert!(self.indices().is_none(), "`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
+
+        assert!(
+            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
+            "`compute_flat_normals` can only work on `TriangleList`s"
+        );
 
         let positions = self
             .attribute(Mesh::ATTRIBUTE_POSITION)
@@ -323,6 +326,16 @@ impl Mesh {
             .collect();
 
         self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
+
+    /// Generate tangents for the mesh using the `mikktspace` algorithm.
+    ///
+    /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
+        let tangents = generate_tangents_for_mesh(self)?;
+        self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
+        Ok(())
     }
 
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
@@ -428,7 +441,7 @@ impl InnerMeshVertexBufferLayout {
                     format: layout_attribute.format,
                     offset: layout_attribute.offset,
                     shader_location: attribute_descriptor.shader_location,
-                })
+                });
             } else {
                 return Err(MissingVertexAttributeError {
                     id: attribute_descriptor.id,
@@ -489,6 +502,7 @@ pub trait VertexFormatSize {
 }
 
 impl VertexFormatSize for wgpu::VertexFormat {
+    #[allow(clippy::match_same_arms)]
     fn get_size(self) -> u64 {
         match self {
             VertexFormat::Uint8x2 => 2,
@@ -566,6 +580,7 @@ pub enum VertexAttributeValues {
 impl VertexAttributeValues {
     /// Returns the number of vertices in this [`VertexAttributeValues`]. For a single
     /// mesh, all of the [`VertexAttributeValues`] must have the same length.
+    #[allow(clippy::match_same_arms)]
     pub fn len(&self) -> usize {
         match *self {
             VertexAttributeValues::Float32(ref values) => values.len(),
@@ -605,7 +620,7 @@ impl VertexAttributeValues {
     }
 
     /// Returns the values as float triples if possible.
-    fn as_float3(&self) -> Option<&[[f32; 3]]> {
+    pub fn as_float3(&self) -> Option<&[[f32; 3]]> {
         match self {
             VertexAttributeValues::Float32x3(values) => Some(values),
             _ => None,
@@ -615,6 +630,7 @@ impl VertexAttributeValues {
     // TODO: add vertex format as parameter here and perform type conversions
     /// Flattens the [`VertexAttributeValues`] into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
+    #[allow(clippy::match_same_arms)]
     pub fn get_bytes(&self) -> &[u8] {
         match self {
             VertexAttributeValues::Float32(values) => cast_slice(&values[..]),
@@ -694,7 +710,7 @@ pub enum Indices {
 
 impl Indices {
     /// Returns an iterator over the indices.
-    fn iter(&self) -> impl Iterator<Item = usize> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         match self {
             Indices::U16(vec) => IndicesIter::U16(vec.iter()),
             Indices::U32(vec) => IndicesIter::U32(vec.iter()),
@@ -733,7 +749,17 @@ impl Iterator for IndicesIter<'_> {
             IndicesIter::U32(iter) => iter.next().map(|val| *val as usize),
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            IndicesIter::U16(iter) => iter.size_hint(),
+            IndicesIter::U32(iter) => iter.size_hint(),
+        }
+    }
 }
+
+impl<'a> ExactSizeIterator for IndicesIter<'a> {}
+impl<'a> FusedIterator for IndicesIter<'a> {}
 
 impl From<&Indices> for IndexFormat {
     fn from(indices: &Indices) -> Self {
@@ -815,4 +841,130 @@ impl RenderAsset for Mesh {
             layout: mesh_vertex_buffer_layout,
         })
     }
+}
+
+struct MikktspaceGeometryHelper<'a> {
+    indices: &'a Indices,
+    positions: &'a Vec<[f32; 3]>,
+    normals: &'a Vec<[f32; 3]>,
+    uvs: &'a Vec<[f32; 2]>,
+    tangents: Vec<[f32; 4]>,
+}
+
+impl MikktspaceGeometryHelper<'_> {
+    fn index(&self, face: usize, vert: usize) -> usize {
+        let index_index = face * 3 + vert;
+
+        match self.indices {
+            Indices::U16(indices) => indices[index_index] as usize,
+            Indices::U32(indices) => indices[index_index] as usize,
+        }
+    }
+}
+
+impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
+    fn num_faces(&self) -> usize {
+        self.indices.len() / 3
+    }
+
+    fn num_vertices_of_face(&self, _: usize) -> usize {
+        3
+    }
+
+    fn position(&self, face: usize, vert: usize) -> [f32; 3] {
+        self.positions[self.index(face, vert)]
+    }
+
+    fn normal(&self, face: usize, vert: usize) -> [f32; 3] {
+        self.normals[self.index(face, vert)]
+    }
+
+    fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
+        self.uvs[self.index(face, vert)]
+    }
+
+    fn set_tangent_encoded(&mut self, tangent: [f32; 4], face: usize, vert: usize) {
+        let idx = self.index(face, vert);
+        self.tangents[idx] = tangent;
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+/// Failed to generate tangents for the mesh.
+pub enum GenerateTangentsError {
+    #[error("cannot generate tangents for {0:?}")]
+    UnsupportedTopology(PrimitiveTopology),
+    #[error("missing indices")]
+    MissingIndices,
+    #[error("missing vertex attributes '{0}'")]
+    MissingVertexAttribute(&'static str),
+    #[error("the '{0}' vertex attribute should have {1:?} format")]
+    InvalidVertexAttributeFormat(&'static str, VertexFormat),
+    #[error("mesh not suitable for tangent generation")]
+    MikktspaceError,
+}
+
+fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTangentsError> {
+    match mesh.primitive_topology() {
+        PrimitiveTopology::TriangleList => {}
+        other => return Err(GenerateTangentsError::UnsupportedTopology(other)),
+    };
+
+    let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION).ok_or(
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_POSITION.name),
+    )? {
+        VertexAttributeValues::Float32x3(vertices) => vertices,
+        _ => {
+            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+                Mesh::ATTRIBUTE_POSITION.name,
+                VertexFormat::Float32x3,
+            ))
+        }
+    };
+    let normals = match mesh.attribute(Mesh::ATTRIBUTE_NORMAL).ok_or(
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_NORMAL.name),
+    )? {
+        VertexAttributeValues::Float32x3(vertices) => vertices,
+        _ => {
+            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+                Mesh::ATTRIBUTE_NORMAL.name,
+                VertexFormat::Float32x3,
+            ))
+        }
+    };
+    let uvs = match mesh.attribute(Mesh::ATTRIBUTE_UV_0).ok_or(
+        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_UV_0.name),
+    )? {
+        VertexAttributeValues::Float32x2(vertices) => vertices,
+        _ => {
+            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+                Mesh::ATTRIBUTE_UV_0.name,
+                VertexFormat::Float32x2,
+            ))
+        }
+    };
+    let indices = mesh
+        .indices()
+        .ok_or(GenerateTangentsError::MissingIndices)?;
+
+    let len = positions.len();
+    let tangents = vec![[0., 0., 0., 0.]; len];
+    let mut mikktspace_mesh = MikktspaceGeometryHelper {
+        indices,
+        positions,
+        normals,
+        uvs,
+        tangents,
+    };
+    let success = bevy_mikktspace::generate_tangents(&mut mikktspace_mesh);
+    if !success {
+        return Err(GenerateTangentsError::MikktspaceError);
+    }
+
+    // mikktspace seems to assume left-handedness so we can flip the sign to correct for this
+    for tangent in &mut mikktspace_mesh.tangents {
+        tangent[3] = -tangent[3];
+    }
+
+    Ok(mikktspace_mesh.tangents)
 }

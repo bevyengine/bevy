@@ -1,17 +1,21 @@
+//! This example shows how to manually render 2d items using "mid level render apis" with a custom
+//! pipeline for 2d meshes.
+//! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
+//! Check out the "mesh2d" example for simpler / higher level 2d meshes.
+
 use bevy::{
-    core::FloatOrd,
-    core_pipeline::Transparent2d,
+    core_pipeline::core_2d::Transparent2d,
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::Indices,
+        mesh::{Indices, MeshVertexAttribute},
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipelineCache,
-            RenderPipelineDescriptor, SpecializedPipeline, SpecializedPipelines, TextureFormat,
-            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
+            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
+            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         texture::BevyDefault,
         view::VisibleEntities,
@@ -21,11 +25,9 @@ use bevy::{
         DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
         SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
+    utils::FloatOrd,
 };
 
-/// This example shows how to manually render 2d items using "mid level render apis" with a custom pipeline for 2d meshes
-/// It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color
-/// Check out the "mesh2d" example for simpler / higher level 2d meshes
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -72,7 +74,10 @@ fn star(
     // And a RGB color attribute as well
     let mut v_color: Vec<u32> = vec![Color::BLACK.as_linear_rgba_u32()];
     v_color.extend_from_slice(&[Color::YELLOW.as_linear_rgba_u32(); 10]);
-    star.insert_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
+    star.insert_attribute(
+        MeshVertexAttribute::new("Vertex_Color", 1, VertexFormat::Uint32),
+        v_color,
+    );
 
     // Now, we specify the indices of the vertex that are going to compose the
     // triangles in our star. Vertices in triangles have to be specified in CCW
@@ -103,7 +108,7 @@ fn star(
     ));
     commands
         // And use an orthographic projection
-        .spawn_bundle(OrthographicCameraBundle::new_2d());
+        .spawn_bundle(Camera2dBundle::default());
 }
 
 /// A marker component for colored 2d meshes
@@ -125,7 +130,7 @@ impl FromWorld for ColoredMesh2dPipeline {
 }
 
 // We implement `SpecializedPipeline` to customize the default rendering from `Mesh2dPipeline`
-impl SpecializedPipeline for ColoredMesh2dPipeline {
+impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
     type Key = Mesh2dPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -204,10 +209,9 @@ type DrawColoredMesh2d = (
 // using `include_str!()`, or loaded like any other asset with `asset_server.load()`.
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_view_bind_group
-[[group(0), binding(0)]]
-var<uniform> view: View;
-#import bevy_sprite::mesh2d_struct
+#import bevy_sprite::mesh2d_types
+#import bevy_sprite::mesh2d_view_bindings
+
 [[group(1), binding(0)]]
 var<uniform> mesh: Mesh2d;
 
@@ -269,7 +273,7 @@ impl Plugin for ColoredMesh2dPlugin {
         render_app
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<ColoredMesh2dPipeline>()
-            .init_resource::<SpecializedPipelines<ColoredMesh2dPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .add_system_to_stage(RenderStage::Extract, extract_colored_mesh2d)
             .add_system_to_stage(RenderStage::Queue, queue_colored_mesh2d);
     }
@@ -297,8 +301,8 @@ pub fn extract_colored_mesh2d(
 pub fn queue_colored_mesh2d(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
-    mut pipelines: ResMut<SpecializedPipelines<ColoredMesh2dPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<ColoredMesh2d>>,

@@ -4,14 +4,14 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{Mat4, Size};
-use bevy_reflect::TypeUuid;
+use bevy_math::{Mat4, Vec2};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
     view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -22,7 +22,8 @@ use bevy_transform::components::GlobalTransform;
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component)]
+#[derive(Default, Clone, Component, Debug, Reflect)]
+#[reflect(Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
 impl From<Handle<Mesh>> for Mesh2dHandle {
@@ -34,28 +35,44 @@ impl From<Handle<Mesh>> for Mesh2dHandle {
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 
-pub const MESH2D_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
+pub const MESH2D_VIEW_TYPES_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12677582416765805110);
+pub const MESH2D_VIEW_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6901431444735842434);
-pub const MESH2D_STRUCT_HANDLE: HandleUntyped =
+pub const MESH2D_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8994673400261890424);
+pub const MESH2D_BINDINGS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8983617858458862856);
 pub const MESH2D_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2971387252468633715);
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        load_internal_asset!(
+            app,
+            MESH2D_VIEW_TYPES_HANDLE,
+            "mesh2d_view_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH2D_VIEW_BINDINGS_HANDLE,
+            "mesh2d_view_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH2D_TYPES_HANDLE,
+            "mesh2d_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH2D_BINDINGS_HANDLE,
+            "mesh2d_bindings.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            MESH2D_STRUCT_HANDLE,
-            "mesh2d_struct.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_VIEW_BIND_GROUP_HANDLE,
-            "mesh2d_view_bind_group.wgsl",
-            Shader::from_wgsl
-        );
 
         app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
 
@@ -70,7 +87,7 @@ impl Plugin for Mesh2dRenderPlugin {
     }
 }
 
-#[derive(Component, AsStd140, Clone)]
+#[derive(Component, ShaderType, Clone)]
 pub struct Mesh2dUniform {
     pub transform: Mat4,
     pub inverse_transpose_model: Mat4,
@@ -133,7 +150,7 @@ impl FromWorld for Mesh2dPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                        min_binding_size: Some(ViewUniform::min_size()),
                     },
                     count: None,
                 },
@@ -148,7 +165,7 @@ impl FromWorld for Mesh2dPipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(Mesh2dUniform::std140_size_static() as u64),
+                    min_binding_size: Some(Mesh2dUniform::min_size()),
                 },
                 count: None,
             }],
@@ -194,7 +211,7 @@ impl FromWorld for Mesh2dPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: Size::new(
+                size: Vec2::new(
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),
@@ -292,6 +309,11 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
+        }
+
+        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push(String::from("VERTEX_COLORS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
         #[cfg(feature = "webgl")]
@@ -401,7 +423,7 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, mesh2d_view_bind_group) = view_query.get(view).unwrap();
+        let (view_uniform, mesh2d_view_bind_group) = view_query.get_inner(view).unwrap();
         pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
         RenderCommandResult::Success

@@ -1,4 +1,5 @@
 use crate::{
+    change_detection::CHECK_TICK_THRESHOLD,
     component::ComponentId,
     prelude::IntoSystem,
     schedule::{
@@ -46,6 +47,7 @@ impl_downcast!(Stage);
 ///
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
+#[derive(Default)]
 pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
@@ -423,15 +425,15 @@ impl SystemStage {
 
     /// Rearranges all systems in topological orders. Systems must be initialized.
     fn rebuild_orders_and_dependencies(&mut self) {
-        // This assertion is there to document that a maximum of `u32::MAX / 8` systems should be
-        // added to a stage to guarantee that change detection has no false positive, but it
-        // can be circumvented using exclusive or chained systems
+        // This assertion exists to document that the number of systems in a stage is limited
+        // to guarantee that change detection never yields false positives. However, it's possible
+        // (but still unlikely) to circumvent this by abusing exclusive or chained systems.
         assert!(
             self.exclusive_at_start.len()
                 + self.exclusive_before_commands.len()
                 + self.exclusive_at_end.len()
                 + self.parallel.len()
-                < (u32::MAX / 8) as usize
+                < (CHECK_TICK_THRESHOLD as usize)
         );
         debug_assert!(
             self.uninitialized_run_criteria.is_empty()
@@ -561,17 +563,18 @@ impl SystemStage {
         }
     }
 
-    /// Checks for old component and system change ticks
+    /// All system and component change ticks are scanned once the world counter has incremented
+    /// at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
+    /// times since the previous `check_tick` scan.
+    ///
+    /// During each scan, any change ticks older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE)
+    /// are clamped to that age. This prevents false positives from appearing due to overflow.
     fn check_change_ticks(&mut self, world: &mut World) {
         let change_tick = world.change_tick();
-        let time_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
-        // Only check after at least `u32::MAX / 8` counts, and at most `u32::MAX / 4` counts
-        // since the max number of [System] in a [SystemStage] is limited to `u32::MAX / 8`
-        // and this function is called at the end of each [SystemStage] loop
-        const MIN_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
+        let ticks_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
 
-        if time_since_last_check > MIN_TIME_SINCE_LAST_CHECK {
-            // Check all system change ticks
+        if ticks_since_last_check >= CHECK_TICK_THRESHOLD {
+            // Check all system change ticks.
             for exclusive_system in &mut self.exclusive_at_start {
                 exclusive_system.system_mut().check_change_tick(change_tick);
             }
@@ -585,9 +588,8 @@ impl SystemStage {
                 parallel_system.system_mut().check_change_tick(change_tick);
             }
 
-            // Check component ticks
+            // Check all component change ticks.
             world.check_change_ticks();
-
             self.last_tick_check = change_tick;
         }
     }
@@ -801,7 +803,12 @@ impl Stage for SystemStage {
             for index in 0..self.run_criteria.len() {
                 let (run_criteria, tail) = self.run_criteria.split_at_mut(index);
                 let mut criteria = &mut tail[0];
-                criteria.update_archetypes(world);
+
+                #[cfg(feature = "trace")]
+                let _span =
+                    bevy_utils::tracing::info_span!("run criteria", name = &*criteria.name())
+                        .entered();
+
                 match &mut criteria.inner {
                     RunCriteriaInner::Single(system) => criteria.should_run = system.run((), world),
                     RunCriteriaInner::Piped {
@@ -901,7 +908,6 @@ impl Stage for SystemStage {
                 for index in 0..run_criteria.len() {
                     let (run_criteria, tail) = run_criteria.split_at_mut(index);
                     let criteria = &mut tail[0];
-                    criteria.update_archetypes(world);
                     match criteria.should_run {
                         ShouldRun::No => (),
                         ShouldRun::Yes => criteria.should_run = ShouldRun::No,
@@ -920,10 +926,9 @@ impl Stage for SystemStage {
                                 }
                             }
                             match criteria.should_run {
-                                ShouldRun::Yes => {
-                                    run_system_loop = true;
-                                }
-                                ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
+                                ShouldRun::Yes
+                                | ShouldRun::YesAndCheckAgain
+                                | ShouldRun::NoAndCheckAgain => {
                                     run_system_loop = true;
                                 }
                                 ShouldRun::No => (),
@@ -942,14 +947,12 @@ impl Stage for SystemStage {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::Entity,
-        query::{ChangeTrackers, Changed},
         schedule::{
             BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaPiping, ShouldRun,
-            SingleThreadedExecutor, Stage, SystemSet, SystemStage,
+            RunCriteria, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage,
+            SystemSet, SystemStage,
         },
-        system::{In, IntoExclusiveSystem, IntoSystem, Local, Query, ResMut},
+        system::{In, IntoExclusiveSystem, Local, Query, ResMut},
         world::World,
     };
 
@@ -1475,25 +1478,25 @@ mod tests {
                 ShouldRun::No
             }
         }
-        let mut stage = SystemStage::parallel()
-            .with_system(make_parallel(0).label("0"))
-            .with_system(
-                make_parallel(1)
-                    .label("1")
-                    .after("0")
-                    .with_run_criteria(every_other_time.label("every other time")),
-            )
-            .with_system(make_parallel(2).label("2").after("1").with_run_criteria(
-                RunCriteria::pipe("every other time", IntoSystem::into_system(eot_piped)),
-            ))
-            .with_system(
-                make_parallel(3).label("3").after("2").with_run_criteria(
-                    "every other time"
-                        .pipe(IntoSystem::into_system(eot_piped))
-                        .label("piped"),
-                ),
-            )
-            .with_system(make_parallel(4).after("3").with_run_criteria("piped"));
+        let mut stage =
+            SystemStage::parallel()
+                .with_system(make_parallel(0).label("0"))
+                .with_system(
+                    make_parallel(1)
+                        .label("1")
+                        .after("0")
+                        .with_run_criteria(every_other_time.label("every other time")),
+                )
+                .with_system(
+                    make_parallel(2)
+                        .label("2")
+                        .after("1")
+                        .with_run_criteria(RunCriteria::pipe("every other time", eot_piped)),
+                )
+                .with_system(make_parallel(3).label("3").after("2").with_run_criteria(
+                    RunCriteria::pipe("every other time", eot_piped).label("piped"),
+                ))
+                .with_system(make_parallel(4).after("3").with_run_criteria("piped"));
         for _ in 0..4 {
             stage.run(&mut world);
         }
@@ -1578,15 +1581,25 @@ mod tests {
     fn ambiguity_detection() {
         use super::{find_ambiguities, SystemContainer};
 
-        fn find_ambiguities_first_labels(
+        fn find_ambiguities_first_str_labels(
             systems: &[impl SystemContainer],
         ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
             find_ambiguities(systems)
                 .drain(..)
                 .map(|(index_a, index_b, _conflicts)| {
                     (
-                        systems[index_a].labels()[0].clone(),
-                        systems[index_b].labels()[0].clone(),
+                        systems[index_a]
+                            .labels()
+                            .iter()
+                            .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
+                            .unwrap()
+                            .clone(),
+                        systems[index_b]
+                            .labels()
+                            .iter()
+                            .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
+                            .unwrap()
+                            .clone(),
                     )
                 })
                 .collect()
@@ -1616,7 +1629,7 @@ mod tests {
             .with_system(component.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1631,7 +1644,7 @@ mod tests {
             .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1656,7 +1669,7 @@ mod tests {
             .with_system(resource.label("4"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("0")))
@@ -1675,7 +1688,7 @@ mod tests {
             .with_system(resource.label("4").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("0")))
@@ -1688,7 +1701,7 @@ mod tests {
             .with_system(component.label("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("0"), Box::new("1")))
                 || ambiguities.contains(&(Box::new("1"), Box::new("0")))
@@ -1701,7 +1714,7 @@ mod tests {
             .with_system(component.label("2").after("0"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1715,7 +1728,7 @@ mod tests {
             .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1729,7 +1742,7 @@ mod tests {
             .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
@@ -1739,7 +1752,7 @@ mod tests {
             .with_system(component.label("3").after("1").after("2"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1769,7 +1782,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("2")))
                 || ambiguities.contains(&(Box::new("2"), Box::new("1")))
@@ -1819,7 +1832,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert_eq!(ambiguities.len(), 0);
 
         let mut stage = SystemStage::parallel()
@@ -1850,7 +1863,7 @@ mod tests {
             );
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("4")))
                 || ambiguities.contains(&(Box::new("4"), Box::new("1")))
@@ -1884,7 +1897,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("1"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("1")))
@@ -1921,7 +1934,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("6").after("2").after("5"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
             ambiguities.contains(&(Box::new("2"), Box::new("3")))
                 || ambiguities.contains(&(Box::new("3"), Box::new("2")))
@@ -1947,7 +1960,7 @@ mod tests {
             .with_system(empty.exclusive_system().label("3").in_ambiguity_set("a"));
         stage.initialize_systems(&mut world);
         stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
+        let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert_eq!(ambiguities.len(), 0);
     }
 
@@ -2004,75 +2017,6 @@ mod tests {
         world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
         assert_eq!(*world.resource::<usize>(), 1);
-    }
-
-    #[test]
-    fn change_ticks_wrapover() {
-        const MIN_TIME_SINCE_LAST_CHECK: u32 = u32::MAX / 8;
-        const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
-
-        let mut world = World::new();
-        world.spawn().insert(W(0usize));
-        *world.change_tick.get_mut() += MAX_DELTA + 1;
-
-        let mut stage = SystemStage::parallel();
-        fn work() {}
-        stage.add_system(work);
-
-        // Overflow twice
-        for _ in 0..10 {
-            stage.run(&mut world);
-            for tracker in world.query::<ChangeTrackers<W<usize>>>().iter(&world) {
-                let time_since_last_check = tracker
-                    .change_tick
-                    .wrapping_sub(tracker.component_ticks.added);
-                assert!(time_since_last_check <= MAX_DELTA);
-                let time_since_last_check = tracker
-                    .change_tick
-                    .wrapping_sub(tracker.component_ticks.changed);
-                assert!(time_since_last_check <= MAX_DELTA);
-            }
-            let change_tick = world.change_tick.get_mut();
-            *change_tick = change_tick.wrapping_add(MIN_TIME_SINCE_LAST_CHECK + 1);
-        }
-    }
-
-    #[test]
-    fn change_query_wrapover() {
-        use crate::{self as bevy_ecs, component::Component};
-
-        #[derive(Component)]
-        struct C;
-        let mut world = World::new();
-
-        // Spawn entities at various ticks
-        let component_ticks = [0, u32::MAX / 4, u32::MAX / 2, u32::MAX / 4 * 3, u32::MAX];
-        let ids = component_ticks
-            .iter()
-            .map(|tick| {
-                *world.change_tick.get_mut() = *tick;
-                world.spawn().insert(C).id()
-            })
-            .collect::<Vec<Entity>>();
-
-        let test_cases = [
-            // normal
-            (0, u32::MAX / 2, vec![ids[1], ids[2]]),
-            // just wrapped over
-            (u32::MAX / 2, 0, vec![ids[0], ids[3], ids[4]]),
-        ];
-        for (last_change_tick, change_tick, changed_entities) in &test_cases {
-            *world.change_tick.get_mut() = *change_tick;
-            world.last_change_tick = *last_change_tick;
-
-            assert_eq!(
-                world
-                    .query_filtered::<Entity, Changed<C>>()
-                    .iter(&world)
-                    .collect::<Vec<Entity>>(),
-                *changed_entities
-            );
-        }
     }
 
     #[test]

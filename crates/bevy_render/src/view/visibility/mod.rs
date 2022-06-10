@@ -6,19 +6,20 @@ pub use render_layers::*;
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 
 use crate::{
-    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
+    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection},
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
 
 /// User indication of whether an entity is visible
 #[derive(Component, Clone, Reflect, Debug)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Visibility {
     pub is_visible: bool,
 }
@@ -72,6 +73,7 @@ pub enum VisibilitySystems {
     CalculateBounds,
     UpdateOrthographicFrusta,
     UpdatePerspectiveFrusta,
+    UpdateProjectionFrusta,
     CheckVisibility,
 }
 
@@ -99,11 +101,18 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
+            update_frusta::<Projection>
+                .label(UpdateProjectionFrusta)
+                .after(TransformSystem::TransformPropagate),
+        )
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
             check_visibility
                 .label(CheckVisibility)
                 .after(CalculateBounds)
                 .after(UpdateOrthographicFrusta)
                 .after(UpdatePerspectiveFrusta)
+                .after(UpdateProjectionFrusta)
                 .after(TransformSystem::TransformPropagate),
         );
     }
@@ -140,9 +149,9 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 
 pub fn check_visibility(
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
-    mut visible_entity_query: QuerySet<(
-        QueryState<&mut ComputedVisibility>,
-        QueryState<(
+    mut visible_entity_query: ParamSet<(
+        Query<&mut ComputedVisibility>,
+        Query<(
             Entity,
             &Visibility,
             &mut ComputedVisibility,
@@ -154,7 +163,7 @@ pub fn check_visibility(
     )>,
 ) {
     // Reset the computed visibility to false
-    for mut computed_visibility in visible_entity_query.q0().iter_mut() {
+    for mut computed_visibility in visible_entity_query.p0().iter_mut() {
         computed_visibility.is_visible = false;
     }
 
@@ -170,7 +179,7 @@ pub fn check_visibility(
             maybe_aabb,
             maybe_no_frustum_culling,
             maybe_transform,
-        ) in visible_entity_query.q1().iter_mut()
+        ) in visible_entity_query.p1().iter_mut()
         {
             if !visibility.is_visible {
                 continue;

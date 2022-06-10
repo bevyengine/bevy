@@ -1,17 +1,19 @@
+//! A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
+
 use bevy::{
-    core_pipeline::Transparent3d,
+    core_pipeline::core_3d::Transparent3d,
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
         SetMeshViewBindGroup,
     },
     prelude::*,
     render::{
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
-        render_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
-            RenderPipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
+            PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
             SpecializedMeshPipelineError, SpecializedMeshPipelines,
         },
         view::ExtractedView,
@@ -76,7 +78,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     ));
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -139,7 +141,7 @@ fn queue_custom(
     custom_pipeline: Res<IsRedPipeline>,
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<IsRedPipeline>>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     material_meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform, &IsRed)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {

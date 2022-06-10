@@ -1,5 +1,5 @@
 use crate::{
-    archetype::ArchetypeGeneration,
+    change_detection::MAX_CHANGE_AGE,
     system::{check_system_change_tick, BoxedSystem, IntoSystem},
     world::World,
 };
@@ -44,7 +44,9 @@ where
         world.last_change_tick = saved_last_tick;
     }
 
-    fn initialize(&mut self, _: &mut World) {}
+    fn initialize(&mut self, world: &mut World) {
+        self.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+    }
 
     fn check_change_tick(&mut self, change_tick: u32) {
         check_system_change_tick(&mut self.last_change_tick, change_tick, self.name.as_ref());
@@ -70,7 +72,6 @@ where
 
 pub struct ExclusiveSystemCoerced {
     system: BoxedSystem<(), ()>,
-    archetype_generation: ArchetypeGeneration,
 }
 
 impl ExclusiveSystem for ExclusiveSystemCoerced {
@@ -79,15 +80,6 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
     }
 
     fn run(&mut self, world: &mut World) {
-        let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
-
-        for archetype in archetypes.archetypes[archetype_index_range].iter() {
-            self.system.new_archetype(archetype);
-        }
-
         self.system.run((), world);
         self.system.apply_buffers(world);
     }
@@ -108,7 +100,6 @@ where
     fn exclusive_system(self) -> ExclusiveSystemCoerced {
         ExclusiveSystemCoerced {
             system: Box::new(IntoSystem::into_system(self)),
-            archetype_generation: ArchetypeGeneration::initial(),
         }
     }
 }

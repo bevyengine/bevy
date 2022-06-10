@@ -10,9 +10,10 @@ pub use window::*;
 
 use crate::{
     camera::ExtractedCamera,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
+    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
@@ -21,17 +22,20 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec2, Vec3};
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::HashMap;
 
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Msaa>().add_plugin(VisibilityPlugin);
+        app.init_resource::<Msaa>()
+            // NOTE: windows.is_changed() handles cases where a window was resized
+            .add_plugin(ExtractResourcePlugin::<Msaa>::default())
+            .add_plugin(VisibilityPlugin);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .add_system_to_stage(RenderStage::Extract, extract_msaa)
                 .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
                 .add_system_to_stage(
                     RenderStage::Prepare,
@@ -41,7 +45,7 @@ impl Plugin for ViewPlugin {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, ExtractResource)]
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
 /// # Example
@@ -69,38 +73,29 @@ impl Default for Msaa {
     }
 }
 
-pub fn extract_msaa(mut commands: Commands, msaa: Res<Msaa>) {
-    // NOTE: windows.is_changed() handles cases where a window was resized
-    commands.insert_resource(msaa.clone());
-}
-
 #[derive(Component)]
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
     pub width: u32,
     pub height: u32,
-    pub near: f32,
-    pub far: f32,
     pub hdr: bool,
 }
 
-#[derive(Clone, AsStd140)]
+#[derive(Clone, ShaderType)]
 pub struct ViewUniform {
     view_proj: Mat4,
     view: Mat4,
     inverse_view: Mat4,
     projection: Mat4,
     world_position: Vec3,
-    near: f32,
-    far: f32,
     width: f32,
     height: f32,
 }
 
 #[derive(Default)]
 pub struct ViewUniforms {
-    pub uniforms: DynamicUniformVec<ViewUniform>,
+    pub uniforms: DynamicUniformBuffer<ViewUniform>,
 }
 
 #[derive(Component)]
@@ -272,8 +267,6 @@ fn prepare_view_uniforms(
                 inverse_view,
                 projection,
                 world_position: camera.transform.translation,
-                near: camera.near,
-                far: camera.far,
                 width: camera.width as f32,
                 height: camera.height as f32,
             }),
@@ -297,14 +290,15 @@ fn prepare_view_targets(
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
 ) {
+    let mut sampled_textures = HashMap::default();
     for (entity, camera, view) in cameras.iter() {
-        if let Some(size) = camera.physical_size {
+        if let Some(target_size) = camera.physical_target_size {
             if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
                 let view_target = ViewTarget::new(
                     &*render_device,
                     &mut *texture_cache,
                     &*msaa,
-                    size,
+                    target_size,
                     texture_view.clone(),
                     view.hdr,
                 );

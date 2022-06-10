@@ -15,6 +15,9 @@ Bevy is a refreshingly simple data-driven game engine built in Rust. It is free 
 
 Bevy is still in the _very_ early stages of development. APIs can and will change (now is the time to make suggestions!). Important features are missing. Documentation is sparse. Please don't build any serious projects in Bevy unless you are prepared to be broken by API changes constantly.
 
+**MSRV:** Bevy relies heavily on improvements in the Rust language and compiler.
+As a result, the Minimum Supported Rust Version (MSRV) is "the latest stable release" of Rust.
+
 ## Design Goals
 
 * **Capable**: Offer a complete 2D and 3D feature set
@@ -97,8 +100,8 @@ Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/
 
 Bevy is free and open source! All code in this repository is dual-licensed under either:
 
-* MIT License ([LICENSE-MIT](docs/LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
-* Apache License, Version 2.0 ([LICENSE-APACHE](docs/LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
+* MIT License ([LICENSE-MIT](LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
+* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
 
 at your option. This means you can select the license you prefer! This dual-licensing approach is the de-facto standard in the Rust ecosystem and there are [very good reasons](https://github.com/bevyengine/bevy/issues/2373) to include both.
 

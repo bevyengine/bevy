@@ -65,6 +65,13 @@ pub fn render_system(world: &mut World) {
                 }
             }
         }
+
+        #[cfg(feature = "tracing-tracy")]
+        bevy_utils::tracing::event!(
+            bevy_utils::tracing::Level::INFO,
+            message = "finished frame",
+            tracy.frame_mark = true
+        );
     }
 }
 
