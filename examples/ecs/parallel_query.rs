@@ -1,6 +1,6 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::{WindowResolution, PrimaryWindow}};
 use rand::random;
 
 #[derive(Component, Deref)]
@@ -38,10 +38,16 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
 }
 
 // Bounce sprites outside the window
-fn bounce_system(windows: Res<Windows>, mut sprites: Query<(&Transform, &mut Velocity)>) {
-    let window = windows.primary();
-    let width = window.width();
-    let height = window.height();
+fn bounce_system(
+    primary_window: Res<PrimaryWindow>,
+    resolutions: Query<&WindowResolution, With<Window>>,
+    mut sprites: Query<(&Transform, &mut Velocity)>
+) {
+    let resolution = resolutions
+        .get(primary_window.window.expect("Primary window should exist"))
+        .expect("Primary windows should have a valid WindowResolution component");
+    let width = resolution.width();
+    let height = resolution.height();
     let left = width / -2.0;
     let right = width / 2.0;
     let bottom = height / -2.0;

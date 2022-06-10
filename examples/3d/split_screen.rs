@@ -4,7 +4,7 @@ use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
     render::camera::Viewport,
-    window::{WindowId, WindowResized},
+    window::{WindowResized, PrimaryWindow, WindowResolution},
 };
 
 fn main() {
@@ -79,17 +79,20 @@ struct LeftCamera;
 struct RightCamera;
 
 fn set_camera_viewports(
-    windows: Res<Windows>,
+    primary_window: Res<PrimaryWindow>,
+    resolutions: Query<&WindowResolution, With<Window>>,
     mut resize_events: EventReader<WindowResized>,
     mut left_camera: Query<&mut Camera, (With<LeftCamera>, Without<RightCamera>)>,
     mut right_camera: Query<&mut Camera, With<RightCamera>>,
 ) {
+    let primary_window_id = primary_window.window.expect("Should have a valid Primary window");
+
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
     for resize_event in resize_events.iter() {
-        if resize_event.id == WindowId::primary() {
-            let window = windows.primary();
+        if resize_event.entity == primary_window_id {
+            let window = resolutions.get(primary_window_id).expect("Primary window should have valid resolution");
             let mut left_camera = left_camera.single_mut();
             left_camera.viewport = Some(Viewport {
                 physical_position: UVec2::new(0, 0),

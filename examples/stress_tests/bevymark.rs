@@ -6,7 +6,7 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     time::FixedTimestep,
-    window::PresentMode,
+    window::{PresentMode, WindowResolution, PrimaryWindow},
 };
 use rand::{thread_rng, Rng};
 
@@ -63,15 +63,20 @@ struct BirdScheduled {
 
 fn scheduled_spawner(
     mut commands: Commands,
-    windows: Res<Windows>,
+    primary_window: Res<PrimaryWindow>,
+    windows: Query<&WindowResolution, With<Window>>,
     mut scheduled: ResMut<BirdScheduled>,
     mut counter: ResMut<BevyCounter>,
     bird_texture: Res<BirdTexture>,
 ) {
+    let primary_resolution = windows
+    .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
+    .expect("PrimaryWindow should have a valid Resolution component");
+
     if scheduled.wave > 0 {
         spawn_birds(
             &mut commands,
-            &windows,
+            primary_resolution,
             &mut counter,
             scheduled.per_wave,
             bird_texture.clone_weak(),
@@ -162,10 +167,16 @@ fn mouse_handler(
     mut commands: Commands,
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
-    windows: Res<Windows>,
+    primary_window: Res<PrimaryWindow>,
+    windows: Query<&WindowResolution, With<Window>>,
     bird_texture: Res<BirdTexture>,
     mut counter: ResMut<BevyCounter>,
 ) {
+    let primary_resolution = windows
+        .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
+        .expect("PrimaryWindow should have a valid Resolution component");
+
+
     if mouse_button_input.just_released(MouseButton::Left) {
         let mut rng = thread_rng();
         counter.color = Color::rgb_linear(rng.gen(), rng.gen(), rng.gen());
@@ -175,7 +186,7 @@ fn mouse_handler(
         let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as usize;
         spawn_birds(
             &mut commands,
-            &windows,
+            primary_resolution,
             &mut counter,
             spawn_count,
             bird_texture.clone_weak(),
@@ -185,14 +196,13 @@ fn mouse_handler(
 
 fn spawn_birds(
     commands: &mut Commands,
-    windows: &Windows,
+    primary_window_resolution: &WindowResolution,
     counter: &mut BevyCounter,
     spawn_count: usize,
     texture: Handle<Image>,
 ) {
-    let window = windows.primary();
-    let bird_x = (window.width() as f32 / -2.) + HALF_BIRD_SIZE;
-    let bird_y = (window.height() as f32 / 2.) - HALF_BIRD_SIZE;
+    let bird_x = (primary_window_resolution.width() as f32 / -2.) + HALF_BIRD_SIZE;
+    let bird_y = (primary_window_resolution.height() as f32 / 2.) - HALF_BIRD_SIZE;
     let mut rng = thread_rng();
 
     for count in 0..spawn_count {
@@ -230,10 +240,17 @@ fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Trans
     }
 }
 
-fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Transform)>) {
-    let window = windows.primary();
-    let half_width = window.width() as f32 * 0.5;
-    let half_height = window.height() as f32 * 0.5;
+fn collision_system(
+    primary_window: Res<PrimaryWindow>,
+    windows: Query<&WindowResolution, With<Window>>,
+    mut bird_query: Query<(&mut Bird, &Transform)>
+) {
+    let primary_resolution = windows
+        .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
+        .expect("PrimaryWindow should have a valid Resolution component");
+
+    let half_width = primary_resolution.width() as f32 * 0.5;
+    let half_height = primary_resolution.height() as f32 * 0.5;
 
     for (mut bird, transform) in bird_query.iter_mut() {
         let x_vel = bird.velocity.x;

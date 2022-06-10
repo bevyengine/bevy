@@ -20,7 +20,7 @@ use bevy::{
         renderer::RenderDevice,
         view::RenderLayers,
     },
-    sprite::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle},
+    sprite::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle}, window::{PrimaryWindow, WindowResolution},
 };
 
 fn main() {
@@ -39,16 +39,20 @@ struct MainCube;
 
 fn setup(
     mut commands: Commands,
-    mut windows: ResMut<Windows>,
+    primary_window: Res<PrimaryWindow>,
+    windows: Query<&WindowResolution, With<Window>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let window = windows.get_primary_mut().unwrap();
+    let primary_resolution = windows
+        .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
+        .expect("PrimaryWindow should have a valid Resolution component");
+
     let size = Extent3d {
-        width: window.physical_width(),
-        height: window.physical_height(),
+        width: primary_resolution.physical_width(),
+        height: primary_resolution.physical_height(),
         ..default()
     };
 
