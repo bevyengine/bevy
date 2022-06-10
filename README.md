@@ -106,7 +106,10 @@ Bevy is free and open source! All code in this repository is dual-licensed under
 at your option. This means you can select the license you prefer! This dual-licensing approach is the de-facto standard in the Rust ecosystem and there are [very good reasons](https://github.com/bevyengine/bevy/issues/2373) to include both.
 
 Some small sections of the engine's code fall under an additional MIT-compatible open source license due to their external origins.
-This information will be listed in the README of each crate if it forms the basis of a large section of the crate (such as for [`bevy_mikktspace`](https://github.com/bevyengine/bevy/blob/main/crates/bevy_mikktspace/README.md)),
+If the README of a crate contains a 'License' header (or similar), the additional copyright notices and license terms applicable to that crate will be listed.
+The above licensing requirement still applies to contributions to those crates, and sections of those crates will carry those license terms.
+The [license](https://doc.rust-lang.org/cargo/reference/manifest.html#the-license-and-license-file-fields) field of each crate will also reflect this.
+For example, [`bevy_mikktspace`](./crates/bevy_mikktspace/README.md#license-agreement) has code under the Zlib license (as well as a copyright notice when choosing the MIT license).
 
 The [assets](assets) included in this repository for testing purposes typically fall under different open licenses.
 See [CREDITS.md](CREDITS.md) for the details of the licenses of those files.
