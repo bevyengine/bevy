@@ -107,7 +107,6 @@ at your option. This means you can select the license you prefer! This dual-lice
 
 Some small sections of the engine's code fall under an additional MIT-compatible open source license due to their external origins.
 This information will be listed in the README of each crate if it forms the basis of a large section of the crate (such as for [`bevy_mikktspace`](https://github.com/bevyengine/bevy/blob/main/crates/bevy_mikktspace/README.md)),
-or will be listed directly in the source as a comment, in the case of small snippets.
 
 The [assets](assets) included in this repository for testing purposes typically fall under different open licenses.
 See [CREDITS.md](CREDITS.md) for the details of the licenses of those files.
