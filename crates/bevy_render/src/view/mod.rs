@@ -22,7 +22,6 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec2, Vec3};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
 
 pub struct ViewPlugin;
 
@@ -290,7 +289,6 @@ fn prepare_view_targets(
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
 ) {
-    let mut sampled_textures = HashMap::default();
     for (entity, camera, view) in cameras.iter() {
         if let Some(target_size) = camera.physical_target_size {
             if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {

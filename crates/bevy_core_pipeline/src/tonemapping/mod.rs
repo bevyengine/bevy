@@ -7,8 +7,7 @@ use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::BevyDefault;
-use bevy_render::view::ExtractedView;
-use bevy_render::{render_resource::*, RenderApp, RenderStage};
+use bevy_render::{render_resource::*, RenderApp};
 
 use bevy_reflect::TypeUuid;
 
@@ -42,23 +41,20 @@ impl Plugin for TonemappingPlugin {
             Err(_) => return,
         };
 
-        render_app
-            .init_resource::<TonemappingPipeline>()
-            .init_resource::<SpecializedPipelines<TonemappingPipeline>>()
-            .add_system_to_stage(RenderStage::Queue, queue_tonemapping_bind_groups);
+        render_app.init_resource::<TonemappingPipeline>();
     }
 }
 
 pub struct TonemappingPipeline {
     hdr_texture_bind_group: BindGroupLayout,
+    pipeline_id: CachedRenderPipelineId,
 }
 
 impl FromWorld for TonemappingPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let render_device = render_world.get_resource::<RenderDevice>().unwrap();
-
-        let hdr_texture_bind_group =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let hdr_texture_bind_group = render_world
+            .resource::<RenderDevice>()
+            .create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("tonemapping_hdr_texture_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
@@ -80,19 +76,9 @@ impl FromWorld for TonemappingPipeline {
                 ],
             });
 
-        TonemappingPipeline {
-            hdr_texture_bind_group,
-        }
-    }
-}
-
-impl SpecializedPipeline for TonemappingPipeline {
-    type Key = ();
-
-    fn specialize(&self, _: Self::Key) -> RenderPipelineDescriptor {
-        RenderPipelineDescriptor {
+        let descriptor = RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
-            layout: Some(vec![self.hdr_texture_bind_group.clone()]),
+            layout: Some(vec![hdr_texture_bind_group.clone()]),
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: TONEMAPPING_SHADER_HANDLE.typed(),
@@ -107,27 +93,11 @@ impl SpecializedPipeline for TonemappingPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+        };
+        let mut cache = render_world.resource_mut::<PipelineCache>();
+        TonemappingPipeline {
+            hdr_texture_bind_group,
+            pipeline_id: cache.queue_render_pipeline(descriptor),
         }
-    }
-}
-
-#[derive(Component)]
-pub struct TonemappingTarget {
-    pub pipeline: CachedPipelineId,
-}
-
-fn queue_tonemapping_bind_groups(
-    mut commands: Commands,
-    mut render_pipeline_cache: ResMut<RenderPipelineCache>,
-    mut pipelines: ResMut<SpecializedPipelines<TonemappingPipeline>>,
-    tonemapping_pipeline: Res<TonemappingPipeline>,
-    views: Query<Entity, With<ExtractedView>>,
-) {
-    for entity in views.iter() {
-        let pipeline = pipelines.specialize(&mut render_pipeline_cache, &tonemapping_pipeline, ());
-
-        commands
-            .entity(entity)
-            .insert(TonemappingTarget { pipeline });
     }
 }

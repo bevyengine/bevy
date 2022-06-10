@@ -261,6 +261,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     ),
                     width: physical_size.x,
                     height: physical_size.y,
+                    hdr: camera.hdr,
                 });
             commands.get_or_spawn(entity).insert_bundle((
                 DefaultCameraView(default_camera_view),

@@ -3,27 +3,25 @@ use std::sync::Mutex;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType, SlotValue},
+    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
-        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineCache, SamplerDescriptor,
+        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
         TextureViewId,
     },
     renderer::RenderContext,
     view::{ExtractedView, ViewMainTexture, ViewTarget},
 };
 
-use super::{TonemappingPipeline, TonemappingTarget};
+use super::TonemappingPipeline;
 
 pub struct TonemappingNode {
-    query: QueryState<(&'static ViewTarget, &'static TonemappingTarget), With<ExtractedView>>,
+    query: QueryState<&'static ViewTarget, With<ExtractedView>>,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
 impl TonemappingNode {
     pub const IN_VIEW: &'static str = "view";
-    pub const IN_TEXTURE: &'static str = "in_texture";
-    pub const OUT_TEXTURE: &'static str = "out_texture";
 
     pub fn new(world: &mut World) -> Self {
         Self {
@@ -35,17 +33,7 @@ impl TonemappingNode {
 
 impl Node for TonemappingNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![
-            SlotInfo::new(TonemappingNode::IN_TEXTURE, SlotType::TextureView),
-            SlotInfo::new(TonemappingNode::IN_VIEW, SlotType::Entity),
-        ]
-    }
-
-    fn output(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(
-            TonemappingNode::OUT_TEXTURE,
-            SlotType::TextureView,
-        )]
+        vec![SlotInfo::new(TonemappingNode::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -59,17 +47,15 @@ impl Node for TonemappingNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let in_texture = graph.get_input_texture(Self::IN_TEXTURE)?;
-
-        let render_pipeline_cache = world.resource::<RenderPipelineCache>();
+        let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
 
-        let (target, tonemapping_target) = match self.query.get_manual(world, view_entity) {
+        let target = match self.query.get_manual(world, view_entity) {
             Ok(query) => query,
             Err(_) => return Ok(()),
         };
 
-        let pipeline = match render_pipeline_cache.get(tonemapping_target.pipeline) {
+        let pipeline = match pipeline_cache.get_render_pipeline(tonemapping_pipeline.pipeline_id) {
             Some(pipeline) => pipeline,
             None => return Ok(()),
         };
@@ -78,20 +64,15 @@ impl Node for TonemappingNode {
             ViewMainTexture::Hdr { ldr_texture, .. } => ldr_texture,
             ViewMainTexture::Sdr { .. } => {
                 // non-hdr does tone mapping in the main pass node
-                let in_texture = in_texture.clone();
-                graph
-                    .set_output(
-                        TonemappingNode::OUT_TEXTURE,
-                        SlotValue::TextureView(in_texture),
-                    )
-                    .unwrap();
                 return Ok(());
             }
         };
 
+        let main_texture = target.main_texture.texture();
+
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
-            Some((id, bind_group)) if in_texture.id() == *id => bind_group,
+            Some((id, bind_group)) if main_texture.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
                     .render_device
@@ -106,7 +87,7 @@ impl Node for TonemappingNode {
                             entries: &[
                                 BindGroupEntry {
                                     binding: 0,
-                                    resource: BindingResource::TextureView(in_texture),
+                                    resource: BindingResource::TextureView(main_texture),
                                 },
                                 BindGroupEntry {
                                     binding: 1,
@@ -115,7 +96,7 @@ impl Node for TonemappingNode {
                             ],
                         });
 
-                let (_, bind_group) = cached_bind_group.insert((in_texture.id(), bind_group));
+                let (_, bind_group) = cached_bind_group.insert((main_texture.id(), bind_group));
                 bind_group
             }
         };
@@ -140,13 +121,6 @@ impl Node for TonemappingNode {
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.draw(0..3, 0..1);
-
-        graph
-            .set_output(
-                TonemappingNode::OUT_TEXTURE,
-                SlotValue::TextureView(ldr_texture.clone()),
-            )
-            .unwrap();
 
         Ok(())
     }

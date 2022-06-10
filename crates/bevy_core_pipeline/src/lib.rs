@@ -1,6 +1,9 @@
 pub mod clear_color;
 pub mod core_2d;
 pub mod core_3d;
+pub mod fullscreen_vertex_shader;
+pub mod tonemapping;
+pub mod upscaling;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -11,10 +14,13 @@ pub mod prelude {
     };
 }
 
-use crate::{clear_color::ClearColor, core_2d::Core2dPlugin, core_3d::Core3dPlugin};
+use crate::{
+    clear_color::ClearColor, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
+    fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
-use bevy_render::extract_resource::ExtractResourcePlugin;
+use bevy_render::{extract_resource::ExtractResourcePlugin, prelude::Shader};
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;

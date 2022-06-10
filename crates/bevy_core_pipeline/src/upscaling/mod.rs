@@ -30,7 +30,7 @@ impl Plugin for UpscalingPlugin {
 
         app.sub_app_mut(RenderApp)
             .init_resource::<UpscalingPipeline>()
-            .init_resource::<SpecializedPipelines<UpscalingPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<UpscalingPipeline>>()
             .add_system_to_stage(RenderStage::Queue, queue_upscaling_bind_groups);
     }
 }
@@ -107,7 +107,7 @@ impl UpscalingPipelineKey {
     }
 }
 
-impl SpecializedPipeline for UpscalingPipeline {
+impl SpecializedRenderPipeline for UpscalingPipeline {
     type Key = UpscalingPipelineKey;
 
     fn specialize(&self, _: Self::Key) -> RenderPipelineDescriptor {
@@ -134,19 +134,19 @@ impl SpecializedPipeline for UpscalingPipeline {
 
 #[derive(Component)]
 pub struct UpscalingTarget {
-    pub pipeline: CachedPipelineId,
+    pub pipeline: CachedRenderPipelineId,
 }
 
 fn queue_upscaling_bind_groups(
     mut commands: Commands,
-    mut render_pipeline_cache: ResMut<RenderPipelineCache>,
-    mut pipelines: ResMut<SpecializedPipelines<UpscalingPipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UpscalingPipeline>>,
     upscaling_pipeline: Res<UpscalingPipeline>,
     view_targets: Query<Entity, With<ExtractedView>>,
 ) {
     for entity in view_targets.iter() {
         let key = UpscalingPipelineKey::from_upscaling_mode(UpscalingMode::Filtering);
-        let pipeline = pipelines.specialize(&mut render_pipeline_cache, &upscaling_pipeline, key);
+        let pipeline = pipelines.specialize(&mut pipeline_cache, &upscaling_pipeline, key);
 
         commands.entity(entity).insert(UpscalingTarget { pipeline });
     }
