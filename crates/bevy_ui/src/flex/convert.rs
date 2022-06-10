@@ -1,6 +1,6 @@
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap,
-    JustifyContent, PositionType, Size, Style, UiRect, Val,
+    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
+    PositionType, Size, Style, UiRect, Val,
 };
 
 pub fn from_rect(
