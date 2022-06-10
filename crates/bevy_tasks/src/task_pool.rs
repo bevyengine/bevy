@@ -2,8 +2,9 @@ use std::{
     future::Future,
     marker::PhantomData,
     mem,
+    pin::Pin,
     sync::Arc,
-    thread::{self, JoinHandle}, pin::Pin,
+    thread::{self, JoinHandle},
 };
 
 use concurrent_queue::ConcurrentQueue;
@@ -253,7 +254,7 @@ impl TaskPool {
                 results
             };
 
-                // Pin the futures on the stack.
+            // Pin the futures on the stack.
             pin!(get_results);
 
             // SAFETY: This function blocks until all futures complete, so we do not read/write
@@ -275,7 +276,7 @@ impl TaskPool {
                 if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
                     break result;
                 };
-    
+
                 self.executor.try_tick();
                 task_scope_executor.try_tick();
             }
