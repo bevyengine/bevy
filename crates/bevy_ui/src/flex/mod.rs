@@ -32,7 +32,7 @@ fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
     _assert_send_sync::<HashMap<WindowId, taffy::node::Node>>();
-    // FIXME https://github.com/vislyhq/taffy/issues/69
+    // FIXME https://github.com/vislyhq/stretch/issues/69
     // _assert_send_sync::<Taffy>();
 }
 
