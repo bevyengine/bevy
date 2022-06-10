@@ -315,7 +315,7 @@ struct Ticker<'a> {
     priority: usize,
 
     /// The executor state.
-    state: &'a State,
+    group: &'a GroupState,
 
     /// Set to a non-zero sleeper ID when in sleeping state.
     ///
@@ -331,7 +331,7 @@ impl Ticker<'_> {
     fn new(priority: usize, state: &State) -> Ticker<'_> {
         Ticker {
             priority,
-            state,
+            group: &state.groups[priority],
             sleeping: AtomicUsize::new(0),
         }
     }
@@ -340,8 +340,7 @@ impl Ticker<'_> {
     ///
     /// Returns `false` if the ticker was already sleeping and unnotified.
     fn sleep(&self, waker: &Waker) -> bool {
-        let group = &self.state.groups[self.priority];
-        let mut sleepers = group.sleepers.lock();
+        let mut sleepers = self.group.sleepers.lock();
 
         match self.sleeping.load(Ordering::SeqCst) {
             // Move to sleeping state.
@@ -356,7 +355,7 @@ impl Ticker<'_> {
                 }
             }
         }
-        group
+        self.group
             .notified
             .swap(sleepers.is_notified(), Ordering::SeqCst);
 
@@ -365,13 +364,12 @@ impl Ticker<'_> {
 
     /// Moves the ticker into woken state.
     fn wake(&self) {
-        let group = &self.state.groups[self.priority];
         let id = self.sleeping.swap(0, Ordering::SeqCst);
         if id != 0 {
-            let mut sleepers = group.sleepers.lock();
+            let mut sleepers = self.group.sleepers.lock();
             sleepers.remove(id);
 
-            group
+            self.group
                 .notified
                 .swap(sleepers.is_notified(), Ordering::SeqCst);
         }
@@ -395,7 +393,7 @@ impl Ticker<'_> {
 
                         // Notify another ticker now to pick up where this ticker left off, just in
                         // case running the task takes a long time.
-                        self.state.groups[self.priority].notify();
+                        self.group.notify();
 
                         return Poll::Ready(runnable);
                     }
@@ -411,18 +409,17 @@ impl Drop for Ticker<'_> {
         // If this ticker is in sleeping state, it must be removed from the sleepers list.
         let id = self.sleeping.swap(0, Ordering::SeqCst);
         if id != 0 {
-            let group = &self.state.groups[self.priority];
-            let mut sleepers = group.sleepers.lock();
+            let mut sleepers = self.group.sleepers.lock();
             let notified = sleepers.remove(id);
 
-            group
+            self.group
                 .notified
                 .swap(sleepers.is_notified(), Ordering::SeqCst);
 
             // If this ticker was notified, then notify another ticker.
             if notified {
                 drop(sleepers);
-                group.notify();
+                self.group.notify();
             }
         }
     }
@@ -435,6 +432,7 @@ impl Drop for Ticker<'_> {
 struct Runner<'a> {
     /// Inner ticker.
     ticker: Ticker<'a>,
+    state: &'a State,
     /// The local queue.
     local: &'a ConcurrentQueue<Runnable>,
     rng: fastrand::Rng,
@@ -448,6 +446,7 @@ impl Runner<'_> {
         let local = &state.groups[priority].local_queues[thread_id];
         let runner = Runner {
             ticker: Ticker::new(priority, state),
+            state,
             local,
             rng: fastrand::Rng::new(),
             ticks: AtomicUsize::new(0),
@@ -460,15 +459,9 @@ impl Runner<'_> {
         self.ticker.priority
     }
 
-    #[inline]
-    fn state(&self) -> &State {
-        self.ticker.state
-    }
-
     fn priority_iter(&self) -> impl Iterator<Item = usize> {
         // Prioritize the immediate responsibility of the runner, then search in reverse order
-        std::iter::once(self.priority())
-            .chain((self.priority() + 1..self.state().groups.len()).rev())
+        std::iter::once(self.priority()).chain((self.priority() + 1..self.state.groups.len()).rev())
     }
 
     /// Waits for the next runnable task to run.
@@ -483,12 +476,12 @@ impl Runner<'_> {
 
                 // Try stealing from global queues.
                 for priority in self.priority_iter() {
-                    let group = &self.state().groups[priority];
+                    let group = &self.state.groups[priority];
                     if let Ok(r) = group.queue.pop() {
                         self.steal(&group.queue);
                         return Some(r);
                     }
-                    let local_queues = &self.state().groups[priority].local_queues;
+                    let local_queues = &self.state.groups[priority].local_queues;
 
                     // // Pick a random starting point in the iterator list and rotate the list.
                     if local_queues.is_empty() {
@@ -517,7 +510,7 @@ impl Runner<'_> {
 
         if ticks % 64 == 0 {
             // Steal tasks from the global queue to ensure fair task scheduling.
-            self.steal(&self.state().groups[self.priority()].queue);
+            self.steal(&self.state.groups[self.priority()].queue);
         }
 
         runnable
