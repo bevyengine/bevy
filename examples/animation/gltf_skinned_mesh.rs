@@ -10,7 +10,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 1.0,
-            ..Default::default()
+            ..default()
         })
         .add_startup_system(setup)
         .add_system(joint_animation)
@@ -25,7 +25,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
-    commands.spawn_scene(asset_server.load::<Scene, _>("models/SimpleSkin/SimpleSkin.gltf#Scene0"));
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/SimpleSkin/SimpleSkin.gltf#Scene0"),
+        ..default()
+    });
 }
 
 /// The scene hierarchy currently looks somewhat like this:

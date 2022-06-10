@@ -20,7 +20,10 @@ fn setup(
     mut create_window_events: EventWriter<CreateWindow>,
 ) {
     // add entities to the world
-    commands.spawn_scene(asset_server.load("models/monkey/Monkey.gltf#Scene0"));
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/monkey/Monkey.gltf#Scene0"),
+        ..default()
+    });
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
