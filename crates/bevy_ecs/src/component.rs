@@ -412,6 +412,10 @@ impl WorldData {
     pub(crate) fn data(&self) -> &Vec<DataInfo> {
         &self.data
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &DataInfo> + '_ {
+        self.data.iter()
+    }
 }
 
 impl<'c> IntoIterator for &'c WorldData {
