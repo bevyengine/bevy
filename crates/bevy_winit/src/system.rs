@@ -2,19 +2,22 @@ use bevy_ecs::{
     entity::Entity,
     event::{EventReader, EventWriter},
     prelude::{Added, With},
-    system::{Commands, NonSendMut, Query, RemovedComponents}, schedule::IntoRunCriteria,
+    schedule::IntoRunCriteria,
+    system::{Commands, NonSendMut, Query, RemovedComponents},
 };
 use bevy_math::IVec2;
 use bevy_utils::tracing::error;
 use bevy_window::{
-    CloseWindowCommand, CreateWindow, SetCursorIconCommand, SetCursorLockModeCommand,
-    SetCursorPositionCommand, SetCursorVisibilityCommand, SetDecorationsCommand,
-    SetMaximizedCommand, SetMinimizedCommand, SetPositionCommand, SetPresentModeCommand,
-    SetResizableCommand, SetResizeConstraintsCommand, SetResolutionCommand, SetScaleFactorCommand,
-    SetTitleCommand, SetWindowModeCommand, Window, WindowBundle, WindowClosed, WindowCreated,
-    WindowCursor, WindowCursorPosition, WindowDecorated, WindowMaximized, WindowMinimized,
-    WindowModeComponent, WindowPosition, WindowPresentation, WindowResizable, WindowResolution,
-    WindowScaleFactorChanged, WindowTitle, WindowTransparent, CursorIcon, WindowCurrentlyFocused, PresentMode, WindowHandle, RawWindowHandleWrapper, WindowCanvas, WindowResizeConstraints,
+    CloseWindowCommand, CreateWindow, CursorIcon, PresentMode, RawWindowHandleWrapper,
+    SetCursorIconCommand, SetCursorLockModeCommand, SetCursorPositionCommand,
+    SetCursorVisibilityCommand, SetDecorationsCommand, SetMaximizedCommand, SetMinimizedCommand,
+    SetPositionCommand, SetPresentModeCommand, SetResizableCommand, SetResizeConstraintsCommand,
+    SetResolutionCommand, SetScaleFactorCommand, SetTitleCommand, SetWindowModeCommand, Window,
+    WindowBundle, WindowCanvas, WindowClosed, WindowCreated, WindowCurrentlyFocused, WindowCursor,
+    WindowCursorPosition, WindowDecorated, WindowHandle, WindowMaximized, WindowMinimized,
+    WindowModeComponent, WindowPosition, WindowPresentation, WindowResizable,
+    WindowResizeConstraints, WindowResolution, WindowScaleFactorChanged, WindowTitle,
+    WindowTransparent,
 };
 use raw_window_handle::HasRawWindowHandle;
 use winit::{
@@ -42,41 +45,39 @@ pub(crate) fn create_windows(
 
         // Prepare data
         let position = winit_window
-        .outer_position()
-        .ok()
-        .map(|position| IVec2::new(position.x, position.y));
+            .outer_position()
+            .ok()
+            .map(|position| IVec2::new(position.x, position.y));
         let inner_size = winit_window.inner_size();
 
         entity_commands.insert_bundle(WindowBundle {
             window: Window,
-            handle: WindowHandle { raw_window_handle: RawWindowHandleWrapper::new(winit_window.raw_window_handle()) },
-            presentation: WindowPresentation { present_mode: event.descriptor.present_mode },
-            mode: WindowModeComponent { mode: event.descriptor.mode },
-            position: WindowPosition { position },
-            resolution: WindowResolution {
-                requested_width: event.descriptor.width,
-                requested_height: event.descriptor.height,
-                physical_width: inner_size.width,
-                physical_height: inner_size.height,
-                scale_factor_override: event.descriptor.scale_factor_override,
-                backend_scale_factor: winit_window.scale_factor(),
-            },
-            title: WindowTitle {
-                title: event.descriptor.title.clone(),
-            },
-            cursor_position: WindowCursorPosition { physical_cursor_position: None }, 
-            cursor: WindowCursor {
-                cursor_icon: CursorIcon::Default,
-                cursor_visible: event.descriptor.cursor_visible,
-                cursor_locked: event.descriptor.cursor_locked,
-            },
-            canvas: WindowCanvas {
-                canvas: event.descriptor.canvas.clone(),
-                fit_canvas_to_parent: event.descriptor.fit_canvas_to_parent
-            },
+            handle: WindowHandle::new(winit_window.raw_window_handle()),
+            presentation: WindowPresentation::new(event.descriptor.present_mode),
+            mode: WindowModeComponent::new(event.descriptor.mode),
+            position: WindowPosition::new(position),
+            resolution: WindowResolution::new(
+                event.descriptor.width,
+                event.descriptor.height,
+                inner_size.width,
+                inner_size.height,
+                event.descriptor.scale_factor_override,
+                winit_window.scale_factor(),
+            ),
+            title: WindowTitle::new(event.descriptor.title.clone()),
+            cursor_position: WindowCursorPosition::new(None),
+            cursor: WindowCursor::new(
+                CursorIcon::Default,
+                event.descriptor.cursor_visible,
+                event.descriptor.cursor_locked,
+            ),
+            canvas: WindowCanvas::new(
+                event.descriptor.canvas.clone(),
+                event.descriptor.fit_canvas_to_parent,
+            ),
             resize_constraints: event.descriptor.resize_constraints,
-            // TODO: All new windows must be focused?
-            focused: WindowCurrentlyFocused, 
+            // TODO: Are newly created windows considered focused by default?
+            focused: WindowCurrentlyFocused,
         });
 
         // Optional marker components

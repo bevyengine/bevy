@@ -7,8 +7,8 @@ use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
-use crate::{raw_window_handle::RawWindowHandleWrapper, WindowFocused};
 use crate::CursorIcon;
+use crate::{raw_window_handle::RawWindowHandleWrapper, WindowFocused};
 
 /// Presentation mode for a window.
 ///
@@ -61,18 +61,18 @@ pub enum WindowMode {
 // The window backend is responsible for spawning the correct components that together define a whole window
 #[derive(Bundle)]
 pub struct WindowBundle {
-    window: Window,
-    cursor: WindowCursor,
-    cursor_position: WindowCursorPosition,
-    handle: WindowHandle,
-    presentation: WindowPresentation,
-    mode: WindowModeComponent,
-    position: WindowPosition,
-    resolution: WindowResolution,
-    title: WindowTitle,
-    canvas: WindowCanvas,
-    resize_constraints: WindowResizeConstraints,
-    focused: WindowCurrentlyFocused,
+    pub window: Window,
+    pub cursor: WindowCursor,
+    pub cursor_position: WindowCursorPosition,
+    pub handle: WindowHandle,
+    pub presentation: WindowPresentation,
+    pub mode: WindowModeComponent,
+    pub position: WindowPosition,
+    pub resolution: WindowResolution,
+    pub title: WindowTitle,
+    pub canvas: WindowCanvas,
+    pub resize_constraints: WindowResizeConstraints,
+    pub focused: WindowCurrentlyFocused,
 }
 
 /// The size limits on a window.
@@ -152,6 +152,14 @@ pub struct WindowCursor {
 }
 
 impl WindowCursor {
+    pub fn new(cursor_icon: CursorIcon, cursor_visible: bool, cursor_locked: bool) -> Self {
+        Self {
+            cursor_icon,
+            cursor_visible,
+            cursor_locked,
+        }
+    }
+
     #[inline]
     pub fn cursor_icon(&self) -> CursorIcon {
         self.cursor_icon
@@ -183,11 +191,17 @@ impl WindowCursor {
 #[derive(Component)]
 pub struct WindowCursorPosition {
     // TODO: Docs
-    // This is None if the cursor has left the window
+    /// This is None if the cursor has left the window
     physical_cursor_position: Option<DVec2>,
 }
 
 impl WindowCursorPosition {
+    pub fn new(physical_cursor_position: Option<DVec2>) -> Self {
+        Self {
+            physical_cursor_position,
+        }
+    }
+
     /// The current mouse position, in physical pixels.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<DVec2> {
@@ -209,6 +223,12 @@ pub struct WindowHandle {
 }
 
 impl WindowHandle {
+    pub fn new(raw_window_handle: RawWindowHandle) -> Self {
+        Self {
+            raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
+        }
+    }
+
     pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
         self.raw_window_handle.clone()
     }
@@ -221,6 +241,10 @@ pub struct WindowPresentation {
 }
 
 impl WindowPresentation {
+    pub fn new(present_mode: PresentMode) -> Self {
+        Self { present_mode }
+    }
+
     #[inline]
     #[doc(alias = "vsync")]
     pub fn present_mode(&self) -> PresentMode {
@@ -239,6 +263,10 @@ pub struct WindowModeComponent {
 }
 
 impl WindowModeComponent {
+    pub fn new(mode: WindowMode) -> Self {
+        Self { mode }
+    }
+
     #[inline]
     pub fn mode(&self) -> WindowMode {
         self.mode
@@ -251,10 +279,15 @@ impl WindowModeComponent {
 
 #[derive(Component)]
 pub struct WindowPosition {
+    // TODO: Document why this must be option
     position: Option<IVec2>,
 }
 
 impl WindowPosition {
+    pub fn new(position: Option<IVec2>) -> Self {
+        Self { position }
+    }
+
     /// The window's client position in physical pixels.
     #[inline]
     pub fn position(&self) -> Option<IVec2> {
@@ -293,6 +326,24 @@ pub struct WindowResolution {
 }
 
 impl WindowResolution {
+    pub fn new(
+        requested_width: f32,
+        requested_height: f32,
+        physical_width: u32,
+        physical_height: u32,
+        scale_factor_override: Option<f64>,
+        backend_scale_factor: f64,
+    ) -> Self {
+        Self {
+            requested_width,
+            requested_height,
+            physical_width,
+            physical_height,
+            scale_factor_override,
+            backend_scale_factor,
+        }
+    }
+
     /// The ratio of physical pixels to logical pixels
     ///
     /// `physical_pixels = logical_pixels * scale_factor`
@@ -379,6 +430,10 @@ pub struct WindowTitle {
 }
 
 impl WindowTitle {
+    pub fn new(title: String) -> Self {
+        Self { title }
+    }
+
     #[inline]
     pub fn title(&self) -> &str {
         &self.title
@@ -414,6 +469,13 @@ pub struct WindowCanvas {
 }
 
 impl WindowCanvas {
+    pub fn new(canvas: Option<String>, fit_canvas_to_parent: bool) -> Self {
+        Self {
+            canvas,
+            fit_canvas_to_parent,
+        }
+    }
+
     /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
     /// rather than creating a new one.   
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
