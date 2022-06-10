@@ -6,8 +6,8 @@ use crate::{
 pub fn from_rect(
     scale_factor: f64,
     rect: UiRect<Val>,
-) -> sprawl::geometry::Rect<sprawl::style::Dimension> {
-    sprawl::geometry::Rect {
+) -> taffy::geometry::Rect<taffy::style::Dimension> {
+    taffy::geometry::Rect {
         start: from_val(scale_factor, rect.left),
         end: from_val(scale_factor, rect.right),
         // NOTE: top and bottom are intentionally flipped. stretch has a flipped y-axis
@@ -16,8 +16,8 @@ pub fn from_rect(
     }
 }
 
-pub fn from_f32_size(scale_factor: f64, size: Size<f32>) -> sprawl::geometry::Size<f32> {
-    sprawl::geometry::Size {
+pub fn from_f32_size(scale_factor: f64, size: Size<f32>) -> taffy::geometry::Size<f32> {
+    taffy::geometry::Size {
         width: (scale_factor * size.width as f64) as f32,
         height: (scale_factor * size.height as f64) as f32,
     }
@@ -26,19 +26,17 @@ pub fn from_f32_size(scale_factor: f64, size: Size<f32>) -> sprawl::geometry::Si
 pub fn from_val_size(
     scale_factor: f64,
     size: Size<Val>,
-) -> sprawl::geometry::Size<sprawl::style::Dimension> {
-    sprawl::geometry::Size {
+) -> taffy::geometry::Size<taffy::style::Dimension> {
+    taffy::geometry::Size {
         width: from_val(scale_factor, size.width),
         height: from_val(scale_factor, size.height),
     }
 }
 
-pub fn from_style(scale_factor: f64, value: &Style) -> sprawl::style::Style {
-    sprawl::style::Style {
-        overflow: sprawl::style::Overflow::Visible,
+pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
+    taffy::style::Style {
         display: value.display.into(),
         position_type: value.position_type.into(),
-        direction: value.direction.into(),
         flex_direction: value.flex_direction.into(),
         flex_wrap: value.flex_wrap.into(),
         align_items: value.align_items.into(),
@@ -56,117 +54,107 @@ pub fn from_style(scale_factor: f64, value: &Style) -> sprawl::style::Style {
         min_size: from_val_size(scale_factor, value.min_size),
         max_size: from_val_size(scale_factor, value.max_size),
         aspect_ratio: match value.aspect_ratio {
-            Some(value) => sprawl::number::Number::Defined(value),
-            None => sprawl::number::Number::Undefined,
+            Some(value) => taffy::number::Number::Defined(value),
+            None => taffy::number::Number::Undefined,
         },
     }
 }
 
-pub fn from_val(scale_factor: f64, val: Val) -> sprawl::style::Dimension {
+pub fn from_val(scale_factor: f64, val: Val) -> taffy::style::Dimension {
     match val {
-        Val::Auto => sprawl::style::Dimension::Auto,
-        Val::Percent(value) => sprawl::style::Dimension::Percent(value / 100.0),
-        Val::Px(value) => sprawl::style::Dimension::Points((scale_factor * value as f64) as f32),
-        Val::Undefined => sprawl::style::Dimension::Undefined,
+        Val::Auto => taffy::style::Dimension::Auto,
+        Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
+        Val::Px(value) => taffy::style::Dimension::Points((scale_factor * value as f64) as f32),
+        Val::Undefined => taffy::style::Dimension::Undefined,
     }
 }
 
-impl From<AlignItems> for sprawl::style::AlignItems {
+impl From<AlignItems> for taffy::style::AlignItems {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::FlexStart => sprawl::style::AlignItems::FlexStart,
-            AlignItems::FlexEnd => sprawl::style::AlignItems::FlexEnd,
-            AlignItems::Center => sprawl::style::AlignItems::Center,
-            AlignItems::Baseline => sprawl::style::AlignItems::Baseline,
-            AlignItems::Stretch => sprawl::style::AlignItems::Stretch,
+            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart,
+            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd,
+            AlignItems::Center => taffy::style::AlignItems::Center,
+            AlignItems::Baseline => taffy::style::AlignItems::Baseline,
+            AlignItems::Stretch => taffy::style::AlignItems::Stretch,
         }
     }
 }
 
-impl From<AlignSelf> for sprawl::style::AlignSelf {
+impl From<AlignSelf> for taffy::style::AlignSelf {
     fn from(value: AlignSelf) -> Self {
         match value {
-            AlignSelf::Auto => sprawl::style::AlignSelf::Auto,
-            AlignSelf::FlexStart => sprawl::style::AlignSelf::FlexStart,
-            AlignSelf::FlexEnd => sprawl::style::AlignSelf::FlexEnd,
-            AlignSelf::Center => sprawl::style::AlignSelf::Center,
-            AlignSelf::Baseline => sprawl::style::AlignSelf::Baseline,
-            AlignSelf::Stretch => sprawl::style::AlignSelf::Stretch,
+            AlignSelf::Auto => taffy::style::AlignSelf::Auto,
+            AlignSelf::FlexStart => taffy::style::AlignSelf::FlexStart,
+            AlignSelf::FlexEnd => taffy::style::AlignSelf::FlexEnd,
+            AlignSelf::Center => taffy::style::AlignSelf::Center,
+            AlignSelf::Baseline => taffy::style::AlignSelf::Baseline,
+            AlignSelf::Stretch => taffy::style::AlignSelf::Stretch,
         }
     }
 }
 
-impl From<AlignContent> for sprawl::style::AlignContent {
+impl From<AlignContent> for taffy::style::AlignContent {
     fn from(value: AlignContent) -> Self {
         match value {
-            AlignContent::FlexStart => sprawl::style::AlignContent::FlexStart,
-            AlignContent::FlexEnd => sprawl::style::AlignContent::FlexEnd,
-            AlignContent::Center => sprawl::style::AlignContent::Center,
-            AlignContent::Stretch => sprawl::style::AlignContent::Stretch,
-            AlignContent::SpaceBetween => sprawl::style::AlignContent::SpaceBetween,
-            AlignContent::SpaceAround => sprawl::style::AlignContent::SpaceAround,
+            AlignContent::FlexStart => taffy::style::AlignContent::FlexStart,
+            AlignContent::FlexEnd => taffy::style::AlignContent::FlexEnd,
+            AlignContent::Center => taffy::style::AlignContent::Center,
+            AlignContent::Stretch => taffy::style::AlignContent::Stretch,
+            AlignContent::SpaceBetween => taffy::style::AlignContent::SpaceBetween,
+            AlignContent::SpaceAround => taffy::style::AlignContent::SpaceAround,
         }
     }
 }
 
-impl From<Direction> for sprawl::style::Direction {
-    fn from(value: Direction) -> Self {
-        match value {
-            Direction::Inherit => sprawl::style::Direction::Inherit,
-            Direction::LeftToRight => sprawl::style::Direction::LTR,
-            Direction::RightToLeft => sprawl::style::Direction::RTL,
-        }
-    }
-}
-
-impl From<Display> for sprawl::style::Display {
+impl From<Display> for taffy::style::Display {
     fn from(value: Display) -> Self {
         match value {
-            Display::Flex => sprawl::style::Display::Flex,
-            Display::None => sprawl::style::Display::None,
+            Display::Flex => taffy::style::Display::Flex,
+            Display::None => taffy::style::Display::None,
         }
     }
 }
 
-impl From<FlexDirection> for sprawl::style::FlexDirection {
+impl From<FlexDirection> for taffy::style::FlexDirection {
     fn from(value: FlexDirection) -> Self {
         match value {
-            FlexDirection::Row => sprawl::style::FlexDirection::Row,
-            FlexDirection::Column => sprawl::style::FlexDirection::Column,
-            FlexDirection::RowReverse => sprawl::style::FlexDirection::RowReverse,
-            FlexDirection::ColumnReverse => sprawl::style::FlexDirection::ColumnReverse,
+            FlexDirection::Row => taffy::style::FlexDirection::Row,
+            FlexDirection::Column => taffy::style::FlexDirection::Column,
+            FlexDirection::RowReverse => taffy::style::FlexDirection::RowReverse,
+            FlexDirection::ColumnReverse => taffy::style::FlexDirection::ColumnReverse,
         }
     }
 }
 
-impl From<JustifyContent> for sprawl::style::JustifyContent {
+impl From<JustifyContent> for taffy::style::JustifyContent {
     fn from(value: JustifyContent) -> Self {
         match value {
-            JustifyContent::FlexStart => sprawl::style::JustifyContent::FlexStart,
-            JustifyContent::FlexEnd => sprawl::style::JustifyContent::FlexEnd,
-            JustifyContent::Center => sprawl::style::JustifyContent::Center,
-            JustifyContent::SpaceBetween => sprawl::style::JustifyContent::SpaceBetween,
-            JustifyContent::SpaceAround => sprawl::style::JustifyContent::SpaceAround,
-            JustifyContent::SpaceEvenly => sprawl::style::JustifyContent::SpaceEvenly,
+            JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart,
+            JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd,
+            JustifyContent::Center => taffy::style::JustifyContent::Center,
+            JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween,
+            JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround,
+            JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly,
         }
     }
 }
 
-impl From<PositionType> for sprawl::style::PositionType {
+impl From<PositionType> for taffy::style::PositionType {
     fn from(value: PositionType) -> Self {
         match value {
-            PositionType::Relative => sprawl::style::PositionType::Relative,
-            PositionType::Absolute => sprawl::style::PositionType::Absolute,
+            PositionType::Relative => taffy::style::PositionType::Relative,
+            PositionType::Absolute => taffy::style::PositionType::Absolute,
         }
     }
 }
 
-impl From<FlexWrap> for sprawl::style::FlexWrap {
+impl From<FlexWrap> for taffy::style::FlexWrap {
     fn from(value: FlexWrap) -> Self {
         match value {
-            FlexWrap::NoWrap => sprawl::style::FlexWrap::NoWrap,
-            FlexWrap::Wrap => sprawl::style::FlexWrap::Wrap,
-            FlexWrap::WrapReverse => sprawl::style::FlexWrap::WrapReverse,
+            FlexWrap::NoWrap => taffy::style::FlexWrap::NoWrap,
+            FlexWrap::Wrap => taffy::style::FlexWrap::Wrap,
+            FlexWrap::WrapReverse => taffy::style::FlexWrap::WrapReverse,
         }
     }
 }

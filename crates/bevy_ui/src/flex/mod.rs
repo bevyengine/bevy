@@ -13,13 +13,13 @@ use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
-use sprawl::{number::Number, Sprawl};
 use std::fmt;
+use taffy::{number::Number, Taffy};
 
 pub struct FlexSurface {
-    entity_to_sprawl: HashMap<Entity, sprawl::node::Node>,
-    window_nodes: HashMap<WindowId, sprawl::node::Node>,
-    sprawl: Sprawl,
+    entity_to_sprawl: HashMap<Entity, taffy::node::Node>,
+    window_nodes: HashMap<WindowId, taffy::node::Node>,
+    sprawl: Taffy,
 }
 
 // SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/sprawl/issues/69
@@ -30,8 +30,8 @@ unsafe impl Sync for FlexSurface {}
 
 fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<HashMap<Entity, sprawl::node::Node>>();
-    _assert_send_sync::<HashMap<WindowId, sprawl::node::Node>>();
+    _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
+    _assert_send_sync::<HashMap<WindowId, taffy::node::Node>>();
     // FIXME https://github.com/vislyhq/sprawl/issues/69
     // _assert_send_sync::<sprawl>();
 }
@@ -50,7 +50,7 @@ impl Default for FlexSurface {
         Self {
             entity_to_sprawl: Default::default(),
             window_nodes: Default::default(),
-            sprawl: Sprawl::new(),
+            sprawl: Taffy::new(),
         }
     }
 }
@@ -79,8 +79,8 @@ impl FlexSurface {
     ) {
         let sprawl = &mut self.sprawl;
         let sprawl_style = convert::from_style(scale_factor, style);
-        let measure = sprawl::node::MeasureFunc::Boxed(Box::new(
-            move |constraints: sprawl::geometry::Size<Number>| {
+        let measure = taffy::node::MeasureFunc::Boxed(Box::new(
+            move |constraints: taffy::geometry::Size<Number>| {
                 let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
                 match (constraints.width, constraints.height) {
                     (Number::Undefined, Number::Undefined) => {}
@@ -135,17 +135,17 @@ without UI components as a child of an entity with UI components, results may be
         let sprawl = &mut self.sprawl;
         let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
             sprawl
-                .new_node(sprawl::style::Style::default(), &Vec::new())
+                .new_node(taffy::style::Style::default(), &Vec::new())
                 .unwrap()
         });
 
         sprawl
             .set_style(
                 *node,
-                sprawl::style::Style {
-                    size: sprawl::geometry::Size {
-                        width: sprawl::style::Dimension::Points(window.physical_width() as f32),
-                        height: sprawl::style::Dimension::Points(window.physical_height() as f32),
+                taffy::style::Style {
+                    size: taffy::geometry::Size {
+                        width: taffy::style::Dimension::Points(window.physical_width() as f32),
+                        height: taffy::style::Dimension::Points(window.physical_height() as f32),
                     },
                     ..Default::default()
                 },
@@ -161,7 +161,7 @@ without UI components as a child of an entity with UI components, results may be
         let sprawl_node = self.window_nodes.get(&window_id).unwrap();
         let child_nodes = children
             .map(|e| *self.entity_to_sprawl.get(&e).unwrap())
-            .collect::<Vec<sprawl::node::Node>>();
+            .collect::<Vec<taffy::node::Node>>();
         self.sprawl
             .set_children(*sprawl_node, &child_nodes)
             .unwrap();
@@ -170,16 +170,16 @@ without UI components as a child of an entity with UI components, results may be
     pub fn compute_window_layouts(&mut self) {
         for window_node in self.window_nodes.values() {
             self.sprawl
-                .compute_layout(*window_node, sprawl::geometry::Size::undefined())
+                .compute_layout(*window_node, taffy::geometry::Size::undefined())
                 .unwrap();
         }
     }
 
-    pub fn get_layout(&self, entity: Entity) -> Result<&sprawl::layout::Layout, FlexError> {
+    pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, FlexError> {
         if let Some(sprawl_node) = self.entity_to_sprawl.get(&entity) {
             self.sprawl
                 .layout(*sprawl_node)
-                .map_err(FlexError::SprawlError)
+                .map_err(FlexError::TaffyError)
         } else {
             warn!(
                 "Styled child in a non-UI entity hierarchy. You are using an entity \
@@ -193,7 +193,7 @@ with UI components as a child of an entity without UI components, results may be
 #[derive(Debug)]
 pub enum FlexError {
     InvalidHierarchy,
-    SprawlError(sprawl::Error),
+    TaffyError(taffy::Error),
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
