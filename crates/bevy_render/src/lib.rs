@@ -29,6 +29,7 @@ pub mod prelude {
 
 use bevy_window::{PrimaryWindow, Window, WindowHandle};
 pub use once_cell;
+use settings::WgpuSettings;
 
 use crate::{
     camera::CameraPlugin,
@@ -116,23 +117,31 @@ struct ScratchRenderWorld(World);
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let mut system_state: SystemState<(
-            Query<&WindowHandle, With<Window>>,
-            Res<PrimaryWindow>,
-        )> = SystemState::new(&mut app.world);
-        let (window_query, primary_window) = system_state.get(&mut app.world);
-
-        let options = app
-            .world
-            .get_resource::<settings::WgpuSettings>()
-            .cloned()
-            .unwrap_or_default();
 
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>()
             .register_type::<Color>();
+
+        let mut system_state: SystemState<(
+            Query<&WindowHandle, With<Window>>,
+            Res<PrimaryWindow>,
+            Res<WgpuSettings>,
+        )> = SystemState::new(&mut app.world);
+        let (
+            window_query,
+            primary_window,
+            options // This was .clone().unwrap_or_default(). Will this work the same?
+        ) = system_state.get(&mut app.world);
+
+        // let options = app
+        //     .world
+        //     .get_resource::<settings::WgpuSettings>()
+        //     .cloned()
+        //     .unwrap_or_default();
+
+
 
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);
@@ -146,7 +155,7 @@ impl Plugin for RenderPlugin {
                     // TODO: Make sure this is ok
                     unsafe {
                         let handle = handle_component.raw_window_handle().get_handle();
-                        instance.create_surface(&handle)
+                        Some(instance.create_surface(&handle))
                     }
                 } else {
                     // TODO: Helpful panic comment

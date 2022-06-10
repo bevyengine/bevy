@@ -2,21 +2,19 @@ use bevy_ecs::{
     entity::Entity,
     event::{EventReader, EventWriter},
     prelude::{Added, With},
-    schedule::IntoRunCriteria,
     system::{Commands, NonSendMut, Query, RemovedComponents},
 };
 use bevy_math::IVec2;
 use bevy_utils::tracing::error;
 use bevy_window::{
-    CloseWindowCommand, CreateWindow, CursorIcon, PresentMode, RawWindowHandleWrapper,
+    CloseWindowCommand, CreateWindow, CursorIcon,
     SetCursorIconCommand, SetCursorLockModeCommand, SetCursorPositionCommand,
     SetCursorVisibilityCommand, SetDecorationsCommand, SetMaximizedCommand, SetMinimizedCommand,
     SetPositionCommand, SetPresentModeCommand, SetResizableCommand, SetResizeConstraintsCommand,
     SetResolutionCommand, SetScaleFactorCommand, SetTitleCommand, SetWindowModeCommand, Window,
     WindowBundle, WindowCanvas, WindowClosed, WindowCreated, WindowCurrentlyFocused, WindowCursor,
     WindowCursorPosition, WindowDecorated, WindowHandle, WindowMaximized, WindowMinimized,
-    WindowModeComponent, WindowPosition, WindowPresentation, WindowResizable,
-    WindowResizeConstraints, WindowResolution, WindowScaleFactorChanged, WindowTitle,
+    WindowModeComponent, WindowPosition, WindowPresentation, WindowResizable, WindowResolution, WindowScaleFactorChanged, WindowTitle,
     WindowTransparent,
 };
 use raw_window_handle::HasRawWindowHandle;
@@ -382,11 +380,9 @@ pub(crate) fn update_cursor_visibility(
 // TODO: Docs
 pub(crate) fn update_present_mode(
     mut components: Query<&mut WindowPresentation, With<Window>>,
-    winit_windows: NonSendMut<WinitWindows>,
     mut command_reader: EventReader<SetPresentModeCommand>,
 ) {
     for event in command_reader.iter() {
-        let winit_window = winit_windows.get_window(event.entity).unwrap();
 
         // Update Winit
         // Present mode is only relevant for the renderer, so no need to do anything to Winit at this point
@@ -405,11 +401,9 @@ pub(crate) fn update_present_mode(
 pub(crate) fn update_scale_factor(
     mut components: Query<&mut WindowResolution, With<Window>>,
     mut window_dpi_changed_events: EventWriter<WindowScaleFactorChanged>,
-    winit_windows: NonSendMut<WinitWindows>,
     mut command_reader: EventReader<SetScaleFactorCommand>,
 ) {
     for event in command_reader.iter() {
-        let winit_window = winit_windows.get_window(event.entity).unwrap();
 
         window_dpi_changed_events.send(WindowScaleFactorChanged {
             entity: event.entity,

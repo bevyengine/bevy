@@ -12,10 +12,9 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::With,
     query::Added,
     reflect::ReflectComponent,
-    system::{Commands, ParamSet, Query, Res},
+    system::{Commands, ParamSet, Query, Res}, prelude::With,
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -71,7 +70,6 @@ pub struct ComputedCameraValues {
     target_info: Option<RenderTargetInfo>,
 }
 
-// TODO: Need to appease Reflect + default
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
@@ -92,30 +90,20 @@ pub struct Camera {
     pub target: RenderTarget,
 }
 
-// impl Default for Camera {
-//     fn default() -> Self {
-//         Self {
-//             is_active: true,
-//             priority: 0,
-//             viewport: None,
-//             computed: Default::default(),
-//             target: Default::default(), // TODO: Fix default of camera
-//             depth_calculation: Default::default(),
-//         }
-//     }
-// }
-
-impl Camera {
-    pub fn from_render_target(target: RenderTarget) -> Self {
+impl Default for Camera {
+    fn default() -> Self {
         Self {
-            viewport: None,
-            priority: 0,
             is_active: true,
-            depth_calculation: Default::default(),
+            priority: 0,
+            viewport: None,
             computed: Default::default(),
-            target,
+            target: RenderTarget::PrimaryWindow,
+            depth_calculation: Default::default(),
         }
     }
+}
+
+impl Camera {
 
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
     /// will be the size of that custom viewport. Otherwise it will default to the full logical size of
@@ -233,29 +221,19 @@ impl CameraRenderGraph {
 /// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum RenderTarget {
+    /// Renders the camera's view to the current primary window
+    PrimaryWindow,
     /// Window to which the camera's view is rendered.
     Window(Entity),
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
 }
 
-impl RenderTarget {
-    pub fn new(window: Entity) -> Self {
-        Self::Window(window)
+impl Default for RenderTarget {
+    fn default() -> Self {
+        Self::PrimaryWindow
     }
 }
-
-// impl Default for RenderTarget {
-//     // TODO: Default window ID no longer makes sense, so this can no longer impl Default
-//     fn default() -> Self {
-//         // TODO:
-//         // There is no longer 1 fixed id that corresponds to a valid window
-//         // This should probably be the Entity of the PrimaryWindow
-//         // but that is generated in runtime
-//         // so not quite sure how to approach this
-//         Self::Window(Default::default())
-//     }
-// }
 
 impl RenderTarget {
     pub fn get_texture_view<'a>(
@@ -270,17 +248,18 @@ impl RenderTarget {
             RenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| &image.texture_view)
             }
+            RenderTarget::PrimaryWindow => todo!(),
         }
     }
 
     pub fn get_render_target_info(
         &self,
-        windows: Query<(Entity, &WindowResolution), With<Window>>, // TODO: Maybe this could just be a Vec?
+        windows: &Query<(&WindowResolution), With<Window>>, // TODO: Maybe this could just be a Vec?
         images: &Assets<Image>,
     ) -> Option<RenderTargetInfo> {
         Some(match self {
             RenderTarget::Window(window_id) => {
-                if let Ok((entity, resolution)) = windows.get(*window_id) {
+                if let Ok(resolution) = windows.get(*window_id) {
                     RenderTargetInfo {
                         physical_size: UVec2::new(
                             resolution.physical_width(),
@@ -301,8 +280,10 @@ impl RenderTarget {
                     scale_factor: 1.0,
                 }
             }
+            RenderTarget::PrimaryWindow => todo!(),
         })
     }
+
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
         &self,
@@ -312,6 +293,7 @@ impl RenderTarget {
         match self {
             RenderTarget::Window(window_id) => changed_window_ids.contains(window_id),
             RenderTarget::Image(image_handle) => changed_image_handles.contains(&image_handle),
+            RenderTarget::PrimaryWindow => todo!(),
         }
     }
 }
@@ -335,7 +317,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut image_asset_events: EventReader<AssetEvent<Image>>,
-    windows: Query<(Entity, &WindowResolution), With<Window>>,
+    windows: Query<&WindowResolution, With<Window>>,
     images: Res<Assets<Image>>,
     mut queries: ParamSet<(
         Query<(Entity, &mut Camera, &mut T)>,
@@ -385,7 +367,7 @@ pub fn camera_system<T: CameraProjection + Component>(
             || added_cameras.contains(&entity)
             || camera_projection.is_changed()
         {
-            camera.computed.target_info = camera.target.get_render_target_info(windows, &images);
+            camera.computed.target_info = camera.target.get_render_target_info(&windows, &images);
             if let Some(size) = camera.logical_viewport_size() {
                 camera_projection.update(size.x, size.y);
                 camera.computed.projection_matrix = camera_projection.get_projection_matrix();

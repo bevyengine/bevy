@@ -1,5 +1,5 @@
 use crate::{
-    window, PrimaryWindow, Window, WindowCloseRequested, WindowClosed, WindowCommandsExtension,
+    PrimaryWindow, Window, WindowCloseRequested, WindowClosed, WindowCommandsExtension,
     WindowCurrentlyFocused, WindowDescriptor,
 };
 

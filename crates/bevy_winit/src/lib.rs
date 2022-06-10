@@ -23,9 +23,8 @@ pub use winit_windows::*;
 use bevy_app::{App, AppExit, CoreStage, Plugin};
 use bevy_ecs::{
     event::{Events, ManualEventReader},
-    world::World,
 };
-use bevy_ecs::{prelude::*, world};
+use bevy_ecs::prelude::*;
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
@@ -45,7 +44,6 @@ use bevy_window::{
 };
 
 use winit::{
-    dpi::{LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
