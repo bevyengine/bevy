@@ -76,9 +76,10 @@ pub fn ui_focus_system(
         .window
         .expect("Primary window should exist");
     // Cursor position of primary window
-    let cursor_position = *cursor_positions
+    let cursor_position = cursor_positions
         .get(primary_window_id)
-        .expect("Primary window should have a valid WindowCursorPosition component");
+        .expect("Primary window should have a valid WindowCursorPosition component")
+        .physical_cursor_position();
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
@@ -120,8 +121,8 @@ pub fn ui_focus_system(
                 // if the current cursor position is within the bounds of the node, consider it for
                 // clicking
                 let contains_cursor = if let Some(cursor_position) = cursor_position {
-                    (min.x..max.x).contains(&cursor_position.x)
-                        && (min.y..max.y).contains(&cursor_position.y)
+                    (min.x..max.x).contains(&(cursor_position.x as f32))
+                        && (min.y..max.y).contains(&(cursor_position.y as f32))
                 } else {
                     false
                 };
