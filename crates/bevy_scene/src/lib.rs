@@ -1,5 +1,6 @@
 mod bundle;
 mod dynamic_scene;
+mod hook;
 mod scene;
 mod scene_loader;
 mod scene_spawner;
@@ -7,6 +8,7 @@ pub mod serde;
 
 pub use bundle::*;
 pub use dynamic_scene::*;
+pub use hook::*;
 pub use scene::*;
 pub use scene_loader::*;
 pub use scene_spawner::*;
@@ -33,6 +35,7 @@ impl Plugin for ScenePlugin {
                 CoreStage::PreUpdate,
                 scene_spawner_system.exclusive_system().at_end(),
             )
+            .add_system_to_stage(CoreStage::PreUpdate, run_hooks)
             // Systems `*_bundle_spawner` must run before `scene_spawner_system`
             .add_system_to_stage(CoreStage::PreUpdate, scene_spawner);
     }

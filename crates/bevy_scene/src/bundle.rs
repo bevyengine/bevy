@@ -9,7 +9,7 @@ use bevy_ecs::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use crate::{DynamicScene, InstanceId, Scene, SceneSpawner};
+use crate::{DynamicScene, InstanceId, Scene, SceneHook, SceneSpawner};
 
 /// [`InstanceId`] of a spawned scene. It can be used with the [`SceneSpawner`] to
 /// interact with the spawned scene.
@@ -26,6 +26,7 @@ pub struct SceneBundle {
     pub scene: Handle<Scene>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub hook: SceneHook,
 }
 
 /// A component bundle for a [`DynamicScene`] root.
@@ -38,6 +39,7 @@ pub struct DynamicSceneBundle {
     pub scene: Handle<DynamicScene>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub hook: SceneHook,
 }
 
 /// System that will spawn scenes from [`SceneBundle`].
