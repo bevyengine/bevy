@@ -1,7 +1,7 @@
 use crate::{CalculatedClip, Node};
 use bevy_ecs::{
     entity::Entity,
-    prelude::Component,
+    prelude::{Component, With},
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
@@ -10,7 +10,7 @@ use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
-use bevy_window::Windows;
+use bevy_window::{PrimaryWindow, WindowCursorPosition, Window};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -59,7 +59,8 @@ pub struct State {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 pub fn ui_focus_system(
     mut state: Local<State>,
-    windows: Res<Windows>,
+    primary_window: Res<PrimaryWindow>,
+    cursor_positions: Query<&WindowCursorPosition, With<Window>>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
     mut node_query: Query<(
@@ -71,9 +72,13 @@ pub fn ui_focus_system(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let cursor_position = windows
-        .get_primary()
-        .and_then(|window| window.cursor_position());
+    let primary_window_id = primary_window
+        .window
+        .expect("Primary window should exist");
+    // Cursor position of primary window
+    let cursor_position = *cursor_positions
+        .get(primary_window_id)
+        .expect("Primary window should have a valid WindowCursorPosition component");
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {

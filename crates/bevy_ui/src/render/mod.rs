@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_window::{PrimaryWindow, WindowResolution, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
@@ -28,7 +29,6 @@ use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
-use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -274,7 +274,8 @@ pub fn extract_text_uinodes(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
-    windows: Res<Windows>,
+    primary_window: Res<PrimaryWindow>,
+    windows: Query<&WindowResolution, With<Window>>,
     uinode_query: Query<(
         Entity,
         &Node,
@@ -286,7 +287,8 @@ pub fn extract_text_uinodes(
 ) {
     let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
 
-    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
+    let resolution = windows.get(primary_window.window.expect("Primary window should exist")).expect("Primary windows should have a valid WindowResolution component");
+    let scale_factor = resolution.scale_factor() as f32;
 
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
