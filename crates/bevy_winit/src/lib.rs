@@ -498,6 +498,7 @@ pub fn winit_runner_with(mut app: App) {
                         // TODO: Borrow checker complains
                         let mut entity_mut = app.world.get_entity_mut(window_entity).expect("Entity for window should exist");
 
+                        // TODO: How to insert and remove components and still pleasing the borrow checker?
                         if focused {
                             entity_mut.insert(WindowCurrentlyFocused);
                         } else {
@@ -505,29 +506,27 @@ pub fn winit_runner_with(mut app: App) {
                         }
 
                         // Event
-                        let mut focused_events = world.resource_mut::<Events<WindowFocused>>();
-                        focused_events.send(WindowFocused {
-                            entity: window_entity,
-                            focused,
-                        });
+                        window_events
+                            .window_focused
+                            .send(WindowFocused {
+                                entity: window_entity,
+                                focused,
+                            });
                     }
                     WindowEvent::DroppedFile(path_buf) => {
-                        let mut events = world.resource_mut::<Events<FileDragAndDrop>>();
-                        events.send(FileDragAndDrop::DroppedFile {
+                        file_drag_and_drop_events.send(FileDragAndDrop::DroppedFile {
                             entity: window_entity,
                             path_buf,
                         });
                     }
                     WindowEvent::HoveredFile(path_buf) => {
-                        let mut events = world.resource_mut::<Events<FileDragAndDrop>>();
-                        events.send(FileDragAndDrop::HoveredFile {
+                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFile {
                             entity: window_entity,
                             path_buf,
                         });
                     }
                     WindowEvent::HoveredFileCancelled => {
-                        let mut events = world.resource_mut::<Events<FileDragAndDrop>>();
-                        events.send(FileDragAndDrop::HoveredFileCancelled {
+                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCancelled {
                             entity: window_entity,
                         });
                     }
