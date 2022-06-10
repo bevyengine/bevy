@@ -144,7 +144,7 @@ pub enum ExitCondition {
 
 /// Resource containing the Entity that is currently considered the primary window
 pub struct PrimaryWindow {
-    // TODO: 
+    // TODO:
     // Should this be Option?
     // should this be allowed to change?
     // If yes, what should be responsible for updating it?

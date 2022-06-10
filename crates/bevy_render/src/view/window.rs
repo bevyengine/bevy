@@ -7,7 +7,10 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, Window, WindowResolution, WindowHandle, WindowPresentation };
+use bevy_window::{
+    PresentMode, RawWindowHandleWrapper, Window, WindowClosed, WindowHandle, WindowPresentation,
+    WindowResolution,
+};
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
 
@@ -70,7 +73,15 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut render_world: ResMut<RenderWorld>,
     mut closed: EventReader<WindowClosed>,
-    windows: Query<(Entity, &WindowResolution, &WindowHandle, &WindowPresentation), With<Window>>
+    windows: Query<
+        (
+            Entity,
+            &WindowResolution,
+            &WindowHandle,
+            &WindowPresentation,
+        ),
+        With<Window>,
+    >,
 ) {
     let mut extracted_windows = render_world.get_resource_mut::<ExtractedWindows>().unwrap();
     for (entity, resolution, handle, presentation) in windows.iter() {
@@ -79,18 +90,15 @@ fn extract_windows(
             resolution.physical_height().max(1),
         );
 
-        let mut extracted_window =
-            extracted_windows
-                .entry(entity)
-                .or_insert(ExtractedWindow {
-                    id: entity,
-                    handle: handle.raw_window_handle(),
-                    physical_width: new_width,
-                    physical_height: new_height,
-                    present_mode: presentation.present_mode(),
-                    swap_chain_texture: None,
-                    size_changed: false,
-                });
+        let mut extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
+            id: entity,
+            handle: handle.raw_window_handle(),
+            physical_width: new_width,
+            physical_height: new_height,
+            present_mode: presentation.present_mode(),
+            swap_chain_texture: None,
+            size_changed: false,
+        });
 
         // NOTE: Drop the swap chain frame here
         extracted_window.swap_chain_texture = None;
