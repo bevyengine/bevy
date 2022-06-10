@@ -12,7 +12,6 @@ use std::task::{Poll, Waker};
 use async_task::Runnable;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, prelude::*};
-use slab::Slab;
 
 #[doc(no_inline)]
 pub use async_task::Task;
@@ -49,21 +48,9 @@ impl<'a> Executor<'a> {
         priority: usize,
         future: impl Future<Output = T> + Send + 'a,
     ) -> Task<T> {
-        let mut active = self.state.active.lock();
-
-        // Remove the task from the set of active tasks when the future finishes.
-        let index = active.vacant_entry().key();
-        let state = self.state.clone();
-        let future = async move {
-            let _guard = CallOnDrop(move || drop(state.active.lock().try_remove(index)));
-            future.await
-        };
-
-        // Create the task and register it in the set of active tasks.
+        // Create the task and schedule it
         let (runnable, task) =
             unsafe { async_task::spawn_unchecked(future, self.schedule(priority)) };
-        active.insert(runnable.waker());
-
         runnable.schedule();
         task
     }
@@ -123,12 +110,6 @@ impl<'a> Executor<'a> {
 
 impl Drop for Executor<'_> {
     fn drop(&mut self) {
-        let mut active = self.state.active.lock();
-        for w in active.drain() {
-            w.wake();
-        }
-        drop(active);
-
         for group in self.state.groups.iter() {
             while group.queue.pop().is_ok() {}
         }
@@ -161,20 +142,8 @@ impl<'a> LocalExecutor<'a> {
 
     /// Spawns a task onto the executor.
     pub fn spawn<T: 'a>(&self, future: impl Future<Output = T> + 'a) -> Task<T> {
-        let mut active = self.inner.state.active.lock();
-
-        // Remove the task from the set of active tasks when the future finishes.
-        let index = active.vacant_entry().key();
-        let state = self.inner.state.clone();
-        let future = async move {
-            let _guard = CallOnDrop(move || drop(state.active.lock().try_remove(index)));
-            future.await
-        };
-
-        // Create the task and register it in the set of active tasks.
+        // Create the task and schedule it
         let (runnable, task) = unsafe { async_task::spawn_unchecked(future, self.schedule()) };
-        active.insert(runnable.waker());
-
         runnable.schedule();
         task
     }
@@ -208,8 +177,6 @@ impl<'a> Default for LocalExecutor<'a> {
 #[derive(Debug)]
 struct State {
     groups: Box<[GroupState]>,
-    /// Currently active tasks.
-    active: Mutex<Slab<Waker>>,
 }
 
 impl State {
@@ -233,7 +200,6 @@ impl State {
             .collect::<Vec<_>>();
         State {
             groups: groups.into(),
-            active: Mutex::new(Slab::new()),
         }
     }
 }
