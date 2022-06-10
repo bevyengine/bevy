@@ -17,12 +17,12 @@ use std::fmt;
 use taffy::{number::Number, Taffy};
 
 pub struct FlexSurface {
-    entity_to_sprawl: HashMap<Entity, taffy::node::Node>,
+    entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<WindowId, taffy::node::Node>,
-    sprawl: Taffy,
+    taffy: Taffy,
 }
 
-// SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/sprawl/issues/69
+// SAFE: as long as MeasureFunc is Send + Sync. https://github.com/vislyhq/taffy/issues/69
 // TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
 #[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
@@ -32,14 +32,14 @@ fn _assert_send_sync_flex_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
     _assert_send_sync::<HashMap<WindowId, taffy::node::Node>>();
-    // FIXME https://github.com/vislyhq/sprawl/issues/69
-    // _assert_send_sync::<sprawl>();
+    // FIXME https://github.com/vislyhq/taffy/issues/69
+    // _assert_send_sync::<taffy>();
 }
 
 impl fmt::Debug for FlexSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("FlexSurface")
-            .field("entity_to_sprawl", &self.entity_to_sprawl)
+            .field("entity_to_taffy", &self.entity_to_taffy)
             .field("window_nodes", &self.window_nodes)
             .finish()
     }
@@ -48,9 +48,9 @@ impl fmt::Debug for FlexSurface {
 impl Default for FlexSurface {
     fn default() -> Self {
         Self {
-            entity_to_sprawl: Default::default(),
+            entity_to_taffy: Default::default(),
             window_nodes: Default::default(),
-            sprawl: Taffy::new(),
+            taffy: Taffy::new(),
         }
     }
 }
@@ -58,15 +58,15 @@ impl Default for FlexSurface {
 impl FlexSurface {
     pub fn upsert_node(&mut self, entity: Entity, style: &Style, scale_factor: f64) {
         let mut added = false;
-        let sprawl = &mut self.sprawl;
-        let sprawl_style = convert::from_style(scale_factor, style);
-        let sprawl_node = self.entity_to_sprawl.entry(entity).or_insert_with(|| {
+        let taffy = &mut self.taffy;
+        let taffy_style = convert::from_style(scale_factor, style);
+        let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
-            sprawl.new_node(sprawl_style, &Vec::new()).unwrap()
+            taffy.new_node(taffy_style, &Vec::new()).unwrap()
         });
 
         if !added {
-            self.sprawl.set_style(*sprawl_node, sprawl_style).unwrap();
+            self.taffy.set_style(*taffy_node, taffy_style).unwrap();
         }
     }
 
@@ -77,8 +77,8 @@ impl FlexSurface {
         calculated_size: CalculatedSize,
         scale_factor: f64,
     ) {
-        let sprawl = &mut self.sprawl;
-        let sprawl_style = convert::from_style(scale_factor, style);
+        let taffy = &mut self.taffy;
+        let taffy_style = convert::from_style(scale_factor, style);
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: taffy::geometry::Size<Number>| {
                 let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
@@ -101,22 +101,20 @@ impl FlexSurface {
             },
         ));
 
-        if let Some(sprawl_node) = self.entity_to_sprawl.get(&entity) {
-            self.sprawl.set_style(*sprawl_node, sprawl_style).unwrap();
-            self.sprawl
-                .set_measure(*sprawl_node, Some(measure))
-                .unwrap();
+        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy.set_style(*taffy_node, taffy_style).unwrap();
+            self.taffy.set_measure(*taffy_node, Some(measure)).unwrap();
         } else {
-            let sprawl_node = sprawl.new_leaf(sprawl_style, measure).unwrap();
-            self.entity_to_sprawl.insert(entity, sprawl_node);
+            let taffy_node = taffy.new_leaf(taffy_style, measure).unwrap();
+            self.entity_to_taffy.insert(entity, taffy_node);
         }
     }
 
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
-        let mut sprawl_children = Vec::with_capacity(children.len());
+        let mut taffy_children = Vec::with_capacity(children.len());
         for child in children.iter() {
-            if let Some(sprawl_node) = self.entity_to_sprawl.get(child) {
-                sprawl_children.push(*sprawl_node);
+            if let Some(taffy_node) = self.entity_to_taffy.get(child) {
+                taffy_children.push(*taffy_node);
             } else {
                 warn!(
                     "Unstyled child in a UI entity hierarchy. You are using an entity \
@@ -125,21 +123,21 @@ without UI components as a child of an entity with UI components, results may be
             }
         }
 
-        let sprawl_node = self.entity_to_sprawl.get(&entity).unwrap();
-        self.sprawl
-            .set_children(*sprawl_node, &sprawl_children)
+        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
+        self.taffy
+            .set_children(*taffy_node, &taffy_children)
             .unwrap();
     }
 
     pub fn update_window(&mut self, window: &Window) {
-        let sprawl = &mut self.sprawl;
+        let taffy = &mut self.taffy;
         let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
-            sprawl
+            taffy
                 .new_node(taffy::style::Style::default(), &Vec::new())
                 .unwrap()
         });
 
-        sprawl
+        taffy
             .set_style(
                 *node,
                 taffy::style::Style {
@@ -158,27 +156,25 @@ without UI components as a child of an entity with UI components, results may be
         window_id: WindowId,
         children: impl Iterator<Item = Entity>,
     ) {
-        let sprawl_node = self.window_nodes.get(&window_id).unwrap();
+        let taffy_node = self.window_nodes.get(&window_id).unwrap();
         let child_nodes = children
-            .map(|e| *self.entity_to_sprawl.get(&e).unwrap())
+            .map(|e| *self.entity_to_taffy.get(&e).unwrap())
             .collect::<Vec<taffy::node::Node>>();
-        self.sprawl
-            .set_children(*sprawl_node, &child_nodes)
-            .unwrap();
+        self.taffy.set_children(*taffy_node, &child_nodes).unwrap();
     }
 
     pub fn compute_window_layouts(&mut self) {
         for window_node in self.window_nodes.values() {
-            self.sprawl
+            self.taffy
                 .compute_layout(*window_node, taffy::geometry::Size::undefined())
                 .unwrap();
         }
     }
 
     pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, FlexError> {
-        if let Some(sprawl_node) = self.entity_to_sprawl.get(&entity) {
-            self.sprawl
-                .layout(*sprawl_node)
+        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy
+                .layout(*taffy_node)
                 .map_err(FlexError::TaffyError)
         } else {
             warn!(
