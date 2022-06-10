@@ -27,6 +27,7 @@ pub mod prelude {
     };
 }
 
+use bevy_window::{PrimaryWindow, Window, WindowHandle};
 pub use once_cell;
 
 use crate::{
@@ -42,8 +43,9 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_utils::tracing::debug;
+use core::panic;
 use std::ops::{Deref, DerefMut};
 
 /// Contains the default Bevy rendering backend based on wgpu.
@@ -114,6 +116,12 @@ struct ScratchRenderWorld(World);
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
+        let mut system_state: SystemState<(
+            Query<&WindowHandle, With<Window>>,
+            Res<PrimaryWindow>,
+        )> = SystemState::new(&mut app.world);
+        let (window_query, primary_window) = system_state.get(&mut app.world);
+
         let options = app
             .world
             .get_resource::<settings::WgpuSettings>()
@@ -129,13 +137,28 @@ impl Plugin for RenderPlugin {
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);
             let surface = {
-                // TODO: This must be a query
-                let windows = app.world.resource_mut::<bevy_window::Windows>();
-                let raw_handle = windows.get_primary().map(|window| unsafe {
-                    let handle = window.raw_window_handle().get_handle();
-                    instance.create_surface(&handle)
-                });
-                raw_handle
+                // TODO: This can probably be cleaner
+                if let Ok(handle_component) = window_query.get(
+                    primary_window
+                        .window
+                        .expect("There should be a primary window"),
+                ) {
+                    // TODO: Make sure this is ok
+                    unsafe {
+                        let handle = handle_component.raw_window_handle().get_handle();
+                        instance.create_surface(&handle)
+                    }
+                } else {
+                    // TODO: Helpful panic comment
+                    panic!("No WindowHandle component on primary window");
+                }
+                // let handle_component =
+                // // let windows = app.world.resource_mut::<bevy_window::Windows>();
+                // let raw_handle = windows.get_primary().map(|window| unsafe {
+                //     let handle = window.raw_window_handle().get_handle();
+                //     instance.create_surface(&handle)
+                // });
+                // raw_handle
             };
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: options.power_preference,

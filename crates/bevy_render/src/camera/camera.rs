@@ -20,7 +20,7 @@ use bevy_ecs::{
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashSet;
+use bevy_utils::{default, HashSet};
 use bevy_window::{Window, WindowCreated, WindowResized, WindowResolution};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, ops::Range};
@@ -71,6 +71,7 @@ pub struct ComputedCameraValues {
     target_info: Option<RenderTargetInfo>,
 }
 
+// TODO: Need to appease Reflect + default
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
@@ -91,20 +92,31 @@ pub struct Camera {
     pub target: RenderTarget,
 }
 
-impl Default for Camera {
-    fn default() -> Self {
-        Self {
-            is_active: true,
-            priority: 0,
-            viewport: None,
-            computed: Default::default(),
-            target: Default::default(), // TODO: Fix default of camera
-            depth_calculation: Default::default(),
-        }
-    }
-}
+// impl Default for Camera {
+//     fn default() -> Self {
+//         Self {
+//             is_active: true,
+//             priority: 0,
+//             viewport: None,
+//             computed: Default::default(),
+//             target: Default::default(), // TODO: Fix default of camera
+//             depth_calculation: Default::default(),
+//         }
+//     }
+// }
 
 impl Camera {
+    pub fn from_render_target(target: RenderTarget) -> Self {
+        Self {
+            viewport: None,
+            priority: 0,
+            is_active: true,
+            depth_calculation: Default::default(),
+            computed: Default::default(),
+            target,
+        }
+    }
+
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
     /// will be the size of that custom viewport. Otherwise it will default to the full logical size of
     /// the current [`RenderTarget`].
@@ -227,17 +239,23 @@ pub enum RenderTarget {
     Image(Handle<Image>),
 }
 
-impl Default for RenderTarget {
-    // TODO: Default window ID no longer makes sense, so this can no longer impl Default
-    fn default() -> Self {
-        // TODO:
-        // There is no longer 1 fixed id that corresponds to a valid window
-        // This should probably be the Entity of the PrimaryWindow
-        // but that is generated in runtime
-        // so not quite sure how to approach this
-        Self::Window(Default::default())
+impl RenderTarget {
+    pub fn new(window: Entity) -> Self {
+        Self::Window(window)
     }
 }
+
+// impl Default for RenderTarget {
+//     // TODO: Default window ID no longer makes sense, so this can no longer impl Default
+//     fn default() -> Self {
+//         // TODO:
+//         // There is no longer 1 fixed id that corresponds to a valid window
+//         // This should probably be the Entity of the PrimaryWindow
+//         // but that is generated in runtime
+//         // so not quite sure how to approach this
+//         Self::Window(Default::default())
+//     }
+// }
 
 impl RenderTarget {
     pub fn get_texture_view<'a>(
