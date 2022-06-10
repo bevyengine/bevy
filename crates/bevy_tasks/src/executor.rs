@@ -522,10 +522,6 @@ impl Runner<'_> {
                         self.steal(&group.queue);
                         return Some(r);
                     }
-                }
-
-                // // Try stealing from other runners local queues.
-                for priority in self.priority_iter() {
                     let local_queues = &self.state().groups[priority].local_queues;
 
                     // // Pick a random starting point in the iterator list and rotate the list.
