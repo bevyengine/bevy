@@ -105,11 +105,19 @@ Bevy is free and open source! All code in this repository is dual-licensed under
 
 at your option. This means you can select the license you prefer! This dual-licensing approach is the de-facto standard in the Rust ecosystem and there are [very good reasons](https://github.com/bevyengine/bevy/issues/2373) to include both.
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
-additional terms or conditions.
+Some small sections of the engine's code fall under an additional MIT-compatible open source license due to their external origins.
+This information will be listed in the README of each crate if it forms the basis of a large section of the crate (such as for [`bevy_mikktspace`](https://github.com/bevyengine/bevy/blob/main/crates/bevy_mikktspace/README.md)),
+or will be listed directly in the source as a comment, in the case of small snippets.
 
-### Assets
-
-Some of the [assets](assets) included in this repository for testing purposes fall under different open licenses.
+The [assets](assets) included in this repository for testing purposes typically fall under different open licenses.
 See [CREDITS.md](CREDITS.md) for the details of the licenses of those files.
+
+Finally, Bevy relies on the excellent work done by our [many open source dependencies](https://github.com/bevyengine/bevy/blob/main/Cargo.toml), each of which is licensed under their own corresponding MIT-compatible licenses.
+
+### Your contributions
+
+Unless you explicitly state otherwise,
+any contribution intentionally submitted for inclusion in the work by you,
+as defined in the Apache-2.0 license,
+shall be dual licensed as above,
+without any additional terms or conditions.
