@@ -37,9 +37,9 @@ struct Groups {
 ///
 /// By default, all threads in the pool are dedicated to compute group. Thread counts can be altered
 /// via [`TaskPoolBuilder`] when constructing the pool.
-/// 
+///
 /// # Drop Behavior
-/// Dropping the task pool will immeddiately cancel all scheduled tasks and join all threads contained 
+/// Dropping the task pool will immeddiately cancel all scheduled tasks and join all threads contained
 /// within.
 #[derive(Debug)]
 pub struct TaskPool {
