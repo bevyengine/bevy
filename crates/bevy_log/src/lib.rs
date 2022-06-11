@@ -162,6 +162,9 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::new();
 
+            #[cfg(feature = "puffin_tracing")]
+            let puffin_layer = puffin_tracing::PuffinLayer::new();
+
             let fmt_layer = tracing_subscriber::fmt::Layer::default();
             #[cfg(feature = "tracing-tracy")]
             let fmt_layer = fmt_layer.with_filter(
@@ -174,6 +177,8 @@ impl Plugin for LogPlugin {
             let subscriber = subscriber.with(chrome_layer);
             #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
+            #[cfg(feature = "puffin_tracing")]
+            let subscriber = subscriber.with(puffin_layer);
 
             bevy_utils::tracing::subscriber::set_global_default(subscriber)
                 .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
