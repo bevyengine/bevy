@@ -199,7 +199,7 @@ impl ParallelExecutor {
 
                 let mut run = move || {
                     #[cfg(feature = "trace")]
-                    let system_guard = system_span.enter();
+                    let _system_guard = system_span.enter();
                     unsafe { system.run_unsafe((), world) };
                 };
 
