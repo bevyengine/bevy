@@ -1339,7 +1339,7 @@ impl World {
         };
 
         Some(MutUntyped {
-            // SAFE: This funtion xclusive access to the world. The ptr must have unique access.
+            // SAFE: This function has exclusive access to the world so nothing aliases `ptr`.
             value: unsafe { ptr.assert_unique() },
             ticks,
         })
