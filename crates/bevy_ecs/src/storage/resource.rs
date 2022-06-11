@@ -134,15 +134,7 @@ impl Resources {
     #[inline]
     pub(crate) fn remove_and_drop(&mut self, component_id: ComponentId) -> Option<()> {
         let column = &mut self.resources.get_mut(component_id)?.data;
-        if column.is_empty() {
-            return None;
-        }
-        // SAFE: if a resource column exists, row 0 exists as well. The removed value is dropped
-        // immediately.
-        unsafe {
-            column.swap_remove_unchecked(0);
-            Some(())
-        }
+        (column.len() > 0).then(|| column.clear())
     }
 
     pub fn check_change_ticks(&mut self, change_tick: u32) {
