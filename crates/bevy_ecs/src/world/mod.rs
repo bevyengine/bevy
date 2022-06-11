@@ -1331,7 +1331,7 @@ impl World {
 
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
-        // SAFE: This funtion xclusive access to the world. The ptr must have unique access.
+        // SAFE: This function has exclusive access to the world so nothing aliases `ticks`.
         let ticks = Ticks {
             component_ticks: unsafe { ticks.deref_mut() },
             last_change_tick: self.last_change_tick(),
