@@ -168,6 +168,7 @@ impl ParallelExecutor {
         systems: &'scope mut [ParallelSystemContainer],
         world: &'scope World,
     ) {
+        // These are used as a part of a unit test.
         #[cfg(test)]
         let mut started_systems = 0;
         #[cfg(feature = "trace")]
@@ -281,6 +282,8 @@ impl ParallelExecutor {
     /// adds their access information to active access information;
     /// processes queued systems that shouldn't run this iteration as completed immediately.
     fn process_queued_systems(&mut self) {
+        // These are used as a part of a unit test as seen in `process_queued_systems`.
+        // Removing them will cause the test to fail.
         #[cfg(test)]
         let mut started_systems = 0;
         for index in self.queued.ones() {
