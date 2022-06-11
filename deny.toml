@@ -25,11 +25,6 @@ allow = [
 ]
 default = "deny"
 
-[[licenses.clarify]]
-name = "stretch"
-expression = "MIT"
-license-files = []
-
 [bans]
 multiple-versions = "deny"
 wildcards = "deny"
