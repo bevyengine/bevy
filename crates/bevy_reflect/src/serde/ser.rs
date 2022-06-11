@@ -490,6 +490,7 @@ mod tests {
     use crate as bevy_reflect;
     use crate::prelude::*;
     use crate::TypeRegistry;
+    use ron::ser::PrettyConfig;
 
     fn get_registry() -> TypeRegistry {
         let mut registry = TypeRegistry::default();
@@ -513,10 +514,12 @@ mod tests {
         let mut registry = get_registry();
         registry.register::<MyEnum>();
 
+        let config = PrettyConfig::default().new_line(String::from("\n"));
+
         // === Unit Variant === //
         let value = MyEnum::Unit;
         let serializer = ReflectSerializer::new(&value, &registry);
-        let output = ron::ser::to_string_pretty(&serializer, Default::default()).unwrap();
+        let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
     "enum": {
@@ -528,7 +531,7 @@ mod tests {
         // === NewType Variant === //
         let value = MyEnum::NewType(123);
         let serializer = ReflectSerializer::new(&value, &registry);
-        let output = ron::ser::to_string_pretty(&serializer, Default::default()).unwrap();
+        let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
     "enum": {
@@ -546,7 +549,7 @@ mod tests {
         // === Tuple Variant === //
         let value = MyEnum::Tuple(1.23, 3.21);
         let serializer = ReflectSerializer::new(&value, &registry);
-        let output = ron::ser::to_string_pretty(&serializer, Default::default()).unwrap();
+        let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
     "enum": {
@@ -570,7 +573,7 @@ mod tests {
             value: String::from("I <3 Enums"),
         };
         let serializer = ReflectSerializer::new(&value, &registry);
-        let output = ron::ser::to_string_pretty(&serializer, Default::default()).unwrap();
+        let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
     "enum": {
@@ -583,6 +586,6 @@ mod tests {
         },
     },
 }"#;
-        assert_eq!(expected, output);
+        assert_eq!(expected, output.replace('\r', ""));
     }
 }
