@@ -637,6 +637,7 @@ fn handle_create_window_events(
     let mut windows = world.resource_mut::<Windows>();
     let create_window_events = world.resource::<Events<CreateWindow>>();
     let mut window_created_events = world.resource_mut::<Events<WindowCreated>>();
+    #[cfg(not(any(target_os = "windows", target_feature = "x11")))]
     let mut window_resized_events = world.resource_mut::<Events<WindowResized>>();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
         let window = winit_windows.create_window(
@@ -644,6 +645,9 @@ fn handle_create_window_events(
             create_window_event.id,
             &create_window_event.descriptor,
         );
+        // This event is already sent on windows on x11.
+        // It's also already sent on xwayland, but not sur about native wayland
+        #[cfg(not(any(target_os = "windows", target_feature = "x11")))]
         window_resized_events.send(WindowResized {
             id: create_window_event.id,
             width: window.width(),
