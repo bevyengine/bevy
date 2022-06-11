@@ -87,7 +87,8 @@ jobs:
           key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          # TODO: check again with nightly once https://github.com/rust-lang/miri/issues/2223 is fixed
+          toolchain: nightly-2022-06-08
           components: miri
           override: true
       - name: Install alsa and udev
