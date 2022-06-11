@@ -551,7 +551,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
         V: MapAccess<'de>,
     {
         let key = map.next_key::<String>()?;
-        match key.as_ref().map(|x| x.as_str()) {
+        match key.as_deref() {
             Some(type_fields::VARIANT) => {}
             Some(key) => return Err(V::Error::unknown_field(key, &[type_fields::VARIANT])),
             _ => {
@@ -564,7 +564,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
         let mut dynamic_enum = DynamicEnum::default();
 
         let key = map.next_key::<String>()?;
-        match key.as_ref().map(|x| x.as_str()) {
+        match key.as_deref() {
             Some(type_fields::STRUCT) => {
                 let dynamic_struct = map.next_value_seed(StructDeserializer {
                     registry: self.registry,
