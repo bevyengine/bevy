@@ -645,8 +645,9 @@ fn handle_create_window_events(
             create_window_event.id,
             &create_window_event.descriptor,
         );
-        // This event is already sent on windows on x11.
-        // It's also already sent on xwayland, but not sur about native wayland
+        // This event is already sent on windows, x11, and xwayland.
+        // TODO: we aren't yet sure about native wayland, so we might be able to exclude it,
+        // but sending a duplicate event isn't problematic, as windows already does this.
         #[cfg(not(any(target_os = "windows", target_feature = "x11")))]
         window_resized_events.send(WindowResized {
             id: create_window_event.id,
