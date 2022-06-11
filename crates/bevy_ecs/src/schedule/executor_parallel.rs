@@ -125,7 +125,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
 
         ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             self.prepare_systems(scope, systems, world);
-            if 0 == self.queued.count_ones(..) + self.running.count_ones(..) {
+            if 0 == self.should_run.count_ones(..) {
                 return;
             }
             let parallel_executor = async {
@@ -188,7 +188,7 @@ impl ParallelExecutor {
                 );
             // Spawn the system task.
             if should_run {
-                self.should_run.set(index, true);
+                self.should_run.insert(index);
                 let finish_sender = self.finish_sender.clone();
                 let system = system.system_mut();
                 #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
@@ -225,7 +225,7 @@ impl ParallelExecutor {
                         started_systems += 1;
                     }
 
-                    self.running.set(index, true);
+                    self.running.insert(index);
                     if !system_data.is_send {
                         self.non_send_running = true;
                     }
