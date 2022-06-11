@@ -56,7 +56,7 @@ pub struct ParallelExecutor {
 
 impl Default for ParallelExecutor {
     fn default() -> Self {
-        let (finish_sender, finish_receiver) = async_channel::unbounded();
+        let (finish_sender, finish_receiver) = async_channel::bounded(128);
         Self {
             system_metadata: Default::default(),
             finish_sender,
@@ -125,28 +125,29 @@ impl ParallelSystemExecutor for ParallelExecutor {
 
         ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             self.prepare_systems(scope, systems, world);
-            if 0 == self.queued.count_ones(..) {
+            if 0 == self.queued.count_ones(..) + self.running.count_ones(..) {
                 return;
             }
             let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.
                 while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
                     self.process_queued_systems();
-                    // Should never deadlock.
-                    debug_assert!(self.running.count_ones(..) != 0);
-                    // Wait until at least one system has finished.
-                    let index = self
-                        .finish_receiver
-                        .recv()
-                        .await
-                        .unwrap_or_else(|error| unreachable!("{}", error));
-                    self.process_finished_system(index);
-                    // Gather other systems than may have finished.
-                    while let Ok(index) = self.finish_receiver.try_recv() {
+                    // Avoid deadlocking if no systems were actually started.
+                    if self.running.count_ones(..) != 0 {
+                        // Wait until at least one system has finished.
+                        let index = self
+                            .finish_receiver
+                            .recv()
+                            .await
+                            .unwrap_or_else(|error| unreachable!("{}", error));
                         self.process_finished_system(index);
+                        // Gather other systems than may have finished.
+                        while let Ok(index) = self.finish_receiver.try_recv() {
+                            self.process_finished_system(index);
+                        }
+                        // At least one system has finished, so active access is outdated.
+                        self.rebuild_active_access();
                     }
-                    // At least one system has finished, so active access is outdated.
-                    self.rebuild_active_access();
                     self.update_counters_and_queue_systems();
                 }
             };
@@ -178,6 +179,13 @@ impl ParallelExecutor {
             self.system_metadata.iter_mut().zip(systems).enumerate()
         {
             let should_run = system.should_run();
+            let can_start = should_run
+                && system_data.dependencies_total == 0
+                && Self::can_start_now(
+                    self.non_send_running,
+                    system_data,
+                    &self.active_archetype_component_access,
+                );
             // Spawn the system task.
             if should_run {
                 self.should_run.set(index, true);
@@ -195,15 +203,12 @@ impl ParallelExecutor {
                     unsafe { system.run_unsafe((), world) };
                 };
 
-                if Self::can_start_now(
-                    self.non_send_running,
-                    system_data,
-                    &self.active_archetype_component_access,
-                ) {
+                if can_start {
                     let task = async move {
                         run();
                         finish_sender
-                            .try_send(index)
+                            .send(index)
+                            .await
                             .unwrap_or_else(|error| unreachable!("{}", error));
                     };
 
@@ -236,7 +241,8 @@ impl ParallelExecutor {
                             .unwrap_or_else(|error| unreachable!("{}", error));
                         run();
                         finish_sender
-                            .try_send(index)
+                            .send(index)
+                            .await
                             .unwrap_or_else(|error| unreachable!("{}", error));
                     };
 
@@ -251,7 +257,7 @@ impl ParallelExecutor {
             }
             // Queue the system if it has no dependencies, otherwise reset its dependency counter.
             if system_data.dependencies_total == 0 {
-                if !should_run {
+                if !can_start {
                     self.queued.insert(index);
                 }
             } else {
