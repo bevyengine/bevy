@@ -72,7 +72,7 @@ impl Resources {
         let column = &self.resources.get(component_id)?.data;
         // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
         // ptr value / drop is called when R is dropped
-        (!column.is_empty()).then(|| unsafe { column.get_ticks_unchecked(0).deref() })
+        column.get_ticks_slice().get(0).map(|ticks| unsafe { ticks.deref() })
     }
 
     /// Checks if the a resource is currently stored with a given ID.
