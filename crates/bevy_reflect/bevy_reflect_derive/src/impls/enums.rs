@@ -41,10 +41,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 }
             }
         });
-    let debug_fn = reflect_enum
-        .meta()
-        .traits()
-        .get_debug_impl();
+    let debug_fn = reflect_enum.meta().traits().get_debug_impl();
     let partial_eq_fn = reflect_enum
         .meta()
         .traits()
