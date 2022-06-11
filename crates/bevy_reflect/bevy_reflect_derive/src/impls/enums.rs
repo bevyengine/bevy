@@ -18,7 +18,11 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         variant_info,
         enum_field,
         enum_field_at,
+        enum_index_of,
+        enum_name_at,
+        enum_field_len,
         enum_variant_name,
+        enum_variant_type,
     } = generate_impls(reflect_enum, &ref_index, &ref_name);
 
     let EnumVariantConstructors {
@@ -37,7 +41,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 }
             }
         });
-    let debug_fn = reflect_enum.meta().traits().get_debug_impl();
+    let debug_fn = reflect_enum
+        .meta()
+        .traits()
+        .get_debug_impl();
     let partial_eq_fn = reflect_enum
         .meta()
         .traits()
@@ -99,14 +106,44 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 }
             }
 
+            fn index_of(&self, #ref_name: &str) -> Option<usize> {
+                 match self {
+                    #(#enum_index_of,)*
+                    _ => None,
+                }
+            }
+
+            fn name_at(&self, #ref_index: usize) -> Option<&str> {
+                 match self {
+                    #(#enum_name_at,)*
+                    _ => None,
+                }
+            }
+
             fn iter_fields(&self) -> #bevy_reflect_path::VariantFieldIter {
                 #bevy_reflect_path::VariantFieldIter::new(self)
+            }
+
+            #[inline]
+            fn field_len(&self) -> usize {
+                 match self {
+                    #(#enum_field_len,)*
+                    _ => 0,
+                }
             }
 
             #[inline]
             fn variant_name(&self) -> &str {
                  match self {
                     #(#enum_variant_name,)*
+                    _ => unreachable!(),
+                }
+            }
+
+            #[inline]
+            fn variant_type(&self) -> #bevy_reflect_path::VariantType {
+                 match self {
+                    #(#enum_variant_type,)*
                     _ => unreachable!(),
                 }
             }
@@ -217,7 +254,11 @@ struct EnumImpls {
     variant_info: Vec<proc_macro2::TokenStream>,
     enum_field: Vec<proc_macro2::TokenStream>,
     enum_field_at: Vec<proc_macro2::TokenStream>,
+    enum_index_of: Vec<proc_macro2::TokenStream>,
+    enum_name_at: Vec<proc_macro2::TokenStream>,
+    enum_field_len: Vec<proc_macro2::TokenStream>,
     enum_variant_name: Vec<proc_macro2::TokenStream>,
+    enum_variant_type: Vec<proc_macro2::TokenStream>,
 }
 
 fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Ident) -> EnumImpls {
@@ -226,7 +267,11 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
     let mut variant_info: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut enum_field: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut enum_field_at: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut enum_index_of: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut enum_name_at: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut enum_field_len: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut enum_variant_name: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut enum_variant_type: Vec<proc_macro2::TokenStream> = Vec::new();
 
     for variant in reflect_enum.active_variants() {
         let ident = &variant.data.ident;
@@ -242,6 +287,9 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                 });
                 enum_variant_name.push(quote! {
                     #unit => #name
+                });
+                enum_variant_type.push(quote! {
+                    #unit => #bevy_reflect_path::VariantType::Unit
                 });
             }
             EnumVariantFields::Unnamed(fields) => {
@@ -266,8 +314,15 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     field_idx += 1;
                 }
 
+                let field_len = field_idx;
+                enum_field_len.push(quote! {
+                    #unit(..) => #field_len
+                });
                 enum_variant_name.push(quote! {
                     #unit(..) => #name
+                });
+                enum_variant_type.push(quote! {
+                    #unit(..) => #bevy_reflect_path::VariantType::Tuple
                 });
                 variant_info.push(quote! {
                     #bevy_reflect_path::VariantInfo::Tuple(
@@ -295,6 +350,12 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     enum_field_at.push(quote! {
                         #unit{ #field_ident, .. } if #ref_index == #field_idx => Some(#field_ident)
                     });
+                    enum_index_of.push(quote! {
+                        #unit{ .. } if #ref_name == #field_name => Some(#field_idx)
+                    });
+                    enum_name_at.push(quote! {
+                        #unit{ .. } if #ref_index == #field_idx => Some(#field_name)
+                    });
 
                     let field_ty = &field.data.ty;
                     field_info.push(quote! {
@@ -304,8 +365,15 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     field_idx += 1;
                 }
 
+                let field_len = field_idx;
+                enum_field_len.push(quote! {
+                    #unit{..} => #field_len
+                });
                 enum_variant_name.push(quote! {
                     #unit{..} => #name
+                });
+                enum_variant_type.push(quote! {
+                    #unit{..} => #bevy_reflect_path::VariantType::Struct
                 });
                 variant_info.push(quote! {
                     #bevy_reflect_path::VariantInfo::Struct(
@@ -322,6 +390,10 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
         variant_info,
         enum_field,
         enum_field_at,
+        enum_index_of,
+        enum_name_at,
+        enum_field_len,
         enum_variant_name,
+        enum_variant_type,
     }
 }
