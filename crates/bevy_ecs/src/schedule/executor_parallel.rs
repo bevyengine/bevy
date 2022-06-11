@@ -4,6 +4,7 @@ use crate::{
     schedule::{ParallelSystemContainer, ParallelSystemExecutor},
     world::World,
 };
+use event_listener::Event;
 use async_channel::{Receiver, Sender};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
 #[cfg(feature = "trace")]
@@ -15,9 +16,7 @@ use SchedulingEvent::*;
 
 struct SystemSchedulingMetadata {
     /// Used to signal the system's task to start the system.
-    start_sender: Sender<()>,
-    /// Receives the signal to start the system.
-    start_receiver: Receiver<()>,
+    start: Event,
     /// Indices of systems that depend on this one, used to decrement their
     /// dependency counters when this system finishes.
     dependants: Vec<usize>,
@@ -84,10 +83,8 @@ impl ParallelSystemExecutor for ParallelExecutor {
         for container in systems.iter() {
             let dependencies_total = container.dependencies().len();
             let system = container.system();
-            let (start_sender, start_receiver) = async_channel::bounded(1);
             self.system_metadata.push(SystemSchedulingMetadata {
-                start_sender,
-                start_receiver,
+                start: Event::new(),
                 dependants: vec![],
                 dependencies_total,
                 dependencies_now: 0,
@@ -233,12 +230,9 @@ impl ParallelExecutor {
                     self.active_archetype_component_access
                         .extend(&system_data.archetype_component_access);
                 } else {
-                    let start_receiver = system_data.start_receiver.clone();
+                    let start_listener = system_data.start.listen();
                     let task = async move {
-                        start_receiver
-                            .recv()
-                            .await
-                            .unwrap_or_else(|error| unreachable!("{}", error));
+                        start_listener.await;
                         run();
                         finish_sender
                             .send(index)
@@ -307,11 +301,8 @@ impl ParallelExecutor {
                 {
                     started_systems += 1;
                 }
-                system_metadata
-                    .start_sender
-                    .try_send(())
-                    .unwrap_or_else(|error| unreachable!("{}", error));
-                self.running.set(index, true);
+                system_metadata.start.notify(1);
+                self.running.insert(index);
                 if !system_metadata.is_send {
                     self.non_send_running = true;
                 }
