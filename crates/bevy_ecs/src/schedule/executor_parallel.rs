@@ -188,16 +188,17 @@ impl ParallelExecutor {
                 let overhead_span =
                     bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
 
-                let run = move || {
+                let mut run = move || {
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
                     unsafe { system.run_unsafe((), world) };
                 };
 
-                if (!self.non_send_running || system_data.is_send)
-                    && system_data
-                        .archetype_component_access
-                        .is_compatible(&self.active_archetype_component_access) {
+                if Self::can_start_now(
+                    self.non_send_running,
+                    system_data,
+                    &self.active_archetype_component_access,
+                ) {
                     let task = async move {
                         run();
                         finish_sender
@@ -233,11 +234,6 @@ impl ParallelExecutor {
                             .await
                             .unwrap_or_else(|error| unreachable!("{}", error));
                         run();
-                        #[cfg(feature = "trace")]
-                        let system_guard = system_span.enter();
-                        unsafe { system.run_unsafe((), world) };
-                        #[cfg(feature = "trace")]
-                        drop(system_guard);
                         finish_sender
                             .try_send(index)
                             .unwrap_or_else(|error| unreachable!("{}", error));
@@ -268,19 +264,23 @@ impl ParallelExecutor {
     }
 
     /// Determines if the system with given index has no conflicts with already running systems.
-    fn can_start_now(&self, index: usize) -> bool {
-        let system_data = &self.system_metadata[index];
+    #[inline]
+    fn can_start_now(
+        non_send_running: bool,
+        system_data: &SystemSchedulingMetadata,
+        active_archetype_component_access: &Access<ArchetypeComponentId>,
+    ) -> bool {
         // Non-send systems are considered conflicting with each other.
-        (!self.non_send_running || system_data.is_send)
+        (!non_send_running || system_data.is_send)
             && system_data
                 .archetype_component_access
-                .is_compatible(&self.active_archetype_component_access)
+                .is_compatible(active_archetype_component_access)
     }
 
     /// Starts all non-conflicting queued systems, moves them from `queued` to `running`,
     /// adds their access information to active access information;
     /// processes queued systems that shouldn't run this iteration as completed immediately.
-    async fn process_queued_systems(&mut self) {
+    fn process_queued_systems(&mut self) {
         #[cfg(test)]
         let mut started_systems = 0;
         for index in self.queued.ones() {
@@ -289,7 +289,11 @@ impl ParallelExecutor {
             let system_metadata = &self.system_metadata[index];
             if !self.should_run[index] {
                 self.dependants_scratch.extend(&system_metadata.dependants);
-            } else if self.can_start_now(index) {
+            } else if Self::can_start_now(
+                self.non_send_running,
+                system_metadata,
+                &self.active_archetype_component_access,
+            ) {
                 #[cfg(test)]
                 {
                     started_systems += 1;
