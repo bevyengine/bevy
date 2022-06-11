@@ -301,7 +301,7 @@ impl ParallelExecutor {
                 {
                     started_systems += 1;
                 }
-                system_metadata.start.notify(1);
+                system_metadata.start.notify_additional_relaxed(1);
                 self.running.insert(index);
                 if !system_metadata.is_send {
                     self.non_send_running = true;
