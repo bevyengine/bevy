@@ -853,7 +853,6 @@ mod tests {
         let mut map = HashMap::new();
         map.insert(64, 32);
 
-        // TODO: Add test for standard tuples (requires https://github.com/bevyengine/bevy/pull/4226)
         let expected = MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
