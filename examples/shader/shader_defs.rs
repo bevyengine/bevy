@@ -149,15 +149,15 @@ fn queue_custom(
         .read()
         .get_id::<DrawIsRed>()
         .unwrap();
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
+        let view_key =
+            MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
         for (entity, mesh_handle, mesh_uniform, is_red) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
-                let key = msaa_key
-                    | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                    | MeshPipelineKey::from_hdr(view.hdr);
+                let key =
+                    view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
                     .specialize(
                         &mut pipeline_cache,

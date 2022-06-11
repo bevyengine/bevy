@@ -362,7 +362,8 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
 
-        let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+        let view_key =
+            MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
@@ -372,8 +373,7 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
                     if let Some(mesh) = render_meshes.get(mesh_handle) {
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                                | MeshPipelineKey::from_hdr(view.hdr)
-                                | msaa_key;
+                                | view_key;
                         let alpha_mode = M::alpha_mode(material);
                         if let AlphaMode::Blend = alpha_mode {
                             mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
