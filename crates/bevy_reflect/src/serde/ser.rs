@@ -573,7 +573,7 @@ mod tests {
             value: String::from("I <3 Enums"),
         };
         let serializer = ReflectSerializer::new(&value, &registry);
-        let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
+        let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
     "enum": {
