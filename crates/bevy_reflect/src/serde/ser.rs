@@ -463,7 +463,9 @@ mod tests {
         let registry = get_registry();
         let serializer = ReflectSerializer::new(&input, &registry);
 
-        let output = ron::ser::to_string_pretty(&serializer, Default::default()).unwrap();
+        let config = PrettyConfig::default().new_line(String::from("\n"));
+
+        let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
         let expected = r#"{
     "type": "bevy_reflect::serde::ser::tests::MyStruct",
     "value": {
