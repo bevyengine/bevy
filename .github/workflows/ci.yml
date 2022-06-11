@@ -76,7 +76,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
-      # TODO: re-enable cache once nightly is unpined
+      # TODO: re-enable cache once nightly is unpinned
       # - uses: actions/cache@v3
       #   with:
       #     path: |
