@@ -16,7 +16,6 @@ use std::{
 
 /// A data type that can be used to store data for an [entity].
 ///
-/// Each component instance is owned by exactly one entity; data is not deduplicated in any fashion.
 ///
 /// `Component` is a [derivable trait]: this means that a data type can implement it by simply prepending a `#[derive(Component)]` attribute to it.
 /// However, components must always satisfy the `Send + Sync + 'static` trait bounds.
