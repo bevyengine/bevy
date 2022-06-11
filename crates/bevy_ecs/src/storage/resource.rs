@@ -99,7 +99,7 @@ impl Resources {
     /// Inserts a resource into the world.
     ///
     /// # Safety
-    /// ptr must point to valid data of this column's component type which
+    /// `data` must point to valid data of this column's component type which
     /// must correspond to the provided ID.
     #[inline]
     pub unsafe fn insert(
