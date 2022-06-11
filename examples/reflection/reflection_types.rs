@@ -37,7 +37,7 @@ pub struct C(usize);
 pub enum D {
     A,
     B(usize),
-    C { foo: f32, bar: bool },
+    C { value: f32 },
 }
 
 /// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
