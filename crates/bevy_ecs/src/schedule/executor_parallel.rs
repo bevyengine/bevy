@@ -125,26 +125,28 @@ impl ParallelSystemExecutor for ParallelExecutor {
 
         ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             self.prepare_systems(scope, systems, world);
+            if 0 == self.queued.count_ones(..) {
+                return;
+            }
             let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.
                 while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
-                    self.process_queued_systems().await;
-                    // Avoid deadlocking if no systems were actually started.
-                    if self.running.count_ones(..) != 0 {
-                        // Wait until at least one system has finished.
-                        let index = self
-                            .finish_receiver
-                            .recv()
-                            .await
-                            .unwrap_or_else(|error| unreachable!("{}", error));
+                    self.process_queued_systems();
+                    // Should never deadlock.
+                    debug_assert!(self.running.count_ones(..) != 0);
+                    // Wait until at least one system has finished.
+                    let index = self
+                        .finish_receiver
+                        .recv()
+                        .await
+                        .unwrap_or_else(|error| unreachable!("{}", error));
+                    self.process_finished_system(index);
+                    // Gather other systems than may have finished.
+                    while let Ok(index) = self.finish_receiver.try_recv() {
                         self.process_finished_system(index);
-                        // Gather other systems than may have finished.
-                        while let Ok(index) = self.finish_receiver.try_recv() {
-                            self.process_finished_system(index);
-                        }
-                        // At least one system has finished, so active access is outdated.
-                        self.rebuild_active_access();
                     }
+                    // At least one system has finished, so active access is outdated.
+                    self.rebuild_active_access();
                     self.update_counters_and_queue_systems();
                 }
             };
@@ -178,7 +180,6 @@ impl ParallelExecutor {
             // Spawn the system task.
             if should_run {
                 self.should_run.set(index, true);
-                let start_receiver = system_data.start_receiver.clone();
                 let finish_sender = self.finish_sender.clone();
                 let system = system.system_mut();
                 #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
@@ -186,47 +187,37 @@ impl ParallelExecutor {
                 #[cfg(feature = "trace")]
                 let overhead_span =
                     bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
-                let task = async move {
-                    start_receiver
-                        .recv()
-                        .await
-                        .unwrap_or_else(|error| unreachable!("{}", error));
+
+                let run = move || {
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
                     unsafe { system.run_unsafe((), world) };
-                    #[cfg(feature = "trace")]
-                    drop(system_guard);
-                    finish_sender
-                        .send(index)
-                        .await
-                        .unwrap_or_else(|error| unreachable!("{}", error));
                 };
 
-                #[cfg(feature = "trace")]
-                let task = task.instrument(overhead_span);
-                if system_data.is_send {
-                    scope.spawn(task);
-                } else {
-                    scope.spawn_local(task);
-                }
-            }
-            // Queue the system if it has no dependencies, otherwise reset its dependency counter.
-            if system_data.dependencies_total == 0 {
-                // Non-send systems are incompatible, as they must all be executed on the main thread.
-                if should_run
-                    && (!self.non_send_running || system_data.is_send)
+                if (!self.non_send_running || system_data.is_send)
                     && system_data
                         .archetype_component_access
-                        .is_compatible(&self.active_archetype_component_access)
-                {
+                        .is_compatible(&self.active_archetype_component_access) {
+                    let task = async move {
+                        run();
+                        finish_sender
+                            .try_send(index)
+                            .unwrap_or_else(|error| unreachable!("{}", error));
+                    };
+
+                    #[cfg(feature = "trace")]
+                    let task = task.instrument(overhead_span);
+                    if system_data.is_send {
+                        scope.spawn(task);
+                    } else {
+                        scope.spawn_local(task);
+                    }
+
                     #[cfg(test)]
                     {
                         started_systems += 1;
                     }
-                    system_data
-                        .start_sender
-                        .try_send(())
-                        .unwrap_or_else(|error| unreachable!("{}", error));
+
                     self.running.set(index, true);
                     if !system_data.is_send {
                         self.non_send_running = true;
@@ -235,6 +226,35 @@ impl ParallelExecutor {
                     self.active_archetype_component_access
                         .extend(&system_data.archetype_component_access);
                 } else {
+                    let start_receiver = system_data.start_receiver.clone();
+                    let task = async move {
+                        start_receiver
+                            .recv()
+                            .await
+                            .unwrap_or_else(|error| unreachable!("{}", error));
+                        run();
+                        #[cfg(feature = "trace")]
+                        let system_guard = system_span.enter();
+                        unsafe { system.run_unsafe((), world) };
+                        #[cfg(feature = "trace")]
+                        drop(system_guard);
+                        finish_sender
+                            .try_send(index)
+                            .unwrap_or_else(|error| unreachable!("{}", error));
+                    };
+
+                    #[cfg(feature = "trace")]
+                    let task = task.instrument(overhead_span);
+                    if system_data.is_send {
+                        scope.spawn(task);
+                    } else {
+                        scope.spawn_local(task);
+                    }
+                }
+            }
+            // Queue the system if it has no dependencies, otherwise reset its dependency counter.
+            if system_data.dependencies_total == 0 {
+                if !should_run {
                     self.queued.insert(index);
                 }
             } else {
@@ -276,8 +296,7 @@ impl ParallelExecutor {
                 }
                 system_metadata
                     .start_sender
-                    .send(())
-                    .await
+                    .try_send(())
                     .unwrap_or_else(|error| unreachable!("{}", error));
                 self.running.set(index, true);
                 if !system_metadata.is_send {
