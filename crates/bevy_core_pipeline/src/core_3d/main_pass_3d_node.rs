@@ -194,6 +194,26 @@ impl Node for MainPass3dNode {
             }
         }
 
+        // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
+        // reset for the next render pass so add an empty render pass without a custom viewport
+        #[cfg(feature = "webgl")]
+        if camera.viewport.is_some() {
+            #[cfg(feature = "trace")]
+            let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
+            let pass_descriptor = RenderPassDescriptor {
+                label: Some("reset_viewport_pass_3d"),
+                color_attachments: &[target.get_color_attachment(Operations {
+                    load: LoadOp::Load,
+                    store: true,
+                })],
+                depth_stencil_attachment: None,
+            };
+
+            render_context
+                .command_encoder
+                .begin_render_pass(&pass_descriptor);
+        }
+
         Ok(())
     }
 }

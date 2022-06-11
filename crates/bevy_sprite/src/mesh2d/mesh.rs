@@ -323,9 +323,6 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
-        #[cfg(feature = "webgl")]
-        shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
-
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         Ok(RenderPipelineDescriptor {
