@@ -962,7 +962,8 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let output = to_string_pretty(&ser, Default::default()).unwrap();
+            let config = PrettyConfig::default().new_line(String::from("\n"));
+            let output = to_string_pretty(&ser, config).unwrap();
             let expected = r#"
 {
     "type": "glam::f32::vec3::Vec3",
