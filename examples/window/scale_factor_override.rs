@@ -75,16 +75,24 @@ fn toggle_override(
     let resolution = windows.get(primary_window.window.unwrap()).unwrap();
     if input.just_pressed(KeyCode::Return) {
         window_commands
-            .set_scale_factor_override(resolution.scale_factor_override().xor(Some(1.)));
+            .set_scale_factor_override(resolution.scale_factor_override().xor(Some(1.))); // This is the thing responsible for the toggle
     }
 }
 
 /// This system changes the scale factor override when up or down is pressed
-fn change_scale_factor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
-    let window = windows.primary_mut();
+fn change_scale_factor(
+    mut commands: Commands,
+    input: Res<Input<KeyCode>>, 
+    mut primary_window: Res<PrimaryWindow>,
+    windows: Query<&WindowResolution, With<Window>>
+) {
+    let mut window_commands = commands.window(primary_window.window.unwrap());
+    let resolution = windows.get(primary_window.window.unwrap()).unwrap();
     if input.just_pressed(KeyCode::Up) {
-        window.set_scale_factor_override(window.scale_factor_override().map(|n| n + 1.));
+        window_commands
+            .set_scale_factor_override(resolution.scale_factor_override().map(|n| n + 1.));
     } else if input.just_pressed(KeyCode::Down) {
-        window.set_scale_factor_override(window.scale_factor_override().map(|n| (n - 1.).max(1.)));
+        window_commands
+            .set_scale_factor_override(resolution.scale_factor_override().map(|n| (n - 1.).max(1.)));
     }
 }

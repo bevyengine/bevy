@@ -120,7 +120,7 @@ impl Command for SetTitleCommand {
 #[derive(Debug)]
 pub struct SetScaleFactorCommand {
     pub entity: Entity,
-    pub scale_factor: f64,
+    pub scale_factor: Option<f64>,
 }
 
 impl Command for SetScaleFactorCommand {
@@ -503,7 +503,7 @@ impl<'w, 's, 'a> WindowCommands<'w, 's, 'a> {
 
     /// Override the os-reported scaling factor
     #[allow(clippy::float_cmp)]
-    pub fn set_scale_factor_override(&mut self, scale_factor: f64) -> &mut Self {
+    pub fn set_scale_factor_override(&mut self, scale_factor: Option<f64>) -> &mut Self {
         // TODO: Not do anything if new is same as old?
         // if self.scale_factor_override == scale_factor {
         //     return;
