@@ -21,7 +21,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, Vec3};
+use bevy_math::{Mat4, Vec3};
 use bevy_transform::components::GlobalTransform;
 
 pub struct ViewPlugin;

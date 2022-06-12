@@ -56,11 +56,14 @@ impl Node for UpscalingNode {
             Err(_) => return Ok(()),
         };
 
-        let main_texture = target.main_texture.texture();
+        let upscaled_texture = match &target.main_texture {
+            bevy_render::view::ViewMainTexture::Hdr { ldr_texture, .. } => ldr_texture,
+            bevy_render::view::ViewMainTexture::Sdr { texture, .. } => texture,
+        };
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
-            Some((id, bind_group)) if main_texture.id() == *id => bind_group,
+            Some((id, bind_group)) if upscaled_texture.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
                     .render_device
@@ -75,7 +78,7 @@ impl Node for UpscalingNode {
                             entries: &[
                                 BindGroupEntry {
                                     binding: 0,
-                                    resource: BindingResource::TextureView(main_texture),
+                                    resource: BindingResource::TextureView(upscaled_texture),
                                 },
                                 BindGroupEntry {
                                     binding: 1,
@@ -84,7 +87,7 @@ impl Node for UpscalingNode {
                             ],
                         });
 
-                let (_, bind_group) = cached_bind_group.insert((main_texture.id(), bind_group));
+                let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));
                 bind_group
             }
         };

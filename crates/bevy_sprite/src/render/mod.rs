@@ -153,7 +153,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             shader_defs.push("COLORED".to_string());
         }
 
-        if key.contains(SpritePipelineKey::HDR) {
+        if !key.contains(SpritePipelineKey::HDR) {
             shader_defs.push("TONEMAPPING_IN_SPRITE_SHADER".to_string());
         }
 
