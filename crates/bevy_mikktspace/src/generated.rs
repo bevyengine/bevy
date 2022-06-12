@@ -64,7 +64,6 @@ use crate::{
 
 #[derive(Copy, Clone)]
 pub struct STSpace {
-    // Normalised f
     pub vOs: Vec3,
     pub fMagS: f32,
     pub vOt: Vec3,
@@ -221,6 +220,16 @@ impl STmpVert {
             index: 0,
         }
     }
+}
+
+/// Stores a map of 'internal' triangle vertices to real 'faces' and vertices
+/// This is used to deduplicate vertices with identical faces
+struct TriangleMap {
+    /// Packed face/vertex index of each triangle
+    /// Note that this is an index to the first vertex
+    /// with the given properties, rather than necessarily
+    /// (Not impressed with this data layout)
+    triangles: Vec<[u32; 3]>,
 }
 
 pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> bool {
