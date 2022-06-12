@@ -2,7 +2,7 @@ use bevy_math::IVec2;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
 use raw_window_handle::HasRawWindowHandle;
-use winit::dpi::LogicalSize;
+use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition};
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -49,30 +49,47 @@ impl WinitWindows {
                     ..
                 } = window_descriptor;
 
-                if let Some(position) = position {
-                    if let Some(sf) = scale_factor_override {
-                        winit_window_builder = winit_window_builder.with_position(
-                            winit::dpi::LogicalPosition::new(
-                                position[0] as f64,
-                                position[1] as f64,
-                            )
-                            .to_physical::<f64>(*sf),
-                        );
-                    } else {
-                        winit_window_builder =
-                            winit_window_builder.with_position(winit::dpi::LogicalPosition::new(
-                                position[0] as f64,
-                                position[1] as f64,
-                            ));
+                use bevy_window::WindowPosition::*;
+                match position {
+                    Default => { /* Window manager will handle position */ }
+                    Centered => {
+                        if let Some(monitor) = event_loop.primary_monitor() {
+                            let screen_size = monitor.size();
+
+                            let scale_factor = scale_factor_override.unwrap_or(1.0);
+
+                            // Logical to physical window size
+                            let (width, height): (f64, f64) = LogicalSize::new(*width, *height)
+                                .to_physical::<f64>(scale_factor)
+                                .into();
+
+                            let position = PhysicalPosition::new(
+                                (screen_size.width as f64 - width) / 2.,
+                                (screen_size.height as f64 - height) / 2.,
+                            );
+
+                            winit_window_builder = winit_window_builder.with_position(position);
+                        }
+                    }
+                    At(position) => {
+                        if let Some(sf) = scale_factor_override {
+                            winit_window_builder = winit_window_builder.with_position(
+                                LogicalPosition::new(position[0] as f64, position[1] as f64)
+                                    .to_physical::<f64>(*sf),
+                            );
+                        } else {
+                            winit_window_builder = winit_window_builder.with_position(
+                                LogicalPosition::new(position[0] as f64, position[1] as f64),
+                            );
+                        }
                     }
                 }
+
                 if let Some(sf) = scale_factor_override {
-                    winit_window_builder.with_inner_size(
-                        winit::dpi::LogicalSize::new(*width, *height).to_physical::<f64>(*sf),
-                    )
-                } else {
                     winit_window_builder
-                        .with_inner_size(winit::dpi::LogicalSize::new(*width, *height))
+                        .with_inner_size(LogicalSize::new(*width, *height).to_physical::<f64>(*sf))
+                } else {
+                    winit_window_builder.with_inner_size(LogicalSize::new(*width, *height))
                 }
             }
             .with_resizable(window_descriptor.resizable)

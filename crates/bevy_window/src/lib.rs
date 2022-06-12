@@ -17,7 +17,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-        Window, WindowDescriptor, WindowMoved, Windows,
+        Window, WindowDescriptor, WindowMoved, WindowPosition, Windows,
     };
 }
 

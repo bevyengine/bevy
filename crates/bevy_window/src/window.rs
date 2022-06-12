@@ -259,6 +259,8 @@ pub enum WindowCommand {
     SetPosition {
         position: IVec2,
     },
+    /// Modifies the position of the window to be in the center of the current monitor
+    Center,
     /// Set the window's [`WindowResizeConstraints`]
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
@@ -414,6 +416,16 @@ impl Window {
     pub fn set_position(&mut self, position: IVec2) {
         self.command_queue
             .push(WindowCommand::SetPosition { position });
+    }
+
+    /// Modifies the position of the window to be in the center of the current monitor
+    ///
+    /// # Platform-specific
+    /// - iOS: Can only be called on the main thread.
+    /// - Web / Android / Wayland: Unsupported.
+    #[inline]
+    pub fn center_window(&mut self) {
+        self.command_queue.push(WindowCommand::Center);
     }
 
     /// Modifies the minimum and maximum window bounds for resizing in logical pixels.
@@ -714,6 +726,17 @@ impl Window {
     }
 }
 
+/// Defines where window should be placed at on creation.
+#[derive(Debug, Clone)]
+pub enum WindowPosition {
+    /// Position will be set by window manager
+    Default,
+    /// Window will be centered at primary monitor
+    Centered,
+    /// Window will be placed at specified position
+    At(Vec2),
+}
+
 /// Describes the information needed for creating a window.
 ///
 /// This should be set up before adding the [`WindowPlugin`](crate::WindowPlugin).
@@ -732,10 +755,8 @@ pub struct WindowDescriptor {
     ///
     /// May vary from the physical height due to different pixel density on different monitors.
     pub height: f32,
-    /// The position on the screen that the window will be centered at.
-    ///
-    /// If set to `None`, some platform-specific position will be chosen.
-    pub position: Option<Vec2>,
+    /// The position on the screen that the window will be placed at.
+    pub position: WindowPosition,
     /// Sets minimum and maximum resize limits.
     pub resize_constraints: WindowResizeConstraints,
     /// Overrides the window's ratio of physical pixels to logical pixels.
@@ -799,7 +820,7 @@ impl Default for WindowDescriptor {
             title: "app".to_string(),
             width: 1280.,
             height: 720.,
-            position: None,
+            position: WindowPosition::Default,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
             present_mode: PresentMode::Fifo,
