@@ -46,12 +46,21 @@
     unused_mut
 )]
 
-use std::ptr::null_mut;
+use std::{
+    collections::{
+        btree_map::Entry::{Occupied, Vacant},
+        BTreeMap,
+    },
+    ptr::null_mut,
+};
 
 use bitflags::bitflags;
 use glam::Vec3;
 
-use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, FaceKind, Geometry};
+use crate::{
+    face_vert_to_index, get_normal, get_position, get_tex_coord, ordered_vec::FiniteVec3, FaceKind,
+    Geometry,
+};
 
 #[derive(Copy, Clone)]
 pub struct STSpace {
@@ -1200,243 +1209,23 @@ unsafe fn GenerateSharedVerticesIndexList(
     geometry: &impl Geometry,
     iNrTrianglesIn: usize,
 ) {
-    let mut vMin = get_position(geometry, 0);
-    let mut vMax = vMin;
-
+    let mut map = BTreeMap::new();
     for i in 0..(iNrTrianglesIn * 3) {
         let index: i32 = *piTriList_in_and_out.offset(i as isize);
         let vP = get_position(geometry, index as usize);
-        if vMin.x > vP.x {
-            vMin.x = vP.x
-        } else if vMax.x < vP.x {
-            vMax.x = vP.x
-        }
-        if vMin.y > vP.y {
-            vMin.y = vP.y
-        } else if vMax.y < vP.y {
-            vMax.y = vP.y
-        }
-        if vMin.z > vP.z {
-            vMin.z = vP.z
-        } else if vMax.z < vP.z {
-            vMax.z = vP.z
-        }
-    }
-    let vDim = vMax - vMin;
-    let iChannel;
-    let fMin;
-    let fMax;
-    if vDim.y > vDim.x && vDim.y > vDim.z {
-        iChannel = 1i32;
-        fMin = vMin.y;
-        fMax = vMax.y
-    } else if vDim.z > vDim.x {
-        iChannel = 2i32;
-        fMin = vMin.z;
-        fMax = vMax.z
-    } else {
-        iChannel = 0i32;
-        fMin = vMin.x;
-        fMax = vMax.x;
-    }
+        let vN = get_normal(geometry, index as usize);
+        let vT = get_tex_coord(geometry, index as usize);
+        let vP = FiniteVec3::new(vP).unwrap();
+        let vN = FiniteVec3::new(vN).unwrap();
+        let vT = FiniteVec3::new(vT).unwrap();
 
-    let mut piHashTable = vec![0i32; iNrTrianglesIn * 3];
-    let mut piHashOffsets = vec![0i32; g_iCells];
-    let mut piHashCount = vec![0i32; g_iCells];
-    let mut piHashCount2 = vec![0i32; g_iCells];
-
-    for i in 0..(iNrTrianglesIn * 3) {
-        let index_0: i32 = *piTriList_in_and_out.offset(i as isize);
-        let vP_0 = get_position(geometry, index_0 as usize);
-        let fVal: f32 = if iChannel == 0i32 {
-            vP_0.x
-        } else if iChannel == 1i32 {
-            vP_0.y
-        } else {
-            vP_0.z
-        };
-        let iCell = FindGridCell(fMin, fMax, fVal);
-        piHashCount[iCell] += 1;
-    }
-    piHashOffsets[0] = 0i32;
-
-    for k in 1..g_iCells {
-        piHashOffsets[k] = piHashOffsets[k - 1] + piHashCount[k - 1];
-    }
-    for i in 0..(iNrTrianglesIn * 3) {
-        let index_1: i32 = *piTriList_in_and_out.offset(i as isize);
-        let vP_1 = get_position(geometry, index_1 as usize);
-        let fVal_0: f32 = if iChannel == 0i32 {
-            vP_1.x
-        } else if iChannel == 1i32 {
-            vP_1.y
-        } else {
-            vP_1.z
-        };
-        let iCell_0 = FindGridCell(fMin, fMax, fVal_0);
-        let pTable = piHashTable
-            .as_mut_ptr()
-            .offset(piHashOffsets[iCell_0] as isize);
-        *pTable.offset(piHashCount2[iCell_0] as isize) = i as i32;
-        piHashCount2[iCell_0] += 1;
-    }
-
-    debug_assert_eq!(piHashCount, piHashCount2);
-    drop(piHashCount2);
-
-    let iMaxCount = piHashCount.iter().max().copied().unwrap() as usize;
-
-    let mut pTmpVert = vec![STmpVert::zero(); iMaxCount];
-
-    for k in 0..g_iCells {
-        // extract table of cell k and amount of entries in it
-        let mut pTable_0 = &mut piHashTable[piHashOffsets[k] as usize] as *mut i32;
-        let iEntries = piHashCount[k] as usize;
-        if !(iEntries < 2) {
-            for e in 0..iEntries {
-                let mut i_0: i32 = *pTable_0.offset(e as isize);
-                let vP_2 = get_position(
-                    geometry,
-                    *piTriList_in_and_out.offset(i_0 as isize) as usize,
-                );
-                pTmpVert[e].vert[0usize] = vP_2.x;
-                pTmpVert[e].vert[1usize] = vP_2.y;
-                pTmpVert[e].vert[2usize] = vP_2.z;
-                pTmpVert[e].index = i_0;
+        match map.entry((vP, vN, vT)) {
+            Vacant(entry) => {
+                entry.insert(index);
             }
-            MergeVertsFast(
-                piTriList_in_and_out,
-                pTmpVert.as_mut_ptr(),
-                geometry,
-                0i32,
-                (iEntries - 1) as i32,
-            );
+            Occupied(e) => *piTriList_in_and_out.offset(i as isize) = *e.get(),
         }
     }
-}
-
-unsafe fn MergeVertsFast(
-    mut piTriList_in_and_out: *mut i32,
-    mut pTmpVert: *mut STmpVert,
-    geometry: &impl Geometry,
-    iL_in: i32,
-    iR_in: i32,
-) {
-    // make bbox
-    let mut fvMin: [f32; 3] = [0.; 3];
-    let mut fvMax: [f32; 3] = [0.; 3];
-
-    for c in 0..3i32 {
-        fvMin[c as usize] = (*pTmpVert.offset(iL_in as isize)).vert[c as usize];
-        fvMax[c as usize] = fvMin[c as usize];
-    }
-
-    for l in (iL_in + 1i32)..=iR_in {
-        for c in 0..3i32 {
-            if fvMin[c as usize] > (*pTmpVert.offset(l as isize)).vert[c as usize] {
-                fvMin[c as usize] = (*pTmpVert.offset(l as isize)).vert[c as usize]
-            } else if fvMax[c as usize] < (*pTmpVert.offset(l as isize)).vert[c as usize] {
-                fvMax[c as usize] = (*pTmpVert.offset(l as isize)).vert[c as usize]
-            }
-        }
-    }
-    let dx = fvMax[0usize] - fvMin[0usize];
-    let dy = fvMax[1usize] - fvMin[1usize];
-    let dz = fvMax[2usize] - fvMin[2usize];
-    let channel;
-    if dy > dx && dy > dz {
-        channel = 1i32
-    } else if dz > dx {
-        channel = 2i32
-    } else {
-        channel = 0i32
-    }
-    let fSep = 0.5f32 * (fvMax[channel as usize] + fvMin[channel as usize]);
-    if fSep >= fvMax[channel as usize] || fSep <= fvMin[channel as usize] {
-        for l in iL_in..=iR_in {
-            let mut i: i32 = (*pTmpVert.offset(l as isize)).index;
-            let index: i32 = *piTriList_in_and_out.offset(i as isize);
-            let vP = get_position(geometry, index as usize);
-            let vN = get_normal(geometry, index as usize);
-            let vT = get_tex_coord(geometry, index as usize);
-            let mut bNotFound: bool = true;
-            let mut l2: i32 = iL_in;
-            let mut i2rec: i32 = -1i32;
-            while l2 < l && bNotFound {
-                let i2: i32 = (*pTmpVert.offset(l2 as isize)).index;
-                let index2: i32 = *piTriList_in_and_out.offset(i2 as isize);
-                let vP2 = get_position(geometry, index2 as usize);
-                let vN2 = get_normal(geometry, index2 as usize);
-                let vT2 = get_tex_coord(geometry, index2 as usize);
-                i2rec = i2;
-                if vP.x == vP2.x
-                    && vP.y == vP2.y
-                    && vP.z == vP2.z
-                    && vN.x == vN2.x
-                    && vN.y == vN2.y
-                    && vN.z == vN2.z
-                    && vT.x == vT2.x
-                    && vT.y == vT2.y
-                    && vT.z == vT2.z
-                {
-                    bNotFound = false
-                } else {
-                    l2 += 1
-                }
-            }
-            if !bNotFound {
-                *piTriList_in_and_out.offset(i as isize) =
-                    *piTriList_in_and_out.offset(i2rec as isize)
-            }
-        }
-    } else {
-        let mut iL: i32 = iL_in;
-        let mut iR: i32 = iR_in;
-        debug_assert!(iR_in > iL_in);
-        while iL < iR {
-            let mut bReadyLeftSwap: bool = false;
-            let mut bReadyRightSwap: bool = false;
-            while !bReadyLeftSwap && iL < iR {
-                debug_assert!(iL >= iL_in && iL <= iR_in);
-                bReadyLeftSwap = !((*pTmpVert.offset(iL as isize)).vert[channel as usize] < fSep);
-                if !bReadyLeftSwap {
-                    iL += 1
-                }
-            }
-            while !bReadyRightSwap && iL < iR {
-                debug_assert!(iR >= iL_in && iR <= iR_in);
-                bReadyRightSwap = (*pTmpVert.offset(iR as isize)).vert[channel as usize] < fSep;
-                if !bReadyRightSwap {
-                    iR -= 1
-                }
-            }
-            debug_assert!((iL < iR) || !(bReadyLeftSwap && bReadyRightSwap));
-            if bReadyLeftSwap && bReadyRightSwap {
-                let sTmp: STmpVert = *pTmpVert.offset(iL as isize);
-                debug_assert!(iL < iR);
-                *pTmpVert.offset(iL as isize) = *pTmpVert.offset(iR as isize);
-                *pTmpVert.offset(iR as isize) = sTmp;
-                iL += 1;
-                iR -= 1
-            }
-        }
-        debug_assert!(iL == (iR + 1) || (iL == iR));
-        if iL == iR {
-            let bReadyRightSwap_0: bool =
-                (*pTmpVert.offset(iR as isize)).vert[channel as usize] < fSep;
-            if bReadyRightSwap_0 {
-                iL += 1
-            } else {
-                iR -= 1
-            }
-        }
-        if iL_in < iR {
-            MergeVertsFast(piTriList_in_and_out, pTmpVert, geometry, iL_in, iR);
-        }
-        if iL < iR_in {
-            MergeVertsFast(piTriList_in_and_out, pTmpVert, geometry, iL, iR_in);
-        }
-    };
 }
 
 const g_iCells: usize = 2048;

@@ -3,6 +3,7 @@
 use glam::{Vec2, Vec3};
 
 mod generated;
+pub(crate) mod ordered_vec;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum FaceKind {
