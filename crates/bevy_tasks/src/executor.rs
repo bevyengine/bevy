@@ -148,10 +148,7 @@ impl<'a> LocalExecutor<'a> {
         // Even if the returned Task and waker are sent to another thread, the associated inner
         // task is only dropped when `try_tick` is triggered.
         let (runnable, task) = unsafe { async_task::spawn_unchecked(future, self.schedule()) };
-        // SAFETY: The queue is unbounded, this can never fail.
-        unsafe {
-            self.queue.push(runnable).unwrap_unchecked();
-        }
+        self.queue.push(runnable).unwrap();
         task
     }
 
@@ -171,10 +168,7 @@ impl<'a> LocalExecutor<'a> {
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule(&self) -> impl Fn(Runnable) + '_ {
         move |runnable| {
-            // SAFETY: The queue is unbounded, this can never fail.
-            unsafe {
-                self.queue.push(runnable).unwrap_unchecked();
-            }
+            self.queue.push(runnable).unwrap();
         }
     }
 }
