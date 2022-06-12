@@ -122,10 +122,10 @@ impl Drop for Executor<'_> {
 #[derive(Debug)]
 pub struct LocalExecutor<'a> {
     /// The inner executor.
-    inner: Executor<'a>,
+    queue: ConcurrentQueue<Runnable>,
 
     /// Makes the type `!Send` and `!Sync`.
-    _marker: PhantomData<Rc<()>>,
+    _marker: PhantomData<&'a Rc<()>>,
 }
 
 impl UnwindSafe for LocalExecutor<'_> {}
@@ -135,16 +135,23 @@ impl<'a> LocalExecutor<'a> {
     /// Creates a single-threaded executor.
     pub fn new() -> LocalExecutor<'a> {
         LocalExecutor {
-            inner: Executor::new(&[1]),
+            queue: ConcurrentQueue::unbounded(),
             _marker: PhantomData,
         }
     }
 
     /// Spawns a task onto the executor.
     pub fn spawn<T: 'a>(&self, future: impl Future<Output = T> + 'a) -> Task<T> {
-        // Create the task and schedule it
+        // SAFETY: The spawned Task can only be progressed via `try_tick` which must be accessed
+        // from the thread that owns the executor and the task.
+        //
+        // Even if the returned Task and waker are sent to another thread, the associated inner
+        // task is only dropped when `try_tick` is triggered.
         let (runnable, task) = unsafe { async_task::spawn_unchecked(future, self.schedule()) };
-        runnable.schedule();
+        // SAFETY: The queue is unbounded, this can never fail.
+        unsafe {
+            self.queue.push(runnable).unwrap_unchecked();
+        }
         task
     }
 
@@ -152,17 +159,22 @@ impl<'a> LocalExecutor<'a> {
     ///
     /// Running a scheduled task means simply polling its future once.
     pub fn try_tick(&self) -> bool {
-        self.inner.try_tick(0)
+        match self.queue.pop() {
+            Err(_) => false,
+            Ok(runnable) => {
+                runnable.run();
+                true
+            }
+        }
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
-    fn schedule(&self) -> impl Fn(Runnable) + Send + Sync + 'static {
-        let state = self.inner.state.clone();
-
+    fn schedule(&self) -> impl Fn(Runnable) + '_ {
         move |runnable| {
-            let group = &state.groups[0];
-            group.queue.push(runnable).unwrap();
-            group.notify();
+            // SAFETY: The queue is unbounded, this can never fail.
+            unsafe {
+                self.queue.push(runnable).unwrap_unchecked();
+            }
         }
     }
 }
