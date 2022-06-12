@@ -4,7 +4,7 @@ use crate::{
     query::{
         NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
         QueryManyIter, QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch,
-        WorldQuery,
+        WorldQuery, WorldQueryFilter,
     },
     world::{Mut, World},
 };
@@ -239,14 +239,14 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// methods instead. Keep in mind though that they will return a [`QuerySingleError`] if the
 /// number of query results differ from being exactly one. If that's the case, use `iter.next()`
 /// (or `iter_mut.next()`) to only get the first query result.
-pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()> {
+pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQueryFilter = ()> {
     pub(crate) world: &'world World,
     pub(crate) state: &'state QueryState<Q, F>,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     /// Creates a new query.
     ///
     /// # Safety
@@ -1252,7 +1252,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> IntoIterator for &'w Query<'_, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: WorldQueryFilter> IntoIterator for &'w Query<'_, 's, Q, F> {
     type Item = ROQueryItem<'w, Q>;
     type IntoIter = QueryIter<'w, 's, Q, ROQueryFetch<'w, Q>, F>;
 
@@ -1261,7 +1261,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> IntoIterator for &'w Query<'_, 's, Q,
     }
 }
 
-impl<'w, Q: WorldQuery, F: WorldQuery> IntoIterator for &'w mut Query<'_, '_, Q, F> {
+impl<'w, Q: WorldQuery, F: WorldQueryFilter> IntoIterator for &'w mut Query<'_, '_, Q, F> {
     type Item = QueryItem<'w, Q>;
     type IntoIter = QueryIter<'w, 'w, Q, QueryFetch<'w, Q>, F>;
 
@@ -1306,7 +1306,7 @@ impl std::fmt::Display for QueryComponentError {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQuery, F: WorldQueryFilter> Query<'w, 's, Q, F>
 where
     QueryFetch<'w, Q>: ReadOnlyFetch,
 {

@@ -5,7 +5,7 @@ use crate::{
     prelude::FromWorld,
     query::{
         Access, Fetch, FetchState, FilteredAccess, NopFetch, QueryCombinationIter, QueryIter,
-        WorldQuery,
+        WorldQuery, WorldQueryFilter,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -19,7 +19,7 @@ use std::{borrow::Borrow, fmt};
 use super::{QueryFetch, QueryItem, QueryManyIter, ROQueryFetch, ROQueryItem};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
-pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
+pub struct QueryState<Q: WorldQuery, F: WorldQueryFilter = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
@@ -34,13 +34,13 @@ pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
     pub(crate) filter_state: F::State,
 }
 
-impl<Q: WorldQuery, F: WorldQuery> FromWorld for QueryState<Q, F> {
+impl<Q: WorldQuery, F: WorldQueryFilter> FromWorld for QueryState<Q, F> {
     fn from_world(world: &mut World) -> Self {
         world.query_filtered()
     }
 }
 
-impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
+impl<Q: WorldQuery, F: WorldQueryFilter> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let fetch_state = <Q::State as FetchState>::init(world);

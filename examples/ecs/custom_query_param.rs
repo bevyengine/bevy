@@ -13,7 +13,7 @@
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
 use bevy::{
-    ecs::{component::Component, query::WorldQuery},
+    ecs::{component::Component, query::WorldQuery, query::WorldQueryFilter},
     prelude::*,
 };
 use std::fmt::Debug;
@@ -106,7 +106,7 @@ struct GenericQuery<T: Component, P: Component> {
     generic: (&'static T, &'static P),
 }
 
-#[derive(WorldQuery)]
+#[derive(WorldQueryFilter)]
 struct QueryFilter<T: Component, P: Component> {
     _c: With<ComponentC>,
     _d: With<ComponentD>,

@@ -7,7 +7,7 @@ use crate::{
     entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryFetch, QueryState, ReadOnlyFetch,
-        WorldQuery,
+        WorldQuery, WorldQueryFilter,
     },
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
@@ -131,19 +131,21 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     ) -> Self::Item;
 }
 
-impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery + 'static, F: WorldQueryFilter + 'static> SystemParam
+    for Query<'w, 's, Q, F>
+{
     type Fetch = QueryState<Q, F>;
 }
 
 // SAFE: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<Q: WorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F> where
+unsafe impl<Q: WorldQuery, F: WorldQueryFilter> ReadOnlySystemParamFetch for QueryState<Q, F> where
     for<'x> QueryFetch<'x, Q>: ReadOnlyFetch
 {
 }
 
 // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this QueryState conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState
+unsafe impl<Q: WorldQuery + 'static, F: WorldQueryFilter + 'static> SystemParamState
     for QueryState<Q, F>
 {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
@@ -173,7 +175,7 @@ unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState
     }
 }
 
-impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's>
+impl<'w, 's, Q: WorldQuery + 'static, F: WorldQueryFilter + 'static> SystemParamFetch<'w, 's>
     for QueryState<Q, F>
 {
     type Item = Query<'w, 's, Q, F>;
@@ -1459,6 +1461,7 @@ mod tests {
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
         query::WorldQuery,
+        query::WorldQueryFilter,
         system::Query,
     };
 
@@ -1468,7 +1471,7 @@ mod tests {
         'w,
         's,
         Q: WorldQuery + Send + Sync + 'static,
-        F: WorldQuery + Send + Sync + 'static = (),
+        F: WorldQueryFilter + Send + Sync + 'static = (),
     > {
         _query: Query<'w, 's, Q, F>,
     }

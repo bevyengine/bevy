@@ -9,7 +9,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{QueryItem, WorldQuery},
+    query::{QueryItem, WorldQuery, WorldQueryFilter},
     system::{lifetimeless::Read, StaticSystemParam},
 };
 use std::{marker::PhantomData, ops::Deref};
@@ -36,7 +36,7 @@ pub trait ExtractComponent: Component {
     /// ECS [`WorldQuery`] to fetch the components to extract.
     type Query: WorldQuery;
     /// Filters the entities with additional constraints.
-    type Filter: WorldQuery;
+    type Filter: WorldQueryFilter;
     /// Defines how the component is transferred into the "render world".
     fn extract_component(item: QueryItem<Self::Query>) -> Self;
 }

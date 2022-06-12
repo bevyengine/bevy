@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{
         debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, QueryFetch,
-        ROQueryFetch, WorldQuery, WorldQueryGats,
+        ROQueryFetch, WorldQuery, WorldQueryFilter, WorldQueryGats,
     },
     storage::{ComponentSparseSet, Table, Tables},
     world::World,
@@ -54,6 +54,8 @@ impl<T: Component> WorldQuery for With<T> {
         item
     }
 }
+
+impl<T: Component> WorldQueryFilter for With<T> {}
 
 /// The [`Fetch`] of [`With`].
 #[doc(hidden)]
@@ -194,6 +196,8 @@ impl<T: Component> WorldQuery for Without<T> {
         item
     }
 }
+
+impl<T: Component> WorldQueryFilter for Without<T> {}
 
 /// The [`Fetch`] of [`Without`].
 #[doc(hidden)]
@@ -349,6 +353,11 @@ macro_rules! impl_query_filter_tuple {
             fn shrink<'wlong: 'wshort, 'wshort>(item: super::QueryItem<'wlong, Self>) -> super::QueryItem<'wshort, Self> {
                 item
             }
+        }
+
+        #[allow(unused_variables)]
+        #[allow(non_snake_case)]
+        impl<$($filter: WorldQuery),*> WorldQueryFilter for Or<($($filter,)*)> {
         }
 
         #[allow(unused_variables)]
@@ -521,6 +530,9 @@ macro_rules! impl_tick_filter {
             fn shrink<'wlong: 'wshort, 'wshort>(item: super::QueryItem<'wlong, Self>) -> super::QueryItem<'wshort, Self> {
                 item
             }
+        }
+
+        impl<T: Component> WorldQueryFilter for $name<T> {
         }
 
         // SAFETY: this reads the T component. archetype component access and component access are updated to reflect that

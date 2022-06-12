@@ -8,7 +8,7 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_ecs_macros::all_tuples;
-pub use bevy_ecs_macros::WorldQuery;
+pub use bevy_ecs_macros::{WorldQuery, WorldQueryFilter};
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use std::{cell::UnsafeCell, marker::PhantomData};
 
@@ -28,18 +28,10 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - `Option<WQ>`: Queries the inner [`WorldQuery`] `WQ` but instead of discarding the entity if the world
 ///     query fails it returns [`None`]. See [`Query`](crate::system::Query).
 /// - `(WQ1, WQ2, ...)`: Queries all contained world queries allowing to query for more than one thing.
-///     This is the `And` operator for filters. See [`Or`].
+///     This is the `And` operator for filters. See [`Or`](crate::query::Or).
 /// - `ChangeTrackers<C>`: See the docs of [`ChangeTrackers`].
 /// - [`Entity`]: Using the entity type as a world query will grant access to the entity that is
 ///     being queried for. See [`Entity`].
-///
-/// Bevy also offers a few filters like [`Added`](crate::query::Added), [`Changed`](crate::query::Changed),
-/// [`With`](crate::query::With), [`Without`](crate::query::Without) and [`Or`].
-/// For more information on these consult the item's corresponding documentation.
-///
-/// [`Or`]: crate::query::Or
-///
-/// # Derive
 ///
 /// This trait can be derived with the [`derive@super::WorldQuery`] macro.
 ///
@@ -260,14 +252,28 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+pub trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
+    type State: FetchState;
+
+    /// This function manually implements variance for the query items.
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self>;
+}
+
+/// Types that can be used as a query filter for queries from a [`World`].
 ///
-/// ## Filters
+/// Bevy offers a few filters like [`Added`](crate::query::Added), [`Changed`](crate::query::Changed),
+/// [`With`](crate::query::With), [`Without`](crate::query::Without) and [`Or`].
+/// For more information on these consult the item's corresponding documentation.
 ///
-/// Using [`derive@super::WorldQuery`] macro we can create our own query filters.
+/// [`Or`]: crate::query::Or
+///
+/// # Derive
+///
+/// Using [`derive@super::WorldQueryFilter`] macro we can create our own query filters.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::{query::WorldQuery, component::Component};
+/// use bevy_ecs::{query::WorldQueryFilter, component::Component};
 ///
 /// #[derive(Component)]
 /// struct Foo;
@@ -278,7 +284,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// #[derive(Component)]
 /// struct Qux;
 ///
-/// #[derive(WorldQuery)]
+/// #[derive(WorldQueryFilter)]
 /// struct MyFilter<T: Component, P: Component> {
 ///     _foo: With<Foo>,
 ///     _bar: With<Bar>,
@@ -292,12 +298,22 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
-pub trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
-    type State: FetchState;
-
-    /// This function manually implements variance for the query items.
-    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self>;
-}
+///
+/// **Note:** component types themselves can't be used as filters:
+///
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::query::WorldQueryFilter;
+///
+/// #[derive(Component)]
+/// struct Foo;
+///
+/// #[derive(WorldQueryFilter)]
+/// struct FooFilter {
+///     foo: &'static Foo,
+/// }
+/// ```
+pub trait WorldQueryFilter: WorldQuery {}
 
 /// The [`Fetch`] of a [`WorldQuery`], which declares which data it needs access to
 pub type QueryFetch<'w, Q> = <Q as WorldQueryGats<'w>>::Fetch;
@@ -1553,6 +1569,11 @@ macro_rules! impl_tuple_fetch {
                     $name::shrink($name),
                 )*)
             }
+        }
+
+        #[allow(non_snake_case)]
+        #[allow(clippy::unused_unit)]
+        impl<$($name: WorldQueryFilter),*> WorldQueryFilter for ($($name,)*) {
         }
 
         /// SAFETY: each item in the tuple is read only

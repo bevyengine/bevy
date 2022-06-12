@@ -1,0 +1,12 @@
+error[E0277]: the trait bound `&'static Foo: WorldQueryFilter` is not satisfied
+ --> tests/ui/world_query_filter_derive.rs:9:8
+  |
+9 |     a: &'static Foo,
+  |        ^^^^^^^^^^^^ the trait `WorldQueryFilter` is not implemented for `&'static Foo`
+  |
+note: required by a bound in `assert_world_query_filter`
+ --> tests/ui/world_query_filter_derive.rs:7:10
+  |
+7 | #[derive(WorldQueryFilter)]
+  |          ^^^^^^^^^^^^^^^^ required by this bound in `assert_world_query_filter`
+  = note: this error originates in the derive macro `WorldQueryFilter` (in Nightly builds, run with -Z macro-backtrace for more info)

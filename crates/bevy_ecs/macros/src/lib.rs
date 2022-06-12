@@ -431,7 +431,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(WorldQuery, attributes(world_query))]
 pub fn derive_world_query(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    derive_world_query_impl(ast)
+    derive_world_query_impl(ast, false)
+}
+
+/// Implement `WorldQueryFilter` to use a struct as a parameter in a query
+#[proc_macro_derive(WorldQueryFilter, attributes(world_query))]
+pub fn derive_world_query_filter(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    derive_world_query_impl(ast, true)
 }
 
 #[proc_macro_derive(SystemLabel)]

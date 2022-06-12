@@ -2,7 +2,7 @@ use crate::{
     archetype::{ArchetypeId, Archetypes},
     entity::{Entities, Entity},
     prelude::World,
-    query::{Fetch, QueryState, WorldQuery},
+    query::{Fetch, QueryState, WorldQuery, WorldQueryFilter},
     storage::{TableId, Tables},
 };
 use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
@@ -13,14 +13,14 @@ use super::{QueryFetch, QueryItem, ReadOnlyFetch};
 ///
 /// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
+pub struct QueryIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQueryFilter> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     cursor: QueryIterationCursor<'w, 's, Q, QF, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIter<'w, 's, Q, QF, F>
+impl<'w, 's, Q: WorldQuery, QF, F: WorldQueryFilter> QueryIter<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State>,
 {
@@ -44,7 +44,7 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, QF, F>
+impl<'w, 's, Q: WorldQuery, QF, F: WorldQueryFilter> Iterator for QueryIter<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State>,
 {
@@ -73,7 +73,7 @@ where
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q, QF, F> where
+impl<'w, 's, Q: WorldQuery, QF, F: WorldQueryFilter> FusedIterator for QueryIter<'w, 's, Q, QF, F> where
     QF: Fetch<'w, State = Q::State>
 {
 }
@@ -86,7 +86,7 @@ pub struct QueryManyIter<
     's,
     Q: WorldQuery,
     QF: Fetch<'w, State = Q::State>,
-    F: WorldQuery,
+    F: WorldQueryFilter,
     I: Iterator,
 > where
     I::Item: Borrow<Entity>,
@@ -100,7 +100,7 @@ pub struct QueryManyIter<
     query_state: &'s QueryState<Q, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery, I: Iterator>
+impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQueryFilter, I: Iterator>
     QueryManyIter<'w, 's, Q, QF, F, I>
 where
     I::Item: Borrow<Entity>,
@@ -141,8 +141,8 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery, I: Iterator> Iterator
-    for QueryManyIter<'w, 'w, Q, QF, F, I>
+impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQueryFilter, I: Iterator>
+    Iterator for QueryManyIter<'w, 'w, Q, QF, F, I>
 where
     I::Item: Borrow<Entity>,
 {
@@ -185,14 +185,16 @@ where
     }
 }
 
-pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> {
+pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQueryFilter, const K: usize> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     cursors: [QueryIterationCursor<'w, 's, Q, QueryFetch<'w, Q>, F>; K],
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K> {
+impl<'w, 's, Q: WorldQuery, F: WorldQueryFilter, const K: usize>
+    QueryCombinationIter<'w, 's, Q, F, K>
+{
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
@@ -302,7 +304,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
 // Iterator type is intentionally implemented only for read-only access.
 // Doing so for mutable references would be unsound, because  calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
+impl<'w, 's, Q: WorldQuery, F: WorldQueryFilter, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
     QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
@@ -366,7 +368,7 @@ where
 }
 
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> FusedIterator
+impl<'w, 's, Q: WorldQuery, F: WorldQueryFilter, const K: usize> FusedIterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
     QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
@@ -374,7 +376,13 @@ where
 {
 }
 
-struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
+struct QueryIterationCursor<
+    'w,
+    's,
+    Q: WorldQuery,
+    QF: Fetch<'w, State = Q::State>,
+    F: WorldQueryFilter,
+> {
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
     fetch: QF,
@@ -384,7 +392,8 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::Stat
     phantom: PhantomData<(&'w (), Q)>,
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, QF, F>
+impl<'w, 's, Q: WorldQuery, QF, F: WorldQueryFilter> Clone
+    for QueryIterationCursor<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State> + Clone,
     QueryFetch<'w, F>: Clone,
@@ -402,7 +411,7 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIterationCursor<'w, 's, Q, QF, F>
+impl<'w, 's, Q: WorldQuery, QF, F: WorldQueryFilter> QueryIterationCursor<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State>,
 {

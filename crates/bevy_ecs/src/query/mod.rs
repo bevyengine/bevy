@@ -19,7 +19,7 @@ unsafe fn debug_checked_unreachable() -> ! {
 
 #[cfg(test)]
 mod tests {
-    use super::WorldQuery;
+    use super::{WorldQuery, WorldQueryFilter};
     use crate::prelude::{AnyOf, Entity, Or, With, Without};
     use crate::system::{IntoSystem, Query, System};
     use crate::{self as bevy_ecs, component::Component, world::World};
@@ -458,13 +458,39 @@ mod tests {
                 .collect::<Vec<_>>();
             assert_eq!(custom_param_data, normal_data);
         }
+    }
+
+    #[test]
+    fn derived_worldqueryfilters() {
+        let mut world = World::new();
+
+        world.spawn().insert_bundle((A(10), B(18), C(3), Sparse(4)));
+
+        world.spawn().insert_bundle((A(101), B(148), C(13)));
+        world.spawn().insert_bundle((A(51), B(46), Sparse(72)));
+        world.spawn().insert_bundle((A(398), C(6), Sparse(9)));
+        world.spawn().insert_bundle((B(11), C(28), Sparse(92)));
+
+        world.spawn().insert_bundle((C(18348), Sparse(101)));
+        world.spawn().insert_bundle((B(839), Sparse(5)));
+        world.spawn().insert_bundle((B(6721), C(122)));
+        world.spawn().insert_bundle((A(220), Sparse(63)));
+        world.spawn().insert_bundle((A(1092), C(382)));
+        world.spawn().insert_bundle((A(2058), B(3019)));
+
+        world.spawn().insert_bundle((B(38), C(8), Sparse(100)));
+        world.spawn().insert_bundle((A(111), C(52), Sparse(1)));
+        world.spawn().insert_bundle((A(599), B(39), Sparse(13)));
+        world.spawn().insert_bundle((A(55), B(66), C(77)));
+
+        world.spawn();
 
         {
-            #[derive(WorldQuery)]
+            #[derive(WorldQueryFilter)]
             struct AOrBFilter {
                 a: Or<(With<A>, With<B>)>,
             }
-            #[derive(WorldQuery)]
+            #[derive(WorldQueryFilter)]
             struct NoSparseThatsSlow {
                 no: Without<Sparse>,
             }
@@ -481,7 +507,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQuery)]
+            #[derive(WorldQueryFilter)]
             struct CSparseFilter {
                 tuple_structs_pls: With<C>,
                 ugh: With<Sparse>,
@@ -499,7 +525,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQuery)]
+            #[derive(WorldQueryFilter)]
             struct WithoutComps {
                 _1: Without<A>,
                 _2: Without<B>,

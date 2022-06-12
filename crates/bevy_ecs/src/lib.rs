@@ -56,7 +56,7 @@ mod tests {
         bundle::Bundle,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
+        query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQueryFilter},
         world::{Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
@@ -900,7 +900,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: WorldQueryFilter>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)

@@ -25,7 +25,7 @@ mod field_attr_keywords {
 
 pub static WORLD_QUERY_ATTRIBUTE_NAME: &str = "world_query";
 
-pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
+pub fn derive_world_query_impl(ast: DeriveInput, impl_filter: bool) -> TokenStream {
     let visibility = ast.vis;
 
     let mut fetch_struct_attributes = FetchStructAttributes::default();
@@ -316,12 +316,48 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         }
     };
 
+    let impl_world_query_filter = if impl_filter {
+        quote! {
+            impl #user_impl_generics #path::query::WorldQueryFilter for #struct_name #user_ty_generics #user_where_clauses {}
+        }
+    } else {
+        quote! {}
+    };
+
+    let assert_world_query_filter = if impl_filter {
+        quote! {
+            fn assert_world_query_filter<T>()
+            where
+                T: #path::query::WorldQueryFilter,
+            {
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let world_query_filter_asserts = if impl_filter {
+        quote! {
+            // Statically checks that the field implements `WorldQueryFilter`.
+            // We need this to make sure that we can't implement `WorldQueryFilter` for structs with non-`WorldQueryFilter` fields. I.e.:
+            // ```
+            // #[derive(WorldQueryFilter)]
+            // pub struct Foo { a: &'static mut MyComponent }
+            // ```
+            #( assert_world_query_filter::<#field_types>(); )*
+        }
+    } else {
+        quote! {}
+    };
+
     let tokens = TokenStream::from(quote! {
         #fetch_impl
 
         #state_impl
 
         #read_only_fetch_impl
+
+        #impl_world_query_filter
 
         impl #user_impl_generics #path::query::WorldQuery for #struct_name #user_ty_generics #user_where_clauses {
             type State = #state_struct_name #user_ty_generics;
@@ -356,9 +392,12 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             {
             }
 
+            #assert_world_query_filter
+
             // We generate a readonly assertion for every struct member.
             fn assert_all #user_impl_generics_with_world () #user_where_clauses_with_world {
                 #read_only_asserts
+                #world_query_filter_asserts
             }
         };
 
