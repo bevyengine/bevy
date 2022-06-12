@@ -1215,6 +1215,8 @@ unsafe fn GenerateSharedVerticesIndexList(
         let vP = get_position(geometry, index as usize);
         let vN = get_normal(geometry, index as usize);
         let vT = get_tex_coord(geometry, index as usize);
+        // Technically, these unwraps aren't ideal, but the original puts absolutely no thought into its handling of
+        // NaN and infinity, so it's probably *fine*
         let vP = FiniteVec3::new(vP).unwrap();
         let vN = FiniteVec3::new(vN).unwrap();
         let vT = FiniteVec3::new(vT).unwrap();
