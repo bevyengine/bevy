@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_utils = { path = "../bevy_utils", version = "0.6.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 
 futures-lite = "1.4.0"
 event-listener = "2.5.2"

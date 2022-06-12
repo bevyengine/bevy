@@ -1,5 +1,6 @@
 use async_channel::bounded;
 use std::{
+    any::type_name,
     future::Future,
     mem,
     pin::Pin,
@@ -7,7 +8,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use bevy_utils::tracing::warn;
+use bevy_utils::tracing::error;
 use futures_lite::{future, pin};
 
 use crate::{PollableTask, Task};
@@ -232,19 +233,21 @@ impl TaskPool {
 
     /// Spawns a static future onto the thread pool. The returned `PollableTask` is not a future,
     /// but can be polled in system functions on every frame update without being blocked on
-    pub fn spawn_pollable<T>(
-        &self,
-        future: impl Future<Output = T> + Send + 'static,
-    ) -> PollableTask<T>
+    pub fn spawn_pollable<F, T>(&self, future: F) -> PollableTask<T>
     where
+        F: Future<Output = T> + Send + 'static,
         T: Send + Sync + 'static,
     {
         let (sender, receiver) = bounded(1);
         let task = self.spawn(async move {
             let result = future.await;
             match sender.send(result).await {
-                Ok(_) => {}
-                Err(_) => warn!("Could not send result of task to receiver"),
+                Ok(()) => {}
+                Err(_) => error!(
+                    "Sending result for future {future_name} (`Future<Output={return_name}>`) failed, because the receiving `PollableTask` was dropped",
+                    future_name=type_name::<F>(),
+                    return_name=type_name::<T>(),
+                ),
             }
         });
         PollableTask::new(receiver, task)
