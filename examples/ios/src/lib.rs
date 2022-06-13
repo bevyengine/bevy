@@ -1,4 +1,8 @@
-use bevy::{input::touch::TouchPhase, prelude::*, window::{WindowMode, PrimaryWindow, WindowResolution}};
+use bevy::{
+    input::touch::TouchPhase,
+    prelude::*,
+    window::{PrimaryWindow, WindowMode, WindowResolution},
+};
 
 // the `bevy_main` proc_macro generates the required ios boilerplate
 #[bevy_main]
@@ -24,7 +28,11 @@ fn touch_camera(
     mut last_position: Local<Option<Vec2>>,
 ) {
     let primary_resolution = windows
-        .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
+        .get(
+            primary_window
+                .window
+                .expect("Should have a valid PrimaryWindow"),
+        )
         .expect("PrimaryWindow should have a valid Resolution component");
 
     for touch in touches.iter() {

@@ -1,6 +1,10 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{prelude::*, utils::HashSet, window::{PrimaryWindow, WindowResolution}};
+use bevy::{
+    prelude::*,
+    utils::HashSet,
+    window::{PrimaryWindow, WindowResolution},
+};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
@@ -260,7 +264,11 @@ fn collision_system(
     let mut rng = rand::thread_rng();
 
     let window_resolution = window_resolutions
-        .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
+        .get(
+            primary_window
+                .window
+                .expect("Should have a valid PrimaryWindow"),
+        )
         .expect("PrimaryWindow should have a valid Resolution component");
 
     let ceiling = window_resolution.height() / 2.;

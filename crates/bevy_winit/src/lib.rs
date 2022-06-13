@@ -12,7 +12,7 @@ use system::{
     create_windows, destroy_windows, update_cursor_icon, update_cursor_lock_mode,
     update_cursor_position, update_cursor_visibility, update_decorations, update_maximized,
     update_minimized, update_position, update_present_mode, update_resizable,
-    update_resize_contraints, update_resolution, update_scale_factor, update_title,
+    update_resize_contraints, update_resolution, update_scale_factor_override, update_title,
     update_window_mode, window_destroyed,
 };
 
@@ -21,9 +21,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, CoreStage, Plugin};
-use bevy_ecs::{
-    event::{Events, ManualEventReader},
-};
+use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_input::{
     keyboard::KeyboardInput,
@@ -64,7 +62,7 @@ impl Plugin for WinitPlugin {
                     .with_system(update_title)
                     .with_system(update_window_mode)
                     .with_system(update_decorations)
-                    .with_system(update_scale_factor)
+                    .with_system(update_scale_factor_override)
                     .with_system(update_resizable)
                     .with_system(update_position)
                     .with_system(update_minimized)

@@ -10,7 +10,7 @@ use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
-use bevy_window::{PrimaryWindow, WindowCursorPosition, Window};
+use bevy_window::{PrimaryWindow, Window, WindowCursorPosition};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -72,9 +72,7 @@ pub fn ui_focus_system(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let primary_window_id = primary_window
-        .window
-        .expect("Primary window should exist");
+    let primary_window_id = primary_window.window.expect("Primary window should exist");
     // Cursor position of primary window
     let cursor_position = cursor_positions
         .get(primary_window_id)

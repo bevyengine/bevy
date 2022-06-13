@@ -9,7 +9,7 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
-use bevy_window::{PrimaryWindow, WindowResolution, Window};
+use bevy_window::{PrimaryWindow, Window, WindowResolution};
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -53,7 +53,9 @@ pub fn text_system(
         Query<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
-    let resolution = windows.get(primary_window.window.expect("Primary window should exist")).expect("Primary windows should have a valid WindowResolution component");
+    let resolution = windows
+        .get(primary_window.window.expect("Primary window should exist"))
+        .expect("Primary windows should have a valid WindowResolution component");
     let scale_factor = resolution.scale_factor();
 
     let inv_scale_factor = 1. / scale_factor;

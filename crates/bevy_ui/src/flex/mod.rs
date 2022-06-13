@@ -12,7 +12,7 @@ use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowScaleFactorChanged, PrimaryWindow, WindowResolution};
+use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use stretch::{number::Number, Stretch};
 
@@ -146,8 +146,12 @@ without UI components as a child of an entity with UI components, results may be
                 *node,
                 stretch::style::Style {
                     size: stretch::geometry::Size {
-                        width: stretch::style::Dimension::Points(window_resolution.physical_width() as f32),
-                        height: stretch::style::Dimension::Points(window_resolution.physical_height() as f32),
+                        width: stretch::style::Dimension::Points(
+                            window_resolution.physical_width() as f32,
+                        ),
+                        height: stretch::style::Dimension::Points(
+                            window_resolution.physical_height() as f32,
+                        ),
                     },
                     ..Default::default()
                 },
@@ -220,7 +224,9 @@ pub fn flex_node_system(
     }
 
     // assume one window for time being...
-    let (_, primary_resolution) = windows.get(primary_window.window.expect("Primary window should exist")).expect("Primary windows should have a valid WindowResolution component");
+    let (_, primary_resolution) = windows
+        .get(primary_window.window.expect("Primary window should exist"))
+        .expect("Primary windows should have a valid WindowResolution component");
     let logical_to_physical_factor = primary_resolution.scale_factor();
 
     if scale_factor_events.iter().next_back().is_some() {

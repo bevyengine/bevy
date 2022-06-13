@@ -4,9 +4,10 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
+    prelude::With,
     query::Changed,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut}, prelude::With,
+    system::{Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
@@ -14,7 +15,7 @@ use bevy_render::{texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
-use bevy_window::{WindowScaleFactorChanged, PrimaryWindow, WindowResolution, Window};
+use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 
 use crate::{
     DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, VerticalAlign,
@@ -70,7 +71,9 @@ pub fn extract_text2d_sprite(
 ) {
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
 
-    let resolution = windows.get(primary_window.window.expect("Primary window should exist")).expect("Primary windows should have a valid WindowResolution component");
+    let resolution = windows
+        .get(primary_window.window.expect("Primary window should exist"))
+        .expect("Primary windows should have a valid WindowResolution component");
     let scale_factor = resolution.scale_factor() as f32;
 
     for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
@@ -152,7 +155,9 @@ pub fn update_text2d_layout(
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.iter().last().is_some();
 
-    let resolution = windows.get(primary_window.window.expect("Primary window should exist")).expect("Primary windows should have a valid WindowResolution component");
+    let resolution = windows
+        .get(primary_window.window.expect("Primary window should exist"))
+        .expect("Primary windows should have a valid WindowResolution component");
     let scale_factor = resolution.scale_factor();
 
     for (entity, text_changed, text, maybe_bounds, mut calculated_size) in text_query.iter_mut() {

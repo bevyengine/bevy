@@ -2,7 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_window::{PrimaryWindow, WindowResolution, Window};
+use bevy_window::{PrimaryWindow, Window, WindowResolution};
 pub use pipeline::*;
 pub use render_pass::*;
 
@@ -287,7 +287,9 @@ pub fn extract_text_uinodes(
 ) {
     let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
 
-    let resolution = windows.get(primary_window.window.expect("Primary window should exist")).expect("Primary windows should have a valid WindowResolution component");
+    let resolution = windows
+        .get(primary_window.window.expect("Primary window should exist"))
+        .expect("Primary windows should have a valid WindowResolution component");
     let scale_factor = resolution.scale_factor() as f32;
 
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {

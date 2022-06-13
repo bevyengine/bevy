@@ -416,6 +416,10 @@ impl WindowResolution {
         self.backend_scale_factor = scale_factor;
     }
 
+    pub fn update_scale_factor_override(&mut self, scale_factor_override: Option<f64>) {
+        self.scale_factor_override = scale_factor_override;
+    }
+
     #[allow(missing_docs)]
     #[inline]
     pub fn update_actual_size_from_backend(&mut self, physical_width: u32, physical_height: u32) {

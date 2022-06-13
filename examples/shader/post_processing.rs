@@ -20,7 +20,8 @@ use bevy::{
         renderer::RenderDevice,
         view::RenderLayers,
     },
-    sprite::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle}, window::{PrimaryWindow, WindowResolution},
+    sprite::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle},
+    window::{PrimaryWindow, WindowResolution},
 };
 
 fn main() {
@@ -47,7 +48,11 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
 ) {
     let primary_resolution = windows
-        .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
+        .get(
+            primary_window
+                .window
+                .expect("Should have a valid PrimaryWindow"),
+        )
         .expect("PrimaryWindow should have a valid Resolution component");
 
     let size = Extent3d {

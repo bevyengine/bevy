@@ -118,15 +118,15 @@ impl Command for SetTitleCommand {
 
 // TODO: Docs
 #[derive(Debug)]
-pub struct SetScaleFactorCommand {
+pub struct SetScaleFactorOverrideCommand {
     pub entity: Entity,
     pub scale_factor: Option<f64>,
 }
 
-impl Command for SetScaleFactorCommand {
+impl Command for SetScaleFactorOverrideCommand {
     fn write(self, world: &mut World) {
         if let Some(_) = world.get::<Window>(self.entity) {
-            let mut event = world.resource_mut::<Events<SetScaleFactorCommand>>();
+            let mut event = world.resource_mut::<Events<SetScaleFactorOverrideCommand>>();
             event.send(self);
         } else {
             panic!("Trying to enact window commands on an entity without a window-component");
@@ -510,7 +510,7 @@ impl<'w, 's, 'a> WindowCommands<'w, 's, 'a> {
         // }
 
         // self.scale_factor_override = scale_factor;
-        self.commands.add(SetScaleFactorCommand {
+        self.commands.add(SetScaleFactorOverrideCommand {
             entity: self.entity,
             scale_factor,
         });

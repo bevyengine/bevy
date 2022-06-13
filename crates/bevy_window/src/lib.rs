@@ -79,7 +79,7 @@ impl Plugin for WindowPlugin {
             .add_event::<CreateWindowCommand>()
             .add_event::<SetWindowModeCommand>()
             .add_event::<SetTitleCommand>()
-            .add_event::<SetScaleFactorCommand>()
+            .add_event::<SetScaleFactorOverrideCommand>()
             .add_event::<SetResolutionCommand>()
             .add_event::<SetPresentModeCommand>()
             .add_event::<SetResizableCommand>()

@@ -17,7 +17,8 @@ fn grab_mouse(
     mouse: Res<Input<MouseButton>>,
     key: Res<Input<KeyCode>>,
 ) {
-    let mut window_commands = commands.window(primary_window.window.expect("Primary window should exist"));
+    let mut window_commands =
+        commands.window(primary_window.window.expect("Primary window should exist"));
     if mouse.just_pressed(MouseButton::Left) {
         window_commands.set_cursor_visibility(false);
         window_commands.set_cursor_lock_mode(true);

@@ -6,7 +6,7 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     time::FixedTimestep,
-    window::{PresentMode, WindowResolution, PrimaryWindow},
+    window::{PresentMode, PrimaryWindow, WindowResolution},
 };
 use rand::{thread_rng, Rng};
 
@@ -70,8 +70,12 @@ fn scheduled_spawner(
     bird_texture: Res<BirdTexture>,
 ) {
     let primary_resolution = windows
-    .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
-    .expect("PrimaryWindow should have a valid Resolution component");
+        .get(
+            primary_window
+                .window
+                .expect("Should have a valid PrimaryWindow"),
+        )
+        .expect("PrimaryWindow should have a valid Resolution component");
 
     if scheduled.wave > 0 {
         spawn_birds(
@@ -173,9 +177,12 @@ fn mouse_handler(
     mut counter: ResMut<BevyCounter>,
 ) {
     let primary_resolution = windows
-        .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
+        .get(
+            primary_window
+                .window
+                .expect("Should have a valid PrimaryWindow"),
+        )
         .expect("PrimaryWindow should have a valid Resolution component");
-
 
     if mouse_button_input.just_released(MouseButton::Left) {
         let mut rng = thread_rng();
@@ -243,10 +250,14 @@ fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Trans
 fn collision_system(
     primary_window: Res<PrimaryWindow>,
     windows: Query<&WindowResolution, With<Window>>,
-    mut bird_query: Query<(&mut Bird, &Transform)>
+    mut bird_query: Query<(&mut Bird, &Transform)>,
 ) {
     let primary_resolution = windows
-        .get(primary_window.window.expect("Should have a valid PrimaryWindow"))
+        .get(
+            primary_window
+                .window
+                .expect("Should have a valid PrimaryWindow"),
+        )
         .expect("PrimaryWindow should have a valid Resolution component");
 
     let half_width = primary_resolution.width() as f32 * 0.5;

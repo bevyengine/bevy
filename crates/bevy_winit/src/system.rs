@@ -7,15 +7,15 @@ use bevy_ecs::{
 use bevy_math::IVec2;
 use bevy_utils::tracing::error;
 use bevy_window::{
-    CloseWindowCommand, CreateWindow, CursorIcon,
-    SetCursorIconCommand, SetCursorLockModeCommand, SetCursorPositionCommand,
-    SetCursorVisibilityCommand, SetDecorationsCommand, SetMaximizedCommand, SetMinimizedCommand,
-    SetPositionCommand, SetPresentModeCommand, SetResizableCommand, SetResizeConstraintsCommand,
-    SetResolutionCommand, SetScaleFactorCommand, SetTitleCommand, SetWindowModeCommand, Window,
-    WindowBundle, WindowCanvas, WindowClosed, WindowCreated, WindowCurrentlyFocused, WindowCursor,
+    CloseWindowCommand, CreateWindow, CursorIcon, SetCursorIconCommand, SetCursorLockModeCommand,
+    SetCursorPositionCommand, SetCursorVisibilityCommand, SetDecorationsCommand,
+    SetMaximizedCommand, SetMinimizedCommand, SetPositionCommand, SetPresentModeCommand,
+    SetResizableCommand, SetResizeConstraintsCommand, SetResolutionCommand,
+    SetScaleFactorOverrideCommand, SetTitleCommand, SetWindowModeCommand, Window, WindowBundle,
+    WindowCanvas, WindowClosed, WindowCreated, WindowCurrentlyFocused, WindowCursor,
     WindowCursorPosition, WindowDecorated, WindowHandle, WindowMaximized, WindowMinimized,
-    WindowModeComponent, WindowPosition, WindowPresentation, WindowResizable, WindowResolution, WindowScaleFactorChanged, WindowTitle,
-    WindowTransparent,
+    WindowModeComponent, WindowPosition, WindowPresentation, WindowResizable, WindowResolution,
+    WindowScaleFactorChanged, WindowTitle, WindowTransparent,
 };
 use raw_window_handle::HasRawWindowHandle;
 use winit::{
@@ -383,7 +383,6 @@ pub(crate) fn update_present_mode(
     mut command_reader: EventReader<SetPresentModeCommand>,
 ) {
     for event in command_reader.iter() {
-
         // Update Winit
         // Present mode is only relevant for the renderer, so no need to do anything to Winit at this point
 
@@ -398,21 +397,21 @@ pub(crate) fn update_present_mode(
 }
 
 // TODO: Docs
-pub(crate) fn update_scale_factor(
+pub(crate) fn update_scale_factor_override(
     mut components: Query<&mut WindowResolution, With<Window>>,
     mut window_dpi_changed_events: EventWriter<WindowScaleFactorChanged>,
-    mut command_reader: EventReader<SetScaleFactorCommand>,
+    mut command_reader: EventReader<SetScaleFactorOverrideCommand>,
 ) {
     for event in command_reader.iter() {
-
-        window_dpi_changed_events.send(WindowScaleFactorChanged {
-            entity: event.entity,
-            scale_factor: event.scale_factor,
-        });
+        // TODO: Implement and verify behaviour here
+        // window_dpi_changed_events.send(WindowScaleFactorChanged {
+        //     entity: event.entity,
+        //     scale_factor: event.scale_factor,
+        // });
 
         if let Ok(mut window_resolution) = components.get_mut(event.entity) {
             // TODO: Should this be scale_factor_override instead?
-            window_resolution.update_scale_factor_from_backend(event.scale_factor);
+            window_resolution.update_scale_factor_override(event.scale_factor);
         } else {
             // TODO: Helpful panic comment
             panic!();

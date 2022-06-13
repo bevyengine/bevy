@@ -12,9 +12,10 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
+    prelude::With,
     query::Added,
     reflect::ReflectComponent,
-    system::{Commands, ParamSet, Query, Res}, prelude::With,
+    system::{Commands, ParamSet, Query, Res},
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -104,7 +105,6 @@ impl Default for Camera {
 }
 
 impl Camera {
-
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
     /// will be the size of that custom viewport. Otherwise it will default to the full logical size of
     /// the current [`RenderTarget`].
