@@ -4,12 +4,10 @@ use std::{
 };
 
 use bevy::{
-    ecs::{
-        event::{Event, Events},
-    },
+    ecs::event::{Event, Events},
     input::InputPlugin,
     input::{keyboard::KeyboardInput, ButtonState},
-    prelude::{App},
+    prelude::App,
     prelude::{EventReader, KeyCode},
     window::{ReceivedCharacter, WindowId, WindowPlugin},
 };
