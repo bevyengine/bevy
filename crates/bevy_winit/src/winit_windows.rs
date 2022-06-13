@@ -51,7 +51,7 @@ impl WinitWindows {
 
                 use bevy_window::WindowPosition::*;
                 match position {
-                    Default => { /* Window manager will handle position */ }
+                    Automatic => { /* Window manager will handle position */ }
                     Centered => {
                         if let Some(monitor) = event_loop.primary_monitor() {
                             let screen_size = monitor.size();

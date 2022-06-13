@@ -729,13 +729,15 @@ impl Window {
 /// Defines where window should be placed at on creation.
 #[derive(Debug, Clone)]
 pub enum WindowPosition {
-    /// Position will be set by window manager
+    /// Position will be set by the window manager
     Automatic,
     /// Window will be centered on the primary monitor
     ///
     /// Note that this does not account for window decorations.
     Centered,
-    /// Window will be placed at specified position
+    /// The window's top-left corner will be placed at the specified position (in pixels)
+    ///
+    /// (0,0) represents top-left corner of screen space.
     At(Vec2),
 }
 
@@ -822,7 +824,7 @@ impl Default for WindowDescriptor {
             title: "app".to_string(),
             width: 1280.,
             height: 720.,
-            position: WindowPosition::Default,
+            position: WindowPosition::Automatic,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
             present_mode: PresentMode::Fifo,
