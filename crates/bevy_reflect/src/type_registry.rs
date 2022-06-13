@@ -226,7 +226,7 @@ impl ErasedNonNull {
                 &val as *const *const T as *const u8,
                 storage.as_mut_ptr() as *mut u8,
                 size,
-            )
+            );
         };
         Self {
             storage,
