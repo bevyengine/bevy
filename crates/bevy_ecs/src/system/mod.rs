@@ -61,7 +61,9 @@
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
 //! - [`Bundles`](crate::bundle::Bundles) (Provides Bundles metadata)
-//! - [`Components`](crate::component::Components) (Provides Components metadata)
+//! - [`WorldData`](crate::component::WorldData) (Provides metadata on components and resources)
+//! - [`Components`](crate::system::Components) (Provides Component metadata)
+//! - [`Resources`](crate::system::Resources) (Provides Resource metadata)
 //! - [`Entities`](crate::entity::Entities) (Provides Entities metadata)
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
@@ -104,14 +106,14 @@ mod tests {
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
-        component::{Component, Components},
+        component::{Component, WorldData},
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            RemovedComponents, Res, ResMut, System, SystemState,
+            Commands, Components, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut,
+            ParamSet, Query, RemovedComponents, Res, ResMut, Resources, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -517,7 +519,49 @@ mod tests {
     }
 
     #[test]
-    fn removal_tracking() {
+    fn iterate_components() {
+        let mut world = World::default();
+        world.insert_resource(Vec::<String>::new());
+
+        world.spawn().insert(A).insert(B);
+
+        world.spawn().insert(A).insert(C);
+
+        fn sys(components: Components, mut names: ResMut<Vec<String>>) {
+            for component_info in &components {
+                names.push(component_info.name().to_string());
+            }
+        }
+
+        run_system(&mut world, sys);
+        assert_eq!(world.get_resource::<Vec<String>>().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn iterate_resources() {
+        let mut world = World::default();
+        world.insert_resource(Vec::<String>::new());
+        world.insert_resource(42usize);
+
+        world.spawn().insert(A).insert(B);
+
+        world.spawn().insert(A).insert(C);
+
+        fn sys(resources: Resources, mut names: ResMut<Vec<String>>) {
+            for resource_info in &resources {
+                names.push(resource_info.name().to_string());
+            }
+        }
+
+        run_system(&mut world, sys);
+        assert!(world
+            .get_resource::<Vec<String>>()
+            .unwrap()
+            .contains(&"usize".to_string()),);
+    }
+
+    #[test]
+    fn remove_tracking() {
         let mut world = World::new();
 
         let entity_to_despawn = world.spawn().insert(W(1)).id();
@@ -591,7 +635,7 @@ mod tests {
         world.spawn().insert_bundle((W(42), W(true)));
         fn sys(
             archetypes: &Archetypes,
-            components: &Components,
+            components: &WorldData,
             entities: &Entities,
             bundles: &Bundles,
             query: Query<Entity, With<W<i32>>>,
@@ -611,7 +655,7 @@ mod tests {
                 for component_id in &bundle_components {
                     assert!(
                         components.get_info(*component_id).is_some(),
-                        "every bundle component exists in Components"
+                        "every bundle component exists in WorldData"
                     );
                 }
                 assert_eq!(
@@ -641,11 +685,8 @@ mod tests {
         y.initialize(&mut world);
 
         let conflicts = x.component_access().get_conflicts(y.component_access());
-        let b_id = world
-            .components()
-            .get_resource_id(TypeId::of::<B>())
-            .unwrap();
-        let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
+        let b_id = world.data().get_resource_id(TypeId::of::<B>()).unwrap();
+        let d_id = world.data().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id]);
     }
 

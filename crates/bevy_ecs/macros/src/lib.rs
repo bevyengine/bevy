@@ -144,12 +144,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        /// SAFE: DataId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
-                components: &mut #ecs_path::component::Components,
+                components: &mut #ecs_path::component::WorldData,
                 storages: &mut #ecs_path::storage::Storages,
-            ) -> Vec<#ecs_path::component::ComponentId> {
+            ) -> Vec<#ecs_path::component::DataId> {
                 let mut component_ids = Vec::with_capacity(#field_len);
                 #(#field_component_ids)*
                 component_ids
@@ -219,7 +219,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
 
-            // SAFE: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+            // SAFE: Relevant parameter DataId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamState for ParamSetState<(#(#param_fetch,)*)>

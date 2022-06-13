@@ -54,7 +54,7 @@ mod tests {
     use crate::prelude::Or;
     use crate::{
         bundle::Bundle,
-        component::{Component, ComponentId},
+        component::{Component, DataId},
         entity::Entity,
         query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
         world::{Mut, World},
@@ -138,7 +138,7 @@ mod tests {
         }
 
         assert_eq!(
-            <Foo as Bundle>::component_ids(&mut world.components, &mut world.storages),
+            <Foo as Bundle>::component_ids(&mut world.data, &mut world.storages),
             vec![
                 world.init_component::<TableStored>(),
                 world.init_component::<SparseStored>(),
@@ -186,7 +186,7 @@ mod tests {
         }
 
         assert_eq!(
-            <Nested as Bundle>::component_ids(&mut world.components, &mut world.storages),
+            <Nested as Bundle>::component_ids(&mut world.data, &mut world.storages),
             vec![
                 world.init_component::<A>(),
                 world.init_component::<TableStored>(),
@@ -1009,10 +1009,7 @@ mod tests {
         assert!(!world.is_resource_changed::<i32>());
 
         world.insert_resource(123);
-        let resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<i32>())
-            .unwrap();
+        let resource_id = world.data().get_resource_id(TypeId::of::<i32>()).unwrap();
         let archetype_component_id = world
             .archetypes()
             .resource()
@@ -1071,10 +1068,7 @@ mod tests {
             "other resources are unaffected"
         );
 
-        let current_resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<i32>())
-            .unwrap();
+        let current_resource_id = world.data().get_resource_id(TypeId::of::<i32>()).unwrap();
         assert_eq!(
             resource_id, current_resource_id,
             "resource id does not change after removing / re-adding"
@@ -1290,14 +1284,14 @@ mod tests {
         let mut world = World::new();
         let query = world.query_filtered::<&mut A, Changed<B>>();
 
-        let mut expected = FilteredAccess::<ComponentId>::default();
-        let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
-        let b_id = world.components.get_id(TypeId::of::<B>()).unwrap();
+        let mut expected = FilteredAccess::<DataId>::default();
+        let a_id = world.data.get_id(TypeId::of::<A>()).unwrap();
+        let b_id = world.data.get_id(TypeId::of::<B>()).unwrap();
         expected.add_write(a_id);
         expected.add_read(b_id);
         assert!(
             query.component_access.eq(&expected),
-            "ComponentId access from query fetch and query filter should be combined"
+            "DataId access from query fetch and query filter should be combined"
         );
     }
 

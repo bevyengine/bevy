@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks},
+    component::{ComponentTicks, DataId, DataInfo},
     entity::Entity,
     storage::Column,
 };
@@ -108,7 +108,7 @@ pub struct ComponentSparseSet {
 }
 
 impl ComponentSparseSet {
-    pub fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
+    pub fn new(component_info: &DataInfo, capacity: usize) -> Self {
         Self {
             dense: Column::with_capacity(component_info, capacity),
             entities: Vec::with_capacity(capacity),
@@ -137,7 +137,7 @@ impl ComponentSparseSet {
     ///
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
-    /// inside the [`ComponentInfo`] given when constructing this sparse set.
+    /// inside the [`DataInfo`] given when constructing this sparse set.
     pub unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity.id()) {
             #[cfg(debug_assertions)]
@@ -432,16 +432,16 @@ macro_rules! impl_sparse_set_index {
 
 impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
-/// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
+/// A collection of [`ComponentSparseSet`] storages, indexed by [`DataId`]
 ///
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 #[derive(Default)]
 pub struct SparseSets {
-    sets: SparseSet<ComponentId, ComponentSparseSet>,
+    sets: SparseSet<DataId, ComponentSparseSet>,
 }
 
 impl SparseSets {
-    pub fn get_or_insert(&mut self, component_info: &ComponentInfo) -> &mut ComponentSparseSet {
+    pub fn get_or_insert(&mut self, component_info: &DataInfo) -> &mut ComponentSparseSet {
         if !self.sets.contains(component_info.id()) {
             self.sets.insert(
                 component_info.id(),
@@ -452,11 +452,11 @@ impl SparseSets {
         self.sets.get_mut(component_info.id()).unwrap()
     }
 
-    pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
+    pub fn get(&self, component_id: DataId) -> Option<&ComponentSparseSet> {
         self.sets.get(component_id)
     }
 
-    pub fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
+    pub fn get_mut(&mut self, component_id: DataId) -> Option<&mut ComponentSparseSet> {
         self.sets.get_mut(component_id)
     }
 

@@ -271,7 +271,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 }
             }
 
-            fn update_component_access(&self, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
+            fn update_component_access(&self, _access: &mut #path::query::FilteredAccess<#path::component::DataId>) {
                 #(self.#field_idents.update_component_access(_access);)*
             }
 
@@ -279,7 +279,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(self.#field_idents.update_archetype_component_access(_archetype, _access);)*
             }
 
-            fn matches_component_set(&self, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
+            fn matches_component_set(&self, _set_contains_id: &impl Fn(#path::component::DataId) -> bool) -> bool {
                 true #(&& self.#field_idents.matches_component_set(_set_contains_id))*
 
             }

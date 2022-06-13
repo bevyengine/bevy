@@ -1,6 +1,6 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    component::ComponentId,
+    component::DataId,
     query::Access,
     system::{IntoSystem, System},
     world::World,
@@ -48,7 +48,7 @@ pub struct ChainSystem<SystemA, SystemB> {
     system_a: SystemA,
     system_b: SystemB,
     name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
+    component_access: Access<DataId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
@@ -64,7 +64,7 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         &self.archetype_component_access
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
+    fn component_access(&self) -> &Access<DataId> {
         &self.component_access
     }
 
