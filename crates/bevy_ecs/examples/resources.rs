@@ -27,7 +27,7 @@ fn main() {
 }
 
 // Counter resource to be increased and read by systems
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 struct Counter {
     pub value: i32,
 }

@@ -958,15 +958,22 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::component::Component;
+    use crate::system::Resource;
+
     #[derive(Component)]
     struct W<T>(T);
+    #[derive(Resource)]
+    struct R(usize);
+
+    #[derive(Resource, Default)]
+    struct EntityCount(Vec<usize>);
 
     fn make_exclusive(tag: usize) -> impl FnMut(&mut World) {
-        move |world| world.resource_mut::<Vec<usize>>().push(tag)
+        move |world| world.resource_mut::<EntityCount>().0.push(tag)
     }
 
-    fn make_parallel(tag: usize) -> impl FnMut(ResMut<Vec<usize>>) {
-        move |mut resource: ResMut<Vec<usize>>| resource.push(tag)
+    fn make_parallel(tag: usize) -> impl FnMut(ResMut<EntityCount>) {
+        move |mut resource: ResMut<EntityCount>| resource.0.push(tag)
     }
 
     fn every_other_time(mut has_ran: Local<bool>) -> ShouldRun {
@@ -981,48 +988,48 @@ mod tests {
     #[test]
     fn insertion_points() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(0).exclusive_system().at_start())
             .with_system(make_parallel(1))
             .with_system(make_exclusive(2).exclusive_system().before_commands())
             .with_system(make_exclusive(3).exclusive_system().at_end());
         stage.run(&mut world);
-        assert_eq!(*world.resource_mut::<Vec<usize>>(), vec![0, 1, 2, 3]);
+        assert_eq!(world.resource_mut::<EntityCount>().0, vec![0, 1, 2, 3]);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 0, 1, 2, 3]
         );
 
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(2).exclusive_system().before_commands())
             .with_system(make_exclusive(3).exclusive_system().at_end())
             .with_system(make_parallel(1))
             .with_system(make_exclusive(0).exclusive_system().at_start());
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 3]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 3]);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 0, 1, 2, 3]
         );
 
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(2).exclusive_system().before_commands())
             .with_system(make_parallel(3).exclusive_system().at_end())
             .with_system(make_parallel(1))
             .with_system(make_parallel(0).exclusive_system().at_start());
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 3]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 3]);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 0, 1, 2, 3]
         );
     }
@@ -1030,7 +1037,7 @@ mod tests {
     #[test]
     fn exclusive_after() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(1).exclusive_system().label("1").after("0"))
             .with_system(make_exclusive(2).exclusive_system().after("1"))
@@ -1038,13 +1045,13 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
     }
 
     #[test]
     fn exclusive_before() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(1).exclusive_system().label("1").before("2"))
             .with_system(make_exclusive(2).exclusive_system().label("2"))
@@ -1052,13 +1059,13 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
     }
 
     #[test]
     fn exclusive_mixed() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(2).exclusive_system().label("2"))
             .with_system(make_exclusive(1).exclusive_system().after("0").before("2"))
@@ -1069,7 +1076,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1077,7 +1084,7 @@ mod tests {
     #[test]
     fn exclusive_multiple_labels() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(
                 make_exclusive(1)
@@ -1095,9 +1102,9 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
 
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(2).exclusive_system().after("01").label("2"))
             .with_system(make_exclusive(1).exclusive_system().label("01").after("0"))
@@ -1108,11 +1115,11 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
 
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(2).exclusive_system().label("234").label("2"))
             .with_system(
@@ -1134,7 +1141,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1142,7 +1149,7 @@ mod tests {
     #[test]
     fn exclusive_redundant_constraints() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(
                 make_exclusive(2)
@@ -1173,7 +1180,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1181,7 +1188,7 @@ mod tests {
     #[test]
     fn exclusive_mixed_across_sets() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(2).exclusive_system().label("2"))
             .with_system_set(
@@ -1195,7 +1202,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1203,7 +1210,7 @@ mod tests {
     #[test]
     fn exclusive_run_criteria() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(0).exclusive_system().before("1"))
             .with_system_set(
@@ -1218,7 +1225,7 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 0, 2, 0, 1, 2, 0, 2]
         );
     }
@@ -1227,7 +1234,7 @@ mod tests {
     #[should_panic]
     fn exclusive_cycle_1() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(0).exclusive_system().label("0").after("0"));
         stage.run(&mut world);
@@ -1237,7 +1244,7 @@ mod tests {
     #[should_panic]
     fn exclusive_cycle_2() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(0).exclusive_system().label("0").after("1"))
             .with_system(make_exclusive(1).exclusive_system().label("1").after("0"));
@@ -1248,7 +1255,7 @@ mod tests {
     #[should_panic]
     fn exclusive_cycle_3() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_exclusive(0).exclusive_system().label("0"))
             .with_system(make_exclusive(1).exclusive_system().after("0").before("2"))
@@ -1259,7 +1266,7 @@ mod tests {
     #[test]
     fn parallel_after() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(1).after("0").label("1"))
             .with_system(make_parallel(2).after("1"))
@@ -1267,13 +1274,13 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
     }
 
     #[test]
     fn parallel_before() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(1).label("1").before("2"))
             .with_system(make_parallel(2).label("2"))
@@ -1281,13 +1288,13 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
     }
 
     #[test]
     fn parallel_mixed() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(2).label("2"))
             .with_system(make_parallel(1).after("0").before("2"))
@@ -1298,7 +1305,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1306,7 +1313,7 @@ mod tests {
     #[test]
     fn parallel_multiple_labels() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(1).label("first").after("0"))
             .with_system(make_parallel(2).after("first"))
@@ -1314,9 +1321,9 @@ mod tests {
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 2, 0, 1, 2]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
 
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(2).after("01").label("2"))
             .with_system(make_parallel(1).label("01").after("0"))
@@ -1327,11 +1334,11 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
 
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(2).label("234").label("2"))
             .with_system(make_parallel(1).before("234").after("0"))
@@ -1342,7 +1349,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1350,7 +1357,7 @@ mod tests {
     #[test]
     fn parallel_redundant_constraints() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(
                 make_parallel(2)
@@ -1376,7 +1383,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1384,7 +1391,7 @@ mod tests {
     #[test]
     fn parallel_mixed_across_sets() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(2).label("2"))
             .with_system_set(
@@ -1398,7 +1405,7 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
         );
     }
@@ -1407,7 +1414,7 @@ mod tests {
     fn parallel_run_criteria() {
         let mut world = World::new();
 
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(
                 make_parallel(0)
@@ -1420,9 +1427,9 @@ mod tests {
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1, 1, 0, 1, 1]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 1, 0, 1, 1]);
 
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(0).before("1"))
             .with_system_set(
@@ -1437,12 +1444,12 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 0, 2, 0, 1, 2, 0, 2]
         );
 
         // Reusing criteria.
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         let mut stage = SystemStage::parallel()
             .with_system_run_criteria(every_other_time.label("every other time"))
             .with_system(make_parallel(0).before("1"))
@@ -1464,13 +1471,13 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 0, 3, 0, 1, 2, 3, 0, 3]
         );
         assert_eq!(stage.run_criteria.len(), 1);
 
         // Piping criteria.
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         fn eot_piped(input: In<ShouldRun>, has_ran: Local<bool>) -> ShouldRun {
             if let ShouldRun::Yes | ShouldRun::YesAndCheckAgain = input.0 {
                 every_other_time(has_ran)
@@ -1505,13 +1512,13 @@ mod tests {
             stage.run(&mut world);
         }
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 4, 0, 0, 1, 0, 0, 1, 2, 3, 4, 0, 0, 1, 0, 0, 1, 2, 3, 4]
         );
         assert_eq!(stage.run_criteria.len(), 3);
 
         // Discarding extra criteria with matching labels.
-        world.resource_mut::<Vec<usize>>().clear();
+        world.resource_mut::<EntityCount>().0.clear();
         let mut stage =
             SystemStage::parallel()
                 .with_system(make_parallel(0).before("1"))
@@ -1528,7 +1535,7 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
-            *world.resource::<Vec<usize>>(),
+            world.resource::<EntityCount>().0,
             vec![0, 1, 2, 3, 0, 3, 0, 1, 2, 3, 0, 3]
         );
         assert_eq!(stage.run_criteria.len(), 1);
@@ -1548,7 +1555,7 @@ mod tests {
     #[should_panic]
     fn parallel_cycle_1() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel().with_system(make_parallel(0).label("0").after("0"));
         stage.run(&mut world);
     }
@@ -1557,7 +1564,7 @@ mod tests {
     #[should_panic]
     fn parallel_cycle_2() {
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(0).label("0").after("1"))
             .with_system(make_parallel(1).label("1").after("0"));
@@ -1569,7 +1576,7 @@ mod tests {
     fn parallel_cycle_3() {
         let mut world = World::new();
 
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(make_parallel(0).label("0"))
             .with_system(make_parallel(1).after("0").before("2"))
@@ -1606,7 +1613,7 @@ mod tests {
         }
 
         fn empty() {}
-        fn resource(_: ResMut<usize>) {}
+        fn resource(_: ResMut<R>) {}
         fn component(_: Query<&mut W<f32>>) {}
 
         let mut world = World::new();
@@ -1976,47 +1983,41 @@ mod tests {
 
     #[test]
     fn archetype_update_single_executor() {
-        fn query_count_system(
-            mut entity_count: ResMut<usize>,
-            query: Query<crate::entity::Entity>,
-        ) {
-            *entity_count = query.iter().count();
+        fn query_count_system(mut entity_count: ResMut<R>, query: Query<crate::entity::Entity>) {
+            *entity_count = R(query.iter().count());
         }
 
         let mut world = World::new();
-        world.insert_resource(0_usize);
+        world.insert_resource(R(0));
         let mut stage = SystemStage::single(query_count_system);
 
         let entity = world.spawn().insert_bundle(()).id();
         stage.run(&mut world);
-        assert_eq!(*world.resource::<usize>(), 1);
+        assert_eq!(world.resource::<R>().0, 1);
 
         world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
-        assert_eq!(*world.resource::<usize>(), 1);
+        assert_eq!(world.resource::<R>().0, 1);
     }
 
     #[test]
     fn archetype_update_parallel_executor() {
-        fn query_count_system(
-            mut entity_count: ResMut<usize>,
-            query: Query<crate::entity::Entity>,
-        ) {
-            *entity_count = query.iter().count();
+        fn query_count_system(mut entity_count: ResMut<R>, query: Query<crate::entity::Entity>) {
+            *entity_count = R(query.iter().count());
         }
 
         let mut world = World::new();
-        world.insert_resource(0_usize);
+        world.insert_resource(R(0));
         let mut stage = SystemStage::parallel();
         stage.add_system(query_count_system);
 
         let entity = world.spawn().insert_bundle(()).id();
         stage.run(&mut world);
-        assert_eq!(*world.resource::<usize>(), 1);
+        assert_eq!(world.resource::<R>().0, 1);
 
         world.get_entity_mut(entity).unwrap().insert(W(1));
         stage.run(&mut world);
-        assert_eq!(*world.resource::<usize>(), 1);
+        assert_eq!(world.resource::<R>().0, 1);
     }
 
     #[test]
@@ -2038,12 +2039,12 @@ mod tests {
             commands.spawn().insert(Foo);
         }
 
-        fn count_entities(query: Query<&Foo>, mut res: ResMut<Vec<usize>>) {
-            res.push(query.iter().len());
+        fn count_entities(query: Query<&Foo>, mut res: ResMut<EntityCount>) {
+            res.0.push(query.iter().len());
         }
 
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
             .with_system(spawn_entity.label("spawn"))
             .with_system_set(
@@ -2055,7 +2056,7 @@ mod tests {
         stage.run(&mut world);
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 2]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 2]);
     }
 
     #[test]
@@ -2077,12 +2078,12 @@ mod tests {
             commands.spawn().insert(Foo);
         }
 
-        fn count_entities(query: Query<&Foo>, mut res: ResMut<Vec<usize>>) {
-            res.push(query.iter().len());
+        fn count_entities(query: Query<&Foo>, mut res: ResMut<EntityCount>) {
+            res.0.push(query.iter().len());
         }
 
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<EntityCount>();
         let mut stage_spawn = SystemStage::parallel().with_system(spawn_entity);
         let mut stage_count = SystemStage::parallel()
             .with_run_criteria(even_number_of_entities_critiera)
@@ -2095,6 +2096,6 @@ mod tests {
         stage_spawn.run(&mut world);
         stage_count.run(&mut world);
         stage_spawn.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 2]);
+        assert_eq!(world.resource::<EntityCount>().0, vec![0, 2]);
     }
 }

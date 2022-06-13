@@ -40,7 +40,7 @@ fn main() {
 }
 
 // This struct will be used as a Resource keeping track of the total amount of spawned entities
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 struct EntityCounter {
     pub value: i32,
 }

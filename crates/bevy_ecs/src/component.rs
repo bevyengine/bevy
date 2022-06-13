@@ -1,6 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
-use crate::{
+pub use crate::{
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
     system::Resource,
