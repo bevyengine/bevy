@@ -40,8 +40,8 @@ pub mod prelude {
         },
         system::{
             Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
-            NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut, System,
-            SystemParamFunction,
+            NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut,
+            Resource, System, SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };
