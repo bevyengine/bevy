@@ -340,6 +340,8 @@ mod test {
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
         let mut world = World::default();
+        // This test is run on a single thread in order to avoid breaking the global task pool by panicking
+        // This fixes the flaky tests reported in https://github.com/bevyengine/bevy/issues/4996
         let mut update_stage = SystemStage::single_threaded();
 
         update_stage.add_system(parent_update_system);
