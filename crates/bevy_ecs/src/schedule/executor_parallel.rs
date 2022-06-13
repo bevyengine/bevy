@@ -4,11 +4,11 @@ use crate::{
     schedule::{ParallelSystemContainer, ParallelSystemExecutor},
     world::World,
 };
-use event_listener::Event;
 use async_channel::{Receiver, Sender};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
+use event_listener::Event;
 use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
