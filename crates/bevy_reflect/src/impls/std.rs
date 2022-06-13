@@ -5,6 +5,7 @@ use crate::{
     ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, ValueInfo,
 };
 
+use crate::serde::Serializable;
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, HashMap, HashSet};
@@ -15,7 +16,6 @@ use std::{
     hash::{Hash, Hasher},
     ops::Range,
 };
-use crate::serde::Serializable;
 
 impl_reflect_value!(bool(Debug, Hash, PartialEq, Deserialize));
 impl_reflect_value!(char(Debug, Hash, PartialEq, Deserialize));
@@ -329,9 +329,9 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Typed for HashMap<K, V> {
 }
 
 impl<K, V> GetTypeRegistration for HashMap<K, V>
-    where
-        K: Reflect + Clone + Eq + Hash + for<'de> Deserialize<'de>,
-        V: Reflect + Clone + for<'de> Deserialize<'de>,
+where
+    K: Reflect + Clone + Eq + Hash + for<'de> Deserialize<'de>,
+    V: Reflect + Clone + for<'de> Deserialize<'de>,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
