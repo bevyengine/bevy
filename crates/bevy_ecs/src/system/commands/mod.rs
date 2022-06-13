@@ -854,7 +854,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands},
+        system::{CommandQueue, Commands, Resource},
         world::World,
     };
     use std::sync::{
@@ -881,7 +881,7 @@ mod tests {
         }
     }
 
-    #[derive(Component)]
+    #[derive(Component, Resource)]
     struct W<T>(T);
 
     fn simple_command(world: &mut World) {
@@ -992,21 +992,21 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.insert_resource(123);
-            commands.insert_resource(456.0);
+            commands.insert_resource(W(123i32));
+            commands.insert_resource(W(456.0f64));
         }
 
         queue.apply(&mut world);
-        assert!(world.contains_resource::<i32>());
-        assert!(world.contains_resource::<f64>());
+        assert!(world.contains_resource::<W<i32>>());
+        assert!(world.contains_resource::<W<f64>>());
 
         {
             let mut commands = Commands::new(&mut queue, &world);
             // test resource removal
-            commands.remove_resource::<i32>();
+            commands.remove_resource::<W<i32>>();
         }
         queue.apply(&mut world);
-        assert!(!world.contains_resource::<i32>());
-        assert!(world.contains_resource::<f64>());
+        assert!(!world.contains_resource::<W<i32>>());
+        assert!(world.contains_resource::<W<f64>>());
     }
 }

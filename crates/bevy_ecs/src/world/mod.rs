@@ -1597,6 +1597,7 @@ mod tests {
         change_detection::DetectChanges,
         component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
         ptr::OwningPtr,
+        system::Resource,
     };
     use bevy_ecs_macros::Component;
     use bevy_utils::HashSet;
@@ -1726,7 +1727,7 @@ mod tests {
         );
     }
 
-    #[derive(Component)]
+    #[derive(Resource)]
     struct TestResource(u32);
 
     #[test]

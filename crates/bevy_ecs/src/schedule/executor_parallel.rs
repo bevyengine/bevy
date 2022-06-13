@@ -325,8 +325,12 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::component::Component;
+    use crate::system::Resource;
+
     #[derive(Component)]
     struct W<T>(T);
+    #[derive(Resource, Default)]
+    struct Counter(usize);
 
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
@@ -355,9 +359,9 @@ mod tests {
     #[test]
     fn resources() {
         let mut world = World::new();
-        world.insert_resource(0usize);
-        fn wants_mut(_: ResMut<usize>) {}
-        fn wants_ref(_: Res<usize>) {}
+        world.init_resource::<Counter>();
+        fn wants_mut(_: ResMut<Counter>) {}
+        fn wants_ref(_: Res<Counter>) {}
         let mut stage = SystemStage::parallel()
             .with_system(wants_mut)
             .with_system(wants_mut);

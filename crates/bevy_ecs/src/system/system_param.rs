@@ -1,4 +1,5 @@
 pub use crate::change_detection::{NonSendMut, ResMut};
+pub use bevy_ecs_macros::Resource;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
