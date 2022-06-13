@@ -647,12 +647,12 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// // .add_system(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
-pub struct Local<'a, T: Resource + FromWorld>(&'a mut T);
+pub struct Local<'a, T: FromWorld + Send + Sync + 'static>(&'a mut T);
 
-// SAFETY: Local only accesses internal state
-unsafe impl<T: Resource> ReadOnlySystemParamFetch for LocalState<T> {}
+// SAFE: Local only accesses internal state, and a system cannot be run twice simultaneously
+unsafe impl<T: Send + Sync + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
 
-impl<'a, T: Resource + FromWorld> Debug for Local<'a, T>
+impl<'a, T: FromWorld + Send + Sync + 'static> Debug for Local<'a, T>
 where
     T: Debug,
 {
@@ -661,7 +661,7 @@ where
     }
 }
 
-impl<'a, T: Resource + FromWorld> Deref for Local<'a, T> {
+impl<'a, T: FromWorld + Send + Sync + 'static> Deref for Local<'a, T> {
     type Target = T;
 
     #[inline]
@@ -670,7 +670,7 @@ impl<'a, T: Resource + FromWorld> Deref for Local<'a, T> {
     }
 }
 
-impl<'a, T: Resource + FromWorld> DerefMut for Local<'a, T> {
+impl<'a, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -679,20 +679,20 @@ impl<'a, T: Resource + FromWorld> DerefMut for Local<'a, T> {
 
 /// The [`SystemParamState`] of [`Local<T>`].
 #[doc(hidden)]
-pub struct LocalState<T: Resource>(T);
+pub struct LocalState<T: Send + Sync + 'static>(T);
 
-impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T> {
+impl<'a, T: Send + Sync + 'static + FromWorld> SystemParam for Local<'a, T> {
     type Fetch = LocalState<T>;
 }
 
-// SAFETY: only local state is accessed
-unsafe impl<T: Resource + FromWorld> SystemParamState for LocalState<T> {
+// SAFE: only local state is accessed
+unsafe impl<T: FromWorld + Send + Sync + 'static> SystemParamState for LocalState<T> {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self(T::from_world(world))
     }
 }
 
-impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T> {
+impl<'w, 's, T: Send + Sync + 'static + FromWorld> SystemParamFetch<'w, 's> for LocalState<T> {
     type Item = Local<'s, T>;
 
     #[inline]
