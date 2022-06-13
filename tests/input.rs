@@ -20,7 +20,11 @@ fn test_input_received_character() {
         for event in chat_input_events.iter() {
             assert_eq!(
                 event.char,
-                inputs2.lock().unwrap().pop_front().expect("foo")
+                inputs2
+                    .lock()
+                    .unwrap()
+                    .pop_front()
+                    .expect("Unexpected event")
             );
         }
     };
@@ -81,7 +85,11 @@ fn test_input_keyboard_input() {
         for event in chat_input_events.iter() {
             assert_eq!(
                 event.clone(),
-                inputs2.lock().unwrap().pop_front().expect("foo")
+                inputs2
+                    .lock()
+                    .unwrap()
+                    .pop_front()
+                    .expect("Unexpected event")
             );
         }
     };
@@ -150,7 +158,7 @@ fn test_input_multiple_received_char_and_keyboard_input_are_independent() {
                     .lock()
                     .unwrap()
                     .pop_front()
-                    .expect("foo")
+                    .expect("Unexpected event")
             );
         }
     };
@@ -162,7 +170,7 @@ fn test_input_multiple_received_char_and_keyboard_input_are_independent() {
                     .lock()
                     .unwrap()
                     .pop_front()
-                    .expect("foo")
+                    .expect("Unexpected event")
             );
         }
     };
