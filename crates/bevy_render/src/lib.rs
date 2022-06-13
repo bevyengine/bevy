@@ -123,26 +123,26 @@ impl Plugin for RenderPlugin {
             .init_debug_asset_loader::<ShaderLoader>()
             .register_type::<Color>();
 
+        let options = app
+            .world
+            .get_resource::<settings::WgpuSettings>()
+            .cloned()
+            .unwrap_or_default();
+
         bevy_utils::tracing::info!("Tryin to request primarywindow");
 
         let mut system_state: SystemState<(
             Query<&WindowHandle, With<Window>>,
             Res<PrimaryWindow>,
-            Res<WgpuSettings>,
+            // Res<WgpuSettings>,
         )> = SystemState::new(&mut app.world);
         let (
             window_query,
             primary_window,
-            options, // This was .clone().unwrap_or_default(). Will this work the same?
+            // options, // This was .clone().unwrap_or_default(). Will this work the same?
         ) = system_state.get(&mut app.world);
 
         bevy_utils::tracing::info!("Should have resource here");
-
-        // let options = app
-        //     .world
-        //     .get_resource::<settings::WgpuSettings>()
-        //     .cloned()
-        //     .unwrap_or_default();
 
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);

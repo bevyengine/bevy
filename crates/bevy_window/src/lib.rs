@@ -100,11 +100,11 @@ impl Plugin for WindowPlugin {
 
         if self.add_primary_window {
             // TODO: Creating window should be done through commands as entities instead of old way
-            app.add_startup_system(create_primary_window);
+            // app.add_startup_system(create_primary_window);
 
-            // let mut system_state: SystemState<(Commands, ResMut<PrimaryWindow>)> = SystemState::new(&mut app.world);
-            // let (mut commands, mut primary_window) = system_state.get_mut(&mut app.world);
-            // create_primary_window(commands, primary_window);
+            let mut system_state: SystemState<(Commands, ResMut<PrimaryWindow>)> = SystemState::new(&mut app.world);
+            let (mut commands, mut primary_window) = system_state.get_mut(&mut app.world);
+            create_primary_window(commands, primary_window);
 
             // let window_descriptor = app
             //     .world
