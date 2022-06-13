@@ -366,11 +366,11 @@ where
 }
 
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> FusedIterator
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> FusedIterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
-    QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
-    QueryFetch<'w, F>: Clone + ReadOnlyFetch,
+    QueryFetch<'w, Q>: Clone,
+    QueryFetch<'w, F>: Clone,
 {
 }
 
