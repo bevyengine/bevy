@@ -730,8 +730,10 @@ impl Window {
 #[derive(Debug, Clone)]
 pub enum WindowPosition {
     /// Position will be set by window manager
-    Default,
-    /// Window will be centered at primary monitor
+    Automatic,
+    /// Window will be centered on the primary monitor
+    ///
+    /// Note that this does not account for window decorations.
     Centered,
     /// Window will be placed at specified position
     At(Vec2),
