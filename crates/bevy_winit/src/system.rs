@@ -7,7 +7,7 @@ use bevy_ecs::{
 use bevy_math::IVec2;
 use bevy_utils::tracing::error;
 use bevy_window::{
-    CloseWindowCommand, CreateWindow, CursorIcon, SetCursorIconCommand, SetCursorLockModeCommand,
+    CloseWindowCommand, CursorIcon, SetCursorIconCommand, SetCursorLockModeCommand,
     SetCursorPositionCommand, SetCursorVisibilityCommand, SetDecorationsCommand,
     SetMaximizedCommand, SetMinimizedCommand, SetPositionCommand, SetPresentModeCommand,
     SetResizableCommand, SetResizeConstraintsCommand, SetResolutionCommand,
@@ -15,7 +15,7 @@ use bevy_window::{
     WindowCanvas, WindowClosed, WindowCreated, WindowCurrentlyFocused, WindowCursor,
     WindowCursorPosition, WindowDecorated, WindowHandle, WindowMaximized, WindowMinimized,
     WindowModeComponent, WindowPosition, WindowPresentation, WindowResizable, WindowResolution,
-    WindowScaleFactorChanged, WindowTitle, WindowTransparent,
+    WindowScaleFactorChanged, WindowTitle, WindowTransparent, CreateWindowCommand,
 };
 use raw_window_handle::HasRawWindowHandle;
 use winit::{
@@ -30,11 +30,11 @@ use crate::{converters, get_best_videomode, get_fitting_videomode, WinitWindows}
 pub(crate) fn create_windows(
     mut commands: Commands,
     event_loop: NonSendMut<EventLoop<()>>, //  &EventLoopWindowTarget<()>, // TODO: Not sure how this would work
-    mut create_window_events: EventReader<CreateWindow>,
+    mut create_window_commands: EventReader<CreateWindowCommand>,
     mut window_created_events: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
-    for event in create_window_events.iter() {
+    for event in create_window_commands.iter() {
         // TODO: This should be about spawning the WinitWindow that corresponds
         let winit_window =
             winit_windows.create_window(&event_loop, event.entity, &event.descriptor);

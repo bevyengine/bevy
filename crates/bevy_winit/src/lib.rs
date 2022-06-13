@@ -34,11 +34,11 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
+    CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
     PrimaryWindow, ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowCreated, WindowCurrentlyFocused, WindowCursorPosition,
     WindowFocused, WindowMoved, WindowPosition, WindowResized, WindowResolution,
-    WindowScaleFactorChanged,
+    WindowScaleFactorChanged, CreateWindowCommand,
 };
 
 use winit::{
@@ -81,16 +81,17 @@ impl Plugin for WinitPlugin {
         app.add_plugin(web_resize::CanvasParentResizePlugin);
 
         let event_loop = EventLoop::new();
-        let mut create_window_reader = WinitCreateWindowReader::default();
+        // let mut create_window_reader = WinitCreateWindowReader::default();
         // TODO: Test if any issues has been caused here
         // Note that we create a window here "early" because WASM/WebGL requires the window to exist prior to initializing
         // the renderer.
-        app.insert_resource(create_window_reader)
+        app
+            // .insert_resource(create_window_reader)
             .insert_non_send_resource(event_loop);
 
         let mut system_state: SystemState<(
             Commands,
-            EventReader<CreateWindow>,
+            EventReader<CreateWindowCommand>,
             EventWriter<WindowCreated>,
             NonSendMut<WinitWindows>,
             NonSendMut<EventLoop<()>>,
@@ -224,8 +225,8 @@ impl Default for WinitPersistentState {
     }
 }
 
-#[derive(Default)]
-struct WinitCreateWindowReader(ManualEventReader<CreateWindow>);
+// #[derive(Default)]
+// struct WinitCreateWindowReader(ManualEventReader<CreateWindow>);
 
 // TODO: Refactor this to work with new pattern
 pub fn winit_runner_with(mut app: App) {
@@ -234,11 +235,11 @@ pub fn winit_runner_with(mut app: App) {
         .world
         .remove_non_send_resource::<EventLoop<()>>()
         .unwrap();
-    let mut create_window_event_reader = app
-        .world
-        .remove_resource::<WinitCreateWindowReader>()
-        .unwrap()
-        .0;
+    // let mut create_window_event_reader = app
+    //     .world
+    //     .remove_resource::<WinitCreateWindowReader>()
+    //     .unwrap()
+    //     .0;
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
     let mut winit_state = WinitPersistentState::default();
@@ -605,7 +606,7 @@ pub fn winit_runner_with(mut app: App) {
             event::Event::MainEventsCleared => {
                 let mut system_state: SystemState<(
                     Commands,
-                    EventReader<CreateWindow>,
+                    EventReader<CreateWindowCommand>,
                     EventWriter<WindowCreated>,
                     NonSendMut<WinitWindows>,
                     NonSendMut<EventLoop<()>>,
@@ -614,7 +615,7 @@ pub fn winit_runner_with(mut app: App) {
                 )> = SystemState::new(&mut app.world);
                 let (
                     mut commands,
-                    mut create_window_events,
+                    mut create_window_commands,
                     mut window_created_events,
                     mut winit_windows,
                     mut event_loop,
@@ -626,7 +627,7 @@ pub fn winit_runner_with(mut app: App) {
                 create_windows(
                     commands,
                     event_loop,
-                    create_window_events,
+                    create_window_commands,
                     window_created_events,
                     winit_windows,
                 );

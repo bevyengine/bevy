@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use super::WindowDescriptor;
 use bevy_ecs::entity::Entity;
 use bevy_math::{IVec2, Vec2};
 
@@ -15,11 +14,11 @@ pub struct WindowResized {
 }
 
 /// An event that indicates that a new window should be created.
-#[derive(Debug, Clone)]
-pub struct CreateWindow {
-    pub entity: Entity,
-    pub descriptor: WindowDescriptor,
-}
+// #[derive(Debug, Clone)]
+// pub struct CreateWindow {
+//     pub entity: Entity,
+//     pub descriptor: WindowDescriptor,
+// }
 
 // TODO: This would redraw all windows ? If yes, update docs to reflect this
 /// An event that indicates the window should redraw, even if its control flow is set to `Wait` and

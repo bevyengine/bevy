@@ -123,6 +123,8 @@ impl Plugin for RenderPlugin {
             .init_debug_asset_loader::<ShaderLoader>()
             .register_type::<Color>();
 
+        bevy_utils::tracing::info!("Tryin to request primarywindow");
+
         let mut system_state: SystemState<(
             Query<&WindowHandle, With<Window>>,
             Res<PrimaryWindow>,
@@ -133,6 +135,8 @@ impl Plugin for RenderPlugin {
             primary_window,
             options, // This was .clone().unwrap_or_default(). Will this work the same?
         ) = system_state.get(&mut app.world);
+
+        bevy_utils::tracing::info!("Should have resource here");
 
         // let options = app
         //     .world

@@ -8,6 +8,8 @@ use bevy_ecs::prelude::*;
 use bevy_input::{keyboard::KeyCode, Input};
 
 pub fn create_primary_window(mut commands: Commands, mut primary: ResMut<PrimaryWindow>) {
+
+    bevy_utils::tracing::info!("Creating primary window");
     let entity = commands.spawn().id();
 
     commands

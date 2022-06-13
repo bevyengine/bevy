@@ -7,7 +7,7 @@ use bevy_ecs::{
 use bevy_math::{DVec2, IVec2, Vec2};
 
 use crate::{
-    window, CreateWindow, CursorIcon, PresentMode, RawWindowHandleWrapper, Window,
+    CursorIcon, PresentMode, RawWindowHandleWrapper, Window,
     WindowDescriptor, WindowMode, WindowResizeConstraints,
 };
 
