@@ -571,7 +571,7 @@ unsafe impl<'w> Fetch<'w> for EntityFetch<'w> {
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<T: Component> WorldQuery for &T {
     type ReadOnly = Self;
-    type State = ReadState<T>;
+    type State = ComponentIdState<T>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
@@ -580,15 +580,15 @@ unsafe impl<T: Component> WorldQuery for &T {
 
 /// The [`FetchState`] of `&T`.
 #[doc(hidden)]
-pub struct ReadState<T> {
+pub struct ComponentIdState<T> {
     component_id: ComponentId,
     marker: PhantomData<T>,
 }
 
-impl<T: Component> FetchState for ReadState<T> {
+impl<T: Component> FetchState for ComponentIdState<T> {
     fn init(world: &mut World) -> Self {
         let component_id = world.init_component::<T>();
-        ReadState {
+        ComponentIdState {
             component_id,
             marker: PhantomData,
         }
@@ -626,14 +626,14 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for &T {}
 
 impl<'w, T: Component> WorldQueryGats<'w> for &T {
     type Fetch = ReadFetch<'w, T>;
-    type _State = ReadState<T>;
+    type _State = ComponentIdState<T>;
 }
 
 // SAFETY: component access and archetype component access are properly updated to reflect that T is
 // read
 unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
     type Item = &'w T;
-    type State = ReadState<T>;
+    type State = ComponentIdState<T>;
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -646,7 +646,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
 
     unsafe fn init(
         world: &'w World,
-        state: &ReadState<T>,
+        state: &ComponentIdState<T>,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> ReadFetch<'w, T> {
@@ -752,7 +752,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'w, T: Component> WorldQuery for &'w mut T {
     type ReadOnly = &'w T;
-    type State = ReadState<T>;
+    type State = ComponentIdState<T>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
@@ -790,14 +790,14 @@ impl<T> Clone for WriteFetch<'_, T> {
 
 impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
     type Fetch = WriteFetch<'w, T>;
-    type _State = ReadState<T>;
+    type _State = ComponentIdState<T>;
 }
 
 /// SAFETY: component access and archetype component access are properly updated to reflect that T is
 /// read and write
 unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     type Item = Mut<'w, T>;
-    type State = ReadState<T>;
+    type State = ComponentIdState<T>;
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -810,7 +810,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
 
     unsafe fn init(
         world: &'w World,
-        state: &ReadState<T>,
+        state: &ComponentIdState<T>,
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
