@@ -217,9 +217,18 @@ pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
 impl_param_set!();
 
+/// A type that can be inserted into a [`World`](crate::world::World) as a singleton.
+///
+/// Resources are commonly used to store global collections (like assets or events),
+/// or unique global information (such as the current level or state of the app).
+///
+/// You can access resource data in systems using the [`Res`] and [`ResMut`] system parameters.
+///
+/// Only one resource of each type can exist at any given time.
+/// Inserting a duplicate resource will overwrite the existing resource.
 pub trait Resource: Send + Sync + 'static {}
 
-/// Shared borrow of a resource.
+/// Shared borrow of a [`Resource`].
 ///
 /// See the [`World`] documentation to see the usage of a resource.
 ///

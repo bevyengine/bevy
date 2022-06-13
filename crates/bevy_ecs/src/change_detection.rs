@@ -165,7 +165,7 @@ pub(crate) struct Ticks<'a> {
     pub(crate) change_tick: u32,
 }
 
-/// Unique mutable borrow of a resource.
+/// Unique mutable borrow of a [`Resource`].
 ///
 /// See the [`World`](crate::world::World) documentation to see the usage of a resource.
 ///
