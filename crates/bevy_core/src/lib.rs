@@ -16,8 +16,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
-use bevy_utils::HashSet;
-use std::ops::Range;
+use bevy_reflect::TypeRegistryArc;
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
@@ -34,29 +33,49 @@ impl Plugin for CorePlugin {
 
         app.register_type::<Entity>().register_type::<Name>();
 
-        register_rust_types(app);
-        register_math_types(app);
+        let registry = app.world.resource::<TypeRegistryArc>();
+        let mut registry = registry.write();
+        rust_types::register_types(&mut registry);
+        math_types::register_types(&mut registry);
     }
 }
 
-fn register_rust_types(app: &mut App) {
-    app.register_type::<Range<f32>>()
-        .register_type::<String>()
-        .register_type::<HashSet<String>>()
-        .register_type::<Option<String>>();
+mod rust_types {
+    use bevy_reflect::erased_serde::Serialize;
+    use bevy_reflect::register_all;
+    use bevy_utils::HashSet;
+    use std::ops::Range;
+
+    register_all! {
+        traits: [Serialize],
+        types: [
+            String,
+            Option<String>,
+            Range<f32>,
+            HashSet<String>
+        ]
+    }
 }
 
-fn register_math_types(app: &mut App) {
-    app.register_type::<bevy_math::IVec2>()
-        .register_type::<bevy_math::IVec3>()
-        .register_type::<bevy_math::IVec4>()
-        .register_type::<bevy_math::UVec2>()
-        .register_type::<bevy_math::UVec3>()
-        .register_type::<bevy_math::UVec4>()
-        .register_type::<bevy_math::Vec2>()
-        .register_type::<bevy_math::Vec3>()
-        .register_type::<bevy_math::Vec4>()
-        .register_type::<bevy_math::Mat3>()
-        .register_type::<bevy_math::Mat4>()
-        .register_type::<bevy_math::Quat>();
+mod math_types {
+    use bevy_reflect::erased_serde::Serialize;
+    use bevy_reflect::register_all;
+
+    register_all! {
+        traits: [Serialize],
+        types: [
+            bevy_math::IVec2,
+            bevy_math::IVec3,
+            bevy_math::IVec4,
+            bevy_math::UVec2,
+            bevy_math::UVec3,
+            bevy_math::UVec4,
+            bevy_math::Vec2,
+            bevy_math::Vec3,
+            bevy_math::Vec4,
+            bevy_math::Mat3,
+            bevy_math::Mat4,
+            bevy_math::Quat,
+        ]
+    }
 }

@@ -63,6 +63,36 @@ impl_from_reflect_value!(
 impl_from_reflect_value!(Range<T: for<'de> Deserialize<'de> + Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Duration);
 
+pub mod registrations {
+    use crate as bevy_reflect;
+    use crate::erased_serde::Serialize;
+    use crate::register_all;
+
+    register_all! {
+        traits: [Serialize],
+        types: [
+            bool,
+            char,
+            u8,
+            u16,
+            u32,
+            u64,
+            u128,
+            usize,
+            i8,
+            i16,
+            i32,
+            i64,
+            i128,
+            isize,
+            f32,
+            f64,
+            String,
+            Option<String>,
+        ]
+    }
+}
+
 impl<T: FromReflect> Array for Vec<T> {
     #[inline]
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
