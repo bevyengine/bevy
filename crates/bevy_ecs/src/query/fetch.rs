@@ -453,7 +453,7 @@ pub unsafe trait Fetch<'world>: Sized {
         true
     }
 
-    // This does not have a default body of `{}` becaues 99% of cases need to add accesses
+    // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
     // This does not have a default body of `{}` becaues 99% of cases need to add accesses
