@@ -3,7 +3,7 @@ use crate::{
     entity::Entity,
     query::{
         NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
-        QueryManyIter, QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyFetch,
+        QueryManyIter, QuerySingleError, QueryState, ROQueryFetch, ROQueryItem, ReadOnlyWorldQuery,
         WorldQuery,
     },
     world::{Mut, World},
@@ -1306,10 +1306,7 @@ impl std::fmt::Display for QueryComponentError {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F>
-where
-    QueryFetch<'w, Q>: ReadOnlyFetch,
-{
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// Returns the query result for the given [`Entity`], with the actual "inner" world lifetime.
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is

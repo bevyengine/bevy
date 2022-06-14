@@ -14,7 +14,7 @@ use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_utils::Hashed;
-use std::{collections::BTreeMap, hash::Hash};
+use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{
     util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
@@ -749,7 +749,17 @@ impl Iterator for IndicesIter<'_> {
             IndicesIter::U32(iter) => iter.next().map(|val| *val as usize),
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            IndicesIter::U16(iter) => iter.size_hint(),
+            IndicesIter::U32(iter) => iter.size_hint(),
+        }
+    }
 }
+
+impl<'a> ExactSizeIterator for IndicesIter<'a> {}
+impl<'a> FusedIterator for IndicesIter<'a> {}
 
 impl From<&Indices> for IndexFormat {
     fn from(indices: &Indices) -> Self {

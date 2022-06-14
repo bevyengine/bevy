@@ -47,13 +47,16 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         let filter_state = <F::State as FetchState>::init(world);
 
         let mut component_access = FilteredAccess::default();
-        fetch_state.update_component_access(&mut component_access);
+        QueryFetch::<'static, Q>::update_component_access(&fetch_state, &mut component_access);
 
         // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
         // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
         // because they are evaluated *before* a specific reference is constructed.
         let mut filter_component_access = FilteredAccess::default();
-        filter_state.update_component_access(&mut filter_component_access);
+        QueryFetch::<'static, F>::update_component_access(
+            &filter_state,
+            &mut filter_component_access,
+        );
 
         // Merge the temporary filter access with the main access. This ensures that filter access is
         // properly considered in a global "cross-query" context (both within systems and across systems).
@@ -122,10 +125,16 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                 .filter_state
                 .matches_component_set(&|id| archetype.contains(id))
         {
-            self.fetch_state
-                .update_archetype_component_access(archetype, &mut self.archetype_component_access);
-            self.filter_state
-                .update_archetype_component_access(archetype, &mut self.archetype_component_access);
+            QueryFetch::<'static, Q>::update_archetype_component_access(
+                &self.fetch_state,
+                archetype,
+                &mut self.archetype_component_access,
+            );
+            QueryFetch::<'static, F>::update_archetype_component_access(
+                &self.filter_state,
+                archetype,
+                &mut self.archetype_component_access,
+            );
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow(archetype_index + 1);

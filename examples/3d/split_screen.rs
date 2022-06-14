@@ -29,7 +29,10 @@ fn setup(
         ..default()
     });
 
-    commands.spawn_scene(asset_server.load("models/animated/Fox.glb#Scene0"));
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        ..default()
+    });
 
     // Light
     commands.spawn_bundle(DirectionalLightBundle {

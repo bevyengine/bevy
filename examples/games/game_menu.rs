@@ -401,7 +401,7 @@ mod menu {
         };
         let button_icon_style = Style {
             size: Size::new(Val::Px(30.0), Val::Auto),
-            // This takes the icons out of the flexbox flow, to be positionned exactly
+            // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
             position: UiRect {

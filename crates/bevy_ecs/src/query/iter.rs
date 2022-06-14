@@ -5,9 +5,9 @@ use crate::{
     query::{Fetch, QueryState, WorldQuery},
     storage::{TableId, Tables},
 };
-use std::{borrow::Borrow, marker::PhantomData, mem::MaybeUninit};
+use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
 
-use super::{QueryFetch, QueryItem, ReadOnlyFetch};
+use super::{QueryFetch, QueryItem, ReadOnlyWorldQuery};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -70,6 +70,12 @@ where
         let min_size = if archetype_query { max_size } else { 0 };
         (min_size, Some(max_size))
     }
+}
+
+// This is correct as [`QueryIter`] always returns `None` once exhausted.
+impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q, QF, F> where
+    QF: Fetch<'w, State = Q::State>
+{
 }
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
@@ -296,11 +302,11 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
 // Iterator type is intentionally implemented only for read-only access.
 // Doing so for mutable references would be unsound, because  calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
-    QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
-    QueryFetch<'w, F>: Clone + ReadOnlyFetch,
+    QueryFetch<'w, Q>: Clone,
+    QueryFetch<'w, F>: Clone,
 {
     type Item = [QueryItem<'w, Q>; K];
 
@@ -357,6 +363,15 @@ where
             .map(|id| self.archetypes[*id].len())
             .sum()
     }
+}
+
+// This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> FusedIterator
+    for QueryCombinationIter<'w, 's, Q, F, K>
+where
+    QueryFetch<'w, Q>: Clone,
+    QueryFetch<'w, F>: Clone,
+{
 }
 
 struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
