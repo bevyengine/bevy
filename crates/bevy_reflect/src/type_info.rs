@@ -20,7 +20,7 @@ use std::any::{Any, TypeId};
 /// # Example
 ///
 /// ```
-/// # use std::any::Any;
+/// # use std::any::{Any, TypeId};
 /// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, TypeInfo, ValueInfo};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
@@ -45,10 +45,12 @@ use std::any::{Any, TypeId};
 /// }
 ///
 /// #
-/// # unsafe impl Reflect for MyStruct {
+/// # impl Reflect for MyStruct {
 /// #   fn type_name(&self) -> &str { todo!() }
+/// #   fn type_id(&self) -> TypeId { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
-/// #   fn any(&self) -> &dyn Any { todo!() }
+/// #   fn any(self: Box<Self>) -> Box<dyn Any> { todo!() }
+/// #   fn any_ref(&self) -> &dyn Any { todo!() }
 /// #   fn any_mut(&mut self) -> &mut dyn Any { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }

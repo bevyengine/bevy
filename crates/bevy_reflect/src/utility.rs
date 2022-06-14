@@ -15,7 +15,7 @@ use std::any::{Any, TypeId};
 /// ## Example
 ///
 /// ```
-/// # use std::any::Any;
+/// # use std::any::{Any, TypeId};
 /// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, Typed, TypeInfo};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
@@ -34,10 +34,12 @@ use std::any::{Any, TypeId};
 ///   }
 /// }
 /// #
-/// # unsafe impl Reflect for Foo {
+/// # impl Reflect for Foo {
 /// #   fn type_name(&self) -> &str { todo!() }
+/// #   fn type_id(&self) -> TypeId { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
-/// #   fn any(&self) -> &dyn Any { todo!() }
+/// #   fn any(self: Box<Self>) -> Box<dyn Any> { todo!() }
+/// #   fn any_ref(&self) -> &dyn Any { todo!() }
 /// #   fn any_mut(&mut self) -> &mut dyn Any { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
@@ -77,7 +79,7 @@ impl NonGenericTypeInfoCell {
 /// ## Example
 ///
 /// ```
-/// # use std::any::Any;
+/// # use std::any::{Any, TypeId};
 /// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
@@ -94,10 +96,12 @@ impl NonGenericTypeInfoCell {
 ///   }
 /// }
 /// #
-/// # unsafe impl<T: Reflect> Reflect for Foo<T> {
+/// # impl<T: Reflect> Reflect for Foo<T> {
 /// #   fn type_name(&self) -> &str { todo!() }
+/// #   fn type_id(&self) -> TypeId { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
-/// #   fn any(&self) -> &dyn Any { todo!() }
+/// #   fn any(self: Box<Self>) -> Box<dyn Any> { todo!() }
+/// #   fn any_ref(&self) -> &dyn Any { todo!() }
 /// #   fn any_mut(&mut self) -> &mut dyn Any { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
