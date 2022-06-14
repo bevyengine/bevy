@@ -650,7 +650,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// ```
 pub struct Local<'a, T: FromWorld + Send + Sync + 'static>(&'a mut T);
 
-// SAFE: Local only accesses internal state, and a system cannot be run twice simultaneously
+// SAFE: Local only accesses internal state
 unsafe impl<T: Send + Sync + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
 
 impl<'a, T: FromWorld + Send + Sync + 'static> Debug for Local<'a, T>
