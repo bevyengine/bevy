@@ -1,5 +1,5 @@
 [package]
-name = "build_examples"
+name = "build-example-pages"
 version = "0.1.0"
 edition = "2021"
 description = "handle examples in Bevy"
@@ -10,3 +10,4 @@ license = "MIT OR Apache-2.0"
 toml = "0.5"
 tera = "1.15"
 serde = { version = "1.0", features = [ "derive" ] }
+# xshell = "0.2"
