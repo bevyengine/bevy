@@ -1,5 +1,5 @@
 use bevy_ecs::event::EventReader;
-use bevy_ecs::system::ResMut;
+use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
 
@@ -201,7 +201,7 @@ impl From<&TouchInput> for Touch {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`touch_screen_input_system`](crate::touch::touch_screen_input_system).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Resource)]
 pub struct Touches {
     /// A collection of every [`Touch`] that is currently being pressed.
     pressed: HashMap<u64, Touch>,

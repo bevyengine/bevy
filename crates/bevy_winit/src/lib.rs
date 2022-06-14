@@ -279,7 +279,7 @@ impl Default for WinitPersistentState {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 struct WinitCreateWindowReader(ManualEventReader<CreateWindow>);
 
 pub fn winit_runner_with(mut app: App) {

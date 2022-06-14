@@ -45,7 +45,7 @@ impl Plugin for ViewPlugin {
     }
 }
 
-#[derive(Clone, ExtractResource)]
+#[derive(Clone, Resource, ExtractResource)]
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
 /// # Example

@@ -1,3 +1,4 @@
+use bevy_ecs::system::Resource;
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
@@ -32,7 +33,7 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Resource)]
 pub struct Input<T: Eq + Hash> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,

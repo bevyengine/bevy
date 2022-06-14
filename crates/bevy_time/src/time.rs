@@ -1,7 +1,8 @@
+use bevy_ecs::system::Resource;
 use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Resource)]
 pub struct Time {
     delta: Duration,
     last_update: Option<Instant>,

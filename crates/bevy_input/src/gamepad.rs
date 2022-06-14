@@ -1,6 +1,6 @@
 use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::{tracing::info, HashMap, HashSet};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -15,7 +15,7 @@ impl Gamepad {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 /// Container of unique connected [`Gamepad`]s
 ///
 /// [`Gamepad`]s are registered and deregistered in [`gamepad_connection_system`]
@@ -152,7 +152,7 @@ impl GamepadAxis {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Resource)]
 pub struct GamepadSettings {
     pub default_button_settings: ButtonSettings,
     pub default_axis_settings: AxisSettings,

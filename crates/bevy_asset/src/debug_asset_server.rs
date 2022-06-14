@@ -2,7 +2,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::{
     event::Events,
     schedule::SystemLabel,
-    system::{NonSendMut, Res, ResMut, SystemState},
+    system::{NonSendMut, Res, ResMut, Resource, SystemState},
 };
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;
@@ -44,6 +44,8 @@ pub struct DebugAssetAppRun;
 /// Currently only hot reloads assets stored in the `crates` folder.
 #[derive(Default)]
 pub struct DebugAssetServerPlugin;
+
+#[derive(Resource)]
 pub struct HandleMap<T: Asset> {
     pub handles: HashMap<Handle<T>, Handle<T>>,
 }

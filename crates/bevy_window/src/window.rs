@@ -1,3 +1,4 @@
+use bevy_ecs::system::Resource;
 use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
@@ -632,7 +633,7 @@ impl Window {
 /// See [`examples/window/window_settings.rs`] for usage.
 ///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Resource)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     /// May vary from the physical width due to different pixel density on different monitors.

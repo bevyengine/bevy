@@ -106,6 +106,7 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
 }
 
 /// Temporarily stores the extracted and removed assets of the current frame.
+#[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
     extracted: Vec<(Handle<A>, A::ExtractedAsset)>,
     removed: Vec<Handle<A>>,
@@ -160,6 +161,7 @@ fn extract_render_asset<A: RenderAsset>(
 
 // TODO: consider storing inside system?
 /// All assets that should be prepared next frame.
+#[derive(Resource)]
 pub struct PrepareNextFrameAssets<A: RenderAsset> {
     assets: Vec<(Handle<A>, A::ExtractedAsset)>,
 }

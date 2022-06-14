@@ -29,7 +29,10 @@ pub use loader::*;
 pub use path::*;
 
 use bevy_app::{prelude::Plugin, App};
-use bevy_ecs::schedule::{StageLabel, SystemStage};
+use bevy_ecs::{
+    schedule::{StageLabel, SystemStage},
+    system::Resource,
+};
 
 /// The names of asset stages in an App Schedule
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -43,6 +46,7 @@ pub enum AssetStage {
 #[derive(Default)]
 pub struct AssetPlugin;
 
+#[derive(Resource)]
 pub struct AssetServerSettings {
     pub asset_folder: String,
     /// Whether to watch for changes in asset files. Requires the `filesystem_watcher` feature,

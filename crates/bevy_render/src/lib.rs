@@ -79,7 +79,7 @@ pub enum RenderStage {
 }
 
 /// The Render App World. This is only available as a resource during the Extract step.
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct RenderWorld(World);
 
 impl Deref for RenderWorld {

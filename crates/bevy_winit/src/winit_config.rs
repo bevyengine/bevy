@@ -1,7 +1,8 @@
+use bevy_ecs::system::Resource;
 use bevy_utils::Duration;
 
 /// A resource for configuring usage of the `rust_winit` library.
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct WinitSettings {
     /// Configures the winit library to return control to the main thread after the
     /// [run](bevy_app::App::run) loop is exited. Winit strongly recommends avoiding this when

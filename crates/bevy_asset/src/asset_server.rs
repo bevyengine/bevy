@@ -5,7 +5,7 @@ use crate::{
     RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
@@ -59,7 +59,7 @@ pub struct AssetServerInternal {
 }
 
 /// Loads assets from the filesystem on background threads
-#[derive(Clone)]
+#[derive(Clone, Resource)]
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
 }

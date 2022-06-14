@@ -14,7 +14,7 @@ use crate::{
 };
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use std::hash::Hash;
@@ -148,7 +148,7 @@ impl ImageSampler {
 
 /// Resource used as the global default image sampler for [`Image`]s with their `sampler_descriptor`
 /// set to [`ImageSampler::Default`].
-#[derive(Debug, Clone, Deref, DerefMut)]
+#[derive(Debug, Clone, Deref, DerefMut, Resource)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
