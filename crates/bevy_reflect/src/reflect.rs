@@ -2,7 +2,10 @@ use crate::{
     array_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
     tuple_struct_debug, Array, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed, ValueInfo,
 };
-use std::{any::Any, fmt::Debug};
+use std::{
+    any::{Any, TypeId},
+    fmt::Debug,
+};
 
 use crate::utility::NonGenericTypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
@@ -46,16 +49,12 @@ pub enum ReflectMut<'a> {
 ///
 /// When using `#[derive(Reflect)]` with a struct or tuple struct, the suitable subtrait for that
 /// type (`Struct` or `TupleStruct`) is derived automatically.
-///
-/// # Safety
-/// Implementors _must_ ensure that [`Reflect::any`] and [`Reflect::any_mut`] both return the `self`
-/// value passed in. If this is not done, [`Reflect::downcast`](trait.Reflect.html#method.downcast)
-/// will be UB (and also just logically broken).
-pub unsafe trait Reflect: Any + Send + Sync {
-    /// Returns the [type name] of the underlying type.
-    ///
-    /// [type name]: std::any::type_name
+pub trait Reflect: Any + Send + Sync {
+    /// Returns the [Type Name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
+
+    /// Returns the [Type ID][std::any::TypeId] of the underlying type.
+    fn type_id(&self) -> TypeId;
 
     /// Returns the [`TypeInfo`] of the underlying type.
     ///
@@ -67,8 +66,11 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_type_info(&self) -> &'static TypeInfo;
 
+    /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
+    fn any(self: Box<Self>) -> Box<dyn Any>;
+
     /// Returns the value as a [`&dyn Any`][std::any::Any].
-    fn any(&self) -> &dyn Any;
+    fn any_ref(&self) -> &dyn Any;
 
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
     fn any_mut(&mut self) -> &mut dyn Any;
@@ -215,13 +217,8 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     pub fn downcast<T: Reflect>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
-        // SAFE?: Same approach used by std::any::Box::downcast. ReflectValue is always Any and type
-        // has been checked.
         if self.is::<T>() {
-            unsafe {
-                let raw: *mut dyn Reflect = Box::into_raw(self);
-                Ok(Box::from_raw(raw as *mut T))
-            }
+            Ok(self.any().downcast().unwrap())
         } else {
             Err(self)
         }
@@ -238,7 +235,7 @@ impl dyn Reflect {
     /// otherwise.
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
-        self.any().is::<T>()
+        Reflect::type_id(self) == TypeId::of::<T>()
     }
 
     /// Downcasts the value to type `T` by reference.
@@ -246,7 +243,7 @@ impl dyn Reflect {
     /// If the underlying value is not of type `T`, returns `None`.
     #[inline]
     pub fn downcast_ref<T: Reflect>(&self) -> Option<&T> {
-        self.any().downcast_ref::<T>()
+        self.any_ref().downcast_ref::<T>()
     }
 
     /// Downcasts the value to type `T` by mutable reference.
