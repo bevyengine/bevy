@@ -11,7 +11,7 @@ use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
-use SchedulingEvent::*;
+use scheduling_event::*;
 
 struct SystemSchedulingMetadata {
     /// Used to signal the system's task to start the system.
@@ -107,7 +107,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         #[cfg(test)]
         if self.events_sender.is_none() {
             let (sender, receiver) = async_channel::unbounded::<SchedulingEvent>();
-            world.insert_resource(receiver);
+            world.insert_resource(SchedulingEvents(receiver));
             self.events_sender = Some(sender);
         }
 
@@ -260,7 +260,7 @@ impl ParallelExecutor {
         }
         #[cfg(test)]
         if started_systems != 0 {
-            self.emit_event(StartedSystems(started_systems));
+            self.emit_event(SchedulingEvent::StartedSystems(started_systems));
         }
         // Remove now running systems from the queue.
         self.queued.difference_with(&self.running);
@@ -308,20 +308,29 @@ impl ParallelExecutor {
 }
 
 #[cfg(test)]
-#[derive(Debug, PartialEq, Eq)]
-enum SchedulingEvent {
-    StartedSystems(usize),
+mod scheduling_event {
+    use crate as bevy_ecs;
+    use crate::system::Resource;
+    use async_channel::Receiver;
+
+    #[derive(Debug, PartialEq, Eq)]
+    pub(super) enum SchedulingEvent {
+        StartedSystems(usize),
+    }
+
+    #[derive(Resource)]
+    pub(super) struct SchedulingEvents(pub(crate) Receiver<SchedulingEvent>);
 }
 
 #[cfg(test)]
+#[cfg(test)]
 mod tests {
-    use super::SchedulingEvent::{self, *};
+    use super::scheduling_event::*;
     use crate::{
         schedule::{SingleThreadedExecutor, Stage, SystemStage},
         system::{NonSend, Query, Res, ResMut},
         world::World,
     };
-    use async_channel::Receiver;
 
     use crate as bevy_ecs;
     use crate::component::Component;
@@ -334,7 +343,7 @@ mod tests {
 
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
-        while let Ok(event) = world.resource::<Receiver<SchedulingEvent>>().try_recv() {
+        while let Ok(event) = world.resource::<SchedulingEvents>().0.try_recv() {
             events.push(event);
         }
         events
@@ -352,7 +361,10 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
-            vec![StartedSystems(3), StartedSystems(3),]
+            vec![
+                SchedulingEvent::StartedSystems(3),
+                SchedulingEvent::StartedSystems(3),
+            ]
         );
     }
 
@@ -368,7 +380,10 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
-            vec![StartedSystems(1), StartedSystems(1),]
+            vec![
+                SchedulingEvent::StartedSystems(1),
+                SchedulingEvent::StartedSystems(1),
+            ]
         );
         let mut stage = SystemStage::parallel()
             .with_system(wants_mut)
@@ -376,13 +391,19 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
-            vec![StartedSystems(1), StartedSystems(1),]
+            vec![
+                SchedulingEvent::StartedSystems(1),
+                SchedulingEvent::StartedSystems(1),
+            ]
         );
         let mut stage = SystemStage::parallel()
             .with_system(wants_ref)
             .with_system(wants_ref);
         stage.run(&mut world);
-        assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
+        assert_eq!(
+            receive_events(&world),
+            vec![SchedulingEvent::StartedSystems(2),]
+        );
     }
 
     #[test]
@@ -397,7 +418,10 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
-            vec![StartedSystems(1), StartedSystems(1),]
+            vec![
+                SchedulingEvent::StartedSystems(1),
+                SchedulingEvent::StartedSystems(1),
+            ]
         );
         let mut stage = SystemStage::parallel()
             .with_system(wants_mut)
@@ -405,13 +429,19 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
-            vec![StartedSystems(1), StartedSystems(1),]
+            vec![
+                SchedulingEvent::StartedSystems(1),
+                SchedulingEvent::StartedSystems(1),
+            ]
         );
         let mut stage = SystemStage::parallel()
             .with_system(wants_ref)
             .with_system(wants_ref);
         stage.run(&mut world);
-        assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
+        assert_eq!(
+            receive_events(&world),
+            vec![SchedulingEvent::StartedSystems(2),]
+        );
         let mut world = World::new();
         world.spawn().insert_bundle((W(0usize), W(0u32), W(0f32)));
         fn wants_mut_usize(_: Query<(&mut W<usize>, &W<f32>)>) {}
@@ -420,7 +450,10 @@ mod tests {
             .with_system(wants_mut_usize)
             .with_system(wants_mut_u32);
         stage.run(&mut world);
-        assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
+        assert_eq!(
+            receive_events(&world),
+            vec![SchedulingEvent::StartedSystems(2),]
+        );
     }
 
     #[test]
@@ -435,7 +468,10 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
-            vec![StartedSystems(1), StartedSystems(1),]
+            vec![
+                SchedulingEvent::StartedSystems(1),
+                SchedulingEvent::StartedSystems(1),
+            ]
         );
         let mut stage = SystemStage::parallel()
             .with_system(wants_mut)
@@ -443,13 +479,19 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(
             receive_events(&world),
-            vec![StartedSystems(1), StartedSystems(1),]
+            vec![
+                SchedulingEvent::StartedSystems(1),
+                SchedulingEvent::StartedSystems(1),
+            ]
         );
         let mut stage = SystemStage::parallel()
             .with_system(wants_world)
             .with_system(wants_world);
         stage.run(&mut world);
-        assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
+        assert_eq!(
+            receive_events(&world),
+            vec![SchedulingEvent::StartedSystems(2),]
+        );
     }
 
     #[test]
@@ -472,10 +514,10 @@ mod tests {
         assert_eq!(
             receive_events(&world),
             vec![
-                StartedSystems(3),
-                StartedSystems(1),
-                StartedSystems(1),
-                StartedSystems(1),
+                SchedulingEvent::StartedSystems(3),
+                SchedulingEvent::StartedSystems(1),
+                SchedulingEvent::StartedSystems(1),
+                SchedulingEvent::StartedSystems(1),
             ]
         );
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
