@@ -22,3 +22,31 @@ impl ViewRangefinder3d {
         self.inverse_view_row_2.dot(mesh_transform.col(3))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_math::{Mat4, Vec3};
+    use bevy_transform::prelude::Transform;
+
+    use crate::view::ExtractedView;
+
+    use super::ViewRangefinder3d;
+
+    #[test]
+    fn distance() {
+        let view = ExtractedView {
+            projection: Mat4::IDENTITY,
+            transform: Transform::identity()
+                .with_translation(Vec3::new(0.0, 0.0, -1.0))
+                .into(),
+            width: 0,
+            height: 0,
+        };
+        let rangefinder = ViewRangefinder3d::from_view(&view);
+        assert_eq!(rangefinder.distance(&Mat4::IDENTITY), 1.0);
+        assert_eq!(
+            rangefinder.distance(&Mat4::from_translation(Vec3::new(0.0, 0.0, 1.0))),
+            2.0
+        );
+    }
+}
