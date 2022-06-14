@@ -110,10 +110,6 @@ impl<T: FromReflect> Reflect for Vec<T> {
         std::any::type_name::<Self>()
     }
 
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<Self>()
-    }
-
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
@@ -246,10 +242,6 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         std::any::type_name::<Self>()
     }
 
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<Self>()
-    }
-
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
@@ -374,11 +366,6 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
         std::any::type_name::<Self>()
     }
 
-    #[inline]
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<Self>()
-    }
-
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
@@ -500,10 +487,6 @@ impl_array_get_type_registration! {
 impl Reflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
-    }
-
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<Self>()
     }
 
     fn get_type_info(&self) -> &'static TypeInfo {

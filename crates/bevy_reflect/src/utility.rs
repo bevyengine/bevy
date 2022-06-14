@@ -36,7 +36,6 @@ use std::any::{Any, TypeId};
 /// #
 /// # impl Reflect for Foo {
 /// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn type_id(&self) -> TypeId { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
 /// #   fn any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn any_ref(&self) -> &dyn Any { todo!() }
@@ -98,7 +97,6 @@ impl NonGenericTypeInfoCell {
 /// #
 /// # impl<T: Reflect> Reflect for Foo<T> {
 /// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn type_id(&self) -> TypeId { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
 /// #   fn any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn any_ref(&self) -> &dyn Any { todo!() }

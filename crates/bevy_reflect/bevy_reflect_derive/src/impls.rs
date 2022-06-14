@@ -133,11 +133,6 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
             }
 
             #[inline]
-            fn type_id(&self) -> std::any::TypeId {
-                std::any::TypeId::of::<Self>()
-            }
-
-            #[inline]
             fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
                 <Self as #bevy_reflect_path::Typed>::type_info()
             }
@@ -296,11 +291,6 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
             }
 
             #[inline]
-            fn type_id(&self) -> std::any::TypeId {
-                std::any::TypeId::of::<Self>()
-            }
-
-            #[inline]
             fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
                 <Self as #bevy_reflect_path::Typed>::type_info()
             }
@@ -403,11 +393,6 @@ pub(crate) fn impl_value(
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
-            }
-
-            #[inline]
-            fn type_id(&self) -> std::any::TypeId {
-                std::any::TypeId::of::<Self>()
             }
 
             #[inline]

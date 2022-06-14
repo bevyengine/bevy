@@ -170,11 +170,6 @@ impl Reflect for DynamicList {
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<Self>()
-    }
-
-    #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }

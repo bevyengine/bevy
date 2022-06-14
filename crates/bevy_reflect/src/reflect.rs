@@ -54,7 +54,9 @@ pub trait Reflect: Any + Send + Sync {
     fn type_name(&self) -> &str;
 
     /// Returns the [`TypeId`] of the underlying type.
-    fn type_id(&self) -> TypeId;
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
+    }
 
     /// Returns the [`TypeInfo`] of the underlying type.
     ///

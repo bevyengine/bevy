@@ -63,10 +63,6 @@ where
         std::any::type_name::<Self>()
     }
 
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<Self>()
-    }
-
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }

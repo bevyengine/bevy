@@ -274,11 +274,6 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<Self>()
-    }
-
-    #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
@@ -472,10 +467,6 @@ macro_rules! impl_reflect_tuple {
         impl<$($name: Reflect),*> Reflect for ($($name,)*) {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
-            }
-
-            fn type_id(&self) -> TypeId {
-                TypeId::of::<Self>()
             }
 
             fn get_type_info(&self) -> &'static TypeInfo {
