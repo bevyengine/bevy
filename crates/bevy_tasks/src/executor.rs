@@ -5,7 +5,7 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::task::{Poll, Waker};
 
@@ -196,6 +196,7 @@ impl State {
                     .map(|_| ConcurrentQueue::bounded(512))
                     .collect::<Vec<_>>()
                     .into_boxed_slice(),
+                searchers: AtomicUsize::new(0),
                 notified: AtomicBool::new(true),
                 sleepers: Mutex::new(Sleepers {
                     count: 0,
@@ -218,6 +219,8 @@ struct GroupState {
     /// Local queues created by runners.
     local_queues: Box<[ConcurrentQueue<Runnable>]>,
 
+    searchers: AtomicUsize,
+
     /// Set to `true` when a sleeping ticker is notified or no tickers are sleeping.
     notified: AtomicBool,
 
@@ -227,7 +230,7 @@ struct GroupState {
 impl GroupState {
     /// Notifies a sleeping ticker.
     #[inline]
-    fn notify(&self) {
+    fn notify(&self) -> bool {
         if self
             .notified
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -237,7 +240,9 @@ impl GroupState {
             if let Some(w) = waker {
                 w.wake();
             }
+            return true;
         }
+        false
     }
 }
 
@@ -409,29 +414,37 @@ impl Runner<'_> {
             loop {
                 // Try the local queue.
                 if let Ok(r) = self.local.pop() {
-                    // Wake up.
-                    self.wake();
-                    // Notify another ticker now to pick up where this ticker left off, just in
-                    // case running the task takes a long time.
-                    self.group.notify();
+                    self.wake_and_notify();
                     return Poll::Ready(r);
                 }
 
                 // Try stealing from global queues.
                 for priority in self.priority_iter() {
                     let group = &self.state.groups[priority];
+                    let local_queues = &self.state.groups[priority].local_queues;
+                    let local_count = local_queues.len();
+
+                    let update = |count| {
+                        (2 * count < local_count)
+                            .then(|| count + 1)
+                    };
+                    if group.searchers.fetch_update(Ordering::SeqCst, Ordering::SeqCst, update).is_err() {
+                        continue;
+                    }
+
                     if let Ok(r) = group.queue.pop() {
                         self.steal(&group.queue);
-                        self.wake();
-                        self.group.notify();
+                        group.searchers.fetch_sub(1, Ordering::SeqCst);
+                        self.wake_and_notify();
                         return Poll::Ready(r);
                     }
-                    let local_queues = &self.state.groups[priority].local_queues;
 
                     // // Pick a random starting point in the iterator list and rotate the list.
                     if local_queues.is_empty() {
+                        group.searchers.fetch_sub(1, Ordering::SeqCst);
                         continue;
                     }
+
                     let start = self.rng.usize(..local_queues.len());
                     // Try stealing from each local queue in the list.
                     for idx in start..start + local_queues.len() {
@@ -441,11 +454,12 @@ impl Runner<'_> {
                         }
                         self.steal(local);
                         if let Ok(r) = self.local.pop() {
-                            self.wake();
-                            self.group.notify();
+                            group.searchers.fetch_sub(1, Ordering::SeqCst);
+                            self.wake_and_notify();
                             return Poll::Ready(r);
                         }
                     }
+                    group.searchers.fetch_sub(1, Ordering::SeqCst);
                 }
 
                 // Move to sleeping and unnotified state.
@@ -465,6 +479,18 @@ impl Runner<'_> {
         }
 
         runnable
+    }
+
+    fn wake_and_notify(&mut self) {
+        // Wake up.
+        self.wake();
+        // Notify another ticker now to pick up where this ticker left off, just in
+        // case running the new task takes a long time.
+        for group in self.state.groups[..=self.priority].iter().rev() {
+            if group.notify() {
+                return;
+            }
+        }
     }
 
     /// Steals some items from one queue into another the local queue.
