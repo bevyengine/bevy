@@ -2,7 +2,7 @@ use bevy_math::{Mat4, Vec4};
 
 use crate::view::ExtractedView;
 
-/// A distance calculator for the draw order of [PhaseItems](crate::render_phase::PhaseItem).
+/// A distance calculator for the draw order of [`PhaseItem`](crate::render_phase::PhaseItem)s.
 pub struct ViewRangefinder3d {
     inverse_view_row_2: Vec4,
 }
