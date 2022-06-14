@@ -10,4 +10,3 @@ license = "MIT OR Apache-2.0"
 toml = "0.5"
 tera = "1.15"
 serde = { version = "1.0", features = [ "derive" ] }
-# xshell = "0.2"
