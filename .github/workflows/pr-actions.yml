@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: cargo run -p build_examples
+      - run: cargo run -p build-example-pages
       - name: Check for modified files
         id: git-check
         run: echo ::set-output name=modified::$(if git diff --quiet HEAD --; then echo "false"; else echo "true"; fi)
