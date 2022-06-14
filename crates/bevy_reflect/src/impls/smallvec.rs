@@ -1,5 +1,5 @@
 use smallvec::SmallVec;
-use std::any::{Any, TypeId};
+use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{

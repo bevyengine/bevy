@@ -10,7 +10,7 @@ use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::{
-    any::{Any, TypeId},
+    any::Any,
     borrow::Cow,
     hash::{Hash, Hasher},
     ops::Range,
