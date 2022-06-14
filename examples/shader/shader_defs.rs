@@ -10,6 +10,7 @@ use bevy::{
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::MeshVertexBufferLayout,
+        rangefinder::ViewRangefinder3d,
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
@@ -151,8 +152,7 @@ fn queue_custom(
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut transparent_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
+        let rangefinder = ViewRangefinder3d::from_view(view);
         for (entity, mesh_handle, mesh_uniform, is_red) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let key =
@@ -169,7 +169,7 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    distance: rangefinder.distance(&mesh_uniform.transform),
                 });
             }
         }
