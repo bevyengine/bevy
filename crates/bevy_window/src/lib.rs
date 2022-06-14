@@ -21,7 +21,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{entity::Entity, event::Events, schedule::{SystemLabel, SystemStage}, system::{SystemState, Commands, ResMut}};
+use bevy_ecs::{entity::Entity, event::Events, schedule::{SystemLabel, SystemStage}, system::{SystemState, Commands, ResMut, Command}};
 
 pub struct WindowPlugin {
     /// Whether to create a window when added.
@@ -99,18 +99,37 @@ impl Plugin for WindowPlugin {
         bevy_utils::tracing::info!("Hello");
 
         if self.add_primary_window {
-            // TODO: Creating window should be done through commands as entities instead of old way
-            // app.add_startup_system(create_primary_window);
+            // TODO: Creating primary window should ideally be done through commands instead of the old way
+            // however, commands aren't executed until the end of the "build-stage"
+            // which means the primary-window does not exist until just before startup-systems starts running (?)
+            // which means bevy_render does not have a window to use as attach to during plugin build.
 
+            // Wishlist item; for this to work:
+            // app.add_startup_system(create_primary_window);
+            // or this:
+            // app.add_build_system(create_primary_window)
+            
+            // TODO: The unwrap_or_default is necessary for the user to setup ahead of time what the window should be
+            // if not we'll regress on this
+            let window_descriptor = app
+                .world
+                .get_resource::<WindowDescriptor>()
+                .map(|descriptor| (*descriptor).clone())
+                .unwrap_or_default();
+
+            let window_id = app.world.spawn().id();
+            
             let mut system_state: SystemState<(Commands, ResMut<PrimaryWindow>)> = SystemState::new(&mut app.world);
             let (mut commands, mut primary_window) = system_state.get_mut(&mut app.world);
-            create_primary_window(commands, primary_window);
+            primary_window.window = Some(window_id);
+            // create_primary_window(commands, primary_window);
 
-            // let window_descriptor = app
-            //     .world
-            //     .get_resource::<WindowDescriptor>()
-            //     .map(|descriptor| (*descriptor).clone())
-            //     .unwrap_or_default();
+
+            let command = CreateWindowCommand { entity: window_id, descriptor: window_descriptor };
+            // Apply the command directly on the world
+            // I wonder if this causes timing issue: this will trigger a CreateWindowCommand event, but will bevy_winit exist in time to listen to the event?
+            command.write(&mut app.world);
+
             // let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
 
             // // TODO: Replace with commands

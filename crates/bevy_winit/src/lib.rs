@@ -179,7 +179,7 @@ struct InputEvents<'w, 's> {
     mouse_button_input: EventWriter<'w, 's, MouseButtonInput>,
     mouse_wheel_input: EventWriter<'w, 's, MouseWheel>,
     touch_input: EventWriter<'w, 's, TouchInput>,
-    mouse_motion: EventWriter<'w, 's, MouseMotion>,
+    // mouse_motion: EventWriter<'w, 's, MouseMotion>,
 }
 
 #[derive(SystemParam)]
