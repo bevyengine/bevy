@@ -105,7 +105,6 @@ impl<T: FromReflect> List for Vec<T> {
     }
 }
 
-// SAFE: any and any_mut both return self
 impl<T: FromReflect> Reflect for Vec<T> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
