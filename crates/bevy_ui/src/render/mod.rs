@@ -237,9 +237,10 @@ pub fn extract_default_ui_camera_view<T: Component>(
         {
             continue;
         }
-        if let (Some(logical_size), Some(physical_size)) =
-            (camera.logical_target_size, camera.physical_target_size)
-        {
+        if let (Some(logical_size), Some(physical_size)) = (
+            camera.logical_viewport_size(),
+            camera.physical_viewport_size(),
+        ) {
             let mut projection = OrthographicProjection {
                 far: UI_CAMERA_FAR,
                 window_origin: WindowOrigin::BottomLeft,
@@ -437,9 +438,11 @@ pub fn prepare_uinodes(
             positions[3] + positions_diff[3].extend(0.),
         ];
 
+        let transformed_rect_size = extracted_uinode.transform.transform_vector3(rect_size);
+
         // Cull nodes that are completely clipped
-        if positions_diff[0].x - positions_diff[1].x >= rect_size.x
-            || positions_diff[1].y - positions_diff[2].y >= rect_size.y
+        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
         {
             continue;
         }

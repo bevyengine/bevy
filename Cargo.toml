@@ -173,10 +173,18 @@ path = "examples/2d/text2d.rs"
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
+[[example]]
+name = "transparency_2d"
+path = "examples/2d/transparency_2d.rs"
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
+
+[[example]]
+name = "3d_shapes"
+path = "examples/3d/shapes.rs"
 
 [[example]]
 name = "lighting"
@@ -211,10 +219,6 @@ name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
 
 [[example]]
-name = "3d_shapes"
-path = "examples/3d/shapes.rs"
-
-[[example]]
 name = "shadow_caster_receiver"
 path = "examples/3d/shadow_caster_receiver.rs"
 
@@ -223,8 +227,16 @@ name = "spherical_area_lights"
 path = "examples/3d/spherical_area_lights.rs"
 
 [[example]]
+name = "split_screen"
+path = "examples/3d/split_screen.rs"
+
+[[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
+
+[[example]]
+name = "transparency_3d"
+path = "examples/3d/transparency_3d.rs"
 
 [[example]]
 name = "two_passes"
@@ -511,6 +523,10 @@ name = "custom_vertex_attribute"
 path = "examples/shader/custom_vertex_attribute.rs"
 
 [[example]]
+name = "post_processing"
+path = "examples/shader/post_processing.rs"
+
+[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
@@ -607,6 +623,10 @@ path = "examples/ui/text.rs"
 [[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
+
+[[example]]
+name = "transparency_ui"
+path = "examples/ui/transparency_ui.rs"
 
 [[example]]
 name = "ui"

@@ -200,7 +200,7 @@ Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/d
 
 Bugs in Bevy (or the associated website / book) are filed on the issue tracker using the [`C-Bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3AC-Bug) label.
 
-If you're looking for an easy place to start, take a look at the [`E-Good-First-Issue`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AE-Good-First-Issue) label, and feel free to ask questions on that issue's thread in question or on Discord.
+If you're looking for an easy place to start, take a look at the [`D-Good-First-Issue`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AD-Good-First-Issue) label, and feel free to ask questions on that issue's thread in question or on Discord.
 You don't need anyone's permission to try fixing a bug or adding a simple feature, but stating that you'd like to tackle an issue can be helpful to avoid duplicated work.
 
 When you make a pull request that fixes an issue, include a line that says `Fixes #X` (or "Closes"), where `X` is the issue number.

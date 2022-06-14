@@ -50,7 +50,8 @@ struct ComputeTransform(Task<Transform>);
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, `handle_tasks`, will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
-fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
+fn spawn_tasks(mut commands: Commands) {
+    let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
         for y in 0..NUM_CUBES {
             for z in 0..NUM_CUBES {

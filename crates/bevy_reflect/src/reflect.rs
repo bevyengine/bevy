@@ -1,10 +1,10 @@
 use crate::{
     array_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, List, Map, Struct, Tuple, TupleStruct,
+    tuple_struct_debug, Array, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed, ValueInfo,
 };
-
 use std::{any::Any, fmt::Debug};
 
+use crate::utility::NonGenericTypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
 
 /// An immutable enumeration of "kinds" of reflected type.
@@ -56,6 +56,16 @@ pub unsafe trait Reflect: Any + Send + Sync {
     ///
     /// [type name]: std::any::type_name
     fn type_name(&self) -> &str;
+
+    /// Returns the [`TypeInfo`] of the underlying type.
+    ///
+    /// This method is great if you have an instance of a type or a `dyn Reflect`,
+    /// and want to access its [`TypeInfo`]. However, if this method is to be called
+    /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
+    /// performant for such use cases.
+    ///
+    /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
+    fn get_type_info(&self) -> &'static TypeInfo;
 
     /// Returns the value as a [`&dyn Any`][std::any::Any].
     fn any(&self) -> &dyn Any;
@@ -190,6 +200,13 @@ pub trait FromReflect: Reflect + Sized {
 impl Debug for dyn Reflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl Typed for dyn Reflect {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
 

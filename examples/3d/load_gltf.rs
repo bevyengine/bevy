@@ -16,7 +16,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
     commands
         .spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(0.7, 0.7, 1.0)
@@ -39,6 +38,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             shadows_enabled: true,
             ..default()
         },
+        ..default()
+    });
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
         ..default()
     });
 }
