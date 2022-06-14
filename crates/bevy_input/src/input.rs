@@ -123,6 +123,13 @@ where
         self.just_released.remove(&input);
     }
 
+    /// Clears the `pressed`, `just_pressed`, and `just_released` data for every input.
+    pub fn reset_all(&mut self) {
+        self.pressed.clear();
+        self.just_pressed.clear();
+        self.just_released.clear();
+    }
+
     /// Clears the `just pressed` and `just released` data for every input.
     pub fn clear(&mut self) {
         self.just_pressed.clear();
@@ -282,6 +289,22 @@ mod test {
         assert!(!input.pressed(DummyInput::Input1));
         assert!(!input.just_pressed(DummyInput::Input1));
         assert!(!input.just_released(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_reset_all() {
+        let mut input = Input::default();
+
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+        input.release(DummyInput::Input2);
+        assert!(input.pressed.contains(&DummyInput::Input1));
+        assert!(input.just_pressed.contains(&DummyInput::Input1));
+        assert!(input.just_released.contains(&DummyInput::Input2));
+        input.reset_all();
+        assert!(input.pressed.is_empty());
+        assert!(input.just_pressed.is_empty());
+        assert!(input.just_released.is_empty());
     }
 
     #[test]
