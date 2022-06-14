@@ -152,11 +152,15 @@ impl DynamicArray {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicArray {
+impl Reflect for DynamicArray {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()
+    }
+
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
     }
 
     #[inline]
@@ -165,7 +169,12 @@ unsafe impl Reflect for DynamicArray {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    #[inline]
+    fn any_ref(&self) -> &dyn Any {
         self
     }
 

@@ -267,11 +267,15 @@ impl Tuple for DynamicTuple {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicTuple {
+impl Reflect for DynamicTuple {
     #[inline]
     fn type_name(&self) -> &str {
         self.name()
+    }
+
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
     }
 
     #[inline]
@@ -280,7 +284,12 @@ unsafe impl Reflect for DynamicTuple {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    #[inline]
+    fn any_ref(&self) -> &dyn Any {
         self
     }
 
@@ -460,17 +469,24 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        // SAFE: any and any_mut both return self
-        unsafe impl<$($name: Reflect),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect),*> Reflect for ($($name,)*) {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
+            }
+
+            fn type_id(&self) -> TypeId {
+                TypeId::of::<Self>()
             }
 
             fn get_type_info(&self) -> &'static TypeInfo {
                 <Self as Typed>::type_info()
             }
 
-            fn any(&self) -> &dyn Any {
+            fn any(self: Box<Self>) -> Box<dyn Any> {
+                self
+            }
+
+            fn any_ref(&self) -> &dyn Any {
                 self
             }
 

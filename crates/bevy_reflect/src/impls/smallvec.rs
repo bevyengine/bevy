@@ -1,5 +1,5 @@
 use smallvec::SmallVec;
-use std::any::Any;
+use std::any::{Any, TypeId};
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
@@ -55,8 +55,7 @@ where
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
+impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
 where
     T::Item: FromReflect + Clone,
 {
@@ -64,11 +63,19 @@ where
         std::any::type_name::<Self>()
     }
 
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
+    }
+
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
 
-    fn any(&self) -> &dyn Any {
+    fn any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn any_ref(&self) -> &dyn Any {
         self
     }
 

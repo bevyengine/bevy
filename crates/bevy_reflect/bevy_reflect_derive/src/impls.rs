@@ -126,11 +126,15 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
             }
         }
 
-        // SAFE: any and any_mut both return self
-        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_clause {
+        impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_clause {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
+            }
+
+            #[inline]
+            fn type_id(&self) -> std::any::TypeId {
+                std::any::TypeId::of::<Self>()
             }
 
             #[inline]
@@ -139,9 +143,15 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
             }
 
             #[inline]
-            fn any(&self) -> &dyn std::any::Any {
+            fn any(self: Box<Self>) -> Box<dyn std::any::Any> {
                 self
             }
+
+            #[inline]
+            fn any_ref(&self) -> &dyn std::any::Any {
+                self
+            }
+
             #[inline]
             fn any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
@@ -287,14 +297,25 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
             }
 
             #[inline]
+            fn type_id(&self) -> std::any::TypeId {
+                std::any::TypeId::of::<Self>()
+            }
+
+            #[inline]
             fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
                 <Self as #bevy_reflect_path::Typed>::type_info()
             }
 
             #[inline]
-            fn any(&self) -> &dyn std::any::Any {
+            fn any(self: Box<Self>) -> Box<dyn std::any::Any> {
                 self
             }
+
+            #[inline]
+            fn any_ref(&self) -> &dyn std::any::Any {
+                self
+            }
+
             #[inline]
             fn any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
@@ -379,11 +400,15 @@ pub(crate) fn impl_value(
 
         #typed_impl
 
-        // SAFE: any and any_mut both return self
-        unsafe impl #impl_generics #bevy_reflect_path::Reflect for #type_name #ty_generics #where_clause  {
+        impl #impl_generics #bevy_reflect_path::Reflect for #type_name #ty_generics #where_clause  {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
+            }
+
+            #[inline]
+            fn type_id(&self) -> std::any::TypeId {
+                std::any::TypeId::of::<Self>()
             }
 
             #[inline]
@@ -392,7 +417,12 @@ pub(crate) fn impl_value(
             }
 
             #[inline]
-            fn any(&self) -> &dyn std::any::Any {
+            fn any(self: Box<Self>) -> Box<dyn std::any::Any> {
+                self
+            }
+
+            #[inline]
+            fn any_ref(&self) -> &dyn std::any::Any {
                 self
             }
 
@@ -418,7 +448,7 @@ pub(crate) fn impl_value(
 
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                let value = value.any();
+                let value = value.any_ref();
                 if let Some(value) = value.downcast_ref::<Self>() {
                     *self = value.clone();
                 } else {

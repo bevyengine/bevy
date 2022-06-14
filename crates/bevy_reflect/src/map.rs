@@ -212,10 +212,13 @@ impl Map for DynamicMap {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicMap {
+impl Reflect for DynamicMap {
     fn type_name(&self) -> &str {
         &self.name
+    }
+
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
     }
 
     #[inline]
@@ -223,7 +226,11 @@ unsafe impl Reflect for DynamicMap {
         <Self as Typed>::type_info()
     }
 
-    fn any(&self) -> &dyn Any {
+    fn any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn any_ref(&self) -> &dyn Any {
         self
     }
 
