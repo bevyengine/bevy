@@ -37,7 +37,7 @@ git checkout v0.4.0
 - [The Bare Minimum](#the-bare-minimum)
   - [Hello, World!](#hello-world)
 - [Cross-Platform Examples](#cross-platform-examples)
-{% for category, _ in all_examples %}  - [{{ category }}]({{ category | slugify }})
+{% for category, _ in all_examples %}  - [{{ category }}](#{{ category | slugify }})
 {% endfor %}
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
