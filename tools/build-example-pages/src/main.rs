@@ -37,7 +37,13 @@ struct Example {
 fn parse_examples() -> Vec<Example> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
     let manifest: HashMap<String, Value> = toml::from_str(&manifest_file).unwrap();
-    let metadatas = manifest.get("metadata").as_ref().unwrap()["example"].clone();
+    let metadatas = manifest
+        .get("package")
+        .unwrap()
+        .get("metadata")
+        .as_ref()
+        .unwrap()["example"]
+        .clone();
 
     manifest["example"]
         .as_array()
