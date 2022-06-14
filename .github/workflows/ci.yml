@@ -162,7 +162,7 @@ jobs:
 
   markdownlint:
     runs-on: ubuntu-latest
-    needs: update-examples-readme
+    needs: check-missing-examples-in-docs
     if: always()
     steps:
       - uses: actions/checkout@v3
@@ -256,6 +256,12 @@ jobs:
       # - name: Checks dead links
       #   run: cargo deadlinks --dir target/doc/bevy
       #   continue-on-error: true
+
+  check-missing-examples-in-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: cargo run -p build-example-pages -- check-missing
 
   check-unused-dependencies:
     runs-on: ubuntu-latest
