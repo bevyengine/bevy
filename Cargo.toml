@@ -171,6 +171,12 @@ wasm = true
 name = "mesh2d_vertex_color_texture"
 path = "examples/2d/mesh2d_vertex_color_texture.rs"
 
+[package.metadata.example.mesh2d_vertex_color_texture]
+name = "Mesh 2D With Vertex Colors"
+description = "Renders a 2d mesh with vertex color attributes"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "shapes"
 path = "examples/2d/shapes.rs"
