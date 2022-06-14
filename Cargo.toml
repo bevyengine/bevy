@@ -126,6 +126,12 @@ crossbeam-channel = "0.5.0"
 name = "hello_world"
 path = "examples/hello_world.rs"
 
+[package.metadata.example.hello_world]
+name = "Hello World"
+description = "The basics"
+category = "Hello World"
+wasm = true
+
 # 2D Rendering
 [[example]]
 name = "move_sprite"
