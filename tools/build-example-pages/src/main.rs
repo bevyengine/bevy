@@ -72,6 +72,17 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
                     panic!("Missing metadata for example {}", technical_name);
                 }
             }
+
+            if metadatas
+                .get(&technical_name)
+                .and_then(|metadata| metadata.get("hidden"))
+                .and_then(|hidden| hidden.as_bool())
+                .and_then(|hidden| hidden.then(|| ()))
+                .is_some()
+            {
+                return None;
+            }
+
             metadatas.get(&technical_name).map(|metadata| Example {
                 technical_name,
                 path: val["path"].as_str().unwrap().to_string(),
