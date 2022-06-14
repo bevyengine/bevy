@@ -5,7 +5,7 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::task::{Poll, Waker};
 
@@ -79,7 +79,7 @@ impl<'a> Executor<'a> {
         thread_id: usize,
         future: impl Future<Output = T>,
     ) -> T {
-        let runner = Runner::new(priority, thread_id, &self.state);
+        let mut runner = Runner::new(priority, thread_id, &self.state);
 
         // A future that runs tasks forever.
         let run_forever = async {
@@ -315,9 +315,11 @@ impl Sleepers {
     }
 }
 
-/// Runs task one by one.
+/// A worker in a work-stealing executor.
+///
+/// This is just a ticker that also has an associated local queue for improved cache locality.
 #[derive(Debug)]
-struct Ticker<'a> {
+struct Runner<'a> {
     priority: usize,
 
     /// The executor state.
@@ -329,30 +331,49 @@ struct Ticker<'a> {
     /// 1) Woken.
     /// 2a) Sleeping and unnotified.
     /// 2b) Sleeping and notified.
-    sleeping: AtomicUsize,
+    sleeping: usize,
+
+    state: &'a State,
+    /// The local queue.
+    local: &'a ConcurrentQueue<Runnable>,
+    rng: fastrand::Rng,
+    /// Bumped every time a runnable task is found.
+    ticks: usize,
 }
 
-impl Ticker<'_> {
-    /// Creates a ticker.
-    fn new(priority: usize, state: &State) -> Ticker<'_> {
-        Ticker {
+impl Runner<'_> {
+    /// Creates a runner and registers it in the executor state.
+    fn new(priority: usize, thread_id: usize, state: &State) -> Runner<'_> {
+        let group = &state.groups[priority];
+        let local = &group.local_queues[thread_id];
+        let runner = Runner {
             priority,
-            group: &state.groups[priority],
-            sleeping: AtomicUsize::new(0),
-        }
+            state,
+            sleeping: 0,
+            local,
+            group,
+            rng: fastrand::Rng::new(),
+            ticks: 0,
+        };
+        runner
+    }
+
+    fn priority_iter(&self) -> impl Iterator<Item = usize> {
+        // Prioritize the immediate responsibility of the runner, then search in reverse order
+        std::iter::once(self.priority).chain((self.priority + 1..self.state.groups.len()).rev())
     }
 
     /// Moves the ticker into sleeping and unnotified state.
     ///
     /// Returns `false` if the ticker was already sleeping and unnotified.
-    fn sleep(&self, waker: &Waker) -> bool {
+    fn sleep(&mut self, waker: &Waker) -> bool {
         let mut sleepers = self.group.sleepers.lock();
 
-        match self.sleeping.load(Ordering::SeqCst) {
+        match self.sleeping {
             // Move to sleeping state.
-            0 => self
-                .sleeping
-                .store(sleepers.insert(waker), Ordering::SeqCst),
+            0 => {
+                self.sleeping = sleepers.insert(waker);
+            }
 
             // Already sleeping, check if notified.
             id => {
@@ -369,8 +390,9 @@ impl Ticker<'_> {
     }
 
     /// Moves the ticker into woken state.
-    fn wake(&self) {
-        let id = self.sleeping.swap(0, Ordering::SeqCst);
+    fn wake(&mut self) {
+        let id = self.sleeping;
+        self.sleeping = 0;
         if id != 0 {
             let mut sleepers = self.group.sleepers.lock();
             sleepers.remove(id);
@@ -381,103 +403,18 @@ impl Ticker<'_> {
         }
     }
 
-    /// Waits for the next runnable task to run, given a function that searches for a task.
-    async fn runnable_with(&self, mut search: impl FnMut() -> Option<Runnable>) -> Runnable {
-        future::poll_fn(|cx| {
-            loop {
-                match search() {
-                    None => {
-                        // Move to sleeping and unnotified state.
-                        if !self.sleep(cx.waker()) {
-                            // If already sleeping and unnotified, return.
-                            return Poll::Pending;
-                        }
-                    }
-                    Some(runnable) => {
-                        // Wake up.
-                        self.wake();
-
-                        // Notify another ticker now to pick up where this ticker left off, just in
-                        // case running the task takes a long time.
-                        self.group.notify();
-
-                        return Poll::Ready(runnable);
-                    }
-                }
-            }
-        })
-        .await
-    }
-}
-
-impl Drop for Ticker<'_> {
-    fn drop(&mut self) {
-        // If this ticker is in sleeping state, it must be removed from the sleepers list.
-        let id = self.sleeping.swap(0, Ordering::SeqCst);
-        if id != 0 {
-            let mut sleepers = self.group.sleepers.lock();
-            let notified = sleepers.remove(id);
-
-            self.group
-                .notified
-                .swap(sleepers.is_notified(), Ordering::SeqCst);
-
-            // If this ticker was notified, then notify another ticker.
-            if notified {
-                drop(sleepers);
-                self.group.notify();
-            }
-        }
-    }
-}
-
-/// A worker in a work-stealing executor.
-///
-/// This is just a ticker that also has an associated local queue for improved cache locality.
-#[derive(Debug)]
-struct Runner<'a> {
-    /// Inner ticker.
-    ticker: Ticker<'a>,
-    state: &'a State,
-    /// The local queue.
-    local: &'a ConcurrentQueue<Runnable>,
-    rng: fastrand::Rng,
-    /// Bumped every time a runnable task is found.
-    ticks: AtomicUsize,
-}
-
-impl Runner<'_> {
-    /// Creates a runner and registers it in the executor state.
-    fn new(priority: usize, thread_id: usize, state: &State) -> Runner<'_> {
-        let local = &state.groups[priority].local_queues[thread_id];
-        let runner = Runner {
-            ticker: Ticker::new(priority, state),
-            state,
-            local,
-            rng: fastrand::Rng::new(),
-            ticks: AtomicUsize::new(0),
-        };
-        runner
-    }
-
-    #[inline]
-    fn priority(&self) -> usize {
-        self.ticker.priority
-    }
-
-    fn priority_iter(&self) -> impl Iterator<Item = usize> {
-        // Prioritize the immediate responsibility of the runner, then search in reverse order
-        std::iter::once(self.priority()).chain((self.priority() + 1..self.state.groups.len()).rev())
-    }
-
     /// Waits for the next runnable task to run.
-    async fn runnable(&self) -> Runnable {
-        let runnable = self
-            .ticker
-            .runnable_with(|| {
+    async fn runnable(&mut self) -> Runnable {
+        let runnable = future::poll_fn(|cx| {
+            loop {
                 // Try the local queue.
                 if let Ok(r) = self.local.pop() {
-                    return Some(r);
+                    // Wake up.
+                    self.wake();
+                    // Notify another ticker now to pick up where this ticker left off, just in
+                    // case running the task takes a long time.
+                    self.group.notify();
+                    return Poll::Ready(r);
                 }
 
                 // Try stealing from global queues.
@@ -485,7 +422,9 @@ impl Runner<'_> {
                     let group = &self.state.groups[priority];
                     if let Ok(r) = group.queue.pop() {
                         self.steal(&group.queue);
-                        return Some(r);
+                        self.wake();
+                        self.group.notify();
+                        return Poll::Ready(r);
                     }
                     let local_queues = &self.state.groups[priority].local_queues;
 
@@ -502,21 +441,27 @@ impl Runner<'_> {
                         }
                         self.steal(local);
                         if let Ok(r) = self.local.pop() {
-                            return Some(r);
+                            self.wake();
+                            self.group.notify();
+                            return Poll::Ready(r);
                         }
                     }
                 }
 
-                None
-            })
-            .await;
+                // Move to sleeping and unnotified state.
+                if !self.sleep(cx.waker()) {
+                    // If already sleeping and unnotified, return.
+                    return Poll::Pending;
+                }
+            }
+        })
+        .await;
 
         // Bump the tick counter.
-        let ticks = self.ticks.fetch_add(1, Ordering::SeqCst);
-
-        if ticks % 64 == 0 {
+        self.ticks += 1;
+        if self.ticks % 64 == 0 {
             // Steal tasks from the global queue to ensure fair task scheduling.
-            self.steal(&self.state.groups[self.priority()].queue);
+            self.steal(&self.state.groups[self.priority].queue);
         }
 
         runnable
@@ -548,6 +493,24 @@ impl Runner<'_> {
 
 impl Drop for Runner<'_> {
     fn drop(&mut self) {
+        // If this ticker is in sleeping state, it must be removed from the sleepers list.
+        let id = self.sleeping;
+        self.sleeping = 0;
+        if id != 0 {
+            let mut sleepers = self.group.sleepers.lock();
+            let notified = sleepers.remove(id);
+
+            self.group
+                .notified
+                .swap(sleepers.is_notified(), Ordering::SeqCst);
+
+            // If this ticker was notified, then notify another ticker.
+            if notified {
+                drop(sleepers);
+                self.group.notify();
+            }
+        }
+
         // Re-schedule remaining tasks in the local queue.
         while let Ok(r) = self.local.pop() {
             r.schedule();
