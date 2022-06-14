@@ -4,7 +4,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMap},
     event::{Events, ManualEventReader},
     reflect::{ReflectComponent, ReflectMapEntities},
-    system::Command,
+    system::{Command, Resource},
     world::{Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};
@@ -27,7 +27,7 @@ impl InstanceId {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct SceneSpawner {
     spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>>,
     spawned_dynamic_scenes: HashMap<Handle<DynamicScene>, Vec<InstanceId>>,

@@ -58,7 +58,7 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa { samples: 4 })
 ///     .run();
 /// ```
-#[derive(Clone, ExtractResource, Reflect)]
+#[derive(Resource, Clone, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in

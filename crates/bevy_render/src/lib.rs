@@ -91,8 +91,12 @@ pub enum RenderStage {
 /// This resource is only available during [`RenderStage::Extract`] and not
 /// during command application of that stage.
 /// See [`Extract`] for more details.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct MainWorld(World);
+
+/// The Render App World. This is only available as a resource during the Extract step.
+#[derive(Resource, Default)]
+pub struct RenderWorld(World);
 
 impl Deref for MainWorld {
     type Target = World;

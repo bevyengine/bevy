@@ -3,7 +3,7 @@ use bevy_reflect::Reflect;
 use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
-#[derive(Reflect, Debug, Clone)]
+#[derive(Resource, Reflect, Debug, Clone)]
 #[reflect(Resource)]
 pub struct Time {
     delta: Duration,

@@ -48,7 +48,7 @@ pub struct ExtractedWindow {
     pub size_changed: bool,
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct ExtractedWindows {
     pub windows: HashMap<WindowId, ExtractedWindow>,
 }
