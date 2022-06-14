@@ -420,12 +420,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn world_cell_ref_and_ref() {
         let mut world = World::default();
         world.insert_resource(1u32);
         let cell = world.cell();
-        let _value_a = cell.resource_mut::<u32>();
+        let _value_a = cell.resource::<u32>();
         let _value_b = cell.resource::<u32>();
     }
 }
