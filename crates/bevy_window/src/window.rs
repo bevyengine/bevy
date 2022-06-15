@@ -3,7 +3,7 @@ use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-/// A unique ID for a [`Window`]
+/// A unique ID for a [`Window`].
 pub struct WindowId(Uuid);
 
 /// Presentation mode for a window.
@@ -40,15 +40,15 @@ pub enum PresentMode {
 }
 
 impl WindowId {
-    /// Creates a new [`WindowId`]
+    /// Creates a new [`WindowId`].
     pub fn new() -> Self {
         WindowId(Uuid::new_v4())
     }
-    /// The [`WindowId`] for the primary window
+    /// The [`WindowId`] for the primary window.
     pub fn primary() -> Self {
         WindowId(Uuid::from_u128(0))
     }
-    /// Get whether or not this [`WindowId`] is for the primary window
+    /// Get whether or not this [`WindowId`] is for the primary window.
     pub fn is_primary(&self) -> bool {
         *self == WindowId::primary()
     }
@@ -131,6 +131,7 @@ impl WindowResizeConstraints {
 }
 
 /// An operating system window that can present content and receive user input.
+///
 /// To create a window, use a [`EventWriter<CreateWindow>`](`crate::CreateWindow`).
 ///
 /// ## Window Sizes
@@ -148,7 +149,9 @@ impl WindowResizeConstraints {
 /// logical size through the scaling factor.
 ///
 /// ## Accessing a `Window` from a system
-/// To access a `Window` from a system, use [`bevy_ecs::change_detection::ResMut`]`<`[`crate::Windows`]`>`
+///
+/// To access a `Window` from a system, use [`bevy_ecs::change_detection::ResMut`]`<`[`crate::Windows`]`>`.
+///
 /// ### Example
 /// ```no_run
 /// # use bevy_app::App;
@@ -190,20 +193,21 @@ pub struct Window {
     command_queue: Vec<WindowCommand>,
 }
 /// A command to be sent to a window.
+///
 /// Bevy apps don't interact with this `enum` directly. Instead, they should use the methods on [`Window`].
 /// This `enum` is meant for authors of windowing plugins. See the documentation on [`crate::WindowPlugin`] for more information.
 #[derive(Debug)]
 pub enum WindowCommand {
-    /// Set the window's [`WindowMode`]
+    /// Set the window's [`WindowMode`].
     SetWindowMode {
         mode: WindowMode,
         resolution: (u32, u32),
     },
-    /// Set the window's title
+    /// Set the window's title.
     SetTitle { title: String },
-    /// Set the window's scale factor
+    /// Set the window's scale factor.
     SetScaleFactor { scale_factor: f64 },
-    /// Set the window's resolution
+    /// Set the window's resolution.
     SetResolution {
         logical_resolution: (f32, f32),
         scale_factor: f64,
