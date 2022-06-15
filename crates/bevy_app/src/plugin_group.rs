@@ -83,6 +83,7 @@ impl PluginGroupBuilder {
     ///
     /// ```
     /// # use bevy::prelude::*;
+    /// # use bevy::app::PluginGroupBuilder;
     /// #
     /// struct GamePlugins;
     ///
