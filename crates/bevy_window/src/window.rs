@@ -204,35 +204,59 @@ pub enum WindowCommand {
         resolution: (u32, u32),
     },
     /// Set the window's title.
-    SetTitle { title: String },
+    SetTitle {
+        title: String,
+    },
     /// Set the window's scale factor.
-    SetScaleFactor { scale_factor: f64 },
+    SetScaleFactor {
+        scale_factor: f64,
+    },
     /// Set the window's resolution.
     SetResolution {
         logical_resolution: (f32, f32),
         scale_factor: f64,
     },
     /// Set the window's [`PresentMode`]
-    SetPresentMode { present_mode: PresentMode },
+    SetPresentMode {
+        present_mode: PresentMode,
+    },
     /// Set whether or not the window is resizable
-    SetResizable { resizable: bool },
+    SetResizable {
+        resizable: bool,
+    },
     /// Set whether or not the window has decorations
     /// Examples of decorations include the close, full screen, and minimize buttons
-    SetDecorations { decorations: bool },
+    SetDecorations {
+        decorations: bool,
+    },
     /// Set whether or not the cursor's postition is locked
-    SetCursorLockMode { locked: bool },
+    SetCursorLockMode {
+        locked: bool,
+    },
     /// Set the cursor's [`CursorIcon`]
-    SetCursorIcon { icon: CursorIcon },
+    SetCursorIcon {
+        icon: CursorIcon,
+    },
     /// Set whether or not the cursor is visible
-    SetCursorVisibility { visible: bool },
+    SetCursorVisibility {
+        visible: bool,
+    },
     /// Set the cursor's position
-    SetCursorPosition { position: Vec2 },
+    SetCursorPosition {
+        position: Vec2,
+    },
     /// Set whether or not the window is maxizimed
-    SetMaximized { maximized: bool },
+    SetMaximized {
+        maximized: bool,
+    },
     /// Set whether or not the window is minimized
-    SetMinimized { minimized: bool },
+    SetMinimized {
+        minimized: bool,
+    },
     /// Set the window's position on the screen
-    SetPosition { position: IVec2 },
+    SetPosition {
+        position: IVec2,
+    },
     /// Set the window's [`WindowResizeConstraints`]
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
