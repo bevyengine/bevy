@@ -52,8 +52,7 @@ impl Resources {
     #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         let column = &self.resources.get(component_id)?.data;
-        // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
-        // ptr value / drop is called when R is dropped
+        // SAFE: This checks that the column is not empty, so row 0 must exist.
         (!column.is_empty()).then(|| unsafe { column.get_data_unchecked(0) })
     }
 
@@ -61,8 +60,7 @@ impl Resources {
     #[inline]
     pub fn get_mut(&mut self, component_id: ComponentId) -> Option<PtrMut<'_>> {
         let column = &mut self.resources.get_mut(component_id)?.data;
-        // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
-        // ptr value / drop is called when R is dropped
+        // SAFE: This checks that the column is not empty, so row 0 must exist.
         (!column.is_empty()).then(|| unsafe { column.get_data_unchecked_mut(0) })
     }
 
@@ -70,8 +68,7 @@ impl Resources {
     #[inline]
     pub fn get_ticks(&self, component_id: ComponentId) -> Option<&ComponentTicks> {
         let column = &self.resources.get(component_id)?.data;
-        // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
-        // ptr value / drop is called when R is dropped
+        // SAFE: If row 0exists, it's ComponentTicks must be valid as well.
         column.get_ticks_slice().get(0).map(|ticks| unsafe { ticks.deref() })
     }
 
@@ -90,8 +87,7 @@ impl Resources {
         component_id: ComponentId,
     ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
         let column = &self.resources.get(component_id)?.data;
-        // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
-        // ptr value / drop is called when R is dropped
+        // SAFE: This checks that the column is not empty, so row 0 must exist.
         (!column.is_empty())
             .then(|| unsafe { (column.get_data_unchecked(0), column.get_ticks_unchecked(0)) })
     }
@@ -126,8 +122,8 @@ impl Resources {
         if column.is_empty() {
             return None;
         }
-        // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
-        // ptr value / drop is called when R is dropped
+        // SAFE: This checks that the column is not empty, so row 0 must exist. caller takes ownership 
+        // of the ptr value / drop is called when R is dropped
         unsafe { Some(column.swap_remove_and_forget_unchecked(0)) }
     }
 
