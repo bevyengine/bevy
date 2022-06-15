@@ -149,21 +149,29 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 
 pub fn check_visibility(
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
-    mut visible_entity_query: Query<(
-        Entity,
-        &Visibility,
-        &mut ComputedVisibility,
-        Option<&RenderLayers>,
-        Option<&Aabb>,
-        Option<&NoFrustumCulling>,
-        Option<&GlobalTransform>,
+    mut visible_entity_query: ParamSet<(
+        Query<&mut ComputedVisibility>,
+        Query<(
+            Entity,
+            &Visibility,
+            &mut ComputedVisibility,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&NoFrustumCulling>,
+            Option<&GlobalTransform>,
+        )>,
     )>,
 ) {
+    // Reset the computed visibility to false
+    for mut computed_visibility in visible_entity_query.p0().iter_mut() {
+        computed_visibility.is_visible = false;
+    }
+
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
         let (visible_entity_sender, visible_entity_receiver) = crossbeam_channel::unbounded();
 
-        visible_entity_query.par_for_each_mut(
+        visible_entity_query.p1().par_for_each_mut(
             1024,
             |(
                 entity,
@@ -174,9 +182,6 @@ pub fn check_visibility(
                 maybe_no_frustum_culling,
                 maybe_transform,
             )| {
-                // Reset visibility
-                computed_visibility.is_visible = false;
-
                 if !visibility.is_visible {
                     return;
                 }
