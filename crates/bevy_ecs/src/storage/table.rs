@@ -147,6 +147,13 @@ impl Column {
         &self.ticks
     }
 
+    #[inline]
+    pub fn get_data(&self, row: usize) -> Option<Ptr<'_>> {
+        // SAFETY: The row is length checked before fetching the pointer. This is being
+        // accessed through a read-only reference to the column.
+        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked(row)})
+    }
+
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
@@ -156,6 +163,13 @@ impl Column {
         self.data.get_unchecked(row)
     }
 
+    #[inline]
+    pub fn get_data_mut(&mut self, row: usize) -> Option<PtrMut<'_>> {
+        // SAFETY: The row is length checked before fetching the pointer. This is being
+        // accessed through an exclusive reference to the column.
+        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked_mut(row)})
+    }
+
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
@@ -163,6 +177,11 @@ impl Column {
     pub unsafe fn get_data_unchecked_mut(&mut self, row: usize) -> PtrMut<'_> {
         debug_assert!(row < self.data.len());
         self.data.get_unchecked_mut(row)
+    }
+
+    #[inline]
+    pub fn get_ticks(&self, row: usize) -> Option<&UnsafeCell<ComponentTicks>> {
+        self.ticks.get(row)
     }
 
     /// # Safety

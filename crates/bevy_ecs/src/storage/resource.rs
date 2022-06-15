@@ -51,25 +51,20 @@ impl Resources {
     /// Gets a read-only [`Ptr`] to a resource, if available.
     #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        let column = &self.resources.get(component_id)?.data;
-        // SAFE: This checks that the column is not empty, so row 0 must exist.
-        (!column.is_empty()).then(|| unsafe { column.get_data_unchecked(0) })
+        self.resources.get(component_id)?.data.get_data(0)
     }
 
     /// Gets a read-only [`Ptr`] to a resource, if available.
     #[inline]
     pub fn get_mut(&mut self, component_id: ComponentId) -> Option<PtrMut<'_>> {
-        let column = &mut self.resources.get_mut(component_id)?.data;
-        // SAFE: This checks that the column is not empty, so row 0 must exist.
-        (!column.is_empty()).then(|| unsafe { column.get_data_unchecked_mut(0) })
+        self.resources.get_mut(component_id)?.data.get_data_mut(0)
     }
 
     /// Gets the [`ComponentTicks`] to a resource, if available.
     #[inline]
     pub fn get_ticks(&self, component_id: ComponentId) -> Option<&ComponentTicks> {
-        let column = &self.resources.get(component_id)?.data;
-        // SAFE: If row 0exists, it's ComponentTicks must be valid as well.
-        column.get_ticks_slice().get(0).map(|ticks| unsafe { ticks.deref() })
+        // SAFE: If row 0 exists, it's ComponentTicks must be valid as well.
+        self.resources.get(component_id)?.data.get_ticks(0).map(|ticks| unsafe { ticks.deref() })
     }
 
     /// Checks if the a resource is currently stored with a given ID.
