@@ -128,10 +128,12 @@ impl WallLocation {
         assert!(arena_width > 0.0);
 
         match self {
-            WallLocation::Left => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
-            WallLocation::Right => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
-            WallLocation::Bottom => Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS),
-            WallLocation::Top => Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS),
+            WallLocation::Left | WallLocation::Right => {
+                Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS)
+            }
+            WallLocation::Bottom | WallLocation::Top => {
+                Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS)
+            }
         }
     }
 }
@@ -170,9 +172,8 @@ struct Scoreboard {
 
 // Add the game's entities to our world
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Cameras
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
+    // Camera
+    commands.spawn_bundle(Camera2dBundle::default());
 
     // Sound
     let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");

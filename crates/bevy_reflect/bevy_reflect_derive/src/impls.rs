@@ -32,6 +32,10 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
                 .unwrap_or_else(|| Member::Unnamed(Index::from(field.index)))
         })
         .collect::<Vec<_>>();
+    let field_types = derive_data
+        .active_fields()
+        .map(|field| field.data.ty.clone())
+        .collect::<Vec<_>>();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
@@ -49,11 +53,26 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
         });
     let debug_fn = derive_data.traits().get_debug_impl();
 
+    let typed_impl = impl_typed(
+        struct_name,
+        derive_data.generics(),
+        quote! {
+           let fields: [#bevy_reflect_path::NamedField; #field_count] = [
+                #(#bevy_reflect_path::NamedField::new::<#field_types, _>(#field_names),)*
+            ];
+            let info = #bevy_reflect_path::StructInfo::new::<Self>(&fields);
+            #bevy_reflect_path::TypeInfo::Struct(info)
+        },
+        bevy_reflect_path,
+    );
+
     let get_type_registration_impl = derive_data.get_type_registration();
     let (impl_generics, ty_generics, where_clause) = derive_data.generics().split_for_impl();
 
     TokenStream::from(quote! {
         #get_type_registration_impl
+
+        #typed_impl
 
         impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_clause {
             fn field(&self, name: &str) -> Option<&dyn #bevy_reflect_path::Reflect> {
@@ -112,6 +131,11 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
+            }
+
+            #[inline]
+            fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
+                <Self as #bevy_reflect_path::Typed>::type_info()
             }
 
             #[inline]
@@ -184,6 +208,10 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
         .active_fields()
         .map(|field| Member::Unnamed(Index::from(field.index)))
         .collect::<Vec<_>>();
+    let field_types = derive_data
+        .active_fields()
+        .map(|field| field.data.ty.clone())
+        .collect::<Vec<_>>();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
@@ -201,9 +229,24 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
         });
     let debug_fn = derive_data.traits().get_debug_impl();
 
+    let typed_impl = impl_typed(
+        struct_name,
+        derive_data.generics(),
+        quote! {
+            let fields: [#bevy_reflect_path::UnnamedField; #field_count] = [
+                #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_indices),)*
+            ];
+            let info = #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields);
+            #bevy_reflect_path::TypeInfo::TupleStruct(info)
+        },
+        bevy_reflect_path,
+    );
+
     let (impl_generics, ty_generics, where_clause) = derive_data.generics().split_for_impl();
     TokenStream::from(quote! {
         #get_type_registration_impl
+
+        #typed_impl
 
         impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_name #ty_generics #where_clause {
             fn field(&self, index: usize) -> Option<&dyn #bevy_reflect_path::Reflect> {
@@ -241,6 +284,11 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
+            }
+
+            #[inline]
+            fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
+                <Self as #bevy_reflect_path::Typed>::type_info()
             }
 
             #[inline]
@@ -315,15 +363,32 @@ pub(crate) fn impl_value(
     let partial_eq_fn = reflect_traits.get_partial_eq_impl(bevy_reflect_path);
     let debug_fn = reflect_traits.get_debug_impl();
 
+    let typed_impl = impl_typed(
+        type_name,
+        generics,
+        quote! {
+            let info = #bevy_reflect_path::ValueInfo::new::<Self>();
+            #bevy_reflect_path::TypeInfo::Value(info)
+        },
+        bevy_reflect_path,
+    );
+
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
         #get_type_registration_impl
+
+        #typed_impl
 
         // SAFE: any and any_mut both return self
         unsafe impl #impl_generics #bevy_reflect_path::Reflect for #type_name #ty_generics #where_clause  {
             #[inline]
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
+            }
+
+            #[inline]
+            fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
+                <Self as #bevy_reflect_path::Typed>::type_info()
             }
 
             #[inline]
@@ -384,4 +449,39 @@ pub(crate) fn impl_value(
             #serialize_fn
         }
     })
+}
+
+fn impl_typed(
+    type_name: &Ident,
+    generics: &Generics,
+    generator: proc_macro2::TokenStream,
+    bevy_reflect_path: &Path,
+) -> proc_macro2::TokenStream {
+    let is_generic = !generics.params.is_empty();
+
+    let static_generator = if is_generic {
+        quote! {
+            static CELL: #bevy_reflect_path::utility::GenericTypeInfoCell = #bevy_reflect_path::utility::GenericTypeInfoCell::new();
+            CELL.get_or_insert::<Self, _>(|| {
+                #generator
+            })
+        }
+    } else {
+        quote! {
+            static CELL: #bevy_reflect_path::utility::NonGenericTypeInfoCell = #bevy_reflect_path::utility::NonGenericTypeInfoCell::new();
+            CELL.get_or_set(|| {
+                #generator
+            })
+        }
+    };
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    quote! {
+        impl #impl_generics #bevy_reflect_path::Typed for #type_name #ty_generics #where_clause {
+            fn type_info() -> &'static #bevy_reflect_path::TypeInfo {
+                #static_generator
+            }
+        }
+    }
 }

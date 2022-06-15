@@ -1,4 +1,5 @@
 use crate::world::World;
+use bevy_tasks::ComputeTaskPool;
 
 use super::{Fetch, QueryFetch, QueryItem, QueryState, ROQueryFetch, ROQueryItem, WorldQuery};
 
@@ -107,12 +108,7 @@ where
     }
 
     fn get_default_batch_size(&self) -> Option<usize> {
-        let thread_count = self
-            .state
-            .task_pool
-            .as_ref()
-            .map(|pool| pool.thread_num())
-            .unwrap_or(0);
+        let thread_count = ComputeTaskPool::get().thread_num();
         assert!(
             thread_count > 0,
             "Attempted to run parallel iteration over a query with an empty TaskPool"

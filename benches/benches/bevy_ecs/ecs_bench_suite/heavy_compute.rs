@@ -18,6 +18,8 @@ pub struct Benchmark(World, Box<dyn System<In = (), Out = ()>>);
 
 impl Benchmark {
     pub fn new() -> Self {
+        ComputeTaskPool::init(TaskPool::default);
+
         let mut world = World::default();
 
         world.spawn_batch((0..1000).map(|_| {
@@ -39,7 +41,6 @@ impl Benchmark {
             });
         }
 
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
         let mut system = IntoSystem::into_system(sys);
         system.initialize(&mut world);
         system.update_archetype_component_access(&world);

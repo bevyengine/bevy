@@ -1,7 +1,7 @@
 //! A shader that renders a mesh multiple times in one draw call.
 
 use bevy::{
-    core_pipeline::Transparent3d,
+    core_pipeline::core_3d::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
     math::prelude::*,
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
@@ -58,7 +58,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     ));
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -106,10 +106,7 @@ fn queue_custom(
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
-    material_meshes: Query<
-        (Entity, &MeshUniform, &Handle<Mesh>),
-        (With<Handle<Mesh>>, With<InstanceMaterialData>),
-    >,
+    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions

@@ -1,4 +1,5 @@
 mod command_queue;
+mod parallel_scope;
 
 use crate::{
     bundle::Bundle,
@@ -8,6 +9,7 @@ use crate::{
 };
 use bevy_utils::tracing::{error, warn};
 pub use command_queue::CommandQueue;
+pub use parallel_scope::*;
 use std::marker::PhantomData;
 
 use super::Resource;
