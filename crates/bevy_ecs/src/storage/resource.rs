@@ -81,10 +81,7 @@ impl Resources {
         &self,
         component_id: ComponentId,
     ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
-        let column = &self.resources.get(component_id)?.data;
-        // SAFE: This checks that the column is not empty, so row 0 must exist.
-        (!column.is_empty())
-            .then(|| unsafe { (column.get_data_unchecked(0), column.get_ticks_unchecked(0)) })
+        self.resources.get(component_id)?.data.get(0)
     }
 
     /// Inserts a resource into the world.

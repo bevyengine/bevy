@@ -148,6 +148,19 @@ impl Column {
     }
 
     #[inline]
+    pub fn get(&self, row: usize) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+        // SAFETY: The row is length checked before fetching the pointer. This is being
+        // accessed through a read-only reference to the column.
+        (row < self.data.len()).then(|| unsafe { 
+            (
+                self.data.get_unchecked(row),
+                self.ticks.get_unchecked(row)
+            )
+        })
+    }
+
+
+    #[inline]
     pub fn get_data(&self, row: usize) -> Option<Ptr<'_>> {
         // SAFETY: The row is length checked before fetching the pointer. This is being
         // accessed through a read-only reference to the column.
