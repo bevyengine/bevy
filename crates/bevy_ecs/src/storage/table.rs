@@ -109,6 +109,22 @@ impl Column {
 
     #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed component"]
+    pub(crate) fn swap_remove_and_forget(
+        &mut self,
+        row: usize,
+    ) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+        (row > self.data.len()).then(|| {
+            // SAFETY: The row was length checked before this.
+            let data = unsafe { self.data.swap_remove_and_forget_unchecked(row) };
+            let ticks = self.ticks.swap_remove(row).into_inner();
+            (data, ticks)
+        })
+    }
+
+    /// # Safety
+    /// index must be in-bounds
+    #[inline]
+    #[must_use = "The returned pointer should be used to dropped the removed component"]
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: usize,
@@ -151,20 +167,15 @@ impl Column {
     pub fn get(&self, row: usize) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
         // SAFETY: The row is length checked before fetching the pointer. This is being
         // accessed through a read-only reference to the column.
-        (row < self.data.len()).then(|| unsafe { 
-            (
-                self.data.get_unchecked(row),
-                self.ticks.get_unchecked(row)
-            )
-        })
+        (row < self.data.len())
+            .then(|| unsafe { (self.data.get_unchecked(row), self.ticks.get_unchecked(row)) })
     }
-
 
     #[inline]
     pub fn get_data(&self, row: usize) -> Option<Ptr<'_>> {
         // SAFETY: The row is length checked before fetching the pointer. This is being
         // accessed through a read-only reference to the column.
-        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked(row)})
+        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked(row) })
     }
 
     /// # Safety
@@ -180,7 +191,7 @@ impl Column {
     pub fn get_data_mut(&mut self, row: usize) -> Option<PtrMut<'_>> {
         // SAFETY: The row is length checked before fetching the pointer. This is being
         // accessed through an exclusive reference to the column.
-        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked_mut(row)})
+        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked_mut(row) })
     }
 
     /// # Safety

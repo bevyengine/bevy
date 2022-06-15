@@ -64,7 +64,11 @@ impl Resources {
     #[inline]
     pub fn get_ticks(&self, component_id: ComponentId) -> Option<&ComponentTicks> {
         // SAFE: If row 0 exists, it's ComponentTicks must be valid as well.
-        self.resources.get(component_id)?.data.get_ticks(0).map(|ticks| unsafe { ticks.deref() })
+        self.resources
+            .get(component_id)?
+            .data
+            .get_ticks(0)
+            .map(|ticks| unsafe { ticks.deref() })
     }
 
     /// Checks if the a resource is currently stored with a given ID.
@@ -110,13 +114,10 @@ impl Resources {
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub fn remove(&mut self, component_id: ComponentId) -> Option<(OwningPtr<'_>, ComponentTicks)> {
-        let column = &mut self.resources.get_mut(component_id)?.data;
-        if column.is_empty() {
-            return None;
-        }
-        // SAFE: This checks that the column is not empty, so row 0 must exist. caller takes ownership 
-        // of the ptr value / drop is called when R is dropped
-        unsafe { Some(column.swap_remove_and_forget_unchecked(0)) }
+        self.resources
+            .get_mut(component_id)?
+            .data
+            .swap_remove_and_forget(0)
     }
 
     #[inline]
