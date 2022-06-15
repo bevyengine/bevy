@@ -12,6 +12,7 @@ use std::task::{Poll, Waker};
 use async_task::Runnable;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, prelude::*};
+use st3::{Stealer, Worker, B512};
 
 #[doc(no_inline)]
 pub use async_task::Task;
@@ -190,19 +191,32 @@ impl State {
     fn new(thread_counts: &[usize]) -> State {
         let groups = thread_counts
             .iter()
-            .map(|count| GroupState {
-                queue: ConcurrentQueue::unbounded(),
-                local_queues: (0..*count)
-                    .map(|_| ConcurrentQueue::bounded(512))
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-                searchers: AtomicUsize::new(0),
-                notified: AtomicBool::new(true),
-                sleepers: Mutex::new(Sleepers {
-                    count: 0,
-                    wakers: Vec::new(),
-                    free_ids: Vec::new(),
-                }),
+            .map(|count| {
+                let workers = (0..*count)
+                    .map(|_| Worker::<Runnable, B512>::new())
+                    .collect::<Vec<_>>();
+                let stealers = workers
+                    .iter()
+                    .map(|w| w.stealer()).collect::<Vec<_>>()
+                    .into_boxed_slice();
+                // TODO: This is a hack only for initialziation
+                // probably should refactor it out.
+                let available = ConcurrentQueue::bounded(*count);
+                for worker in workers {
+                    available.push(worker).unwrap();
+                }
+                GroupState {
+                    queue: ConcurrentQueue::unbounded(),
+                    stealers,
+                    available,
+                    searchers: AtomicUsize::new(0),
+                    notified: AtomicBool::new(true),
+                    sleepers: Mutex::new(Sleepers {
+                        count: 0,
+                        wakers: Vec::new(),
+                        free_ids: Vec::new(),
+                    }),
+                }
             })
             .collect::<Vec<_>>();
         State {
@@ -217,7 +231,9 @@ struct GroupState {
     queue: ConcurrentQueue<Runnable>,
 
     /// Local queues created by runners.
-    local_queues: Box<[ConcurrentQueue<Runnable>]>,
+    stealers: Box<[Stealer<Runnable, B512>]>,
+
+    available: ConcurrentQueue<Worker<Runnable, B512>>,
 
     searchers: AtomicUsize,
 
@@ -326,6 +342,7 @@ impl Sleepers {
 #[derive(Debug)]
 struct Runner<'a> {
     priority: usize,
+    thread_id: usize,
 
     /// The executor state.
     group: &'a GroupState,
@@ -340,7 +357,7 @@ struct Runner<'a> {
 
     state: &'a State,
     /// The local queue.
-    local: &'a ConcurrentQueue<Runnable>,
+    worker: Worker<Runnable, B512>,
     rng: fastrand::Rng,
     /// Bumped every time a runnable task is found.
     ticks: usize,
@@ -350,12 +367,13 @@ impl Runner<'_> {
     /// Creates a runner and registers it in the executor state.
     fn new(priority: usize, thread_id: usize, state: &State) -> Runner<'_> {
         let group = &state.groups[priority];
-        let local = &group.local_queues[thread_id];
+        let worker = group.available.pop().unwrap();
         let runner = Runner {
             priority,
+            thread_id,
             state,
             sleeping: 0,
-            local,
+            worker,
             group,
             rng: fastrand::Rng::new(),
             ticks: 0,
@@ -413,7 +431,7 @@ impl Runner<'_> {
         let runnable = future::poll_fn(|cx| {
             loop {
                 // Try the local queue.
-                if let Ok(r) = self.local.pop() {
+                if let Some(r) = self.worker.pop() {
                     self.wake_and_notify();
                     return Poll::Ready(r);
                 }
@@ -421,14 +439,15 @@ impl Runner<'_> {
                 // Try stealing from global queues.
                 for priority in self.priority_iter() {
                     let group = &self.state.groups[priority];
-                    let local_queues = &self.state.groups[priority].local_queues;
-                    let local_count = local_queues.len();
+                    let stealers = &self.state.groups[priority].stealers;
+                    let stealer_count = stealers.len();
 
-                    let update = |count| {
-                        (2 * count < local_count)
-                            .then(|| count + 1)
-                    };
-                    if group.searchers.fetch_update(Ordering::SeqCst, Ordering::SeqCst, update).is_err() {
+                    let update = |count| (2 * count < stealer_count).then(|| count + 1);
+                    if group
+                        .searchers
+                        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, update)
+                        .is_err()
+                    {
                         continue;
                     }
 
@@ -440,25 +459,23 @@ impl Runner<'_> {
                     }
 
                     // // Pick a random starting point in the iterator list and rotate the list.
-                    if local_queues.is_empty() {
-                        group.searchers.fetch_sub(1, Ordering::SeqCst);
-                        continue;
+                    if !stealers.is_empty() {
+                        let start = self.rng.usize(..stealers.len());
+                        // Try stealing from each local queue in the list.
+                        for idx in start..start + stealers.len() {
+                            let idx = idx % stealers.len();
+                            let stealer = &stealers[idx];
+                            if priority == self.priority && idx == self.thread_id {
+                                continue;
+                            }
+                            if let Ok((r, _)) = stealer.steal_and_pop(&self.worker, |n| (n + 1) / 2) {
+                                group.searchers.fetch_sub(1, Ordering::SeqCst);
+                                self.wake_and_notify();
+                                return Poll::Ready(r);
+                            }
+                        }
                     }
 
-                    let start = self.rng.usize(..local_queues.len());
-                    // Try stealing from each local queue in the list.
-                    for idx in start..start + local_queues.len() {
-                        let local = &local_queues[idx % local_queues.len()];
-                        if std::ptr::eq(local, self.local) {
-                            continue;
-                        }
-                        self.steal(local);
-                        if let Ok(r) = self.local.pop() {
-                            group.searchers.fetch_sub(1, Ordering::SeqCst);
-                            self.wake_and_notify();
-                            return Poll::Ready(r);
-                        }
-                    }
                     group.searchers.fetch_sub(1, Ordering::SeqCst);
                 }
 
@@ -495,19 +512,15 @@ impl Runner<'_> {
 
     /// Steals some items from one queue into another the local queue.
     fn steal(&self, src: &ConcurrentQueue<Runnable>) {
-        // Half of `src`'s length rounded up.
-        let mut count = (src.len() + 1) / 2;
-
-        if count > 0 {
+        if src.len() > 0 {
             // Don't steal more than fits into the queue.
-            if let Some(cap) = self.local.capacity() {
-                count = count.min(cap - self.local.len());
-            }
+            const CAPACITY: usize = 512;
+            let count = CAPACITY - self.worker.len();
 
             // Steal tasks.
             for _ in 0..count {
                 if let Ok(t) = src.pop() {
-                    let res = self.local.push(t);
+                    let res = self.worker.push(t);
                     debug_assert!(res.is_ok());
                 } else {
                     break;
@@ -538,7 +551,7 @@ impl Drop for Runner<'_> {
         }
 
         // Re-schedule remaining tasks in the local queue.
-        while let Ok(r) = self.local.pop() {
+        while let Some(r) = self.worker.pop() {
             r.schedule();
         }
     }
