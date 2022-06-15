@@ -683,7 +683,6 @@ impl World {
     pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         // SAFE: the resource is of type R and the value is returned back to the caller.
-        // The access here must not be used on non-send types.
         unsafe {
             let (ptr, _) = self.storages.resources.remove(component_id)?;
             Some(ptr.read::<R>())
@@ -1194,8 +1193,7 @@ impl World {
     #[inline]
     unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
         // SAFE: resource archetype always exists
-        let resources = &mut self.storages.resources;
-        let resources = &mut resources.resources;
+        let resources = &mut self.storages.resources.resources;
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
         let components = &self.components;
         &mut resources
