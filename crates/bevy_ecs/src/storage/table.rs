@@ -73,6 +73,18 @@ impl Column {
             .set_changed(change_tick);
     }
 
+    /// Writes component data to the column at given row.
+    /// Assumes the slot is initialized, calls drop.
+    /// Does not update the Component's ticks.
+    ///
+    /// # Safety
+    /// Assumes data has already been allocated for the given row.
+    #[inline]
+    pub(crate) unsafe fn replace_untracked(&mut self, row: usize, data: OwningPtr<'_>) {
+        debug_assert!(row < self.len());
+        self.data.replace_unchecked(row, data);
+    }
+
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]

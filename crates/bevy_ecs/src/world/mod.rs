@@ -8,15 +8,13 @@ pub use spawn_batch::*;
 pub use world_cell::*;
 
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
+    archetype::{ArchetypeComponentId, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
-    component::{
-        Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, StorageType,
-    },
+    component::{Component, ComponentDescriptor, ComponentId, ComponentTicks, Components},
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, WorldQuery},
-    storage::{Column, ResourceInfo, SparseSet, Storages},
+    storage::{ResourceInfo, SparseSet, Storages},
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -684,7 +682,7 @@ impl World {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         // SAFE: the resource is of type R and the value is returned back to the caller.
         unsafe {
-            let (ptr, _) = self.storages.resources.remove(component_id)?;
+            let (ptr, _) = self.storages.resources.get_mut(component_id)?.remove()?;
             Some(ptr.read::<R>())
         }
     }
@@ -701,7 +699,7 @@ impl World {
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .and_then(|component_id| self.storages.resources.get_ticks(component_id))
+            .and_then(|component_id| self.storages.resources.get(component_id)?.get_ticks())
             .map(|ticks| ticks.is_added(self.last_change_tick(), self.read_change_tick()))
             .unwrap_or(false)
     }
@@ -709,7 +707,7 @@ impl World {
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .and_then(|component_id| self.storages.resources.get_ticks(component_id))
+            .and_then(|component_id| self.storages.resources.get(component_id)?.get_ticks())
             .map(|ticks| ticks.is_changed(self.last_change_tick(), self.read_change_tick()))
             .unwrap_or(false)
     }
@@ -878,7 +876,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
-        self.storages.resources.get_with_ticks(component_id)
+        self.storages.resources.get(component_id)?.get_with_ticks()
     }
 
     // Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
@@ -887,9 +885,8 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<ArchetypeComponentId> {
-        self.storages
-            .resources
-            .get_archetype_component_id(component_id)
+        let resource = self.storages.resources.get(component_id)?;
+        Some(resource.component_info().archetype_component_id)
     }
 
     /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
@@ -1049,7 +1046,8 @@ impl World {
         let (ptr, mut ticks) = self
             .storages
             .resources
-            .remove(component_id)
+            .get_mut(component_id)
+            .and_then(|info| info.remove())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // SAFE: pointer is of type R
         // Read the value onto the stack to avoid potential mut aliasing.
@@ -1070,7 +1068,8 @@ impl World {
                 // SAFE: pointer is of type R
                 self.storages
                     .resources
-                    .insert(component_id, ptr, ticks)
+                    .get_mut(component_id)
+                    .map(|info| info.insert_with_ticks(ptr, ticks))
                     .unwrap_or_else(|| {
                         panic!("resource does not exist: {}", std::any::type_name::<R>())
                     });
@@ -1089,7 +1088,8 @@ impl World {
     ) -> Option<&R> {
         self.storages
             .resources
-            .get(component_id)
+            .get(component_id)?
+            .get_data()
             .map(|ptr| ptr.deref())
     }
 
@@ -1140,17 +1140,11 @@ impl World {
     #[inline]
     unsafe fn insert_resource_with_id<R>(&mut self, component_id: ComponentId, value: R) {
         let change_tick = self.change_tick();
-        let column = self.initialize_resource_internal(component_id);
-        if column.is_empty() {
-            // SAFE: column is of type R and has been allocated above
-            OwningPtr::make(value, |ptr| {
-                column.push(ptr, ComponentTicks::new(change_tick));
-            });
-        } else {
-            // SAFE: column is of type R and has already been allocated
-            *column.get_data_unchecked_mut(0).deref_mut::<R>() = value;
-            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
-        }
+        // SAFE: column is of type R and has been allocated above
+        OwningPtr::make(value, |ptr| {
+            self.initialize_resource_internal(component_id)
+                .insert(ptr, change_tick);
+        });
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
@@ -1173,45 +1167,25 @@ impl World {
             )
         });
         // SAFE: component_id is valid, checked by the lines above
-        let column = self.initialize_resource_internal(component_id);
-        if column.is_empty() {
-            // SAFE: column is of type R and has been allocated above
-            column.push(value, ComponentTicks::new(change_tick));
-        } else {
-            let ptr = column.get_data_unchecked_mut(0);
-            std::ptr::copy_nonoverlapping::<u8>(
-                value.as_ptr(),
-                ptr.as_ptr(),
-                column.data.layout().size(),
-            );
-            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
-        }
+        self.initialize_resource_internal(component_id)
+            .insert(value, change_tick);
     }
 
     /// # Safety
     /// `component_id` must be valid for this world
     #[inline]
-    unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
-        // SAFE: resource archetype always exists
-        let resources = &mut self.storages.resources.resources;
+    unsafe fn initialize_resource_internal(
+        &mut self,
+        component_id: ComponentId,
+    ) -> &mut ResourceInfo {
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
-        let components = &self.components;
-        &mut resources
-            .get_or_insert_with(component_id, || {
-                let component_info = components.get_info_unchecked(component_id);
-                let info = ResourceInfo {
-                    data: Column::with_capacity(component_info, 1),
-                    component_info: ArchetypeComponentInfo {
-                        archetype_component_id: ArchetypeComponentId::new(
-                            *archetype_component_count,
-                        ),
-                        storage_type: StorageType::Table,
-                    },
-                };
+        self.storages
+            .resources
+            .initialize_with(component_id, &self.components, || {
+                let id = ArchetypeComponentId::new(*archetype_component_count);
                 *archetype_component_count += 1;
-                info
+                id
             })
-            .data
     }
 
     pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
@@ -1311,7 +1285,7 @@ impl World {
         if !info.is_send_and_sync() {
             self.validate_non_send_access_untyped(info.name());
         }
-        self.storages.resources.get(component_id)
+        self.storages.resources.get(component_id)?.get_data()
     }
 
     /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
@@ -1352,7 +1326,11 @@ impl World {
         if !info.is_send_and_sync() {
             self.validate_non_send_access_untyped(info.name());
         }
-        self.storages.resources.remove_and_drop(component_id)
+        self.storages
+            .resources
+            .get_mut(component_id)?
+            .remove_and_drop();
+        Some(())
     }
 
     /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
