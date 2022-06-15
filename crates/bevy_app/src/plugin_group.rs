@@ -82,13 +82,19 @@ impl PluginGroupBuilder {
     /// # Example
     ///
     /// ```
-    /// # use bevy::prelude::*;
-    /// # use bevy::app::PluginGroupBuilder;
+    /// # use bevy_app::{PluginGroup, PluginGroupBuilder};
+    /// #
+    /// # // Hacky alternative because bevy_internal is not available.
+    /// # struct DefaultPlugins;
+    /// #
+    /// # impl PluginGroup for DefaultPlugins {
+    /// #     fn build(&mut self, _: &mut PluginGroupBuilder) {}
+    /// # }
     /// #
     /// struct GamePlugins;
     ///
     /// impl PluginGroup for GamePlugins {
-    ///     fn build(&mut self, group: &mut PlugingGroupBuilder) {
+    ///     fn build(&mut self, group: &mut PluginGroupBuilder) {
     ///         group.add_subgroup(DefaultPlugins);
     ///
     ///         // Add more plugins here...
