@@ -72,6 +72,7 @@ impl Default for WindowId {
 }
 
 /// The size limits on a window.
+///
 /// These values are measured in logical pixels, so the user's
 /// scale factor does affect the size limits on the window.
 /// Please note that if the window is resizable, then when the window is
@@ -216,44 +217,45 @@ pub enum WindowCommand {
         logical_resolution: (f32, f32),
         scale_factor: f64,
     },
-    /// Set the window's [`PresentMode`]
+    /// Set the window's [`PresentMode`].
     SetPresentMode {
         present_mode: PresentMode,
     },
-    /// Set whether or not the window is resizable
+    /// Set whether or not the window is resizable.
     SetResizable {
         resizable: bool,
     },
-    /// Set whether or not the window has decorations
+    /// Set whether or not the window has decorations.
+    ///
     /// Examples of decorations include the close, full screen, and minimize buttons
     SetDecorations {
         decorations: bool,
     },
-    /// Set whether or not the cursor's postition is locked
+    /// Set whether or not the cursor's postition is locked.
     SetCursorLockMode {
         locked: bool,
     },
-    /// Set the cursor's [`CursorIcon`]
+    /// Set the cursor's [`CursorIcon`].
     SetCursorIcon {
         icon: CursorIcon,
     },
-    /// Set whether or not the cursor is visible
+    /// Set whether or not the cursor is visible.
     SetCursorVisibility {
         visible: bool,
     },
-    /// Set the cursor's position
+    /// Set the cursor's position.
     SetCursorPosition {
         position: Vec2,
     },
-    /// Set whether or not the window is maxizimed
+    /// Set whether or not the window is maxizimed.
     SetMaximized {
         maximized: bool,
     },
-    /// Set whether or not the window is minimized
+    /// Set whether or not the window is minimized.
     SetMinimized {
         minimized: bool,
     },
-    /// Set the window's position on the screen
+    /// Set the window's position on the screen.
     SetPosition {
         position: IVec2,
     },
@@ -264,22 +266,23 @@ pub enum WindowCommand {
     Close,
 }
 
-/// Defines the way a window is displayed
+/// Defines the way a window is displayed.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowMode {
-    /// Creates a window that uses the given size
+    /// Creates a window that uses the given size.
     Windowed,
-    /// Creates a borderless window that uses the full size of the screen
+    /// Creates a borderless window that uses the full size of the screen.
     BorderlessFullscreen,
-    /// Creates a fullscreen window that will render at desktop resolution. The app will use the closest supported size
-    /// from the given size and scale it to fit the screen.
+    /// Creates a fullscreen window that will render at desktop resolution.
+    ///
+    /// The app will use the closest supported size from the given size and scale it to fit the screen.
     SizedFullscreen,
-    /// Creates a fullscreen window that uses the maximum supported size
+    /// Creates a fullscreen window that uses the maximum supported size.
     Fullscreen,
 }
 
 impl Window {
-    /// Creates a new [`Window`]
+    /// Creates a new [`Window`].
     pub fn new(
         id: WindowId,
         window_descriptor: &WindowDescriptor,
@@ -315,7 +318,7 @@ impl Window {
             command_queue: Vec::new(),
         }
     }
-    /// Get the window's [`WindowId`]
+    /// Get the window's [`WindowId`].
     #[inline]
     pub fn id(&self) -> WindowId {
         self.id
@@ -376,7 +379,7 @@ impl Window {
     pub fn position(&self) -> Option<IVec2> {
         self.position
     }
-    /// Set whether or not the window is maximized
+    /// Set whether or not the window is maximized.
     #[inline]
     pub fn set_maximized(&mut self, maximized: bool) {
         self.command_queue
@@ -436,7 +439,7 @@ impl Window {
         });
     }
 
-    /// Override the os-reported scaling factor
+    /// Override the os-reported scaling factor.
     #[allow(clippy::float_cmp)]
     pub fn set_scale_factor_override(&mut self, scale_factor: Option<f64>) {
         if self.scale_factor_override == scale_factor {
@@ -481,22 +484,25 @@ impl Window {
     }
 
     /// The window scale factor as reported by the window backend.
+    ///
     /// This value is unaffected by [`scale_factor_override`](Window::scale_factor_override).
     #[inline]
     pub fn backend_scale_factor(&self) -> f64 {
         self.backend_scale_factor
     }
-
+    /// The scale factor set with [`set_scale_factor_override`](Window::set_scale_factor_override).
+    ///
+    /// This value may be different from the scale factor reported by the window backend.
     #[inline]
     pub fn scale_factor_override(&self) -> Option<f64> {
         self.scale_factor_override
     }
-    /// Get the window's title
+    /// Get the window's title.
     #[inline]
     pub fn title(&self) -> &str {
         &self.title
     }
-    /// Set the window's title
+    /// Set the window's title.
     pub fn set_title(&mut self, title: String) {
         self.title = title.to_string();
         self.command_queue.push(WindowCommand::SetTitle { title });
@@ -504,60 +510,94 @@ impl Window {
 
     #[inline]
     #[doc(alias = "vsync")]
-    /// Get the window's [`PresentMode`]
+    /// Get the window's [`PresentMode`].
     pub fn present_mode(&self) -> PresentMode {
         self.present_mode
     }
 
     #[inline]
     #[doc(alias = "set_vsync")]
-    /// Set the window's [`PresentMode`]
+    /// Set the window's [`PresentMode`].
     pub fn set_present_mode(&mut self, present_mode: PresentMode) {
         self.present_mode = present_mode;
         self.command_queue
             .push(WindowCommand::SetPresentMode { present_mode });
     }
-    /// Get whether or not the window is resizable
+    /// Get whether or not the window is resizable.
     #[inline]
     pub fn resizable(&self) -> bool {
         self.resizable
     }
-    /// Set whether or not the window is resizable
+    /// Set whether or not the window is resizable.
     pub fn set_resizable(&mut self, resizable: bool) {
         self.resizable = resizable;
         self.command_queue
             .push(WindowCommand::SetResizable { resizable });
     }
-    /// Get whether or not decorations are enabled
+    /// Get whether or not decorations are enabled.
+    ///
     /// (Decorations are the minimize, maximize, and close buttons on desktop apps)
+    ///
+    /// ## Platform-specific
+    ///
+    /// **iOS**, **Android**, and the **Web** do not have decorations.
     #[inline]
     pub fn decorations(&self) -> bool {
         self.decorations
     }
-    /// Set whether or not decorations are enabled
+    /// Set whether or not decorations are enabled.
+    ///
     /// (Decorations are the minimize, maximize, and close buttons on desktop apps)
+    ///
+    /// ## Platform-specific
+    ///
+    /// **iOS**, **Android**, and the **Web** do not have decorations.
     pub fn set_decorations(&mut self, decorations: bool) {
         self.decorations = decorations;
         self.command_queue
             .push(WindowCommand::SetDecorations { decorations });
     }
-    /// Get whether or not the cursor is locked
+    /// Get whether or not the cursor is locked.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **macOS** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **iOS/Android** don't have cursors.
     #[inline]
     pub fn cursor_locked(&self) -> bool {
         self.cursor_locked
     }
-    /// Set whether or not the cursor is locked
+    /// Set whether or not the cursor is locked.
+    ///
+    /// This doesn't hide the cursor. For that, use [`set_cursor_visibility`](Window::set_cursor_visibility)
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **macOS** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **iOS/Android** don't have cursors.
     pub fn set_cursor_lock_mode(&mut self, lock_mode: bool) {
         self.cursor_locked = lock_mode;
         self.command_queue
             .push(WindowCommand::SetCursorLockMode { locked: lock_mode });
     }
-    /// Get whether or not the cursor is visible
+    /// Get whether or not the cursor is visible.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Windows**, **X11**, and **Wayland**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
+    /// - **macOS**: The cursor is hidden only when the window is focused.
+    /// - **iOS** and **Android** do not have cursors
     #[inline]
     pub fn cursor_visible(&self) -> bool {
         self.cursor_visible
     }
-    /// Set whether or not the cursor is visible
+    /// Set whether or not the cursor is visible.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Windows**, **X11**, and **Wayland**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
+    /// - **macOS**: The cursor is hidden only when the window is focused.
+    /// - **iOS** and **Android** do not have cursors
     pub fn set_cursor_visibility(&mut self, visibile_mode: bool) {
         self.cursor_visible = visibile_mode;
         self.command_queue.push(WindowCommand::SetCursorVisibility {
@@ -618,7 +658,8 @@ impl Window {
             resolution: (self.physical_width, self.physical_height),
         });
     }
-    /// Close the operating system window corresponding to this [`Window`].  
+    /// Close the operating system window corresponding to this [`Window`].
+    ///  
     /// This will also lead to this [`Window`] being removed from the
     /// [`Windows`] resource.
     ///
@@ -636,7 +677,8 @@ impl Window {
     pub fn drain_commands(&mut self) -> impl Iterator<Item = WindowCommand> + '_ {
         self.command_queue.drain(..)
     }
-    /// Get whether or not the window has focus
+    /// Get whether or not the window has focus.
+    ///
     /// A window loses focus when the user switches to another window, and regains focus when the user uses the window again
     #[inline]
     pub fn is_focused(&self) -> bool {
@@ -647,7 +689,9 @@ impl Window {
         self.raw_window_handle.clone()
     }
 
-    /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
+    /// The "html canvas" element selector.
+    ///
+    /// If set, this selector will be used to find a matching html canvas element,
     /// rather than creating a new one.   
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
@@ -681,29 +725,36 @@ impl Window {
 #[derive(Debug, Clone)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
+    ///
     /// May vary from the physical width due to different pixel density on different monitors.
     pub width: f32,
     /// The requested logical height of the window's client area.
+    ///
     /// May vary from the physical height due to different pixel density on different monitors.
     pub height: f32,
     /// The position on the screen that the window will be centered at.
+    ///
     /// If set to `None`, some platform-specific position will be chosen.
     pub position: Option<Vec2>,
     /// Sets minimum and maximum resize limits.
     pub resize_constraints: WindowResizeConstraints,
     /// Overrides the window's ratio of physical pixels to logical pixels.
+    ///
     /// If there are some scaling problems on X11 try to set this option to `Some(1.0)`.
     pub scale_factor_override: Option<f64>,
     /// Sets the title that displays on the window top bar, on the system task bar and other OS specific places.
+    ///
     /// ## Platform-specific
     /// - Web: Unsupported.
     pub title: String,
     /// Controls when a frame is presented to the screen.
     #[doc(alias = "vsync")]
-    /// The window's [`PresentMode`]
+    /// The window's [`PresentMode`].
+    ///
     /// Used to select whether or not VSync is used
     pub present_mode: PresentMode,
     /// Sets whether the window is resizable.
+    ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     pub resizable: bool,
@@ -716,6 +767,7 @@ pub struct WindowDescriptor {
     /// Sets the [`WindowMode`](crate::WindowMode).
     pub mode: WindowMode,
     /// Sets whether the background of the window should be transparent.
+    ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     /// - macOS X: Not working as expected.
@@ -723,7 +775,9 @@ pub struct WindowDescriptor {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
-    /// The "html canvas" element selector. If set, this selector will be used to find a matching html canvas element,
+    /// The "html canvas" element selector.
+    ///
+    /// If set, this selector will be used to find a matching html canvas element,
     /// rather than creating a new one.   
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
