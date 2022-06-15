@@ -77,6 +77,12 @@ impl PluginGroupBuilder {
         self
     }
 
+    /// Merges a [`PluginGroup`] into the current group.
+    pub fn add_subgroup<T: PluginGroup>(&mut self, mut subgroup: T) -> &mut Self {
+        subgroup.build(self);
+        self
+    }
+
     /// Adds a [`Plugin`] in this [`PluginGroupBuilder`] before the plugin of type `Target`.
     /// If the plugin was already the group, it is removed from its previous place. There must
     /// be a plugin of type `Target` in the group or it will panic.
@@ -142,7 +148,7 @@ impl PluginGroupBuilder {
 #[cfg(test)]
 mod tests {
     use super::PluginGroupBuilder;
-    use crate::{App, Plugin};
+    use crate::{App, Plugin, PluginGroup};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -172,6 +178,32 @@ mod tests {
                 std::any::TypeId::of::<PluginA>(),
                 std::any::TypeId::of::<PluginB>(),
                 std::any::TypeId::of::<PluginC>(),
+            ]
+        );
+    }
+
+    #[test]
+    fn add_subgroup() {
+        let mut group = PluginGroupBuilder::default();
+        group.add(PluginA);
+
+        struct SubGroupPlugins;
+
+        impl PluginGroup for SubGroupPlugins {
+            fn build(&mut self, group: &mut PluginGroupBuilder) {
+                group.add(PluginB);
+                group.add_before::<PluginA, PluginC>(PluginC);
+            }
+        }
+
+        group.add_subgroup(SubGroupPlugins);
+
+        assert_eq!(
+            group.order,
+            vec![
+                std::any::TypeId::of::<PluginC>(),
+                std::any::TypeId::of::<PluginA>(),
+                std::any::TypeId::of::<PluginB>(),
             ]
         );
     }
