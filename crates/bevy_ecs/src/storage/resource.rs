@@ -135,14 +135,6 @@ impl Resources {
         self.resources.get_mut(component_id)
     }
 
-    /// Checks if the a resource is currently stored with a given ID.
-    #[inline]
-    pub fn contains(&self, component_id: ComponentId) -> bool {
-        self.get(component_id)
-            .map(|info| info.is_present())
-            .unwrap_or(false)
-    }
-
     /// Fetches or initializes a new resource and returns back it's underlying column.
     ///
     /// # Panics

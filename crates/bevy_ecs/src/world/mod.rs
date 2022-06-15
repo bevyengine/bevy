@@ -692,7 +692,8 @@ impl World {
     pub fn contains_resource<R: 'static>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .map(|component_id| self.storages.resources.contains(component_id))
+            .and_then(|component_id| self.storages.resources.get(component_id))
+            .map(|info| info.is_present())
             .unwrap_or(false)
     }
 
