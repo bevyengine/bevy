@@ -78,6 +78,22 @@ impl PluginGroupBuilder {
     }
 
     /// Merges a [`PluginGroup`] into the current group.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// #
+    /// struct GamePlugins;
+    ///
+    /// impl PluginGroup for GamePlugins {
+    ///     fn build(&mut self, group: &mut PlugingGroupBuilder) {
+    ///         group.add_subgroup(DefaultPlugins);
+    ///
+    ///         // Add more plugins here...
+    ///     }
+    /// }
+    /// ```
     pub fn add_subgroup<T: PluginGroup>(&mut self, mut subgroup: T) -> &mut Self {
         subgroup.build(self);
         self
