@@ -432,7 +432,6 @@ impl Runner<'_> {
             loop {
                 // Try the local queue.
                 if let Some(r) = self.worker.pop() {
-                    self.wake_and_notify();
                     return Poll::Ready(r);
                 }
 
