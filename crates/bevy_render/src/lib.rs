@@ -2,10 +2,11 @@ extern crate core;
 
 pub mod camera;
 pub mod color;
+pub mod extract_component;
+pub mod extract_resource;
 pub mod mesh;
 pub mod primitives;
 pub mod render_asset;
-pub mod render_component;
 pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
@@ -17,10 +18,7 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{
-            Camera, OrthographicCameraBundle, OrthographicProjection, PerspectiveCameraBundle,
-            PerspectiveProjection,
-        },
+        camera::{Camera, OrthographicProjection, PerspectiveProjection},
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
@@ -29,7 +27,6 @@ pub mod prelude {
     };
 }
 
-use bevy_utils::tracing::debug;
 pub use once_cell;
 
 use crate::{
@@ -46,6 +43,7 @@ use crate::{
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
+use bevy_utils::tracing::debug;
 use std::ops::{Deref, DerefMut};
 
 /// Contains the default Bevy rendering backend based on wgpu.
@@ -95,6 +93,12 @@ impl Deref for RenderWorld {
 impl DerefMut for RenderWorld {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+pub mod main_graph {
+    pub mod node {
+        pub const CAMERA_DRIVER: &str = "camera_driver";
     }
 }
 
@@ -170,6 +174,7 @@ impl Plugin for RenderPlugin {
                         .with_system(render_system.exclusive_system().at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
+                .init_resource::<RenderGraph>()
                 .insert_resource(instance)
                 .insert_resource(device)
                 .insert_resource(queue)
@@ -189,7 +194,7 @@ impl Plugin for RenderPlugin {
 
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let meta_len = app_world.entities().meta.len();
+                    let meta_len = app_world.entities().meta_len();
                     render_app
                         .world
                         .entities()
@@ -198,7 +203,7 @@ impl Plugin for RenderPlugin {
                     // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
                     // these entities cannot be accessed without spawning directly onto them
                     // this _only_ works as expected because clear_entities() is called at the end of every frame.
-                    render_app.world.entities_mut().flush_as_invalid();
+                    unsafe { render_app.world.entities_mut() }.flush_as_invalid();
                 }
 
                 {
@@ -273,6 +278,11 @@ impl Plugin for RenderPlugin {
                         .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
                         .unwrap();
                     cleanup.run(&mut render_app.world);
+                }
+                {
+                    #[cfg(feature = "trace")]
+                    let _stage_span =
+                        bevy_utils::tracing::info_span!("stage", name = "clear_entities").entered();
 
                     render_app.world.clear_entities();
                 }

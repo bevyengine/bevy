@@ -1,15 +1,15 @@
-use bevy::{ecs::component::Component, prelude::*};
+//! Generic types allow us to reuse logic across many related systems,
+//! allowing us to specialize our function's behavior based on which type (or types) are passed in.
+//!
+//! This is commonly useful for working on related components or resources,
+//! where we want to have unique types for querying purposes but want them all to work the same way.
+//! This is particularly powerful when combined with user-defined traits to add more functionality to these related types.
+//! Remember to insert a specialized copy of the system into the schedule for each type that you want to operate on!
+//!
+//! For more advice on working with generic types in Rust, check out <https://doc.rust-lang.org/book/ch10-01-syntax.html>
+//! or <https://doc.rust-lang.org/rust-by-example/generics.html>
 
-/// Generic types allow us to reuse logic across many related systems,
-/// allowing us to specialize our function's behavior based on which type (or types) are passed in.
-///
-/// This is commonly useful for working on related components or resources,
-/// where we want to have unique types for querying purposes but want them all to work the same way.
-/// This is particularly powerful when combined with user-defined traits to add more functionality to these related types.
-/// Remember to insert a specialized copy of the system into the schedule for each type that you want to operate on!
-///
-/// For more advice on working with generic types in Rust, check out <https://doc.rust-lang.org/book/ch10-01-syntax.html>
-/// or <https://doc.rust-lang.org/rust-by-example/generics.html>
+use bevy::{ecs::component::Component, prelude::*};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
@@ -20,7 +20,7 @@ enum AppState {
 #[derive(Component)]
 struct TextToPrint(String);
 
-#[derive(Component)]
+#[derive(Component, Deref, DerefMut)]
 struct PrinterTick(bevy::prelude::Timer);
 
 #[derive(Component)]
@@ -67,7 +67,7 @@ fn setup_system(mut commands: Commands) {
 
 fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextToPrint)>) {
     for (mut timer, text) in query.iter_mut() {
-        if timer.0.tick(time.delta()).just_finished() {
+        if timer.tick(time.delta()).just_finished() {
             info!("{}", text.0);
         }
     }

@@ -1,3 +1,5 @@
+//! Demonstrates using key modifiers (ctrl, shift).
+
 use bevy::{
     input::{keyboard::KeyCode, Input},
     prelude::*,

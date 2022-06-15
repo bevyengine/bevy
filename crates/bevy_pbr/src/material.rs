@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core_pipeline::{AlphaMask3d, Opaque3d, Transparent3d};
+use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::{
     entity::Entity,
     prelude::World,
@@ -15,9 +15,9 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_render::{
+    extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_component::ExtractComponentPlugin,
     render_phase::{
         AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
         SetItemPipeline, TrackedRenderPass,
@@ -39,7 +39,7 @@ use std::marker::PhantomData;
 /// way to render [`Mesh`] entities with custom shader logic. For materials that can specialize their [`RenderPipelineDescriptor`]
 /// based on specific material values, see [`SpecializedMaterial`]. [`Material`] automatically implements [`SpecializedMaterial`]
 /// and can be used anywhere that type is used (such as [`MaterialPlugin`]).
-pub trait Material: Asset + RenderAsset {
+pub trait Material: Asset + RenderAsset + Sized {
     /// Returns this material's [`BindGroup`]. This should match the layout returned by [`Material::bind_group_layout`].
     fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
 
@@ -74,10 +74,19 @@ pub trait Material: Asset + RenderAsset {
         &[]
     }
 
+    #[allow(unused_variables)]
+    #[inline]
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// for meshes with equal depth, to avoid z-fighting.
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        0.0
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`].
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
+        pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
     ) -> Result<(), SpecializedMeshPipelineError> {
@@ -93,11 +102,12 @@ impl<M: Material> SpecializedMaterial for M {
 
     #[inline]
     fn specialize(
+        pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        <M as Material>::specialize(descriptor, layout)
+        <M as Material>::specialize(pipeline, descriptor, layout)
     }
 
     #[inline]
@@ -125,10 +135,14 @@ impl<M: Material> SpecializedMaterial for M {
         <M as Material>::fragment_shader(asset_server)
     }
 
-    #[allow(unused_variables)]
     #[inline]
     fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
         <M as Material>::dynamic_uniform_indices(material)
+    }
+
+    #[inline]
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        <M as Material>::depth_bias(material)
     }
 }
 
@@ -137,7 +151,7 @@ impl<M: Material> SpecializedMaterial for M {
 /// way to render [`Mesh`] entities with custom shader logic. [`SpecializedMaterials`](SpecializedMaterial) use their [`SpecializedMaterial::Key`]
 /// to customize their [`RenderPipelineDescriptor`] based on specific material values. The slightly simpler [`Material`] trait
 /// should be used for materials that do not need specialization. [`Material`] types automatically implement [`SpecializedMaterial`].
-pub trait SpecializedMaterial: Asset + RenderAsset {
+pub trait SpecializedMaterial: Asset + RenderAsset + Sized {
     /// The key used to specialize this material's [`RenderPipelineDescriptor`].
     type Key: PartialEq + Eq + Hash + Clone + Send + Sync;
 
@@ -148,6 +162,7 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
 
     /// Specializes the given `descriptor` according to the given `key`.
     fn specialize(
+        pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
@@ -186,6 +201,14 @@ pub trait SpecializedMaterial: Asset + RenderAsset {
     fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
         &[]
     }
+
+    #[allow(unused_variables)]
+    #[inline]
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// for meshes with equal depth, to avoid z-fighting.
+    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
+        0.0
+    }
 }
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`SpecializedMaterial`]
@@ -201,7 +224,7 @@ impl<M: SpecializedMaterial> Default for MaterialPlugin<M> {
 impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::default())
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
             .add_plugin(RenderAssetPlugin::<M>::default());
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -217,8 +240,8 @@ impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
 
 #[derive(Eq, PartialEq, Clone, Hash)]
 pub struct MaterialPipelineKey<T> {
-    mesh_key: MeshPipelineKey,
-    material_key: T,
+    pub mesh_key: MeshPipelineKey,
+    pub material_key: T,
 }
 
 pub struct MaterialPipeline<M: SpecializedMaterial> {
@@ -245,13 +268,13 @@ impl<M: SpecializedMaterial> SpecializedMeshPipeline for MaterialPipeline<M> {
         if let Some(fragment_shader) = &self.fragment_shader {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
-        descriptor.layout = Some(vec![
-            self.mesh_pipeline.view_layout.clone(),
-            self.material_layout.clone(),
-            self.mesh_pipeline.mesh_layout.clone(),
-        ]);
 
-        M::specialize(&mut descriptor, key.material_key, layout)?;
+        // MeshPipeline::specialize's current implementation guarantees that the returned
+        // specialized descriptor has a populated layout
+        let descriptor_layout = descriptor.layout.as_mut().unwrap();
+        descriptor_layout.insert(1, self.material_layout.clone());
+
+        M::specialize(self, &mut descriptor, key.material_key, layout)?;
         Ok(descriptor)
     }
 }
@@ -375,7 +398,8 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
 
                         // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
                         // gives the z component of translation of the mesh in view space
-                        let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3));
+                        let bias = M::depth_bias(material);
+                        let mesh_z = inverse_view_row_2.dot(mesh_uniform.transform.col(3)) + bias;
                         match alpha_mode {
                             AlphaMode::Opaque => {
                                 opaque_phase.add(Opaque3d {

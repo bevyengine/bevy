@@ -1,4 +1,5 @@
 mod command_queue;
+mod parallel_scope;
 
 use crate::{
     bundle::Bundle,
@@ -8,6 +9,7 @@ use crate::{
 };
 use bevy_utils::tracing::{error, warn};
 pub use command_queue::CommandQueue;
+pub use parallel_scope::*;
 use std::marker::PhantomData;
 
 use super::Resource;
@@ -17,13 +19,19 @@ pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
-/// A list of commands that modify a [`World`], running at the end of the stage where they
-/// have been invoked.
+/// A list of commands that runs at the end of the stage of the system that called them.
+///
+/// Commands are executed one at a time in an exclusive fashion.
+//// Each command can be used to modify the [`World`] in arbitrary ways:
+/// * spawning or despawning entities
+/// * inserting components on new or existing entities
+/// * inserting resources
+/// * etc.
 ///
 /// # Usage
 ///
-/// `Commands` is a [`SystemParam`](crate::system::SystemParam), therefore it is declared
-/// as a function parameter:
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied at the end of the current stage.
+/// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -33,7 +41,8 @@ pub trait Command: Send + Sync + 'static {
 /// }
 /// ```
 ///
-/// Then, commands can be invoked by calling the methods of `commands`.
+/// Each command is implemented as a separate method.
+/// Check the [`Command`] trait for a list of available commands (or implement your own!).
 pub struct Commands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,
@@ -46,6 +55,11 @@ impl<'w, 's> Commands<'w, 's> {
             queue,
             entities: world.entities(),
         }
+    }
+
+    /// Create a new `Commands` from a queue and an [`Entities`] reference.
+    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
+        Self { queue, entities }
     }
 
     /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
@@ -284,10 +298,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// #     high_score: u32,
     /// # }
     /// #
-    /// # fn system(mut commands: Commands) {
+    /// # fn initialise_scoreboard(mut commands: Commands) {
     /// commands.init_resource::<Scoreboard>();
     /// # }
-    /// # system.system();
+    /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
         self.queue.push(InitResource::<R> {

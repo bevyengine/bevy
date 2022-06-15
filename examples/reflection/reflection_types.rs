@@ -1,3 +1,7 @@
+#![allow(clippy::match_same_arms)]
+//! This example illustrates how reflection works for simple data structures, like
+//! structs, tuples and vectors.
+
 use bevy::{
     prelude::*,
     reflect::{DynamicList, ReflectRef},
@@ -5,7 +9,6 @@ use bevy::{
 };
 use serde::{Deserialize, Serialize};
 
-/// This example illustrates the various reflection types available
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -80,9 +83,13 @@ fn setup() {
         // arity 12 or less.
         ReflectRef::Tuple(_) => {}
         // `List` is a special trait that can be manually implemented (instead of deriving Reflect).
-        // This exposes "list" operations on your type, such as indexing and insertion. List
-        // is automatically implemented for relevant core types like Vec<T>
+        // This exposes "list" operations on your type, such as insertion. `List` is automatically
+        // implemented for relevant core types like Vec<T>.
         ReflectRef::List(_) => {}
+        // `Array` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "array" operations on your type, such as indexing. `Array`
+        // is automatically implemented for relevant core types like [T; N].
+        ReflectRef::Array(_) => {}
         // `Map` is a special trait that can be manually implemented (instead of deriving Reflect).
         // This exposes "map" operations on your type, such as getting / inserting by key.
         // Map is automatically implemented for relevant core types like HashMap<K, V>

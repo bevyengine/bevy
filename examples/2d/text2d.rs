@@ -1,4 +1,11 @@
-use bevy::prelude::*;
+//! Shows text rendering with moving, rotating and scaling text.
+//!
+//! Note that this uses [`Text2dBundle`] to display text alongside your other entities in a 2D scene.
+//!
+//! For an example on how to render text as part of a user interface, independent from the world
+//! viewport, you may want to look at `2d/contributors.rs` or `ui/text.rs`.
+
+use bevy::{prelude::*, text::Text2dBounds};
 
 fn main() {
     App::new()
@@ -29,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         horizontal: HorizontalAlign::Center,
     };
     // 2d camera
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
     // Demonstrate changing translation
     commands
         .spawn_bundle(Text2dBundle {
@@ -47,10 +54,46 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing scale
     commands
         .spawn_bundle(Text2dBundle {
-            text: Text::with_section("scale", text_style, text_alignment),
+            text: Text::with_section("scale", text_style.clone(), text_alignment),
             ..default()
         })
         .insert(AnimateScale);
+    // Demonstrate text wrapping
+    let box_size = Vec2::new(300.0, 200.0);
+    let box_position = Vec2::new(0.0, -250.0);
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            color: Color::rgb(0.25, 0.25, 0.75),
+            custom_size: Some(Vec2::new(box_size.x, box_size.y)),
+            ..default()
+        },
+        transform: Transform::from_translation(box_position.extend(0.0)),
+        ..default()
+    });
+    let text_alignment_topleft = TextAlignment {
+        vertical: VerticalAlign::Top,
+        horizontal: HorizontalAlign::Left,
+    };
+    commands.spawn_bundle(Text2dBundle {
+        text: Text::with_section(
+            "this text wraps in the box",
+            text_style,
+            text_alignment_topleft,
+        ),
+        text_2d_bounds: Text2dBounds {
+            // Wrap text in the rectangle
+            size: box_size,
+        },
+        // We align text to the top-left, so this transform is the top-left corner of our text. The
+        // box is centered at box_position, so it is necessary to move by half of the box size to
+        // keep the text in the box.
+        transform: Transform::from_xyz(
+            box_position.x - box_size.x / 2.0,
+            box_position.y + box_size.y / 2.0,
+            1.0,
+        ),
+        ..default()
+    });
 }
 
 fn animate_translation(

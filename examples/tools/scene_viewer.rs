@@ -1,12 +1,16 @@
+//! A simple glTF scene viewer made with Bevy.
+//!
+//! Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`,
+//! replacing the path as appropriate.
+//! With no arguments it will load the `FieldHelmet` glTF model from the repository assets subdirectory.
+
 use bevy::{
     asset::{AssetServerSettings, LoadState},
+    gltf::Gltf,
     input::mouse::MouseMotion,
     math::Vec3A,
     prelude::*,
-    render::{
-        camera::{Camera2d, Camera3d, CameraProjection},
-        primitives::{Aabb, Frustum, Sphere},
-    },
+    render::primitives::{Aabb, Sphere},
     scene::InstanceId,
 };
 
@@ -17,67 +21,72 @@ fn main() {
     println!(
         "
 Controls:
-    WSAD   - forward/back/strafe left/right
-    LShift - 'run'
-    E      - up
-    Q      - down
-    L      - animate light direction
-    U      - toggle shadows
-    5/6    - decrease/increase shadow projection width
-    7/8    - decrease/increase shadow projection height
-    9/0    - decrease/increase shadow projection near/far
+    MOUSE       - Move camera orientation
+    LClick/M    - Enable mouse movement
+    WSAD        - forward/back/strafe left/right
+    LShift      - 'run'
+    E           - up
+    Q           - down
+    L           - animate light direction
+    U           - toggle shadows
+    C           - cycle through cameras
+    5/6         - decrease/increase shadow projection width
+    7/8         - decrease/increase shadow projection height
+    9/0         - decrease/increase shadow projection near/far
+
+    Space       - Play/Pause animation
+    Enter       - Cycle through animations
 "
     );
-    App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-        })
-        .insert_resource(AssetServerSettings {
-            asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap(),
-            watch_for_changes: true,
-        })
-        .insert_resource(WindowDescriptor {
-            title: "bevy scene viewer".to_string(),
-            ..default()
-        })
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
-        .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
-        .add_system(camera_controller_check.label(CameraControllerCheckSystem))
-        .add_system(update_lights)
-        .add_system(camera_controller.after(CameraControllerCheckSystem))
-        .run();
+    let mut app = App::new();
+    app.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 1.0 / 5.0f32,
+    })
+    .insert_resource(AssetServerSettings {
+        asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+        watch_for_changes: true,
+    })
+    .insert_resource(WindowDescriptor {
+        title: "bevy scene viewer".to_string(),
+        ..default()
+    })
+    .init_resource::<CameraTracker>()
+    .add_plugins(DefaultPlugins)
+    .add_startup_system(setup)
+    .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
+    .add_system_to_stage(CoreStage::PreUpdate, setup_scene_after_load)
+    .add_system(update_lights)
+    .add_system(camera_controller)
+    .add_system(camera_tracker);
+
+    #[cfg(feature = "animation")]
+    app.add_system(start_animation)
+        .add_system(keyboard_animation_control);
+
+    app.run();
 }
 
 struct SceneHandle {
-    handle: Handle<Scene>,
+    handle: Handle<Gltf>,
+    #[cfg(feature = "animation")]
+    animations: Vec<Handle<AnimationClip>>,
     instance_id: Option<InstanceId>,
     is_loaded: bool,
-    has_camera: bool,
     has_light: bool,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let scene_path = std::env::args().nth(1).map_or_else(
-        || "assets/models/FlightHelmet/FlightHelmet.gltf#Scene0".to_string(),
-        |s| {
-            if let Some(index) = s.find("#Scene") {
-                if index + 6 < s.len() && s[index + 6..].chars().all(char::is_numeric) {
-                    return s;
-                }
-                return format!("{}#Scene0", &s[..index]);
-            }
-            format!("{}#Scene0", s)
-        },
-    );
+    let scene_path = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf".to_string());
     info!("Loading {}", scene_path);
     commands.insert_resource(SceneHandle {
         handle: asset_server.load(&scene_path),
+        #[cfg(feature = "animation")]
+        animations: Vec::new(),
         instance_id: None,
         is_loaded: false,
-        has_camera: false,
         has_light: false,
     });
 }
@@ -85,21 +94,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn scene_load_check(
     asset_server: Res<AssetServer>,
     mut scenes: ResMut<Assets<Scene>>,
+    gltf_assets: ResMut<Assets<Gltf>>,
     mut scene_handle: ResMut<SceneHandle>,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
     match scene_handle.instance_id {
-        None if asset_server.get_load_state(&scene_handle.handle) == LoadState::Loaded => {
-            if let Some(scene) = scenes.get_mut(&scene_handle.handle) {
-                let mut query = scene
-                    .world
-                    .query::<(Option<&Camera2d>, Option<&Camera3d>)>();
-                scene_handle.has_camera =
-                    query
-                        .iter(&scene.world)
-                        .any(|(maybe_camera2d, maybe_camera3d)| {
-                            maybe_camera2d.is_some() || maybe_camera3d.is_some()
-                        });
+        None => {
+            if asset_server.get_load_state(&scene_handle.handle) == LoadState::Loaded {
+                let gltf = gltf_assets.get(&scene_handle.handle).unwrap();
+                let gltf_scene_handle = gltf.scenes.first().expect("glTF file contains no scenes!");
+                let scene = scenes.get_mut(gltf_scene_handle).unwrap();
+
                 let mut query = scene
                     .world
                     .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
@@ -111,7 +116,24 @@ fn scene_load_check(
                         });
 
                 scene_handle.instance_id =
-                    Some(scene_spawner.spawn(scene_handle.handle.clone_weak()));
+                    Some(scene_spawner.spawn(gltf_scene_handle.clone_weak()));
+
+                #[cfg(feature = "animation")]
+                {
+                    scene_handle.animations = gltf.animations.clone();
+                    if !scene_handle.animations.is_empty() {
+                        info!(
+                            "Found {} animation{}",
+                            scene_handle.animations.len(),
+                            if scene_handle.animations.len() == 1 {
+                                ""
+                            } else {
+                                "s"
+                            }
+                        );
+                    }
+                }
+
                 info!("Spawning scene...");
             }
         }
@@ -121,18 +143,74 @@ fn scene_load_check(
                 scene_handle.is_loaded = true;
             }
         }
-        _ => {}
+        Some(_) => {}
     }
 }
 
-fn camera_spawn_check(
+#[cfg(feature = "animation")]
+fn start_animation(
+    mut player: Query<&mut AnimationPlayer>,
+    mut done: Local<bool>,
+    scene_handle: Res<SceneHandle>,
+) {
+    if !*done {
+        if let Ok(mut player) = player.get_single_mut() {
+            if let Some(animation) = scene_handle.animations.first() {
+                player.play(animation.clone_weak()).repeat();
+                *done = true;
+            }
+        }
+    }
+}
+
+#[cfg(feature = "animation")]
+fn keyboard_animation_control(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut animation_player: Query<&mut AnimationPlayer>,
+    scene_handle: Res<SceneHandle>,
+    mut current_animation: Local<usize>,
+    mut changing: Local<bool>,
+) {
+    if scene_handle.animations.is_empty() {
+        return;
+    }
+
+    if let Ok(mut player) = animation_player.get_single_mut() {
+        if keyboard_input.just_pressed(KeyCode::Space) {
+            if player.is_paused() {
+                player.resume();
+            } else {
+                player.pause();
+            }
+        }
+
+        if *changing {
+            // change the animation the frame after return was pressed
+            *current_animation = (*current_animation + 1) % scene_handle.animations.len();
+            player
+                .play(scene_handle.animations[*current_animation].clone_weak())
+                .repeat();
+            *changing = false;
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Return) {
+            // delay the animation change for one frame
+            *changing = true;
+            // set the current animation to its start and pause it to reset to its starting state
+            player.set_elapsed(0.0).pause();
+        }
+    }
+}
+
+fn setup_scene_after_load(
     mut commands: Commands,
+    mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
 ) {
-    // If the scene did not contain a camera, find an approximate bounding box of the scene from
-    // its meshes and spawn a camera that fits it in view
-    if scene_handle.is_loaded && (!scene_handle.has_camera || !scene_handle.has_light) {
+    if scene_handle.is_loaded && !*setup {
+        *setup = true;
+        // Find an approximate bounding box of the scene from its meshes
         if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
             return;
         }
@@ -156,40 +234,26 @@ fn camera_spawn_check(
         let size = (max - min).length();
         let aabb = Aabb::from_min_max(Vec3::from(min), Vec3::from(max));
 
-        if !scene_handle.has_camera {
-            let transform = Transform::from_translation(
-                Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
-            )
-            .looking_at(Vec3::from(aabb.center), Vec3::Y);
-            let view = transform.compute_matrix();
-            let mut perspective_projection = PerspectiveProjection::default();
-            perspective_projection.far = perspective_projection.far.max(size * 10.0);
-            let view_projection = view.inverse() * perspective_projection.get_projection_matrix();
-            let frustum = Frustum::from_view_projection(
-                &view_projection,
-                &transform.translation,
-                &transform.back(),
-                perspective_projection.far(),
-            );
-
-            info!("Spawning a 3D perspective camera");
-            commands.spawn_bundle(PerspectiveCameraBundle {
+        info!("Spawning a controllable 3D perspective camera");
+        let mut projection = PerspectiveProjection::default();
+        projection.far = projection.far.max(size * 10.0);
+        commands
+            .spawn_bundle(Camera3dBundle {
+                projection: projection.into(),
+                transform: Transform::from_translation(
+                    Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
+                )
+                .looking_at(Vec3::from(aabb.center), Vec3::Y),
                 camera: Camera {
-                    near: perspective_projection.near,
-                    far: perspective_projection.far,
+                    is_active: false,
                     ..default()
                 },
-                perspective_projection,
-                frustum,
-                transform,
-                ..PerspectiveCameraBundle::new_3d()
-            });
+                ..default()
+            })
+            .insert(CameraController::default());
 
-            scene_handle.has_camera = true;
-        }
-
+        // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {
-            // The same approach as above but now for the scene
             let sphere = Sphere {
                 center: aabb.center,
                 radius: aabb.half_extents.length(),
@@ -218,20 +282,6 @@ fn camera_spawn_check(
 
             scene_handle.has_light = true;
         }
-    }
-}
-
-fn camera_controller_check(
-    mut commands: Commands,
-    camera: Query<Entity, (With<Camera>, Without<CameraController>)>,
-    mut found_camera: Local<bool>,
-) {
-    if *found_camera {
-        return;
-    }
-    if let Some(entity) = camera.iter().next() {
-        commands.entity(entity).insert(CameraController::default());
-        *found_camera = true;
     }
 }
 
@@ -284,6 +334,72 @@ fn update_lights(
     }
 }
 
+#[derive(Default)]
+struct CameraTracker {
+    active_index: Option<usize>,
+    cameras: Vec<Entity>,
+}
+
+impl CameraTracker {
+    fn track_camera(&mut self, entity: Entity) -> bool {
+        self.cameras.push(entity);
+        if self.active_index.is_none() {
+            self.active_index = Some(self.cameras.len() - 1);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn active_camera(&self) -> Option<Entity> {
+        self.active_index.map(|i| self.cameras[i])
+    }
+
+    fn set_next_active(&mut self) -> Option<Entity> {
+        let active_index = self.active_index?;
+        let new_i = (active_index + 1) % self.cameras.len();
+        self.active_index = Some(new_i);
+        Some(self.cameras[new_i])
+    }
+}
+
+fn camera_tracker(
+    mut camera_tracker: ResMut<CameraTracker>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut queries: ParamSet<(
+        Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
+        Query<&mut Camera>,
+    )>,
+) {
+    // track added scene camera entities first, to ensure they are preferred for the
+    // default active camera
+    for (entity, mut camera) in queries.p0().iter_mut() {
+        camera.is_active = camera_tracker.track_camera(entity);
+    }
+
+    // iterate added custom camera entities second
+    for (entity, mut camera) in queries.p1().iter_mut() {
+        camera.is_active = camera_tracker.track_camera(entity);
+    }
+
+    if keyboard_input.just_pressed(KeyCode::C) {
+        // disable currently active camera
+        if let Some(e) = camera_tracker.active_camera() {
+            if let Ok(mut camera) = queries.p2().get_mut(e) {
+                camera.is_active = false;
+            }
+        }
+
+        // enable next active camera
+        if let Some(e) = camera_tracker.set_next_active() {
+            if let Ok(mut camera) = queries.p2().get_mut(e) {
+                camera.is_active = true;
+            }
+        }
+    }
+}
+
 #[derive(Component)]
 struct CameraController {
     pub enabled: bool,
@@ -296,6 +412,8 @@ struct CameraController {
     pub key_up: KeyCode,
     pub key_down: KeyCode,
     pub key_run: KeyCode,
+    pub mouse_key_enable_mouse: MouseButton,
+    pub keyboard_key_enable_mouse: KeyCode,
     pub walk_speed: f32,
     pub run_speed: f32,
     pub friction: f32,
@@ -317,6 +435,8 @@ impl Default for CameraController {
             key_up: KeyCode::E,
             key_down: KeyCode::Q,
             key_run: KeyCode::LShift,
+            mouse_key_enable_mouse: MouseButton::Left,
+            keyboard_key_enable_mouse: KeyCode::M,
             walk_speed: 5.0,
             run_speed: 15.0,
             friction: 0.5,
@@ -330,20 +450,16 @@ impl Default for CameraController {
 fn camera_controller(
     time: Res<Time>,
     mut mouse_events: EventReader<MouseMotion>,
+    mouse_button_input: Res<Input<MouseButton>>,
     key_input: Res<Input<KeyCode>>,
+    mut move_toggled: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
     let dt = time.delta_seconds();
 
-    // Handle mouse input
-    let mut mouse_delta = Vec2::ZERO;
-    for mouse_event in mouse_events.iter() {
-        mouse_delta += mouse_event.delta;
-    }
-
     if let Ok((mut transform, mut options)) = query.get_single_mut() {
         if !options.initialized {
-            let (_roll, yaw, pitch) = transform.rotation.to_euler(EulerRot::ZYX);
+            let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
             options.yaw = yaw;
             options.pitch = pitch;
             options.initialized = true;
@@ -372,6 +488,9 @@ fn camera_controller(
         if key_input.pressed(options.key_down) {
             axis_input.y -= 1.0;
         }
+        if key_input.just_pressed(options.keyboard_key_enable_mouse) {
+            *move_toggled = !*move_toggled;
+        }
 
         // Apply movement update
         if axis_input != Vec3::ZERO {
@@ -393,6 +512,14 @@ fn camera_controller(
         transform.translation += options.velocity.x * dt * right
             + options.velocity.y * dt * Vec3::Y
             + options.velocity.z * dt * forward;
+
+        // Handle mouse input
+        let mut mouse_delta = Vec2::ZERO;
+        if mouse_button_input.pressed(options.mouse_key_enable_mouse) || *move_toggled {
+            for mouse_event in mouse_events.iter() {
+                mouse_delta += mouse_event.delta;
+            }
+        }
 
         if mouse_delta != Vec2::ZERO {
             // Apply look update

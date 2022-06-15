@@ -13,9 +13,12 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::event::EventReader;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{default, tracing::error, Entry, HashMap, HashSet};
-use std::{hash::Hash, mem, ops::Deref, sync::Arc};
+use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
-use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout as RawVertexBufferLayout};
+use wgpu::{
+    BufferBindingType, PipelineLayoutDescriptor, ShaderModule,
+    VertexBufferLayout as RawVertexBufferLayout,
+};
 
 enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
@@ -117,21 +120,55 @@ impl ShaderCache {
         let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
+                let mut shader_defs = shader_defs.to_vec();
+                #[cfg(feature = "webgl")]
+                shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
+
+                // TODO: 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
+                // consider exposing this in shaders in a more generally useful way, such as:
+                // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
+                // /* use storage buffers here */
+                // # elif
+                // /* use uniforms here */
+                if !matches!(
+                    render_device.get_supported_read_only_binding_type(3),
+                    BufferBindingType::Storage { .. }
+                ) {
+                    shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
+                }
+
                 let processed = self.processor.process(
                     shader,
-                    shader_defs,
+                    &shader_defs,
                     &self.shaders,
                     &self.import_path_shaders,
                 )?;
-                let module_descriptor = match processed.get_module_descriptor() {
+                let module_descriptor = match processed
+                    .get_module_descriptor(render_device.features())
+                {
                     Ok(module_descriptor) => module_descriptor,
                     Err(err) => {
                         return Err(PipelineCacheError::AsModuleDescriptorError(err, processed));
                     }
                 };
-                entry.insert(Arc::new(
-                    render_device.create_shader_module(&module_descriptor),
-                ))
+
+                render_device
+                    .wgpu_device()
+                    .push_error_scope(wgpu::ErrorFilter::Validation);
+                let shader_module = render_device.create_shader_module(&module_descriptor);
+                let error = render_device.wgpu_device().pop_error_scope();
+
+                // `now_or_never` will return Some if the future is ready and None otherwise.
+                // On native platforms, wgpu will yield the error immediatly while on wasm it may take longer since the browser APIs are asynchronous.
+                // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
+                // and on wasm the error will be handled by wgpu and crash the application.
+                if let Some(Some(wgpu::Error::Validation { description, .. })) =
+                    bevy_utils::futures::now_or_never(error)
+                {
+                    return Err(PipelineCacheError::CreateShaderModule(description));
+                }
+
+                entry.insert(Arc::new(shader_module))
             }
         };
 
@@ -479,6 +516,10 @@ impl PipelineCache {
                             log_shader_error(source, err);
                             continue;
                         }
+                        PipelineCacheError::CreateShaderModule(description) => {
+                            error!("failed to create shader module: {}", description);
+                            continue;
+                        }
                     }
                 }
             }
@@ -626,6 +667,8 @@ pub enum PipelineCacheError {
     AsModuleDescriptorError(AsModuleDescriptorError, ProcessedShader),
     #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
+    #[error("Could not create shader module: {0}")]
+    CreateShaderModule(String),
 }
 
 struct ErrorSources<'a> {
@@ -649,3 +692,5 @@ impl<'a> Iterator for ErrorSources<'a> {
         current
     }
 }
+
+impl<'a> FusedIterator for ErrorSources<'a> {}
