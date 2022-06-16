@@ -540,7 +540,7 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// **iOS**, **Android**, and the **Web** do not have decorations.
+    /// **`iOS`**, **`Android`**, and the **`Web`** do not have decorations.
     #[inline]
     pub fn decorations(&self) -> bool {
         self.decorations
@@ -551,7 +551,7 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// **iOS**, **Android**, and the **Web** do not have decorations.
+    /// **`iOS`**, **`Android`**, and the **`Web`** do not have decorations.
     pub fn set_decorations(&mut self, decorations: bool) {
         self.decorations = decorations;
         self.command_queue
@@ -561,8 +561,8 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **macOS** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
-    /// - **iOS/Android** don't have cursors.
+    /// - **`macOS`** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`iOS/Android`** don't have cursors.
     #[inline]
     pub fn cursor_locked(&self) -> bool {
         self.cursor_locked
@@ -573,8 +573,8 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **macOS** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
-    /// - **iOS/Android** don't have cursors.
+    /// - **`macOS`** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`iOS/Android`** don't have cursors.
     pub fn set_cursor_lock_mode(&mut self, lock_mode: bool) {
         self.cursor_locked = lock_mode;
         self.command_queue
@@ -584,9 +584,9 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **Windows**, **X11**, and **Wayland**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
-    /// - **macOS**: The cursor is hidden only when the window is focused.
-    /// - **iOS** and **Android** do not have cursors
+    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
+    /// - **`macOS`**: The cursor is hidden only when the window is focused.
+    /// - **`iOS`** and **`Android`** do not have cursors
     #[inline]
     pub fn cursor_visible(&self) -> bool {
         self.cursor_visible
@@ -595,9 +595,9 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **Windows**, **X11**, and **Wayland**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
-    /// - **macOS**: The cursor is hidden only when the window is focused.
-    /// - **iOS** and **Android** do not have cursors
+    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
+    /// - **`macOS`**: The cursor is hidden only when the window is focused.
+    /// - **`iOS`** and **`Android`** do not have cursors
     pub fn set_cursor_visibility(&mut self, visibile_mode: bool) {
         self.cursor_visible = visibile_mode;
         self.command_queue.push(WindowCommand::SetCursorVisibility {
