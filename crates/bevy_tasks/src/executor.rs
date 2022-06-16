@@ -483,7 +483,8 @@ impl Runner<'_> {
                             if priority == self.priority && idx == self.thread_id {
                                 continue;
                             }
-                            if let Ok((r, _)) = stealer.steal_and_pop(&self.worker, |n| (n + 1) / 2) {
+                            if let Ok((r, _)) = stealer.steal_and_pop(&self.worker, |n| (n + 1) / 2)
+                            {
                                 if group.end_search() {
                                     self.wake_and_notify();
                                 }
