@@ -871,7 +871,6 @@ bevy_reflect::tests::should_reflect_debug::Test {
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
-        use ::serde::Serialize;
 
         #[test]
         fn vec3_serialization() {
@@ -882,17 +881,11 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let mut dest = vec![];
-            let mut serializer = ron::ser::Serializer::new(&mut dest, None, false)
-                .expect("Failed to acquire serializer");
-
-            ser.serialize(&mut serializer).expect("Failed to serialize");
-
-            let result = String::from_utf8(dest).expect("Failed to convert to string");
+            let result = ron::to_string(&ser).expect("Failed to serialize to string");
 
             assert_eq!(
                 result,
-                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#
+                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
             );
         }
 
