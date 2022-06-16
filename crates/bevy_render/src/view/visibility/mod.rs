@@ -57,6 +57,7 @@ impl ComputedVisibility {
     }
 
     #[inline]
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.entities.count_ones(..)
     }
@@ -246,7 +247,7 @@ pub fn check_visibility(
             for entity in queue.iter().copied() {
                 computed_visibility.mark_visible(entity);
             }
-            visible_entities.entities.append(&mut queue);
+            visible_entities.entities.append(queue);
         }
     }
 }
