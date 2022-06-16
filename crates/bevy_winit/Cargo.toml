@@ -30,6 +30,7 @@ raw-window-handle = "0.4.2"
 winit = { version = "0.26.0", default-features = false }
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
+crossbeam-channel = "0.5"
 
 [package.metadata.docs.rs]
 features = ["x11"]

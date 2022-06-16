@@ -1,3 +1,5 @@
+//! Prints out all keyboard events.
+
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 fn main() {

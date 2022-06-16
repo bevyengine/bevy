@@ -1,11 +1,11 @@
-mod command;
+mod bundle;
 mod dynamic_scene;
 mod scene;
 mod scene_loader;
 mod scene_spawner;
 pub mod serde;
 
-pub use command::*;
+pub use bundle::*;
 pub use dynamic_scene::*;
 pub use scene::*;
 pub use scene_loader::*;
@@ -13,9 +13,7 @@ pub use scene_spawner::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        DynamicScene, Scene, SceneSpawner, SpawnSceneAsChildCommands, SpawnSceneCommands,
-    };
+    pub use crate::{DynamicScene, DynamicSceneBundle, Scene, SceneBundle, SceneSpawner};
 }
 
 use bevy_app::prelude::*;
@@ -34,6 +32,8 @@ impl Plugin for ScenePlugin {
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 scene_spawner_system.exclusive_system().at_end(),
-            );
+            )
+            // Systems `*_bundle_spawner` must run before `scene_spawner_system`
+            .add_system_to_stage(CoreStage::PreUpdate, scene_spawner);
     }
 }

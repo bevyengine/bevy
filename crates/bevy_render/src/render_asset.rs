@@ -135,10 +135,7 @@ fn extract_render_asset<A: RenderAsset>(
     let mut removed = Vec::new();
     for event in events.iter() {
         match event {
-            AssetEvent::Created { handle } => {
-                changed_assets.insert(handle);
-            }
-            AssetEvent::Modified { handle } => {
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 changed_assets.insert(handle);
             }
             AssetEvent::Removed { handle } => {

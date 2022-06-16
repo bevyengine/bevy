@@ -1,10 +1,11 @@
+//! Shows various text layout options.
+
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::PresentMode,
 };
 
-/// This example is for debugging text layout
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -23,7 +24,7 @@ struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,

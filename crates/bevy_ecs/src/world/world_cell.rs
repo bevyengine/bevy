@@ -74,7 +74,7 @@ impl<'w> Drop for WorldCell<'w> {
     fn drop(&mut self) {
         let mut access = self.access.borrow_mut();
         // give world ArchetypeComponentAccess back to reuse allocations
-        let _ = std::mem::swap(&mut self.world.archetype_component_access, &mut *access);
+        std::mem::swap(&mut self.world.archetype_component_access, &mut *access);
     }
 }
 
@@ -420,12 +420,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn world_cell_ref_and_ref() {
         let mut world = World::default();
         world.insert_resource(1u32);
         let cell = world.cell();
-        let _value_a = cell.resource_mut::<u32>();
+        let _value_a = cell.resource::<u32>();
         let _value_b = cell.resource::<u32>();
     }
 }

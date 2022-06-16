@@ -9,7 +9,6 @@ use bevy_ecs::entity::Entities;
 use bevy_ecs::prelude::*;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_tasks::ComputeTaskPool;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 use fixedbitset::FixedBitSet;
@@ -17,7 +16,7 @@ use std::cell::Cell;
 use thread_local::ThreadLocal;
 
 use crate::{
-    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
+    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection},
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
@@ -93,6 +92,7 @@ pub enum VisibilitySystems {
     CalculateBounds,
     UpdateOrthographicFrusta,
     UpdatePerspectiveFrusta,
+    UpdateProjectionFrusta,
     CheckVisibility,
 }
 
@@ -120,11 +120,18 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
+            update_frusta::<Projection>
+                .label(UpdateProjectionFrusta)
+                .after(TransformSystem::TransformPropagate),
+        )
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
             check_visibility
                 .label(CheckVisibility)
                 .after(CalculateBounds)
                 .after(UpdateOrthographicFrusta)
                 .after(UpdatePerspectiveFrusta)
+                .after(UpdateProjectionFrusta)
                 .after(TransformSystem::TransformPropagate),
         );
     }
@@ -161,7 +168,6 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 
 pub fn check_visibility(
     entities: &Entities,
-    task_pool: Res<ComputeTaskPool>,
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
     mut queues: Local<Vec<Vec<Entity>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
@@ -184,11 +190,8 @@ pub fn check_visibility(
     }
 
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
-        visible_entities.entities.clear();
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
-
         visible_entity_query.par_for_each(
-            &*task_pool,
             1024,
             |(
                 entity,
@@ -241,9 +244,6 @@ pub fn check_visibility(
             visible_entities.entities.append(&mut queue);
             cell.set(queue);
         }
-
-        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
-        // to prevent holding unneeded memory
     }
 
     queues.clear();
