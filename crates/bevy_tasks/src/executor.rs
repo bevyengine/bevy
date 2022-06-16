@@ -122,7 +122,6 @@ impl Drop for Executor<'_> {
 /// The executor can only be run on the thread that created it.
 #[derive(Debug)]
 pub struct LocalExecutor<'a> {
-    /// The inner executor.
     queue: ConcurrentQueue<Runnable>,
 
     /// Makes the type `!Send` and `!Sync`.
@@ -197,7 +196,8 @@ impl State {
                     .collect::<Vec<_>>();
                 let stealers = workers
                     .iter()
-                    .map(|w| w.stealer()).collect::<Vec<_>>()
+                    .map(|w| w.stealer())
+                    .collect::<Vec<_>>()
                     .into_boxed_slice();
                 // TODO: This is a hack only for initialziation
                 // probably should refactor it out.
@@ -259,6 +259,26 @@ impl GroupState {
             return true;
         }
         false
+    }
+
+    /// Attempt to start a new search over the queues. Returns
+    /// false if there are too many searchers and that the runner
+    /// should abort the search.
+    #[inline]
+    fn start_search(&self) -> bool {
+        let searchers = self.searchers.load(Ordering::Acquire);
+        if 2 * searchers > self.stealers.len() {
+            return false;
+        }
+        self.searchers.fetch_add(1, Ordering::Release);
+        true
+    }
+
+    /// Ends a search. Returns true if this is the last searcher
+    /// and that the runner wake and notify other runners.
+    #[inline]
+    fn end_search(&self) -> bool {
+        self.searchers.fetch_sub(1, Ordering::Release) == 1
     }
 }
 
@@ -432,6 +452,7 @@ impl Runner<'_> {
             loop {
                 // Try the local queue.
                 if let Some(r) = self.worker.pop() {
+                    self.wake_and_notify();
                     return Poll::Ready(r);
                 }
 
@@ -439,21 +460,16 @@ impl Runner<'_> {
                 for priority in self.priority_iter() {
                     let group = &self.state.groups[priority];
                     let stealers = &self.state.groups[priority].stealers;
-                    let stealer_count = stealers.len();
 
-                    let update = |count| (2 * count < stealer_count).then(|| count + 1);
-                    if group
-                        .searchers
-                        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, update)
-                        .is_err()
-                    {
+                    if !group.start_search() {
                         continue;
                     }
 
                     if let Ok(r) = group.queue.pop() {
                         self.steal(&group.queue);
-                        group.searchers.fetch_sub(1, Ordering::SeqCst);
-                        self.wake_and_notify();
+                        if group.end_search() {
+                            self.wake_and_notify();
+                        }
                         return Poll::Ready(r);
                     }
 
@@ -468,14 +484,15 @@ impl Runner<'_> {
                                 continue;
                             }
                             if let Ok((r, _)) = stealer.steal_and_pop(&self.worker, |n| (n + 1) / 2) {
-                                group.searchers.fetch_sub(1, Ordering::SeqCst);
-                                self.wake_and_notify();
+                                if group.end_search() {
+                                    self.wake_and_notify();
+                                }
                                 return Poll::Ready(r);
                             }
                         }
                     }
 
-                    group.searchers.fetch_sub(1, Ordering::SeqCst);
+                    group.end_search();
                 }
 
                 // Move to sleeping and unnotified state.
