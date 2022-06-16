@@ -22,7 +22,7 @@ pub enum CursorIcon {
     /// Help indicator (often rendered as a "?")    
     Help,
     /// Progress indicator. Shows that processing is being done.
-    /// 
+    ///
     /// But in contrast with "Wait" the user may still interact with the program.
     /// Often rendered as a spinning beach ball, or an arrow with a watch or hourglass.    
     Progress,

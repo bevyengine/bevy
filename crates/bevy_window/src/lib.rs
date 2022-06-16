@@ -32,7 +32,7 @@ pub struct WindowPlugin {
     /// due to [`exit_on_all_closed`].
     pub add_primary_window: bool,
     /// Whether to exit the app when there are no open windows.
-    /// 
+    ///
     /// If disabling this, ensure that you send the [`bevy_app::AppExit`]
     /// event when the app should exit. If this does not occur, you will
     /// create 'headless' processes (processes without windows), which may
