@@ -74,7 +74,7 @@ fn setup(
     foxes: Res<Foxes>,
 ) {
     #[cfg(debug_assertions)]
-    warn!("Running a stress test example in debug mode will lead to low performance, try running this example with --release");
+    warn!(include_str!("warning_string.txt"));
 
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![

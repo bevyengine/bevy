@@ -1,0 +1,1 @@
+Running a stress test example in debug mode. Please try running this example again in release mode using `--release` for a more representative performance result.

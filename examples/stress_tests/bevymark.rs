@@ -91,7 +91,7 @@ struct StatsText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     #[cfg(debug_assertions)]
-    warn!("Running a stress test example in debug mode will lead to low performance, try running this example with --release");
+    warn!(include_str!("warning_string.txt"));
 
     let texture = asset_server.load("branding/icon.png");
 

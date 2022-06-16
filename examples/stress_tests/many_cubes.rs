@@ -38,7 +38,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     #[cfg(debug_assertions)]
-    warn!("Running a stress test example in debug mode will lead to low performance, try running this example with --release");
+    warn!(include_str!("warning_string.txt"));
 
     const WIDTH: usize = 200;
     const HEIGHT: usize = 200;
