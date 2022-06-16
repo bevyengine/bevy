@@ -247,6 +247,8 @@ pub enum RenderTarget {
     Window(WindowId),
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
+    /// Buffered Image to which the camera's view is rendered.
+    BufferedImage(Handle<Image>, Handle<Image>),
 }
 
 impl Default for RenderTarget {
@@ -266,6 +268,9 @@ impl RenderTarget {
                 .get(window_id)
                 .and_then(|window| window.swap_chain_texture.as_ref()),
             RenderTarget::Image(image_handle) => {
+                images.get(image_handle).map(|image| &image.texture_view)
+            }
+            RenderTarget::BufferedImage(image_handle, _buffer_image_handle) => {
                 images.get(image_handle).map(|image| &image.texture_view)
             }
         }
@@ -292,6 +297,14 @@ impl RenderTarget {
                     scale_factor: 1.0,
                 }
             }
+            RenderTarget::BufferedImage(image_handle, _buffered_image_handle) => {
+                let image = images.get(image_handle)?;
+                let Extent3d { width, height, .. } = image.texture_descriptor.size;
+                RenderTargetInfo {
+                    physical_size: UVec2::new(width, height),
+                    scale_factor: 1.0,
+                }
+            }
         })
     }
     // Check if this render target is contained in the given changed windows or images.
@@ -303,6 +316,10 @@ impl RenderTarget {
         match self {
             RenderTarget::Window(window_id) => changed_window_ids.contains(window_id),
             RenderTarget::Image(image_handle) => changed_image_handles.contains(&image_handle),
+            RenderTarget::BufferedImage(image_handle, buffered_image_handle) => {
+                changed_image_handles.contains(&image_handle)
+                    || changed_image_handles.contains(&buffered_image_handle)
+            }
         }
     }
 }

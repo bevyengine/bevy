@@ -21,7 +21,6 @@ default = [
   "bevy_audio",
   "bevy_gilrs",
   "bevy_winit",
-  "bevy_camera",
   "render",
   "png",
   "hdr",
@@ -57,7 +56,6 @@ bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
 bevy_winit = ["bevy_internal/bevy_winit"]
-bevy_camera  = ["bevy_internal/bevy_camera"]
 
 # Tracing features
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -187,17 +185,6 @@ path = "examples/3d/3d_scene.rs"
 name = "3d_shapes"
 path = "examples/3d/shapes.rs"
 
-[[example]]
-name = "frame_capture_cpu"
-path = "examples/3d/frame_capture_cpu.rs"
-
-[[example]]
-name = "frame_capture_double_buffer"
-path = "examples/3d/frame_capture_double_buffer.rs"
-
-[[example]]
-name = "frame_capture_gpu"
-path = "examples/3d/frame_capture_gpu.rs"
 
 [[example]]
 name = "lighting"
@@ -226,6 +213,10 @@ path = "examples/3d/pbr.rs"
 [[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
+
+[[example]]
+name = "render_to_double_buffer"
+path = "examples/3d/render_to_double_buffer.rs"
 
 [[example]]
 name = "shadow_biases"

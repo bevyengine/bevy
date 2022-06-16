@@ -101,12 +101,6 @@ pub mod animation {
     pub use bevy_animation::*;
 }
 
-#[cfg(feature = "bevy_camera")]
-pub mod camera {
-    //! Provides types and plugins for audio playback.
-    pub use bevy_camera::*;
-}
-
 #[cfg(feature = "bevy_audio")]
 pub mod audio {
     //! Provides types and plugins for audio playback.

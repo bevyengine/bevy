@@ -4,11 +4,15 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, RenderTarget},
+    prelude::Image,
+    render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
-    render_resource::{LoadOp, Operations, RenderPassDescriptor},
-    renderer::RenderContext,
+    render_resource::{
+        CommandEncoderDescriptor, Extent3d, LoadOp, Operations, RenderPassDescriptor,
+    },
+    renderer::{RenderContext, RenderQueue},
     view::{ExtractedView, ViewTarget},
 };
 #[cfg(feature = "trace")]
@@ -92,6 +96,31 @@ impl Node for MainPass2dNode {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
             }
+        }
+
+        // TODO: should this live here or in a separate node?
+        // TODO: don't just have duplicated code between MainPass3dNode/MainPass2dNode
+        if let RenderTarget::BufferedImage(image_handle, buffer_image_handle) = &camera.target {
+            let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
+            let gpu_image = gpu_images.get(&image_handle).unwrap();
+
+            let mut encoder = render_context
+                .render_device
+                .create_command_encoder(&CommandEncoderDescriptor::default());
+
+            let target_image = gpu_images.get(&buffer_image_handle).unwrap();
+            encoder.copy_texture_to_texture(
+                gpu_image.texture.as_image_copy(),
+                target_image.texture.as_image_copy(),
+                Extent3d {
+                    width: gpu_image.size.x as u32,
+                    height: gpu_image.size.y as u32,
+                    depth_or_array_layers: 1,
+                },
+            );
+
+            let render_queue = world.get_resource::<RenderQueue>().unwrap();
+            render_queue.submit(std::iter::once(encoder.finish()));
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
