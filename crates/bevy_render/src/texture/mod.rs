@@ -119,9 +119,11 @@ pub trait BevyDefault {
 
 impl BevyDefault for wgpu::TextureFormat {
     fn bevy_default() -> Self {
-        if cfg!(target_os = "android") || cfg!(target_arch = "wasm32") {
+        if cfg!(target_os = "android") || cfg!(feature = "webgl") {
             // Bgra8UnormSrgb texture missing on some Android devices
             wgpu::TextureFormat::Rgba8UnormSrgb
+        } else if cfg!(feature = "webgpu") {
+            wgpu::TextureFormat::Bgra8Unorm
         } else {
             wgpu::TextureFormat::Bgra8UnormSrgb
         }

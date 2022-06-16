@@ -26,6 +26,7 @@ wgpu_trace = ["wgpu/trace"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
 spirv = ["wgpu/spirv"]
+webgpu = []
 
 [dependencies]
 # bevy
