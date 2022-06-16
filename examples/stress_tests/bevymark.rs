@@ -90,6 +90,9 @@ struct BirdTexture(Handle<Image>);
 struct StatsText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    #[cfg(debug_assertions)]
+    warn!("Running a stress test example in debug mode will lead to low performance, try running this example with --release");
+
     let texture = asset_server.load("branding/icon.png");
 
     commands.spawn_bundle(Camera2dBundle::default());

@@ -73,6 +73,9 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     foxes: Res<Foxes>,
 ) {
+    #[cfg(debug_assertions)]
+    warn!("Running a stress test example in debug mode will lead to low performance, try running this example with --release");
+
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![
         asset_server.load("models/animated/Fox.glb#Animation2"),

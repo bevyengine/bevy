@@ -33,6 +33,9 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+    #[cfg(debug_assertions)]
+    warn!("Running a stress test example in debug mode will lead to low performance, try running this example with --release");
+
     let mut rng = rand::thread_rng();
 
     let tile_size = Vec2::splat(64.0);

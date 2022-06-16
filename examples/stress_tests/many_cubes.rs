@@ -37,6 +37,9 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    #[cfg(debug_assertions)]
+    warn!("Running a stress test example in debug mode will lead to low performance, try running this example with --release");
+
     const WIDTH: usize = 200;
     const HEIGHT: usize = 200;
     let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));

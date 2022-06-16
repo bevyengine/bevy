@@ -35,6 +35,9 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    #[cfg(debug_assertions)]
+    warn!("Running a stress test example in debug mode will lead to low performance, try running this example with --release");
+
     const LIGHT_RADIUS: f32 = 0.3;
     const LIGHT_INTENSITY: f32 = 5.0;
     const RADIUS: f32 = 50.0;

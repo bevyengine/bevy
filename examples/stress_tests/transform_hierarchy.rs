@@ -257,7 +257,11 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 }
 
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
+    #[cfg(debug_assertions)]
+    warn!("Running a stress test example in debug mode will lead to low performance, try running this example with --release");
+
     let mut cam = Camera2dBundle::default();
+
     cam.transform.translation.z = 100.0;
     commands.spawn_bundle(cam);
 
