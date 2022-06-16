@@ -10,8 +10,10 @@ use std::{
     borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
 };
 use thiserror::Error;
+#[cfg(feature = "spirv")]
+use wgpu::util::make_spirv;
 use wgpu::Features;
-use wgpu::{util::make_spirv, ShaderModuleDescriptor, ShaderSource};
+use wgpu::{ShaderModuleDescriptor, ShaderSource};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ShaderId(Uuid);
@@ -192,6 +194,9 @@ impl ProcessedShader {
                     let wgsl = reflection.get_wgsl()?;
                     ShaderSource::Wgsl(wgsl.into())
                 }
+                #[cfg(not(feature = "spirv"))]
+                ProcessedShader::SpirV(_source) => unimplemented!("spirv feature is not enabled"),
+                #[cfg(feature = "spirv")]
                 ProcessedShader::SpirV(source) => make_spirv(source),
             },
         })

@@ -103,6 +103,8 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation"]
 
+spirv = ["bevy_internal/spirv"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.8.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.8.0-dev", default-features = false }
