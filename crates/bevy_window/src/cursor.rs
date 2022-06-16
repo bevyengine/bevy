@@ -21,60 +21,61 @@ pub enum CursorIcon {
     Wait,
     /// Help indicator (often rendered as a "?")    
     Help,
-    /// Progress indicator. Shows that processing is being done. But in contrast
-    /// with "Wait" the user may still interact with the program. Often rendered
-    /// as a spinning beach ball, or an arrow with a watch or hourglass.    
+    /// Progress indicator. Shows that processing is being done.
+    /// 
+    /// But in contrast with "Wait" the user may still interact with the program.
+    /// Often rendered as a spinning beach ball, or an arrow with a watch or hourglass.    
     Progress,
     /// Cursor showing that something cannot be done.    
     NotAllowed,
-    /// Indicates that a context menu is available
+    /// Indicates that a context menu is available.
     ContextMenu,
-    /// Indicates that a cell (or set of cells) may be selected
+    /// Indicates that a cell (or set of cells) may be selected.
     Cell,
-    /// Indicates vertical text that may be selected or edited
+    /// Indicates vertical text that may be selected or edited.
     VerticalText,
-    /// Indicates that an alias of something is to be created
+    /// Indicates that an alias of something is to be created.
     Alias,
-    /// Indicates something is to be copied
+    /// Indicates something is to be copied.
     Copy,
-    /// Indicates that the dragged item cannot be dropped here
+    /// Indicates that the dragged item cannot be dropped here.
     NoDrop,
-    /// Indicates that something can be grabbed    
+    /// Indicates that something can be grabbed.
     Grab,
-    /// Indicates that something is grabbed.    
+    /// Indicates that something is grabbed.
     Grabbing,
     /// Indicates that the user can scroll by dragging the mouse.
     AllScroll,
-    /// Indicates that the user can zoom in
+    /// Indicates that the user can zoom in.
     ZoomIn,
-    /// Indicates that the user can zoom out
+    /// Indicates that the user can zoom out.
     ZoomOut,
-    /// Indicates that an edge of a box is to be moved right (east)
+    /// Indicates that an edge of a box is to be moved right (east).
     EResize,
-    /// Indicates that an edge of a box is to be moved up (north)
+    /// Indicates that an edge of a box is to be moved up (north).
     NResize,
-    /// Indicates that an edge of a box is to be moved up and right (north/east)
+    /// Indicates that an edge of a box is to be moved up and right (north/east).
     NeResize,
-    /// indicates that an edge of a box is to be moved up and left (north/west)
+    /// indicates that an edge of a box is to be moved up and left (north/west).
     NwResize,
-    /// Indicates that an edge of a box is to be moved down (south)
+    /// Indicates that an edge of a box is to be moved down (south).
     SResize,
-    /// The cursor indicates that an edge of a box is to be moved down and right (south/east)
+    /// The cursor indicates that an edge of a box is to be moved down and right (south/east).
     SeResize,
-    /// The cursor indicates that an edge of a box is to be moved down and left (south/west)
+    /// The cursor indicates that an edge of a box is to be moved down and left (south/west).
     SwResize,
-    /// Indicates that an edge of a box is to be moved left (west)
+    /// Indicates that an edge of a box is to be moved left (west).
     WResize,
-    /// Indicates a bidirectional resize cursor
+    /// Indicates a bidirectional resize cursor.
     EwResize,
-    /// Indicates a bidirectional resize cursor
+    /// Indicates a bidirectional resize cursor.
     NsResize,
-    /// Indicates a bidirectional resize cursor
+    /// Indicates a bidirectional resize cursor.
     NeswResize,
-    /// Indicates a bidirectional resize cursor
+    /// Indicates a bidirectional resize cursor.
     NwseResize,
-    /// Indicates that a column can be resized horizontally
+    /// Indicates that a column can be resized horizontally.
     ColResize,
-    /// Indicates that the row can be resized vertically
+    /// Indicates that the row can be resized vertically.
     RowResize,
 }
