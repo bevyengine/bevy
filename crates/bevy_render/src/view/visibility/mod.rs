@@ -57,6 +57,11 @@ impl ComputedVisibility {
     }
 
     #[inline]
+    pub fn len(&self) -> usize {
+        self.entities.count_ones(..)
+    }
+
+    #[inline]
     pub fn clear(&mut self) {
         self.entities.clear();
     }
@@ -169,7 +174,6 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 pub fn check_visibility(
     entities: &Entities,
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
-    mut queues: Local<Vec<Vec<Entity>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
     mut computed_visibility: ResMut<ComputedVisibility>,
     visible_entity_query: Query<(
@@ -186,11 +190,12 @@ pub fn check_visibility(
     computed_visibility.reserve(entities);
 
     for queue in thread_queues.iter_mut() {
-        *queue.get_mut() = queues.pop().unwrap_or_default();
+        queue.get_mut().clear();
     }
 
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        visible_entities.entities.clear();
         visible_entity_query.par_for_each(
             1024,
             |(
@@ -237,15 +242,11 @@ pub fn check_visibility(
         );
 
         for cell in thread_queues.iter_mut() {
-            let mut queue = cell.take();
+            let mut queue = cell.get_mut();
             for entity in queue.iter().copied() {
                 computed_visibility.mark_visible(entity);
             }
             visible_entities.entities.append(&mut queue);
-            cell.set(queue);
         }
     }
-
-    queues.clear();
-    queues.extend(thread_queues.iter_mut().map(|cell| cell.take()));
 }
