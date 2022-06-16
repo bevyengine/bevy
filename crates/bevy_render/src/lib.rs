@@ -47,8 +47,16 @@ use bevy_utils::tracing::debug;
 use std::ops::{Deref, DerefMut};
 
 /// Contains the default Bevy rendering backend based on wgpu.
-#[derive(Default)]
-pub struct RenderPlugin;
+pub struct RenderPlugin {
+    /// If set, a [`RenderBatchSize`] will be added as a `Resource`,
+    /// allowing batched parallel execution of rendering system.
+    batch_size: Option<usize>,
+}
+
+/// Optional `Resource` enabling batched parallel execution of rendering system.
+/// Improves rendering performance on scenes with a large number of entities.
+#[derive(Copy, Clone)]
+pub struct RenderBatchSize(pub usize);
 
 /// The labels of the default App rendering stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -81,6 +89,22 @@ pub enum RenderStage {
 /// The Render App World. This is only available as a resource during the Extract step.
 #[derive(Default)]
 pub struct RenderWorld(World);
+
+impl Default for RenderPlugin {
+    fn default() -> Self {
+        Self {
+            batch_size: Some(1024),
+        }
+    }
+}
+
+impl Deref for RenderBatchSize {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl Deref for RenderWorld {
     type Target = World;
@@ -125,6 +149,10 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>()
             .register_type::<Color>();
+        // Enables batched parallel execution of rendering
+        if let Some(batch_size) = self.batch_size {
+            app.insert_resource(RenderBatchSize(batch_size));
+        }
 
         if let Some(backends) = options.backends {
             let instance = wgpu::Instance::new(backends);

@@ -1,6 +1,7 @@
 mod render_layers;
 
 use bevy_math::Vec3A;
+use crossbeam_channel::Sender;
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
@@ -15,6 +16,7 @@ use crate::{
     camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection},
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
+    RenderBatchSize,
 };
 
 /// User indication of whether an entity is visible
@@ -147,7 +149,63 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     }
 }
 
+fn check_single_visibility(
+    view_mask: RenderLayers,
+    frustum: &Frustum,
+    sender: &Sender<Entity>,
+    (
+        entity,
+        visibility,
+        mut computed_visibility,
+        maybe_entity_mask,
+        maybe_aabb,
+        maybe_no_frustum_culling,
+        maybe_transform,
+    ): (
+        Entity,
+        &Visibility,
+        Mut<ComputedVisibility>,
+        Option<&RenderLayers>,
+        Option<&Aabb>,
+        Option<&NoFrustumCulling>,
+        Option<&GlobalTransform>,
+    ),
+) {
+    // Reset visibility
+    computed_visibility.is_visible = false;
+
+    if !visibility.is_visible {
+        return;
+    }
+    let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+    if !view_mask.intersects(&entity_mask) {
+        return;
+    }
+
+    // If we have an aabb and transform, do frustum culling
+    if let (Some(model_aabb), None, Some(transform)) =
+        (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
+    {
+        let model = transform.compute_matrix();
+        let model_sphere = Sphere {
+            center: model.transform_point3a(model_aabb.center),
+            radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
+        };
+        // Do quick sphere-based frustum culling
+        if !frustum.intersects_sphere(&model_sphere, false) {
+            return;
+        }
+        // If we have an aabb, do aabb-based frustum culling
+        if !frustum.intersects_obb(model_aabb, &model, false) {
+            return;
+        }
+    }
+    computed_visibility.is_visible = true;
+    sender.send(entity).ok();
+}
+
 pub fn check_visibility(
+    batch_size: Option<Res<RenderBatchSize>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
     mut visible_entity_query: Query<(
         Entity,
@@ -163,51 +221,15 @@ pub fn check_visibility(
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
         let (visible_entity_sender, visible_entity_receiver) = crossbeam_channel::unbounded();
 
-        visible_entity_query.par_for_each_mut(
-            1024,
-            |(
-                entity,
-                visibility,
-                mut computed_visibility,
-                maybe_entity_mask,
-                maybe_aabb,
-                maybe_no_frustum_culling,
-                maybe_transform,
-            )| {
-                // Reset visibility
-                computed_visibility.is_visible = false;
-
-                if !visibility.is_visible {
-                    return;
-                }
-                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                if !view_mask.intersects(&entity_mask) {
-                    return;
-                }
-
-                // If we have an aabb and transform, do frustum culling
-                if let (Some(model_aabb), None, Some(transform)) =
-                    (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
-                {
-                    let model = transform.compute_matrix();
-                    let model_sphere = Sphere {
-                        center: model.transform_point3a(model_aabb.center),
-                        radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
-                    };
-                    // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
-                        return;
-                    }
-                    // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, false) {
-                        return;
-                    }
-                }
-
-                computed_visibility.is_visible = true;
-                visible_entity_sender.send(entity).ok();
-            },
-        );
+        if let Some(batch) = &batch_size {
+            visible_entity_query.par_for_each_mut(batch.0, |elements| {
+                check_single_visibility(view_mask, frustum, &visible_entity_sender, elements);
+            });
+        } else {
+            for elements in visible_entity_query.iter_mut() {
+                check_single_visibility(view_mask, frustum, &visible_entity_sender, elements);
+            }
+        }
         visible_entities.entities = visible_entity_receiver.try_iter().collect();
     }
 }
