@@ -1,6 +1,8 @@
-use crate::{Reflect, ReflectMut, ReflectRef};
-use std::any::Any;
+use crate::utility::NonGenericTypeInfoCell;
+use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed, UnnamedField};
+use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
+use std::slice::Iter;
 
 /// A reflected Rust tuple struct.
 ///
@@ -42,6 +44,62 @@ pub trait TupleStruct: Reflect {
 
     /// Clones the struct into a [`DynamicTupleStruct`].
     fn clone_dynamic(&self) -> DynamicTupleStruct;
+}
+
+/// A container for compile-time tuple struct info.
+#[derive(Clone, Debug)]
+pub struct TupleStructInfo {
+    type_name: &'static str,
+    type_id: TypeId,
+    fields: Box<[UnnamedField]>,
+}
+
+impl TupleStructInfo {
+    /// Create a new [`TupleStructInfo`].
+    ///
+    /// # Arguments
+    ///
+    /// * `fields`: The fields of this struct in the order they are defined
+    ///
+    pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
+        Self {
+            type_name: std::any::type_name::<T>(),
+            type_id: TypeId::of::<T>(),
+            fields: fields.to_vec().into_boxed_slice(),
+        }
+    }
+
+    /// Get the field at the given index.
+    pub fn field_at(&self, index: usize) -> Option<&UnnamedField> {
+        self.fields.get(index)
+    }
+
+    /// Iterate over the fields of this struct.
+    pub fn iter(&self) -> Iter<'_, UnnamedField> {
+        self.fields.iter()
+    }
+
+    /// The total number of fields in this struct.
+    pub fn field_len(&self) -> usize {
+        self.fields.len()
+    }
+
+    /// The [type name] of the tuple struct.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
+    }
+
+    /// The [`TypeId`] of the tuple struct.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the tuple struct type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
 }
 
 /// An iterator over the field values of a tuple struct.
@@ -201,6 +259,11 @@ unsafe impl Reflect for DynamicTupleStruct {
     }
 
     #[inline]
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
     fn any(&self) -> &dyn Any {
         self
     }
@@ -266,6 +329,13 @@ unsafe impl Reflect for DynamicTupleStruct {
 impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl Typed for DynamicTupleStruct {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

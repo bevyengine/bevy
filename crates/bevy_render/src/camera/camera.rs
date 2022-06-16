@@ -104,21 +104,42 @@ impl Default for Camera {
 }
 
 impl Camera {
+    /// Converts a physical size in this `Camera` to a logical size.
+    #[inline]
+    pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
+        let scale = self.computed.target_info.as_ref()?.scale_factor;
+        Some((physical_size.as_dvec2() / scale).as_vec2())
+    }
+
+    /// The rendered physical bounds (minimum, maximum) of the camera. If the `viewport` field is
+    /// set to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to
+    /// the full physical rect of the current [`RenderTarget`].
+    #[inline]
+    pub fn physical_viewport_rect(&self) -> Option<(UVec2, UVec2)> {
+        let min = self.viewport.as_ref()?.physical_position;
+        let max = min + self.physical_viewport_size()?;
+        Some((min, max))
+    }
+
+    /// The rendered logical bounds (minimum, maximum) of the camera. If the `viewport` field is set
+    /// to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to the
+    /// full logical rect of the current [`RenderTarget`].
+    #[inline]
+    pub fn logical_viewport_rect(&self) -> Option<(Vec2, Vec2)> {
+        let (min, max) = self.physical_viewport_rect()?;
+        Some((self.to_logical(min)?, self.to_logical(max)?))
+    }
+
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
-    /// will be the size of that custom viewport. Otherwise it will default to the full logical size of
-    /// the current [`RenderTarget`].
-    /// For logic that requires the full logical size of the [`RenderTarget`], prefer [`Camera::logical_target_size`].
+    /// will be the size of that custom viewport. Otherwise it will default to the full logical size
+    /// of the current [`RenderTarget`].
+    ///  For logic that requires the full logical size of the
+    /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
-        let target_info = self.computed.target_info.as_ref()?;
         self.viewport
             .as_ref()
-            .map(|v| {
-                Vec2::new(
-                    (v.physical_size.x as f64 / target_info.scale_factor) as f32,
-                    (v.physical_size.y as f64 / target_info.scale_factor) as f32,
-                )
-            })
+            .and_then(|v| self.to_logical(v.physical_size))
             .or_else(|| self.logical_target_size())
     }
 
@@ -139,12 +160,10 @@ impl Camera {
     /// For logic that requires the size of the actually rendered area, prefer [`Camera::logical_viewport_size`].
     #[inline]
     pub fn logical_target_size(&self) -> Option<Vec2> {
-        self.computed.target_info.as_ref().map(|t| {
-            Vec2::new(
-                (t.physical_size.x as f64 / t.scale_factor) as f32,
-                (t.physical_size.y as f64 / t.scale_factor) as f32,
-            )
-        })
+        self.computed
+            .target_info
+            .as_ref()
+            .and_then(|t| self.to_logical(t.physical_size))
     }
 
     /// The full physical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.

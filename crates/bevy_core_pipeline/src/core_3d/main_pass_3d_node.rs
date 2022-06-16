@@ -87,8 +87,8 @@ impl Node for MainPass3dNode {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
-                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections
-                        load: LoadOp::Clear(0.0),
+                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
+                        load: camera_3d.depth_load_op.clone().into(),
                         store: true,
                     }),
                     stencil_ops: None,
@@ -192,6 +192,26 @@ impl Node for MainPass3dNode {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                 draw_function.draw(world, &mut tracked_pass, view_entity, item);
             }
+        }
+
+        // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
+        // reset for the next render pass so add an empty render pass without a custom viewport
+        #[cfg(feature = "webgl")]
+        if camera.viewport.is_some() {
+            #[cfg(feature = "trace")]
+            let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
+            let pass_descriptor = RenderPassDescriptor {
+                label: Some("reset_viewport_pass_3d"),
+                color_attachments: &[target.get_color_attachment(Operations {
+                    load: LoadOp::Load,
+                    store: true,
+                })],
+                depth_stencil_attachment: None,
+            };
+
+            render_context
+                .command_encoder
+                .begin_render_pass(&pass_descriptor);
         }
 
         Ok(())

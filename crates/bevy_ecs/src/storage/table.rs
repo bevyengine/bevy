@@ -30,6 +30,7 @@ impl TableId {
     }
 }
 
+#[derive(Debug)]
 pub struct Column {
     pub(crate) data: BlobVec,
     pub(crate) ticks: Vec<UnsafeCell<ComponentTicks>>,

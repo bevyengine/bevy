@@ -14,7 +14,7 @@ use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_utils::Hashed;
-use std::{collections::BTreeMap, hash::Hash};
+use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{
     util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
@@ -139,6 +139,22 @@ impl Mesh {
         self.attributes
             .get_mut(&id.into())
             .map(|data| &mut data.values)
+    }
+
+    /// Returns an iterator that yields references to the data of each vertex attribute.
+    pub fn attributes(
+        &self,
+    ) -> impl Iterator<Item = (MeshVertexAttributeId, &VertexAttributeValues)> {
+        self.attributes.iter().map(|(id, data)| (*id, &data.values))
+    }
+
+    /// Returns an iterator that yields mutable references to the data of each vertex attribute.
+    pub fn attributes_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (MeshVertexAttributeId, &mut VertexAttributeValues)> {
+        self.attributes
+            .iter_mut()
+            .map(|(id, data)| (*id, &mut data.values))
     }
 
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
@@ -749,7 +765,17 @@ impl Iterator for IndicesIter<'_> {
             IndicesIter::U32(iter) => iter.next().map(|val| *val as usize),
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            IndicesIter::U16(iter) => iter.size_hint(),
+            IndicesIter::U32(iter) => iter.size_hint(),
+        }
+    }
 }
+
+impl<'a> ExactSizeIterator for IndicesIter<'a> {}
+impl<'a> FusedIterator for IndicesIter<'a> {}
 
 impl From<&Indices> for IndexFormat {
     fn from(indices: &Indices) -> Self {

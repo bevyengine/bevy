@@ -51,10 +51,6 @@ struct CustomAssetIoPlugin;
 
 impl Plugin for CustomAssetIoPlugin {
     fn build(&self, app: &mut App) {
-        // must get a hold of the task pool in order to create the asset server
-
-        let task_pool = app.world.resource::<bevy::tasks::IoTaskPool>().0.clone();
-
         let asset_io = {
             // the platform default asset io requires a reference to the app
             // builder to find its configuration
@@ -68,7 +64,7 @@ impl Plugin for CustomAssetIoPlugin {
 
         // the asset server is constructed and added the resource manager
 
-        app.insert_resource(AssetServer::new(asset_io, task_pool));
+        app.insert_resource(AssetServer::new(asset_io));
     }
 }
 

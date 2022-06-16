@@ -1,9 +1,11 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
+use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::{Reflect, ReflectMut, ReflectRef};
+use crate::utility::NonGenericTypeInfoCell;
+use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -42,6 +44,82 @@ pub trait Map: Reflect {
 
     /// Clones the map, producing a [`DynamicMap`].
     fn clone_dynamic(&self) -> DynamicMap;
+}
+
+/// A container for compile-time map info.
+#[derive(Clone, Debug)]
+pub struct MapInfo {
+    type_name: &'static str,
+    type_id: TypeId,
+    key_type_name: &'static str,
+    key_type_id: TypeId,
+    value_type_name: &'static str,
+    value_type_id: TypeId,
+}
+
+impl MapInfo {
+    /// Create a new [`MapInfo`].
+    pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
+        Self {
+            type_name: std::any::type_name::<TMap>(),
+            type_id: TypeId::of::<TMap>(),
+            key_type_name: std::any::type_name::<TKey>(),
+            key_type_id: TypeId::of::<TKey>(),
+            value_type_name: std::any::type_name::<TValue>(),
+            value_type_id: TypeId::of::<TValue>(),
+        }
+    }
+
+    /// The [type name] of the map.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
+    }
+
+    /// The [`TypeId`] of the map.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the map type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [type name] of the key.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn key_type_name(&self) -> &'static str {
+        self.key_type_name
+    }
+
+    /// The [`TypeId`] of the key.
+    pub fn key_type_id(&self) -> TypeId {
+        self.key_type_id
+    }
+
+    /// Check if the given type matches the key type.
+    pub fn key_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.key_type_id
+    }
+
+    /// The [type name] of the value.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn value_type_name(&self) -> &'static str {
+        self.value_type_name
+    }
+
+    /// The [`TypeId`] of the value.
+    pub fn value_type_id(&self) -> TypeId {
+        self.value_type_id
+    }
+
+    /// Check if the given type matches the value type.
+    pub fn value_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.value_type_id
+    }
 }
 
 const HASH_ERROR: &str = "the given key does not support hashing";
@@ -140,6 +218,11 @@ unsafe impl Reflect for DynamicMap {
         &self.name
     }
 
+    #[inline]
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     fn any(&self) -> &dyn Any {
         self
     }
@@ -201,6 +284,13 @@ unsafe impl Reflect for DynamicMap {
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl Typed for DynamicMap {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

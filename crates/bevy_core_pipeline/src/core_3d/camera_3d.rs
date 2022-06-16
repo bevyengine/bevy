@@ -1,18 +1,50 @@
 use crate::clear_color::ClearColorConfig;
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectDeserialize};
 use bevy_render::{
     camera::{Camera, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
+    render_resource::LoadOp,
     view::VisibleEntities,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
+use serde::{Deserialize, Serialize};
 
-#[derive(Component, Default, Reflect, Clone)]
+/// Configuration for the "main 3d render graph".
+#[derive(Component, Reflect, Clone, Default)]
 #[reflect(Component)]
 pub struct Camera3d {
+    /// The clear color operation to perform for the main 3d pass.
     pub clear_color: ClearColorConfig,
+    /// The depth clear operation to perform for the main 3d pass.
+    pub depth_load_op: Camera3dDepthLoadOp,
+}
+
+/// The depth clear operation to perform for the main 3d pass.
+#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
+#[reflect_value(Serialize, Deserialize)]
+pub enum Camera3dDepthLoadOp {
+    /// Clear with a specified value.
+    /// Note that 0.0 is the far plane due to bevy's use of reverse-z projections.
+    Clear(f32),
+    /// Load from memory.
+    Load,
+}
+
+impl Default for Camera3dDepthLoadOp {
+    fn default() -> Self {
+        Camera3dDepthLoadOp::Clear(0.0)
+    }
+}
+
+impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
+    fn from(config: Camera3dDepthLoadOp) -> Self {
+        match config {
+            Camera3dDepthLoadOp::Clear(x) => LoadOp::Clear(x),
+            Camera3dDepthLoadOp::Load => LoadOp::Load,
+        }
+    }
 }
 
 impl ExtractComponent for Camera3d {
