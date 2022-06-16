@@ -7,13 +7,15 @@
 //! # use bevy_app::{App, AppExit};
 //! # use bevy_internal::MinimalPlugins;
 //! fn main() {
+//! #   async {
 //!    App::new()
-//!         .add_plugins(MinimalPlugins)
-//!         .add_plugin(AssetPlugin)
-//!         .add_plugin(AudioPlugin)
+//!         .add_plugins(MinimalPlugins).await
+//!         .add_plugin(AssetPlugin).await
+//!         .add_plugin(AudioPlugin).await
 //! #       .add_system(stop)
 //!         .add_startup_system(play_background_audio)
 //!         .run();
+//! # };
 //! }
 //!
 //! fn play_background_audio(asset_server: Res<AssetServer>, audio: Res<Audio>) {

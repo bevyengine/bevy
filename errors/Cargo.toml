@@ -8,3 +8,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 bevy = { path = ".." }
+futures-lite = "1.12"

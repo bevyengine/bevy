@@ -53,13 +53,15 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// # use bevy_log::LogSettings;
 /// # use bevy_utils::tracing::Level;
 /// fn main() {
+/// # async {
 ///     App::new()
 ///         .insert_resource(LogSettings {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
 ///         })
-///         .add_plugins(DefaultPlugins)
+///         .add_plugins(DefaultPlugins).await
 ///         .run();
+/// # };
 /// }
 /// ```
 ///
@@ -77,9 +79,11 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// # use bevy_app::App;
 /// # use bevy_log::LogPlugin;
 /// fn main() {
+/// # async {
 ///     App::new()
-///         .add_plugins_with(DefaultPlugins, |group| group.disable::<LogPlugin>())
+///         .add_plugins_with(DefaultPlugins, |group| group.disable::<LogPlugin>()).await
 ///         .run();
+/// # };
 /// }
 /// ```
 ///

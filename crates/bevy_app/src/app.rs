@@ -813,6 +813,7 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder};
+    /// # use async_trait::async_trait;
     /// #
     /// # // Dummies created to avoid using bevy_internal which pulls in too many dependencies.
     /// # struct DefaultPlugins;
@@ -823,8 +824,9 @@ impl App {
     /// # }
     /// #
     /// # struct MyOwnPlugin;
+    /// # #[async_trait]
     /// # impl Plugin for MyOwnPlugin {
-    /// #     fn build(&self, app: &mut App){;}
+    /// #     async fn build(&self, app: &mut App){;}
     /// # }
     /// #
     /// App::new()
