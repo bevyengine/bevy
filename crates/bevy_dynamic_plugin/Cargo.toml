@@ -16,3 +16,4 @@ bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
 
 # other
 libloading = { version = "0.7" }
+async-trait = "0.1"

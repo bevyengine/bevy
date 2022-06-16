@@ -391,8 +391,12 @@ mod tests {
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();
-        app.add_plugin(bevy_core::CorePlugin)
-            .add_plugin(crate::AssetPlugin);
+        futures_lite::future::block_on(async {
+            app.add_plugin(bevy_core::CorePlugin)
+                .await
+                .add_plugin(crate::AssetPlugin)
+                .await
+        });
         app.add_asset::<MyAsset>();
         let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();
         let handle = assets_before.add(MyAsset);

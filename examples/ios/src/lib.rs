@@ -1,8 +1,10 @@
+#![allow(dead_code)]
+
 use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 
 // the `bevy_main` proc_macro generates the required ios boilerplate
 #[bevy_main]
-fn main() {
+async fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             resizable: false,
@@ -10,6 +12,7 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup_scene)
         .add_startup_system(setup_music)
         .add_system(touch_camera)

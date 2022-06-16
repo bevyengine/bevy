@@ -1,10 +1,12 @@
+#![allow(dead_code)]
 use bevy::prelude::*;
 
 // the `bevy_main` proc_macro generates the required android boilerplate
 #[bevy_main]
-fn main() {
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .run();
 }

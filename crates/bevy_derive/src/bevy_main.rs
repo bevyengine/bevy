@@ -21,17 +21,29 @@ pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 activity as _,
                 saved_state as _,
                 saved_state_size as _,
-                main,
+                || futures_lite::future::block_on(main()),
             );
         }
 
         #[no_mangle]
         #[cfg(target_os = "ios")]
         extern "C" fn main_rs() {
-            main();
+           futures_lite::future::block_on(main());
         }
 
+        #[cfg(any(target_os = "ios", target_os = "android"))]
         #[allow(unused)]
         #input
+
+        #[cfg(all(not(target_os = "ios"), not(target_os = "android")))]
+        fn main() {
+            #input
+
+            #[cfg(target_arch = "wasm32")]
+            wasm_bindgen_futures::spawn_local(main());
+            #[cfg(not(target_arch = "wasm32"))]
+            futures_lite::future::block_on(main());
+
+        }
     })
 }

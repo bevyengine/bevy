@@ -18,3 +18,4 @@ bevy = { path = "../../", features = [
   "vorbis",
   "filesystem_watcher"
 ], default-features = false}
+futures-lite = "1.12"

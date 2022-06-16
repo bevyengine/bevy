@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use libloading::{Library, Symbol};
 
 use bevy_app::{App, CreatePlugin, Plugin};
@@ -17,18 +18,20 @@ pub unsafe fn dynamically_load_plugin(path: &str) -> (Library, Box<dyn Plugin>) 
     (lib, plugin)
 }
 
+#[async_trait]
 pub trait DynamicPluginExt {
     /// # Safety
     ///
     /// Same as [`dynamically_load_plugin`].
-    unsafe fn load_plugin(&mut self, path: &str) -> &mut Self;
+    async unsafe fn load_plugin(&mut self, path: &str) -> &mut Self;
 }
 
+#[async_trait]
 impl DynamicPluginExt for App {
-    unsafe fn load_plugin(&mut self, path: &str) -> &mut Self {
+    async unsafe fn load_plugin(&mut self, path: &str) -> &mut Self {
         let (lib, plugin) = dynamically_load_plugin(path);
         std::mem::forget(lib); // Ensure that the library is not automatically unloaded
-        plugin.build(self);
+        plugin.build(self).await;
         self
     }
 }

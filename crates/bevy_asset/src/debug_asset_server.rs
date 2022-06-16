@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
     event::Events,
@@ -56,8 +57,9 @@ impl<T: Asset> Default for HandleMap<T> {
     }
 }
 
+#[async_trait]
 impl Plugin for DebugAssetServerPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    async fn build(&self, app: &mut bevy_app::App) {
         IoTaskPool::init(|| {
             TaskPoolBuilder::default()
                 .num_threads(2)
@@ -70,7 +72,8 @@ impl Plugin for DebugAssetServerPlugin {
                 asset_folder: "crates".to_string(),
                 watch_for_changes: true,
             })
-            .add_plugin(AssetPlugin);
+            .add_plugin(AssetPlugin)
+            .await;
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
         app.add_system(run_debug_asset_app);
     }
