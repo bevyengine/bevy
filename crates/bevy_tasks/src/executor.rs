@@ -388,7 +388,7 @@ impl Runner<'_> {
     fn new(priority: usize, thread_id: usize, state: &State) -> Runner<'_> {
         let group = &state.groups[priority];
         let worker = group.available.pop().unwrap();
-        let runner = Runner {
+        Runner {
             priority,
             thread_id,
             state,
@@ -397,8 +397,7 @@ impl Runner<'_> {
             group,
             rng: fastrand::Rng::new(),
             ticks: 0,
-        };
-        runner
+        }
     }
 
     fn priority_iter(&self) -> impl Iterator<Item = usize> {
@@ -529,7 +528,7 @@ impl Runner<'_> {
 
     /// Steals some items from one queue into another the local queue.
     fn steal(&self, src: &ConcurrentQueue<Runnable>) {
-        if src.len() > 0 {
+        if src.is_empty() {
             // Don't steal more than fits into the queue.
             const CAPACITY: usize = 512;
             let count = CAPACITY - self.worker.len();
