@@ -243,7 +243,7 @@ pub fn check_visibility(
         );
 
         for cell in thread_queues.iter_mut() {
-            let mut queue = cell.get_mut();
+            let queue = cell.get_mut();
             for entity in queue.iter().copied() {
                 computed_visibility.mark_visible(entity);
             }
