@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use super::DepthCalculation;
+use async_trait::async_trait;
 use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
@@ -20,8 +21,9 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
 #[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
+#[async_trait]
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.register_type::<T>()
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,

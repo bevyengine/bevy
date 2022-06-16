@@ -20,3 +20,4 @@ bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 
 # other
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"] }
+async-trait = "0.1"

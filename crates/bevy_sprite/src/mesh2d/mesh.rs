@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
@@ -50,8 +51,9 @@ pub const MESH2D_FUNCTIONS_HANDLE: HandleUntyped =
 pub const MESH2D_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2971387252468633715);
 
+#[async_trait]
 impl Plugin for Mesh2dRenderPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    async fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
             app,
             MESH2D_VIEW_TYPES_HANDLE,
@@ -84,7 +86,8 @@ impl Plugin for Mesh2dRenderPlugin {
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
+        app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default())
+            .await;
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

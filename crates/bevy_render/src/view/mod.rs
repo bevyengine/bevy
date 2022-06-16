@@ -1,6 +1,7 @@
 pub mod visibility;
 pub mod window;
 
+use async_trait::async_trait;
 pub use visibility::*;
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
@@ -26,12 +27,15 @@ use bevy_utils::HashMap;
 
 pub struct ViewPlugin;
 
+#[async_trait]
 impl Plugin for ViewPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugin(ExtractResourcePlugin::<Msaa>::default())
-            .add_plugin(VisibilityPlugin);
+            .await
+            .add_plugin(VisibilityPlugin)
+            .await;
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

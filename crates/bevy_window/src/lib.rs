@@ -6,6 +6,7 @@ mod window;
 mod windows;
 
 pub use crate::raw_window_handle::*;
+use async_trait::async_trait;
 pub use cursor::*;
 pub use event::*;
 pub use system::*;
@@ -56,8 +57,9 @@ impl Default for WindowPlugin {
     }
 }
 
+#[async_trait]
 impl Plugin for WindowPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.add_event::<WindowResized>()
             .add_event::<CreateWindow>()
             .add_event::<WindowCreated>()

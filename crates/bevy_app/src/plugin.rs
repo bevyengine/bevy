@@ -1,13 +1,15 @@
 use crate::App;
+use async_trait::async_trait;
 use std::any::Any;
 
 /// A collection of Bevy app logic and configuration.
 ///
 /// Plugins configure an [`App`]. When an [`App`] registers a plugin,
 /// the plugin's [`Plugin::build`] function is run.
+#[async_trait]
 pub trait Plugin: Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
-    fn build(&self, app: &mut App);
+    async fn build(&self, app: &mut App);
     /// Configures a name for the [`Plugin`] which is primarily used for debugging.
     fn name(&self) -> &str {
         std::any::type_name::<Self>()

@@ -5,6 +5,7 @@
 //! from the [`Parent`] to its [`Children`].
 
 mod components;
+use async_trait::async_trait;
 pub use components::*;
 
 mod hierarchy;
@@ -36,8 +37,9 @@ pub enum HierarchySystem {
     ParentUpdate,
 }
 
+#[async_trait]
 impl Plugin for HierarchyPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
             .register_type::<PreviousParent>()

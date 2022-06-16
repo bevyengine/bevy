@@ -12,17 +12,22 @@ pub mod prelude {
 }
 
 use crate::{clear_color::ClearColor, core_2d::Core2dPlugin, core_3d::Core3dPlugin};
+use async_trait::async_trait;
 use bevy_app::{App, Plugin};
 use bevy_render::extract_resource::ExtractResourcePlugin;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
 
+#[async_trait]
 impl Plugin for CorePipelinePlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.init_resource::<ClearColor>()
             .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
+            .await
             .add_plugin(Core2dPlugin)
-            .add_plugin(Core3dPlugin);
+            .await
+            .add_plugin(Core3dPlugin)
+            .await;
     }
 }

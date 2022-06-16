@@ -127,12 +127,12 @@ impl PluginGroupBuilder {
 
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
     /// in the order specified.
-    pub fn finish(self, app: &mut App) {
+    pub async fn finish(self, app: &mut App) {
         for ty in &self.order {
             if let Some(entry) = self.plugins.get(ty) {
                 if entry.enabled {
                     debug!("added plugin: {}", entry.plugin.name());
-                    entry.plugin.build(app);
+                    entry.plugin.build(app).await;
                 }
             }
         }
@@ -141,22 +141,27 @@ impl PluginGroupBuilder {
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
+
     use super::PluginGroupBuilder;
     use crate::{App, Plugin};
 
     struct PluginA;
+    #[async_trait]
     impl Plugin for PluginA {
-        fn build(&self, _: &mut App) {}
+        async fn build(&self, _: &mut App) {}
     }
 
     struct PluginB;
+    #[async_trait]
     impl Plugin for PluginB {
-        fn build(&self, _: &mut App) {}
+        async fn build(&self, _: &mut App) {}
     }
 
     struct PluginC;
+    #[async_trait]
     impl Plugin for PluginC {
-        fn build(&self, _: &mut App) {}
+        async fn build(&self, _: &mut App) {}
     }
 
     #[test]

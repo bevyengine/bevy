@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Assets, Handle, HandleUntyped};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
@@ -20,8 +21,9 @@ pub const COLOR_MATERIAL_SHADER_HANDLE: HandleUntyped =
 #[derive(Default)]
 pub struct ColorMaterialPlugin;
 
+#[async_trait]
 impl Plugin for ColorMaterialPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
             COLOR_MATERIAL_SHADER_HANDLE,
@@ -29,7 +31,8 @@ impl Plugin for ColorMaterialPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugin(Material2dPlugin::<ColorMaterial>::default());
+        app.add_plugin(Material2dPlugin::<ColorMaterial>::default())
+            .await;
 
         app.world
             .resource_mut::<Assets<ColorMaterial>>()

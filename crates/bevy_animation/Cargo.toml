@@ -20,3 +20,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.8.0-dev" }
+
+# other
+async-trait = "0.1"

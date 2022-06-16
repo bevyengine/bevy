@@ -8,6 +8,7 @@ mod pbr_material;
 mod render;
 
 pub use alpha::*;
+use async_trait::async_trait;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;
@@ -71,8 +72,9 @@ pub const SHADOW_SHADER_HANDLE: HandleUntyped =
 #[derive(Default)]
 pub struct PbrPlugin;
 
+#[async_trait]
 impl Plugin for PbrPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
             PBR_TYPES_SHADER_HANDLE,
@@ -116,12 +118,15 @@ impl Plugin for PbrPlugin {
             .register_type::<DirectionalLight>()
             .register_type::<PointLight>()
             .add_plugin(MeshRenderPlugin)
+            .await
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .await
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
+            .await
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 // NOTE: Clusters need to have been added before update_clusters is run so

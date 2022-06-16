@@ -4,6 +4,7 @@
 mod name;
 mod task_pool_options;
 
+use async_trait::async_trait;
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
@@ -23,8 +24,9 @@ use std::ops::Range;
 #[derive(Default)]
 pub struct CorePlugin;
 
+#[async_trait]
 impl Plugin for CorePlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         // Setup the default bevy task pools
         app.world
             .get_resource::<DefaultTaskPoolOptions>()

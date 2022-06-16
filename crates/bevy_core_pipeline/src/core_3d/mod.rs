@@ -11,6 +11,7 @@ pub mod graph {
     }
 }
 
+use async_trait::async_trait;
 pub use camera_3d::*;
 pub use main_pass_3d_node::*;
 
@@ -38,10 +39,12 @@ use bevy_utils::{FloatOrd, HashMap};
 
 pub struct Core3dPlugin;
 
+#[async_trait]
 impl Plugin for Core3dPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
-            .add_plugin(ExtractComponentPlugin::<Camera3d>::default());
+            .add_plugin(ExtractComponentPlugin::<Camera3d>::default())
+            .await;
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,

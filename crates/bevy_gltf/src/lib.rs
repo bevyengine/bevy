@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
 use bevy_utils::HashMap;
@@ -17,8 +18,9 @@ use bevy_scene::Scene;
 #[derive(Default)]
 pub struct GltfPlugin;
 
+#[async_trait]
 impl Plugin for GltfPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.init_asset_loader::<GltfLoader>()
             .register_type::<GltfExtras>()
             .add_asset::<Gltf>()

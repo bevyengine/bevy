@@ -19,6 +19,7 @@ pub mod prelude {
     };
 }
 
+use async_trait::async_trait;
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
@@ -50,8 +51,9 @@ pub enum SpriteSystem {
     ExtractSprites,
 }
 
+#[async_trait]
 impl Plugin for SpritePlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
@@ -59,7 +61,9 @@ impl Plugin for SpritePlugin {
             .register_type::<Sprite>()
             .register_type::<Mesh2dHandle>()
             .add_plugin(Mesh2dRenderPlugin)
-            .add_plugin(ColorMaterialPlugin);
+            .await
+            .add_plugin(ColorMaterialPlugin)
+            .await;
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

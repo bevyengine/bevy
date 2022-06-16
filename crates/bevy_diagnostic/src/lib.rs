@@ -2,6 +2,7 @@ mod diagnostic;
 mod entity_count_diagnostics_plugin;
 mod frame_time_diagnostics_plugin;
 mod log_diagnostics_plugin;
+use async_trait::async_trait;
 pub use diagnostic::*;
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
@@ -13,8 +14,9 @@ use bevy_app::prelude::*;
 #[derive(Default)]
 pub struct DiagnosticsPlugin;
 
+#[async_trait]
 impl Plugin for DiagnosticsPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.init_resource::<Diagnostics>();
     }
 }

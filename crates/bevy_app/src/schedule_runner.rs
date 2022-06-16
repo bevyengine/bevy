@@ -5,6 +5,7 @@ use crate::{
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_utils::{Duration, Instant};
 
+use async_trait::async_trait;
 #[cfg(target_arch = "wasm32")]
 use std::{cell::RefCell, rc::Rc};
 #[cfg(target_arch = "wasm32")]
@@ -63,8 +64,9 @@ impl ScheduleRunnerSettings {
 #[derive(Default)]
 pub struct ScheduleRunnerPlugin;
 
+#[async_trait]
 impl Plugin for ScheduleRunnerPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         let settings = app
             .world
             .get_resource_or_insert_with(ScheduleRunnerSettings::default)

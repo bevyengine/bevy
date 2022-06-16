@@ -12,6 +12,7 @@ pub mod prelude {
     pub use crate::{components::*, TransformBundle, TransformPlugin};
 }
 
+use async_trait::async_trait;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::HierarchySystem;
@@ -88,8 +89,9 @@ pub enum TransformSystem {
 #[derive(Default)]
 pub struct TransformPlugin;
 
+#[async_trait]
 impl Plugin for TransformPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             // Adding these to startup ensures the first update is "correct"

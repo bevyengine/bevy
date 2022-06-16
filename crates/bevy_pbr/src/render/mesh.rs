@@ -3,6 +3,7 @@ use crate::{
     ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
+use async_trait::async_trait;
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
@@ -52,8 +53,9 @@ pub const MESH_SHADER_HANDLE: HandleUntyped =
 pub const SKINNING_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13215291596265391738);
 
+#[async_trait]
 impl Plugin for MeshRenderPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    async fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
             app,
             MESH_VIEW_TYPES_HANDLE,
@@ -82,7 +84,8 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
+        app.add_plugin(UniformComponentPlugin::<MeshUniform>::default())
+            .await;
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

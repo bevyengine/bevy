@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use async_trait::async_trait;
 use bevy_app::{App, Plugin};
 use bevy_ecs::system::{Commands, Res, Resource};
 pub use bevy_render_macros::ExtractResource;
@@ -29,8 +30,9 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
     }
 }
 
+#[async_trait]
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
         }

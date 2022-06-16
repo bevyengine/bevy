@@ -19,6 +19,7 @@ bevy_input = { path = "../bevy_input", version = "0.8.0-dev" }
 raw-window-handle = "0.4.2"
 
 # other
+async-trait = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = "0.3"

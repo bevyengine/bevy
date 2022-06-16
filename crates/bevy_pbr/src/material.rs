@@ -2,6 +2,7 @@ use crate::{
     AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
     SetMeshViewBindGroup,
 };
+use async_trait::async_trait;
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
 use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d};
@@ -221,11 +222,14 @@ impl<M: SpecializedMaterial> Default for MaterialPlugin<M> {
     }
 }
 
+#[async_trait]
 impl<M: SpecializedMaterial> Plugin for MaterialPlugin<M> {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
-            .add_plugin(RenderAssetPlugin::<M>::default());
+            .await
+            .add_plugin(RenderAssetPlugin::<M>::default())
+            .await;
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()

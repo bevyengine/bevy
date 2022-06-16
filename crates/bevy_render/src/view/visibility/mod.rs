@@ -1,5 +1,6 @@
 mod render_layers;
 
+use async_trait::async_trait;
 use bevy_math::Vec3A;
 pub use render_layers::*;
 
@@ -79,8 +80,9 @@ pub enum VisibilitySystems {
 
 pub struct VisibilityPlugin;
 
+#[async_trait]
 impl Plugin for VisibilityPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    async fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
         app.add_system_to_stage(

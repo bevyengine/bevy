@@ -123,6 +123,7 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
+wasm-bindgen-futures = "*"
 
 [[example]]
 name = "hello_world"

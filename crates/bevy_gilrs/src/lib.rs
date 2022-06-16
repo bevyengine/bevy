@@ -1,6 +1,7 @@
 mod converter;
 mod gilrs_system;
 
+use async_trait::async_trait;
 use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_ecs::schedule::ParallelSystemDescriptorCoercion;
 use bevy_input::InputSystem;
@@ -11,8 +12,9 @@ use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 #[derive(Default)]
 pub struct GilrsPlugin;
 
+#[async_trait]
 impl Plugin for GilrsPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         match GilrsBuilder::new()
             .with_default_filters(false)
             .set_update_state(false)

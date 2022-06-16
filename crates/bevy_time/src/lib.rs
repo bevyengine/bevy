@@ -4,6 +4,7 @@ mod stopwatch;
 mod time;
 mod timer;
 
+use async_trait::async_trait;
 pub use fixed_timestep::*;
 pub use stopwatch::*;
 pub use time::*;
@@ -27,8 +28,9 @@ pub struct TimePlugin;
 /// this.
 pub struct TimeSystem;
 
+#[async_trait]
 impl Plugin for TimePlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
             .init_resource::<FixedTimesteps>()
             .register_type::<Timer>()

@@ -1,4 +1,5 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
+use async_trait::async_trait;
 use bevy_app::prelude::*;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_time::Time;
@@ -11,8 +12,9 @@ pub struct FrameTimeDiagnosticsState {
     frame_count: u64,
 }
 
+#[async_trait]
 impl Plugin for FrameTimeDiagnosticsPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    async fn build(&self, app: &mut bevy_app::App) {
         app.add_startup_system(Self::setup_system)
             .insert_resource(FrameTimeDiagnosticsState { frame_count: 0 })
             .add_system(Self::diagnostic_system);

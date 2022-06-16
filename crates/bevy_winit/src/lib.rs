@@ -4,6 +4,7 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
+use async_trait::async_trait;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -39,14 +40,15 @@ use winit::{
 #[derive(Default)]
 pub struct WinitPlugin;
 
+#[async_trait]
 impl Plugin for WinitPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows));
         #[cfg(target_arch = "wasm32")]
-        app.add_plugin(web_resize::CanvasParentResizePlugin);
+        app.add_plugin(web_resize::CanvasParentResizePlugin).await;
         let event_loop = EventLoop::new();
         let mut create_window_reader = WinitCreateWindowReader::default();
         // Note that we create a window here "early" because WASM/WebGL requires the window to exist prior to initializing

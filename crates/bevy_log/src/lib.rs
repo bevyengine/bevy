@@ -25,6 +25,7 @@ pub mod prelude {
     };
 }
 
+use async_trait::async_trait;
 pub use bevy_utils::tracing::{
     debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     Level,
@@ -109,8 +110,9 @@ impl Default for LogSettings {
     }
 }
 
+#[async_trait]
 impl Plugin for LogPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         #[cfg(feature = "trace")]
         {
             let old_handler = panic::take_hook();

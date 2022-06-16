@@ -11,6 +11,7 @@ pub mod graph {
     }
 }
 
+use async_trait::async_trait;
 pub use camera_2d::*;
 pub use main_pass_2d_node::*;
 
@@ -32,10 +33,12 @@ use std::ops::Range;
 
 pub struct Core2dPlugin;
 
+#[async_trait]
 impl Plugin for Core2dPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.register_type::<Camera2d>()
-            .add_plugin(ExtractComponentPlugin::<Camera2d>::default());
+            .add_plugin(ExtractComponentPlugin::<Camera2d>::default())
+            .await;
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,

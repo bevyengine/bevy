@@ -3,6 +3,7 @@ mod camera;
 mod camera_driver_node;
 mod projection;
 
+use async_trait::async_trait;
 pub use camera::*;
 pub use camera_driver_node::*;
 pub use projection::*;
@@ -18,8 +19,9 @@ use bevy_app::{App, Plugin};
 #[derive(Default)]
 pub struct CameraPlugin;
 
+#[async_trait]
 impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.register_type::<Camera>()
             .register_type::<Visibility>()
             .register_type::<ComputedVisibility>()
@@ -30,8 +32,11 @@ impl Plugin for CameraPlugin {
             .register_type::<Aabb>()
             .register_type::<CameraRenderGraph>()
             .add_plugin(CameraProjectionPlugin::<Projection>::default())
+            .await
             .add_plugin(CameraProjectionPlugin::<OrthographicProjection>::default())
-            .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default());
+            .await
+            .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default())
+            .await;
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(RenderStage::Extract, extract_cameras);

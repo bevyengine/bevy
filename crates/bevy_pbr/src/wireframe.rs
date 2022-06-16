@@ -1,5 +1,6 @@
 use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
+use async_trait::async_trait;
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::core_3d::Opaque3d;
@@ -26,8 +27,9 @@ pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
 
+#[async_trait]
 impl Plugin for WireframePlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    async fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
             app,
             WIREFRAME_SHADER_HANDLE,
@@ -36,7 +38,8 @@ impl Plugin for WireframePlugin {
         );
 
         app.init_resource::<WireframeConfig>()
-            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
+            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default())
+            .await;
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

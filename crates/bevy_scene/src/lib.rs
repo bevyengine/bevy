@@ -5,6 +5,7 @@ mod scene_loader;
 mod scene_spawner;
 pub mod serde;
 
+use async_trait::async_trait;
 pub use bundle::*;
 pub use dynamic_scene::*;
 pub use scene::*;
@@ -23,8 +24,9 @@ use bevy_ecs::{schedule::ExclusiveSystemDescriptorCoercion, system::IntoExclusiv
 #[derive(Default)]
 pub struct ScenePlugin;
 
+#[async_trait]
 impl Plugin for ScenePlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.add_asset::<DynamicScene>()
             .add_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()

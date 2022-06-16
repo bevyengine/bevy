@@ -5,6 +5,7 @@ pub mod keyboard;
 pub mod mouse;
 pub mod touch;
 
+use async_trait::async_trait;
 pub use axis::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 pub use input::*;
@@ -41,8 +42,9 @@ pub struct InputPlugin;
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
 pub struct InputSystem;
 
+#[async_trait]
 impl Plugin for InputPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app
             // keyboard
             .add_event::<KeyboardInput>()

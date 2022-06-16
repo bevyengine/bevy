@@ -38,6 +38,7 @@ pub mod prelude {
     pub use crate::{Audio, AudioOutput, AudioSource, Decodable, PlaybackSettings};
 }
 
+use async_trait::async_trait;
 pub use audio::*;
 pub use audio_output::*;
 pub use audio_source::*;
@@ -51,8 +52,9 @@ use bevy_asset::AddAsset;
 #[derive(Default)]
 pub struct AudioPlugin;
 
+#[async_trait]
 impl Plugin for AudioPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.init_non_send_resource::<AudioOutput<AudioSource>>()
             .add_asset::<AudioSource>()
             .add_asset::<AudioSink>()

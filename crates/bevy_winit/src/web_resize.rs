@@ -1,4 +1,5 @@
 use crate::WinitWindows;
+use async_trait::async_trait;
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_window::WindowId;
@@ -8,8 +9,9 @@ use winit::dpi::LogicalSize;
 
 pub(crate) struct CanvasParentResizePlugin;
 
+#[async_trait]
 impl Plugin for CanvasParentResizePlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.init_resource::<CanvasParentResizeEventChannel>()
             .add_system(canvas_parent_resize_event_handler);
     }

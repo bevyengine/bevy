@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
@@ -191,11 +192,14 @@ impl<M: SpecializedMaterial2d> Default for Material2dPlugin<M> {
     }
 }
 
+#[async_trait]
 impl<M: SpecializedMaterial2d> Plugin for Material2dPlugin<M> {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
-            .add_plugin(RenderAssetPlugin::<M>::default());
+            .await
+            .add_plugin(RenderAssetPlugin::<M>::default())
+            .await;
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()

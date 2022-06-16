@@ -4,6 +4,7 @@
 
 use std::ops::Deref;
 
+use async_trait::async_trait;
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_core::Name;
@@ -289,8 +290,9 @@ pub fn animation_player(
 #[derive(Default)]
 pub struct AnimationPlugin {}
 
+#[async_trait]
 impl Plugin for AnimationPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.add_asset::<AnimationClip>()
             .register_type::<AnimationPlayer>()
             .add_system_to_stage(

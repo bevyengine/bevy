@@ -12,6 +12,7 @@ pub mod entity;
 pub mod update;
 pub mod widget;
 
+use async_trait::async_trait;
 use bevy_render::extract_component::ExtractComponentPlugin;
 pub use flex::*;
 pub use focus::*;
@@ -48,9 +49,11 @@ pub enum UiSystem {
     Focus,
 }
 
+#[async_trait]
 impl Plugin for UiPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<CameraUi>::default())
+            .await
             .init_resource::<FlexSurface>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()

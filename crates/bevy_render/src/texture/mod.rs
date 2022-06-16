@@ -16,6 +16,7 @@ pub(crate) mod image_texture_conversion;
 pub use self::image::*;
 #[cfg(feature = "ktx2")]
 pub use self::ktx2::*;
+use async_trait::async_trait;
 #[cfg(feature = "dds")]
 pub use dds::*;
 #[cfg(feature = "hdr")]
@@ -36,8 +37,9 @@ use bevy_asset::{AddAsset, Assets};
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct ImagePlugin;
 
+#[async_trait]
 impl Plugin for ImagePlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         #[cfg(any(
             feature = "png",
             feature = "dds",
@@ -59,6 +61,7 @@ impl Plugin for ImagePlugin {
         app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
             PrepareAssetLabel::PreAssetPrepare,
         ))
+        .await
         .add_asset::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()

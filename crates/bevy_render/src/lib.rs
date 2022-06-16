@@ -27,6 +27,7 @@ pub mod prelude {
     };
 }
 
+use async_trait::async_trait;
 pub use once_cell;
 
 use crate::{
@@ -111,9 +112,10 @@ pub struct RenderApp;
 #[derive(Default)]
 struct ScratchRenderWorld(World);
 
+#[async_trait]
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         let options = app
             .world
             .get_resource::<settings::WgpuSettings>()
@@ -141,9 +143,8 @@ impl Plugin for RenderPlugin {
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue, adapter_info) = futures_lite::future::block_on(
-                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
-            );
+            let (device, queue, adapter_info) =
+                renderer::initialize_renderer(&instance, &options, &request_adapter_options).await;
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
             app.insert_resource(device.clone())
@@ -290,12 +291,17 @@ impl Plugin for RenderPlugin {
         }
 
         app.add_plugin(WindowRenderPlugin)
+            .await
             .add_plugin(CameraPlugin)
+            .await
             .add_plugin(ViewPlugin)
+            .await
             .add_plugin(MeshPlugin)
+            .await
             // NOTE: Load this after renderer initialization so that it knows about the supported
             // compressed texture formats
-            .add_plugin(ImagePlugin);
+            .add_plugin(ImagePlugin)
+            .await;
     }
 }
 

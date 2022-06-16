@@ -17,3 +17,4 @@ bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 
 # other
 gilrs = "0.9.0"
+async-trait = "0.1"

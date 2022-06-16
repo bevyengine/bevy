@@ -1,4 +1,5 @@
 use crate::{Asset, Assets};
+use async_trait::async_trait;
 use bevy_app::prelude::*;
 use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics, MAX_DIAGNOSTIC_NAME_WIDTH};
 use bevy_ecs::system::{Res, ResMut};
@@ -16,8 +17,9 @@ impl<T: Asset> Default for AssetCountDiagnosticsPlugin<T> {
     }
 }
 
+#[async_trait]
 impl<T: Asset> Plugin for AssetCountDiagnosticsPlugin<T> {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         app.add_startup_system(Self::setup_system)
             .add_system(Self::diagnostic_system);
     }
