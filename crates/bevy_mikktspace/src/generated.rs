@@ -130,7 +130,8 @@ pub struct STriInfo {
     pub iOrgFaceNumber: i32,
     pub iFlag: TriangleFlags,
     pub iTSpacesOffs: i32,
-    pub vert_num: [u8; 4],
+    // The vertices of the face 'iOrgFaceNumber' this triangle covers
+    pub vert_num: [u8; 3],
 }
 
 impl STriInfo {
@@ -145,7 +146,7 @@ impl STriInfo {
             iOrgFaceNumber: 0,
             iFlag: TriangleFlags::empty(),
             iTSpacesOffs: 0,
-            vert_num: [0, 0, 0, 0],
+            vert_num: [0, 0, 0],
         }
     }
 }
@@ -205,21 +206,6 @@ pub struct unnamed {
     pub i0: i32,
     pub i1: i32,
     pub f: i32,
-}
-
-#[derive(Copy, Clone)]
-pub struct STmpVert {
-    pub vert: [f32; 3],
-    pub index: i32,
-}
-
-impl STmpVert {
-    fn zero() -> Self {
-        Self {
-            vert: [0.0, 0.0, 0.0],
-            index: 0,
-        }
-    }
 }
 
 /// Stores a map of 'internal' triangle vertices to real 'faces' and vertices
@@ -288,7 +274,7 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
     // C: Additionally, move all good triangles to the start of
     // C: pTriInfos[] and piTriListIn[] without changing order and
     // C: put the degenerate triangles last.
-    // Note: A quad can have degenerate traignles if two vertices are in the same location
+    // Note: A quad can have degenerate triangles if two vertices are in the same location
     DegenPrologue(
         pTriInfos.as_mut_ptr(),
         piTriListIn.as_mut_ptr(),
@@ -632,7 +618,7 @@ fn VNotZero(v: Vec3) -> bool {
 }
 
 fn NotZero(fX: f32) -> bool {
-    fX.abs() > 1.17549435e-38f32
+    fX.is_normal()
 }
 
 unsafe fn EvalTspace(
@@ -1237,26 +1223,6 @@ unsafe fn GenerateSharedVerticesIndexList(
             Occupied(e) => *piTriList_in_and_out.offset(i as isize) = *e.get(),
         }
     }
-}
-
-const g_iCells: usize = 2048;
-
-// it is IMPORTANT that this function is called to evaluate the hash since
-// inlining could potentially reorder instructions and generate different
-// results for the same effective input value fVal.
-#[inline(never)]
-fn FindGridCell(fMin: f32, fMax: f32, fVal: f32) -> usize {
-    let fIndex = g_iCells as f32 * ((fVal - fMin) / (fMax - fMin));
-    let iIndex = fIndex as isize;
-    return if iIndex < g_iCells as isize {
-        if iIndex >= 0 {
-            iIndex as usize
-        } else {
-            0
-        }
-    } else {
-        g_iCells - 1
-    };
 }
 
 unsafe fn GenerateInitialVerticesIndexList(
