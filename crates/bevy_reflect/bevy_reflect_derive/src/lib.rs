@@ -173,10 +173,20 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     from_reflect::impl_value(ty, &reflect_value_def.generics, &bevy_reflect_path)
 }
 
-/// A macro that allows for mass type and trait registration.
+/// A macro that allows for mass type, trait, and type data registration.
 ///
 /// This will generate a public function with the signature: `fn register_types(&mut TypeRegistry)`.
-/// You can then use this generated function to register the given types and traits.
+/// You can then use this generated function to register the given types, traits, and type data.
+///
+/// The only required field is `types`. Both the `traits` and `data` fields can be omitted if
+/// they are not needed.
+///
+/// To register a trait cast, add the trait to the `traits` list.
+///
+/// To register type data, add the type data to the `data` list.
+///
+/// Everything in the `traits` and `data` lists will be registered for all types in `types`
+/// that are able to register them.
 ///
 /// # Example
 ///
@@ -189,10 +199,12 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 ///
 /// impl MyTrait for MyType {}
 ///
-/// // Not all types need to implement all traits
+/// // Not all types need to implement all traits or type data
 /// register_all! {
 ///     traits: [MyTrait],
 ///     types: [MyType, MyOtherType],
+///     // You can also register type data as well:
+///     // data: [ReflectMyOtherTrait]
 /// }
 ///
 /// ```
