@@ -369,6 +369,24 @@ impl ShaderImportProcessor {
 pub static SHADER_IMPORT_PROCESSOR: Lazy<ShaderImportProcessor> =
     Lazy::new(ShaderImportProcessor::default);
 
+pub struct WgslUpdater {
+    stage_regex: Regex,
+    location_regex: Regex,
+    builtin_regex: Regex,
+    binding_regex: Regex,
+}
+
+impl Default for WgslUpdater {
+    fn default() -> Self {
+        Self {
+            stage_regex: Regex::new(r"^\[\[stage\((\w*)\)\]\]$").unwrap(),
+            location_regex: Regex::new(r"\[\[location\((\d*)\)\]\]").unwrap(),
+            builtin_regex: Regex::new(r"\[\[builtin\((\w*)\)\]\]").unwrap(),
+            binding_regex: Regex::new(r"\[\[group\((\d*)\), binding\((\d*)\)\]\]").unwrap(),
+        }
+    }
+}
+
 pub struct ShaderProcessor {
     ifdef_regex: Regex,
     ifndef_regex: Regex,
@@ -395,8 +413,14 @@ impl ShaderProcessor {
         shaders: &HashMap<Handle<Shader>, Shader>,
         import_handles: &HashMap<ShaderImport, Handle<Shader>>,
     ) -> Result<ProcessedShader, ProcessShaderError> {
+        let mut updater = None;
         let shader_str = match &shader.source {
-            Source::Wgsl(source) => source.deref(),
+            Source::Wgsl(source) => {
+                if cfg!(feature = "webgpu") {
+                    updater = Some(WgslUpdater::default());
+                }
+                source.deref()
+            }
             Source::Glsl(source, _stage) => source.deref(),
             Source::SpirV(source) => {
                 if shader_defs.is_empty() {
@@ -462,7 +486,28 @@ impl ShaderProcessor {
                 {
                     // ignore import path lines
                 } else {
-                    final_string.push_str(line);
+                    if let Some(updater) = updater.as_ref() {
+                        if updater.stage_regex.is_match(line) {
+                            final_string.push_str(&updater.stage_regex.replace(line, "@$1"));
+                        } else if updater.location_regex.is_match(line) {
+                            final_string
+                                .push_str(&updater.location_regex.replace(line, "@location($1)"));
+                        } else if updater.builtin_regex.is_match(line) {
+                            final_string
+                                .push_str(&updater.builtin_regex.replace(line, "@builtin($1)"));
+                        } else if updater.binding_regex.is_match(line) {
+                            final_string.push_str(
+                                &updater
+                                    .binding_regex
+                                    .replace(line, "@group($1) @binding($2)"),
+                            );
+                        } else {
+                            final_string.push_str(line);
+                        }
+                    } else {
+                        final_string.push_str(line);
+                    }
+
                     final_string.push('\n');
                 }
             }
