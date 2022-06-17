@@ -481,7 +481,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     let depth = 0.1 / -projected_position.z;
 
     #ifdef NO_ARRAY_TEXTURES_SUPPORT
-        return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
+        return textureSampleCompare(directional_shadow_textures, directional_shadow_textures_sampler, 
             shadow_uv, depth);
     #else
         return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
