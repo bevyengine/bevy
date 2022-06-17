@@ -244,7 +244,8 @@ struct GroupState {
 }
 
 impl GroupState {
-    /// Notifies a sleeping ticker.
+    /// Notifies a sleeping ticker. Returns true if the notification search
+    /// should continue.
     #[inline]
     fn notify(&self) -> bool {
         if self
@@ -252,11 +253,15 @@ impl GroupState {
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .is_ok()
         {
-            let waker = self.sleepers.lock().notify();
+            let (waker, should_continue) = {
+                let mut sleepers = self.sleepers.lock();
+                let waker = sleepers.notify();
+                (waker, sleepers.is_empty())
+            };
             if let Some(w) = waker {
                 w.wake();
             }
-            return true;
+            return should_continue;
         }
         false
     }
@@ -342,6 +347,11 @@ impl Sleepers {
     /// Returns `true` if a sleeping ticker is notified or no tickers are sleeping.
     fn is_notified(&self) -> bool {
         self.count == 0 || self.count > self.wakers.len()
+    }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.wakers.is_empty()
     }
 
     /// Returns notification waker for a sleeping ticker.
@@ -482,8 +492,18 @@ impl Runner<'_> {
                             if priority == self.priority && idx == self.thread_id {
                                 continue;
                             }
-                            if let Ok((r, _)) = stealer.steal_and_pop(&self.worker, |n| (n + 1) / 2)
-                            {
+                            // Limit the number of higher priority tasks stolen to avoid taking
+                            // too many. Higher priority threads can't steal these tasks back.
+                            //
+                            // Only steal enough such that every other thread in the local priority
+                            // can steal one task.
+                            let limit = if priority > self.priority {
+                                self.group.stealers.len()
+                            } else {
+                                usize::MAX
+                            };
+                            let count_fn = |n: usize| ((n + 1) / 2).max(limit);
+                            if let Ok((r, _)) = stealer.steal_and_pop(&self.worker, count_fn) {
                                 if group.end_search() {
                                     self.wake_and_notify();
                                 }
@@ -520,7 +540,7 @@ impl Runner<'_> {
         // Notify another ticker now to pick up where this ticker left off, just in
         // case running the new task takes a long time.
         for group in self.state.groups[..=self.priority].iter().rev() {
-            if group.notify() {
+            if !group.notify() {
                 return;
             }
         }
