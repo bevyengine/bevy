@@ -39,25 +39,14 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    //let capture = FrameCapture::new_gpu_double_buffer(
-    //    512,
-    //    512,
-    //    true,
-    //    TextureFormat::Rgba8UnormSrgb,
-    //    &mut images,
-    //);
-
-    //--------------------------------
-    let width = 512;
-    let height = 512;
     let size = Extent3d {
-        width,
-        height,
+        width: 512,
+        height: 512,
         ..Default::default()
     };
 
     // This is the texture that will be rendered to.
-    let mut image1 = Image {
+    let mut image = Image {
         texture_descriptor: TextureDescriptor {
             label: None,
             size,
@@ -72,11 +61,11 @@ fn setup(
         },
         ..Default::default()
     };
-    image1.resize(size);
+    image.resize(size);
+    let gpu_image = images.add(image);
 
-    let gpu_image1 = images.add(image1);
-
-    let mut image2 = Image {
+    // This is the buffered texture that copied to.
+    let mut buffered_image = Image {
         texture_descriptor: TextureDescriptor {
             label: None,
             size,
@@ -91,10 +80,8 @@ fn setup(
         },
         ..Default::default()
     };
-    image2.resize(size);
-
-    let gpu_image2 = images.add(image2);
-    //----------------------------
+    buffered_image.resize(size);
+    let gpu_buffered_image = images.add(buffered_image);
 
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
     let cube_material_handle = materials.add(StandardMaterial {
@@ -124,7 +111,7 @@ fn setup(
 
     // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
-        base_color_texture: Some(gpu_image2.clone()),
+        base_color_texture: Some(gpu_buffered_image.clone()),
         reflectance: 0.02,
         unlit: false,
         ..default()
@@ -150,7 +137,8 @@ fn setup(
             ..default()
         })
         .with_children(|parent| {
-            let render_target = RenderTarget::BufferedImage(gpu_image1.clone(), gpu_image2.clone());
+            let render_target =
+                RenderTarget::BufferedImage(gpu_image.clone(), gpu_buffered_image.clone());
             parent.spawn_bundle(Camera3dBundle {
                 camera: Camera {
                     target: render_target,
