@@ -7,7 +7,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::*, SystemParamItem},
+    system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat4, Vec2};
 use bevy_reflect::TypeUuid;
@@ -21,7 +21,9 @@ use bevy_render::{
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
+    texture::{
+        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+    },
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
@@ -43,6 +45,8 @@ pub const MESH_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
 pub const MESH_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16831548636314682308);
+pub const MESH_FUNCTIONS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6300874327833745635);
 pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
 pub const SKINNING_HANDLE: HandleUntyped =
@@ -67,6 +71,12 @@ impl Plugin for MeshRenderPlugin {
             app,
             MESH_BINDINGS_HANDLE,
             "mesh_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_FUNCTIONS_HANDLE,
+            "mesh_functions.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
@@ -275,7 +285,12 @@ pub struct MeshPipeline {
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let mut system_state: SystemState<(
+            Res<RenderDevice>,
+            Res<DefaultImageSampler>,
+            Res<RenderQueue>,
+        )> = SystemState::new(world);
+        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
@@ -435,10 +450,12 @@ impl FromWorld for MeshPipeline {
                 TextureFormat::bevy_default(),
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = render_device.create_sampler(&image.sampler_descriptor);
+            let sampler = match image.sampler_descriptor {
+                ImageSampler::Default => (**default_sampler).clone(),
+                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world.resource_mut::<RenderQueue>();
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -573,18 +590,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
-        // TODO: consider exposing this in shaders in a more generally useful way, such as:
-        // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
-        // /* use storage buffers here */
-        // # elif
-        // /* use uniforms here */
-        if !matches!(
-            self.clustered_forward_buffer_binding_type,
-            BufferBindingType::Storage { .. }
-        ) {
-            shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
-        }
-
         let mut bind_group_layout = vec![self.view_layout.clone()];
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
@@ -614,9 +619,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // depth buffer
             depth_write_enabled = true;
         }
-
-        #[cfg(feature = "webgl")]
-        shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {

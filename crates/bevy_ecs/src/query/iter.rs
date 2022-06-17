@@ -7,7 +7,7 @@ use crate::{
 };
 use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
 
-use super::{QueryFetch, QueryItem, ReadOnlyFetch};
+use super::{QueryFetch, QueryItem, ReadOnlyWorldQuery};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -302,11 +302,11 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
 // Iterator type is intentionally implemented only for read-only access.
 // Doing so for mutable references would be unsound, because  calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> Iterator
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
-    QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
-    QueryFetch<'w, F>: Clone + ReadOnlyFetch,
+    QueryFetch<'w, Q>: Clone,
+    QueryFetch<'w, F>: Clone,
 {
     type Item = [QueryItem<'w, Q>; K];
 
@@ -366,11 +366,11 @@ where
 }
 
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> FusedIterator
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> FusedIterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
-    QueryFetch<'w, Q>: Clone + ReadOnlyFetch,
-    QueryFetch<'w, F>: Clone + ReadOnlyFetch,
+    QueryFetch<'w, Q>: Clone,
+    QueryFetch<'w, F>: Clone,
 {
 }
 
