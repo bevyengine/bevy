@@ -121,7 +121,6 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
-image = { version = "0.23.12", default-features = false }
 
 [[example]]
 name = "hello_world"
