@@ -13,6 +13,9 @@ var<uniform> joint_matrices: SkinnedMesh;
 #import bevy_pbr::skinning
 #endif
 
+// NOTE: Bindings must come before functions that use them!
+#import bevy_pbr::mesh_functions
+
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
 #ifdef SKINNED
@@ -34,6 +37,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif
 
     var out: VertexOutput;
-    out.clip_position = view.view_proj * model * vec4<f32>(vertex.position, 1.0);
+    out.clip_position = mesh_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
     return out;
 }
