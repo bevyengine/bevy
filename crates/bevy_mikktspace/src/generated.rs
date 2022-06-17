@@ -218,6 +218,7 @@ struct TriangleMap {
     triangles: Vec<[u32; 3]>,
 }
 
+// Entry point
 pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> bool {
     let iNrFaces = geometry.num_faces();
     // TODO: Accept in radians by default here?
@@ -355,6 +356,7 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
 
     return true;
 }
+
 unsafe fn DegenEpilogue(
     mut psTspace: *mut STSpace,
     mut pTriInfos: *mut STriInfo,
@@ -835,6 +837,7 @@ unsafe fn InitTriInfo(
             (*pTriInfos.offset(f as isize)).vOt.z = 0.0f32;
             (*pTriInfos.offset(f as isize)).fMagS = 0i32 as f32;
             (*pTriInfos.offset(f as isize)).fMagT = 0i32 as f32;
+            // C: assumed bad
             (*pTriInfos.offset(f as isize))
                 .iFlag
                 .insert(TriangleFlags::GROUP_WITH_ANY);
@@ -936,25 +939,26 @@ unsafe fn InitTriInfo(
         }
     }
 
-    let mut pEdges = vec![SEdge::zero(); iNrTrianglesIn * 3];
-    BuildNeighborsFast(pTriInfos, &mut pEdges, piTriListIn, iNrTrianglesIn as i32);
+    BuildNeighborsFast(pTriInfos, piTriListIn, iNrTrianglesIn as i32);
 }
 
 unsafe fn BuildNeighborsFast(
     mut pTriInfos: *mut STriInfo,
-    mut pEdges: &mut [SEdge],
     mut piTriListIn: *const i32,
     iNrTrianglesIn: i32,
 ) {
+    let mut pEdges = Vec::with_capacity((iNrTrianglesIn * 3) as usize);
     // build array of edges
     for f in 0..iNrTrianglesIn {
         for i in 0..3i32 {
             let i0: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
-            let i1: i32 =
-                *piTriListIn.offset((f * 3i32 + if i < 2i32 { i + 1i32 } else { 0i32 }) as isize);
-            pEdges[((f * 3i32 + i) as usize)].i0 = if i0 < i1 { i0 } else { i1 }; // put minimum index in i0
-            (pEdges[(f * 3i32 + i) as usize]).i1 = if !(i0 < i1) { i0 } else { i1 }; // put maximum index in i1
-            (pEdges[(f * 3i32 + i) as usize]).f = f; // record face number
+            let i1: i32 = *piTriListIn.offset((f * 3i32 + (i + 1) % 3) as isize);
+            // Ensure that the indices have a consistent order by making i0 the smaller
+            pEdges.push(SEdge {
+                i0: i0.min(i1),
+                i1: i0.max(i1),
+                f,
+            });
         }
     }
     pEdges.sort();
@@ -967,84 +971,45 @@ unsafe fn BuildNeighborsFast(
         let i1_0: i32 = edge.i1;
         let f_0: i32 = edge.f;
 
-        let mut i0_A: i32 = 0;
-        let mut i1_A: i32 = 0;
-        let mut edgenum_A: i32 = 0;
-        let mut edgenum_B: i32 = 0i32;
-        GetEdge(
-            &mut i0_A,
-            &mut i1_A,
-            &mut edgenum_A,
-            &*piTriListIn.offset((f_0 * 3i32) as isize),
-            i0_0,
-            i1_0,
-        );
+        let (i0_A, i1_A, edgenum_A) =
+            GetEdge(&*piTriListIn.offset((f_0 * 3i32) as isize), i0_0, i1_0);
         let bUnassigned_A =
             (*pTriInfos.offset(f_0 as isize)).FaceNeighbors[edgenum_A as usize] == -1i32;
         if bUnassigned_A {
             let mut j: i32 = i + 1i32;
 
-            let mut bNotFound: bool = true;
-            while j < iEntries
-                && i0_0 == pEdges[j as usize].i0
-                && i1_0 == pEdges[j as usize].i1
-                && bNotFound
-            {
-                let mut i0_B: i32 = 0;
-                let mut i1_B: i32 = 0;
+            while j < iEntries && i0_0 == pEdges[j as usize].i0 && i1_0 == pEdges[j as usize].i1 {
                 let t = pEdges[j as usize].f;
-                GetEdge(
-                    &mut i1_B,
-                    &mut i0_B,
-                    &mut edgenum_B,
+                // C: Flip i1 and i0
+                let (i1_B, i0_B, edgenum_B) = GetEdge(
                     &*piTriListIn.offset((t * 3i32) as isize),
                     pEdges[j as usize].i0,
                     pEdges[j as usize].i1,
                 );
                 let bUnassigned_B =
-                    if (*pTriInfos.offset(t as isize)).FaceNeighbors[edgenum_B as usize] == -1i32 {
-                        true
-                    } else {
-                        false
-                    };
+                    (*pTriInfos.offset(t as isize)).FaceNeighbors[edgenum_B as usize] == -1i32;
                 if i0_A == i0_B && i1_A == i1_B && bUnassigned_B {
-                    bNotFound = false
+                    let mut t_0: i32 = pEdges[j as usize].f;
+                    (*pTriInfos.offset(f_0 as isize)).FaceNeighbors[edgenum_A as usize] = t_0;
+                    (*pTriInfos.offset(t_0 as isize)).FaceNeighbors[edgenum_B as usize] = f_0;
+                    break;
                 } else {
                     j += 1
                 }
             }
-            if !bNotFound {
-                let mut t_0: i32 = pEdges[j as usize].f;
-                (*pTriInfos.offset(f_0 as isize)).FaceNeighbors[edgenum_A as usize] = t_0;
-                (*pTriInfos.offset(t_0 as isize)).FaceNeighbors[edgenum_B as usize] = f_0
-            }
         }
     }
 }
-unsafe fn GetEdge(
-    mut i0_out: *mut i32,
-    mut i1_out: *mut i32,
-    mut edgenum_out: *mut i32,
-    mut indices: *const i32,
-    i0_in: i32,
-    i1_in: i32,
-) {
-    *edgenum_out = -1i32;
+unsafe fn GetEdge(mut indices: *const i32, i0_in: i32, i1_in: i32) -> (i32, i32, i32) {
     if *indices.offset(0isize) == i0_in || *indices.offset(0isize) == i1_in {
         if *indices.offset(1isize) == i0_in || *indices.offset(1isize) == i1_in {
-            *edgenum_out.offset(0isize) = 0i32;
-            *i0_out.offset(0isize) = *indices.offset(0isize);
-            *i1_out.offset(0isize) = *indices.offset(1isize)
+            (*indices.offset(0isize), *indices.offset(1isize), 0)
         } else {
-            *edgenum_out.offset(0isize) = 2i32;
-            *i0_out.offset(0isize) = *indices.offset(2isize);
-            *i1_out.offset(0isize) = *indices.offset(0isize)
+            (*indices.offset(2isize), *indices.offset(0isize), 2)
         }
     } else {
-        *edgenum_out.offset(0isize) = 1i32;
-        *i0_out.offset(0isize) = *indices.offset(1isize);
-        *i1_out.offset(0isize) = *indices.offset(2isize)
-    };
+        (*indices.offset(1isize), *indices.offset(2isize), 1)
+    }
 }
 // ///////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
