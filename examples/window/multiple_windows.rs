@@ -6,9 +6,11 @@ use bevy::{
     window::{CreateWindow, PresentMode, WindowId},
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system(bevy::window::close_on_esc)
         .run();

@@ -1,5 +1,6 @@
 //! A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 
+use async_trait::async_trait;
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     pbr::{
@@ -23,9 +24,11 @@ use bevy::{
 
 pub struct IsRedPlugin;
 
+#[async_trait]
 impl Plugin for IsRedPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<IsRed>::default());
+    async fn build(&self, app: &mut App) {
+        app.add_plugin(ExtractComponentPlugin::<IsRed>::default())
+            .await;
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawIsRed>()
             .init_resource::<IsRedPipeline>()
@@ -34,10 +37,13 @@ impl Plugin for IsRedPlugin {
     }
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(IsRedPlugin)
+        .await
         .add_startup_system(setup)
         .run();
 }

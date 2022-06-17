@@ -21,9 +21,11 @@ struct Center {
     scale_factor: f32,
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system(move_cube)
         .add_system(rotate_cube)

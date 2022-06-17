@@ -3,12 +3,14 @@
 
 use bevy::{prelude::*, render::settings::WgpuSettings};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(WgpuSettings {
             backends: None,
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .run();
 }

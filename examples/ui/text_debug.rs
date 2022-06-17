@@ -6,14 +6,17 @@ use bevy::{
     window::PresentMode,
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             present_mode: PresentMode::Immediate,
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(FrameTimeDiagnosticsPlugin)
+        .await
         .add_startup_system(infotext_system)
         .add_system(change_text_system)
         .run();

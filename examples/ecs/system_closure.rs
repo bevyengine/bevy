@@ -2,7 +2,8 @@
 
 use bevy::{log::LogPlugin, prelude::*};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     // create a simple closure.
     let simple_closure = || {
         // this is a closure that does nothing.
@@ -26,6 +27,7 @@ fn main() {
 
     App::new()
         .add_plugin(LogPlugin)
+        .await
         // we can use a closure as a system
         .add_system(simple_closure)
         // or we can use a more complex closure, and pass an argument to initialize a Local variable.

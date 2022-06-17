@@ -9,9 +9,11 @@ use bevy::{
 const TIME_STEP: f32 = 1.0 / 60.0;
 const BOUNDS: Vec2 = const_vec2!([1200.0, 640.0]);
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system_set(
             SystemSet::new()

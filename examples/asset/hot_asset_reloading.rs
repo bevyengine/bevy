@@ -4,7 +4,8 @@
 
 use bevy::{asset::AssetServerSettings, prelude::*};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         // Tell the asset server to watch for asset changes on disk:
         .insert_resource(AssetServerSettings {
@@ -12,6 +13,7 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .run();
 }

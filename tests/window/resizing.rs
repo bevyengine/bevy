@@ -16,7 +16,8 @@ struct Dimensions {
     height: u16,
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             width: MAX_WIDTH.try_into().unwrap(),
@@ -30,6 +31,7 @@ fn main() {
             height: MAX_HEIGHT,
         })
         .add_plugins(DefaultPlugins)
+        .await
         .insert_resource(Phase::ContractingY)
         .add_system(change_window_size)
         .add_system(sync_dimensions)

@@ -18,7 +18,8 @@ use bevy::{
 };
 use std::fmt::Debug;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_startup_system(spawn)
         .add_system(print_components_read_only)

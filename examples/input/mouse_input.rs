@@ -2,9 +2,11 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_system(mouse_click_system)
         .run();
 }

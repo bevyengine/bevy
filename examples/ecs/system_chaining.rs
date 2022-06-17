@@ -4,7 +4,8 @@
 use anyhow::Result;
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(Message("42".to_string()))
         .add_system(parse_message_system.chain(handler_system))

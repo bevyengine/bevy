@@ -5,7 +5,8 @@ use bevy::{
     prelude::*,
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     println!(
         "Controls:
     C      - toggle shadow casters (i.e. casters become not, and not casters become casters)
@@ -14,6 +15,7 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system(toggle_light)
         .add_system(toggle_shadows)

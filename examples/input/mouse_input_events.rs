@@ -6,9 +6,11 @@ use bevy::{
     window::CursorMoved,
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_system(print_mouse_events_system)
         .run();
 }

@@ -2,9 +2,11 @@
 
 use bevy::{input::touch::*, prelude::*};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_system(touch_system)
         .run();
 }

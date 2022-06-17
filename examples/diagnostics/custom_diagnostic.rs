@@ -5,12 +5,15 @@ use bevy::{
     prelude::*,
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         // The "print diagnostics" plugin is optional.
         // It just visualizes our diagnostics in the console.
         .add_plugin(LogDiagnosticsPlugin::default())
+        .await
         .add_startup_system(setup_diagnostic_system)
         .add_system(my_system)
         .run();

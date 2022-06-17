@@ -8,11 +8,13 @@
 
 use bevy::{app::ScheduleRunnerSettings, prelude::*, utils::Duration};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     // this app runs once
     App::new()
         .insert_resource(ScheduleRunnerSettings::run_once())
         .add_plugins(MinimalPlugins)
+        .await
         .add_system(hello_world_system)
         .run();
 
@@ -22,6 +24,7 @@ fn main() {
             1.0 / 60.0,
         )))
         .add_plugins(MinimalPlugins)
+        .await
         .add_system(counter)
         .run();
 }

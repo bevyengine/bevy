@@ -3,7 +3,8 @@
 
 use bevy::{prelude::*, window::PresentMode};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "I am a window!".to_string(),
@@ -13,6 +14,7 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_system(change_title)
         .add_system(toggle_cursor)
         .add_system(cycle_cursor_icon)

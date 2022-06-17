@@ -3,10 +3,12 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .run();
 }

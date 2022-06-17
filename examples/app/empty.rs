@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new().run();
 }

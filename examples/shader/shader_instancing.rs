@@ -1,5 +1,6 @@
 //! A shader that renders a mesh multiple times in one draw call.
 
+use async_trait::async_trait;
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
@@ -22,10 +23,13 @@ use bevy::{
 };
 use bytemuck::{Pod, Zeroable};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(CustomMaterialPlugin)
+        .await
         .add_startup_system(setup)
         .run();
 }
@@ -78,9 +82,11 @@ impl ExtractComponent for InstanceMaterialData {
 
 pub struct CustomMaterialPlugin;
 
+#[async_trait]
 impl Plugin for CustomMaterialPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<InstanceMaterialData>::default());
+    async fn build(&self, app: &mut App) {
+        app.add_plugin(ExtractComponentPlugin::<InstanceMaterialData>::default())
+            .await;
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<CustomPipeline>()

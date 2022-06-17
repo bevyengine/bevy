@@ -3,9 +3,11 @@
 use bevy::{prelude::*, reflect::TypeRegistry};
 use std::any::TypeId;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         // You must manually register each instance of a generic type
         .register_type::<MyType<u32>>()
         .add_startup_system(setup)

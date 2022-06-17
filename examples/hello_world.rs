@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new().add_system(hello_world_system).run();
 }
 

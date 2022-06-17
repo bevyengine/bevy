@@ -2,7 +2,8 @@
 
 use bevy::{prelude::*, winit::WinitSettings};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     println!("Running first App.");
     App::new()
         .insert_resource(WinitSettings {
@@ -11,6 +12,7 @@ fn main() {
         })
         .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.8)))
         .add_plugins(DefaultPlugins)
+        .await
         .add_system(system1)
         .run();
     println!("Running another App.");
@@ -23,6 +25,7 @@ fn main() {
         .add_plugins_with(DefaultPlugins, |group| {
             group.disable::<bevy::log::LogPlugin>()
         })
+        .await
         .add_system(system2)
         .run();
     println!("Done.");

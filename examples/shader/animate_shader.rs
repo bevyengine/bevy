@@ -2,6 +2,7 @@
 //!
 //! This example uses a specialized pipeline.
 
+use async_trait::async_trait;
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::system::{lifetimeless::SRes, SystemParamItem},
@@ -24,10 +25,13 @@ use bevy::{
     },
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(CustomMaterialPlugin)
+        .await
         .add_startup_system(setup)
         .run();
 }
@@ -55,8 +59,9 @@ struct CustomMaterial;
 
 pub struct CustomMaterialPlugin;
 
+#[async_trait]
 impl Plugin for CustomMaterialPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         let render_device = app.world.resource::<RenderDevice>();
         let buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("time uniform buffer"),

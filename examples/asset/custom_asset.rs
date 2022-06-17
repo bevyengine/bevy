@@ -35,9 +35,11 @@ impl AssetLoader for CustomAssetLoader {
     }
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .init_resource::<State>()
         .add_asset::<CustomAsset>()
         .init_asset_loader::<CustomAssetLoader>()

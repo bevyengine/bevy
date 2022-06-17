@@ -158,7 +158,8 @@ fn print_available_configs() {
     }
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     // parse cli argument and find the selected test configuration
     let cfg: Cfg = match std::env::args().nth(1) {
         Some(arg) => match CONFIGS.iter().find(|(name, _)| *name == arg) {
@@ -184,7 +185,9 @@ fn main() {
     App::new()
         .insert_resource(cfg)
         .add_plugins(MinimalPlugins)
+        .await
         .add_plugin(TransformPlugin::default())
+        .await
         .add_startup_system(setup)
         .add_system(update)
         .run();

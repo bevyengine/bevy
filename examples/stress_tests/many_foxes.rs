@@ -12,15 +12,19 @@ struct Foxes {
     moving: bool,
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(FrameTimeDiagnosticsPlugin)
+        .await
         .add_plugin(LogDiagnosticsPlugin::default())
+        .await
         .insert_resource(Foxes {
             count: std::env::args()
                 .nth(1)

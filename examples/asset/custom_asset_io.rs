@@ -2,6 +2,7 @@
 //! An [`AssetIo`] is what the asset server uses to read the raw bytes of assets.
 //! It does not know anything about the asset formats, only how to talk to the underlying storage.
 
+use async_trait::async_trait;
 use bevy::{
     asset::{AssetIo, AssetIoError, Metadata},
     prelude::*,
@@ -49,8 +50,9 @@ impl AssetIo for CustomAssetIo {
 /// A plugin used to execute the override of the asset io
 struct CustomAssetIoPlugin;
 
+#[async_trait]
 impl Plugin for CustomAssetIoPlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         let asset_io = {
             // the platform default asset io requires a reference to the app
             // builder to find its configuration
@@ -68,7 +70,8 @@ impl Plugin for CustomAssetIoPlugin {
     }
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins_with(DefaultPlugins, |group| {
             // the custom asset io plugin must be inserted in-between the
@@ -80,6 +83,7 @@ fn main() {
             // asset system are initialized correctly.
             group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
         })
+        .await
         .add_startup_system(setup)
         .run();
 }

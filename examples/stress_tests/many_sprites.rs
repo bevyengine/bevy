@@ -15,12 +15,16 @@ use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
+        .await
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .await
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system(print_sprite_count)
         .add_system(move_camera.after(print_sprite_count))

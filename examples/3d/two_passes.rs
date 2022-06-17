@@ -2,9 +2,11 @@
 
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .run();
 }

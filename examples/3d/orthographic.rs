@@ -2,9 +2,11 @@
 
 use bevy::{prelude::*, render::camera::ScalingMode};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .run();
 }

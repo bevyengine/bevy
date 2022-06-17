@@ -2,7 +2,8 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_startup_system(startup_system)
         .add_system(normal_system)

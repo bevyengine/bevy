@@ -2,7 +2,8 @@
 
 use bevy::{input::mouse::MouseMotion, prelude::*};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     println!(
         "Controls:
     WSAD   - forward/back/strafe left/right
@@ -17,6 +18,7 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system(adjust_point_light_biases)
         .add_system(toggle_light)

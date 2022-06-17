@@ -3,9 +3,11 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_event::<MyEvent>()
         .add_event::<PlaySound>()
         .init_resource::<EventTriggerState>()

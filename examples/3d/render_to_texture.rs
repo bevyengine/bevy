@@ -12,9 +12,11 @@ use bevy::{
     },
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system(cube_rotator_system)
         .add_system(rotator_system)

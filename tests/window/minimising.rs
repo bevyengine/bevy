@@ -2,7 +2,8 @@
 //! This is run in CI to ensure that this doesn't regress again.
 use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
     // it is currently.
     App::new()
@@ -11,6 +12,7 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_system(minimise_automatically)
         .add_startup_system(setup_3d)
         .add_startup_system(setup_2d)

@@ -39,9 +39,11 @@ struct PostPhysics;
 #[derive(Default)]
 struct Done(bool);
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .init_resource::<Done>()
         // Note that the system sets added in this example set their run criteria explicitly.
         // See the `ecs/state.rs` example for a pattern where run criteria are set implicitly for common

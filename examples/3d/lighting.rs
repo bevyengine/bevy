@@ -11,7 +11,7 @@ async fn main() {
         .add_startup_system(setup)
         .add_system(movement)
         .add_system(animate_light_direction)
-        .run()
+        .run();
 }
 
 #[derive(Component)]

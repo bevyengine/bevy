@@ -2,7 +2,8 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         // Uncomment this to override the default log settings:
         // .insert_resource(bevy::log::LogSettings {
@@ -10,6 +11,7 @@ fn main() {
         //     filter: "wgpu=warn,bevy_ecs=info".to_string(),
         // })
         .add_plugins(DefaultPlugins)
+        .await
         .add_system(log_system)
         .run();
 }

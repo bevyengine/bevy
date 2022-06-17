@@ -21,7 +21,8 @@ fn print_system(input: Res<Input>) {
     println!("You typed: {}", input.0);
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(Input(String::new()))
         .set_runner(my_runner)

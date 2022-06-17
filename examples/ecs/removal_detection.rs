@@ -2,7 +2,8 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     // Information regarding removed `Component`s is discarded at the end of each frame, so you need
     // to react to the removal before the frame is over.
     //
@@ -15,6 +16,7 @@ fn main() {
     // `CoreStage::PostUpdate` stage.
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system_to_stage(CoreStage::Update, remove_component)
         .add_system_to_stage(CoreStage::PostUpdate, react_on_removal)

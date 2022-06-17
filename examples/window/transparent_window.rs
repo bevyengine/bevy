@@ -6,7 +6,8 @@
 
 use bevy::{prelude::*, window::WindowDescriptor};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         // ClearColor must have 0 alpha, otherwise some color will bleed through
         .insert_resource(ClearColor(Color::NONE))
@@ -19,6 +20,7 @@ fn main() {
         })
         .add_startup_system(setup)
         .add_plugins(DefaultPlugins)
+        .await
         .run();
 }
 

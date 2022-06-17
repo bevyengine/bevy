@@ -10,9 +10,11 @@ const LABEL: &str = "my_fixed_timestep";
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 struct FixedUpdateStage;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         // this system will run once every update (it should match your screen's refresh rate)
         .add_system(frame_update)
         // add a new stage that runs twice a second

@@ -3,10 +3,12 @@
 
 use bevy::{prelude::*, render::texture::ImageSettings};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system(animate_sprite)
         .run();

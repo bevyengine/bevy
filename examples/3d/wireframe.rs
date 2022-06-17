@@ -6,14 +6,17 @@ use bevy::{
     render::{render_resource::WgpuFeatures, settings::WgpuSettings},
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(WgpuSettings {
             features: WgpuFeatures::POLYGON_MODE_LINE,
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(WireframePlugin)
+        .await
         .add_startup_system(setup)
         .run();
 }

@@ -3,9 +3,11 @@
 use bevy::prelude::*;
 use bevy::winit::WinitPlugin;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins_with(DefaultPlugins, |group| group.disable::<WinitPlugin>())
+        .await
         .add_system(setup_system)
         .run();
 }

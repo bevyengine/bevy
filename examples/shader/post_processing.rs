@@ -23,10 +23,13 @@ use bevy::{
     sprite::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle},
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
+        .await
         .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
+        .await
         .add_startup_system(setup)
         .add_system(main_camera_cube_rotator_system);
 

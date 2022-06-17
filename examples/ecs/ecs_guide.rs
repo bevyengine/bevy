@@ -244,7 +244,8 @@ enum MyStage {
 }
 
 // Our Bevy app's entry point
-fn main() {
+#[bevy_main]
+async fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems,
     // resources, and plugins to our app
     App::new()
@@ -257,6 +258,7 @@ fn main() {
         // that :) The plugin below runs our app's "system schedule" once every 5 seconds
         // (configured above).
         .add_plugin(ScheduleRunnerPlugin::default())
+        .await
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
         .add_startup_system(startup_system)
@@ -334,6 +336,7 @@ fn main() {
         // Be aware that not everything reported by this checker is a potential problem, you'll have
         // to make that judgement yourself.
         .add_plugin(LogPlugin::default())
+        .await
         .init_resource::<ReportExecutionOrderAmbiguities>()
         // This call to run() starts the app we just built!
         .run();

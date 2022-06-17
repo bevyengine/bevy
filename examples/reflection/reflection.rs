@@ -13,9 +13,11 @@ use bevy::{
 };
 use serde::de::DeserializeSeed;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .register_type::<Foo>()
         .register_type::<Bar>()
         .add_startup_system(setup)

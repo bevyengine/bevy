@@ -2,9 +2,11 @@
 
 use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .add_startup_system(save_scene_system.exclusive_system())

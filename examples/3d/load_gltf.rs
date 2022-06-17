@@ -2,13 +2,15 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system(animate_light_direction)
         .run();

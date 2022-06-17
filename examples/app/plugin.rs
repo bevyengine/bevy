@@ -4,16 +4,20 @@
 //! that provide a specific piece of functionality (generally the smaller the scope, the better).
 //! This example illustrates how to create a simple plugin that prints out a message.
 
+use async_trait::async_trait;
 use bevy::{prelude::*, utils::Duration};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         // plugins are registered as part of the "app building" process
         .add_plugin(PrintMessagePlugin {
             wait_duration: Duration::from_secs(1),
             message: "This is an example plugin".to_string(),
         })
+        .await
         .run();
 }
 
@@ -24,9 +28,10 @@ pub struct PrintMessagePlugin {
     message: String,
 }
 
+#[async_trait]
 impl Plugin for PrintMessagePlugin {
     // this is where we set up our plugin
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         let state = PrintMessageState {
             message: self.message.clone(),
             timer: Timer::new(self.wait_duration, true),

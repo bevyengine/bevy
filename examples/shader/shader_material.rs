@@ -17,10 +17,13 @@ use bevy::{
     },
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(MaterialPlugin::<CustomMaterial>::default())
+        .await
         .add_startup_system(setup)
         .run();
 }

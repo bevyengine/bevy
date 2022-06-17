@@ -3,6 +3,7 @@
 //! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
 //! is rendered to the screen.
 
+use async_trait::async_trait;
 use bevy::{
     prelude::*,
     render::{
@@ -20,7 +21,8 @@ use std::borrow::Cow;
 const SIZE: (u32, u32) = (1280, 720);
 const WORKGROUP_SIZE: u32 = 8;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(WindowDescriptor {
@@ -29,7 +31,9 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(GameOfLifeComputePlugin)
+        .await
         .add_startup_system(setup)
         .run();
 }
@@ -64,11 +68,13 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
 pub struct GameOfLifeComputePlugin;
 
+#[async_trait]
 impl Plugin for GameOfLifeComputePlugin {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         // Extract the game of life image resource from the main world into the render world
         // for operation on by the compute shader and display on the sprite.
-        app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
+        app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default())
+            .await;
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<GameOfLifePipeline>()

@@ -29,9 +29,11 @@ struct MenuClose;
 #[derive(Component)]
 struct LevelUnload;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_state(AppState::MainMenu)
         .add_startup_system(setup_system)
         .add_system(print_text_system)

@@ -9,9 +9,11 @@ use futures_lite::future;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup_env)
         .add_startup_system(add_assets)
         .add_startup_system(spawn_tasks)

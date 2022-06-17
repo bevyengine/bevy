@@ -9,10 +9,12 @@ enum GameState {
     GameOver,
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
+        .await
         .add_state(GameState::Playing)
         .add_startup_system(setup_cameras)
         .add_system_set(SystemSet::on_enter(GameState::Playing).with_system(setup))

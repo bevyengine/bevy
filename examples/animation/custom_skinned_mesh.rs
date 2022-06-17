@@ -13,9 +13,11 @@ use bevy::{
 };
 use rand::Rng;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .insert_resource(AmbientLight {
             brightness: 1.0,
             ..default()

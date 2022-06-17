@@ -9,9 +9,11 @@ use bevy::{
 };
 use serde::{Deserialize, Serialize};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .run();
 }

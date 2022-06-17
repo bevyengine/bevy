@@ -3,9 +3,11 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(DefaultTaskPoolOptions::with_num_threads(4))
         .add_plugins(DefaultPlugins)
+        .await
         .run();
 }

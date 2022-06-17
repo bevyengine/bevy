@@ -26,9 +26,11 @@ enum DisplayQuality {
 #[derive(Debug, Component, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         // Insert as resource the initial value for the settings resources
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
@@ -37,8 +39,11 @@ fn main() {
         .add_state(GameState::Splash)
         // Adds the plugins for each state
         .add_plugin(splash::SplashPlugin)
+        .await
         .add_plugin(menu::MenuPlugin)
+        .await
         .add_plugin(game::GamePlugin)
+        .await
         .run();
 }
 
@@ -47,6 +52,7 @@ fn setup(mut commands: Commands) {
 }
 
 mod splash {
+    use async_trait::async_trait;
     use bevy::prelude::*;
 
     use super::{despawn_screen, GameState};
@@ -54,8 +60,9 @@ mod splash {
     // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
     pub struct SplashPlugin;
 
+    #[async_trait]
     impl Plugin for SplashPlugin {
-        fn build(&self, app: &mut App) {
+        async fn build(&self, app: &mut App) {
             // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
             app
                 // When entering the state, spawn everything needed for this screen
@@ -111,6 +118,7 @@ mod splash {
 }
 
 mod game {
+    use async_trait::async_trait;
     use bevy::prelude::*;
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
@@ -119,8 +127,9 @@ mod game {
     // display the current settings for 5 seconds before returning to the menu
     pub struct GamePlugin;
 
+    #[async_trait]
     impl Plugin for GamePlugin {
-        fn build(&self, app: &mut App) {
+        async fn build(&self, app: &mut App) {
             app.add_system_set(SystemSet::on_enter(GameState::Game).with_system(game_setup))
                 .add_system_set(SystemSet::on_update(GameState::Game).with_system(game))
                 .add_system_set(
@@ -235,6 +244,7 @@ mod game {
 }
 
 mod menu {
+    use async_trait::async_trait;
     use bevy::{app::AppExit, prelude::*};
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
@@ -245,8 +255,9 @@ mod menu {
     // - two settings screen with a setting that can be set and a back button
     pub struct MenuPlugin;
 
+    #[async_trait]
     impl Plugin for MenuPlugin {
-        fn build(&self, app: &mut App) {
+        async fn build(&self, app: &mut App) {
             app
                 // At start, the menu is not enabled. This will be changed in `menu_setup` when
                 // entering the `GameState::Menu` state.

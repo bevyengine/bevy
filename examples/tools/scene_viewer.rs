@@ -17,7 +17,8 @@ use bevy::{
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 struct CameraControllerCheckSystem;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     println!(
         "
 Controls:
@@ -53,6 +54,7 @@ Controls:
     })
     .init_resource::<CameraTracker>()
     .add_plugins(DefaultPlugins)
+    .await
     .add_startup_system(setup)
     .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
     .add_system_to_stage(CoreStage::PreUpdate, setup_scene_after_load)

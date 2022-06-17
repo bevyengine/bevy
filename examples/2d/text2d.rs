@@ -7,9 +7,11 @@
 
 use bevy::{prelude::*, text::Text2dBounds};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .add_system(animate_translation)
         .add_system(animate_rotation)

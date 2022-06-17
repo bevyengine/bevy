@@ -16,11 +16,15 @@ use bevy::{
     prelude::*,
 };
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .await
         .add_plugin(LogDiagnosticsPlugin::default())
+        .await
         .add_startup_system(setup)
         .add_system(move_camera)
         .add_system(print_mesh_count)

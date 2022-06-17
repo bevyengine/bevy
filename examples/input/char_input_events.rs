@@ -2,9 +2,11 @@
 
 use bevy::{prelude::*, window::ReceivedCharacter};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_system(print_char_event_system)
         .run();
 }

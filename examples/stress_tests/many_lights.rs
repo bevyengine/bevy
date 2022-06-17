@@ -1,6 +1,7 @@
 //! Simple benchmark to test rendering many point lights.
 //! Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
 
+use async_trait::async_trait;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
@@ -10,7 +11,8 @@ use bevy::{
 };
 use rand::{thread_rng, Rng};
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             width: 1024.0,
@@ -20,12 +22,16 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .await
         .add_plugin(LogDiagnosticsPlugin::default())
+        .await
         .add_startup_system(setup)
         .add_system(move_camera)
         .add_system(print_light_count)
         .add_plugin(LogVisibleLights)
+        .await
         .run();
 }
 
@@ -139,8 +145,9 @@ fn print_light_count(time: Res<Time>, mut timer: Local<PrintingTimer>, lights: Q
 
 struct LogVisibleLights;
 
+#[async_trait]
 impl Plugin for LogVisibleLights {
-    fn build(&self, app: &mut App) {
+    async fn build(&self, app: &mut App) {
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,

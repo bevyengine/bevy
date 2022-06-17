@@ -23,9 +23,11 @@ struct Direction(Vec3);
 #[derive(Component)]
 struct ToggledBy(KeyCode);
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_startup_system(setup)
         .init_resource::<Direction>()
         .add_system(move_cubes_according_to_global_transform)

@@ -3,9 +3,11 @@
 
 use bevy::prelude::*;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .add_state(AppState::Menu)
         .add_startup_system(setup)
         .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))

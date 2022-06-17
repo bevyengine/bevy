@@ -26,7 +26,8 @@ struct Bird {
     velocity: Vec3,
 }
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "BevyMark".to_string(),
@@ -37,8 +38,11 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
+        .await
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .await
         .add_plugin(LogDiagnosticsPlugin::default())
+        .await
         .insert_resource(BevyCounter {
             count: 0,
             color: Color::WHITE,

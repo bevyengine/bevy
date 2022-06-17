@@ -8,9 +8,11 @@ struct FixedUpdateStage;
 
 const DELTA_TIME: f64 = 0.01;
 
-fn main() {
+#[bevy_main]
+async fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .await
         .insert_resource(AmbientLight {
             brightness: 0.03,
             ..default()
