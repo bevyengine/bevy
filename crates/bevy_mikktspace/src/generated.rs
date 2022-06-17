@@ -489,12 +489,9 @@ unsafe fn GenerateTSpaces(
                 - (n.dot((*pTriInfos.offset(f as isize)).vOs) * n);
             let mut vOt = (*pTriInfos.offset(f as isize)).vOt
                 - (n.dot((*pTriInfos.offset(f as isize)).vOt) * n);
-            if VNotZero(vOs) {
-                vOs = vOs.normalize()
-            }
-            if VNotZero(vOt) {
-                vOt = vOt.normalize()
-            }
+            vOs = vOs.normalize_or_zero();
+            vOt = vOt.normalize_or_zero();
+
             let iOF_1 = (*pTriInfos.offset(f as isize)).iOrgFaceNumber;
             let mut iMembers = 0;
 
@@ -505,12 +502,9 @@ unsafe fn GenerateTSpaces(
                     - (n.dot((*pTriInfos.offset(t as isize)).vOs) * n);
                 let mut vOt2 = (*pTriInfos.offset(t as isize)).vOt
                     - (n.dot((*pTriInfos.offset(t as isize)).vOt) * n);
-                if VNotZero(vOs2) {
-                    vOs2 = vOs2.normalize()
-                }
-                if VNotZero(vOt2) {
-                    vOt2 = vOt2.normalize()
-                }
+                vOs2 = vOs2.normalize_or_zero();
+                vOt2 = vOt2.normalize_or_zero();
+
                 let bAny: bool = ((*pTriInfos.offset(f as isize)).iFlag
                     | (*pTriInfos.offset(t as isize)).iFlag)
                     .contains(TriangleFlags::GROUP_WITH_ANY);
@@ -603,18 +597,10 @@ unsafe fn AvgTSpace(mut pTS0: *const STSpace, mut pTS1: *const STSpace) -> STSpa
         ts_res.fMagT = 0.5f32 * ((*pTS0).fMagT + (*pTS1).fMagT);
         ts_res.vOs = (*pTS0).vOs + (*pTS1).vOs;
         ts_res.vOt = (*pTS0).vOt + (*pTS1).vOt;
-        if VNotZero(ts_res.vOs) {
-            ts_res.vOs = ts_res.vOs.normalize();
-        }
-        if VNotZero(ts_res.vOt) {
-            ts_res.vOt = ts_res.vOt.normalize();
-        }
+        ts_res.vOs = ts_res.vOs.normalize_or_zero();
+        ts_res.vOt = ts_res.vOt.normalize_or_zero();
     }
     return ts_res;
-}
-
-fn VNotZero(v: Vec3) -> bool {
-    NotZero(v.x) || NotZero(v.y) || NotZero(v.z)
 }
 
 fn NotZero(fX: f32) -> bool {
@@ -654,12 +640,9 @@ unsafe fn EvalTspace(
                 - (n.dot((*pTriInfos.offset(f as isize)).vOs) * n);
             let mut vOt = (*pTriInfos.offset(f as isize)).vOt
                 - (n.dot((*pTriInfos.offset(f as isize)).vOt) * n);
-            if VNotZero(vOs) {
-                vOs = vOs.normalize();
-            }
-            if VNotZero(vOt) {
-                vOt = vOt.normalize()
-            }
+            vOs = vOs.normalize_or_zero();
+            vOt = vOt.normalize_or_zero();
+
             let i2 =
                 *piTriListIn.offset((3i32 * f + if i < 2i32 { i + 1i32 } else { 0i32 }) as isize);
             let i1 = *piTriListIn.offset((3i32 * f + i) as isize);
@@ -671,22 +654,12 @@ unsafe fn EvalTspace(
             let v1 = p0 - p1;
             let v2 = p2 - p1;
             let mut v1 = v1 - (n.dot(v1) * n);
-            if VNotZero(v1) {
-                v1 = v1.normalize()
-            }
-            let mut v2 = v2 - (n.dot(v2) * n);
-            if VNotZero(v2) {
-                v2 = v2.normalize()
-            }
-            let fCos = v1.dot(v2);
+            v1 = v1.normalize_or_zero();
 
-            let fCos = if fCos > 1i32 as f32 {
-                1i32 as f32
-            } else if fCos < -1i32 as f32 {
-                -1i32 as f32
-            } else {
-                fCos
-            };
+            let mut v2 = v2 - (n.dot(v2) * n);
+            v2 = v2.normalize_or_zero();
+            let fCos = v1.dot(v2).clamp(-1., 1.);
+
             let fAngle = (fCos as f64).acos() as f32;
             let fMagS = (*pTriInfos.offset(f as isize)).fMagS;
             let fMagT = (*pTriInfos.offset(f as isize)).fMagT;
@@ -697,12 +670,9 @@ unsafe fn EvalTspace(
             fAngleSum += fAngle
         }
     }
-    if VNotZero(res.vOs) {
-        res.vOs = res.vOs.normalize()
-    }
-    if VNotZero(res.vOt) {
-        res.vOt = res.vOt.normalize()
-    }
+    res.vOs = res.vOs.normalize_or_zero();
+    res.vOt = res.vOt.normalize_or_zero();
+
     if fAngleSum > 0i32 as f32 {
         res.fMagS /= fAngleSum;
         res.fMagT /= fAngleSum
