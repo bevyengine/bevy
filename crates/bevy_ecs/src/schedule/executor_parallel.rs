@@ -55,6 +55,10 @@ pub struct ParallelExecutor {
 
 impl Default for ParallelExecutor {
     fn default() -> Self {
+        // Using a bounded channel here as it avoids allocations when signaling
+        // and generally remains hotter in memory. It'll take 128 systems completing
+        // before the parallel executor runs before this overflows. If it overflows
+        // all systems will just suspend until the parallel executor runs.
         let (finish_sender, finish_receiver) = async_channel::bounded(128);
         Self {
             system_metadata: Default::default(),
@@ -122,7 +126,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
 
         ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             self.prepare_systems(scope, systems, world);
-            if 0 == self.should_run.count_ones(..) {
+            if self.should_run.count_ones(..) == 0 {
                 return;
             }
             let parallel_executor = async {
@@ -183,72 +187,7 @@ impl ParallelExecutor {
                     system_data,
                     &self.active_archetype_component_access,
                 );
-            // Spawn the system task.
-            if should_run {
-                self.should_run.insert(index);
-                let finish_sender = self.finish_sender.clone();
-                let system = system.system_mut();
-                #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
-                let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
-                #[cfg(feature = "trace")]
-                let overhead_span =
-                    bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
 
-                let mut run = move || {
-                    #[cfg(feature = "trace")]
-                    let _system_guard = system_span.enter();
-                    unsafe { system.run_unsafe((), world) };
-                };
-
-                if can_start {
-                    let task = async move {
-                        run();
-                        finish_sender
-                            .send(index)
-                            .await
-                            .unwrap_or_else(|error| unreachable!("{}", error));
-                    };
-
-                    #[cfg(feature = "trace")]
-                    let task = task.instrument(overhead_span);
-                    if system_data.is_send {
-                        scope.spawn(task);
-                    } else {
-                        scope.spawn_local(task);
-                    }
-
-                    #[cfg(test)]
-                    {
-                        started_systems += 1;
-                    }
-
-                    self.running.insert(index);
-                    if !system_data.is_send {
-                        self.non_send_running = true;
-                    }
-                    // Add this system's access information to the active access information.
-                    self.active_archetype_component_access
-                        .extend(&system_data.archetype_component_access);
-                } else {
-                    let start_listener = system_data.start.listen();
-                    let task = async move {
-                        start_listener.await;
-                        run();
-                        finish_sender
-                            .send(index)
-                            .await
-                            .unwrap_or_else(|error| unreachable!("{}", error));
-                    };
-
-                    #[cfg(feature = "trace")]
-                    let task = task.instrument(overhead_span);
-                    if system_data.is_send {
-                        scope.spawn(task);
-                    } else {
-                        scope.spawn_local(task);
-                    }
-                }
-            }
             // Queue the system if it has no dependencies, otherwise reset its dependency counter.
             if system_data.dependencies_total == 0 {
                 if !can_start {
@@ -256,6 +195,83 @@ impl ParallelExecutor {
                 }
             } else {
                 system_data.dependencies_now = system_data.dependencies_total;
+            }
+
+            if !should_run {
+                continue;
+            }
+
+            // Spawn the system task.
+            self.should_run.insert(index);
+            let finish_sender = self.finish_sender.clone();
+            let system = system.system_mut();
+            #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
+            let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
+            #[cfg(feature = "trace")]
+            let overhead_span =
+                bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
+
+            let mut run = move || {
+                #[cfg(feature = "trace")]
+                let _system_guard = system_span.enter();
+                unsafe { system.run_unsafe((), world) };
+            };
+
+            if can_start {
+                let task = async move {
+                    run();
+                    // This will never panic:
+                    //  - The channel is never closed or dropped.
+                    //  - Overflowing the bounded size will just suspend until
+                    //    there is capacity.
+                    finish_sender
+                        .send(index)
+                        .await
+                        .unwrap_or_else(|error| unreachable!("{}", error));
+                };
+
+                #[cfg(feature = "trace")]
+                let task = task.instrument(overhead_span);
+                if system_data.is_send {
+                    scope.spawn(task);
+                } else {
+                    scope.spawn_local(task);
+                }
+
+                #[cfg(test)]
+                {
+                    started_systems += 1;
+                }
+
+                self.running.insert(index);
+                if !system_data.is_send {
+                    self.non_send_running = true;
+                }
+                // Add this system's access information to the active access information.
+                self.active_archetype_component_access
+                    .extend(&system_data.archetype_component_access);
+            } else {
+                let start_listener = system_data.start.listen();
+                let task = async move {
+                    start_listener.await;
+                    run();
+                    // This will never panic:
+                    //  - The channel is never closed or dropped.
+                    //  - Overflowing the bounded size will just suspend until
+                    //    there is capacity.
+                    finish_sender
+                        .send(index)
+                        .await
+                        .unwrap_or_else(|error| unreachable!("{}", error));
+                };
+
+                #[cfg(feature = "trace")]
+                let task = task.instrument(overhead_span);
+                if system_data.is_send {
+                    scope.spawn(task);
+                } else {
+                    scope.spawn_local(task);
+                }
             }
         }
         #[cfg(test)]
