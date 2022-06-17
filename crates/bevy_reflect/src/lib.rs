@@ -877,7 +877,6 @@ bevy_reflect::tests::should_reflect_debug::Test {
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
-        use ::serde::Serialize;
         use std::any::TypeId;
 
         #[test]

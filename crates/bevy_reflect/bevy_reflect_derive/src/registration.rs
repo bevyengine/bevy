@@ -72,7 +72,7 @@ pub fn register_all_internal(item: TokenStream) -> TokenStream {
 
 /// Maps to the following invocation:
 ///
-/// ```
+/// ```ignore
 /// use bevy_reflect_derive::{register_all, reflect_trait};
 ///
 /// trait MyTrait {}
