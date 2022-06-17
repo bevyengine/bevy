@@ -184,7 +184,6 @@ path = "examples/3d/3d_scene.rs"
 name = "3d_shapes"
 path = "examples/3d/shapes.rs"
 
-
 [[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
