@@ -81,7 +81,7 @@ struct ClusterLightIndexLists {
     data: array<u32>;
 };
 struct ClusterOffsetsAndCounts {
-    data: array<vec2<u32>>;
+    data: array<vec4<u32>>;
 };
 #endif
 

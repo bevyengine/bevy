@@ -10,9 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{
-    const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
-};
+use bevy_math::{const_vec3, Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -791,11 +789,12 @@ pub fn prepare_lights(
     #[cfg(feature = "webgl")]
     let max_texture_cubes = 1;
 
-    let point_light_shadow_maps_count = point_lights
+    let point_light_count = point_lights
         .iter()
         .filter(|light| light.1.shadows_enabled && light.1.spotlight_angles.is_none())
-        .count()
-        .min(max_texture_cubes);
+        .count();
+
+    let point_light_shadow_maps_count = point_light_count.min(max_texture_cubes);
 
     let directional_shadow_maps_count = directional_lights
         .iter()
@@ -809,7 +808,8 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_array_layers - directional_shadow_maps_count);
 
-    // Sort point lights with shadows enabled first, then by point-light vs spot-light,
+    // Sort lights by point-light vs spot-light, then those with shadows enabled first,
+    // we keep pointlights separated from spotlights so that counts
     // then by a stable key so that the index can be used to render at most
     // `point_light_shadow_maps_count` point light shadows and `spot_shadow_maps_count` spotlight shadow maps.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
@@ -841,7 +841,7 @@ pub fn prepare_lights(
         if light.shadows_enabled
             && (index < point_light_shadow_maps_count
                 || (light.spotlight_angles.is_some()
-                    && index - point_light_shadow_maps_count < spot_shadow_maps_count))
+                    && index - point_light_count < spot_shadow_maps_count))
         {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
@@ -962,10 +962,10 @@ pub fn prepare_lights(
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
             // spotlight shadow maps are stored in the directional light array, starting at directional_shadow_maps_count.
-            // the spotlights themselves start in the light array at point_light_shadow_maps_count. so to go from light
+            // the spotlights themselves start in the light array at point_light_count. so to go from light
             // index to shadow map index, we need to subtract point light shadowmap count and add directional shadowmap count.
             spotlight_shadowmap_offset: directional_shadow_maps_count as i32
-                - point_light_shadow_maps_count as i32,
+                - point_light_count as i32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
@@ -1030,7 +1030,7 @@ pub fn prepare_lights(
         // spotlights
         for (light_index, &(light_entity, light)) in point_lights
             .iter()
-            .skip(point_light_shadow_maps_count)
+            .skip(point_light_count)
             .take(spot_shadow_maps_count)
             .enumerate()
         {
@@ -1210,28 +1210,29 @@ pub fn prepare_lights(
 
 // this must match CLUSTER_COUNT_SIZE in pbr.wgsl
 // and must be large enough to contain MAX_UNIFORM_BUFFER_POINT_LIGHTS
-const CLUSTER_COUNT_SIZE: u32 = 13;
+const CLUSTER_COUNT_SIZE: u32 = 9;
 
-const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - CLUSTER_COUNT_SIZE)) - 1;
+const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - (CLUSTER_COUNT_SIZE * 2))) - 1;
 const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
-const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
-// that means we can fit say 256 point lights in one uniform
+// that means we can fit 256 point lights in one uniform
 // buffer, which means the count can be at most 256 so it
 // needs 9 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address
 // 16384 values. log2(16384) = 14 bits.
-// We use 32 bits to store the pair, so we choose to divide the
-// remaining 9 bits proportionally to give some future room.
-// This means we can pack the offset into the upper 19 bits of a u32
-// and the count into the lower 13 bits.
+// We use 32 bits to store the offset and counts so
+// we pack the offset into the upper 14 bits of a u32,
+// the point light count into bits 9-17, and the spotlight count into bits 0-8.
+//  [ 31     ..     18 | 17      ..      9 | 8      ..     0 ]
+//  [      offset      | point light count | spotlight count ]
 // NOTE: This assumes CPU and GPU endianness are the same which is true
 // for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
-fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
-    ((offset as u32 & CLUSTER_OFFSET_MASK) << CLUSTER_COUNT_SIZE)
-        | (count as u32 & CLUSTER_COUNT_MASK)
+fn pack_offset_and_counts(offset: usize, point_count: usize, spot_count: usize) -> u32 {
+    ((offset as u32 & CLUSTER_OFFSET_MASK) << (CLUSTER_COUNT_SIZE * 2))
+        | (point_count as u32 & CLUSTER_COUNT_MASK) << CLUSTER_COUNT_SIZE
+        | (spot_count as u32 & CLUSTER_COUNT_MASK)
 }
 
 enum ViewClusterBuffers {
@@ -1243,7 +1244,7 @@ enum ViewClusterBuffers {
     },
     Storage {
         cluster_light_index_lists: StorageBuffer<u32>,
-        cluster_offsets_and_counts: StorageBuffer<UVec2>,
+        cluster_offsets_and_counts: StorageBuffer<UVec4>,
     },
 }
 
@@ -1312,7 +1313,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn push_offset_and_count(&mut self, offset: usize, count: usize) {
+    pub fn push_offset_and_counts(&mut self, offset: usize, point_count: usize, spot_count: usize) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_offsets_and_counts,
@@ -1324,7 +1325,7 @@ impl ViewClusterBindings {
                     return;
                 }
                 let component = self.n_offsets & ((1 << 2) - 1);
-                let packed = pack_offset_and_count(offset, count);
+                let packed = pack_offset_and_counts(offset, point_count, spot_count);
 
                 cluster_offsets_and_counts.get_mut(0)[array_index][component] = packed;
             }
@@ -1332,7 +1333,12 @@ impl ViewClusterBindings {
                 cluster_offsets_and_counts,
                 ..
             } => {
-                cluster_offsets_and_counts.push(UVec2::new(offset as u32, count as u32));
+                cluster_offsets_and_counts.push(UVec4::new(
+                    offset as u32,
+                    point_count as u32,
+                    spot_count as u32,
+                    0,
+                ));
             }
         }
 
@@ -1352,7 +1358,7 @@ impl ViewClusterBindings {
                 let array_index = self.n_indices >> 4; // >> 4 is equivalent to / 16
                 let component = (self.n_indices >> 2) & ((1 << 2) - 1);
                 let sub_index = self.n_indices & ((1 << 2) - 1);
-                let index = index as u32 & POINT_LIGHT_INDEX_MASK;
+                let index = index as u32;
 
                 cluster_light_index_lists.get_mut(0)[array_index][component] |=
                     index << (8 * sub_index);
@@ -1447,8 +1453,11 @@ pub fn prepare_clusters(
                 for _z in 0..cluster_config.dimensions.z {
                     let offset = view_clusters_bindings.n_indices();
                     let cluster_lights = &extracted_clusters.data[cluster_index];
-                    let count = cluster_lights.len();
-                    view_clusters_bindings.push_offset_and_count(offset, count);
+                    view_clusters_bindings.push_offset_and_counts(
+                        offset,
+                        cluster_lights.point_light_count,
+                        cluster_lights.spotlight_count,
+                    );
 
                     if !indices_full {
                         for entity in cluster_lights.iter() {

@@ -442,6 +442,8 @@ pub fn add_clusters(
 #[derive(Clone, Component, Debug, Default)]
 pub struct VisiblePointLights {
     pub(crate) entities: Vec<Entity>,
+    pub point_light_count: usize,
+    pub spotlight_count: usize,
 }
 
 impl VisiblePointLights {
@@ -705,18 +707,18 @@ fn compute_aabb_for_cluster(
     Aabb::from_min_max(cluster_min, cluster_max)
 }
 
-// Sort point lights with shadows enabled first, then by point-light vs spot-light,
+// Sort lights by point-light vs spot-light, then those with shadows enabled first,
+// we keep pointlights separated from spotlights so that counts
 // then by a stable key so that the index can be used to render at most
 // `point_light_shadow_maps_count` point light shadows and `spot_shadow_maps_count` spotlight shadow maps.
 pub(crate) fn point_light_order(
     (entity_1, shadows_enabled_1, is_spotlight_1): (&Entity, &bool, &bool),
     (entity_2, shadows_enabled_2, is_spotlight_2): (&Entity, &bool, &bool),
 ) -> std::cmp::Ordering {
-    shadows_enabled_1
-        .cmp(shadows_enabled_2)
-        .reverse()
-        .then_with(|| is_spotlight_1.cmp(is_spotlight_2))
-        .then_with(|| entity_1.cmp(entity_2))
+    is_spotlight_1
+        .cmp(is_spotlight_2) // pointlights before spotlights
+        .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
+        .then_with(|| entity_1.cmp(entity_2)) // stable
 }
 
 #[derive(Clone, Copy)]
@@ -1015,6 +1017,8 @@ pub(crate) fn assign_lights_to_clusters(
 
         for lights in clusters.lights.iter_mut() {
             lights.entities.clear();
+            lights.point_light_count = 0;
+            lights.spotlight_count = 0;
         }
         let cluster_count =
             (clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z) as usize;
@@ -1286,6 +1290,7 @@ pub(crate) fn assign_lights_to_clusters(
                                 if !angle_cull && !front_cull && !back_cull {
                                     // this cluster is affected by the spotlight
                                     clusters.lights[cluster_index].entities.push(light.entity);
+                                    clusters.lights[cluster_index].spotlight_count += 1;
                                 }
                                 cluster_index += clusters.dimensions.z as usize;
                             }
@@ -1293,6 +1298,10 @@ pub(crate) fn assign_lights_to_clusters(
                             for _ in min_x..=max_x {
                                 // all clusters within range are affected by point lights
                                 clusters.lights[cluster_index].entities.push(light.entity);
+                                clusters.lights[cluster_index].point_light_count += 1;
+                                if clusters.lights[cluster_index].spotlight_count > 0 {
+                                    println!("spots before points");
+                                }
                                 cluster_index += clusters.dimensions.z as usize;
                             }
                         }
@@ -1308,9 +1317,10 @@ pub(crate) fn assign_lights_to_clusters(
         } else {
             let mut entities = Vec::new();
             update_from_light_intersections(&mut entities);
-            commands
-                .entity(view_entity)
-                .insert(VisiblePointLights { entities });
+            commands.entity(view_entity).insert(VisiblePointLights {
+                entities,
+                ..Default::default()
+            });
         }
     }
 }

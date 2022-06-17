@@ -267,18 +267,19 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: b
 }
 
 // this must match CLUSTER_COUNT_SIZE in light.rs
-let CLUSTER_COUNT_SIZE = 13u;
-fn unpack_offset_and_count(cluster_index: u32) -> vec2<u32> {
+let CLUSTER_COUNT_SIZE = 9u;
+fn unpack_offset_and_counts(cluster_index: u32) -> vec3<u32> {
 #ifdef NO_STORAGE_BUFFERS_SUPPORT
-    let offset_and_count = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
-    return vec2<u32>(
-        // The offset is stored in the upper 32 - CLUSTER_COUNT_SIZE = 19 bits
-        (offset_and_count >> CLUSTER_COUNT_SIZE) & ((1u << 32u - CLUSTER_COUNT_SIZE) - 1u),
-        // The count is stored in the lower CLUSTER_COUNT_SIZE = 13 bits
-        offset_and_count & ((1u << CLUSTER_COUNT_SIZE) - 1u)
+    let offset_and_counts = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
+    //  [ 31     ..     18 | 17      ..      9 | 8      ..     0 ]
+    //  [      offset      | point light count | spotlight count ]
+    return vec3<u32>(
+        (offset_and_counts >> (CLUSTER_COUNT_SIZE * 2u)) & ((1u << (32u - (CLUSTER_COUNT_SIZE * 2u))) - 1u),
+        (offset_and_counts >> CLUSTER_COUNT_SIZE)        & ((1u << CLUSTER_COUNT_SIZE) - 1u),
+        offset_and_counts                                & ((1u << CLUSTER_COUNT_SIZE) - 1u),
     );
 #else
-    return cluster_offsets_and_counts.data[cluster_index];
+    return cluster_offsets_and_counts.data[cluster_index].xyz;
 #endif
 }
 
@@ -302,24 +303,6 @@ fn point_light(
     let distance_square = dot(light_to_frag, light_to_frag);
     let rangeAttenuation =
         getDistanceAttenuation(distance_square, light.color_inverse_square_range.w);
-
-    var spot_attenuation = 1.0;
-    if ((light.flags & POINT_LIGHT_FLAGS_IS_SPOTLIGHT_BIT) != 0u) {
-        var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
-        // reconstruct spot dir from x/z and y-direction flag
-        spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
-        if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Y_NEGATIVE) != 0u) {
-            spot_dir.y = -spot_dir.y;
-        }
-
-        // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
-        // spot_scale and spot_offset have been precomputed
-
-        // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
-        let cd = dot(-spot_dir, normalize(light_to_frag));
-        let attenuation = saturate(cd * light.light_custom_data.z + light.light_custom_data.w);
-        spot_attenuation = attenuation * attenuation;
-    }
 
     // Specular.
     // Representative Point Area Lights.
@@ -364,7 +347,32 @@ fn point_light(
 
     // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
 
-    return ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL) * spot_attenuation;
+    return ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
+}
+
+fn spot_light(
+    world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
+    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
+) -> vec3<f32> {
+    // reuse the point light calculations
+    let point = point_light(world_position, light, roughness, NdotV, N, V, R, F0, diffuseColor);
+
+    // reconstruct spot dir from x/z and y-direction flag
+    var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
+    spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
+    if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Y_NEGATIVE) != 0u) {
+        spot_dir.y = -spot_dir.y;
+    }
+    let light_to_frag = light.position_radius.xyz - world_position.xyz;
+
+    // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
+    // spot_scale and spot_offset have been precomputed
+    // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
+    let cd = dot(-spot_dir, normalize(light_to_frag));
+    let attenuation = saturate(cd * light.light_custom_data.z + light.light_custom_data.w);
+    let spot_attenuation = attenuation * attenuation;
+
+    return point * spot_attenuation;
 }
 
 fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
@@ -386,59 +394,6 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     let light = point_lights.data[light_id];
 
     let surface_to_light = light.position_radius.xyz - frag_position.xyz;
-
-    if ((light.flags & POINT_LIGHT_FLAGS_IS_SPOTLIGHT_BIT) != 0u) {
-        // construct the light view matrix
-        var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
-        // reconstruct spot dir from x/z and y-direction flag
-        spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
-        if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Y_NEGATIVE) != 0u) {
-            spot_dir.y = -spot_dir.y;
-        }
-
-        // view matrix z_axis is the reverse of transform.forward()
-        let fwd = -spot_dir;
-        let distance_to_light = dot(fwd, surface_to_light);
-        let offset_position = 
-            -surface_to_light 
-            + (light.shadow_depth_bias * normalize(surface_to_light)) 
-            + (surface_normal.xyz * light.shadow_normal_bias) * distance_to_light;
-
-        // the construction of the up and right vectors needs to precisely mirror the code 
-        // in render/light.rs:spotlight_view_matrix
-        var sign = -1.0;
-        if (fwd.z >= 0.0) {
-            sign = 1.0;
-        }
-        let a = -1.0 / (fwd.z + sign);
-        let b = fwd.x * fwd.y * a;
-        let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
-        let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
-        let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
-
-        // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate 
-        // the product of the transpose with a vector we can just post-multiply instead of pre-multplying. 
-        // this allows us to keep the matrix construction code identical between CPU and GPU.
-        let projected_position = offset_position * light_inv_rot;
-
-        // divide xy by perspective matrix "f" and by -projected.z (projected.z is -projection matrix's w)
-        // to get ndc coordinates
-        let f_div_minus_z = 1.0 / (light.spotlight_tan_angle * -projected_position.z);
-        let shadow_xy_ndc = projected_position.xy * f_div_minus_z;
-        // convert to uv coordinates
-        let shadow_uv = shadow_xy_ndc * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);
-
-        // 0.1 must match POINT_LIGHT_NEAR_Z
-        let depth = 0.1 / -projected_position.z;
-
-        #ifdef NO_ARRAY_TEXTURES_SUPPORT
-            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
-                shadow_uv, depth);
-        #else
-            return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
-                shadow_uv, i32(light_id) + lights.spotlight_shadowmap_offset, depth);
-        #endif
-    }
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
@@ -475,6 +430,63 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
 #else
     return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
 #endif
+}
+
+fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
+    let light = point_lights.data[light_id];
+
+    let surface_to_light = light.position_radius.xyz - frag_position.xyz;
+
+    // construct the light view matrix
+    var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
+    // reconstruct spot dir from x/z and y-direction flag
+    spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
+    if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Y_NEGATIVE) != 0u) {
+        spot_dir.y = -spot_dir.y;
+    }
+
+    // view matrix z_axis is the reverse of transform.forward()
+    let fwd = -spot_dir;
+    let distance_to_light = dot(fwd, surface_to_light);
+    let offset_position = 
+        -surface_to_light 
+        + (light.shadow_depth_bias * normalize(surface_to_light)) 
+        + (surface_normal.xyz * light.shadow_normal_bias) * distance_to_light;
+
+    // the construction of the up and right vectors needs to precisely mirror the code 
+    // in render/light.rs:spotlight_view_matrix
+    var sign = -1.0;
+    if (fwd.z >= 0.0) {
+        sign = 1.0;
+    }
+    let a = -1.0 / (fwd.z + sign);
+    let b = fwd.x * fwd.y * a;
+    let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
+    let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
+    let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+
+    // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate 
+    // the product of the transpose with a vector we can just post-multiply instead of pre-multplying. 
+    // this allows us to keep the matrix construction code identical between CPU and GPU.
+    let projected_position = offset_position * light_inv_rot;
+
+    // divide xy by perspective matrix "f" and by -projected.z (projected.z is -projection matrix's w)
+    // to get ndc coordinates
+    let f_div_minus_z = 1.0 / (light.spotlight_tan_angle * -projected_position.z);
+    let shadow_xy_ndc = projected_position.xy * f_div_minus_z;
+    // convert to uv coordinates
+    let shadow_uv = shadow_xy_ndc * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);
+
+    // 0.1 must match POINT_LIGHT_NEAR_Z
+    let depth = 0.1 / -projected_position.z;
+
+    #ifdef NO_ARRAY_TEXTURES_SUPPORT
+        return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
+            shadow_uv, depth);
+    #else
+        return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
+            shadow_uv, i32(light_id) + lights.spotlight_shadowmap_offset, depth);
+    #endif
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
@@ -665,8 +677,10 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             view.inverse_view[3].z
         ), in.world_position);
         let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, is_orthographic);
-        let offset_and_count = unpack_offset_and_count(cluster_index);
-        for (var i: u32 = offset_and_count[0]; i < offset_and_count[0] + offset_and_count[1]; i = i + 1u) {
+        let offset_and_counts = unpack_offset_and_counts(cluster_index);
+
+        // point lights
+        for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
             let light_id = get_light_id(i);
             let light = point_lights.data[light_id];
             var shadow: f32 = 1.0;
@@ -678,6 +692,20 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             light_accum = light_accum + light_contrib * shadow;
         }
 
+        // spotlights
+        for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
+            let light_id = get_light_id(i);
+            let light = point_lights.data[light_id];
+            var shadow: f32 = 1.0;
+            if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                    && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
+            }
+            let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
+            light_accum = light_accum + light_contrib * shadow;
+        }
+
+        // directional lights
         let n_directional_lights = lights.n_directional_lights;
         for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
             let light = lights.directional_lights[i];
