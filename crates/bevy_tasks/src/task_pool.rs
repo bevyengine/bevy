@@ -1,5 +1,6 @@
 use crate::executor::{Executor, LocalExecutor};
 pub use crate::task_pool_builder::*;
+use event_listener::Event;
 use futures_lite::{future, pin};
 use once_cell::sync::OnceCell;
 use std::{
@@ -49,7 +50,7 @@ pub struct TaskPool {
     /// Inner state of the pool
     groups: Groups,
     threads: Vec<JoinHandle<()>>,
-    shutdown_tx: async_channel::Sender<()>,
+    shutdown: Event,
 }
 
 impl TaskPool {
@@ -79,8 +80,7 @@ impl TaskPool {
     }
 
     pub(crate) fn new_internal(builder: TaskPoolBuilder) -> Self {
-        let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
-
+        let shutdown = Event::new();
         let mut groups = Groups::default();
         let total_threads =
             crate::logical_core_count().clamp(builder.min_total_threads, builder.max_total_threads);
@@ -118,37 +118,33 @@ impl TaskPool {
         let executor = Arc::new(Executor::new(&thread_counts));
         let mut threads = Vec::with_capacity(total_threads);
         threads.extend((0..groups.compute).map(|i| {
-            let shutdown_rx = shutdown_rx.clone();
+            let shutdown = shutdown.listen();
             let executor = executor.clone();
             make_thread_builder(&builder, "Compute", i)
                 .spawn(move || {
-                    let future =
-                        executor.run(TaskGroup::Compute.to_priority(), i, shutdown_rx.recv());
-                    // Use unwrap_err because we expect a Closed error
-                    future::block_on(future).unwrap_err();
+                    future::block_on(executor.run(TaskGroup::Compute.to_priority(), i, shutdown));
                 })
                 .expect("Failed to spawn thread.")
         }));
         threads.extend((0..groups.io).map(|i| {
-            let shutdown_rx = shutdown_rx.clone();
+            let shutdown = shutdown.listen();
             let executor = executor.clone();
             make_thread_builder(&builder, "IO", i)
                 .spawn(move || {
-                    let future = executor.run(TaskGroup::IO.to_priority(), i, shutdown_rx.recv());
-                    // Use unwrap_err because we expect a Closed error
-                    future::block_on(future).unwrap_err();
+                    future::block_on(executor.run(TaskGroup::IO.to_priority(), i, shutdown));
                 })
                 .expect("Failed to spawn thread.")
         }));
         threads.extend((0..groups.async_compute).map(|i| {
-            let shutdown_rx = shutdown_rx.clone();
+            let shutdown = shutdown.listen();
             let executor = executor.clone();
             make_thread_builder(&builder, "Async Compute", i)
                 .spawn(move || {
-                    let future =
-                        executor.run(TaskGroup::AsyncCompute.to_priority(), i, shutdown_rx.recv());
-                    // Use unwrap_err because we expect a Closed error
-                    future::block_on(future).unwrap_err();
+                    future::block_on(executor.run(
+                        TaskGroup::AsyncCompute.to_priority(),
+                        i,
+                        shutdown,
+                    ));
                 })
                 .expect("Failed to spawn thread.")
         }));
@@ -157,7 +153,7 @@ impl TaskPool {
             executor,
             groups,
             threads,
-            shutdown_tx,
+            shutdown,
         }
     }
 
@@ -293,7 +289,7 @@ impl Default for TaskPool {
 
 impl Drop for TaskPool {
     fn drop(&mut self) {
-        self.shutdown_tx.close();
+        self.shutdown.notify_additional_relaxed(usize::MAX);
 
         let panicking = thread::panicking();
         for join_handle in self.threads.drain(..) {
