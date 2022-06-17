@@ -1,10 +1,11 @@
 use crate as bevy_reflect;
 use crate::{
-    map_partial_eq, serde::Serializable, Array, ArrayIter, DynamicMap, FromReflect, FromType,
-    GetTypeRegistration, List, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    TypeRegistration,
+    map_partial_eq, serde::Serializable, Array, ArrayInfo, ArrayIter, DynamicMap, FromReflect,
+    FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter, Reflect,
+    ReflectDeserialize, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, ValueInfo,
 };
 
+use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
@@ -110,6 +111,10 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
         std::any::type_name::<Self>()
     }
 
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     fn any(&self) -> &dyn Any {
         self
     }
@@ -157,6 +162,13 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
 
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+}
+
+impl<T: FromReflect> Typed for Vec<T> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
     }
 }
 
@@ -228,6 +240,10 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         std::any::type_name::<Self>()
     }
 
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     fn any(&self) -> &dyn Any {
         self
     }
@@ -275,6 +291,13 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
+    }
+}
+
+impl<K: Reflect + Eq + Hash, V: Reflect> Typed for HashMap<K, V> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
     }
 }
 
@@ -336,6 +359,10 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
     #[inline]
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
+    }
+
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
     }
 
     #[inline]
@@ -414,6 +441,13 @@ impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
     }
 }
 
+impl<T: Reflect, const N: usize> Typed for [T; N] {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(N)))
+    }
+}
+
 // TODO:
 // `FromType::from_type` requires `Deserialize<'de>` to be implemented for `T`.
 // Currently serde only supports `Deserialize<'de>` for arrays up to size 32.
@@ -444,6 +478,10 @@ impl_array_get_type_registration! {
 unsafe impl Reflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
+    }
+
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
     }
 
     fn any(&self) -> &dyn Any {
@@ -506,6 +544,13 @@ unsafe impl Reflect for Cow<'static, str> {
 
     fn serializable(&self) -> Option<Serializable> {
         Some(Serializable::Borrowed(self))
+    }
+}
+
+impl Typed for Cow<'static, str> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
 

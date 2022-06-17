@@ -1,7 +1,11 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 
-use crate::{serde::Serializable, Array, ArrayIter, DynamicArray, Reflect, ReflectMut, ReflectRef};
+use crate::utility::NonGenericTypeInfoCell;
+use crate::{
+    serde::Serializable, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect,
+    ReflectMut, ReflectRef, TypeInfo, Typed,
+};
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
 ///
@@ -17,6 +21,61 @@ pub trait List: Reflect + Array {
             name: self.type_name().to_string(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
+    }
+}
+
+/// A container for compile-time list info.
+#[derive(Clone, Debug)]
+pub struct ListInfo {
+    type_name: &'static str,
+    type_id: TypeId,
+    item_type_name: &'static str,
+    item_type_id: TypeId,
+}
+
+impl ListInfo {
+    /// Create a new [`ListInfo`].
+    pub fn new<TList: List, TItem: FromReflect>() -> Self {
+        Self {
+            type_name: std::any::type_name::<TList>(),
+            type_id: TypeId::of::<TList>(),
+            item_type_name: std::any::type_name::<TItem>(),
+            item_type_id: TypeId::of::<TItem>(),
+        }
+    }
+
+    /// The [type name] of the list.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
+    }
+
+    /// The [`TypeId`] of the list.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the list type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [type name] of the list item.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn item_type_name(&self) -> &'static str {
+        self.item_type_name
+    }
+
+    /// The [`TypeId`] of the list item.
+    pub fn item_type_id(&self) -> TypeId {
+        self.item_type_id
+    }
+
+    /// Check if the given type matches the list item type.
+    pub fn item_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.item_type_id
     }
 }
 
@@ -112,6 +171,11 @@ unsafe impl Reflect for DynamicList {
     }
 
     #[inline]
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
     fn any(&self) -> &dyn Any {
         self
     }
@@ -179,6 +243,13 @@ unsafe impl Reflect for DynamicList {
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl Typed for DynamicList {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

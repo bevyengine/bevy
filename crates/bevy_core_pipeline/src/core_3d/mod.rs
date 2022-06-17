@@ -31,7 +31,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::TextureCache,
-    view::{ExtractedView, ViewDepthTexture},
+    view::ViewDepthTexture,
     RenderApp, RenderStage,
 };
 use bevy_utils::{FloatOrd, HashMap};
@@ -53,7 +53,7 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
             .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_phases)
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_views_system)
+            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_depth_textures)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
@@ -199,13 +199,13 @@ pub fn extract_core_3d_camera_phases(
     }
 }
 
-pub fn prepare_core_3d_views_system(
+pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedView, Option<&ExtractedCamera>),
+        (Entity, &ExtractedCamera),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -214,37 +214,34 @@ pub fn prepare_core_3d_views_system(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, view, camera) in views_3d.iter() {
-        let mut get_cached_texture = || {
-            texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("view_depth_texture"),
-                    size: Extent3d {
-                        depth_or_array_layers: 1,
-                        width: view.width as u32,
-                        height: view.height as u32,
-                    },
-                    mip_level_count: 1,
-                    sample_count: msaa.samples,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
-                                                          * bit depth for better performance */
-                    usage: TextureUsages::RENDER_ATTACHMENT,
-                },
-            )
-        };
-        let cached_texture = if let Some(camera) = camera {
-            textures
+    for (entity, camera) in views_3d.iter() {
+        if let Some(physical_target_size) = camera.physical_target_size {
+            let cached_texture = textures
                 .entry(camera.target.clone())
-                .or_insert_with(get_cached_texture)
-                .clone()
-        } else {
-            get_cached_texture()
-        };
-        commands.entity(entity).insert(ViewDepthTexture {
-            texture: cached_texture.texture,
-            view: cached_texture.default_view,
-        });
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("view_depth_texture"),
+                            size: Extent3d {
+                                depth_or_array_layers: 1,
+                                width: physical_target_size.x,
+                                height: physical_target_size.y,
+                            },
+                            mip_level_count: 1,
+                            sample_count: msaa.samples,
+                            dimension: TextureDimension::D2,
+                            format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
+                                                                  * bit depth for better performance */
+                            usage: TextureUsages::RENDER_ATTACHMENT,
+                        },
+                    )
+                })
+                .clone();
+            commands.entity(entity).insert(ViewDepthTexture {
+                texture: cached_texture.texture,
+                view: cached_texture.default_view,
+            });
+        }
     }
 }

@@ -97,12 +97,14 @@ Example | File | Description
 `sprite_flipping` | [`2d/sprite_flipping.rs`](./2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 `rotation` | [`2d/rotation.rs`](./2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
+`transparency_2d` | [`2d/transparency_2d.rs`](./2d/transparency_2d.rs) | Demonstrates transparency in 2d
 
 ## 3D Rendering
 
 Example | File | Description
 --- | --- | ---
 `3d_scene` | [`3d/3d_scene.rs`](./3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
+`3d_shapes` | [`3d/shapes.rs`](./3d/shapes.rs) | A scene showcasing the built-in 3D shapes
 `lighting` | [`3d/lighting.rs`](./3d/lighting.rs) | Illustrates various lighting options in a simple scene
 `load_gltf` | [`3d/load_gltf.rs`](./3d/load_gltf.rs) | Loads and renders a gltf file as a scene
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
@@ -113,12 +115,13 @@ Example | File | Description
 `shadow_caster_receiver` | [`3d/shadow_caster_receiver.rs`](./3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 `shadow_biases` | [`3d/shadow_biases.rs`](./3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 `spherical_area_lights` | [`3d/spherical_area_lights.rs`](./3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior.
+`split_screen` | [`3d/split_screen.rs`](./3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen".
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
+`transparency_3d` | [`3d/transparency_3d.rs`](./3d/transparency_3d.rs) | Demonstrates transparency in 3d
 `two_passes` | [`3d/two_passes.rs`](./3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives.
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `vertex_colors` | [`3d/vertex_colors.rs`](./3d/vertex_colors.rs) | Shows the use of vertex colors
 `wireframe` | [`3d/wireframe.rs`](./3d/wireframe.rs) | Showcases wireframe rendering
-`3d_shapes` | [`3d/shapes.rs`](./3d/shapes.rs) | A scene showcasing the built-in 3D shapes
 
 ## Animation
 
@@ -252,6 +255,7 @@ Example | File | Description
 `animate_shader` | [`shader/animate_shader.rs`](./shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup.
 `compute_shader_game_of_life` | [`shader/compute_shader_game_of_life.rs`](./shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life.
 `custom_vertex_attribute` | [`shader/custom_vertex_attribute.rs`](./shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute.
+`post_processing` | [`shader/post_processing.rs`](./shader/post_processing.rs) | A custom post processing effect, using two cameras, with one reusing the render texture of the first one.
 `shader_defs` | [`shader/shader_defs.rs`](./shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader).
 `shader_instancing` | [`shader/shader_instancing.rs`](./shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call.
 `shader_material` | [`shader/shader_material.rs`](./shader/shader_material.rs) | A shader and a material that uses it.
@@ -307,6 +311,7 @@ Example | File | Description
 `font_atlas_debug` | [`ui/font_atlas_debug.rs`](./ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 `text` | [`ui/text.rs`](./ui/text.rs) | Illustrates creating and updating text
 `text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
+`transparency_ui` | [`ui/transparency_ui.rs`](./ui/transparency_ui.rs) | Demonstrates transparency for UI
 `ui` | [`ui/ui.rs`](./ui/ui.rs) | Illustrates various features of Bevy UI
 
 ## Window

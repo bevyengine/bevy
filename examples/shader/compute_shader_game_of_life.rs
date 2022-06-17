@@ -25,7 +25,7 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(WindowDescriptor {
             // uncomment for unthrottled FPS
-            // vsync: false,
+            // present_mode: bevy::window::PresentMode::Immediate,
             ..default()
         })
         .add_plugins(DefaultPlugins)
