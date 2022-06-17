@@ -603,10 +603,6 @@ unsafe fn AvgTSpace(mut pTS0: *const STSpace, mut pTS1: *const STSpace) -> STSpa
     return ts_res;
 }
 
-fn NotZero(fX: f32) -> bool {
-    fX.is_normal()
-}
-
 unsafe fn EvalTspace(
     mut face_indices: *mut i32,
     iFaces: i32,
@@ -865,7 +861,7 @@ unsafe fn InitTriInfo(
                 .iFlag
                 .insert(TriangleFlags::ORIENT_PRESERVING);
         }
-        if NotZero(fSignedAreaSTx2) {
+        if fSignedAreaSTx2.is_normal() {
             let fAbsArea: f32 = fSignedAreaSTx2.abs();
             let fLenOs: f32 = vOs.length();
             let fLenOt: f32 = vOt.length();
@@ -877,16 +873,16 @@ unsafe fn InitTriInfo(
             } else {
                 1.0f32
             };
-            if NotZero(fLenOs) {
+            if fLenOs.is_normal() {
                 (*pTriInfos.offset(f as isize)).vOs = (fS / fLenOs) * vOs
             }
-            if NotZero(fLenOt) {
+            if fLenOt.is_normal() {
                 (*pTriInfos.offset(f as isize)).vOt = (fS / fLenOt) * vOt
             }
             (*pTriInfos.offset(f as isize)).fMagS = fLenOs / fAbsArea;
             (*pTriInfos.offset(f as isize)).fMagT = fLenOt / fAbsArea;
-            if NotZero((*pTriInfos.offset(f as isize)).fMagS)
-                && NotZero((*pTriInfos.offset(f as isize)).fMagT)
+            if ((*pTriInfos.offset(f as isize)).fMagS.is_normal())
+                && (*pTriInfos.offset(f as isize)).fMagT.is_normal()
             {
                 (*pTriInfos.offset(f as isize))
                     .iFlag
