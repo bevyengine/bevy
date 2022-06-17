@@ -190,7 +190,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// use bevy_reflect_derive::register_all;
 ///
 /// trait MyTrait {}
