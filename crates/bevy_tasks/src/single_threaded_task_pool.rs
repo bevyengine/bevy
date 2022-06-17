@@ -1,4 +1,4 @@
-use crate::executor::LocalExecutor;
+use crate::local_executor::LocalExecutor;
 pub use crate::task_pool_builder::TaskPoolBuilder;
 use crate::TaskGroup;
 use once_cell::sync::OnceCell;

@@ -1,13 +1,15 @@
 #![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
-mod executor;
+mod local_executor;
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
 mod task;
 pub use task::{Task, TaskGroup};
 
+#[cfg(not(target_arch = "wasm32"))]
+mod executor;
 #[cfg(not(target_arch = "wasm32"))]
 mod task_pool;
 #[cfg(not(target_arch = "wasm32"))]

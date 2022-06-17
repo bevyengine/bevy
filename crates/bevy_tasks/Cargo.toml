@@ -9,19 +9,21 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-futures-lite = "1.4.0"
-num_cpus = "1"
-tracing = "0.1"
-st3 = "0.1"
 concurrent-queue = "1.2"
 async-task = "4.2"
-fastrand = "1.1"
-parking_lot = "0.11"
 once_cell = "1.7"
-event-listener = "2.5"
+num_cpus = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+futures-lite = "1.4.0"
+tracing = "0.1"
+st3 = "0.1"
+fastrand = "1.1"
+parking_lot = "0.11"
+event-listener = "2.5"
 
 [dev-dependencies]
 instant = { version = "0.1", features = ["wasm-bindgen"] }

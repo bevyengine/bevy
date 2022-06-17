@@ -39,6 +39,7 @@ impl TaskGroupBuilder {
     }
 
     /// Determine the number of threads to use for this task pool
+    #[allow(dead_code)] // This is unused on wasm32 platforms
     pub(crate) fn get_number_of_threads(
         &self,
         remaining_threads: usize,

@@ -30,8 +30,11 @@ pub enum TaskGroup {
 }
 
 impl TaskGroup {
+    // This is unused on wasm32 platforms.
+    #[allow(dead_code)]
     pub(crate) const MAX_PRIORITY: usize = Self::Compute.to_priority() + 1;
 
+    // This is unused on wasm32 platforms.
     pub(crate) const fn to_priority(self) -> usize {
         match self {
             Self::AsyncCompute => 0,
@@ -51,11 +54,11 @@ impl TaskGroup {
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
 /// Wraps `async_executor::Task`
 #[derive(Debug)]
-pub struct Task<T>(crate::executor::Task<T>);
+pub struct Task<T>(async_task::Task<T>);
 
 impl<T> Task<T> {
     /// Creates a new task from a given `async_executor::Task`
-    pub fn new(task: crate::executor::Task<T>) -> Self {
+    pub fn new(task: async_task::Task<T>) -> Self {
         Self(task)
     }
 

@@ -1,4 +1,7 @@
-use crate::executor::{Executor, LocalExecutor};
+use crate::{
+    executor::Executor,
+    local_executor::LocalExecutor,
+};
 pub use crate::task_pool_builder::*;
 use event_listener::Event;
 use futures_lite::{future, pin};
