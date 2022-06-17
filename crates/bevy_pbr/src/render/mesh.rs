@@ -149,6 +149,7 @@ pub fn extract_meshes(
             entity,
             (
                 handle.clone_weak(),
+                DynamicUniformIndex::<MeshUniform>::default(),
                 MeshUniform {
                     flags: if not_receiver.is_some() {
                         MeshFlags::empty().bits
@@ -174,6 +175,7 @@ pub fn extract_meshes(
             entity,
             (
                 mesh.clone_weak(),
+                DynamicUniformIndex::<MeshUniform>::default(),
                 MeshUniform {
                     flags: if not_receiver.is_some() {
                         MeshFlags::empty().bits

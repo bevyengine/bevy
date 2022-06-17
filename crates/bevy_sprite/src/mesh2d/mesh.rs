@@ -128,6 +128,7 @@ pub fn extract_mesh2d(
             entity,
             (
                 Mesh2dHandle(handle.0.clone_weak()),
+                DynamicUniformIndex::<Mesh2dUniform>::default(),
                 Mesh2dUniform {
                     flags: MeshFlags::empty().bits,
                     transform,

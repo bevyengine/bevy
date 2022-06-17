@@ -15,7 +15,7 @@ use bevy_ecs::{
 use std::{marker::PhantomData, ops::Deref};
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].
-#[derive(Component)]
+#[derive(Component, Copy)]
 pub struct DynamicUniformIndex<C: Component> {
     index: u32,
     marker: PhantomData<C>,
@@ -25,6 +25,24 @@ impl<C: Component> DynamicUniformIndex<C> {
     #[inline]
     pub fn index(&self) -> u32 {
         self.index
+    }
+}
+
+impl<C: Component> Default for DynamicUniformIndex<C> {
+    fn default() -> Self {
+        Self {
+            index: 0,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<C: Component> Clone for DynamicUniformIndex<C> {
+    fn clone(&self) -> Self {
+        Self {
+            index: self.index,
+            marker: PhantomData,
+        }
     }
 }
 
@@ -100,28 +118,17 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
 /// This system prepares all components of the corresponding component type.
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
 fn prepare_uniform_components<C: Component>(
-    mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
-    components: Query<(Entity, &C)>,
+    mut components: Query<(&C, &mut DynamicUniformIndex<C>)>,
 ) where
     C: ShaderType + WriteInto + Clone,
 {
     component_uniforms.uniforms.clear();
-    let entities = components
-        .iter()
-        .map(|(entity, component)| {
-            (
-                entity,
-                (DynamicUniformIndex::<C> {
-                    index: component_uniforms.uniforms.push(component.clone()),
-                    marker: PhantomData,
-                },),
-            )
-        })
-        .collect::<Vec<_>>();
-    commands.insert_or_spawn_batch(entities);
+    for (component, mut dynamic) in components.iter_mut() {
+        dynamic.index = component_uniforms.uniforms.push(component.clone());
+    }
 
     component_uniforms
         .uniforms
