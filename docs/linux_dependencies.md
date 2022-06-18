@@ -26,27 +26,34 @@ Compiling with clang is also possible - replace the `g++` package with `clang`.
 WSL2's virtual GPU Driver only supports OpenGL, requiring you to cross-compile for Windows within WSL and then run the build on Windows. (See [#841](https://github.com/bevyengine/bevy/issues/841) and [#7790](https://github.com/microsoft/WSL/issues/7790))
 
 #### Dependencies
+
 First install the MinGW toolchain
+
 ```bash
 sudo apt-get install mingw-w64
 ```
 
 Add the rust target
+
 ```bash
 rustup target add x86_64-pc-windows-gnu
 ```
 
 #### Usage
+
 Place the following into `.cargo/config.toml` for your project
+
 ```toml
 [build]
 target = "x86_64-pc-windows-gnu"
 ```
 
 Alternatively to changing your config, when building or running specify the target manually
+
 ```bash
 cargo build --target x86_64-pc-windows-gnu
 ```
+
 ```bash
 cargo run --target x86_64-pc-windows-gnu
 ```
