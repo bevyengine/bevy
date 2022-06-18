@@ -10,18 +10,17 @@ use crate::{
     storage::TableId,
     world::{World, WorldId},
 };
-use bevy_tasks::{ComputeTaskPool, TaskPool};
+use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
-use std::{fmt, ops::Deref};
+use std::{borrow::Borrow, fmt};
 
-use super::{QueryFetch, QueryItem, ROQueryFetch, ROQueryItem};
+use super::{QueryFetch, QueryItem, QueryManyIter, ROQueryFetch, ROQueryItem};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
     world_id: WorldId,
-    task_pool: Option<TaskPool>,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
@@ -48,13 +47,16 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         let filter_state = <F::State as FetchState>::init(world);
 
         let mut component_access = FilteredAccess::default();
-        fetch_state.update_component_access(&mut component_access);
+        QueryFetch::<'static, Q>::update_component_access(&fetch_state, &mut component_access);
 
         // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
         // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
         // because they are evaluated *before* a specific reference is constructed.
         let mut filter_component_access = FilteredAccess::default();
-        filter_state.update_component_access(&mut filter_component_access);
+        QueryFetch::<'static, F>::update_component_access(
+            &filter_state,
+            &mut filter_component_access,
+        );
 
         // Merge the temporary filter access with the main access. This ensures that filter access is
         // properly considered in a global "cross-query" context (both within systems and across systems).
@@ -62,9 +64,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
         let mut state = Self {
             world_id: world.id(),
-            task_pool: world
-                .get_resource::<ComputeTaskPool>()
-                .map(|task_pool| task_pool.deref().clone()),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
             matched_archetype_ids: Vec::new(),
@@ -126,10 +125,16 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                 .filter_state
                 .matches_component_set(&|id| archetype.contains(id))
         {
-            self.fetch_state
-                .update_archetype_component_access(archetype, &mut self.archetype_component_access);
-            self.filter_state
-                .update_archetype_component_access(archetype, &mut self.archetype_component_access);
+            QueryFetch::<'static, Q>::update_archetype_component_access(
+                &self.fetch_state,
+                archetype,
+                &mut self.archetype_component_access,
+            );
+            QueryFetch::<'static, F>::update_archetype_component_access(
+                &self.filter_state,
+                archetype,
+                &mut self.archetype_component_access,
+            );
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow(archetype_index + 1);
@@ -556,6 +561,32 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
+    ///
+    /// This can only return immutable data (mutable data will be cast to an immutable form).
+    /// See [`Self::many_for_each_mut`] for queries that contain at least one mutable component.
+    ///
+    #[inline]
+    pub fn iter_many<'w, 's, EntityList: IntoIterator>(
+        &'s mut self,
+        world: &'w World,
+        entities: EntityList,
+    ) -> QueryManyIter<'w, 's, Q, ROQueryFetch<'w, Q>, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // SAFETY: query is read only
+        unsafe {
+            self.update_archetypes(world);
+            self.iter_many_unchecked_manual(
+                entities,
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
     /// # Safety
@@ -609,6 +640,35 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         change_tick: u32,
     ) -> QueryIter<'w, 's, Q, QF, F> {
         QueryIter::new(world, self, last_change_tick, change_tick)
+    }
+
+    /// Returns an [`Iterator`] for the given [`World`] and list of [`Entity`]'s, where the last change and
+    /// the current change tick are given.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// this does not check for entity uniqueness
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    #[inline]
+    pub(crate) unsafe fn iter_many_unchecked_manual<
+        'w,
+        's,
+        QF: Fetch<'w, State = Q::State>,
+        EntityList: IntoIterator,
+    >(
+        &'s self,
+        entities: EntityList,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> QueryManyIter<'w, 's, Q, QF, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        QueryManyIter::new(world, self, entities, last_change_tick, change_tick)
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
@@ -699,8 +759,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// write-queries.
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
     pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
@@ -724,8 +784,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
     pub fn par_for_each_mut<'w, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
@@ -751,8 +811,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// This can only be called for read-only queries.
     ///
     /// # Panics
-    /// [`ComputeTaskPool`] was not stored in the world at initialzation. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
     ///
@@ -773,6 +833,29 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             world.last_change_tick(),
             world.read_change_tick(),
         );
+    }
+
+    /// Runs `func` on each query result where the entities match.
+    #[inline]
+    pub fn many_for_each_mut<EntityList: IntoIterator>(
+        &mut self,
+        world: &mut World,
+        entities: EntityList,
+        func: impl FnMut(QueryItem<'_, Q>),
+    ) where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // SAFETY: query has unique world access
+        unsafe {
+            self.update_archetypes(world);
+            self.many_for_each_unchecked_manual(
+                world,
+                entities,
+                func,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            );
+        };
     }
 
     /// Runs `func` on each query result for the given [`World`], where the last change and
@@ -797,7 +880,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         change_tick: u32,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::many_for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = <QueryFetch<F> as Fetch>::init(
             world,
@@ -846,8 +929,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Panics
-    /// [`ComputeTaskPool`] was not stored in the world at initialzation. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
     ///
@@ -868,117 +951,165 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         change_tick: u32,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        self.task_pool
-            .as_ref()
-            .expect("Cannot iterate query in parallel. No ComputeTaskPool initialized.")
-            .scope(|scope| {
-                if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
-                    let tables = &world.storages().tables;
-                    for table_id in &self.matched_table_ids {
-                        let table = &tables[*table_id];
-                        let mut offset = 0;
-                        while offset < table.len() {
-                            let func = func.clone();
-                            let len = batch_size.min(table.len() - offset);
-                            let task = async move {
-                                let mut fetch = QF::init(
-                                    world,
-                                    &self.fetch_state,
-                                    last_change_tick,
-                                    change_tick,
-                                );
-                                let mut filter = <QueryFetch<F> as Fetch>::init(
-                                    world,
-                                    &self.filter_state,
-                                    last_change_tick,
-                                    change_tick,
-                                );
-                                let tables = &world.storages().tables;
-                                let table = &tables[*table_id];
-                                let entities = table.entities();
-                                fetch.set_table(&self.fetch_state, table);
-                                filter.set_table(&self.filter_state, table);
-                                for row in offset..offset + len {
-                                    let entity = entities.get_unchecked(row);
-                                    if !filter.filter_fetch(entity, &row) {
-                                        continue;
-                                    }
-                                    let item = fetch.fetch(entity, &row);
-                                    func(item);
-                                }
-                            };
-                            #[cfg(feature = "trace")]
-                            let span = bevy_utils::tracing::info_span!(
-                                "par_for_each",
-                                query = std::any::type_name::<Q>(),
-                                filter = std::any::type_name::<F>(),
-                                count = len,
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::many_for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        ComputeTaskPool::get().scope(|scope| {
+            if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
+                let tables = &world.storages().tables;
+                for table_id in &self.matched_table_ids {
+                    let table = &tables[*table_id];
+                    let mut offset = 0;
+                    while offset < table.len() {
+                        let func = func.clone();
+                        let len = batch_size.min(table.len() - offset);
+                        let task = async move {
+                            let mut fetch =
+                                QF::init(world, &self.fetch_state, last_change_tick, change_tick);
+                            let mut filter = <QueryFetch<F> as Fetch>::init(
+                                world,
+                                &self.filter_state,
+                                last_change_tick,
+                                change_tick,
                             );
-                            #[cfg(feature = "trace")]
-                            let task = task.instrument(span);
-                            scope.spawn(task);
-                            offset += batch_size;
-                        }
-                    }
-                } else {
-                    let archetypes = &world.archetypes;
-                    for archetype_id in &self.matched_archetype_ids {
-                        let mut offset = 0;
-                        let archetype = &archetypes[*archetype_id];
-                        while offset < archetype.len() {
-                            let func = func.clone();
-                            let len = batch_size.min(archetype.len() - offset);
-                            let task = async move {
-                                let mut fetch = QF::init(
-                                    world,
-                                    &self.fetch_state,
-                                    last_change_tick,
-                                    change_tick,
-                                );
-                                let mut filter = <QueryFetch<F> as Fetch>::init(
-                                    world,
-                                    &self.filter_state,
-                                    last_change_tick,
-                                    change_tick,
-                                );
-                                let tables = &world.storages().tables;
-                                let archetype = &world.archetypes[*archetype_id];
-                                fetch.set_archetype(&self.fetch_state, archetype, tables);
-                                filter.set_archetype(&self.filter_state, archetype, tables);
-
-                                let entities = archetype.entities();
-                                for archetype_index in offset..offset + len {
-                                    let archetype_entity = entities.get_unchecked(archetype_index);
-                                    if !filter.filter_fetch(
-                                        &archetype_entity.entity,
-                                        &archetype_entity.table_row,
-                                    ) {
-                                        continue;
-                                    }
-                                    func(fetch.fetch(
-                                        &archetype_entity.entity,
-                                        &archetype_entity.table_row,
-                                    ));
+                            let tables = &world.storages().tables;
+                            let table = &tables[*table_id];
+                            let entities = table.entities();
+                            fetch.set_table(&self.fetch_state, table);
+                            filter.set_table(&self.filter_state, table);
+                            for row in offset..offset + len {
+                                let entity = entities.get_unchecked(row);
+                                if !filter.filter_fetch(entity, &row) {
+                                    continue;
                                 }
-                            };
-
-                            #[cfg(feature = "trace")]
-                            let span = bevy_utils::tracing::info_span!(
-                                "par_for_each",
-                                query = std::any::type_name::<Q>(),
-                                filter = std::any::type_name::<F>(),
-                                count = len,
-                            );
-                            #[cfg(feature = "trace")]
-                            let task = task.instrument(span);
-
-                            scope.spawn(task);
-                            offset += batch_size;
-                        }
+                                let item = fetch.fetch(entity, &row);
+                                func(item);
+                            }
+                        };
+                        #[cfg(feature = "trace")]
+                        let span = bevy_utils::tracing::info_span!(
+                            "par_for_each",
+                            query = std::any::type_name::<Q>(),
+                            filter = std::any::type_name::<F>(),
+                            count = len,
+                        );
+                        #[cfg(feature = "trace")]
+                        let task = task.instrument(span);
+                        scope.spawn(task);
+                        offset += batch_size;
                     }
                 }
-            });
+            } else {
+                let archetypes = &world.archetypes;
+                for archetype_id in &self.matched_archetype_ids {
+                    let mut offset = 0;
+                    let archetype = &archetypes[*archetype_id];
+                    while offset < archetype.len() {
+                        let func = func.clone();
+                        let len = batch_size.min(archetype.len() - offset);
+                        let task = async move {
+                            let mut fetch =
+                                QF::init(world, &self.fetch_state, last_change_tick, change_tick);
+                            let mut filter = <QueryFetch<F> as Fetch>::init(
+                                world,
+                                &self.filter_state,
+                                last_change_tick,
+                                change_tick,
+                            );
+                            let tables = &world.storages().tables;
+                            let archetype = &world.archetypes[*archetype_id];
+                            fetch.set_archetype(&self.fetch_state, archetype, tables);
+                            filter.set_archetype(&self.filter_state, archetype, tables);
+
+                            let entities = archetype.entities();
+                            for archetype_index in offset..offset + len {
+                                let archetype_entity = entities.get_unchecked(archetype_index);
+                                if !filter.filter_fetch(
+                                    &archetype_entity.entity,
+                                    &archetype_entity.table_row,
+                                ) {
+                                    continue;
+                                }
+                                func(
+                                    fetch.fetch(
+                                        &archetype_entity.entity,
+                                        &archetype_entity.table_row,
+                                    ),
+                                );
+                            }
+                        };
+
+                        #[cfg(feature = "trace")]
+                        let span = bevy_utils::tracing::info_span!(
+                            "par_for_each",
+                            query = std::any::type_name::<Q>(),
+                            filter = std::any::type_name::<F>(),
+                            count = len,
+                        );
+                        #[cfg(feature = "trace")]
+                        let task = task.instrument(span);
+
+                        scope.spawn(task);
+                        offset += batch_size;
+                    }
+                }
+            }
+        });
+    }
+
+    /// Runs `func` on each query result for the given [`World`] and list of [`Entity`]'s, where the last change and
+    /// the current change tick are given. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    pub(crate) unsafe fn many_for_each_unchecked_manual<EntityList: IntoIterator>(
+        &self,
+        world: &World,
+        entity_list: EntityList,
+        mut func: impl FnMut(QueryItem<'_, Q>),
+        last_change_tick: u32,
+        change_tick: u32,
+    ) where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::many_for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        let mut fetch =
+            <QueryFetch<Q> as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter = <QueryFetch<F> as Fetch>::init(
+            world,
+            &self.filter_state,
+            last_change_tick,
+            change_tick,
+        );
+
+        let tables = &world.storages.tables;
+
+        for entity in entity_list.into_iter() {
+            let location = match world.entities.get(*entity.borrow()) {
+                Some(location) => location,
+                None => continue,
+            };
+
+            if !self
+                .matched_archetypes
+                .contains(location.archetype_id.index())
+            {
+                continue;
+            }
+
+            let archetype = &world.archetypes[location.archetype_id];
+            let entity = &archetype.entities().get_unchecked(location.index);
+
+            fetch.set_archetype(&self.fetch_state, archetype, tables);
+            filter.set_archetype(&self.filter_state, archetype, tables);
+            if filter.filter_fetch(&entity.entity, &entity.table_row) {
+                func(fetch.fetch(&entity.entity, &entity.table_row));
+            }
+        }
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching

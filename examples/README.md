@@ -97,6 +97,7 @@ Example | File | Description
 `sprite_flipping` | [`2d/sprite_flipping.rs`](./2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 `texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 `rotation` | [`2d/rotation.rs`](./2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
+`transparency_2d` | [`2d/transparency_2d.rs`](./2d/transparency_2d.rs) | Demonstrates transparency in 2d
 
 ## 3D Rendering
 
@@ -116,6 +117,7 @@ Example | File | Description
 `spherical_area_lights` | [`3d/spherical_area_lights.rs`](./3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior.
 `split_screen` | [`3d/split_screen.rs`](./3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen".
 `texture` | [`3d/texture.rs`](./3d/texture.rs) | Shows configuration of texture materials
+`transparency_3d` | [`3d/transparency_3d.rs`](./3d/transparency_3d.rs) | Demonstrates transparency in 3d
 `two_passes` | [`3d/two_passes.rs`](./3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives.
 `update_gltf_scene` | [`3d/update_gltf_scene.rs`](./3d/update_gltf_scene.rs) | Update a scene from a gltf file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 `vertex_colors` | [`3d/vertex_colors.rs`](./3d/vertex_colors.rs) | Shows the use of vertex colors
@@ -309,6 +311,7 @@ Example | File | Description
 `font_atlas_debug` | [`ui/font_atlas_debug.rs`](./ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 `text` | [`ui/text.rs`](./ui/text.rs) | Illustrates creating and updating text
 `text_debug` | [`ui/text_debug.rs`](./ui/text_debug.rs) | An example for debugging text layout
+`transparency_ui` | [`ui/transparency_ui.rs`](./ui/transparency_ui.rs) | Demonstrates transparency for UI
 `ui` | [`ui/ui.rs`](./ui/ui.rs) | Illustrates various features of Bevy UI
 
 ## Window

@@ -1,7 +1,12 @@
-use crate::{Reflect, ReflectMut, ReflectRef};
+use crate::utility::NonGenericTypeInfoCell;
+use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
-use std::{any::Any, borrow::Cow};
+use std::{
+    any::{Any, TypeId},
+    borrow::Cow,
+    slice::Iter,
+};
 
 /// A reflected Rust regular struct type.
 ///
@@ -59,6 +64,85 @@ pub trait Struct: Reflect {
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
+}
+
+/// A container for compile-time struct info.
+#[derive(Clone, Debug)]
+pub struct StructInfo {
+    type_name: &'static str,
+    type_id: TypeId,
+    fields: Box<[NamedField]>,
+    field_indices: HashMap<Cow<'static, str>, usize>,
+}
+
+impl StructInfo {
+    /// Create a new [`StructInfo`].
+    ///
+    /// # Arguments
+    ///
+    /// * `fields`: The fields of this struct in the order they are defined
+    ///
+    pub fn new<T: Reflect>(fields: &[NamedField]) -> Self {
+        let field_indices = fields
+            .iter()
+            .enumerate()
+            .map(|(index, field)| {
+                let name = field.name().clone();
+                (name, index)
+            })
+            .collect::<HashMap<_, _>>();
+
+        Self {
+            type_name: std::any::type_name::<T>(),
+            type_id: TypeId::of::<T>(),
+            fields: fields.to_vec().into_boxed_slice(),
+            field_indices,
+        }
+    }
+
+    /// Get the field with the given name.
+    pub fn field(&self, name: &str) -> Option<&NamedField> {
+        self.field_indices
+            .get(name)
+            .map(|index| &self.fields[*index])
+    }
+
+    /// Get the field at the given index.
+    pub fn field_at(&self, index: usize) -> Option<&NamedField> {
+        self.fields.get(index)
+    }
+
+    /// Get the index of the field with the given name.
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.field_indices.get(name).copied()
+    }
+
+    /// Iterate over the fields of this struct.
+    pub fn iter(&self) -> Iter<'_, NamedField> {
+        self.fields.iter()
+    }
+
+    /// The total number of fields in this struct.
+    pub fn field_len(&self) -> usize {
+        self.fields.len()
+    }
+
+    /// The [type name] of the struct.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
+    }
+
+    /// The [`TypeId`] of the struct.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the struct type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
 }
 
 /// An iterator over the field values of a struct.
@@ -261,6 +345,11 @@ unsafe impl Reflect for DynamicStruct {
     }
 
     #[inline]
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
     fn any(&self) -> &dyn Any {
         self
     }
@@ -327,6 +416,13 @@ unsafe impl Reflect for DynamicStruct {
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl Typed for DynamicStruct {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

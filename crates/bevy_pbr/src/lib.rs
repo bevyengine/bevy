@@ -54,6 +54,14 @@ pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5635987986427308186);
+pub const UTILS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1900548483293416725);
+pub const CLUSTERED_FORWARD_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 166852093121196815);
+pub const PBR_LIGHTING_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 14170772752254856967);
+pub const SHADOWS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11350275143789590502);
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
@@ -75,6 +83,25 @@ impl Plugin for PbrPlugin {
             app,
             PBR_BINDINGS_SHADER_HANDLE,
             "render/pbr_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(app, UTILS_HANDLE, "render/utils.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            CLUSTERED_FORWARD_HANDLE,
+            "render/clustered_forward.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PBR_LIGHTING_HANDLE,
+            "render/pbr_lighting.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            SHADOWS_HANDLE,
+            "render/shadows.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
