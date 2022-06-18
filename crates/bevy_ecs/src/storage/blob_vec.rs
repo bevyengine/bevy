@@ -414,6 +414,7 @@ mod tests {
 
     #[test]
     fn blob_vec() {
+        // Remove these when https://github.com/rust-lang/miri/issues/2181 is resolved.
         #[cfg(not(miri))]
         let drop_counter = Rc::new(RefCell::new(0));
         {
