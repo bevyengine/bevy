@@ -127,7 +127,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
     }
 
     #[inline(always)]
-    unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) {}
+    unsafe fn fetch(&mut self, _entity: Entity, _table_row: usize) {}
 
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -265,7 +265,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
     }
 
     #[inline(always)]
-    unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) {}
+    unsafe fn fetch(&mut self, _entity: Entity, _table_row: usize) {}
 
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -402,13 +402,13 @@ macro_rules! impl_query_filter_tuple {
             }
 
             #[inline(always)]
-            unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
+            unsafe fn fetch(&mut self, _entity: Entity, _table_row: usize) -> Self::Item {
                 let ($($filter,)*) = &mut self.0;
                 false $(|| ($filter.matches && $filter.fetch.filter_fetch(_entity, _table_row)))*
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
+            unsafe fn filter_fetch(&mut self, entity: Entity, table_row: usize) -> Self::Item {
                 self.fetch(entity, table_row)
             }
 
@@ -578,13 +578,13 @@ macro_rules! impl_tick_filter {
             }
 
             #[inline(always)]
-            unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
+            unsafe fn fetch(&mut self, entity: Entity, table_row: usize) -> Self::Item {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         $is_detected(&*(
                             self.table_ticks
                                 .unwrap_or_else(|| debug_checked_unreachable())
-                                .get(*table_row))
+                                .get(table_row))
                                 .deref(),
                             self.last_change_tick,
                             self.change_tick
@@ -594,7 +594,7 @@ macro_rules! impl_tick_filter {
                         let ticks = self
                             .sparse_set
                             .unwrap_or_else(|| debug_checked_unreachable())
-                            .get_ticks(*entity)
+                            .get_ticks(entity)
                             .map(|ticks| &*ticks.get())
                             .cloned()
                             .unwrap_or_else(|| debug_checked_unreachable());
@@ -604,7 +604,7 @@ macro_rules! impl_tick_filter {
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
+            unsafe fn filter_fetch(&mut self, entity: Entity, table_row: usize) -> Self::Item {
                 self.fetch(entity, table_row)
             }
 

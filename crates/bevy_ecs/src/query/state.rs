@@ -376,8 +376,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
         fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
         filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
-        if filter.filter_fetch(&entity, &location.index) {
-            Ok(fetch.fetch(&entity, &location.index))
+        if filter.filter_fetch(entity, location.index) {
+            Ok(fetch.fetch(entity, location.index))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }
@@ -899,10 +899,10 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                 let entities = table.entities();
                 for row in 0..table.len() {
                     let entity = entities.get_unchecked(row);
-                    if !filter.filter_fetch(entity, &row) {
+                    if !filter.filter_fetch(*entity, row) {
                         continue;
                     }
-                    func(fetch.fetch(entity, &row));
+                    func(fetch.fetch(*entity, row));
                 }
             }
         } else {
@@ -915,10 +915,10 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                 let entities = archetype.entities();
                 for idx in 0..archetype.len() {
                     let archetype_entity = entities.get_unchecked(idx);
-                    if !filter.filter_fetch(&archetype_entity.entity, &archetype_entity.table_row) {
+                    if !filter.filter_fetch(archetype_entity.entity, archetype_entity.table_row) {
                         continue;
                     }
-                    func(fetch.fetch(&archetype_entity.entity, &archetype_entity.table_row));
+                    func(fetch.fetch(archetype_entity.entity, archetype_entity.table_row));
                 }
             }
         }
@@ -977,10 +977,10 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             filter.set_table(&self.filter_state, table);
                             for row in offset..offset + len {
                                 let entity = entities.get_unchecked(row);
-                                if !filter.filter_fetch(entity, &row) {
+                                if !filter.filter_fetch(*entity, row) {
                                     continue;
                                 }
-                                let item = fetch.fetch(entity, &row);
+                                let item = fetch.fetch(*entity, row);
                                 func(item);
                             }
                         };
@@ -1023,15 +1023,15 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             for archetype_index in offset..offset + len {
                                 let archetype_entity = entities.get_unchecked(archetype_index);
                                 if !filter.filter_fetch(
-                                    &archetype_entity.entity,
-                                    &archetype_entity.table_row,
+                                    archetype_entity.entity,
+                                    archetype_entity.table_row,
                                 ) {
                                     continue;
                                 }
                                 func(
                                     fetch.fetch(
-                                        &archetype_entity.entity,
-                                        &archetype_entity.table_row,
+                                        archetype_entity.entity,
+                                        archetype_entity.table_row,
                                     ),
                                 );
                             }
@@ -1106,8 +1106,8 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
             fetch.set_archetype(&self.fetch_state, archetype, tables);
             filter.set_archetype(&self.filter_state, archetype, tables);
-            if filter.filter_fetch(&entity.entity, &entity.table_row) {
-                func(fetch.fetch(&entity.entity, &entity.table_row));
+            if filter.filter_fetch(entity.entity, entity.table_row) {
+                func(fetch.fetch(entity.entity, entity.table_row));
             }
         }
     }

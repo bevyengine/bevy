@@ -172,8 +172,8 @@ where
                     .set_archetype(&self.query_state.fetch_state, archetype, self.tables);
                 self.filter
                     .set_archetype(&self.query_state.filter_state, archetype, self.tables);
-                if self.filter.filter_fetch(&entity.entity, &entity.table_row) {
-                    return Some(self.fetch.fetch(&entity.entity, &entity.table_row));
+                if self.filter.filter_fetch(entity.entity, entity.table_row) {
+                    return Some(self.fetch.fetch(entity.entity, entity.table_row));
                 }
             }
             None
@@ -464,12 +464,12 @@ where
             let index = self.current_index - 1;
             if Self::IS_DENSE {
                 let entity = self.entities.get_unchecked(index);
-                Some(self.fetch.fetch(entity, &index))
+                Some(self.fetch.fetch(*entity, index))
             } else {
                 let archetype_entity = self.archetype_entities.get_unchecked(index);
                 Some(
                     self.fetch
-                        .fetch(&archetype_entity.entity, &archetype_entity.table_row),
+                        .fetch(archetype_entity.entity, archetype_entity.table_row),
                 )
             }
         } else {
@@ -500,12 +500,12 @@ where
                 }
 
                 let entity = self.entities.get_unchecked(self.current_index);
-                if !self.filter.filter_fetch(entity, &self.current_index) {
+                if !self.filter.filter_fetch(*entity, self.current_index) {
                     self.current_index += 1;
                     continue;
                 }
 
-                let item = self.fetch.fetch(entity, &self.current_index);
+                let item = self.fetch.fetch(*entity, self.current_index);
                 self.current_index += 1;
                 return Some(item);
             }
@@ -527,7 +527,7 @@ where
                 let archetype_entity = self.archetype_entities.get_unchecked(self.current_index);
                 if !self
                     .filter
-                    .filter_fetch(&archetype_entity.entity, &archetype_entity.table_row)
+                    .filter_fetch(archetype_entity.entity, archetype_entity.table_row)
                 {
                     self.current_index += 1;
                     continue;
@@ -535,7 +535,7 @@ where
 
                 let item = self
                     .fetch
-                    .fetch(&archetype_entity.entity, &archetype_entity.table_row);
+                    .fetch(archetype_entity.entity, archetype_entity.table_row);
                 self.current_index += 1;
                 return Some(item);
             }

@@ -423,7 +423,7 @@ pub unsafe trait Fetch<'world>: Sized {
     ///
     /// Must always be called _after_ [`Fetch::set_table`] or [`Fetch::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
-    unsafe fn fetch(&mut self, entity: &Entity, table_index: &usize) -> Self::Item;
+    unsafe fn fetch(&mut self, entity: Entity, table_index: usize) -> Self::Item;
 
     /// # Safety
     ///
@@ -431,7 +431,7 @@ pub unsafe trait Fetch<'world>: Sized {
     /// `table_row` must be in the range of the current table and archetype.
     #[allow(unused_variables)]
     #[inline(always)]
-    unsafe fn filter_fetch(&mut self, entity: &Entity, table_index: &usize) -> bool {
+    unsafe fn filter_fetch(&mut self, entity: Entity, table_index: usize) -> bool {
         true
     }
 
@@ -524,8 +524,8 @@ unsafe impl<'w> Fetch<'w> for EntityFetch {
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &'w Table) {}
 
     #[inline(always)]
-    unsafe fn fetch(&mut self, entity: &Entity, _table_row: &usize) -> Self::Item {
-        *entity
+    unsafe fn fetch(&mut self, entity: Entity, _table_row: usize) -> Self::Item {
+        entity
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -658,17 +658,17 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
     }
 
     #[inline(always)]
-    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
+    unsafe fn fetch(&mut self, entity: Entity, table_row: usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => self
                 .table_components
                 .unwrap_or_else(|| debug_checked_unreachable())
-                .get(*table_row)
+                .get(table_row)
                 .deref(),
             StorageType::SparseSet => self
                 .sparse_set
                 .unwrap_or_else(|| debug_checked_unreachable())
-                .get(*entity)
+                .get(entity)
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .deref(),
         }
@@ -803,10 +803,9 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     }
 
     #[inline(always)]
-    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
+    unsafe fn fetch(&mut self, entity: Entity, table_row: usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                let table_row = *table_row;
                 let (table_components, table_ticks) = self
                     .table_data
                     .unwrap_or_else(|| debug_checked_unreachable());
@@ -823,7 +822,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
                 let (component, component_ticks) = self
                     .sparse_set
                     .unwrap_or_else(|| debug_checked_unreachable())
-                    .get_with_ticks(*entity)
+                    .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_checked_unreachable());
                 Mut {
                     value: component.assert_unique().deref_mut(),
@@ -951,7 +950,7 @@ unsafe impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
     }
 
     #[inline(always)]
-    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
+    unsafe fn fetch(&mut self, entity: Entity, table_row: usize) -> Self::Item {
         self.matches.then(|| self.fetch.fetch(entity, table_row))
     }
 
@@ -1170,14 +1169,14 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
     }
 
     #[inline(always)]
-    unsafe fn fetch(&mut self, entity: &Entity, table_row: &usize) -> Self::Item {
+    unsafe fn fetch(&mut self, entity: Entity, table_row: usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => ChangeTrackers {
                 component_ticks: {
                     let table_ticks = self
                         .table_ticks
                         .unwrap_or_else(|| debug_checked_unreachable());
-                    table_ticks.get(*table_row).read()
+                    table_ticks.get(table_row).read()
                 },
                 marker: PhantomData,
                 last_change_tick: self.last_change_tick,
@@ -1187,7 +1186,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                 component_ticks: self
                     .sparse_set
                     .unwrap_or_else(|| debug_checked_unreachable())
-                    .get_ticks(*entity)
+                    .get_ticks(entity)
                     .map(|ticks| &*ticks.get())
                     .cloned()
                     .unwrap_or_else(|| debug_checked_unreachable()),
@@ -1261,13 +1260,13 @@ macro_rules! impl_tuple_fetch {
 
             #[inline(always)]
             #[allow(clippy::unused_unit)]
-            unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
+            unsafe fn fetch(&mut self, _entity: Entity, _table_row: usize) -> Self::Item {
                 let ($($name,)*) = self;
                 ($($name.fetch(_entity, _table_row),)*)
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch(&mut self, _entity: &Entity, _table_row: &usize) -> bool {
+            unsafe fn filter_fetch(&mut self, _entity: Entity, _table_row: usize) -> bool {
                 let ($($name,)*) = self;
                 true $(&& $name.filter_fetch(_entity, _table_row))*
             }
@@ -1375,7 +1374,7 @@ macro_rules! impl_anytuple_fetch {
 
             #[inline(always)]
             #[allow(clippy::unused_unit)]
-            unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
+            unsafe fn fetch(&mut self, _entity: Entity, _table_row: usize) -> Self::Item {
                 let ($($name,)*) = &mut self.0;
                 ($(
                     $name.1.then(|| $name.0.fetch(_entity, _table_row)),
@@ -1501,7 +1500,7 @@ unsafe impl<'w, State: FetchState> Fetch<'w> for NopFetch<State> {
     unsafe fn set_table(&mut self, _state: &Self::State, _table: &Table) {}
 
     #[inline(always)]
-    unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {}
+    unsafe fn fetch(&mut self, _entity: Entity, _table_row: usize) -> Self::Item {}
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
 
