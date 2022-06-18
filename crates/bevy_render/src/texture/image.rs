@@ -108,16 +108,18 @@ pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
+    /// The [`ImageSampler`] to use during rendering.
     pub sampler_descriptor: ImageSampler,
 }
 
-/// Used in `Image`, this determines what image sampler to use when rendering. The default setting,
-/// [`ImageSampler::Default`], will result in reading the sampler set in the [`DefaultImageSampler`]
-/// resource - the global default sampler - at runtime. Setting this to [`ImageSampler::Descriptor`]
-/// will override the global default descriptor for this [`Image`].
+/// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
+/// [`ImageSampler::Default`], will result in reading the sampler set in [`ImageSettings`] resource at runtime. 
+/// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
 #[derive(Debug, Clone)]
 pub enum ImageSampler {
+    /// Default image sampler, derived from the [`ImageSettings`] resource.
     Default,
+    /// Custom sampler for this image which will override global default.
     Descriptor(wgpu::SamplerDescriptor<'static>),
 }
 impl Default for ImageSampler {
@@ -146,10 +148,42 @@ impl ImageSampler {
     }
 }
 
-/// Resource used as the global default image sampler for [`Image`]s with their `sampler_descriptor`
-/// set to [`ImageSampler::Default`].
+/// Global resource for [`Image`] settings.
+pub struct ImageSettings {
+    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
+    pub default_sampler: wgpu::SamplerDescriptor<'static>,
+}
+
+impl Default for ImageSettings {
+    fn default() -> Self {
+        ImageSettings::default_linear()
+    }
+}
+
+impl ImageSettings {
+    /// Creates image settings with default linear sampling.
+    pub fn default_linear() -> ImageSettings {
+        ImageSettings {
+            default_sampler: ImageSampler::linear_descriptor(),
+        }
+    }
+
+    /// Creates image settings with default nearest sampling.
+    pub fn default_nearest() -> ImageSettings {
+        ImageSettings {
+            default_sampler: ImageSampler::nearest_descriptor(),
+        }
+    }
+}
+
+
+/// A rendering resource for the default image sampler which is set during renderer 
+/// intialization.
+/// 
+/// The [`ImageSettings`] resource can be modified at runtime to change the default 
+/// image sampler.
 #[derive(Debug, Clone, Deref, DerefMut)]
-pub struct DefaultImageSampler(pub(crate) Sampler);
+pub struct RenderDefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
     fn default() -> Self {
@@ -585,7 +619,7 @@ impl RenderAsset for Image {
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
-        SRes<DefaultImageSampler>,
+        SRes<RenderDefaultImageSampler>,
     );
 
     /// Clones the Image.
