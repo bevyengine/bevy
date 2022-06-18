@@ -5,7 +5,6 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
-use bevy_tasks::TaskPool;
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
@@ -84,7 +83,6 @@ pub struct LoadContext<'a> {
     pub(crate) labeled_assets: HashMap<Option<String>, BoxedLoadedAsset>,
     pub(crate) path: &'a Path,
     pub(crate) version: usize,
-    pub(crate) task_pool: &'a TaskPool,
 }
 
 impl<'a> LoadContext<'a> {
@@ -93,7 +91,6 @@ impl<'a> LoadContext<'a> {
         ref_change_channel: &'a RefChangeChannel,
         asset_io: &'a dyn AssetIo,
         version: usize,
-        task_pool: &'a TaskPool,
     ) -> Self {
         Self {
             ref_change_channel,
@@ -101,7 +98,6 @@ impl<'a> LoadContext<'a> {
             labeled_assets: Default::default(),
             version,
             path,
-            task_pool,
         }
     }
 
@@ -142,10 +138,6 @@ impl<'a> LoadContext<'a> {
             });
         }
         asset_metas
-    }
-
-    pub fn task_pool(&self) -> &TaskPool {
-        self.task_pool
     }
 
     pub fn asset_io(&self) -> &dyn AssetIo {

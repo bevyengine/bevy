@@ -55,7 +55,7 @@ fn setup(
         .insert_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::YELLOW.into()),
-            ..Default::default()
+            ..default()
         })
         .insert(ChangeGlobal)
         .insert(Move)
@@ -71,7 +71,7 @@ fn setup(
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                 material: materials.add(Color::RED.into()),
                 transform: Transform::from_translation(Vec3::Y - Vec3::Z),
-                ..Default::default()
+                ..default()
             })
             .insert(ChangeGlobal)
             .insert(Move)
@@ -81,7 +81,7 @@ fn setup(
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                 material: materials.add(Color::GREEN.into()),
                 transform: Transform::from_translation(Vec3::Y + Vec3::Z),
-                ..Default::default()
+                ..default()
             })
             .insert(ChangeLocal)
             .insert(Move)
@@ -91,13 +91,13 @@ fn setup(
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // Add a light source for better 3d visibility.
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::splat(3.0)),
-        ..Default::default()
+        ..default()
     });
 
     // Add text to explain inputs and what is happening.
@@ -115,10 +115,10 @@ The red cube is moved through its GlobalTransform and thus is unaffected by the 
             },
             TextAlignment {
                 horizontal: HorizontalAlign::Left,
-                ..Default::default()
+                ..default()
             },
         ),
-        ..Default::default()
+        ..default()
     });
 }
 

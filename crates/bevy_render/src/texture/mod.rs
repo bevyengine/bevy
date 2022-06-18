@@ -26,6 +26,7 @@ pub use texture_cache::*;
 
 use crate::{
     render_asset::{PrepareAssetLabel, RenderAssetPlugin},
+    renderer::RenderDevice,
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -63,10 +64,48 @@ impl Plugin for ImagePlugin {
             .resource_mut::<Assets<Image>>()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
+        let default_sampler = app
+            .world
+            .get_resource_or_insert_with(ImageSettings::default)
+            .default_sampler
+            .clone();
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            let default_sampler = {
+                let device = render_app.world.resource::<RenderDevice>();
+                device.create_sampler(&default_sampler)
+            };
             render_app
+                .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<TextureCache>()
                 .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
+        }
+    }
+}
+
+/// [`ImagePlugin`] settings.
+pub struct ImageSettings {
+    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
+    pub default_sampler: wgpu::SamplerDescriptor<'static>,
+}
+
+impl Default for ImageSettings {
+    fn default() -> Self {
+        ImageSettings::default_linear()
+    }
+}
+
+impl ImageSettings {
+    /// Creates image settings with default linear sampling.
+    pub fn default_linear() -> ImageSettings {
+        ImageSettings {
+            default_sampler: ImageSampler::linear_descriptor(),
+        }
+    }
+
+    /// Creates image settings with default nearest sampling.
+    pub fn default_nearest() -> ImageSettings {
+        ImageSettings {
+            default_sampler: ImageSampler::nearest_descriptor(),
         }
     }
 }
