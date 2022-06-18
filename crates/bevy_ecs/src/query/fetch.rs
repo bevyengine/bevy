@@ -359,8 +359,7 @@ pub trait WorldQueryGats<'world> {
 ///
 /// Implementor must ensure that [`Fetch::update_component_access`] and
 /// [`Fetch::update_archetype_component_access`] exactly reflects the results of
-/// [`FetchState::matches_component_set`], [`Fetch::archetype_fetch`], and
-/// [`Fetch::table_fetch`].
+/// [`FetchState::matches_component_set`], [`Fetch::fetch`].
 pub unsafe trait Fetch<'world>: Sized {
     type Item;
     type State: FetchState;
