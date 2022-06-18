@@ -39,7 +39,6 @@ fn prepare_normal(
 
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-        let TBN = mat3x3<f32>(T, B, N);
         // Nt is the tangent-space normal.
         var Nt: vec3<f32>;
         if ((material.flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
