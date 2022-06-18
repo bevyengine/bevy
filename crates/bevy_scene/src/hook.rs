@@ -13,7 +13,7 @@ use bevy_ecs::{
 use crate::{SceneInstance, SceneSpawner};
 
 /// Marker Component for scenes that were hooked.
-#[derive(Component)]
+#[derive(Component, Debug)]
 #[non_exhaustive]
 pub struct SceneHooked;
 
@@ -57,14 +57,9 @@ pub struct SceneHooked;
 ///     });
 /// }
 /// ```
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct SceneHook {
-    hook: Box<dyn Hook>,
-}
-impl Default for SceneHook {
-    fn default() -> Self {
-        Self { hook: Box::new(()) }
-    }
+    hook: Option<Box<dyn Hook>>,
 }
 impl<T: Hook> From<T> for SceneHook {
     fn from(hook: T) -> Self {
@@ -79,8 +74,9 @@ impl SceneHook {
     ///  that strictly speaking, you might as well pass a closure. Please check
     ///  the [`Hook`] trait documentation for details.
     pub fn new<T: Hook>(hook: T) -> Self {
-        let hook = Box::new(hook);
-        Self { hook }
+        Self {
+            hook: Some(Box::new(hook)),
+        }
     }
 
     /// Same as [`Self::new`] but with type bounds to make it easier to
@@ -155,9 +151,11 @@ pub fn run_hooks(
 ) {
     for (entity, instance, hooked) in unloaded_instances.iter() {
         if let Some(entities) = scene_manager.iter_instance_entities(**instance) {
-            for entity_ref in entities.filter_map(|e| world.get_entity(e)) {
-                let mut cmd = cmds.entity(entity_ref.id());
-                hooked.hook.hook_entity(&entity_ref, &mut cmd);
+            if let Some(hook) = hooked.hook.as_deref() {
+                for entity_ref in entities.filter_map(|e| world.get_entity(e)) {
+                    let mut cmd = cmds.entity(entity_ref.id());
+                    hook.hook_entity(&entity_ref, &mut cmd);
+                }
             }
             cmds.entity(entity).insert(SceneHooked);
         }
@@ -167,8 +165,4 @@ impl<F: Fn(&EntityRef, &mut EntityCommands) + Send + Sync + 'static> Hook for F 
     fn hook_entity(&self, entity_ref: &EntityRef, commands: &mut EntityCommands) {
         (self)(entity_ref, commands);
     }
-}
-// This is useful for the `Default` implementation of `SceneBundle`
-impl Hook for () {
-    fn hook_entity(&self, _: &EntityRef, _: &mut EntityCommands) {}
 }
