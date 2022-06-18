@@ -451,13 +451,7 @@ pub unsafe trait Fetch<'world>: Sized {
 /// State used to construct a Fetch. This will be cached inside [`QueryState`](crate::query::QueryState),
 ///  so it is best to move as much data / computation here as possible to reduce the cost of
 /// constructing Fetch.
-///
-/// # Safety
-///
-/// Implementor must ensure that [`FetchState::update_component_access`] and
-/// [`FetchState::update_archetype_component_access`] exactly reflects the results of
-/// [`FetchState::matches_component_set`], and [`Fetch::fetch`].
-pub unsafe trait FetchState: Send + Sync + Sized {
+pub trait FetchState: Send + Sync + Sized {
     fn init(world: &mut World) -> Self;
     fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool;
 }
@@ -484,7 +478,7 @@ unsafe impl ReadOnlyWorldQuery for Entity {}
 #[doc(hidden)]
 pub struct EntityState;
 
-unsafe impl FetchState for EntityState {
+impl FetchState for EntityState {
     fn init(_world: &mut World) -> Self {
         Self
     }
@@ -562,7 +556,7 @@ pub struct ComponentIdState<T> {
     marker: PhantomData<T>,
 }
 
-unsafe impl<T: Component> FetchState for ComponentIdState<T> {
+impl<T: Component> FetchState for ComponentIdState<T> {
     fn init(world: &mut World) -> Self {
         let component_id = world.init_component::<T>();
         ComponentIdState {
@@ -893,7 +887,7 @@ pub struct OptionState<T: FetchState> {
     state: T,
 }
 
-unsafe impl<T: FetchState> FetchState for OptionState<T> {
+impl<T: FetchState> FetchState for OptionState<T> {
     fn init(world: &mut World) -> Self {
         Self {
             state: T::init(world),
@@ -1064,7 +1058,7 @@ pub struct ChangeTrackersState<T> {
     marker: PhantomData<T>,
 }
 
-unsafe impl<T: Component> FetchState for ChangeTrackersState<T> {
+impl<T: Component> FetchState for ChangeTrackersState<T> {
     fn init(world: &mut World) -> Self {
         let component_id = world.init_component::<T>();
         Self {
@@ -1292,7 +1286,7 @@ macro_rules! impl_tuple_fetch {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
-        unsafe impl<$($name: FetchState),*> FetchState for ($($name,)*) {
+        impl<$($name: FetchState),*> FetchState for ($($name,)*) {
             fn init(_world: &mut World) -> Self {
                 ($($name::init(_world),)*)
             }
@@ -1434,7 +1428,7 @@ macro_rules! impl_anytuple_fetch {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
-        unsafe impl<$($name: FetchState),*> FetchState for AnyOf<($($name,)*)> {
+        impl<$($name: FetchState),*> FetchState for AnyOf<($($name,)*)> {
             fn init(_world: &mut World) -> Self {
                 AnyOf(($($name::init(_world),)*))
             }

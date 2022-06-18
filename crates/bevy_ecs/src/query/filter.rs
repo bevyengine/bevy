@@ -70,7 +70,7 @@ pub struct WithState<T> {
     marker: PhantomData<T>,
 }
 
-unsafe impl<T: Component> FetchState for WithState<T> {
+impl<T: Component> FetchState for WithState<T> {
     fn init(world: &mut World) -> Self {
         let component_id = world.init_component::<T>();
         Self {
@@ -208,7 +208,7 @@ pub struct WithoutState<T> {
     marker: PhantomData<T>,
 }
 
-unsafe impl<T: Component> FetchState for WithoutState<T> {
+impl<T: Component> FetchState for WithoutState<T> {
     fn init(world: &mut World) -> Self {
         let component_id = world.init_component::<T>();
         Self {
@@ -452,7 +452,7 @@ macro_rules! impl_query_filter_tuple {
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        unsafe impl<$($filter: FetchState),*> FetchState for Or<($($filter,)*)> {
+        impl<$($filter: FetchState),*> FetchState for Or<($($filter,)*)> {
             fn init(world: &mut World) -> Self {
                 Or(($($filter::init(world),)*))
             }
@@ -510,7 +510,7 @@ macro_rules! impl_tick_filter {
             }
         }
 
-        unsafe impl<T: Component> FetchState for $state_name<T> {
+        impl<T: Component> FetchState for $state_name<T> {
             fn init(world: &mut World) -> Self {
                 Self {
                     component_id: world.init_component::<T>(),
