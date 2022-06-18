@@ -23,7 +23,7 @@ Compiling with clang is also possible - replace the `g++` package with `clang`.
 
 ### Windows Subsystem for Linux (WSL 2)
 
-WSL2's virtual GPU Driver only supports OpenGL, requiring you to cross-compile for Windows within WSL and then run the build on Windows. (See [#841](https://github.com/bevyengine/bevy/issues/841) and [#7790](https://github.com/microsoft/WSL/issues/7790))
+WSL2's virtual GPU Driver only supports OpenGL, requiring you to cross-compile for Windows within WSL and then run the build on Windows. (See [#841](https://github.com/bevyengine/bevy/issues/841) and [microsoft/WSL#7790])
 
 #### Dependencies
 
