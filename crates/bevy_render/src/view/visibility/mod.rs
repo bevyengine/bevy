@@ -1,6 +1,5 @@
 mod render_layers;
 
-use bevy_math::Vec3A;
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
@@ -156,7 +155,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
         *frustum = Frustum::from_view_projection(
             &view_projection,
-            &transform.translation,
+            &transform.translation(),
             &transform.back(),
             projection.far(),
         );
@@ -219,7 +218,7 @@ pub fn check_visibility(
                     let model = transform.compute_matrix();
                     let model_sphere = Sphere {
                         center: model.transform_point3a(model_aabb.center),
-                        radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
+                        radius: transform.radius(model_aabb.half_extents.into()),
                     };
                     // Do quick sphere-based frustum culling
                     if !frustum.intersects_sphere(&model_sphere, false) {

@@ -86,7 +86,7 @@ pub fn extract_text2d_sprite(
                 HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
             };
 
-            let mut text_transform = *transform;
+            let mut text_transform = Transform::from(*transform);
             text_transform.scale /= scale_factor;
 
             for text_glyph in text_glyphs {
@@ -108,7 +108,7 @@ pub fn extract_text2d_sprite(
                 let transform = text_transform.mul_transform(glyph_transform);
 
                 extracted_sprites.sprites.push(ExtractedSprite {
-                    transform,
+                    transform: transform.into(),
                     color,
                     rect,
                     custom_size: None,

@@ -129,7 +129,9 @@ fn move_cubes_according_to_global_transform(
     timer: Res<Time>,
 ) {
     for mut global_transform in cubes.iter_mut() {
-        global_transform.translation += direction.0 * timer.delta_seconds();
+        let mut transform = global_transform.compute_transform();
+        transform.translation += direction.0 * timer.delta_seconds();
+        *global_transform = transform.into();
     }
 }
 

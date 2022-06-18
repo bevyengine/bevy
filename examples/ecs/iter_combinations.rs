@@ -152,7 +152,7 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
     while let Some([(Mass(m1), transform1, mut acc1), (Mass(m2), transform2, mut acc2)]) =
         iter.fetch_next()
     {
-        let delta = transform2.translation - transform1.translation;
+        let delta = transform2.translation() - transform1.translation();
         let distance_sq: f32 = delta.length_squared();
 
         let f = GRAVITY_CONSTANT / distance_sq;

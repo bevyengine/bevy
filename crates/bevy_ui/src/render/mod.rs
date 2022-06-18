@@ -9,7 +9,7 @@ use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Affine3A, Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
@@ -25,7 +25,7 @@ use bevy_render::{
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
@@ -249,11 +249,12 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 .spawn()
                 .insert(ExtractedView {
                     projection: projection.get_projection_matrix(),
-                    transform: GlobalTransform::from_xyz(
+                    transform: Affine3A::from_translation(Vec3::new(
                         0.0,
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                    ),
+                    ))
+                    .into(),
                     width: physical_size.x,
                     height: physical_size.y,
                 })
@@ -283,7 +284,7 @@ pub fn extract_text_uinodes(
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
-    for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
+    for (entity, uinode, global_transform, text, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
             continue;
         }
@@ -305,7 +306,8 @@ pub fn extract_text_uinodes(
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
 
-                let transform =
+                let transform = Transform::from(*global_transform);
+                let extracted_transform =
                     Mat4::from_rotation_translation(transform.rotation, transform.translation)
                         * Mat4::from_scale(transform.scale / scale_factor)
                         * Mat4::from_translation(
@@ -313,7 +315,7 @@ pub fn extract_text_uinodes(
                         );
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    transform,
+                    transform: extracted_transform,
                     color,
                     rect,
                     image: texture,
