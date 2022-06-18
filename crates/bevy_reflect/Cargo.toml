@@ -26,7 +26,6 @@ once_cell = "1.11"
 serde = "1"
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"], optional = true }
 glam = { version = "0.20.0", features = ["serde"], optional = true }
-hashbrown = { version = "0.11", features = ["serde"], optional = true }
 
 [dev-dependencies]
 ron = "0.7.0"
