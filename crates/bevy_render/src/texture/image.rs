@@ -149,7 +149,7 @@ impl ImageSampler {
 }
 
 /// Global resource for [`Image`] settings.
-/// 
+///
 /// Can be set via `insert_resource` during app initialization to change the default settings.
 pub struct ImageSettings {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
