@@ -87,13 +87,13 @@ struct PbrInput {
     frag_coord: vec4<f32>;
     world_position: vec4<f32>;
     world_normal: vec3<f32>;
+    N: vec3<f32>;
+    V: vec3<f32>;
+    is_orthographic: bool;
 };
 
 fn pbr(
     in: PbrInput,
-    N: vec3<f32>,
-    V: vec3<f32>,
-    is_orthographic: bool,
 ) -> [[location(0)]] vec4<f32> {
     var output_color: vec4<f32> = in.material.base_color;
 
@@ -122,7 +122,7 @@ fn pbr(
     }
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    let NdotV = max(dot(N, V), 0.0001);
+    let NdotV = max(dot(in.N, in.V), 0.0001);
 
     // Remapping [0,1] reflectance to F0
     // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
@@ -132,7 +132,7 @@ fn pbr(
     // Diffuse strength inversely related to metallicity
     let diffuse_color = output_color.rgb * (1.0 - metallic);
 
-    let R = reflect(-V, N);
+    let R = reflect(-in.V, in.N);
 
     // accumulate color
     var light_accum: vec3<f32> = vec3<f32>(0.0);
@@ -143,7 +143,7 @@ fn pbr(
         view.inverse_view[2].z,
         view.inverse_view[3].z
     ), in.world_position);
-    let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, is_orthographic);
+    let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     let offset_and_count = unpack_offset_and_count(cluster_index);
     for (var i: u32 = offset_and_count[0]; i < offset_and_count[0] + offset_and_count[1]; i = i + 1u) {
         let light_id = get_light_id(i);
@@ -153,7 +153,7 @@ fn pbr(
                 && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, N, V, R, F0, diffuse_color);
+        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
@@ -165,7 +165,7 @@ fn pbr(
                 && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
-        let light_contrib = directional_light(light, roughness, NdotV, N, V, R, F0, diffuse_color);
+        let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
@@ -181,7 +181,7 @@ fn pbr(
     output_color = cluster_debug_visualization(
         output_color,
         view_z,
-        is_orthographic,
+        in.is_orthographic,
         offset_and_count,
         cluster_index,
     );

@@ -71,9 +71,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         pbr_input.world_position = in.world_position;
         pbr_input.world_normal = in.world_normal;
 
-        let is_orthographic = view.projection[3].w == 1.0;
+        pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
-        let N = prepare_normal(
+        pbr_input.N = prepare_normal(
             in.world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -83,9 +83,9 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
             in.uv,
             in.is_front,
         );
-        let V = calculate_view(in.world_position, is_orthographic);
+        pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
 
-        output_color = pbr(pbr_input, N, V, is_orthographic);
+        output_color = pbr(pbr_input);
     }
 
     return output_color;
