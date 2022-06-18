@@ -11,10 +11,10 @@ fn add_matrix(
     b: mat4x4<f32>,
 ) -> mat4x4<f32> {
     return mat4x4<f32>(
-        a.x + b.x,
-        a.y + b.y,
-        a.z + b.z,
-        a.w + b.w,
+        a[0] + b[0],
+        a[1] + b[1],
+        a[2] + b[2],
+        a[3] + b[3],
     );
 }
 
@@ -29,10 +29,10 @@ fn skin_model(
 }
 
 fn inverse_transpose_3x3(in: mat3x3<f32>) -> mat3x3<f32> {
-    let x = cross(in.y, in.z);
-    let y = cross(in.z, in.x);
-    let z = cross(in.x, in.y);
-    let det = dot(in.z, z);
+    let x = cross(in[1], in[2]);
+    let y = cross(in[2], in[0]);
+    let z = cross(in[0], in[1]);
+    let det = dot(in[2], z);
     return mat3x3<f32>(
         x / det,
         y / det,
