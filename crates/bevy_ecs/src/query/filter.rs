@@ -3,8 +3,8 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
     query::{
-        debug_checked_unreachable, Access, Fetch, FilteredAccess, QueryFetch,
-        WorldQuery, WorldQueryGats,
+        debug_checked_unreachable, Access, Fetch, FilteredAccess, QueryFetch, WorldQuery,
+        WorldQueryGats,
     },
     storage::{ComponentSparseSet, Table, Tables},
     world::World,
