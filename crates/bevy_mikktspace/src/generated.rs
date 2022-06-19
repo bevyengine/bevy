@@ -83,34 +83,13 @@ impl STSpace {
     }
 }
 
-// To avoid visual errors (distortions/unwanted hard edges in lighting), when using sampled normal maps, the
-// normal map sampler must use the exact inverse of the pixel shader transformation.
-// The most efficient transformation we can possibly do in the pixel shader is
-// achieved by using, directly, the "unnormalized" interpolated tangent, bitangent and vertex normal: vT, vB and vN.
-// pixel shader (fast transform out)
-// vNout = normalize( vNt.x * vT + vNt.y * vB + vNt.z * vN );
-// where vNt is the tangent space normal. The normal map sampler must likewise use the
-// interpolated and "unnormalized" tangent, bitangent and vertex normal to be compliant with the pixel shader.
-// sampler does (exact inverse of pixel shader):
-// float3 row0 = cross(vB, vN);
-// float3 row1 = cross(vN, vT);
-// float3 row2 = cross(vT, vB);
-// float fSign = dot(vT, row0)<0 ? -1 : 1;
-// vNt = normalize( fSign * float3(dot(vNout,row0), dot(vNout,row1), dot(vNout,row2)) );
-// where vNout is the sampled normal in some chosen 3D space.
-//
-// Should you choose to reconstruct the bitangent in the pixel shader instead
-// of the vertex shader, as explained earlier, then be sure to do this in the normal map sampler also.
-// Finally, beware of quad triangulations. If the normal map sampler doesn't use the same triangulation of
-// quads as your renderer then problems will occur since the interpolated tangent spaces will differ
-// eventhough the vertex level tangent spaces match. This can be solved either by triangulating before
-// sampling/exporting or by using the order-independent choice of diagonal for splitting quads suggested earlier.
-// However, this must be used both by the sampler and your tools/rendering pipeline.
-// internal structure
-
 bitflags! {
     pub struct TriangleFlags: u8 {
+        /// This triangle has multiple vertices at the same point
         const DEGENERATE = 1;
+        /// This triangle is part of a quad where one (but not both)
+        /// of its triangles are degenerate (i.e. exactly two of the quad's
+        /// vertices are in the same location)
         const QUAD_ONE_DEGENERATE_TRI = 2;
         const GROUP_WITH_ANY = 4;
         const ORIENT_PRESERVING = 8;
@@ -119,16 +98,23 @@ bitflags! {
 
 #[derive(Copy, Clone)]
 pub struct STriInfo {
+    /// Indices of neighbouring triangles across this triangle's edges
     pub FaceNeighbors: [i32; 3],
+    /// The group each vertex belongs to. TODO: Convert to index
     pub AssignedGroup: [*mut SGroup; 3],
     pub vOs: Vec3,
     pub vOt: Vec3,
     pub fMagS: f32,
     pub fMagT: f32,
+    /// The face in the user's module this triangle comes from
     pub iOrgFaceNumber: i32,
+    // Flags set for this triangle
     pub iFlag: TriangleFlags,
     pub iTSpacesOffs: i32,
     // The vertices of the face 'iOrgFaceNumber' this triangle covers
+    // This has only a limited set of valid values - as required for quads.
+    // - TODO: Convert to a repr(u8) enum to compress.
+    // In theory, this could be compressed in
     pub vert_num: [u8; 3],
 }
 
