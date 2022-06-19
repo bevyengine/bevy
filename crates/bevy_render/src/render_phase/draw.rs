@@ -30,6 +30,16 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     );
 }
 
+pub enum RenderPhaseSortMode {
+    /// Requires a stable sort. Generally required for proper batching based on external criteria.
+    Stable,
+    /// The default: allows unstable sorting. Usually faster than Stable.
+    Unstable,
+    /// Unsorted. Omits sorting entirely.
+    Unsorted,
+}
+
+
 /// An item which will be drawn to the screen. A phase item should be queued up for rendering
 /// during the [`RenderStage::Queue`](crate::RenderStage::Queue) stage.
 /// Afterwards it will be sorted and rendered automatically  in the
@@ -42,6 +52,13 @@ pub trait PhaseItem: Send + Sync + 'static {
     fn sort_key(&self) -> Self::SortKey;
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;
+
+    /// Specifies whether the phase requires batching. This should return true if and only if
+    /// the type implements [`BatchPhaseItem`].
+    #[inline]
+    fn sort_mode() -> RenderPhaseSortMode {
+        RenderPhaseSortMode::Unstable
+    }
 }
 
 // TODO: make this generic?
