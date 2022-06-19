@@ -39,7 +39,6 @@ pub enum RenderPhaseSortMode {
     Unsorted,
 }
 
-
 /// An item which will be drawn to the screen. A phase item should be queued up for rendering
 /// during the [`RenderStage::Queue`](crate::RenderStage::Queue) stage.
 /// Afterwards it will be sorted and rendered automatically  in the
@@ -54,7 +53,7 @@ pub trait PhaseItem: Send + Sync + 'static {
     fn draw_function(&self) -> DrawFunctionId;
 
     /// Specifies whether the phase requires batching. This should return true if and only if
-    /// the type implements [`BatchPhaseItem`].
+    /// the type implements [`BatchedPhaseItem`].
     #[inline]
     fn sort_mode() -> RenderPhaseSortMode {
         RenderPhaseSortMode::Unstable

@@ -22,7 +22,8 @@ use bevy_render::{
     render_graph::{RenderGraph, SlotInfo, SlotType},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
-        RenderPhaseSortMode, DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
+        DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
+        RenderPhaseSortMode,
     },
     render_resource::CachedRenderPipelineId,
     RenderApp, RenderStage,

@@ -32,7 +32,7 @@ impl<I: PhaseItem> RenderPhase<I> {
         match I::sort_mode() {
             RenderPhaseSortMode::Stable => self.items.sort_by_key(|d| d.sort_key()),
             RenderPhaseSortMode::Unstable => self.items.sort_unstable_by_key(|d| d.sort_key()),
-            RenderPhaseSortMode::Unsorted => {},
+            RenderPhaseSortMode::Unsorted => {}
         }
     }
 }
