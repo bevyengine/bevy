@@ -1127,10 +1127,10 @@ unsafe fn GenerateSharedVerticesIndexList(
     }
 }
 
-unsafe fn GenerateInitialVerticesIndexList(
+fn GenerateInitialVerticesIndexList(
     pTriInfos: &mut [STriInfo],
     piTriList_out: &mut [i32],
-    geometry: &mut impl Geometry,
+    geometry: &impl Geometry,
     iNrTrianglesIn: usize,
 ) -> usize {
     let mut iTSpacesOffs: usize = 0;
