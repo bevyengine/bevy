@@ -323,6 +323,8 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
     type ReadOnly: ReadOnlyWorldQuery<State = Self::State>;
     type State: Send + Sync;
 
+    fn init(world: &mut World) -> Self::State;
+
     /// This function manually implements variance for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self>;
 }
@@ -453,8 +455,6 @@ pub unsafe trait Fetch<'world>: Sized {
         true
     }
 
-    fn init_state(world: &mut World) -> Self::State;
-
     // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
@@ -476,6 +476,8 @@ pub unsafe trait Fetch<'world>: Sized {
 unsafe impl WorldQuery for Entity {
     type ReadOnly = Self;
     type State = ();
+
+    fn init(_world: &mut World) -> Self::State {}
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
@@ -542,8 +544,6 @@ unsafe impl<'w> Fetch<'w> for EntityFetch<'w> {
         *entities.get(archetype_index)
     }
 
-    fn init_state(_world: &mut World) -> Self::State {}
-
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
 
     fn update_archetype_component_access(
@@ -566,6 +566,10 @@ unsafe impl<'w> Fetch<'w> for EntityFetch<'w> {
 unsafe impl<T: Component> WorldQuery for &T {
     type ReadOnly = Self;
     type State = ComponentId;
+
+    fn init(world: &mut World) -> Self::State {
+        world.init_component::<T>()
+    }
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
@@ -687,10 +691,6 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
         components.get(table_row).deref()
     }
 
-    fn init_state(world: &mut World) -> Self::State {
-        world.init_component::<T>()
-    }
-
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         assert!(
             !access.access().has_write(*state),
@@ -722,6 +722,10 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
 unsafe impl<'w, T: Component> WorldQuery for &'w mut T {
     type ReadOnly = &'w T;
     type State = ComponentId;
+
+    fn init(world: &mut World) -> Self::State {
+        world.init_component::<T>()
+    }
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
@@ -875,10 +879,6 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
         }
     }
 
-    fn init_state(world: &mut World) -> Self::State {
-        world.init_component::<T>()
-    }
-
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         assert!(
             !access.access().has_read(*state),
@@ -910,6 +910,10 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type ReadOnly = Option<T::ReadOnly>;
     type State = T::State;
+
+    fn init(world: &mut World) -> Self::State {
+        T::init(world)
+    }
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item.map(T::shrink)
@@ -991,10 +995,6 @@ unsafe impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
         } else {
             None
         }
-    }
-
-    fn init_state(world: &mut World) -> Self::State {
-        T::init_state(world)
     }
 
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -1093,6 +1093,10 @@ impl<T: Component> ChangeTrackers<T> {
 unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     type ReadOnly = Self;
     type State = ComponentId;
+
+    fn init(world: &mut World) -> Self::State {
+        world.init_component::<T>()
+    }
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
@@ -1245,10 +1249,6 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
         }
     }
 
-    fn init_state(world: &mut World) -> Self::State {
-        world.init_component::<T>()
-    }
-
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         assert!(
             !access.access().has_write(*state),
@@ -1343,11 +1343,6 @@ macro_rules! impl_tuple_fetch {
                 true $(&& $name.archetype_filter_fetch(archetype_index))*
             }
 
-            #[allow(clippy::unused_unit)]
-            fn init_state(_world: &mut World) -> Self::State {
-                ($($name::init_state(_world),)*)
-            }
-
             fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = _state;
                 $($name::update_component_access($name, _access);)*
@@ -1370,6 +1365,11 @@ macro_rules! impl_tuple_fetch {
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             type ReadOnly = ($($name::ReadOnly,)*);
             type State = ($($name::State,)*);
+
+            #[allow(clippy::unused_unit)]
+            fn init(_world: &mut World) -> Self::State {
+                ($($name::init(_world),)*)
+            }
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
                 let ($($name,)*) = item;
@@ -1459,10 +1459,6 @@ macro_rules! impl_anytuple_fetch {
                 )*)
             }
 
-            fn init_state(_world: &mut World) -> Self::State {
-                AnyOf(($($name::init_state(_world),)*))
-            }
-
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = &state.0;
 
@@ -1516,6 +1512,10 @@ macro_rules! impl_anytuple_fetch {
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
             type State = AnyOf<($($name::State,)*)>;
+
+            fn init(_world: &mut World) -> Self::State {
+                AnyOf(($($name::init(_world),)*))
+            }
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
                 let ($($name,)*) = item;
@@ -1577,11 +1577,6 @@ unsafe impl<'w, State: Send + Sync> Fetch<'w> for NopFetch<State> {
 
     #[inline(always)]
     unsafe fn table_fetch(&mut self, _table_row: usize) -> Self::Item {}
-
-    #[inline(always)]
-    fn init_state(_world: &mut World) -> Self::State {
-        unimplemented!();
-    }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
 

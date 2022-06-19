@@ -40,8 +40,8 @@ impl<Q: WorldQuery, F: WorldQuery> FromWorld for QueryState<Q, F> {
 impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
-        let fetch_state = Q::Fetch::init_state(world);
-        let filter_state = F::Fetch::init_state(world);
+        let fetch_state = Q::init(world);
+        let filter_state = F::init(world);
 
         let mut component_access = FilteredAccess::default();
         Q::Fetch::update_component_access(&fetch_state, &mut component_access);
