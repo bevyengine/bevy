@@ -39,10 +39,8 @@
     clippy::explicit_iter_loop,
     clippy::map_flatten,
     dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
     unused_mut
 )]
 
@@ -192,19 +190,6 @@ pub struct SEdge {
     // The second vertex's (global) index
     pub i1: i32,
     // The face this edge is associated with
-    pub f: i32,
-}
-
-impl SEdge {
-    fn zero() -> Self {
-        Self::default()
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct unnamed {
-    pub i0: i32,
-    pub i1: i32,
     pub f: i32,
 }
 
