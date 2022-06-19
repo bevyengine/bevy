@@ -58,14 +58,14 @@ impl<T: Asset> Default for HandleMap<T> {
 
 impl Plugin for DebugAssetServerPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        IoTaskPool::init(|| {
+            TaskPoolBuilder::default()
+                .num_threads(2)
+                .thread_name("Debug Asset Server IO Task Pool".to_string())
+                .build()
+        });
         let mut debug_asset_app = App::new();
         debug_asset_app
-            .insert_resource(IoTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(2)
-                    .thread_name("Debug Asset Server IO Task Pool".to_string())
-                    .build(),
-            ))
             .insert_resource(AssetServerSettings {
                 asset_folder: "crates".to_string(),
                 watch_for_changes: true,
@@ -93,8 +93,7 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
     let (changed_shaders, handle_map, debug_assets) = state.get_mut(world);
     for changed in changed_shaders.iter_current_update_events() {
         let debug_handle = match changed {
-            AssetEvent::Created { handle } => handle,
-            AssetEvent::Modified { handle } => handle,
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
             AssetEvent::Removed { .. } => continue,
         };
         if let Some(handle) = handle_map.handles.get(debug_handle) {

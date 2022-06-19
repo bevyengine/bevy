@@ -3,7 +3,7 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
     query::{
-        debug_checked_unreachable, Access, Fetch, FilteredAccess, QueryFetch, ROQueryFetch,
+        debug_checked_unreachable, Access, Fetch, FilteredAccess, QueryFetch,
         WorldQuery, WorldQueryGats,
     },
     storage::{ComponentSparseSet, Table, Tables},
@@ -13,7 +13,7 @@ use bevy_ecs_macros::all_tuples;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use std::{cell::UnsafeCell, marker::PhantomData};
 
-use super::ReadOnlyFetch;
+use super::ReadOnlyWorldQuery;
 
 /// Filter that selects entities with a component `T`.
 ///
@@ -44,9 +44,12 @@ use super::ReadOnlyFetch;
 /// ```
 pub struct With<T>(PhantomData<T>);
 
-impl<T: Component> WorldQuery for With<T> {
+// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
+unsafe impl<T: Component> WorldQuery for With<T> {
+    type ReadOnly = Self;
     type State = ComponentId;
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: super::QueryItem<'wlong, Self>,
     ) -> super::QueryItem<'wshort, Self> {
@@ -62,7 +65,6 @@ pub struct WithFetch<T> {
 
 impl<T: Component> WorldQueryGats<'_> for With<T> {
     type Fetch = WithFetch<T>;
-    type ReadOnlyFetch = WithFetch<T>;
     type _State = ComponentId;
 }
 
@@ -135,7 +137,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
 }
 
 // SAFETY: no component access or archetype component access
-unsafe impl<T: Component> ReadOnlyFetch for WithFetch<T> {}
+unsafe impl<T: Component> ReadOnlyWorldQuery for With<T> {}
 
 impl<T> Clone for WithFetch<T> {
     fn clone(&self) -> Self {
@@ -173,9 +175,12 @@ impl<T> Copy for WithFetch<T> {}
 /// ```
 pub struct Without<T>(PhantomData<T>);
 
-impl<T: Component> WorldQuery for Without<T> {
+// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
+unsafe impl<T: Component> WorldQuery for Without<T> {
+    type ReadOnly = Self;
     type State = ComponentId;
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: super::QueryItem<'wlong, Self>,
     ) -> super::QueryItem<'wshort, Self> {
@@ -191,7 +196,6 @@ pub struct WithoutFetch<T> {
 
 impl<T: Component> WorldQueryGats<'_> for Without<T> {
     type Fetch = WithoutFetch<T>;
-    type ReadOnlyFetch = WithoutFetch<T>;
     type _State = ComponentId;
 }
 
@@ -263,7 +267,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
 }
 
 // SAFETY: no component access or archetype component access
-unsafe impl<T: Component> ReadOnlyFetch for WithoutFetch<T> {}
+unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 
 impl<T> Clone for WithoutFetch<T> {
     fn clone(&self) -> Self {
@@ -321,7 +325,9 @@ macro_rules! impl_query_filter_tuple {
     ($(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<$($filter: WorldQuery),*> WorldQuery for Or<($($filter,)*)> {
+        // SAFETY: defers to soundness of `$filter: WorldQuery` impl
+        unsafe impl<$($filter: WorldQuery),*> WorldQuery for Or<($($filter,)*)> {
+            type ReadOnly = Or<($($filter::ReadOnly,)*)>;
             type State = Or<($($filter::State,)*)>;
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: super::QueryItem<'wlong, Self>) -> super::QueryItem<'wshort, Self> {
@@ -333,7 +339,6 @@ macro_rules! impl_query_filter_tuple {
         #[allow(non_snake_case)]
         impl<'w, $($filter: WorldQueryGats<'w>),*> WorldQueryGats<'w> for Or<($($filter,)*)> {
             type Fetch = Or<($(OrFetch<'w, QueryFetch<'w, $filter>>,)*)>;
-            type ReadOnlyFetch = Or<($(OrFetch<'w, ROQueryFetch<'w, $filter>>,)*)>;
             type _State = Or<($($filter::_State,)*)>;
         }
 
@@ -451,7 +456,7 @@ macro_rules! impl_query_filter_tuple {
         }
 
         // SAFE: filters are read only
-        unsafe impl<'w, $($filter: Fetch<'w> + ReadOnlyFetch),*> ReadOnlyFetch for Or<($(OrFetch<'w, $filter>,)*)> {}
+        unsafe impl<$($filter: ReadOnlyWorldQuery),*> ReadOnlyWorldQuery for Or<($($filter,)*)> {}
     };
 }
 
@@ -480,7 +485,9 @@ macro_rules! impl_tick_filter {
             change_tick: u32,
         }
 
-        impl<T: Component> WorldQuery for $name<T> {
+        // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
+        unsafe impl<T: Component> WorldQuery for $name<T> {
+            type ReadOnly = Self;
             type State = ComponentId;
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: super::QueryItem<'wlong, Self>) -> super::QueryItem<'wshort, Self> {
@@ -490,7 +497,6 @@ macro_rules! impl_tick_filter {
 
         impl<'w, T: Component> WorldQueryGats<'w> for $name<T> {
             type Fetch = $fetch_name<'w, T>;
-            type ReadOnlyFetch = $fetch_name<'w, T>;
             type _State = ComponentId;
         }
 
@@ -594,13 +600,16 @@ macro_rules! impl_tick_filter {
                 }
             }
 
-            fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(
+                state: &Self::State,
+                set_contains_id: &impl Fn(ComponentId) -> bool,
+            ) -> bool {
                 set_contains_id(*state)
             }
         }
 
         /// SAFETY: read-only access
-        unsafe impl<'w, T: Component> ReadOnlyFetch for $fetch_name<'w, T> {}
+        unsafe impl<T: Component> ReadOnlyWorldQuery for $name<T> {}
 
         impl<T> Clone for $fetch_name<'_, T> {
             fn clone(&self) -> Self {
