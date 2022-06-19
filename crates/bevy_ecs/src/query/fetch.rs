@@ -472,13 +472,6 @@ pub unsafe trait Fetch<'world>: Sized {
     ) -> bool;
 }
 
-/// A fetch that is read only.
-///
-/// # Safety
-///
-/// This must only be implemented for read-only fetches.
-pub unsafe trait ReadOnlyFetch {}
-
 /// SAFETY: no component or archetype access
 unsafe impl WorldQuery for Entity {
     type ReadOnly = Self;
@@ -968,7 +961,7 @@ unsafe impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
         archetype: &'w Archetype,
         tables: &'w Tables,
     ) {
-        self.matches = <T as Fetch<'_>>::matches_component_set(state, &|id| archetype.contains(id));
+        self.matches = T::matches_component_set(state, &|id| archetype.contains(id));
         if self.matches {
             self.fetch.set_archetype(state, archetype, tables);
         }
@@ -976,7 +969,7 @@ unsafe impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-        self.matches = <T as Fetch<'_>>::matches_component_set(state, &|id| table.has_column(id));
+        self.matches = T::matches_component_set(state, &|id| table.has_column(id));
         if self.matches {
             self.fetch.set_table(state, table);
         }
@@ -1010,7 +1003,7 @@ unsafe impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
         // regardless of whether it has a `U` component. If we dont do this the query will not conflict with
         // `Query<&mut V, Without<U>>` which would be unsound.
         let mut intermediate = access.clone();
-        <T as Fetch<'_>>::update_component_access(state, &mut intermediate);
+        T::update_component_access(state, &mut intermediate);
         access.extend_access(&intermediate);
     }
 
@@ -1019,8 +1012,8 @@ unsafe impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        if <T as Fetch<'_>>::matches_component_set(state, &|id| archetype.contains(id)) {
-            <T as Fetch<'_>>::update_archetype_component_access(state, archetype, access);
+        if T::matches_component_set(state, &|id| archetype.contains(id)) {
+            T::update_archetype_component_access(state, archetype, access);
         }
     }
 
@@ -1352,22 +1345,22 @@ macro_rules! impl_tuple_fetch {
 
             #[allow(clippy::unused_unit)]
             fn init_state(_world: &mut World) -> Self::State {
-                ($(<$name as Fetch<'_>>::init_state(_world),)*)
+                ($($name::init_state(_world),)*)
             }
 
             fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = _state;
-                $(<$name as Fetch>::update_component_access($name, _access);)*
+                $($name::update_component_access($name, _access);)*
             }
 
             fn update_archetype_component_access(_state: &Self::State, _archetype: &Archetype, _access: &mut Access<ArchetypeComponentId>) {
                 let ($($name,)*) = _state;
-                $(<$name as Fetch<'_>>::update_archetype_component_access($name, _archetype, _access);)*
+                $($name::update_archetype_component_access($name, _archetype, _access);)*
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
-                true $(&& <$name as Fetch<'_>>::matches_component_set($name, _set_contains_id))*
+                true $(&& $name::matches_component_set($name, _set_contains_id))*
             }
         }
 
@@ -1429,7 +1422,7 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = &mut self.0;
                 let ($($state,)*) = &_state.0;
                 $(
-                    $name.1 = <$name as Fetch<'_>>::matches_component_set($state, &|id| _archetype.contains(id));
+                    $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
                     if $name.1 {
                         $name.0.set_archetype($state, _archetype, _tables);
                     }
@@ -1441,7 +1434,7 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = &mut self.0;
                 let ($($state,)*) = &_state.0;
                 $(
-                    $name.1 = <$name as Fetch<'_>>::matches_component_set($state, &|id| _table.has_column(id));
+                    $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
                     if $name.1 {
                         $name.0.set_table($state, _table);
                     }
@@ -1490,11 +1483,11 @@ macro_rules! impl_anytuple_fetch {
                 $(
                     if _not_first {
                         let mut intermediate = _access.clone();
-                        <$name as Fetch<'_>>::update_component_access($name, &mut intermediate);
+                        $name::update_component_access($name, &mut intermediate);
                         _intersected_access.extend_intersect_filter(&intermediate);
                         _intersected_access.extend_access(&intermediate);
                     } else {
-                        <$name as Fetch<'_>>::update_component_access($name, &mut _intersected_access);
+                        $name::update_component_access($name, &mut _intersected_access);
                         _not_first = true;
                     }
                 )*
@@ -1504,14 +1497,14 @@ macro_rules! impl_anytuple_fetch {
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = &_state.0;
-                false $(|| <$name as Fetch<'_>>::matches_component_set($name, _set_contains_id))*
+                false $(|| $name::matches_component_set($name, _set_contains_id))*
             }
 
             fn update_archetype_component_access(_state: &Self::State, _archetype: &Archetype, _access: &mut Access<ArchetypeComponentId>) {
                 let ($($name,)*) = &_state.0;
                 $(
-                    if <$name as Fetch<'_>>::matches_component_set($name, &|id| _archetype.contains(id)) {
-                        <$name as Fetch<'_>>::update_archetype_component_access($name, _archetype, _access);
+                    if $name::matches_component_set($name, &|id| _archetype.contains(id)) {
+                        $name::update_archetype_component_access($name, _archetype, _access);
                     }
                 )*
             }

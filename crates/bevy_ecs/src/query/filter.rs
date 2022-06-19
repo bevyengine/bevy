@@ -346,17 +346,17 @@ macro_rules! impl_query_filter_tuple {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         unsafe impl<'w, $($filter: Fetch<'w>),*> Fetch<'w> for Or<($(OrFetch<'w, $filter>,)*)> {
-            type State = Or<($(<$filter as Fetch<'w>>::State,)*)>;
+            type State = Or<($($filter::State,)*)>;
             type Item = bool;
 
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
-            unsafe fn init(world: &'w World, state: & Or<($(<$filter as Fetch<'w>>::State,)*)>, last_change_tick: u32, change_tick: u32) -> Self {
+            unsafe fn init(world: &'w World, state: & Or<($($filter::State,)*)>, last_change_tick: u32, change_tick: u32) -> Self {
                 let ($($filter,)*) = &state.0;
                 Or(($(OrFetch {
-                    fetch: <$filter as Fetch<'w>>::init(world, $filter, last_change_tick, change_tick),
+                    fetch: $filter::init(world, $filter, last_change_tick, change_tick),
                     matches: false,
                     _marker: PhantomData,
                 },)*))
@@ -367,7 +367,7 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
-                    $filter.matches = <$filter as Fetch<'_>>::matches_component_set($state, &|id| table.has_column(id));
+                    $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
                     if $filter.matches {
                         $filter.fetch.set_table($state, table);
                     }
@@ -379,7 +379,7 @@ macro_rules! impl_query_filter_tuple {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
-                    $filter.matches = <$filter as Fetch<'_>>::matches_component_set($state, &|id| archetype.contains(id));
+                    $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
                     if $filter.matches {
                         $filter.fetch.set_archetype($state, archetype, tables);
                     }
@@ -432,11 +432,11 @@ macro_rules! impl_query_filter_tuple {
                 $(
                     if _not_first {
                         let mut intermediate = access.clone();
-                        <$filter as Fetch<'_>>::update_component_access($filter, &mut intermediate);
+                        $filter::update_component_access($filter, &mut intermediate);
                         _intersected_access.extend_intersect_filter(&intermediate);
                         _intersected_access.extend_access(&intermediate);
                     } else {
-                        <$filter as Fetch<'_>>::update_component_access($filter, &mut _intersected_access);
+                        $filter::update_component_access($filter, &mut _intersected_access);
                         _not_first = true;
                     }
                 )*
@@ -446,12 +446,12 @@ macro_rules! impl_query_filter_tuple {
 
             fn update_archetype_component_access(state: &Self::State, archetype: &Archetype, access: &mut Access<ArchetypeComponentId>) {
                 let ($($filter,)*) = &state.0;
-                $(<$filter as Fetch<'_>>::update_archetype_component_access($filter, archetype, access);)*
+                $($filter::update_archetype_component_access($filter, archetype, access);)*
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = &state.0;
-                false $(|| <$filter as Fetch<'_>>::matches_component_set($filter, _set_contains_id))*
+                false $(|| $filter::matches_component_set($filter, _set_contains_id))*
             }
         }
 

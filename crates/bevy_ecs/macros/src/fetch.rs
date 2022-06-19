@@ -257,17 +257,17 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
                 fn init_state(world: &mut #path::world::World) -> Self::State {
                     #state_struct_name {
-                        #(#field_idents: <<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::init_state(world),)*
+                        #(#field_idents: #path::query::#fetch_type_alias::<'static, #field_types>::init_state(world),)*
                         #(#ignored_field_idents: Default::default(),)*
                     }
                 }
 
                 fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
-                    #(<<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::update_component_access(&state.#field_idents, _access);)*
+                    #(#path::query::#fetch_type_alias::<'static, #field_types>::update_component_access(&state.#field_idents, _access);)*
                 }
 
                 fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
-                    true #(&& <<#field_types as #path::query::WorldQueryGats<'_>>::Fetch as #path::query::Fetch<'_>>::matches_component_set(&state.#field_idents, _set_contains_id))*
+                    true #(&& #path::query::#fetch_type_alias::<'static, #field_types>::matches_component_set(&state.#field_idents, _set_contains_id))*
                 }
 
                 fn update_archetype_component_access(state: &Self::State, _archetype: &#path::archetype::Archetype, _access: &mut #path::query::Access<#path::archetype::ArchetypeComponentId>) {
