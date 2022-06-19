@@ -49,10 +49,6 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     type ReadOnly = Self;
     type State = ComponentId;
 
-    fn init(world: &mut World) -> Self::State {
-        world.init_component::<T>()
-    }
-
     #[allow(clippy::semicolon_if_nothing_returned)]
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: super::QueryItem<'wlong, Self>,
@@ -114,6 +110,10 @@ unsafe impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
 
     #[inline]
     unsafe fn table_fetch(&mut self, _table_row: usize) {}
+
+    fn init_state(world: &mut World) -> Self::State {
+        world.init_component::<T>()
+    }
 
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -180,10 +180,6 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     type ReadOnly = Self;
     type State = ComponentId;
 
-    fn init(world: &mut World) -> Self::State {
-        world.init_component::<T>()
-    }
-
     #[allow(clippy::semicolon_if_nothing_returned)]
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: super::QueryItem<'wlong, Self>,
@@ -245,6 +241,10 @@ unsafe impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
 
     #[inline]
     unsafe fn table_fetch(&mut self, _table_row: usize) {}
+
+    fn init_state(world: &mut World) -> Self::State {
+        world.init_component::<T>()
+    }
 
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -330,10 +330,6 @@ macro_rules! impl_query_filter_tuple {
             type ReadOnly = Or<($($filter::ReadOnly,)*)>;
             type State = Or<($($filter::State,)*)>;
 
-            fn init(world: &mut World) -> Self::State {
-                Or(($($filter::init(world),)*))
-            }
-
             fn shrink<'wlong: 'wshort, 'wshort>(item: super::QueryItem<'wlong, Self>) -> super::QueryItem<'wshort, Self> {
                 item
             }
@@ -410,6 +406,10 @@ macro_rules! impl_query_filter_tuple {
             #[inline]
             unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
                 self.archetype_fetch(archetype_index)
+            }
+
+            fn init_state(world: &mut World) -> Self::State {
+                Or(($($filter::init_state(world),)*))
             }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -489,10 +489,6 @@ macro_rules! impl_tick_filter {
         unsafe impl<T: Component> WorldQuery for $name<T> {
             type ReadOnly = Self;
             type State = ComponentId;
-
-            fn init(world: &mut World) -> Self::State {
-                world.init_component::<T>()
-            }
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: super::QueryItem<'wlong, Self>) -> super::QueryItem<'wshort, Self> {
                 item
@@ -578,6 +574,10 @@ macro_rules! impl_tick_filter {
             #[inline]
             unsafe fn archetype_filter_fetch(&mut self, archetype_index: usize) -> bool {
                 self.archetype_fetch(archetype_index)
+            }
+
+            fn init_state(world: &mut World) -> Self::State {
+                world.init_component::<T>()
             }
 
             #[inline]
