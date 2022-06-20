@@ -82,6 +82,12 @@ where
         }
     }
 
+    /// Registers a release for all currently pressed inputs.
+    pub fn release_all(&mut self) {
+        // Move all items from pressed into just_released
+        self.just_released.extend(self.pressed.drain());
+    }
+
     /// Returns `true` if the `input` has just been pressed.
     pub fn just_pressed(&self, input: T) -> bool {
         self.just_pressed.contains(&input)
@@ -195,6 +201,17 @@ mod test {
         input.release(DummyInput::Input1);
         assert!(!input.pressed.contains(&DummyInput::Input1));
         assert!(input.just_released.contains(&DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_release_all() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+        input.release_all();
+        assert!(input.pressed.is_empty());
+        assert!(input.just_released.contains(&DummyInput::Input1));
+        assert!(input.just_released.contains(&DummyInput::Input2));
     }
 
     #[test]
