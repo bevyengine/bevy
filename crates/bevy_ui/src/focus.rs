@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_window::Windows;

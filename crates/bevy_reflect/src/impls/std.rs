@@ -1,8 +1,8 @@
 use crate as bevy_reflect;
 use crate::{
-    map_partial_eq, serde::Serializable, Array, ArrayInfo, ArrayIter, DynamicMap, FromReflect,
-    FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter, Reflect,
-    ReflectDeserialize, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, ValueInfo,
+    map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter, Reflect, ReflectDeserialize,
+    ReflectMut, ReflectRef, ReflectSerialize, TypeInfo, TypeRegistration, Typed, ValueInfo,
 };
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
@@ -158,10 +158,6 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 
@@ -420,11 +416,6 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::array_partial_eq(self, value)
     }
-
-    #[inline]
-    fn serializable(&self) -> Option<Serializable> {
-        None
-    }
 }
 
 impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
@@ -541,10 +532,6 @@ unsafe impl Reflect for Cow<'static, str> {
             Some(false)
         }
     }
-
-    fn serializable(&self) -> Option<Serializable> {
-        Some(Serializable::Borrowed(self))
-    }
 }
 
 impl Typed for Cow<'static, str> {
@@ -558,6 +545,7 @@ impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
         registration
     }
 }
@@ -570,13 +558,19 @@ impl FromReflect for Cow<'static, str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Reflect;
+    use crate::{Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
     use std::f32::consts::{PI, TAU};
 
     #[test]
     fn can_serialize_duration() {
-        assert!(std::time::Duration::ZERO.serializable().is_some());
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<std::time::Duration>();
+
+        let reflect_serialize = type_registry
+            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<std::time::Duration>())
+            .unwrap();
+        let _serializable = reflect_serialize.get_serializable(&std::time::Duration::ZERO);
     }
 
     #[test]
