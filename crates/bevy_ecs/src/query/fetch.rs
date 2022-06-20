@@ -14,7 +14,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
-/// There are many types that natively implement `WorldQuery`:
+/// There are many types that natively implement this trait:
 ///
 /// - **Component references.**
 ///   Fetches a component by reference (immutably or mutably).
