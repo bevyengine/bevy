@@ -41,6 +41,14 @@ pub enum RenderGraphRunnerError {
         expected: SlotType,
         actual: SlotType,
     },
+    #[error(
+        "node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values"
+    )]
+    MismatchedInputCount {
+        node_name: Option<Cow<'static, str>>,
+        slot_count: usize,
+        value_count: usize,
+    },
 }
 
 impl RenderGraphRunner {
@@ -161,7 +169,13 @@ impl RenderGraphRunner {
                 .map(|(_, value)| value)
                 .collect();
 
-            assert_eq!(inputs.len(), node_state.input_slots.len());
+            if inputs.len() != node_state.input_slots.len() {
+                return Err(RenderGraphRunnerError::MismatchedInputCount {
+                    node_name: node_state.name.clone(),
+                    slot_count: node_state.input_slots.len(),
+                    value_count: inputs.len(),
+                });
+            }
 
             let mut outputs: SmallVec<[Option<SlotValue>; 4]> =
                 smallvec![None; node_state.output_slots.len()];

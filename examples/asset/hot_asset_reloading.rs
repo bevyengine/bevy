@@ -24,7 +24,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // You should see the changes immediately show up in your app.
 
     // mesh
-    commands.spawn_scene(scene_handle);
+    commands.spawn_bundle(SceneBundle {
+        scene: scene_handle,
+        ..default()
+    });
     // light
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),

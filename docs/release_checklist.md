@@ -9,7 +9,7 @@
 5. Create migration guide.
 6. Write blog post.
 7. Update book.
-8. Bump version number for all crates.
+8. Bump version number for all crates, using the "Release" workflow.
 9. Create tag on GitHub.
 10. Bump `latest` tag to most recent release.
 
@@ -26,5 +26,5 @@
 
 ## Post-release
 
-1. Bump version number for all crates to next versions, as `0.X-dev`, to ensure properly displayed version for [Dev Docs](https://dev-docs.bevyengine.org/bevy/index.html).
+1. Bump version number for all crates to next versions, as `0.X-dev`, using the "Post-release version bump" workflow, to ensure properly displayed version for [Dev Docs](https://dev-docs.bevyengine.org/bevy/index.html).
 2. Update Bevy version used for Bevy book code validation to latest release.

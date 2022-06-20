@@ -211,6 +211,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 }
 
 impl<'a> core::iter::ExactSizeIterator for ReserveEntitiesIterator<'a> {}
+impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 #[derive(Debug, Default)]
 pub struct Entities {

@@ -25,10 +25,11 @@ use bevy_render::{
     primitives::{Aabb, Frustum},
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
     renderer::RenderDevice,
-    texture::{CompressedImageFormats, Image, ImageType, TextureError},
+    texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
+use bevy_tasks::IoTaskPool;
 use bevy_transform::{components::Transform, TransformBundle};
 
 use bevy_utils::{HashMap, HashSet};
@@ -410,8 +411,7 @@ async fn load_gltf<'a, 'b>(
         }
     } else {
         #[cfg(not(target_arch = "wasm32"))]
-        load_context
-            .task_pool()
+        IoTaskPool::get()
             .scope(|scope| {
                 gltf.textures().for_each(|gltf_texture| {
                     let linear_textures = &linear_textures;
@@ -619,7 +619,7 @@ async fn load_texture<'a>(
             )?
         }
     };
-    texture.sampler_descriptor = texture_sampler(&gltf_texture);
+    texture.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
 
     Ok((texture, texture_label(&gltf_texture)))
 }
