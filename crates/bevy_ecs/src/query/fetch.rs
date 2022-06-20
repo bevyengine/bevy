@@ -12,7 +12,7 @@ pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use std::{cell::UnsafeCell, marker::PhantomData};
 
-/// Types that can be used to query a [`World`].
+/// Types that can be fetched from a [`World`] using a [`Query`].
 ///
 /// There are many types that natively implement `WorldQuery`:
 ///
@@ -43,7 +43,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behaviour.
 ///
-/// [queries]: crate::system::Query
+/// [`Query`]: crate::system::Query
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
 /// [`Or`]: crate::query::Or
