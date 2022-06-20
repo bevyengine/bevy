@@ -80,7 +80,7 @@ Check out the next section for details on how this plays out.
 2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
 3. Have asked to join the Bevy Org. Reach out to @cart on [Discord] or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
 
-All Bevy Org members are also Triage Team members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community. Existing Org members can visit the Bevy Engine Org page and navigate to the Triage Team to request membership. Once again, if you are interested don't hesitate to apply. We generally accept membership requests.
+All Bevy Org members are also Triage Team members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community.
 
 Merge rights within the org are relatively centralized: this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction.
 
