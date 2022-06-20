@@ -67,6 +67,25 @@ use std::{
 /// [`entity`]: crate::entity#usage
 /// [`Query`]: crate::system::Query
 ///
+/// # Choosing a storage type
+///
+/// Components can be stored in the world using different strategies with their own performance implications.
+/// By default, components are added to the [`Table`] storage, which is optimized for query iteration.
+///
+/// Alternatively, components can be added to the [`SparseSet`] storage, which is optimized for component insertion and removal.
+/// This is achieved by adding an additional `#[component(storage = "SparseSet")]` attribute to the derive one:
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(storage = "SparseSet")]
+/// struct ComponentA;
+/// ```
+///
+/// [`Table`]: crate::storage::Table
+/// [`SparseSet`]: crate::storage::SparseSet
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
