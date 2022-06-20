@@ -170,7 +170,7 @@ impl ImageSettings {
         }
     }
 
-    /// Creates image settings with default nearest sampling.
+    /// Creates image settings with nearest sampling by default.
     pub fn default_nearest() -> ImageSettings {
         ImageSettings {
             default_sampler: ImageSampler::nearest_descriptor(),
