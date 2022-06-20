@@ -163,7 +163,7 @@ impl Default for ImageSettings {
 }
 
 impl ImageSettings {
-    /// Creates image settings with default linear sampling.
+    /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImageSettings {
         ImageSettings {
             default_sampler: ImageSampler::linear_descriptor(),
