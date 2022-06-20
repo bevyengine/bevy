@@ -184,7 +184,7 @@ impl ImageSettings {
 /// The [`ImageSettings`] resource can be set during app initialization to change the default
 /// image sampler.
 #[derive(Debug, Clone, Deref, DerefMut)]
-pub struct RenderDefaultImageSampler(pub(crate) Sampler);
+pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
     fn default() -> Self {
@@ -620,7 +620,7 @@ impl RenderAsset for Image {
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
-        SRes<RenderDefaultImageSampler>,
+        SRes<DefaultImageSampler>,
     );
 
     /// Clones the Image.

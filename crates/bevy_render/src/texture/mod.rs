@@ -75,7 +75,7 @@ impl Plugin for ImagePlugin {
                 device.create_sampler(&default_sampler)
             };
             render_app
-                .insert_resource(RenderDefaultImageSampler(default_sampler))
+                .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<TextureCache>()
                 .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
         }
