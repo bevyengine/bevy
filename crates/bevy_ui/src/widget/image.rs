@@ -7,7 +7,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Query, Res},
 };
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::texture::Image;
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +31,7 @@ pub fn image_node_system(
     mut query: Query<(&mut CalculatedSize, &UiImage), With<ImageMode>>,
 ) {
     for (mut calculated_size, image) in query.iter_mut() {
-        if let Some(texture) = textures.get(image.0.clone_weak()) {
+        if let Some(texture) = textures.get(image) {
             let size = Size {
                 width: texture.texture_descriptor.size.width as f32,
                 height: texture.texture_descriptor.size.height as f32,

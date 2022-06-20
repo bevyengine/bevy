@@ -1,10 +1,11 @@
+//! This example demonstrates you can create a custom runner (to update an app manually). It reads
+//! lines from stdin and prints them from within the ecs.
+
 use bevy::prelude::*;
 use std::{io, io::BufRead};
 
 struct Input(String);
 
-/// This example demonstrates you can create a custom runner (to update an app manually). It reads
-/// lines from stdin and prints them from within the ecs.
 fn my_runner(mut app: App) {
     println!("Type stuff into the console");
     for line in io::stdin().lock().lines() {

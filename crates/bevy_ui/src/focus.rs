@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_window::Windows;
@@ -57,7 +57,6 @@ pub struct State {
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
-#[allow(clippy::type_complexity)]
 pub fn ui_focus_system(
     mut state: Local<State>,
     windows: Res<Windows>,
@@ -98,7 +97,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_released(0);
+        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_pressed(0);
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()

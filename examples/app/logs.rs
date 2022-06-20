@@ -1,6 +1,7 @@
+//! This example illustrates how to use logs in bevy.
+
 use bevy::prelude::*;
 
-/// This example illustrates how to use logs in bevy
 fn main() {
     App::new()
         // Uncomment this to override the default log settings:

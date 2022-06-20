@@ -3,7 +3,7 @@
 //! Running this example:
 //!
 //! ```
-//! cargo r --release --example transform_hierarchy -- <configuration name>
+//! cargo r --release --example transform_hierarchy <configuration name>
 //! ```
 //!
 //! | Configuration        | Description                                                       |
@@ -187,7 +187,7 @@ fn main() {
         .add_plugin(TransformPlugin::default())
         .add_startup_system(setup)
         .add_system(update)
-        .run()
+        .run();
 }
 
 /// test configuration
@@ -257,7 +257,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 }
 
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
-    let mut cam = OrthographicCameraBundle::new_2d();
+    let mut cam = Camera2dBundle::default();
     cam.transform.translation.z = 100.0;
     commands.spawn_bundle(cam);
 

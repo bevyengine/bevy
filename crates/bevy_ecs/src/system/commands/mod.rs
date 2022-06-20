@@ -1,4 +1,5 @@
 mod command_queue;
+mod parallel_scope;
 
 use crate::{
     bundle::Bundle,
@@ -8,6 +9,7 @@ use crate::{
 };
 use bevy_utils::tracing::{error, warn};
 pub use command_queue::CommandQueue;
+pub use parallel_scope::*;
 use std::marker::PhantomData;
 
 use super::Resource;
@@ -53,6 +55,11 @@ impl<'w, 's> Commands<'w, 's> {
             queue,
             entities: world.entities(),
         }
+    }
+
+    /// Create a new `Commands` from a queue and an [`Entities`] reference.
+    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
+        Self { queue, entities }
     }
 
     /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.

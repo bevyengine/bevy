@@ -47,6 +47,7 @@ impl_downcast!(Stage);
 ///
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
+#[derive(Default)]
 pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
@@ -802,6 +803,12 @@ impl Stage for SystemStage {
             for index in 0..self.run_criteria.len() {
                 let (run_criteria, tail) = self.run_criteria.split_at_mut(index);
                 let mut criteria = &mut tail[0];
+
+                #[cfg(feature = "trace")]
+                let _span =
+                    bevy_utils::tracing::info_span!("run criteria", name = &*criteria.name())
+                        .entered();
+
                 match &mut criteria.inner {
                     RunCriteriaInner::Single(system) => criteria.should_run = system.run((), world),
                     RunCriteriaInner::Piped {
@@ -919,10 +926,9 @@ impl Stage for SystemStage {
                                 }
                             }
                             match criteria.should_run {
-                                ShouldRun::Yes => {
-                                    run_system_loop = true;
-                                }
-                                ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
+                                ShouldRun::Yes
+                                | ShouldRun::YesAndCheckAgain
+                                | ShouldRun::NoAndCheckAgain => {
                                     run_system_loop = true;
                                 }
                                 ShouldRun::No => (),

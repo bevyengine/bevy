@@ -8,7 +8,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(rotate)
@@ -56,7 +55,7 @@ fn setup(
                     ),
                     ..default()
                 },
-                ..Default::default()
+                ..default()
             })
             .insert(Shape);
     }
@@ -66,29 +65,29 @@ fn setup(
             intensity: 9000.0,
             range: 100.,
             shadows_enabled: true,
-            ..Default::default()
+            ..default()
         },
         transform: Transform::from_xyz(8.0, 16.0, 8.0),
-        ..Default::default()
+        ..default()
     });
 
     // ground plane
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(shape::Plane { size: 50. }.into()),
         material: materials.add(Color::SILVER.into()),
-        ..Default::default()
+        ..default()
     });
 
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
     for mut transform in query.iter_mut() {
         transform.rotation = Quat::from_rotation_y(time.seconds_since_startup() as f32 / 2.)
-            * Quat::from_rotation_x(-std::f32::consts::PI / 4.)
+            * Quat::from_rotation_x(-std::f32::consts::PI / 4.);
     }
 }
 
