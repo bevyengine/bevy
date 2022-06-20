@@ -215,7 +215,7 @@ Like every other large, rapidly developing open source library you've ever used,
 This is incredibly valuable, easily distributed work, but requires a bit of guidance:
 
 * Inaccurate documentation is worse than no documentation: prioritize fixing broken docs.
-* Bevy is remarkable unstable: before tackling a new major documentation project, check in with the community on Discord or GitHub (making an issue about specific missing docs is a great way to plan) about the stability of that feature and upcoming plans to save yourself heartache.
+* Bevy is remarkably unstable: before tackling a new major documentation project, check in with the community on Discord or GitHub (making an issue about specific missing docs is a great way to plan) about the stability of that feature and upcoming plans to save yourself heartache.
 * Code documentation (doc examples and in the examples folder) is easier to maintain because the compiler will tell us when it breaks.
 * Inline documentation should be technical and to the point. Link relevant examples or other explanations if broader context is useful.
 * The Bevy book is hosted on the `bevy-website` repo and targeted towards beginners who are just getting to know Bevy (and perhaps Rust!).
