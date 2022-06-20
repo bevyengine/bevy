@@ -124,7 +124,7 @@ where
     }
 
     /// Clears the `pressed`, `just_pressed`, and `just_released` data for every input.
-    /// 
+    ///
     /// See also [`Input::clear`] for simulating elapsed time steps.
     pub fn reset_all(&mut self) {
         self.pressed.clear();
@@ -133,7 +133,7 @@ where
     }
 
     /// Clears the `just pressed` and `just released` data for every input.
-    /// 
+    ///
     /// See also [`Input::reset_all`] for a full reset.
     pub fn clear(&mut self) {
         self.just_pressed.clear();
