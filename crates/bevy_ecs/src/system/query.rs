@@ -212,6 +212,8 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// Iterating it, on the other hand, fetches data from the world and generates items, which can have a significant computational cost.
 /// However, iteration cost of queries is reduced by the fact that they have an internal archetype cache to avoid re-computing archetype matches on each query access.
 ///
+/// [`Table`] component storage type is much more optimized for query iteration than [`SparseSet`].
+///
 /// Two systems cannot be executed in parallel if both access the same component type where at least one of the accesses is mutable.
 /// This happens unless the schedule can verify that no entity could be found in both queries.
 ///
@@ -268,6 +270,8 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// [`get_many`]: Self::get_many
 /// [`iter_many`]: Self::iter_many
 /// [`many_for_each_mut`]: Self::many_for_each_mut
+/// [`Table`]: crate::storage::Table
+/// [`SparseSet`]: crate::storage::SparseSet
 pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()> {
     pub(crate) world: &'world World,
     pub(crate) state: &'state QueryState<Q, F>,
