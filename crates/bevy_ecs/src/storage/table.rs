@@ -126,7 +126,7 @@ impl Column {
     ///
     /// # Safety
     ///
-    ///  - `other` must have the same data layout as `self
+    ///  - `other` must have the same data layout as `self`
     ///  - `src_row` must be in bounds for `other`
     ///  - `dst_row` must be in bounds for `self`
     ///  - `other[src_row]` must be initialized to a valid value.
