@@ -17,7 +17,7 @@ use std::{
 /// A data type that can be used to store data for an [entity].
 ///
 ///
-/// `Component` is a [derivable trait]: this means that a data type can implement it by simply prepending a `#[derive(Component)]` attribute to it.
+/// `Component` is a [derivable trait]: this means that a data type can implement it by applying a `#[derive(Component)]` attribute to it.
 /// However, components must always satisfy the `Send + Sync + 'static` trait bounds.
 ///
 /// [entity]: crate::entity
