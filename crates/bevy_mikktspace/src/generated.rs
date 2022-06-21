@@ -115,7 +115,7 @@ pub struct STriInfo {
 impl STriInfo {
     fn zero() -> Self {
         Self {
-            FaceNeighbors: [0, 0, 0],
+            FaceNeighbors: [-1, -1, -1],
             AssignedGroup: [null_mut(), null_mut(), null_mut()],
             vOs: Default::default(),
             vOt: Default::default(),
@@ -249,12 +249,7 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
         iTotTris as i32,
     );
     // C: Evaluate triangle level attributes and neighbor list
-    setup::InitTriInfo(
-        pTriInfos.as_mut_ptr(),
-        piTriListIn.as_ptr(),
-        geometry,
-        iNrTrianglesIn,
-    );
+    setup::InitTriInfo(&mut pTriInfos, &piTriListIn, geometry, iNrTrianglesIn);
     //C: Based on the 4 rules, identify groups based on connectivity
     let iNrMaxGroups = iNrTrianglesIn * 3;
 

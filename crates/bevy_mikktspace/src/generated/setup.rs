@@ -1,5 +1,4 @@
 use super::SEdge;
-use super::SGroup;
 use super::STriInfo;
 use super::TriangleFlags;
 
@@ -144,38 +143,24 @@ pub(crate) fn GenerateInitialVerticesIndexList(
     return iTSpacesOffs;
 }
 
-pub(crate) unsafe fn InitTriInfo(
-    mut pTriInfos: *mut STriInfo,
-    mut piTriListIn: *const i32,
+pub(crate) fn InitTriInfo(
+    mut pTriInfos: &mut [STriInfo],
+    mut piTriListIn: &[i32],
     geometry: &impl Geometry,
     iNrTrianglesIn: usize,
 ) {
     for f in 0..iNrTrianglesIn {
-        for i in 0..3i32 {
-            (*pTriInfos.offset(f as isize)).FaceNeighbors[i as usize] = -1i32;
-            let ref mut fresh4 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
-            *fresh4 = 0 as *mut SGroup;
-            (*pTriInfos.offset(f as isize)).vOs.x = 0.0f32;
-            (*pTriInfos.offset(f as isize)).vOs.y = 0.0f32;
-            (*pTriInfos.offset(f as isize)).vOs.z = 0.0f32;
-            (*pTriInfos.offset(f as isize)).vOt.x = 0.0f32;
-            (*pTriInfos.offset(f as isize)).vOt.y = 0.0f32;
-            (*pTriInfos.offset(f as isize)).vOt.z = 0.0f32;
-            (*pTriInfos.offset(f as isize)).fMagS = 0i32 as f32;
-            (*pTriInfos.offset(f as isize)).fMagT = 0i32 as f32;
-            // C: assumed bad
-            (*pTriInfos.offset(f as isize))
-                .iFlag
-                .insert(TriangleFlags::GROUP_WITH_ANY);
-        }
+        // C: assumed bad
+        pTriInfos[f].iFlag.insert(TriangleFlags::GROUP_WITH_ANY);
     }
+
     for f in 0..iNrTrianglesIn {
-        let v1 = get_position(geometry, *piTriListIn.offset((f * 3 + 0) as isize) as usize);
-        let v2 = get_position(geometry, *piTriListIn.offset((f * 3 + 1) as isize) as usize);
-        let v3 = get_position(geometry, *piTriListIn.offset((f * 3 + 2) as isize) as usize);
-        let t1 = get_tex_coord(geometry, *piTriListIn.offset((f * 3 + 0) as isize) as usize);
-        let t2 = get_tex_coord(geometry, *piTriListIn.offset((f * 3 + 1) as isize) as usize);
-        let t3 = get_tex_coord(geometry, *piTriListIn.offset((f * 3 + 2) as isize) as usize);
+        let v1 = get_position(geometry, piTriListIn[(f * 3 + 0)] as usize);
+        let v2 = get_position(geometry, piTriListIn[f * 3 + 1] as usize);
+        let v3 = get_position(geometry, piTriListIn[f * 3 + 2] as usize);
+        let t1 = get_tex_coord(geometry, piTriListIn[f * 3 + 0] as usize);
+        let t2 = get_tex_coord(geometry, piTriListIn[f * 3 + 1] as usize);
+        let t3 = get_tex_coord(geometry, piTriListIn[f * 3 + 2] as usize);
         let t21x: f32 = t2.x - t1.x;
         let t21y: f32 = t2.y - t1.y;
         let t31x: f32 = t3.x - t1.x;
@@ -186,15 +171,13 @@ pub(crate) unsafe fn InitTriInfo(
         let mut vOs = (t31y * d1) - (t21y * d2);
         let mut vOt = (-t31x * d1) + (t21x * d2);
         if fSignedAreaSTx2 > 0.0 {
-            (*pTriInfos.offset(f as isize))
-                .iFlag
-                .insert(TriangleFlags::ORIENT_PRESERVING);
+            pTriInfos[f].iFlag.insert(TriangleFlags::ORIENT_PRESERVING);
         }
         if fSignedAreaSTx2.is_normal() {
             let fAbsArea: f32 = fSignedAreaSTx2.abs();
             let fLenOs: f32 = vOs.length();
             let fLenOt: f32 = vOt.length();
-            let fS: f32 = if !(*pTriInfos.offset(f as isize))
+            let fS: f32 = if !pTriInfos[f]
                 .iFlag
                 .contains(TriangleFlags::ORIENT_PRESERVING)
             {
@@ -203,57 +186,49 @@ pub(crate) unsafe fn InitTriInfo(
                 1.0f32
             };
             if fLenOs.is_normal() {
-                (*pTriInfos.offset(f as isize)).vOs = (fS / fLenOs) * vOs
+                pTriInfos[f].vOs = (fS / fLenOs) * vOs
             }
             if fLenOt.is_normal() {
-                (*pTriInfos.offset(f as isize)).vOt = (fS / fLenOt) * vOt
+                pTriInfos[f].vOt = (fS / fLenOt) * vOt
             }
-            (*pTriInfos.offset(f as isize)).fMagS = fLenOs / fAbsArea;
-            (*pTriInfos.offset(f as isize)).fMagT = fLenOt / fAbsArea;
-            if ((*pTriInfos.offset(f as isize)).fMagS.is_normal())
-                && (*pTriInfos.offset(f as isize)).fMagT.is_normal()
-            {
-                (*pTriInfos.offset(f as isize))
-                    .iFlag
-                    .remove(TriangleFlags::GROUP_WITH_ANY);
+            pTriInfos[f].fMagS = fLenOs / fAbsArea;
+            pTriInfos[f].fMagT = fLenOt / fAbsArea;
+            if (pTriInfos[f].fMagS.is_normal()) && (pTriInfos[f].fMagT.is_normal()) {
+                pTriInfos[f].iFlag.remove(TriangleFlags::GROUP_WITH_ANY);
             }
         }
     }
     let mut t = 0;
     while t < iNrTrianglesIn - 1 {
-        let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
-        let iFO_b: i32 = (*pTriInfos.offset((t + 1) as isize)).iOrgFaceNumber;
+        let iFO_a: i32 = pTriInfos[t].iOrgFaceNumber;
+        let iFO_b: i32 = pTriInfos[t + 1].iOrgFaceNumber;
         if iFO_a == iFO_b {
-            let bIsDeg_a: bool = (*pTriInfos.offset(t as isize))
-                .iFlag
-                .contains(TriangleFlags::DEGENERATE);
-            let bIsDeg_b: bool = (*pTriInfos.offset((t + 1) as isize))
-                .iFlag
-                .contains(TriangleFlags::DEGENERATE);
+            let bIsDeg_a: bool = pTriInfos[t].iFlag.contains(TriangleFlags::DEGENERATE);
+            let bIsDeg_b: bool = pTriInfos[(t + 1)].iFlag.contains(TriangleFlags::DEGENERATE);
             if !(bIsDeg_a || bIsDeg_b) {
-                let bOrientA: bool = (*pTriInfos.offset(t as isize))
+                let bOrientA: bool = pTriInfos[t]
                     .iFlag
                     .contains(TriangleFlags::ORIENT_PRESERVING);
-                let bOrientB: bool = (*pTriInfos.offset((t + 1) as isize))
+                let bOrientB: bool = pTriInfos[t + 1]
                     .iFlag
                     .contains(TriangleFlags::ORIENT_PRESERVING);
                 if bOrientA != bOrientB {
                     let mut bChooseOrientFirstTri: bool = false;
-                    if (*pTriInfos.offset((t + 1) as isize))
+                    if pTriInfos[t + 1]
                         .iFlag
                         .contains(TriangleFlags::GROUP_WITH_ANY)
                     {
                         bChooseOrientFirstTri = true
-                    } else if CalcTexArea(geometry, &*piTriListIn.offset((t * 3 + 0) as isize))
-                        >= CalcTexArea(geometry, &*piTriListIn.offset(((t + 1) * 3 + 0) as isize))
+                    } else if CalcTexArea(geometry, &piTriListIn[(t * 3)..])
+                        >= CalcTexArea(geometry, &piTriListIn[((t + 1) * 3)..])
                     {
                         bChooseOrientFirstTri = true
                     }
                     let t0 = if bChooseOrientFirstTri { t } else { t + 1 };
                     let t1_0 = if bChooseOrientFirstTri { t + 1 } else { t };
-                    (*pTriInfos.offset(t1_0 as isize)).iFlag.set(
+                    pTriInfos[t1_0].iFlag.set(
                         TriangleFlags::ORIENT_PRESERVING,
-                        (*pTriInfos.offset(t0 as isize))
+                        pTriInfos[t0]
                             .iFlag
                             .contains(TriangleFlags::ORIENT_PRESERVING),
                     );
@@ -268,17 +243,17 @@ pub(crate) unsafe fn InitTriInfo(
     BuildNeighborsFast(pTriInfos, piTriListIn, iNrTrianglesIn as i32);
 }
 
-pub(crate) unsafe fn BuildNeighborsFast(
-    mut pTriInfos: *mut STriInfo,
-    mut piTriListIn: *const i32,
+pub(crate) fn BuildNeighborsFast(
+    mut pTriInfos: &mut [STriInfo],
+    mut piTriListIn: &[i32],
     iNrTrianglesIn: i32,
 ) {
     let mut pEdges = Vec::with_capacity((iNrTrianglesIn * 3) as usize);
     // build array of edges
     for f in 0..iNrTrianglesIn {
         for i in 0..3i32 {
-            let i0: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
-            let i1: i32 = *piTriListIn.offset((f * 3i32 + (i + 1) % 3) as isize);
+            let i0: i32 = piTriListIn[(f * 3 + i) as usize];
+            let i1: i32 = piTriListIn[(f * 3 + (i + 1) % 3) as usize];
             // Ensure that the indices have a consistent order by making i0 the smaller
             pEdges.push(SEdge {
                 i0: i0.min(i1),
@@ -297,10 +272,8 @@ pub(crate) unsafe fn BuildNeighborsFast(
         let i1_0: i32 = edge.i1;
         let f_0: i32 = edge.f;
 
-        let (i0_A, i1_A, edgenum_A) =
-            GetEdge(&*piTriListIn.offset((f_0 * 3i32) as isize), i0_0, i1_0);
-        let bUnassigned_A =
-            (*pTriInfos.offset(f_0 as isize)).FaceNeighbors[edgenum_A as usize] == -1i32;
+        let (i0_A, i1_A, edgenum_A) = GetEdge(&piTriListIn[(f_0 * 3) as usize..], i0_0, i1_0);
+        let bUnassigned_A = pTriInfos[f_0 as usize].FaceNeighbors[edgenum_A as usize] == -1i32;
         if bUnassigned_A {
             let mut j: i32 = i + 1i32;
 
@@ -308,16 +281,16 @@ pub(crate) unsafe fn BuildNeighborsFast(
                 let t = pEdges[j as usize].f;
                 // C: Flip i1 and i0
                 let (i1_B, i0_B, edgenum_B) = GetEdge(
-                    &*piTriListIn.offset((t * 3i32) as isize),
+                    &piTriListIn[(t * 3) as usize..],
                     pEdges[j as usize].i0,
                     pEdges[j as usize].i1,
                 );
                 let bUnassigned_B =
-                    (*pTriInfos.offset(t as isize)).FaceNeighbors[edgenum_B as usize] == -1i32;
+                    pTriInfos[t as usize].FaceNeighbors[edgenum_B as usize] == -1i32;
                 if i0_A == i0_B && i1_A == i1_B && bUnassigned_B {
                     let mut t_0: i32 = pEdges[j as usize].f;
-                    (*pTriInfos.offset(f_0 as isize)).FaceNeighbors[edgenum_A as usize] = t_0;
-                    (*pTriInfos.offset(t_0 as isize)).FaceNeighbors[edgenum_B as usize] = f_0;
+                    pTriInfos[f_0 as usize].FaceNeighbors[edgenum_A as usize] = t_0;
+                    pTriInfos[t_0 as usize].FaceNeighbors[edgenum_B as usize] = f_0;
                     break;
                 } else {
                     j += 1
@@ -327,22 +300,23 @@ pub(crate) unsafe fn BuildNeighborsFast(
     }
 }
 
-pub(crate) unsafe fn GetEdge(mut indices: *const i32, i0_in: i32, i1_in: i32) -> (i32, i32, i32) {
-    if *indices.offset(0isize) == i0_in || *indices.offset(0isize) == i1_in {
-        if *indices.offset(1isize) == i0_in || *indices.offset(1isize) == i1_in {
-            (*indices.offset(0isize), *indices.offset(1isize), 0)
-        } else {
-            (*indices.offset(2isize), *indices.offset(0isize), 2)
-        }
-    } else {
-        (*indices.offset(1isize), *indices.offset(2isize), 1)
+pub(crate) fn GetEdge(indices: &[i32], i0_in: i32, i1_in: i32) -> (i32, i32, i32) {
+    let indices_to_find = [i0_in, i1_in];
+    match (
+        indices_to_find.contains(&indices[0]),
+        indices_to_find.contains(&indices[1]),
+    ) {
+        (true, true) => (indices[0], indices[1], 0),
+        (true, false) => (indices[2], indices[0], 2),
+        (false, true) => (indices[1], indices[2], 1),
+        (false, false) => unreachable!(),
     }
 }
 // returns the texture area times 2
-unsafe fn CalcTexArea(geometry: &impl Geometry, mut indices: *const i32) -> f32 {
-    let t1 = get_tex_coord(geometry, *indices.offset(0isize) as usize);
-    let t2 = get_tex_coord(geometry, *indices.offset(1isize) as usize);
-    let t3 = get_tex_coord(geometry, *indices.offset(2isize) as usize);
+fn CalcTexArea(geometry: &impl Geometry, mut indices: &[i32]) -> f32 {
+    let t1 = get_tex_coord(geometry, indices[0] as usize);
+    let t2 = get_tex_coord(geometry, indices[1] as usize);
+    let t3 = get_tex_coord(geometry, indices[2] as usize);
     let t21x: f32 = t2.x - t1.x;
     let t21y: f32 = t2.y - t1.y;
     let t31x: f32 = t3.x - t1.x;
