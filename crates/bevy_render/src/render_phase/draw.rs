@@ -68,10 +68,10 @@ pub trait PhaseItem: Send + Sync + 'static {
     /// It's generally only advised to use [`RenderPhaseSortMode::Unsorted`] if and only if
     /// the renderer supports a depth prepass, which is by default not supported by the rest
     /// of Bevy's first party rendering crates. Even then, this may have a negative impact
-    /// on GPU-side perf due to overdraw.
+    /// on GPU-side performance due to overdraw.
     ///
     /// It's advised to always profile for performance changes when changing this to
-    /// looser values.
+    /// a different value.
     #[inline]
     fn sort_mode() -> RenderPhaseSortMode {
         Default::default()
