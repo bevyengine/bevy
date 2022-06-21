@@ -23,8 +23,6 @@ impl Plugin for CameraPlugin {
         app.register_type::<Camera>()
             .register_type::<Visibility>()
             .register_type::<ComputedVisibility>()
-            .register_type::<OrthographicProjection>()
-            .register_type::<PerspectiveProjection>()
             .register_type::<VisibleEntities>()
             .register_type::<WindowOrigin>()
             .register_type::<ScalingMode>()
