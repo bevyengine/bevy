@@ -94,7 +94,7 @@ struct PbrInput {
 
 fn pbr(
     in: PbrInput,
-) -> [[location(0)]] vec4<f32> {
+) -> vec4<f32> {
     var output_color: vec4<f32> = in.material.base_color;
 
     // TODO use .a for exposure compensation in HDR
