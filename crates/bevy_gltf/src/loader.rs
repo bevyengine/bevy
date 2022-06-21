@@ -29,6 +29,7 @@ use bevy_render::{
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
+#[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::{components::Transform, TransformBundle};
 

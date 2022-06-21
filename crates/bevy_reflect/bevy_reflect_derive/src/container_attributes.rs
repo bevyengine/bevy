@@ -18,7 +18,6 @@ use syn::{Meta, NestedMeta, Path};
 const DEBUG_ATTR: &str = "Debug";
 const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
-const SERIALIZE_ATTR: &str = "Serialize";
 
 // The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
 // but useful to know exist nonetheless
@@ -54,7 +53,6 @@ impl Default for TraitImpl {
 /// * `Debug`
 /// * `Hash`
 /// * `PartialEq`
-/// * `Serialize`
 ///
 /// When registering a trait, there are a few things to keep in mind:
 /// * Traits must have a valid `Reflect{}` struct in scope. For example, `Default`
@@ -110,7 +108,6 @@ pub(crate) struct ReflectTraits {
     debug: TraitImpl,
     hash: TraitImpl,
     partial_eq: TraitImpl,
-    serialize: TraitImpl,
     idents: Vec<Ident>,
 }
 
@@ -133,7 +130,6 @@ impl ReflectTraits {
                         DEBUG_ATTR => traits.debug = TraitImpl::Implemented,
                         PARTIAL_EQ_ATTR => traits.partial_eq = TraitImpl::Implemented,
                         HASH_ATTR => traits.hash = TraitImpl::Implemented,
-                        SERIALIZE_ATTR => traits.serialize = TraitImpl::Implemented,
                         // We only track reflected idents for traits not considered special
                         _ => traits.idents.push(utility::get_reflect_ident(&ident)),
                     }
@@ -156,7 +152,6 @@ impl ReflectTraits {
                                 DEBUG_ATTR => traits.debug = trait_func_ident,
                                 PARTIAL_EQ_ATTR => traits.partial_eq = trait_func_ident,
                                 HASH_ATTR => traits.hash = trait_func_ident,
-                                SERIALIZE_ATTR => traits.serialize = trait_func_ident,
                                 _ => {}
                             }
                         }
@@ -224,25 +219,6 @@ impl ReflectTraits {
             TraitImpl::Custom(impl_fn) => Some(quote! {
                 fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                     Some(#impl_fn(self, value))
-                }
-            }),
-            TraitImpl::NotImplemented => None,
-        }
-    }
-
-    /// Returns the implementation of `Reflect::serializable` as a `TokenStream`.
-    ///
-    /// If `Serialize` was not registered, returns `None`.
-    pub fn get_serialize_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
-        match &self.serialize {
-            TraitImpl::Implemented => Some(quote! {
-                fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
-                    Some(#bevy_reflect_path::serde::Serializable::Borrowed(self))
-                }
-            }),
-            TraitImpl::Custom(impl_fn) => Some(quote! {
-                fn serializable(&self) -> Option<#bevy_reflect_path::serde::Serializable> {
-                    Some(#impl_fn(self))
                 }
             }),
             TraitImpl::NotImplemented => None,
