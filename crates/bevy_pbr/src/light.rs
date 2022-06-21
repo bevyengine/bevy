@@ -1299,9 +1299,6 @@ pub(crate) fn assign_lights_to_clusters(
                                 // all clusters within range are affected by point lights
                                 clusters.lights[cluster_index].entities.push(light.entity);
                                 clusters.lights[cluster_index].point_light_count += 1;
-                                if clusters.lights[cluster_index].spotlight_count > 0 {
-                                    println!("spots before points");
-                                }
                                 cluster_index += clusters.dimensions.z as usize;
                             }
                         }
