@@ -1,8 +1,5 @@
-use crate::{
-    executor::Executor,
-    local_executor::LocalExecutor,
-};
 pub use crate::task_pool_builder::*;
+use crate::{executor::Executor, local_executor::LocalExecutor};
 use event_listener::Event;
 use futures_lite::{future, pin};
 use once_cell::sync::OnceCell;

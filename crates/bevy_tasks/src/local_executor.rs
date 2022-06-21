@@ -1,9 +1,9 @@
-use async_task::{Task, Runnable};
+use async_task::{Runnable, Task};
 use concurrent_queue::ConcurrentQueue;
-use std::rc::Rc;
-use std::marker::PhantomData;
 use std::future::Future;
-use std::panic::{UnwindSafe, RefUnwindSafe};
+use std::marker::PhantomData;
+use std::panic::{RefUnwindSafe, UnwindSafe};
+use std::rc::Rc;
 
 /// A thread-local executor.
 ///
