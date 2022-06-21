@@ -41,7 +41,7 @@ use std::{
 /// #[derive(Component)]
 /// struct Car;
 ///
-/// // Most commonly, components are structs with a small number of fields.
+/// // Components can also be structs with named fields...
 /// #[derive(Component)]
 /// struct VehiclePerformance {
 ///     acceleration: f32,
@@ -49,7 +49,7 @@ use std::{
 ///     handling: f32,
 /// }
 ///
-/// // Less commonly, components are also found as enums.
+/// // ... or enums.
 /// #[derive(Component)]
 /// enum WheelCount {
 ///     Two,
