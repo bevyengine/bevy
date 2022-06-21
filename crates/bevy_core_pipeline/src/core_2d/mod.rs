@@ -92,6 +92,7 @@ impl PhaseItem for Transparent2d {
         self.draw_function
     }
 
+    #[inline]
     fn sort_mode() -> RenderPhaseSortMode {
         RenderPhaseSortMode::Stable
     }

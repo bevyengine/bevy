@@ -30,6 +30,7 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     );
 }
 
+/// Configures how a render phase is sorted. For more information, see [`PhaseItem::sort_mode`].
 pub enum RenderPhaseSortMode {
     /// Requires a stable sort. Generally required for proper batching based on external criteria.
     Stable,
@@ -37,6 +38,12 @@ pub enum RenderPhaseSortMode {
     Unstable,
     /// Unsorted. Omits sorting entirely.
     Unsorted,
+}
+
+impl Default for RenderPhaseSortMode {
+    fn default() -> Self {
+        Self::Unstable
+    }
 }
 
 /// An item which will be drawn to the screen. A phase item should be queued up for rendering
@@ -52,11 +59,22 @@ pub trait PhaseItem: Send + Sync + 'static {
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;
 
-    /// Specifies whether the phase requires batching. This should return true if and only if
-    /// the type implements [`BatchedPhaseItem`].
+    /// Specifies what kind of sort to apply to the phase. Generally if the same type
+    /// implements [`BatchedPhaseItem`], this should return [`RenderPhaseSortMode::Stable`].
+    /// In almost all other cases, this should not be altered from the default,
+    /// [`RenderPhaseSortMode::Unstable`], as this provides the best balance of CPU and GPU
+    /// performance.
+    ///
+    /// It's generally only advised to use [`RenderPhaseSortMode::Unsorted`] if and only if
+    /// the renderer supports a depth prepass, which is by default not supported by the rest
+    /// of Bevy's first party rendering crates. Even then, this may have a negative impact
+    /// on GPU-side perf due to overdraw.
+    ///
+    /// It's advised to always profile for performance changes when changing this to
+    /// looser values.
     #[inline]
     fn sort_mode() -> RenderPhaseSortMode {
-        RenderPhaseSortMode::Unstable
+        Default::default()
     }
 }
 
@@ -186,6 +204,10 @@ pub trait CachedRenderPipelinePhaseItem: PhaseItem {
 ///
 /// Batching is an optimization that regroups multiple items in the same vertex buffer
 /// to render them in a single draw call.
+///
+/// If this is implemented on a type, the implementation of [`PhaseItem::sort_mode`] should
+/// be changed to return [`RenderPhaseSortMode::Stable`], or incorrect/suboptimal batching
+/// may result.
 pub trait BatchedPhaseItem: EntityPhaseItem {
     /// Range in the vertex buffer of this item
     fn batch_range(&self) -> &Option<Range<u32>>;
