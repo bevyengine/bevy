@@ -107,10 +107,10 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
-    /// Queues writing of memory from the host to [`RenderDevice`](crate::renderer::RenderDevice) using
-    /// the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
+    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
     ///
-    /// Before queueing the write, a [`reserve`](crate::render_resource::BufferVec::reserve) operation
+    /// Before queuing the write, a [`reserve`](crate::render_resource::BufferVec::reserve) operation
     /// is executed.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         if self.values.is_empty() {
