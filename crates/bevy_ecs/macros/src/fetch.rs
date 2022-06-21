@@ -227,7 +227,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
                 /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                 #[inline(always)]
-                unsafe fn fetch(&mut self, _entity: &Entity, _table_row: &usize) -> Self::Item {
+                unsafe fn fetch(&mut self, _entity: Entity, _table_row: usize) -> Self::Item {
                     Self::Item {
                         #(#field_idents: self.#field_idents.fetch(_entity, _table_row),)*
                         #(#ignored_field_idents: Default::default(),)*
@@ -236,7 +236,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
                 #[allow(unused_variables)]
                 #[inline(always)]
-                unsafe fn filter_fetch(&mut self, _entity: &Entity, _table_row: &usize) -> bool {
+                unsafe fn filter_fetch(&mut self, _entity: Entity, _table_row: usize) -> bool {
                     true #(&& self.#field_idents.filter_fetch(_entity, _table_row))*
                 }
 
