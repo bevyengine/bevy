@@ -8,6 +8,8 @@ pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
 
+use self::archetype_invariants::{ArchetypeInvariants, ArchetypeInvariant};
+
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
@@ -84,6 +86,7 @@ pub struct World {
     pub(crate) entities: Entities,
     pub(crate) components: Components,
     pub(crate) archetypes: Archetypes,
+    pub(crate) archetype_invariants: ArchetypeInvariants,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
@@ -101,6 +104,7 @@ impl Default for World {
             entities: Default::default(),
             components: Default::default(),
             archetypes: Default::default(),
+            archetype_invariants: Default::default(),
             storages: Default::default(),
             bundles: Default::default(),
             removed_components: Default::default(),
@@ -152,6 +156,12 @@ impl World {
     #[inline]
     pub fn archetypes(&self) -> &Archetypes {
         &self.archetypes
+    }
+
+    /// Retrieves this world's [ArchetypeInvariants] collection
+    #[inline]
+    pub fn archetype_invariants(&self) -> &ArchetypeInvariants {
+        &self.archetype_invariants
     }
 
     /// Retrieves this world's [Components] collection
@@ -664,6 +674,16 @@ impl World {
         } else {
             [].iter().cloned()
         }
+    }
+
+    /// Inserts a new [`ArchetypeInvariant`] to the world. 
+    /// This should only be done at world initialization. 
+    /// Doing this after entities are spawned make it impossible to tell which archetypes are still valid.
+    pub fn add_archetype_invariant(
+        &mut self,
+        archetype_invariant: ArchetypeInvariant
+    ) {
+        self.archetype_invariants.add(archetype_invariant);
     }
 
     /// Inserts a new resource with standard starting values.

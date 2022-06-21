@@ -74,7 +74,16 @@ impl ArchetypeStatement {
     }
 }
 
+#[derive(Default)]
 pub struct ArchetypeInvariants {
     raw_list: Vec<ArchetypeInvariant>,
     last_checked_archetype_index: u32,
+}
+
+impl ArchetypeInvariants {
+
+    /// Adds a new [`ArchetypeInvariant`] to this set of archetype invariants.
+    pub fn add(&mut self, archetype_invariant: ArchetypeInvariant) {
+        self.raw_list.push(archetype_invariant);
+    }
 }
