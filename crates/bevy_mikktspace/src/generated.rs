@@ -44,13 +44,7 @@
     unused_mut
 )]
 
-use std::{
-    collections::{
-        btree_map::Entry::{Occupied, Vacant},
-        BTreeMap,
-    },
-    ptr::null_mut,
-};
+use std::{collections::BTreeMap, ptr::null_mut};
 
 use bitflags::bitflags;
 use glam::Vec3;
@@ -114,7 +108,7 @@ pub struct STriInfo {
     // The vertices of the face 'iOrgFaceNumber' this triangle covers
     // This has only a limited set of valid values - as required for quads.
     // - TODO: Convert to a repr(u8) enum to compress.
-    // In theory, this could be compressed in
+    // In theory, this could be compressed inside TriangleFlags too.
     pub vert_num: [u8; 3],
 }
 
@@ -191,10 +185,10 @@ struct TriangleMap {
 
 // Entry point
 pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> bool {
-    let iNrFaces = geometry.num_faces();
     // TODO: Accept in radians by default here?
     let fThresCos = (fAngularThreshold.to_radians()).cos();
 
+    let iNrFaces = geometry.num_faces();
     let mut iNrTrianglesIn = 0;
     for f in 0..iNrFaces {
         let verts = geometry.num_vertices_of_face(f);
@@ -224,7 +218,8 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
         iNrTrianglesIn,
     );
     // C: Make a welded index list of identical positions and attributes (pos, norm, texc)
-    GenerateSharedVerticesIndexList(piTriListIn.as_mut_ptr(), geometry, iNrTrianglesIn);
+    GenerateSharedVerticesIndexList(&mut piTriListIn, geometry);
+
     let iTotTris = iNrTrianglesIn;
     let mut iDegenTriangles = 0;
     // C: Mark all degenerate triangles
@@ -1094,7 +1089,7 @@ unsafe fn DegenPrologue(
     debug_assert!(iNrTrianglesIn == t);
     debug_assert!(bStillFindingGoodOnes);
 }
-unsafe fn GenerateSharedVerticesIndexList(
+fn GenerateSharedVerticesIndexList(
     // The input vertex index->face/vert mappings
     // Identical face/verts will have each vertex index
     // point to the same (arbitrary?) face/vert
@@ -1102,28 +1097,24 @@ unsafe fn GenerateSharedVerticesIndexList(
     // side channel seems much easier.
     // Hopefully implementation can be changed to just use a btreemap or
     // something too.
-    mut piTriList_in_and_out: *mut i32,
+    mut piTriList_in_and_out: &mut [i32],
     geometry: &impl Geometry,
-    iNrTrianglesIn: usize,
 ) {
     let mut map = BTreeMap::new();
-    for i in 0..(iNrTrianglesIn * 3) {
-        let index: i32 = *piTriList_in_and_out.offset(i as isize);
-        let vP = get_position(geometry, index as usize);
-        let vN = get_normal(geometry, index as usize);
-        let vT = get_tex_coord(geometry, index as usize);
+    for vertex_index in piTriList_in_and_out {
+        let index = *vertex_index as usize;
+        let vertex_properties = [
+            get_position(geometry, index),
+            get_normal(geometry, index),
+            get_tex_coord(geometry, index),
+        ]
+        // We need to make the vertex properties finite to be able to use them in a btreemap
         // Technically, these unwraps aren't ideal, but the original puts absolutely no thought into its handling of
-        // NaN and infinity, so it's probably *fine*
-        let vP = FiniteVec3::new(vP).unwrap();
-        let vN = FiniteVec3::new(vN).unwrap();
-        let vT = FiniteVec3::new(vT).unwrap();
+        // NaN and infinity, so it's probably *fine*. (I strongly suspect that infinity or NaN would have
+        //  lead to UB somewhere)
+        .map(|prop| FiniteVec3::new(prop).unwrap());
 
-        match map.entry((vP, vN, vT)) {
-            Vacant(entry) => {
-                entry.insert(index);
-            }
-            Occupied(e) => *piTriList_in_and_out.offset(i as isize) = *e.get(),
-        }
+        *vertex_index = *(map.entry(vertex_properties).or_insert(*vertex_index));
     }
 }
 
