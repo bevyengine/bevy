@@ -140,7 +140,7 @@ impl Column {
     ) {
         debug_assert!(self.data.layout() == other.data.layout());
         let ptr = self.data.get_unchecked_mut(dst_row);
-        other.data.remove_unchecked(src_row, ptr);
+        other.data.swap_remove_unchecked(src_row, ptr);
         *self.ticks.get_unchecked_mut(dst_row) = other.ticks.swap_remove(src_row);
     }
 

@@ -216,19 +216,17 @@ impl BlobVec {
     /// It is the caller's responsibility to ensure that `index` is < `self.len()`
     /// and that `self[index]` has been properly initialized.
     #[inline]
-    pub unsafe fn remove_unchecked(&mut self, index: usize, ptr: PtrMut<'_>) {
+    pub unsafe fn swap_remove_unchecked(&mut self, index: usize, ptr: PtrMut<'_>) {
         debug_assert!(index < self.len());
-        let last = self.len - 1;
-        std::ptr::copy_nonoverlapping::<u8>(
-            self.get_unchecked_mut(index).as_ptr(),
-            ptr.as_ptr(),
-            self.item_layout.size(),
-        );
-        std::ptr::copy::<u8>(
-            self.get_unchecked_mut(last).as_ptr(),
-            self.get_unchecked_mut(index).as_ptr(),
-            self.item_layout.size(),
-        );
+        let last = self.get_unchecked_mut(self.len - 1).as_ptr();
+        let target = self.get_unchecked_mut(index).as_ptr();
+        // Copy the item at the index into the provided ptr
+        std::ptr::copy_nonoverlapping::<u8>(target, ptr.as_ptr(), self.item_layout.size());
+        // Recompress the storage by moving the previous last element into the
+        // now-free row overwriting the previous data. The removed row may be the last
+        // one so a non-overlapping copy must be used here.
+        std::ptr::copy::<u8>(last, target, self.item_layout.size());
+        // Invalidate the data stored in the last row, as it has been moved
         self.len -= 1;
     }
 
