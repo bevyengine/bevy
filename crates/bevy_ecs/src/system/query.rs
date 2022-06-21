@@ -242,6 +242,9 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// |Archetype based filtering ([`With`], [`Without`], [`Or`])|O(a)|
 /// |Change detection filtering ([`Added`], [`Changed`])|O(a + n)|
 ///
+/// `for_each` methods are generally faster than their `iter` version on worlds with a high archetype fragmentation.
+/// On the other hand, `iter` methods are more ergonomic and flexible.
+///
 /// [binomial coefficient]: https://en.wikipedia.org/wiki/Binomial_coefficient
 /// [`iter`]: Self::iter
 /// [`for_each`]: Self::for_each
