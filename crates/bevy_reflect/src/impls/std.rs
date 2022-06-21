@@ -114,15 +114,15 @@ impl<T: FromReflect> Reflect for Vec<T> {
         <Self as Typed>::type_info()
     }
 
-    fn any(self: Box<Self>) -> Box<dyn Any> {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn any_ref(&self) -> &dyn Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_mut_any(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -246,15 +246,15 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         <Self as Typed>::type_info()
     }
 
-    fn any(self: Box<Self>) -> Box<dyn Any> {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn any_ref(&self) -> &dyn Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_mut_any(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -371,17 +371,17 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 
     #[inline]
-    fn any(self: Box<Self>) -> Box<dyn Any> {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_ref(&self) -> &dyn Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_mut_any(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -493,15 +493,15 @@ impl Reflect for Cow<'static, str> {
         <Self as Typed>::type_info()
     }
 
-    fn any(self: Box<Self>) -> Box<dyn Any> {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn any_ref(&self) -> &dyn Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_mut_any(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -514,7 +514,7 @@ impl Reflect for Cow<'static, str> {
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.any_ref();
+        let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             *self = value.clone();
         } else {
@@ -547,7 +547,7 @@ impl Reflect for Cow<'static, str> {
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        let value = value.any_ref();
+        let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             Some(std::cmp::PartialEq::eq(self, value))
         } else {
@@ -579,7 +579,7 @@ impl FromReflect for Cow<'static, str> {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
         Some(
             reflect
-                .any_ref()
+                .as_any()
                 .downcast_ref::<Cow<'static, str>>()?
                 .clone(),
         )

@@ -67,15 +67,15 @@ where
         <Self as Typed>::type_info()
     }
 
-    fn any(self: Box<Self>) -> Box<dyn Any> {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn any_ref(&self) -> &dyn Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_mut_any(&mut self) -> &mut dyn Any {
         self
     }
 

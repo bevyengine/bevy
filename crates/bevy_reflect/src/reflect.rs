@@ -69,13 +69,13 @@ pub trait Reflect: Any + Send + Sync {
     fn get_type_info(&self) -> &'static TypeInfo;
 
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
-    fn any(self: Box<Self>) -> Box<dyn Any>;
+    fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
     /// Returns the value as a [`&dyn Any`][std::any::Any].
-    fn any_ref(&self) -> &dyn Any;
+    fn as_any(&self) -> &dyn Any;
 
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
-    fn any_mut(&mut self) -> &mut dyn Any;
+    fn as_mut_any(&mut self) -> &mut dyn Any;
 
     /// Casts this type to a reflected value
     fn as_reflect(&self) -> &dyn Reflect;
@@ -220,7 +220,7 @@ impl dyn Reflect {
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     pub fn downcast<T: Reflect>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
         if self.is::<T>() {
-            Ok(self.any().downcast().unwrap())
+            Ok(self.into_any().downcast().unwrap())
         } else {
             Err(self)
         }
@@ -245,7 +245,7 @@ impl dyn Reflect {
     /// If the underlying value is not of type `T`, returns `None`.
     #[inline]
     pub fn downcast_ref<T: Reflect>(&self) -> Option<&T> {
-        self.any_ref().downcast_ref::<T>()
+        self.as_any().downcast_ref::<T>()
     }
 
     /// Downcasts the value to type `T` by mutable reference.
@@ -253,6 +253,6 @@ impl dyn Reflect {
     /// If the underlying value is not of type `T`, returns `None`.
     #[inline]
     pub fn downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
-        self.any_mut().downcast_mut::<T>()
+        self.as_mut_any().downcast_mut::<T>()
     }
 }

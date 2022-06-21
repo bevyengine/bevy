@@ -138,17 +138,17 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
             }
 
             #[inline]
-            fn any(self: Box<Self>) -> Box<dyn std::any::Any> {
+            fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
                 self
             }
 
             #[inline]
-            fn any_ref(&self) -> &dyn std::any::Any {
+            fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
 
             #[inline]
-            fn any_mut(&mut self) -> &mut dyn std::any::Any {
+            fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
                 self
             }
 
@@ -296,17 +296,17 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
             }
 
             #[inline]
-            fn any(self: Box<Self>) -> Box<dyn std::any::Any> {
+            fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
                 self
             }
 
             #[inline]
-            fn any_ref(&self) -> &dyn std::any::Any {
+            fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
 
             #[inline]
-            fn any_mut(&mut self) -> &mut dyn std::any::Any {
+            fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
                 self
             }
 
@@ -401,17 +401,17 @@ pub(crate) fn impl_value(
             }
 
             #[inline]
-            fn any(self: Box<Self>) -> Box<dyn std::any::Any> {
+            fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
                 self
             }
 
             #[inline]
-            fn any_ref(&self) -> &dyn std::any::Any {
+            fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
 
             #[inline]
-            fn any_mut(&mut self) -> &mut dyn std::any::Any {
+            fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
                 self
             }
 
@@ -432,7 +432,7 @@ pub(crate) fn impl_value(
 
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                let value = value.any_ref();
+                let value = value.as_any();
                 if let Some(value) = value.downcast_ref::<Self>() {
                     *self = value.clone();
                 } else {
