@@ -34,8 +34,8 @@ pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize, Struct,
-        TupleStruct,
+        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
+        ReflectSerialize, Struct, TupleStruct,
     };
 }
 
@@ -877,7 +877,8 @@ bevy_reflect::tests::should_reflect_debug::Test {
             let v = vec3(12.0, 3.0, -6.9);
 
             let mut registry = TypeRegistry::default();
-            registry.add_registration(Vec3::get_type_registration());
+            registry.register::<f32>();
+            registry.register::<Vec3>();
 
             let ser = ReflectSerializer::new(&v, &registry);
 

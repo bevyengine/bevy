@@ -74,9 +74,9 @@ He makes the final decision on both design and code changes within Bevy in order
 In practice, @cart serves as a shockingly accountable dictator: open to new ideas and to changing his mind in the face of compelling arguments or community consensus.
 Check out the next section for details on how this plays out.
 
-[Bevy Org members](https://github.com/orgs/bevyengine/people) are contributors who have:
+[Bevy Org members](https://github.com/orgs/bevyengine/people) are contributors who:
 
-1. Have actively engaged with Bevy development
+1. Have actively engaged with Bevy development.
 2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
 3. Have asked to join the Bevy Org. Reach out to @cart on Discord or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
 

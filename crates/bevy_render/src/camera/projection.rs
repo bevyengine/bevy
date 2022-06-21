@@ -4,7 +4,9 @@ use super::DepthCalculation;
 use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
-use bevy_reflect::{std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize};
+use bevy_reflect::{
+    std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
+};
 use bevy_window::ModifiesWindows;
 use serde::{Deserialize, Serialize};
 

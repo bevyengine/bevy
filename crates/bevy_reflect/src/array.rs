@@ -1,6 +1,5 @@
 use crate::{
-    serde::Serializable, utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut,
-    ReflectRef, TypeInfo, Typed,
+    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -216,10 +215,6 @@ unsafe impl Reflect for DynamicArray {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         array_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 

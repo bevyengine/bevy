@@ -84,7 +84,7 @@ with pkgs; mkShell {
   ];
   buildInputs = [
     udev alsaLib vulkan-loader
-    x11 xorg.libXcursor xorg.libXrandr xorg.libXi # To use x11 feature
+    xlibsWrapper xorg.libXcursor xorg.libXrandr xorg.libXi # To use x11 feature
     libxkbcommon wayland # To use wayland feature
   ];
   shellHook = ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
