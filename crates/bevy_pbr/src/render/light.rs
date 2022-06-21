@@ -1257,7 +1257,7 @@ struct GpuClusterLightIndexListsStorage {
 #[derive(ShaderType, Default)]
 struct GpuClusterOffsetsAndCountsStorage {
     #[size(runtime)]
-    data: Vec<UVec2>,
+    data: Vec<UVec4>,
 }
 
 enum ViewClusterBuffers {
@@ -1356,10 +1356,12 @@ impl ViewClusterBindings {
                 cluster_offsets_and_counts,
                 ..
             } => {
-                cluster_offsets_and_counts
-                    .get_mut()
-                    .data
-                    .push(UVec2::new(offset as u32, count as u32));
+                cluster_offsets_and_counts.get_mut().data.push(UVec4::new(
+                    offset as u32,
+                    point_count as u32,
+                    spot_count as u32,
+                    0,
+                ));
             }
         }
 
