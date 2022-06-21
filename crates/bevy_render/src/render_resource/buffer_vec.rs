@@ -7,7 +7,7 @@ use copyless::VecHelper;
 use wgpu::BufferUsages;
 
 /// A structure for storing raw bytes that have already been properly formatted
-/// for the [`RenderDevice`](crate::renderer::RenderDevice).
+/// for use by the GPU.
 ///
 /// "Properly formatted" means data that is [`#[repr(C)]`](https://doc.rust-lang.org/reference/type-layout.html#the-c-representation), [`Pod`]
 /// and `Zeroable`. Unlike the [`DynamicUniformVec`](crate::render_resource::DynamicUniformVec),
