@@ -1028,12 +1028,9 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                                 ) {
                                     continue;
                                 }
-                                func(
-                                    fetch.fetch(
-                                        archetype_entity.entity,
-                                        archetype_entity.table_row,
-                                    ),
-                                );
+                                let result = fetch
+                                    .fetch(archetype_entity.entity, archetype_entity.table_row);
+                                func(result);
                             }
                         };
 
