@@ -170,10 +170,6 @@ pub fn check_visibility(
         computed_visibility.is_visible = false;
     }
 
-    for queue in thread_queues.iter_mut() {
-        queue.get_mut().clear();
-    }
-
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
         visible_entities.entities.clear();
