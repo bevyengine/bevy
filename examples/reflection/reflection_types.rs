@@ -1,3 +1,4 @@
+#![allow(clippy::match_same_arms)]
 //! This example illustrates how reflection works for simple data structures, like
 //! structs, tuples and vectors.
 

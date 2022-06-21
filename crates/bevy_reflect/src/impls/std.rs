@@ -1,10 +1,11 @@
 use crate as bevy_reflect;
 use crate::{
-    map_partial_eq, serde::Serializable, Array, ArrayIter, DynamicMap, FromReflect, FromType,
-    GetTypeRegistration, List, Map, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    TypeRegistration,
+    map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter, Reflect, ReflectDeserialize,
+    ReflectMut, ReflectRef, ReflectSerialize, TypeInfo, TypeRegistration, Typed, ValueInfo,
 };
 
+use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
@@ -15,28 +16,30 @@ use std::{
     ops::Range,
 };
 
-impl_reflect_value!(bool(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u8(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u16(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u32(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u64(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u128(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(usize(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i8(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i16(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i32(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i64(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i128(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(isize(Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f32(PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f64(PartialEq, Serialize, Deserialize));
-impl_reflect_value!(String(Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(char(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(u128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(usize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(i128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
-impl_reflect_value!(Duration(Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
+impl_from_reflect_value!(char);
 impl_from_reflect_value!(u8);
 impl_from_reflect_value!(u16);
 impl_from_reflect_value!(u32);
@@ -108,6 +111,10 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
         std::any::type_name::<Self>()
     }
 
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     fn any(&self) -> &dyn Any {
         self
     }
@@ -152,9 +159,12 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
     }
+}
 
-    fn serializable(&self) -> Option<Serializable> {
-        Some(Serializable::Owned(Box::new(SerializeArrayLike(self))))
+impl<T: FromReflect> Typed for Vec<T> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
     }
 }
 
@@ -226,6 +236,10 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         std::any::type_name::<Self>()
     }
 
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     fn any(&self) -> &dyn Any {
         self
     }
@@ -246,7 +260,7 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         if let ReflectRef::Map(map_value) = value.reflect_ref() {
             for (key, value) in map_value.iter() {
                 if let Some(v) = Map::get_mut(self, key) {
-                    v.apply(value)
+                    v.apply(value);
                 }
             }
         } else {
@@ -271,16 +285,15 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         Box::new(self.clone_dynamic())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
     }
+}
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
+impl<K: Reflect + Eq + Hash, V: Reflect> Typed for HashMap<K, V> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
     }
 }
 
@@ -344,6 +357,10 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
         std::any::type_name::<Self>()
     }
 
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
     #[inline]
     fn any(&self) -> &dyn Any {
         self
@@ -399,11 +416,6 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::array_partial_eq(self, value)
     }
-
-    #[inline]
-    fn serializable(&self) -> Option<Serializable> {
-        Some(Serializable::Owned(Box::new(SerializeArrayLike(self))))
-    }
 }
 
 impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
@@ -420,15 +432,10 @@ impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
     }
 }
 
-// Supports dynamic serialization for types that implement `Array`.
-struct SerializeArrayLike<'a>(&'a dyn Array);
-
-impl<'a> serde::Serialize for SerializeArrayLike<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        crate::array_serialize(self.0, serializer)
+impl<T: Reflect, const N: usize> Typed for [T; N] {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(N)))
     }
 }
 
@@ -462,6 +469,10 @@ impl_array_get_type_registration! {
 unsafe impl Reflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
+    }
+
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
     }
 
     fn any(&self) -> &dyn Any {
@@ -521,9 +532,12 @@ unsafe impl Reflect for Cow<'static, str> {
             Some(false)
         }
     }
+}
 
-    fn serializable(&self) -> Option<Serializable> {
-        Some(Serializable::Borrowed(self))
+impl Typed for Cow<'static, str> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
 
@@ -531,6 +545,7 @@ impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
         registration
     }
 }
@@ -543,13 +558,28 @@ impl FromReflect for Cow<'static, str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Reflect;
+    use crate::{Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
     use std::f32::consts::{PI, TAU};
 
     #[test]
     fn can_serialize_duration() {
-        assert!(std::time::Duration::ZERO.serializable().is_some());
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<std::time::Duration>();
+
+        let reflect_serialize = type_registry
+            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<std::time::Duration>())
+            .unwrap();
+        let _serializable = reflect_serialize.get_serializable(&std::time::Duration::ZERO);
+    }
+
+    #[test]
+    fn should_partial_eq_char() {
+        let a: &dyn Reflect = &'x';
+        let b: &dyn Reflect = &'x';
+        let c: &dyn Reflect = &'o';
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]

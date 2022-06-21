@@ -48,6 +48,6 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
     }
 
     pub fn diagnostic_system(mut diagnostics: ResMut<Diagnostics>, assets: Res<Assets<T>>) {
-        diagnostics.add_measurement(Self::diagnostic_id(), assets.len() as f64);
+        diagnostics.add_measurement(Self::diagnostic_id(), || assets.len() as f64);
     }
 }

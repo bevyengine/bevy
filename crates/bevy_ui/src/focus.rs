@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_window::Windows;
@@ -57,7 +57,6 @@ pub struct State {
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
-#[allow(clippy::type_complexity)]
 pub fn ui_focus_system(
     mut state: Local<State>,
     windows: Res<Windows>,
@@ -72,10 +71,6 @@ pub fn ui_focus_system(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let cursor_position = windows
-        .get_primary()
-        .and_then(|window| window.cursor_position());
-
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
         if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
@@ -84,7 +79,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
+        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
         for (_entity, _node, _global_transform, interaction, _focus_policy, _clip) in
             node_query.iter_mut()
@@ -98,7 +93,12 @@ pub fn ui_focus_system(
     }
 
     let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_pressed(0);
+        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
+
+    let cursor_position = windows
+        .get_primary()
+        .and_then(|window| window.cursor_position())
+        .or_else(|| touches_input.first_pressed_position());
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()

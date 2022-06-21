@@ -28,7 +28,7 @@ struct ColorText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
     // Text with one section
     commands
         .spawn_bundle(TextBundle {

@@ -5,7 +5,7 @@ use crate::{
     Rect, Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core_pipeline::Transparent2d;
+use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -19,7 +19,7 @@ use bevy_render::{
         BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
@@ -48,7 +48,7 @@ impl FromWorld for SpritePipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                    min_binding_size: Some(ViewUniform::min_size()),
                 },
                 count: None,
             }],
@@ -354,8 +354,9 @@ pub fn queue_sprites(
     for event in &events.images {
         match event {
             AssetEvent::Created { .. } => None,
-            AssetEvent::Modified { handle } => image_bind_groups.values.remove(handle),
-            AssetEvent::Removed { handle } => image_bind_groups.values.remove(handle),
+            AssetEvent::Modified { handle } | AssetEvent::Removed { handle } => {
+                image_bind_groups.values.remove(handle)
+            }
         };
     }
 
@@ -501,10 +502,10 @@ pub fn queue_sprites(
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
-                    for i in QUAD_INDICES.iter() {
+                    for i in QUAD_INDICES {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
-                            position: positions[*i],
-                            uv: uvs[*i].into(),
+                            position: positions[i],
+                            uv: uvs[i].into(),
                             color: extracted_sprite.color.as_linear_rgba_f32(),
                         });
                     }
@@ -520,10 +521,10 @@ pub fn queue_sprites(
                         batch_range: Some(item_start..item_end),
                     });
                 } else {
-                    for i in QUAD_INDICES.iter() {
+                    for i in QUAD_INDICES {
                         sprite_meta.vertices.push(SpriteVertex {
-                            position: positions[*i],
-                            uv: uvs[*i].into(),
+                            position: positions[i],
+                            uv: uvs[i].into(),
                         });
                     }
                     let item_start = index;

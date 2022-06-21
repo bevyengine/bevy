@@ -9,7 +9,7 @@ use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 /// A flat, type-erased data storage type
 ///
 /// Used to densely store homogeneous ECS data.
-pub struct BlobVec {
+pub(super) struct BlobVec {
     item_layout: Layout,
     capacity: usize,
     /// Number of elements, not bytes
@@ -84,6 +84,11 @@ impl BlobVec {
     #[inline]
     pub fn capacity(&self) -> usize {
         self.capacity
+    }
+
+    #[inline]
+    pub fn layout(&self) -> Layout {
+        self.item_layout
     }
 
     pub fn reserve_exact(&mut self, additional: usize) {
@@ -352,7 +357,7 @@ mod tests {
 
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>()
+        x.drop_as::<T>();
     }
 
     /// # Safety
