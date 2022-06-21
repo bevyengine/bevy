@@ -45,6 +45,8 @@ pub const MESH_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
 pub const MESH_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16831548636314682308);
+pub const MESH_FUNCTIONS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6300874327833745635);
 pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
 pub const SKINNING_HANDLE: HandleUntyped =
@@ -69,6 +71,12 @@ impl Plugin for MeshRenderPlugin {
             app,
             MESH_BINDINGS_HANDLE,
             "mesh_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_FUNCTIONS_HANDLE,
+            "mesh_functions.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);

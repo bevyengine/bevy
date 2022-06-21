@@ -50,7 +50,7 @@ pub enum ReflectMut<'a> {
 /// When using `#[derive(Reflect)]` with a struct or tuple struct, the suitable subtrait for that
 /// type (`Struct` or `TupleStruct`) is derived automatically.
 pub trait Reflect: Any + Send + Sync {
-    /// Returns the [Type Name][std::any::type_name] of the underlying type.
+    /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
 
     /// Returns the [`TypeId`] of the underlying type.

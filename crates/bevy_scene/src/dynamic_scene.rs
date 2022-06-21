@@ -151,8 +151,5 @@ where
         .decimal_floats(true)
         .indentor("  ".to_string())
         .new_line("\n".to_string());
-    let mut buf = Vec::new();
-    let mut ron_serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
-    serialize.serialize(&mut ron_serializer)?;
-    Ok(String::from_utf8(buf).unwrap())
+    ron::ser::to_string_pretty(&serialize, pretty_config)
 }

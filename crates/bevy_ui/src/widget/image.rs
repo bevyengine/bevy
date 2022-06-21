@@ -7,7 +7,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Query, Res},
 };
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::texture::Image;
 use serde::{Deserialize, Serialize};
 
