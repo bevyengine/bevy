@@ -1,3 +1,4 @@
+pub mod archetype_invariants;
 mod entity_ref;
 mod spawn_batch;
 mod world_cell;
