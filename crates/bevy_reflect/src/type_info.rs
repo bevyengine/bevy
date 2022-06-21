@@ -20,7 +20,7 @@ use std::any::{Any, TypeId};
 /// # Example
 ///
 /// ```
-/// # use std::any::{Any, TypeId};
+/// # use std::any::Any;
 /// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, TypeInfo, ValueInfo};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;

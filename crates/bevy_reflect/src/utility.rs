@@ -15,7 +15,7 @@ use std::any::{Any, TypeId};
 /// ## Example
 ///
 /// ```
-/// # use std::any::{Any, TypeId};
+/// # use std::any::Any;
 /// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, Typed, TypeInfo};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
@@ -78,7 +78,7 @@ impl NonGenericTypeInfoCell {
 /// ## Example
 ///
 /// ```
-/// # use std::any::{Any, TypeId};
+/// # use std::any::Any;
 /// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
