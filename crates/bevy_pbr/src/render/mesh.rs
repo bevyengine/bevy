@@ -21,7 +21,9 @@ use bevy_render::{
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, GpuImage, Image, ImageSampler, DefaultImageSampler, TextureFormatPixelInfo},
+    texture::{
+        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+    },
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
