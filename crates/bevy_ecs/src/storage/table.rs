@@ -419,7 +419,7 @@ impl Default for Tables {
     }
 }
 
-pub struct TableMoveResult {
+pub(crate) struct TableMoveResult {
     pub swapped_entity: Option<Entity>,
     pub new_row: usize,
 }
