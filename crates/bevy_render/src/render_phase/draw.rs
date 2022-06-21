@@ -32,9 +32,10 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 
 /// Configures how a render phase is sorted. For more information, see [`PhaseItem::sort_mode`].
 pub enum RenderPhaseSortMode {
-    /// Requires a stable sort. Generally required for proper batching based on external criteria.
-    /// Specifically when the sorting result is draw order dependent, typically required for
-    /// transparency that do not use a depth buffer.
+    /// Use a stable sort that preserves the order of items with the same sort key. This is
+    /// required for proper batching based on external criteria, and for stability in
+    /// order-dependent transparency, or other drawing techniques where draw order defines the
+    /// final appearance, including those that do not use a depth buffer.
     Stable,
     /// The default: allows unstable sorting. Usually faster than Stable.
     Unstable,
