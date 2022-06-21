@@ -101,7 +101,7 @@ use std::{
 /// use std::time::Duration;
 ///
 /// // It is not possible to implement `Component` for `Duration` from this position, as they are
-/// // both foreign items, defined on an external crate. However, nothing prevents to define a new
+/// // both foreign items, defined in an external crate. However, nothing prevents to define a new
 /// // `Cooldown` type that wraps `Duration`. As `Cooldown` is defined in a local crate, it is
 /// // possible to implement `Component` for it.
 /// #[derive(Component)]
