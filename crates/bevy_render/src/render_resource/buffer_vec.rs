@@ -9,7 +9,7 @@ use wgpu::BufferUsages;
 /// A structure for storing raw bytes that have already been properly formatted
 /// for use by the GPU.
 ///
-/// "Properly formatted" means data that item data already meets the alignment and padding
+/// "Properly formatted" means that item data already meets the alignment and padding
 /// requirements for how it will be used on the GPU.
 /// 
 /// Index, vertex, and instance-rate vertex buffers have no alignment nor padding requirements and
