@@ -1,3 +1,4 @@
+use crate::serde::Serializable;
 use crate::{Reflect, TypeInfo, Typed};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
@@ -387,6 +388,35 @@ where
 /// of [`TypeData`] to pass to [`TypeRegistration::insert`].
 pub trait FromType<T> {
     fn from_type() -> Self;
+}
+
+/// A struct used to serialize reflected instances of a type.
+///
+/// A `ReflectSerialize` for type `T` can be obtained via
+/// [`FromType::from_type`].
+#[derive(Clone)]
+pub struct ReflectSerialize {
+    get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
+}
+
+impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
+    fn from_type() -> Self {
+        ReflectSerialize {
+            get_serializable: |value| {
+                let value = value.downcast_ref::<T>().unwrap_or_else(|| {
+                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.type_name(), std::any::type_name::<T>())
+                });
+                Serializable::Borrowed(value)
+            },
+        }
+    }
+}
+
+impl ReflectSerialize {
+    /// Turn the value into a serializable representation
+    pub fn get_serializable<'a>(&self, value: &'a dyn Reflect) -> Serializable<'a> {
+        (self.get_serializable)(value)
+    }
 }
 
 /// A struct used to deserialize reflected instances of a type.

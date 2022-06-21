@@ -82,6 +82,12 @@ where
         }
     }
 
+    /// Registers a release for all currently pressed inputs.
+    pub fn release_all(&mut self) {
+        // Move all items from pressed into just_released
+        self.just_released.extend(self.pressed.drain());
+    }
+
     /// Returns `true` if the `input` has just been pressed.
     pub fn just_pressed(&self, input: T) -> bool {
         self.just_pressed.contains(&input)
@@ -123,7 +129,18 @@ where
         self.just_released.remove(&input);
     }
 
+    /// Clears the `pressed`, `just_pressed`, and `just_released` data for every input.
+    ///
+    /// See also [`Input::clear`] for simulating elapsed time steps.
+    pub fn reset_all(&mut self) {
+        self.pressed.clear();
+        self.just_pressed.clear();
+        self.just_released.clear();
+    }
+
     /// Clears the `just pressed` and `just released` data for every input.
+    ///
+    /// See also [`Input::reset_all`] for a full reset.
     pub fn clear(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
@@ -195,6 +212,17 @@ mod test {
         input.release(DummyInput::Input1);
         assert!(!input.pressed.contains(&DummyInput::Input1));
         assert!(input.just_released.contains(&DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_release_all() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+        input.release_all();
+        assert!(input.pressed.is_empty());
+        assert!(input.just_released.contains(&DummyInput::Input1));
+        assert!(input.just_released.contains(&DummyInput::Input2));
     }
 
     #[test]
@@ -282,6 +310,22 @@ mod test {
         assert!(!input.pressed(DummyInput::Input1));
         assert!(!input.just_pressed(DummyInput::Input1));
         assert!(!input.just_released(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_reset_all() {
+        let mut input = Input::default();
+
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+        input.release(DummyInput::Input2);
+        assert!(input.pressed.contains(&DummyInput::Input1));
+        assert!(input.just_pressed.contains(&DummyInput::Input1));
+        assert!(input.just_released.contains(&DummyInput::Input2));
+        input.reset_all();
+        assert!(input.pressed.is_empty());
+        assert!(input.just_pressed.is_empty());
+        assert!(input.just_released.is_empty());
     }
 
     #[test]
