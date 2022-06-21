@@ -44,9 +44,9 @@ pub struct AddBundle {
 
 #[derive(Default)]
 pub struct Edges {
-    pub add_bundle: SparseArray<BundleId, AddBundle>,
-    pub remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
-    pub remove_bundle_intersection: SparseArray<BundleId, Option<ArchetypeId>>,
+    add_bundle: SparseArray<BundleId, AddBundle>,
+    remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
+    remove_bundle_intersection: SparseArray<BundleId, Option<ArchetypeId>>,
 }
 
 impl Edges {

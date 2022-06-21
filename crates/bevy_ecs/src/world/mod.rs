@@ -1196,7 +1196,7 @@ impl World {
             std::ptr::copy_nonoverlapping::<u8>(
                 value.as_ptr(),
                 ptr.as_ptr(),
-                column.data.layout().size(),
+                column.item_layout().size(),
             );
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
