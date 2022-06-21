@@ -514,7 +514,7 @@ mod tests {
     use crate::component::Component;
     use crate::ptr::OwningPtr;
     use crate::storage::Storages;
-    use crate::{component::Components, entity::Entity, storage::Table};
+    use crate::{component::{Components, ComponentTicks}, entity::Entity, storage::Table};
     #[derive(Component)]
     struct W<T>(T);
 
@@ -536,7 +536,7 @@ mod tests {
                     table
                         .get_column_mut(component_id)
                         .unwrap()
-                        .initialize_data(row, value_ptr);
+                        .initialize(row, value_ptr, ComponentTicks::new(0));
                 });
             };
         }
