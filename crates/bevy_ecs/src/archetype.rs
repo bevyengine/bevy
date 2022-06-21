@@ -43,14 +43,14 @@ pub struct AddBundle {
 }
 
 /// Archetypes and bundles form a graph. Adding or removing a bundle moves
-/// an [`Entity`] to a new [`Archetype`]. 
-/// 
+/// an [`Entity`] to a new [`Archetype`].
+///
 /// [`Edges`] caches the results of these moves. Each archetype caches
 /// the result of a structural alteration. This can be used to monitor the
 /// state of the archetype graph.
-/// 
+///
 /// Note: This type only contains edges the [`World`] has already traversed.
-/// If any of functions return `None`, it doesn't mean there is guarenteed 
+/// If any of functions return `None`, it doesn't mean there is guarenteed
 /// not to be a result of adding or removing that bundle, but rather that
 /// operation that has moved an entity along that edge has not been performed
 /// yet.
