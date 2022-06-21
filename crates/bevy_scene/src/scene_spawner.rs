@@ -74,14 +74,15 @@ impl From<Handle<DynamicScene>> for SceneHandle {
     }
 }
 
+/// Request given to [`SceneSpawner`] for spawning a scene.
 #[derive(Debug, Clone)]
-struct SpawnCommand {
+struct SceneToSpawn {
     scene: SceneHandle,
     instance: InstanceId,
     parent: Option<Entity>,
 }
 
-impl SpawnCommand {
+impl SceneToSpawn {
     fn new(scene: impl Into<SceneHandle>, instance: InstanceId, parent: Option<Entity>) -> Self {
         Self {
             scene: scene.into(),
@@ -95,7 +96,7 @@ pub struct SceneSpawner {
     instances: HashMap<SceneHandle, Vec<InstanceId>>,
     instances_info: HashMap<InstanceId, InstanceInfo>,
     readers: SceneEventReaders,
-    scenes_to_spawn: Vec<SpawnCommand>,
+    scenes_to_spawn: Vec<SceneToSpawn>,
     instances_to_despawn: Vec<InstanceId>,
 }
 
@@ -129,7 +130,7 @@ impl SceneSpawner {
     pub fn spawn(&mut self, scene_handle: Handle<Scene>) -> InstanceId {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn
-            .push(SpawnCommand::new(scene_handle, instance_id, None));
+            .push(SceneToSpawn::new(scene_handle, instance_id, None));
         instance_id
     }
 
@@ -137,7 +138,7 @@ impl SceneSpawner {
     pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) -> InstanceId {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn
-            .push(SpawnCommand::new(scene_handle, instance_id, None));
+            .push(SceneToSpawn::new(scene_handle, instance_id, None));
         instance_id
     }
 
@@ -148,7 +149,7 @@ impl SceneSpawner {
     pub fn spawn_as_child(&mut self, scene_handle: Handle<Scene>, parent: Entity) -> InstanceId {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn
-            .push(SpawnCommand::new(scene_handle, instance_id, Some(parent)));
+            .push(SceneToSpawn::new(scene_handle, instance_id, Some(parent)));
         instance_id
     }
 
@@ -161,7 +162,7 @@ impl SceneSpawner {
     ) -> InstanceId {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn
-            .push(SpawnCommand::new(scene_handle, instance_id, Some(parent)));
+            .push(SceneToSpawn::new(scene_handle, instance_id, Some(parent)));
         instance_id
     }
 
@@ -254,7 +255,7 @@ impl SceneSpawner {
         world: &mut World,
         scene_handle: Handle<Scene>,
     ) -> SpawnResult<InstanceId> {
-        let cmd = SpawnCommand::new(scene_handle, InstanceId::new(), None);
+        let cmd = SceneToSpawn::new(scene_handle, InstanceId::new(), None);
         self.spawn_scene_instance(world, cmd)
     }
 
@@ -265,7 +266,7 @@ impl SceneSpawner {
         world: &mut World,
         scene_handle: Handle<DynamicScene>,
     ) -> SpawnResult<InstanceId> {
-        let cmd = SpawnCommand::new(scene_handle, InstanceId::new(), None);
+        let cmd = SceneToSpawn::new(scene_handle, InstanceId::new(), None);
         self.spawn_scene_instance(world, cmd)
     }
 
@@ -273,11 +274,11 @@ impl SceneSpawner {
     fn spawn_scene_instance(
         &mut self,
         world: &mut World,
-        SpawnCommand {
+        SceneToSpawn {
             scene,
             instance,
             parent,
-        }: SpawnCommand,
+        }: SceneToSpawn,
     ) -> SpawnResult<InstanceId> {
         let mut entity_map = EntityMap::default();
         scene.write_to_world(world, &mut entity_map)?;
