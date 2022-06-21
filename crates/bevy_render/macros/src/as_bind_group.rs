@@ -86,7 +86,7 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
                 binding_layouts.push(quote!{
                     #render_path::render_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
-                        visibility: #render_path::render_resource::ShaderStages::FRAGMENT,
+                        visibility: #render_path::render_resource::ShaderStages::all(),
                         ty: #render_path::render_resource::BindingType::Buffer {
                             ty: #render_path::render_resource::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -214,7 +214,7 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
                     binding_layouts.push(quote!{
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::ShaderStages::FRAGMENT,
+                            visibility: #render_path::render_resource::ShaderStages::all(),
                             ty: #render_path::render_resource::BindingType::Texture {
                                 multisampled: false,
                                 sample_type: #render_path::render_resource::TextureSampleType::Float { filterable: true },
@@ -239,7 +239,7 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
                     binding_layouts.push(quote!{
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::ShaderStages::FRAGMENT,
+                            visibility: #render_path::render_resource::ShaderStages::all(),
                             ty: #render_path::render_resource::BindingType::Sampler(#render_path::render_resource::SamplerBindingType::Filtering),
                             count: None,
                         }
@@ -282,7 +282,7 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
                 binding_layouts.push(quote!{
                     #render_path::render_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
-                        visibility: #render_path::render_resource::ShaderStages::FRAGMENT,
+                        visibility: #render_path::render_resource::ShaderStages::all(),
                         ty: #render_path::render_resource::BindingType::Buffer {
                             ty: #render_path::render_resource::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -324,7 +324,7 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
                 binding_layouts.push(quote!{
                     #render_path::render_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
-                        visibility: #render_path::render_resource::ShaderStages::FRAGMENT,
+                        visibility: #render_path::render_resource::ShaderStages::all(),
                         ty: #render_path::render_resource::BindingType::Buffer {
                             ty: #render_path::render_resource::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
