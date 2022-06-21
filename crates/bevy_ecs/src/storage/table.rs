@@ -514,7 +514,11 @@ mod tests {
     use crate::component::Component;
     use crate::ptr::OwningPtr;
     use crate::storage::Storages;
-    use crate::{component::{Components, ComponentTicks}, entity::Entity, storage::Table};
+    use crate::{
+        component::{ComponentTicks, Components},
+        entity::Entity,
+        storage::Table,
+    };
     #[derive(Component)]
     struct W<T>(T);
 
@@ -533,10 +537,11 @@ mod tests {
                 let row = table.allocate(*entity);
                 let value: W<usize> = W(row);
                 OwningPtr::make(value, |value_ptr| {
-                    table
-                        .get_column_mut(component_id)
-                        .unwrap()
-                        .initialize(row, value_ptr, ComponentTicks::new(0));
+                    table.get_column_mut(component_id).unwrap().initialize(
+                        row,
+                        value_ptr,
+                        ComponentTicks::new(0),
+                    );
                 });
             };
         }

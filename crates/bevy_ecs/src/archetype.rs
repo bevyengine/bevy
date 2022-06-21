@@ -77,7 +77,11 @@ impl Edges {
     }
 
     #[inline]
-    pub(crate) fn insert_remove_bundle(&mut self, bundle_id: BundleId, archetype_id: Option<ArchetypeId>) {
+    pub(crate) fn insert_remove_bundle(
+        &mut self,
+        bundle_id: BundleId,
+        archetype_id: Option<ArchetypeId>,
+    ) {
         self.remove_bundle.insert(bundle_id, archetype_id);
     }
 
