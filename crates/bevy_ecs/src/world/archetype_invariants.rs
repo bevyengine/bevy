@@ -21,6 +21,18 @@ pub struct ArchetypeInvariant {
     pub consequence: ArchetypeStatement,
 }
 
+impl ArchetypeInvariant {
+    /// This is a helper function for constructing common invariants.
+    /// All components of the provided bundle require each other.
+    /// In other words, if any one component of this bundle is present, then all of them must be.
+    pub fn full_bundle<B: Bundle>(world: &mut World) -> Self {
+        Self { 
+            predicate: ArchetypeStatement::at_least_one_of::<B>(world),
+            consequence: ArchetypeStatement::all_of::<B>(world)
+        }
+    }
+}
+
 /// A statement about the presence or absence of some subset of components in the given [`Bundle`]
 ///
 /// This type is used as part of an [`ArchetypeInvariant`]. 
@@ -85,5 +97,34 @@ impl ArchetypeInvariants {
     /// Adds a new [`ArchetypeInvariant`] to this set of archetype invariants.
     pub fn add(&mut self, archetype_invariant: ArchetypeInvariant) {
         self.raw_list.push(archetype_invariant);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        component::Component,
+        world::World,
+        world::archetype_invariants::ArchetypeInvariant
+    };
+
+    #[derive(Component)]
+    struct A;
+    
+    #[derive(Component)]
+    struct B;
+    
+    #[derive(Component)]
+    struct C;
+
+    #[test]
+    fn full_bundle() {
+        let mut world = World::new();
+
+        let bundle_invariant = ArchetypeInvariant::full_bundle::<(A, B, C)>(&mut world);
+        world.add_archetype_invariant(bundle_invariant);
+
+        todo!();
     }
 }
