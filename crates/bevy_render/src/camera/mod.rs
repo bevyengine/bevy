@@ -22,6 +22,7 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera>()
             .register_type::<Visibility>()
+            .register_type::<ComputedVisibility>()
             .register_type::<OrthographicProjection>()
             .register_type::<PerspectiveProjection>()
             .register_type::<VisibleEntities>()
@@ -29,7 +30,6 @@ impl Plugin for CameraPlugin {
             .register_type::<ScalingMode>()
             .register_type::<DepthCalculation>()
             .register_type::<Aabb>()
-            .init_resource::<ComputedVisibility>()
             .register_type::<CameraRenderGraph>()
             .add_plugin(CameraProjectionPlugin::<Projection>::default())
             .add_plugin(CameraProjectionPlugin::<OrthographicProjection>::default())

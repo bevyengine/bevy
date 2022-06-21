@@ -21,10 +21,8 @@ use bevy_render::{
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
-    view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
+    texture::{BevyDefault, GpuImage, Image, ImageSampler, DefaultImageSampler, TextureFormatPixelInfo},
+    view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
@@ -115,32 +113,33 @@ bitflags::bitflags! {
 }
 
 pub fn extract_meshes(
-    computed_visibility: Res<ComputedVisibility>,
     mut commands: Commands,
     mut previous_caster_len: Local<usize>,
     mut previous_not_caster_len: Local<usize>,
     caster_query: Query<
         (
             Entity,
+            &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
             Option<&NotShadowReceiver>,
         ),
-        (With<Visibility>, Without<NotShadowCaster>),
+        Without<NotShadowCaster>,
     >,
     not_caster_query: Query<
         (
             Entity,
+            &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
             Option<&NotShadowReceiver>,
         ),
-        (With<Visibility>, With<NotShadowCaster>),
+        With<NotShadowCaster>,
     >,
 ) {
     let mut caster_values = Vec::with_capacity(*previous_caster_len);
-    for (entity, transform, handle, not_receiver) in caster_query.iter() {
-        if !computed_visibility.is_visible(entity) {
+    for (entity, computed_visibility, transform, handle, not_receiver) in caster_query.iter() {
+        if !computed_visibility.is_visible {
             continue;
         }
         let transform = transform.compute_matrix();
@@ -164,8 +163,8 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(caster_values);
 
     let mut not_caster_values = Vec::with_capacity(*previous_not_caster_len);
-    for (entity, transform, mesh, not_receiver) in not_caster_query.iter() {
-        if !computed_visibility.is_visible(entity) {
+    for (entity, computed_visibility, transform, mesh, not_receiver) in not_caster_query.iter() {
+        if !computed_visibility.is_visible {
             continue;
         }
         let transform = transform.compute_matrix();
@@ -237,8 +236,7 @@ impl SkinnedMeshJoints {
 }
 
 pub fn extract_skinned_meshes(
-    computed_visibility: Res<ComputedVisibility>,
-    query: Query<(Entity, &SkinnedMesh)>,
+    query: Query<(Entity, &ComputedVisibility, &SkinnedMesh)>,
     inverse_bindposes: Res<Assets<SkinnedMeshInverseBindposes>>,
     joint_query: Query<&GlobalTransform>,
     mut commands: Commands,
@@ -249,8 +247,8 @@ pub fn extract_skinned_meshes(
     let mut joints = Vec::with_capacity(*previous_joint_len);
     let mut last_start = 0;
 
-    for (entity, skin) in query.iter() {
-        if !computed_visibility.is_visible(entity) {
+    for (entity, computed_visibility, skin) in query.iter() {
+        if !computed_visibility.is_visible {
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?

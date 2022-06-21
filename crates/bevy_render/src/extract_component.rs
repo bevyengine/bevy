@@ -194,14 +194,13 @@ fn extract_components<C: ExtractComponent>(
 
 /// This system extracts all visible components of the corresponding [`ExtractComponent`] type.
 fn extract_visible_components<C: ExtractComponent>(
-    computed_visibility: Res<ComputedVisibility>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    mut query: StaticSystemParam<Query<(Entity, C::Query), C::Filter>>,
+    mut query: StaticSystemParam<Query<(Entity, Read<ComputedVisibility>, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, query_item) in query.iter_mut() {
-        if computed_visibility.is_visible(entity) {
+    for (entity, computed_visibility, query_item) in query.iter_mut() {
+        if computed_visibility.is_visible {
             values.push((entity, (C::extract_component(query_item),)));
         }
     }

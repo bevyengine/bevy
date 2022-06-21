@@ -19,7 +19,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView, Msaa, Visibility},
+        view::{ComputedVisibility, ExtractedView, Msaa, Visibility},
         RenderApp, RenderStage,
     },
 };
@@ -40,6 +40,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         GlobalTransform::default(),
         CustomMaterial,
         Visibility::default(),
+        ComputedVisibility::default(),
     ));
 
     // camera

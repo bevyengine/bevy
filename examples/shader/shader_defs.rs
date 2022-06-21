@@ -64,6 +64,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         Transform::from_xyz(-1.0, 0.5, 0.0),
         GlobalTransform::default(),
         Visibility::default(),
+        ComputedVisibility::default(),
     ));
 
     // blue cube
@@ -73,6 +74,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         Transform::from_xyz(1.0, 0.5, 0.0),
         GlobalTransform::default(),
         Visibility::default(),
+        ComputedVisibility::default(),
     ));
 
     // camera

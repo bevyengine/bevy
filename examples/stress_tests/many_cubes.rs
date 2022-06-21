@@ -155,21 +155,17 @@ fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Cam
 
 // System for printing the number of meshes on every tick of the timer
 fn print_mesh_count(
-    computed_visibility: Res<ComputedVisibility>,
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
-    meshes: Query<(Entity, &Handle<Mesh>)>,
+    sprites: Query<(&Handle<Mesh>, &ComputedVisibility)>,
 ) {
     timer.tick(time.delta());
 
     if timer.just_finished() {
         info!(
             "Meshes: {} - Visible Meshes {}",
-            meshes.iter().len(),
-            meshes
-                .iter()
-                .filter(|(entity, _)| computed_visibility.is_visible(*entity))
-                .count(),
+            sprites.iter().len(),
+            sprites.iter().filter(|(_, cv)| cv.is_visible).count(),
         );
     }
 }
