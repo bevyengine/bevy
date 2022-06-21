@@ -54,7 +54,7 @@ pub trait Reflect: Any + Send + Sync {
     fn type_name(&self) -> &str;
 
     /// Returns the [`TypeId`] of the underlying type.
-    fn type_id(&self) -> TypeId {
+    fn underlying_type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
 
@@ -237,7 +237,7 @@ impl dyn Reflect {
     /// otherwise.
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
-        Reflect::type_id(self) == TypeId::of::<T>()
+        Reflect::underlying_type_id(self) == TypeId::of::<T>()
     }
 
     /// Downcasts the value to type `T` by reference.

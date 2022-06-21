@@ -45,7 +45,7 @@ fn setup(type_registry: Res<TypeRegistry>) {
     // The #[reflect] attribute we put on our DoThing trait generated a new `ReflectDoThing` struct,
     // which implements TypeData. This was added to MyType's TypeRegistration.
     let reflect_do_thing = type_registry
-        .get_type_data::<ReflectDoThing>(Reflect::type_id(&*reflect_value))
+        .get_type_data::<ReflectDoThing>(Reflect::underlying_type_id(&*reflect_value))
         .unwrap();
 
     // We can use this generated type to convert our `&dyn Reflect` reference to a `&dyn DoThing`
