@@ -32,16 +32,28 @@ impl ArchetypeId {
     }
 }
 
-pub enum ComponentStatus {
+pub(crate) enum ComponentStatus {
     Added,
     Mutated,
 }
 
 pub struct AddBundle {
     pub archetype_id: ArchetypeId,
-    pub bundle_status: Vec<ComponentStatus>,
+    pub(crate) bundle_status: Vec<ComponentStatus>,
 }
 
+/// Archetypes and bundles form a graph. Adding or removing a bundle moves
+/// an [`Entity`] to a new [`Archetype`]. 
+/// 
+/// [`Edges`] caches the results of these moves. Each archetype caches
+/// the result of a structural alteration. This can be used to monitor the
+/// state of the archetype graph.
+/// 
+/// Note: This type only contains edges the [`World`] has already traversed.
+/// If any of functions return `None`, it doesn't mean there is guarenteed 
+/// not to be a result of adding or removing that bundle, but rather that
+/// operation that has moved an entity along that edge has not been performed
+/// yet.
 #[derive(Default)]
 pub struct Edges {
     add_bundle: SparseArray<BundleId, AddBundle>,
