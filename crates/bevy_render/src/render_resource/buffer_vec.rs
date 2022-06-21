@@ -9,15 +9,26 @@ use wgpu::BufferUsages;
 /// A structure for storing raw bytes that have already been properly formatted
 /// for use by the GPU.
 ///
-/// "Properly formatted" means data that is [`#[repr(C)]`](https://doc.rust-lang.org/reference/type-layout.html#the-c-representation), [`Pod`]
-/// and `Zeroable`. Unlike the [`DynamicUniformVec`](crate::render_resource::DynamicUniformVec),
-/// [`UniformVec`](crate::render_resource::UniformVec) and [`StorageBuffer`](crate::render_resource::StorageBuffer) structures,
-/// `BufferVec` does not provide padding or alignment between items, or within items.
+/// "Properly formatted" means data that item data already meets the alignment and padding
+/// requirements for how it will be used on the GPU.
+/// 
+/// Index, vertex, and instance-rate vertex buffers have no alignment nor padding requirements and
+/// so this helper type is a good choice for them. Uniform buffers must adhere to std140
+/// alignment/padding requirements, and storage buffers to std430. There are helper types for such
+/// buffers:
+/// - Uniform buffers
+///   - Plain: [`UniformBuffer`](crate::render_resource::UniformBuffer)
+///   - Dynamic offsets: [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// - Storage buffers
+///   - Plain: [`StorageBuffer`](crate::render_resource::StorageBuffer)
+///   - Dynamic offsets: [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// 
+/// The item type must implement [`Pod`] for its data representation to be directly copyable.
 ///
-/// The data is stored on the host, calling [`reserve`](crate::render_resource::BufferVec::reserve)
-/// allocates memory on the [`RenderDevice`](crate::renderer::RenderDevice).
+/// The contained data is stored in system RAM. Calling [`reserve`](crate::render_resource::BufferVec::reserve)
+/// allocates VRAM from the [`RenderDevice`](crate::renderer::RenderDevice).
 /// [`write_buffer`](crate::render_resource::BufferVec::write_buffer) queues copying of the data
-/// from the host to the [`RenderDevice`](crate::renderer::RenderDevice).
+/// from system RAM to VRAM.
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
     buffer: Option<Buffer>,
