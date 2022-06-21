@@ -1,4 +1,4 @@
-//! A shader and a material that uses it.
+//! A shader that uses "shaders defs", which selectively toggle parts of a shader.
 
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
