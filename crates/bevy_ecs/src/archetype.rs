@@ -54,7 +54,7 @@ pub struct AddBundle {
 /// not to be a result of adding or removing that bundle, but rather that
 /// operation that has moved an entity along that edge has not been performed
 /// yet.
-/// 
+///
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Edges {
