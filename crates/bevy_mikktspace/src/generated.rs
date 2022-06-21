@@ -300,18 +300,18 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
         iNrTrianglesIn as i32,
         iTotTris as i32,
     );
+
+    // Output generated triangles
     let mut index = 0;
     for f in 0..iNrFaces {
         let verts_0 = geometry.num_vertices_of_face(f);
         for i in 0..verts_0.num_vertices() {
-            let mut pTSpace: *const STSpace = &mut psTspace[index] as *mut STSpace;
-            let mut tang = Vec3::new((*pTSpace).vOs.x, (*pTSpace).vOs.y, (*pTSpace).vOs.z);
-            let mut bitang = Vec3::new((*pTSpace).vOt.x, (*pTSpace).vOt.y, (*pTSpace).vOt.z);
+            let mut pTSpace = &psTspace[index];
             geometry.set_tangent(
-                tang.into(),
-                bitang.into(),
-                (*pTSpace).fMagS,
-                (*pTSpace).fMagT,
+                pTSpace.vOs.into(),
+                pTSpace.vOt.into(),
+                pTSpace.fMagS,
+                pTSpace.fMagT,
                 (*pTSpace).bOrient,
                 f,
                 i,
