@@ -22,7 +22,6 @@ use std::{
 ///
 /// [entity]: crate::entity
 /// [derivable trait]: https://doc.rust-lang.org/book/appendix-03-derivable-traits.html
-/// [`World`]: crate::world::World
 ///
 /// # Examples
 ///
