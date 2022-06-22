@@ -29,11 +29,7 @@ impl<I: PhaseItem> RenderPhase<I> {
 
     /// Sorts all of its [`PhaseItems`](PhaseItem).
     pub fn sort(&mut self) {
-        match I::sort_mode() {
-            RenderPhaseSortMode::Stable => self.items.sort_by_key(|d| d.sort_key()),
-            RenderPhaseSortMode::Unstable => self.items.sort_unstable_by_key(|d| d.sort_key()),
-            RenderPhaseSortMode::Unsorted => {}
-        }
+        I::sort(&mut self.items)
     }
 }
 
@@ -103,8 +99,8 @@ mod tests {
                 unimplemented!();
             }
 
-            fn sort_mode() -> RenderPhaseSortMode {
-                RenderPhaseSortMode::Stable
+            fn sort(items: &mut [Self]) {
+                item.sort_by_key(|item| item.sort_key())
             }
         }
         impl EntityPhaseItem for TestPhaseItem {

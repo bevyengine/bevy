@@ -30,31 +30,12 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     );
 }
 
-/// Configures how a render phase is sorted. For more information, see [`PhaseItem::sort_mode`].
-pub enum RenderPhaseSortMode {
-    /// Use a stable sort that preserves the order of items with the same sort key. This is
-    /// required for proper batching based on external criteria, and for stability in
-    /// order-dependent transparency, or other drawing techniques where draw order defines the
-    /// final appearance, including those that do not use a depth buffer.
-    Stable,
-    /// The default: allows unstable sorting. Usually faster than Stable.
-    Unstable,
-    /// Unsorted. Omits sorting entirely.
-    Unsorted,
-}
-
-impl Default for RenderPhaseSortMode {
-    fn default() -> Self {
-        Self::Unstable
-    }
-}
-
 /// An item which will be drawn to the screen. A phase item should be queued up for rendering
 /// during the [`RenderStage::Queue`](crate::RenderStage::Queue) stage.
 /// Afterwards it will be sorted and rendered automatically  in the
 /// [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort) stage and
 /// [`RenderStage::Render`](crate::RenderStage::Render) stage, respectively.
-pub trait PhaseItem: Send + Sync + 'static {
+pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// The type used for ordering the items. The smallest values are drawn first.
     type SortKey: Ord;
     /// Determines the order in which the items are drawn during the corresponding [`RenderPhase`](super::RenderPhase).
@@ -62,22 +43,21 @@ pub trait PhaseItem: Send + Sync + 'static {
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;
 
-    /// Specifies what kind of sort to apply to the phase. Generally if the same type
-    /// implements [`BatchedPhaseItem`], this should return [`RenderPhaseSortMode::Stable`].
+    /// Sorts a slice of phase items into render order.  Generally if the same type
+    /// implements [`BatchedPhaseItem`], this should use a stable sort like [`slice::sort_by_key`].
     /// In almost all other cases, this should not be altered from the default,
-    /// [`RenderPhaseSortMode::Unstable`], as this provides the best balance of CPU and GPU
+    /// which uses a unstable sort, as this provides the best balance of CPU and GPU
     /// performance.
     ///
-    /// It's generally only advised to use [`RenderPhaseSortMode::Unsorted`] if and only if
-    /// the renderer supports a depth prepass, which is by default not supported by the rest
-    /// of Bevy's first party rendering crates. Even then, this may have a negative impact
-    /// on GPU-side performance due to overdraw.
+    /// Implementors can optionally not sort the list at all. This is generally adviseble if and
+    /// only if the renderer supports a depth prepass, which is by default not supported by
+    /// the rest of Bevy's first party rendering crates. Even then, this may have a negative
+    /// impact on GPU-side performance due to overdraw.
     ///
-    /// It's advised to always profile for performance changes when changing this to
-    /// a different value.
+    /// It's advised to always profile for performance changes when changing this implementation.
     #[inline]
-    fn sort_mode() -> RenderPhaseSortMode {
-        Default::default()
+    fn sort(items: &mut [Self]) {
+        items.sort_unstable_by_key(|item| item.sort_key())
     }
 }
 
@@ -209,8 +189,7 @@ pub trait CachedRenderPipelinePhaseItem: PhaseItem {
 /// to render them in a single draw call.
 ///
 /// If this is implemented on a type, the implementation of [`PhaseItem::sort_mode`] should
-/// be changed to return [`RenderPhaseSortMode::Stable`], or incorrect/suboptimal batching
-/// may result.
+/// be changed to implement a stable sort, or incorrect/suboptimal batching may result.
 pub trait BatchedPhaseItem: EntityPhaseItem {
     /// Range in the vertex buffer of this item
     fn batch_range(&self) -> &Option<Range<u32>>;

@@ -23,7 +23,6 @@ use bevy_render::{
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
         DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
-        RenderPhaseSortMode,
     },
     render_resource::CachedRenderPipelineId,
     RenderApp, RenderStage,
@@ -93,8 +92,8 @@ impl PhaseItem for Transparent2d {
     }
 
     #[inline]
-    fn sort_mode() -> RenderPhaseSortMode {
-        RenderPhaseSortMode::Stable
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(|item| item.sort_key())
     }
 }
 
