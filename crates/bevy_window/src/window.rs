@@ -260,7 +260,7 @@ pub enum WindowCommand {
         position: IVec2,
     },
     /// Modifies the position of the window to be in the center of the current monitor
-    Center,
+    Center(MonitorSelection),
     /// Set the window's [`WindowResizeConstraints`]
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
@@ -424,8 +424,9 @@ impl Window {
     /// - iOS: Can only be called on the main thread.
     /// - Web / Android / Wayland: Unsupported.
     #[inline]
-    pub fn center_window(&mut self) {
-        self.command_queue.push(WindowCommand::Center);
+    pub fn center_window(&mut self, monitor_selection: MonitorSelection) {
+        self.command_queue
+            .push(WindowCommand::Center(monitor_selection));
     }
 
     /// Modifies the minimum and maximum window bounds for resizing in logical pixels.
@@ -727,18 +728,29 @@ impl Window {
 }
 
 /// Defines where window should be placed at on creation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum WindowPosition {
     /// Position will be set by the window manager
     Automatic,
-    /// Window will be centered on the primary monitor
+    /// Window will be centered on the selected monitor
     ///
     /// Note that this does not account for window decorations.
-    Centered,
+    Centered(MonitorSelection),
     /// The window's top-left corner will be placed at the specified position (in pixels)
     ///
     /// (0,0) represents top-left corner of screen space.
     At(Vec2),
+}
+
+/// Defines which monitor to use.
+#[derive(Debug, Clone, Copy)]
+pub enum MonitorSelection {
+    /// Uses current monitor of the window.
+    Current,
+    /// Uses primary monitor of the system.
+    Primary,
+    /// Uses monitor with the specified index.
+    Number(usize),
 }
 
 /// Describes the information needed for creating a window.

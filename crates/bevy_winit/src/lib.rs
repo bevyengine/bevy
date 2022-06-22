@@ -158,20 +158,30 @@ fn change_window(
                         y: position[1],
                     });
                 }
-                bevy_window::WindowCommand::Center => {
+                bevy_window::WindowCommand::Center(monitor_selection) => {
                     let window = winit_windows.get_window(id).unwrap();
 
-                    // What to do if current_monitor is None?
-                    // Abort?
-                    // Or use primary_monitor? And then what if that also is None?
-                    let screen_size = window.current_monitor().unwrap().size();
+                    use bevy_window::MonitorSelection::*;
+                    let maybe_monitor = match monitor_selection {
+                        Current => window.current_monitor(),
+                        Primary => window.primary_monitor(),
+                        Number(n) => window.available_monitors().nth(n),
+                    };
 
-                    let window_size = window.outer_size();
+                    if let Some(monitor) = maybe_monitor {
+                        let screen_size = monitor.size();
 
-                    window.set_outer_position(PhysicalPosition {
-                        x: (screen_size.width - window_size.width) as f64 / 2.,
-                        y: (screen_size.height - window_size.height) as f64 / 2.,
-                    });
+                        let window_size = window.outer_size();
+
+                        window.set_outer_position(PhysicalPosition {
+                            x: screen_size.width.saturating_sub(window_size.width) as f64 / 2.
+                                + monitor.position().x as f64,
+                            y: screen_size.height.saturating_sub(window_size.height) as f64 / 2.
+                                + monitor.position().y as f64,
+                        });
+                    } else {
+                        warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                    }
                 }
                 bevy_window::WindowCommand::SetResizeConstraints { resize_constraints } => {
                     let window = winit_windows.get_window(id).unwrap();
