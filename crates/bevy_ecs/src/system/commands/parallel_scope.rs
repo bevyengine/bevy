@@ -33,7 +33,7 @@ pub struct ParallelCommandsState {
 ///     mut query: Query<(Entity, &Velocity)>,
 ///     par_commands: ParallelCommands
 /// ) {
-///     query.par_for_each(32, |(entity, velocity)| {
+///     query.par_iter().for_each(|(entity, velocity)| {
 ///         if velocity.magnitude() > 10.0 {
 ///             par_commands.command_scope(|mut commands| {
 ///                 commands.entity(entity).despawn();

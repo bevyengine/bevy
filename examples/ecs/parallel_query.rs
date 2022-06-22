@@ -1,5 +1,6 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
+use bevy::ecs::query::BatchingStrategy;
 use bevy::prelude::*;
 use rand::random;
 
@@ -53,7 +54,7 @@ fn bounce_system(windows: Res<Windows>, mut sprites: Query<(&Transform, &mut Vel
     // ParallelIterator, since negating a vector is very inexpensive.
     sprites
         .par_iter_mut()
-        .batch_size(32)
+        .batching_strategy(BatchingStrategy::fixed(32))
         .for_each_mut(|(transform, mut v)| {
             if !(left < transform.translation.x
                 && transform.translation.x < right
