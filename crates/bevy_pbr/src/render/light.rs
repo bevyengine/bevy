@@ -103,25 +103,6 @@ pub struct GpuPointLightsStorage {
     data: Vec<GpuPointLight>,
 }
 
-#[derive(ShaderType)]
-pub struct GpuPointLightsUniform {
-    data: Box<[GpuPointLight; MAX_UNIFORM_BUFFER_POINT_LIGHTS]>,
-}
-
-impl Default for GpuPointLightsUniform {
-    fn default() -> Self {
-        Self {
-            data: Box::new([GpuPointLight::default(); MAX_UNIFORM_BUFFER_POINT_LIGHTS]),
-        }
-    }
-}
-
-#[derive(ShaderType, Default)]
-pub struct GpuPointLightsStorage {
-    #[size(runtime)]
-    data: Vec<GpuPointLight>,
-}
-
 pub enum GpuPointLights {
     Uniform(UniformBuffer<GpuPointLightsUniform>),
     Storage(StorageBuffer<GpuPointLightsStorage>),
@@ -1279,47 +1260,6 @@ struct GpuClusterOffsetsAndCountsStorage {
     data: Vec<UVec4>,
 }
 
-#[derive(ShaderType)]
-struct GpuClusterLightIndexListsUniform {
-    data: Box<[UVec4; ViewClusterBindings::MAX_UNIFORM_ITEMS]>,
-}
-
-// NOTE: Assert at compile time that GpuClusterLightIndexListsUniform
-// fits within the maximum uniform buffer binding size
-const _: () = assert!(GpuClusterLightIndexListsUniform::SIZE.get() <= 16384);
-
-impl Default for GpuClusterLightIndexListsUniform {
-    fn default() -> Self {
-        Self {
-            data: Box::new([UVec4::ZERO; ViewClusterBindings::MAX_UNIFORM_ITEMS]),
-        }
-    }
-}
-
-#[derive(ShaderType)]
-struct GpuClusterOffsetsAndCountsUniform {
-    data: Box<[UVec4; ViewClusterBindings::MAX_UNIFORM_ITEMS]>,
-}
-
-impl Default for GpuClusterOffsetsAndCountsUniform {
-    fn default() -> Self {
-        Self {
-            data: Box::new([UVec4::ZERO; ViewClusterBindings::MAX_UNIFORM_ITEMS]),
-        }
-    }
-}
-
-#[derive(ShaderType, Default)]
-struct GpuClusterLightIndexListsStorage {
-    #[size(runtime)]
-    data: Vec<u32>,
-}
-
-#[derive(ShaderType, Default)]
-struct GpuClusterOffsetsAndCountsStorage {
-    #[size(runtime)]
-    data: Vec<UVec2>,
-}
 
 enum ViewClusterBuffers {
     Uniform {
