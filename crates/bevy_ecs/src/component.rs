@@ -138,12 +138,19 @@ impl ComponentInfo {
     }
 }
 
-/// A [`ComponentId`] is an opaque value which uniquely identifies the type of
-/// a [`Component`] within a [`World`](crate::world::World). Each time a new
-/// [`Component`] type is registered within a [`World`](crate::world::World) using
-/// [`World::init_component`](crate::world::World::init_component) or
+/// A [`ComponentId`] is an semi-opaque value which uniquely identifies the type of
+/// a [`Component`] within a [`World`](crate::world::World).
+///
+/// Each time a new [`Component`] type is registered within a [`World`](crate::world::World)
+/// using [`World::init_component`](crate::world::World::init_component) or
 /// [`World::init_component_with_descriptor`](crate::world::World::init_component_with_descriptor),
 /// a corresponding [`ComponentId`] is created to track it.
+///
+/// While the distinction between [`ComponentId`] and [`TypeId`] may seem superficial, breaking them
+/// in to two separate but related concepts allows Bevy components to exist outside of Rust's type system.
+/// Each Rust type registered as a [`Component`] will have a corresponding [`ComponentId`], but additional
+/// [`ComponentId`]s may exist in a [`World`](crate::world::World) to track components which cannot be
+/// represented as Rust types for scripting or other advanced use-cases.
 ///
 /// A [`ComponentId`] is tightly coupled to its parent [`World`](crate::world::World).
 /// Attempting to use a [`ComponentId`] from one [`World`](crate::world::World) to access the metadata
@@ -364,7 +371,9 @@ impl Components {
     }
 
     /// Retrieves the [`ComponentId`] of the given [`Component`] type in
-    /// this [`Components`] instance. Returns [`None`] if the [`Component`] type has not
+    /// this [`Components`] instance.
+    ///
+    /// Returns [`None`] if the [`Component`] type has not
     /// yet been initialized using [`Components::init_component`].
     /// ```rust
     /// use bevy_ecs::prelude::*;

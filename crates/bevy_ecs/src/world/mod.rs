@@ -184,11 +184,12 @@ impl World {
     }
 
     /// Initializes a new Component type within this [`World`] and returns the
-    /// [`ComponentId`] assigned to it. [`World::init_component_with_descriptor`]
-    /// differs from [`World::init_component`] in that it uses a [`ComponentDescriptor`]
-    /// to initialize the new component type instead of statically available type information.
-    /// This enables the dynamic initialization of new component definitions at runtime
-    /// for advanced use cases.
+    /// [`ComponentId`] assigned to it.
+    ///
+    /// [`World::init_component_with_descriptor`] differs from [`World::init_component`] in
+    /// that it uses a [`ComponentDescriptor`] to initialize the new component type instead
+    /// of statically available type information. This enables the dynamic initialization of
+    /// new component definitions at runtime for advanced use cases.
     ///
     /// While [`World::init_component_with_descriptor`] is useful in type-erased contexts,
     /// the standard [`World::init_component`] function should always be used instead
@@ -202,7 +203,9 @@ impl World {
     }
 
     /// Retrieves the [`ComponentId`] of the given [`Component`] type in
-    /// this [`World`]. Returns [`None`] if the [`Component`] type has not
+    /// this [`World`].
+    ///
+    /// Returns [`None`] if the [`Component`] type has not
     /// yet been initialized within the [`World`] using [`World::init_component`].
     /// ```rust
     /// use bevy_ecs::prelude::*;
