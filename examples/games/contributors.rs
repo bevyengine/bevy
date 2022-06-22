@@ -99,7 +99,8 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         // some sprites should be flipped
         let flipped = rng.gen_bool(0.5);
 
-        let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
+        let mut transform = Transform::from_xyz(pos.0, pos.1, 0.0);
+        transform.scale.x *= if flipped { -1.0 } else { 1.0 };
 
         let entity = commands
             .spawn()
@@ -114,7 +115,6 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                 sprite: Sprite {
                     custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
                     color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
-                    flip_x: flipped,
                     ..default()
                 },
                 texture: texture_handle.clone(),

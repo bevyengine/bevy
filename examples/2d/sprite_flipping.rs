@@ -13,13 +13,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
-        sprite: Sprite {
-            // Flip the logo to the left
-            flip_x: true,
-            // And don't flip it upside-down ( the default )
-            flip_y: false,
-            ..default()
-        },
+        sprite: Sprite::default(),
+        // Use a negative x scaling to flip the logo to the left
+        transform: Transform::from_scale(Vec3::new(-1.0, 1.0, 1.0)),
         ..default()
     });
 }

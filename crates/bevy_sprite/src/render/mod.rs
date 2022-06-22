@@ -182,8 +182,6 @@ pub struct ExtractedSprite {
     /// Handle to the `Image` of this sprite
     /// PERF: storing a `HandleId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
     pub image_handle_id: HandleId,
-    pub flip_x: bool,
-    pub flip_y: bool,
     pub anchor: Vec2,
 }
 
@@ -246,8 +244,6 @@ pub fn extract_sprites(
             rect: None,
             // Pass the custom size
             custom_size: sprite.custom_size,
-            flip_x: sprite.flip_x,
-            flip_y: sprite.flip_y,
             image_handle_id: handle.id,
             anchor: sprite.anchor.as_vec(),
         });
@@ -265,8 +261,6 @@ pub fn extract_sprites(
                 rect,
                 // Pass the custom size
                 custom_size: atlas_sprite.custom_size,
-                flip_x: atlas_sprite.flip_x,
-                flip_y: atlas_sprite.flip_y,
                 image_handle_id: texture_atlas.texture.id,
                 anchor: atlas_sprite.anchor.as_vec(),
             });
@@ -465,12 +459,6 @@ pub fn queue_sprites(
                 // Calculate vertex data for this item
 
                 let mut uvs = QUAD_UVS;
-                if extracted_sprite.flip_x {
-                    uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
-                }
-                if extracted_sprite.flip_y {
-                    uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
-                }
 
                 // By default, the size of the quad is the size of the texture
                 let mut quad_size = current_image_size;
