@@ -1,10 +1,12 @@
+use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectMut,
-    ReflectRef, TypeRegistration,
+    DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
+    ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 use serde::Deserialize;
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
+use std::slice::Iter;
 
 /// A reflected Rust tuple.
 ///
@@ -124,6 +126,62 @@ impl GetTupleField for dyn Tuple {
     }
 }
 
+/// A container for compile-time tuple info.
+#[derive(Clone, Debug)]
+pub struct TupleInfo {
+    type_name: &'static str,
+    type_id: TypeId,
+    fields: Box<[UnnamedField]>,
+}
+
+impl TupleInfo {
+    /// Create a new [`TupleInfo`].
+    ///
+    /// # Arguments
+    ///
+    /// * `fields`: The fields of this tuple in the order they are defined
+    ///
+    pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
+        Self {
+            type_name: std::any::type_name::<T>(),
+            type_id: TypeId::of::<T>(),
+            fields: fields.to_vec().into_boxed_slice(),
+        }
+    }
+
+    /// Get the field at the given index.
+    pub fn field_at(&self, index: usize) -> Option<&UnnamedField> {
+        self.fields.get(index)
+    }
+
+    /// Iterate over the fields of this tuple.
+    pub fn iter(&self) -> Iter<'_, UnnamedField> {
+        self.fields.iter()
+    }
+
+    /// The total number of fields in this tuple.
+    pub fn field_len(&self) -> usize {
+        self.fields.len()
+    }
+
+    /// The [type name] of the tuple.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
+    }
+
+    /// The [`TypeId`] of the tuple.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the tuple type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+}
+
 /// A tuple which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicTuple {
@@ -217,6 +275,11 @@ unsafe impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
     fn any(&self) -> &dyn Any {
         self
     }
@@ -268,6 +331,13 @@ unsafe impl Reflect for DynamicTuple {
         write!(f, "DynamicTuple(")?;
         tuple_debug(self, f)?;
         write!(f, ")")
+    }
+}
+
+impl Typed for DynamicTuple {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 
@@ -396,6 +466,10 @@ macro_rules! impl_reflect_tuple {
                 std::any::type_name::<Self>()
             }
 
+            fn get_type_info(&self) -> &'static TypeInfo {
+                <Self as Typed>::type_info()
+            }
+
             fn any(&self) -> &dyn Any {
                 self
             }
@@ -438,7 +512,20 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+        impl <$($name: Reflect),*> Typed for ($($name,)*) {
+            fn type_info() -> &'static TypeInfo {
+                static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    let fields = [
+                        $(UnnamedField::new::<$name>($index),)*
+                    ];
+                    let info = TupleInfo::new::<Self>(&fields);
+                    TypeInfo::Tuple(info)
+                })
+            }
+        }
+
+        impl<$($name: Reflect + Typed + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<($($name,)*)>();
                 registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());

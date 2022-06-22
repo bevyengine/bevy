@@ -375,8 +375,8 @@ mod tests {
 
     #[test]
     fn par_for_each_dense() {
+        ComputeTaskPool::init(TaskPool::default);
         let mut world = World::new();
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
         let e1 = world.spawn().insert(A(1)).id();
         let e2 = world.spawn().insert(A(2)).id();
         let e3 = world.spawn().insert(A(3)).id();
@@ -397,8 +397,8 @@ mod tests {
 
     #[test]
     fn par_for_each_sparse() {
+        ComputeTaskPool::init(TaskPool::default);
         let mut world = World::new();
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
         let e1 = world.spawn().insert(SparseStored(1)).id();
         let e2 = world.spawn().insert(SparseStored(2)).id();
         let e3 = world.spawn().insert(SparseStored(3)).id();
