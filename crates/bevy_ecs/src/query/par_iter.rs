@@ -72,7 +72,7 @@ where
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
         // Need a batch size of at least 1.
         let batch_size = self.get_batch_size().max(1);
         // SAFETY: query is read only
@@ -96,7 +96,7 @@ where
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, func: FN) {
         // Need a batch size of at least 1.
         let batch_size = self.get_batch_size().max(1);
         // SAFETY: query has unique world access
@@ -126,7 +126,7 @@ where
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub unsafe fn for_each_unchecked<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
-        self,
+        &self,
         func: FN,
     ) {
         // Need a batch size of at least 1.
