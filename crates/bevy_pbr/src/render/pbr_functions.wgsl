@@ -98,18 +98,11 @@ struct PbrInput {
     is_orthographic: bool;
 };
 
-// Creates a PbrInput with default StandardMaterial values
-// NOTE: Keep in-sync with src/pbr_material.rs!
+// Creates a PbrInput with default values
 fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
-    pbr_input.material.base_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
-    pbr_input.material.reflectance = 0.5;
-    pbr_input.material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
-    pbr_input.material.alpha_cutoff = 0.5;
-    pbr_input.material.emissive = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-    pbr_input.material.metallic = 0.01;
-    pbr_input.material.perceptual_roughness = 0.089;
+    pbr_input.material = standard_material_new();
     pbr_input.occlusion = 1.0;
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
