@@ -97,3 +97,61 @@ jobs:
             time CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
             sleep 10
           done
+
+  run-examples-on-wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.github/start-wasm-example/node_modules
+            target/
+          key: ${{ runner.os }}-wasm-run-examples-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: install xvfb, llvmpipe and lavapipe
+        run: |
+          sudo apt-get update -y -qq
+          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+          sudo apt-get update
+          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+
+      - name: Install wasm-bindgen
+        run: cargo install --force wasm-bindgen-cli
+
+      - name: Setup playwright
+        run: |
+          cd .github/start-wasm-example
+          npm install
+          npx playwright install --with-deps
+          cd ../..
+
+      - name: First WASM build
+        run: |
+          cargo build --release --example ui --target wasm32-unknown-unknown
+
+      - name: Run examples
+        shell: bash
+        run: |
+          # start a webserver
+          python3 -m http.server --directory examples/wasm &
+
+          xvfb-run cargo run -p build-wasm-example -- --browsers chromium --browsers firefox --frames 25 --test shapes lighting text_debug breakout
+
+      - name: Save screenshots
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: .github/start-wasm-example/screenshot-*.png

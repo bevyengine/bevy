@@ -29,7 +29,10 @@ fn setup(
         ..default()
     });
 
-    commands.spawn_scene(asset_server.load("models/animated/Fox.glb#Scene0"));
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        ..default()
+    });
 
     // Light
     commands.spawn_bundle(DirectionalLightBundle {
@@ -66,6 +69,7 @@ fn setup(
             camera_3d: Camera3d {
                 // dont clear on the second camera because the first camera already cleared the window
                 clear_color: ClearColorConfig::None,
+                ..default()
             },
             ..default()
         })

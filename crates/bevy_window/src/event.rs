@@ -3,13 +3,13 @@ use std::path::PathBuf;
 use super::{WindowDescriptor, WindowId};
 use bevy_math::{IVec2, Vec2};
 
-/// A window event that is sent whenever a windows logical size has changed
+/// A window event that is sent whenever a window's logical size has changed.
 #[derive(Debug, Clone)]
 pub struct WindowResized {
     pub id: WindowId,
-    /// The new logical width of the window
+    /// The new logical width of the window.
     pub width: f32,
-    /// The new logical height of the window
+    /// The new logical height of the window.
     pub height: f32,
 }
 
@@ -58,18 +58,18 @@ pub struct WindowCloseRequested {
 pub struct WindowClosed {
     pub id: WindowId,
 }
-
+/// An event that is sent whenenver the user's cursor moves.
 #[derive(Debug, Clone)]
 pub struct CursorMoved {
     pub id: WindowId,
     pub position: Vec2,
 }
-
+/// An event that is sent whenever the user's cursor enters a window.
 #[derive(Debug, Clone)]
 pub struct CursorEntered {
     pub id: WindowId,
 }
-
+/// An event that is sent whenever the user's cursor leaves a window.
 #[derive(Debug, Clone)]
 pub struct CursorLeft {
     pub id: WindowId,

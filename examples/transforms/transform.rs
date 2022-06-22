@@ -46,7 +46,7 @@ fn setup(
             })),
             material: materials.add(Color::YELLOW.into()),
             transform: Transform::from_translation(Vec3::ZERO),
-            ..Default::default()
+            ..default()
         })
         .insert(Center {
             max_size: 1.0,
@@ -67,7 +67,7 @@ fn setup(
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
             transform: cube_spawn,
-            ..Default::default()
+            ..default()
         })
         .insert(CubeState {
             start_pos: cube_spawn.translation,
@@ -78,13 +78,13 @@ fn setup(
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // Add a light source for better 3d visibility.
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::ONE * 3.0),
-        ..Default::default()
+        ..default()
     });
 }
 
