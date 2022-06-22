@@ -87,11 +87,42 @@ struct PbrInput {
     occlusion: f32;
     frag_coord: vec4<f32>;
     world_position: vec4<f32>;
+    // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
+    // mapping
     world_normal: vec3<f32>;
+    // Normalized normal-mapped world normal used for lighting
     N: vec3<f32>;
+    // Normalized view vector in world space, pointing from the fragment world position toward the
+    // view world position
     V: vec3<f32>;
     is_orthographic: bool;
 };
+
+// Creates a PbrInput with default StandardMaterial values
+// NOTE: Keep in-sync with src/pbr_material.rs!
+fn pbr_input_new() -> PbrInput {
+    var pbr_input: PbrInput;
+
+    pbr_input.material.base_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    pbr_input.material.reflectance = 0.5;
+    pbr_input.material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
+    pbr_input.material.alpha_cutoff = 0.5;
+    pbr_input.material.emissive = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    pbr_input.material.metallic = 0.01;
+    pbr_input.material.perceptual_roughness = 0.089;
+    pbr_input.occlusion = 1.0;
+
+    pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    pbr_input.world_normal = vec3<f32>(0.0, 0.0, 1.0);
+
+    pbr_input.is_orthographic = false;
+
+    pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
+    pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
+
+    return pbr_input;
+}
 
 fn pbr(
     in: PbrInput,
