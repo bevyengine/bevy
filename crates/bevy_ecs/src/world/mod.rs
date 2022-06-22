@@ -187,9 +187,9 @@ impl World {
     /// [`ComponentId`] assigned to it. [`World::init_component_with_descriptor`]
     /// differs from [`World::init_component`] in that it uses a [`ComponentDescriptor`]
     /// to initialize the new component type instead of statically available type information.
-    /// This enables the dynamic initialization of new component definitions at runtime 
+    /// This enables the dynamic initialization of new component definitions at runtime
     /// for advanced use cases.
-    /// 
+    ///
     /// While [`World::init_component_with_descriptor`] is useful in type-erased contexts,
     /// the standard [`World::init_component`] function should always be used instead
     /// when type information is available at compile time.
