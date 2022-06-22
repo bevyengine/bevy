@@ -86,40 +86,39 @@ pub(crate) fn DegenPrologue(
     debug_assert!(bStillFindingGoodOnes);
 }
 
-pub(crate) unsafe fn DegenEpilogue(
-    mut psTspace: *mut STSpace,
-    mut pTriInfos: *mut STriInfo,
-    mut piTriListIn: *mut i32,
+pub(crate) fn DegenEpilogue(
+    mut psTspace: &mut [STSpace],
+    mut pTriInfos: &mut [STriInfo],
+    mut piTriListIn: &mut [i32],
     geometry: &impl Geometry,
     iNrTrianglesIn: i32,
     iTotTris: i32,
 ) {
     // For all degenerate triangles
     for t in iNrTrianglesIn..iTotTris {
-        let bSkip: bool = (*pTriInfos.offset(t as isize))
+        let bSkip = pTriInfos[t as usize]
             .iFlag
             .contains(TriangleFlags::QUAD_ONE_DEGENERATE_TRI);
         if !bSkip {
             for i in 0..3i32 {
                 // For all vertices on that triangle
-                let index1: i32 = *piTriListIn.offset((t * 3i32 + i) as isize);
-                for j in 0..(3i32 * iNrTrianglesIn) {
-                    let index2: i32 = *piTriListIn.offset(j as isize);
+                let index1 = piTriListIn[(t * 3 + i) as usize];
+                for j in 0..(3 * iNrTrianglesIn) {
+                    let index2 = piTriListIn[j as usize];
                     // If the vertex properties are the same as another non-degenerate vertex
                     if index1 == index2 {
-                        let iTri: i32 = j / 3i32;
-                        let iVert: i32 = j % 3i32;
-                        let iSrcVert: i32 =
-                            (*pTriInfos.offset(iTri as isize)).vert_num[iVert as usize] as i32;
-                        let iSrcOffs: i32 = (*pTriInfos.offset(iTri as isize)).iTSpacesOffs;
-                        let iDstVert: i32 =
-                            (*pTriInfos.offset(t as isize)).vert_num[i as usize] as i32;
-                        let iDstOffs: i32 = (*pTriInfos.offset(t as isize)).iTSpacesOffs;
+                        // assert_eq!(j, index1);
+                        let iTri = j / 3i32;
+                        let iVert = j % 3i32;
+                        let iSrcVert = pTriInfos[iTri as usize].vert_num[iVert as usize] as i32;
+                        let iSrcOffs = pTriInfos[iTri as usize].iTSpacesOffs;
+                        let iDstVert = pTriInfos[t as usize].vert_num[i as usize] as i32;
+                        let iDstOffs: i32 = pTriInfos[t as usize].iTSpacesOffs;
                         // Set the tangent space of this vertex to the tangent space of that vertex
                         // TODO: This is absurd - doing a linear search through all vertices for each
                         // degenerate triangle?
-                        *psTspace.offset((iDstOffs + iDstVert) as isize) =
-                            *psTspace.offset((iSrcOffs + iSrcVert) as isize);
+                        psTspace[(iDstOffs + iDstVert) as usize] =
+                            psTspace[(iSrcOffs + iSrcVert) as usize];
                         break;
                     }
                 }
@@ -128,14 +127,12 @@ pub(crate) unsafe fn DegenEpilogue(
     }
     for t in 0..iNrTrianglesIn {
         // Handle quads with a single degenerate triangle by
-        if (*pTriInfos.offset(t as isize))
+        if pTriInfos[t as usize]
             .iFlag
             .contains(TriangleFlags::QUAD_ONE_DEGENERATE_TRI)
         {
-            let mut pV: *mut u8 = (*pTriInfos.offset(t as isize)).vert_num.as_mut_ptr();
-            let mut iFlag: i32 = 1i32 << *pV.offset(0isize) as i32
-                | 1i32 << *pV.offset(1isize) as i32
-                | 1i32 << *pV.offset(2isize) as i32;
+            let mut pV = &mut pTriInfos[t as usize].vert_num;
+            let mut iFlag: i32 = 1i32 << pV[0] as i32 | 1i32 << pV[1] as i32 | 1i32 << pV[2] as i32;
             let mut iMissingIndex: i32 = 0i32;
             if iFlag & 2i32 == 0i32 {
                 iMissingIndex = 1i32
@@ -144,22 +141,22 @@ pub(crate) unsafe fn DegenEpilogue(
             } else if iFlag & 8i32 == 0i32 {
                 iMissingIndex = 3i32
             }
-            let iOrgF = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
+            let iOrgF = pTriInfos[t as usize].iOrgFaceNumber;
             let vDstP = get_position(
                 geometry,
                 face_vert_to_index(iOrgF as usize, iMissingIndex as usize),
             );
 
-            for i_0 in 0..3i32 {
-                let iVert_0: i32 = *pV.offset(i_0 as isize) as i32;
+            for i_0 in 0..3 {
+                let iVert_0 = pV[i_0];
                 let vSrcP = get_position(
                     geometry,
                     face_vert_to_index(iOrgF as usize, iVert_0 as usize),
                 );
                 if vSrcP == vDstP {
-                    let iOffs: i32 = (*pTriInfos.offset(t as isize)).iTSpacesOffs;
-                    *psTspace.offset((iOffs + iMissingIndex) as isize) =
-                        *psTspace.offset((iOffs + iVert_0) as isize);
+                    let iOffs: i32 = pTriInfos[t as usize].iTSpacesOffs;
+                    psTspace[(iOffs + iMissingIndex) as usize] =
+                        psTspace[(iOffs + iVert_0 as i32) as usize];
                     break;
                 }
             }

@@ -288,9 +288,9 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
         return false;
     }
     degenerate::DegenEpilogue(
-        psTspace.as_mut_ptr(),
-        pTriInfos.as_mut_ptr(),
-        piTriListIn.as_mut_ptr(),
+        &mut psTspace,
+        &mut pTriInfos,
+        &mut piTriListIn,
         geometry,
         iNrTrianglesIn as i32,
         iTotTris as i32,
