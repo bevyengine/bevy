@@ -1,14 +1,54 @@
 use crate::world::World;
 use bevy_tasks::ComputeTaskPool;
+use std::ops::Range;
 
 use super::{Fetch, QueryFetch, QueryItem, QueryState, ROQueryFetch, ROQueryItem, WorldQuery};
 
-const DEFAULT_BATCHES_PER_THREAD: usize = 4;
+#[derive(Clone)]
+pub struct BatchingStrategy {
+    pub batch_size_limits: Range<usize>,
+    pub batches_per_thread: usize,
+}
+
+impl BatchingStrategy {
+    pub const fn fixed(batch_size: usize) -> Self {
+        Self {
+            batch_size_limits: batch_size..batch_size,
+            batches_per_thread: 1,
+        }
+    }
+
+    pub const fn new() -> Self {
+        Self {
+            batch_size_limits: 0..usize::MAX,
+            batches_per_thread: 1,
+        }
+    }
+
+    pub const fn min_batch_size(mut self, batch_size: usize) -> Self {
+        self.batch_size_limits.start = batch_size;
+        self
+    }
+
+    pub const fn max_batch_size(mut self, batch_size: usize) -> Self {
+        self.batch_size_limits.end = batch_size;
+        self
+    }
+
+    pub fn batches_per_thread(mut self, batches_per_thread: usize) -> Self {
+        assert!(
+            batches_per_thread > 0,
+            "The number of batches per thread must be non-zero."
+        );
+        self.batches_per_thread = batches_per_thread;
+        self
+    }
+}
 
 pub struct QueryParIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
     pub(crate) world: &'w World,
     pub(crate) state: &'s QueryState<Q, F>,
-    pub(crate) batch_size: Option<usize>,
+    pub(crate) batching_strategy: BatchingStrategy,
     pub(crate) marker_: std::marker::PhantomData<fn() -> QF>,
 }
 
@@ -16,8 +56,8 @@ impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryParIter<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State>,
 {
-    pub fn batch_size(mut self, batch_size: usize) -> Self {
-        self.batch_size = Some(batch_size);
+    pub fn batching_strategy(mut self, strategy: BatchingStrategy) -> Self {
+        self.batching_strategy = strategy;
         self
     }
 
@@ -33,10 +73,8 @@ where
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each<FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
-        let batch_size = match self.batch_size.or_else(|| self.get_default_batch_size()) {
-            Some(batch_size) => batch_size.max(1),
-            None => return,
-        };
+        // Need a batch size of at least 1.
+        let batch_size = self.get_batch_size().max(1);
         // SAFETY: query is read only
         unsafe {
             self.state
@@ -59,10 +97,8 @@ where
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
-        let batch_size = match self.batch_size.or_else(|| self.get_default_batch_size()) {
-            Some(batch_size) => batch_size.max(1),
-            None => return,
-        };
+        // Need a batch size of at least 1.
+        let batch_size = self.get_batch_size().max(1);
         // SAFETY: query has unique world access
         unsafe {
             self.state
@@ -93,10 +129,8 @@ where
         self,
         func: FN,
     ) {
-        let batch_size = match self.batch_size.or_else(|| self.get_default_batch_size()) {
-            Some(batch_size) => batch_size.max(1),
-            None => return,
-        };
+        // Need a batch size of at least 1.
+        let batch_size = self.get_batch_size().max(1);
         self.state
             .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                 self.world,
@@ -107,7 +141,11 @@ where
             );
     }
 
-    fn get_default_batch_size(&self) -> Option<usize> {
+    fn get_batch_size(&self) -> usize {
+        if self.batching_strategy.batch_size_limits.is_empty() {
+            return self.batching_strategy.batch_size_limits.start;
+        }
+
         let thread_count = ComputeTaskPool::get().thread_num();
         assert!(
             thread_count > 0,
@@ -120,6 +158,7 @@ where
                 .iter()
                 .map(|id| tables[*id].len())
                 .max()
+                .unwrap_or(0)
         } else {
             let archetypes = &self.world.archetypes();
             self.state
@@ -127,7 +166,11 @@ where
                 .iter()
                 .map(|id| archetypes[*id].len())
                 .max()
+                .unwrap_or(0)
         };
-        max_size.map(|max| max / (thread_count * DEFAULT_BATCHES_PER_THREAD))
+        let batch_size = max_size / (thread_count * self.batching_strategy.batches_per_thread);
+        batch_size
+            .min(self.batching_strategy.batch_size_limits.end)
+            .max(self.batching_strategy.batch_size_limits.start)
     }
 }

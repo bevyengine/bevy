@@ -4,8 +4,8 @@ use crate::{
     entity::Entity,
     prelude::FromWorld,
     query::{
-        Access, Fetch, FetchState, FilteredAccess, NopFetch, QueryCombinationIter, QueryIter,
-        QueryParIter, WorldQuery,
+        Access, BatchingStrategy, Fetch, FetchState, FilteredAccess, NopFetch,
+        QueryCombinationIter, QueryIter, QueryParIter, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -770,7 +770,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         QueryParIter {
             world,
             state: self,
-            batch_size: None,
+            batching_strategy: BatchingStrategy::new(),
             marker_: std::marker::PhantomData,
         }
     }
@@ -784,7 +784,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         QueryParIter {
             world,
             state: self,
-            batch_size: None,
+            batching_strategy: BatchingStrategy::new(),
             marker_: std::marker::PhantomData,
         }
     }

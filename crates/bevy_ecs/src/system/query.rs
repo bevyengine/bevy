@@ -2,9 +2,9 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem, QueryIter,
-        QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryFetch, ROQueryItem,
-        ReadOnlyWorldQuery, WorldQuery,
+        BatchingStrategy, NopFetch, QueryCombinationIter, QueryEntityError, QueryFetch, QueryItem,
+        QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryFetch,
+        ROQueryItem, ReadOnlyWorldQuery, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -572,7 +572,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         QueryParIter {
             world: self.world,
             state: self.state,
-            batch_size: None,
+            batching_strategy: BatchingStrategy::new(),
             marker_: std::marker::PhantomData,
         }
     }
@@ -583,7 +583,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         QueryParIter {
             world: self.world,
             state: self.state,
-            batch_size: None,
+            batching_strategy: BatchingStrategy::new(),
             marker_: std::marker::PhantomData,
         }
     }
