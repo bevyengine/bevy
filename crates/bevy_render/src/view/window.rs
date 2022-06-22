@@ -135,6 +135,7 @@ pub fn prepare_windows(
         let surface = window_surfaces
             .surfaces
             .entry(window.id)
+            // SAFETY: system runs on the main thread due to the presence of the NonSend _marker
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
                 render_instance.create_surface(&window.handle.get_handle())
