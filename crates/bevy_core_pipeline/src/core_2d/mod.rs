@@ -93,7 +93,7 @@ impl PhaseItem for Transparent2d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key())
+        items.sort_by_key(|item| item.sort_key());
     }
 }
 
