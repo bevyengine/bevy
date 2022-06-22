@@ -8,7 +8,7 @@ pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
 
-use self::archetype_invariants::{ArchetypeInvariants, ArchetypeInvariant};
+use self::archetype_invariants::{ArchetypeInvariants, ArchetypeInvariant, UntypedArchetypeInvariant};
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
@@ -680,11 +680,25 @@ impl World {
     /// 
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
+    #[inline]
     pub fn add_archetype_invariant(
         &mut self,
         archetype_invariant: ArchetypeInvariant
     ) {
-        self.archetype_invariants.add(archetype_invariant);
+        let internal_invariant = archetype_invariant.into_untyped(self);
+        self.archetype_invariants.add(internal_invariant);
+    }
+
+    /// Inserts a new [`UntypedArchetypeInvariant`] to the world
+    /// 
+    /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
+    /// This may include empty archetypes- archetypes that contain no entities.
+    /// Prefer [`add_archetype_invariant`](World::add_archertype_invariant) where possible.
+    pub fn add_untyped_archetype_invariant(
+        &mut self,
+        archetype_invariant: UntypedArchetypeInvariant
+    ) {
+        self.archetype_invariants.add(archetype_invariant)
     }
 
     /// Inserts a new resource with standard starting values.
