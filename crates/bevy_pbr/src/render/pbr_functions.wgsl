@@ -3,6 +3,7 @@
 // NOTE: This ensures that the world_normal is normalized and if
 // vertex tangents and normal maps then normal mapping may be applied.
 fn prepare_normal(
+    standard_material_flags: u32,
     world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -25,7 +26,7 @@ fn prepare_normal(
 #endif
 #endif
 
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
+    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
         if (!is_front) {
             N = -N;
 #ifdef VERTEX_TANGENTS
@@ -41,7 +42,7 @@ fn prepare_normal(
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt: vec3<f32>;
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(textureSample(normal_map_texture, normal_map_sampler, uv).rg * 2.0 - 1.0, 0.0);
         Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
@@ -49,7 +50,7 @@ fn prepare_normal(
         Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb * 2.0 - 1.0;
     }
     // Normal maps authored for DirectX require flipping the y component
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
+    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
         Nt.y = -Nt.y;
     }
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
