@@ -9,7 +9,7 @@ use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 /// A flat, type-erased data storage type
 ///
 /// Used to densely store homogeneous ECS data.
-pub struct BlobVec {
+pub(super) struct BlobVec {
     item_layout: Layout,
     capacity: usize,
     /// Number of elements, not bytes
