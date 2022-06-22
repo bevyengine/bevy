@@ -243,8 +243,8 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
     // C: put the degenerate triangles last.
     // Note: A quad can have degenerate triangles if two vertices are in the same location
     degenerate::DegenPrologue(
-        pTriInfos.as_mut_ptr(),
-        piTriListIn.as_mut_ptr(),
+        &mut pTriInfos,
+        &mut piTriListIn,
         iNrTrianglesIn as i32,
         iTotTris as i32,
     );

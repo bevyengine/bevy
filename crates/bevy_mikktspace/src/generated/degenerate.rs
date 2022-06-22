@@ -6,37 +6,32 @@ use super::STSpace;
 use super::STriInfo;
 use super::TriangleFlags;
 
-pub(crate) unsafe fn DegenPrologue(
-    mut pTriInfos: *mut STriInfo,
-    mut piTriList_out: *mut i32,
+pub(crate) fn DegenPrologue(
+    mut pTriInfos: &mut [STriInfo],
+    mut piTriList_out: &mut [i32],
     iNrTrianglesIn: i32,
     iTotTris: i32,
 ) {
     // locate quads with only one good triangle
-    let mut t: i32 = 0i32;
-    while t < iTotTris - 1i32 {
-        let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
-        let iFO_b: i32 = (*pTriInfos.offset((t + 1i32) as isize)).iOrgFaceNumber;
-        if iFO_a == iFO_b {
-            let bIsDeg_a: bool = (*pTriInfos.offset(t as isize))
-                .iFlag
-                .contains(TriangleFlags::DEGENERATE);
-            let bIsDeg_b: bool = (*pTriInfos.offset((t + 1i32) as isize))
-                .iFlag
-                .contains(TriangleFlags::DEGENERATE);
-            // If exactly one is degenerate, mark both as QUAD_ONE_DEGENERATE_TRI, i.e. that the other triangle
-            // (If both are degenerate, this)
-            if bIsDeg_a ^ bIsDeg_b {
-                (*pTriInfos.offset(t as isize))
-                    .iFlag
-                    .insert(TriangleFlags::QUAD_ONE_DEGENERATE_TRI);
-                (*pTriInfos.offset((t + 1i32) as isize))
-                    .iFlag
-                    .insert(TriangleFlags::QUAD_ONE_DEGENERATE_TRI);
-            }
-            t += 2i32
+    let mut t = 0;
+    while t < (iTotTris as usize) - 1 {
+        let [a, b] = if let [a, b] = &mut pTriInfos[t..=t + 1] {
+            [a, b]
         } else {
-            t += 1
+            unreachable!()
+        };
+        if a.iOrgFaceNumber == b.iOrgFaceNumber {
+            let bIsDeg_a: bool = a.iFlag.contains(TriangleFlags::DEGENERATE);
+            let bIsDeg_b: bool = b.iFlag.contains(TriangleFlags::DEGENERATE);
+            // If exactly one is degenerate, mark both as QUAD_ONE_DEGENERATE_TRI, i.e. that the other triangle
+            // (If both are degenerate, this doesn't matter ?)
+            if bIsDeg_a ^ bIsDeg_b {
+                a.iFlag.insert(TriangleFlags::QUAD_ONE_DEGENERATE_TRI);
+                b.iFlag.insert(TriangleFlags::QUAD_ONE_DEGENERATE_TRI);
+            }
+            t += 2;
+        } else {
+            t += 1;
         }
     }
 
@@ -48,21 +43,19 @@ pub(crate) unsafe fn DegenPrologue(
     // but good enough and safe.
     // TODO: Consider using `sort_by_key` on Vec instead (which is stable) - it might be
     // technically slower, but it's much easier to reason about
-    let mut iNextGoodTriangleSearchIndex = 1i32;
-    t = 0i32;
+    let mut iNextGoodTriangleSearchIndex = 1;
+    let mut t = 0;
     let mut bStillFindingGoodOnes = true;
-    while t < iNrTrianglesIn && bStillFindingGoodOnes {
-        let bIsGood: bool = !(*pTriInfos.offset(t as isize))
-            .iFlag
-            .contains(TriangleFlags::DEGENERATE);
+    while t < iNrTrianglesIn as usize && bStillFindingGoodOnes {
+        let bIsGood: bool = !pTriInfos[t].iFlag.contains(TriangleFlags::DEGENERATE);
         if bIsGood {
-            if iNextGoodTriangleSearchIndex < t + 2i32 {
-                iNextGoodTriangleSearchIndex = t + 2i32
+            if iNextGoodTriangleSearchIndex < t + 2 {
+                iNextGoodTriangleSearchIndex = t + 2
             }
         } else {
             let mut bJustADegenerate: bool = true;
-            while bJustADegenerate && iNextGoodTriangleSearchIndex < iTotTris {
-                let bIsGood_0: bool = !(*pTriInfos.offset(iNextGoodTriangleSearchIndex as isize))
+            while bJustADegenerate && iNextGoodTriangleSearchIndex < iTotTris as usize {
+                let bIsGood_0: bool = !pTriInfos[iNextGoodTriangleSearchIndex]
                     .iFlag
                     .contains(TriangleFlags::DEGENERATE);
                 if bIsGood_0 {
@@ -77,15 +70,10 @@ pub(crate) unsafe fn DegenPrologue(
             debug_assert!(iNextGoodTriangleSearchIndex > (t + 1));
             // Swap t0 and t1
             if !bJustADegenerate {
-                for i in 0..3i32 {
-                    let index: i32 = *piTriList_out.offset((t0 * 3i32 + i) as isize);
-                    *piTriList_out.offset((t0 * 3i32 + i) as isize) =
-                        *piTriList_out.offset((t1 * 3i32 + i) as isize);
-                    *piTriList_out.offset((t1 * 3i32 + i) as isize) = index;
-                }
-                let tri_info: STriInfo = *pTriInfos.offset(t0 as isize);
-                *pTriInfos.offset(t0 as isize) = *pTriInfos.offset(t1 as isize);
-                *pTriInfos.offset(t1 as isize) = tri_info
+                let (start, end) = piTriList_out.split_at_mut(t1 * 3);
+
+                start[t0 * 3..t0 * 3 + 3].swap_with_slice(&mut end[0..3]);
+                pTriInfos.swap(t0, t1);
             } else {
                 bStillFindingGoodOnes = false
             }
@@ -94,7 +82,7 @@ pub(crate) unsafe fn DegenPrologue(
             t += 1
         }
     }
-    debug_assert!(iNrTrianglesIn == t);
+    debug_assert!(iNrTrianglesIn as usize == t);
     debug_assert!(bStillFindingGoodOnes);
 }
 
