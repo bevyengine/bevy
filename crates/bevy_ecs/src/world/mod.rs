@@ -677,8 +677,9 @@ impl World {
     }
 
     /// Inserts a new [`ArchetypeInvariant`] to the world. 
-    /// This should only be done at world initialization. 
-    /// Doing this after entities are spawned make it impossible to tell which archetypes are still valid.
+    /// 
+    /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
+    /// This may include empty archetypes- archetypes that contain no entities.
     pub fn add_archetype_invariant(
         &mut self,
         archetype_invariant: ArchetypeInvariant

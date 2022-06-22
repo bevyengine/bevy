@@ -95,7 +95,11 @@ pub struct ArchetypeInvariants {
 impl ArchetypeInvariants {
 
     /// Adds a new [`ArchetypeInvariant`] to this set of archetype invariants.
+    /// 
+    /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
+    /// This may include empty archetypes- archetypes that contain no entities.
     pub fn add(&mut self, archetype_invariant: ArchetypeInvariant) {
+        self.last_checked_archetype_index = 0;
         self.raw_list.push(archetype_invariant);
     }
 }
