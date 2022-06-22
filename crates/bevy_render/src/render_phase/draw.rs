@@ -188,7 +188,7 @@ pub trait CachedRenderPipelinePhaseItem: PhaseItem {
 /// Batching is an optimization that regroups multiple items in the same vertex buffer
 /// to render them in a single draw call.
 ///
-/// If this is implemented on a type, the implementation of [`PhaseItem::sort_mode`] should
+/// If this is implemented on a type, the implementation of [`PhaseItem::sort`] should
 /// be changed to implement a stable sort, or incorrect/suboptimal batching may result.
 pub trait BatchedPhaseItem: EntityPhaseItem {
     /// Range in the vertex buffer of this item

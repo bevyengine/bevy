@@ -100,7 +100,7 @@ mod tests {
             }
 
             fn sort(items: &mut [Self]) {
-                item.sort_by_key(|item| item.sort_key())
+                items.sort_by_key(|item| item.sort_key());
             }
         }
         impl EntityPhaseItem for TestPhaseItem {

@@ -101,7 +101,7 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance)
+        radsort::sort_by_key(items, |item| item.distance);
     }
 }
 
@@ -141,7 +141,7 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance)
+        radsort::sort_by_key(items, |item| item.distance);
     }
 }
 
@@ -181,7 +181,7 @@ impl PhaseItem for Transparent3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance)
+        radsort::sort_by_key(items, |item| item.distance);
     }
 }
 
