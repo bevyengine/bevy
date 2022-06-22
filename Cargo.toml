@@ -1183,6 +1183,16 @@ description = "A compute shader that simulates Conway's Game of Life"
 category = "Shaders"
 wasm = false
 
+[[example]]
+name = "array_texture"
+path = "examples/shader/array_texture.rs"
+
+[package.metadata.example.array_texture]
+name = "Array Texture"
+description = "A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture."
+category = "Shaders"
+wasm = true
+
 # Stress tests
 [[package.metadata.category]]
 name = "Stress Tests"
