@@ -566,7 +566,11 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `func` on each query result in parallel.
+    /// Returns a parallel iterator over the query results for the given [`World`].
+    ///
+    /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
+    ///
+    /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
     pub fn par_iter(&mut self) -> QueryParIter<'_, '_, Q, ROQueryFetch<'_, Q>, F> {
         QueryParIter {
@@ -577,7 +581,11 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Runs `func` on each query result in parallel.
+    /// Returns a parallel iterator over the query results for the given [`World`].
+    ///
+    /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
+    ///
+    /// [`par_iter`]: Self::par_iter
     #[inline]
     pub fn par_iter_mut(&mut self) -> QueryParIter<'_, '_, Q, QueryFetch<'_, Q>, F> {
         QueryParIter {

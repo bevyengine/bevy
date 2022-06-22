@@ -753,14 +753,11 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         );
     }
 
-    /// Runs `func` on each query result in parallel.
+    /// Returns a parallel iterator over the query results for the given [`World`].
     ///
-    /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
-    /// write-queries.
+    /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
-    /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
+    /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
     pub fn par_iter<'w, 's>(
         &'s mut self,
@@ -775,6 +772,11 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Returns a parallel iterator over the query results for the given [`World`].
+    ///
+    /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
+    ///
+    /// [`par_iter`]: Self::par_iter
     #[inline]
     pub fn par_iter_mut<'w, 's>(
         &'s mut self,

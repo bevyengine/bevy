@@ -48,7 +48,7 @@ fn bounce_system(windows: Res<Windows>, mut sprites: Query<(&Transform, &mut Vel
     let right = width / 2.0;
     let bottom = height / -2.0;
     let top = height / 2.0;
-    // The default batch size can also be overridden. 
+    // The default batch size can also be overridden.
     // In this case a batch size of 32 is chosen to limit the overhead of
     // ParallelIterator, since negating a vector is very inexpensive.
     sprites

@@ -4,6 +4,22 @@ use std::ops::Range;
 
 use super::{Fetch, QueryFetch, QueryItem, QueryState, ROQueryFetch, ROQueryItem, WorldQuery};
 
+/// Dictates how a parallel query chunks up large tables/archetypes
+/// during iteration.
+///
+/// A parallel query will chunk up large tables and archetypes into
+/// chunks of at most a certain batch size.
+///
+/// By default, this batch size is automatically determined by dividing
+/// the size of the largest matched archetype by the number
+/// of threads. This attempts to minimize the overhead of scheduling
+/// tasks onto multiple threads, but assumes each entity has roughly the
+/// same amount of work to be done, which may not hold true in every
+/// workload.
+///
+/// See [`Query::par_iter`] for more information.
+///
+/// [`Query::par_iter`]: crate::system::Query::par_iter
 #[derive(Clone)]
 pub struct BatchingStrategy {
     pub batch_size_limits: Range<usize>,
@@ -11,16 +27,18 @@ pub struct BatchingStrategy {
 }
 
 impl BatchingStrategy {
-    pub const fn fixed(batch_size: usize) -> Self {
+    /// Creates a new unconstrained default batching strategy.
+    pub const fn new() -> Self {
         Self {
-            batch_size_limits: batch_size..batch_size,
+            batch_size_limits: 0..usize::MAX,
             batches_per_thread: 1,
         }
     }
 
-    pub const fn new() -> Self {
+    /// Declares a batching strategy with a fixed batch size.
+    pub const fn fixed(batch_size: usize) -> Self {
         Self {
-            batch_size_limits: 0..usize::MAX,
+            batch_size_limits: batch_size..batch_size,
             batches_per_thread: 1,
         }
     }
@@ -45,6 +63,10 @@ impl BatchingStrategy {
     }
 }
 
+/// A parallel iterator over query results of a [`Query`](crate::system::Query).
+///
+/// This struct is created by the [`Query::par_iter`](crate::system::Query::iter) and
+/// [`Query::par_iter_mut`](crate::system::Query::iter_mut) methods.
 pub struct QueryParIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
     pub(crate) world: &'w World,
     pub(crate) state: &'s QueryState<Q, F>,
@@ -56,6 +78,10 @@ impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryParIter<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State>,
 {
+    /// Changes the batching strategy used when iterating.
+    ///
+    /// For more information on how this affects the resultant iteration, see
+    /// [`BatchingStrategy`].
     pub fn batching_strategy(mut self, strategy: BatchingStrategy) -> Self {
         self.batching_strategy = strategy;
         self
@@ -67,8 +93,8 @@ where
     /// write-queries.
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
@@ -91,8 +117,8 @@ where
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
@@ -115,8 +141,8 @@ where
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] resource must be added to the `World` before using this method. If using this from a query
-    /// that is being initialized and run from the ECS scheduler, this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
     ///
