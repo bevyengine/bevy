@@ -18,7 +18,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let parent = commands
         .spawn_bundle(SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(0.75)),
-            texture: texture.clone(),
+            texture: texture.clone().into(),
             ..default()
         })
         // With that entity as a parent, run a lambda that spawns its children
@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     scale: Vec3::splat(0.75),
                     ..default()
                 },
-                texture: texture.clone(),
+                texture: texture.clone().into(),
                 sprite: Sprite {
                     color: Color::BLUE,
                     ..default()
@@ -52,7 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 scale: Vec3::splat(0.75),
                 ..default()
             },
-            texture: texture.clone(),
+            texture: texture.clone().into(),
             sprite: Sprite {
                 color: Color::RED,
                 ..default()
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 scale: Vec3::splat(0.75),
                 ..default()
             },
-            texture,
+            texture: texture.into(),
             sprite: Sprite {
                 color: Color::GREEN,
                 ..default()

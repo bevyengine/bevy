@@ -117,7 +117,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                     flip_x: flipped,
                     ..default()
                 },
-                texture: texture_handle.clone(),
+                texture: texture_handle.clone().into(),
                 transform,
                 ..default()
             })

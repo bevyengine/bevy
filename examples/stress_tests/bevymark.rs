@@ -199,7 +199,7 @@ fn spawn_birds(
         let bird_z = (counter.count + count) as f32 * 0.00001;
         commands
             .spawn_bundle(SpriteBundle {
-                texture: texture.clone(),
+                texture: texture.clone().into(),
                 transform: Transform {
                     translation: Vec3::new(bird_x, bird_y, bird_z),
                     scale: Vec3::splat(BIRD_SCALE),

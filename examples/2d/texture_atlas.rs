@@ -65,19 +65,21 @@ fn setup(
     // set up a scene to display our texture atlas
     commands.spawn_bundle(Camera2dBundle::default());
     // draw a sprite from the atlas
-    commands.spawn_bundle(SpriteSheetBundle {
+    commands.spawn_bundle(SpriteBundle {
         transform: Transform {
             translation: Vec3::new(150.0, 0.0, 0.0),
             scale: Vec3::splat(4.0),
             ..default()
         },
-        sprite: TextureAtlasSprite::new(vendor_index),
-        texture_atlas: atlas_handle,
+        texture: SpriteImage::TextureAtlas {
+            handle: atlas_handle,
+            index: vendor_index,
+        },
         ..default()
     });
     // draw the atlas itself
     commands.spawn_bundle(SpriteBundle {
-        texture: texture_atlas_texture,
+        texture: texture_atlas_texture.into(),
         transform: Transform::from_xyz(-300.0, 0.0, 0.0),
         ..default()
     });

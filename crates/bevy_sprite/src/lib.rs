@@ -1,5 +1,6 @@
 mod bundle;
 mod dynamic_texture_atlas_builder;
+mod image;
 mod mesh2d;
 mod rect;
 mod render;
@@ -12,15 +13,14 @@ pub mod collide_aabb;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        bundle::{SpriteBundle, SpriteSheetBundle},
-        sprite::Sprite,
-        texture_atlas::{TextureAtlas, TextureAtlasSprite},
+        bundle::SpriteBundle, image::SpriteImage, sprite::Sprite, texture_atlas::TextureAtlas,
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }
 
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
+pub use image::*;
 pub use mesh2d::*;
 pub use rect::*;
 pub use render::*;

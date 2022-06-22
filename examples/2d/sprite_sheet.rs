@@ -2,6 +2,7 @@
 //! into a texture atlas, and changing the displayed image periodically.
 
 use bevy::{prelude::*, render::texture::ImageSettings};
+use std::ops::DerefMut;
 
 fn main() {
     App::new()
@@ -18,17 +19,15 @@ struct AnimationTimer(Timer);
 fn animate_sprite(
     time: Res<Time>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    mut query: Query<(
-        &mut AnimationTimer,
-        &mut TextureAtlasSprite,
-        &Handle<TextureAtlas>,
-    )>,
+    mut query: Query<(&mut AnimationTimer, &mut SpriteImage)>,
 ) {
-    for (mut timer, mut sprite, texture_atlas_handle) in query.iter_mut() {
+    for (mut timer, mut image) in query.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
-            let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
-            sprite.index = (sprite.index + 1) % texture_atlas.textures.len();
+            if let SpriteImage::TextureAtlas { index, handle } = image.deref_mut() {
+                let texture_atlas = texture_atlases.get(handle).unwrap();
+                *index = (*index + 1) % texture_atlas.textures.len();
+            }
         }
     }
 }
@@ -43,8 +42,11 @@ fn setup(
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     commands.spawn_bundle(Camera2dBundle::default());
     commands
-        .spawn_bundle(SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
+        .spawn_bundle(SpriteBundle {
+            texture: SpriteImage::TextureAtlas {
+                handle: texture_atlas_handle,
+                index: 0,
+            },
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..default()
         })

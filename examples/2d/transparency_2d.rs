@@ -16,7 +16,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let sprite_handle = asset_server.load("branding/icon.png");
 
     commands.spawn_bundle(SpriteBundle {
-        texture: sprite_handle.clone(),
+        texture: sprite_handle.clone().into(),
         ..default()
     });
     commands.spawn_bundle(SpriteBundle {
@@ -25,7 +25,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             color: Color::rgba(0.0, 0.0, 1.0, 0.7),
             ..default()
         },
-        texture: sprite_handle.clone(),
+        texture: sprite_handle.clone().into(),
         transform: Transform::from_xyz(100.0, 0.0, 0.0),
         ..default()
     });
@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             color: Color::rgba(0.0, 1.0, 0.0, 0.3),
             ..default()
         },
-        texture: sprite_handle,
+        texture: sprite_handle.into(),
         transform: Transform::from_xyz(200.0, 0.0, 0.0),
         ..default()
     });

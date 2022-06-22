@@ -1,9 +1,8 @@
-use crate::{Anchor, Rect};
+use crate::Rect;
 use bevy_asset::Handle;
-use bevy_ecs::component::Component;
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::{color::Color, texture::Image};
+use bevy_reflect::TypeUuid;
+use bevy_render::texture::Image;
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap).
@@ -19,40 +18,6 @@ pub struct TextureAtlas {
     /// The specific areas of the atlas where each texture can be found
     pub textures: Vec<Rect>,
     pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
-}
-
-#[derive(Component, Debug, Clone, Reflect)]
-pub struct TextureAtlasSprite {
-    pub color: Color,
-    pub index: usize,
-    pub flip_x: bool,
-    pub flip_y: bool,
-    /// An optional custom size for the sprite that will be used when rendering, instead of the size
-    /// of the sprite's image in the atlas
-    pub custom_size: Option<Vec2>,
-    pub anchor: Anchor,
-}
-
-impl Default for TextureAtlasSprite {
-    fn default() -> Self {
-        Self {
-            index: 0,
-            color: Color::WHITE,
-            flip_x: false,
-            flip_y: false,
-            custom_size: None,
-            anchor: Anchor::default(),
-        }
-    }
-}
-
-impl TextureAtlasSprite {
-    pub fn new(index: usize) -> TextureAtlasSprite {
-        Self {
-            index,
-            ..Default::default()
-        }
-    }
 }
 
 impl TextureAtlas {

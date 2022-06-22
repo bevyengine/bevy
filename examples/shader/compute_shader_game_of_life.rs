@@ -54,7 +54,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
             ..default()
         },
-        texture: image.clone(),
+        texture: image.clone().into(),
         ..default()
     });
     commands.spawn_bundle(Camera2dBundle::default());

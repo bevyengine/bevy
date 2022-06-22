@@ -5,7 +5,6 @@
 //! for more details.
 
 use bevy::{prelude::*, window::WindowDescriptor};
-
 fn main() {
     App::new()
         // ClearColor must have 0 alpha, otherwise some color will bleed through
@@ -25,7 +24,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
+        texture: asset_server.load("branding/icon.png").into(),
         ..default()
     });
 }
