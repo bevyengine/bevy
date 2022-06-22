@@ -29,7 +29,7 @@ impl<I: PhaseItem> RenderPhase<I> {
 
     /// Sorts all of its [`PhaseItems`](PhaseItem).
     pub fn sort(&mut self) {
-        I::sort(&mut self.items)
+        I::sort(&mut self.items);
     }
 }
 
@@ -97,10 +97,6 @@ mod tests {
 
             fn draw_function(&self) -> DrawFunctionId {
                 unimplemented!();
-            }
-
-            fn sort(items: &mut [Self]) {
-                items.sort_by_key(|item| item.sort_key());
             }
         }
         impl EntityPhaseItem for TestPhaseItem {

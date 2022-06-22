@@ -57,7 +57,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// It's advised to always profile for performance changes when changing this implementation.
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(|item| item.sort_key())
+        items.sort_unstable_by_key(|item| item.sort_key());
     }
 }
 
