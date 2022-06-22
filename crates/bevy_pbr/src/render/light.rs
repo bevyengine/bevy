@@ -1260,7 +1260,6 @@ struct GpuClusterOffsetsAndCountsStorage {
     data: Vec<UVec4>,
 }
 
-
 enum ViewClusterBuffers {
     Uniform {
         // NOTE: UVec4 is because all arrays in Std140 layout have 16-byte alignment
