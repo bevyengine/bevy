@@ -95,8 +95,8 @@ impl Plugin for WindowPlugin {
         }
 
         if self.update_cursor_position {
-            app.init_resource::<CursorPositions>();
-            app.add_system(update_cursor_positions);
+            app.init_resource::<CursorPosition>();
+            app.add_system(update_cursor_position);
         }
 
         if self.exit_on_all_closed {

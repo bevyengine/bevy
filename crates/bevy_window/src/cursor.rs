@@ -1,32 +1,19 @@
 use crate::WindowId;
 use bevy_math::Vec2;
-use bevy_utils::HashMap;
 
 #[derive(Debug, Clone, Default)]
-/// Resource storing the cursor position on the app windows
-pub struct CursorPositions {
-    pub(crate) positions: HashMap<WindowId, Vec2>,
-}
+/// Resource storing the cursor position on the app window
+pub struct CursorPosition(pub(crate) Option<(WindowId, Vec2)>);
 
-impl CursorPositions {
+impl CursorPosition {
     /// Retrieves the cursor position from the given [`WindowId`]
-    pub fn get(&self, id: WindowId) -> Option<Vec2> {
-        self.positions.get(&id).copied()
+    pub fn position(&self) -> Option<Vec2> {
+        self.0.map(|(_, p)| p)
     }
 
     /// Retrieves the cursor position from the *primary* window
-    pub fn primary_position(&self) -> Option<Vec2> {
-        self.get(WindowId::primary())
-    }
-
-    /// Returns an iterator on cursor positions
-    pub fn positions_iter(&self) -> impl Iterator<Item = &Vec2> {
-        self.positions.values()
-    }
-
-    /// Returns an iterator on window ids and cursor positions
-    pub fn iter(&self) -> impl Iterator<Item = (&WindowId, &Vec2)> {
-        self.positions.iter()
+    pub fn window_id(&self) -> Option<WindowId> {
+        self.0.map(|(id, _)| id)
     }
 }
 

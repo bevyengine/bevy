@@ -1,15 +1,14 @@
-use crate::{CursorPositions, Window, WindowCloseRequested, WindowFocused, WindowId, Windows};
+use crate::{CursorPosition, Window, WindowCloseRequested, WindowFocused, WindowId, Windows};
 
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
 use bevy_input::{keyboard::KeyCode, Input};
 
 /// Updates the [`CursorPositions`] resource
-pub fn update_cursor_positions(mut positions: ResMut<CursorPositions>, windows: Res<Windows>) {
-    positions.positions = windows
+pub fn update_cursor_position(mut positions: ResMut<CursorPosition>, windows: Res<Windows>) {
+    positions.0 = windows
         .iter()
-        .flat_map(|w| w.cursor_position().map(|p| (w.id(), p)))
-        .collect();
+        .find_map(|w| w.cursor_position().map(|p| (w.id(), p)));
 }
 
 /// Exit the application when there are no open windows.
