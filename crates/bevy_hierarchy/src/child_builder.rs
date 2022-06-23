@@ -87,7 +87,6 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     }
 }
 
-
 /// Command that adds a child to an entity
 #[derive(Debug)]
 pub struct AddChild {
