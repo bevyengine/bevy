@@ -373,11 +373,11 @@ impl Image {
 
 #[derive(Clone, Copy, Debug)]
 pub enum DataFormat {
-    R8,
-    Rg8,
-    Rgb8,
-    Rgba8,
-    Rgba16Float,
+    Rgb,
+    Rgba,
+    Rrr,
+    Rrrg,
+    Rg,
 }
 
 #[derive(Clone, Copy, Debug)]

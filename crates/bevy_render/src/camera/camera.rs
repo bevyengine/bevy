@@ -116,7 +116,11 @@ impl Camera {
     /// the full physical rect of the current [`RenderTarget`].
     #[inline]
     pub fn physical_viewport_rect(&self) -> Option<(UVec2, UVec2)> {
-        let min = self.viewport.as_ref()?.physical_position;
+        let min = self
+            .viewport
+            .as_ref()
+            .map(|v| v.physical_position)
+            .unwrap_or(UVec2::ZERO);
         let max = min + self.physical_viewport_size()?;
         Some((min, max))
     }

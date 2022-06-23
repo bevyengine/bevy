@@ -54,9 +54,9 @@ bitflags = "1.2.1"
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
 once_cell = "1.4.1" # TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
 downcast-rs = "1.2.0"
+thread_local = "1.1"
 thiserror = "1.0"
 futures-lite = "1.4.0"
-crossbeam-channel = "0.5.0"
 anyhow = "1.0"
 hex = "0.4.2"
 hexasphere = "7.0.0"

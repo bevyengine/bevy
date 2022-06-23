@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    serde::Serializable, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect,
-    ReflectMut, ReflectRef, TypeInfo, Typed,
+    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef,
+    TypeInfo, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -227,10 +227,6 @@ unsafe impl Reflect for DynamicList {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         list_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

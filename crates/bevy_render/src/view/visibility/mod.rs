@@ -10,6 +10,8 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
+use std::cell::Cell;
+use thread_local::ThreadLocal;
 
 use crate::{
     camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection},
@@ -148,22 +150,30 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 }
 
 pub fn check_visibility(
+    mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
-    mut visible_entity_query: Query<(
-        Entity,
-        &Visibility,
-        &mut ComputedVisibility,
-        Option<&RenderLayers>,
-        Option<&Aabb>,
-        Option<&NoFrustumCulling>,
-        Option<&GlobalTransform>,
+    mut visible_entity_query: ParamSet<(
+        Query<&mut ComputedVisibility>,
+        Query<(
+            Entity,
+            &Visibility,
+            &mut ComputedVisibility,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&NoFrustumCulling>,
+            Option<&GlobalTransform>,
+        )>,
     )>,
 ) {
+    // Reset the computed visibility to false
+    for mut computed_visibility in visible_entity_query.p0().iter_mut() {
+        computed_visibility.is_visible = false;
+    }
+
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
-        let (visible_entity_sender, visible_entity_receiver) = crossbeam_channel::unbounded();
-
-        visible_entity_query.par_for_each_mut(
+        visible_entities.entities.clear();
+        visible_entity_query.p1().par_for_each_mut(
             1024,
             |(
                 entity,
@@ -174,12 +184,10 @@ pub fn check_visibility(
                 maybe_no_frustum_culling,
                 maybe_transform,
             )| {
-                // Reset visibility
-                computed_visibility.is_visible = false;
-
                 if !visibility.is_visible {
                     return;
                 }
+
                 let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                 if !view_mask.intersects(&entity_mask) {
                     return;
@@ -205,9 +213,15 @@ pub fn check_visibility(
                 }
 
                 computed_visibility.is_visible = true;
-                visible_entity_sender.send(entity).ok();
+                let cell = thread_queues.get_or_default();
+                let mut queue = cell.take();
+                queue.push(entity);
+                cell.set(queue);
             },
         );
-        visible_entities.entities = visible_entity_receiver.try_iter().collect();
+
+        for cell in thread_queues.iter_mut() {
+            visible_entities.entities.append(cell.get_mut());
+        }
     }
 }
