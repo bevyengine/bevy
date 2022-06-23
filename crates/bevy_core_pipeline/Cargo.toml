@@ -15,15 +15,20 @@ keywords = ["bevy"]
 [features]
 trace = []
 webgl = []
+overlay = ["bevy_diagnostic", "bevy_input", "bevy_math", "bevy_time"]
 
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.8.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.8.0-dev", optional = true }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
+bevy_input = { path = "../bevy_input", version = "0.8.0-dev", optional = true }
+bevy_math = { path = "../bevy_math", version = "0.8.0-dev", optional = true }
 bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.8.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.8.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 

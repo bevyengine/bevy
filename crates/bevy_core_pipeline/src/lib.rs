@@ -1,8 +1,13 @@
 pub mod clear_color;
 pub mod core_2d;
 pub mod core_3d;
+#[cfg(feature = "overlay")]
+pub mod overlay;
 
 pub mod prelude {
+    #[doc(hidden)]
+    #[cfg(feature = "overlay")]
+    pub use crate::overlay::{CameraOverlay, CameraOverlayBundle, OverlayPlugin};
     #[doc(hidden)]
     pub use crate::{
         clear_color::ClearColor,

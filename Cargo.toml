@@ -27,6 +27,7 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "overlay",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -102,6 +103,9 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation"]
+
+# Enable overlay for FPS monitoring
+overlay = ["bevy_internal/overlay"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.8.0-dev", default-features = false, optional = true }
