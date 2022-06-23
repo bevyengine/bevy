@@ -49,7 +49,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// which uses a unstable sort, as this provides the best balance of CPU and GPU
     /// performance.
     ///
-    /// Implementors can optionally not sort the list at all. This is generally adviseble if and
+    /// Implementers can optionally not sort the list at all. This is generally advisable if and
     /// only if the renderer supports a depth prepass, which is by default not supported by
     /// the rest of Bevy's first party rendering crates. Even then, this may have a negative
     /// impact on GPU-side performance due to overdraw.
