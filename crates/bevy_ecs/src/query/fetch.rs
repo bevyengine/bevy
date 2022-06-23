@@ -584,7 +584,7 @@ pub struct ReadFetch<'w, T> {
 impl<T: Component> Clone for ReadFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
-            components: self.components.clone(),
+            components: self.components,
         }
     }
 }
@@ -735,7 +735,7 @@ pub struct WriteFetch<'w, T> {
 impl<T: Component> Clone for WriteFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
-            components: self.components.clone(),
+            components: self.components,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
         }
@@ -1103,7 +1103,7 @@ pub struct ChangeTrackersFetch<'w, T> {
 impl<T: Component> Clone for ChangeTrackersFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
-            ticks: self.ticks.clone(),
+            ticks: self.ticks,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
         }
