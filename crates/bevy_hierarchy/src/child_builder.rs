@@ -42,14 +42,11 @@ fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option
 
 fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
-    let empty = if let Some(mut children) = parent.get_mut::<Children>() {
+    if let Some(mut children) = parent.get_mut::<Children>() {
         children.0.retain(|x| *x != child);
-        children.0.is_empty()
-    } else {
-        return;
-    };
-    if empty {
-        parent.remove::<Children>();
+        if children.is_empty() {
+            parent.remove::<Children>();
+        }
     }
 }
 
@@ -71,7 +68,7 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
-    for child in children.iter() {
+    for child in children {
         world.entity_mut(*child).remove::<Parent>();
         events.push(HierarchyEvent::ChildRemoved {
             child: *child,
@@ -99,10 +96,10 @@ pub struct AddChild {
 impl Command for AddChild {
     fn write(self, world: &mut World) {
         let previous = update_parent(world, self.child, self.parent);
-        if previous == Some(self.parent) {
-            return;
-        }
         if let Some(previous) = previous {
+            if previous == self.parent {
+                return;
+            }
             remove_from_children(world, previous, self.child);
             if let Some(mut events) = world.get_resource_mut::<Events<HierarchyEvent>>() {
                 events.send(HierarchyEvent::ChildMoved {
@@ -119,7 +116,7 @@ impl Command for AddChild {
         }
         let mut parent = world.entity_mut(self.parent);
         if let Some(mut children) = parent.get_mut::<Children>() {
-            if children.iter().any(|x| *x != self.child) {
+            if !children.contains(&self.child) {
                 children.0.push(self.child);
             }
         } else {
@@ -157,12 +154,12 @@ pub struct PushChildren {
 }
 
 impl Command for PushChildren {
-    fn write(self, world: &mut World) {
+    fn write(mut self, world: &mut World) {
         update_old_parents(world, self.parent, &self.children);
         let mut parent = world.entity_mut(self.parent);
         if let Some(mut children) = parent.get_mut::<Children>() {
             children.0.retain(|child| !self.children.contains(child));
-            children.0.extend(self.children.iter().cloned());
+            children.0.append(&mut self.children);
         } else {
             parent.insert(Children(self.children));
         }
