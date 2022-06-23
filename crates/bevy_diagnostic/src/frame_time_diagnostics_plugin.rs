@@ -37,29 +37,23 @@ impl FrameTimeDiagnosticsPlugin {
         time: Res<Time>,
         mut state: ResMut<FrameTimeDiagnosticsState>,
     ) {
-        state.frame_count = state.frame_count.wrapping_add(1);
-        diagnostics.add_measurement(Self::FRAME_COUNT, state.frame_count as f64);
+        diagnostics.add_measurement(Self::FRAME_COUNT, || {
+            state.frame_count = state.frame_count.wrapping_add(1);
+            state.frame_count as f64
+        });
 
         if time.delta_seconds_f64() == 0.0 {
             return;
         }
 
-        diagnostics.add_measurement(Self::FRAME_TIME, time.delta_seconds_f64());
-        if let Some(fps) = diagnostics
-            .get(Self::FRAME_TIME)
-            .and_then(|frame_time_diagnostic| {
-                frame_time_diagnostic
-                    .average()
-                    .and_then(|frame_time_average| {
-                        if frame_time_average > 0.0 {
-                            Some(1.0 / frame_time_average)
-                        } else {
-                            None
-                        }
-                    })
-            })
-        {
-            diagnostics.add_measurement(Self::FPS, fps);
-        }
+        diagnostics.add_measurement(Self::FRAME_TIME, || time.delta_seconds_f64());
+
+        diagnostics.add_measurement(Self::FPS, || 1.0 / time.delta_seconds_f64());
+    }
+}
+
+impl FrameTimeDiagnosticsState {
+    pub fn reset_frame_count(&mut self) {
+        self.frame_count = 0;
     }
 }
