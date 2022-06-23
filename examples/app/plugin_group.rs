@@ -5,8 +5,6 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 
 fn main() {
     App::new()
-        // Two PluginGroups that are included with bevy are DefaultPlugins and MinimalPlugins
-        .add_plugins(DefaultPlugins)
         // Adding a plugin group adds all plugins in the group by default
         .add_plugins(HelloWorldPlugins)
         // You can also modify a PluginGroup (such as disabling plugins) like this:
@@ -23,7 +21,12 @@ pub struct HelloWorldPlugins;
 
 impl PluginGroup for HelloWorldPlugins {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
-        group.add(PrintHelloPlugin).add(PrintWorldPlugin);
+        group
+            // HelloWorldPlugins requires DefaultPlugins as well
+            .add_subgroup(DefaultPlugins)
+            // Add the plugins
+            .add(PrintHelloPlugin)
+            .add(PrintWorldPlugin);
     }
 }
 
