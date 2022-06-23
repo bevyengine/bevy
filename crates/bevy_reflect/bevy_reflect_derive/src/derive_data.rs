@@ -187,28 +187,18 @@ impl<'a> ReflectDerive<'a> {
             .iter()
             .enumerate()
             .map(|(index, variant)| -> Result<EnumVariant, syn::Error> {
-                let attrs = parse_field_attrs(&variant.attrs)?;
                 let fields = Self::collect_struct_fields(&variant.fields)?;
 
-                Ok(match variant.fields {
-                    Fields::Named(..) => EnumVariant {
-                        data: variant,
-                        fields: EnumVariantFields::Named(fields),
-                        attrs,
-                        index,
-                    },
-                    Fields::Unnamed(..) => EnumVariant {
-                        data: variant,
-                        fields: EnumVariantFields::Unnamed(fields),
-                        attrs,
-                        index,
-                    },
-                    Fields::Unit => EnumVariant {
-                        data: variant,
-                        fields: EnumVariantFields::Unit,
-                        attrs,
-                        index,
-                    },
+                let fields = match variant.fields {
+                    Fields::Named(..) => EnumVariantFields::Named(fields),
+                    Fields::Unnamed(..) => EnumVariantFields::Unnamed(fields),
+                    Fields::Unit => EnumVariantFields::Unit,
+                };
+                Ok(EnumVariant {
+                    fields,
+                    attrs: parse_field_attrs(&variant.attrs)?,
+                    data: variant,
+                    index,
                 })
             })
             .fold(

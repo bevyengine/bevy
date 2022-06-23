@@ -1,10 +1,9 @@
 use crate::derive_data::{EnumVariantFields, ReflectEnum};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::impls::impl_typed;
-use crate::utility;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::quote;
+use quote::{format_ident, quote};
 
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
@@ -261,126 +260,91 @@ struct EnumImpls {
 fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Ident) -> EnumImpls {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
 
-    let mut variant_info: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut enum_field: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut enum_field_at: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut enum_index_of: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut enum_name_at: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut enum_field_len: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut enum_variant_name: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut enum_variant_type: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut variant_info = Vec::new();
+    let mut enum_field = Vec::new();
+    let mut enum_field_at = Vec::new();
+    let mut enum_index_of = Vec::new();
+    let mut enum_name_at = Vec::new();
+    let mut enum_field_len = Vec::new();
+    let mut enum_variant_name = Vec::new();
+    let mut enum_variant_type = Vec::new();
 
     for variant in reflect_enum.active_variants() {
         let ident = &variant.data.ident;
         let name = ident.to_string();
         let unit = reflect_enum.get_unit(ident);
 
-        match &variant.fields {
-            EnumVariantFields::Unit => {
-                variant_info.push(quote! {
-                    #bevy_reflect_path::VariantInfo::Unit(
-                        #bevy_reflect_path::UnitVariantInfo::new(#name)
-                    )
-                });
-                enum_variant_name.push(quote! {
-                    #unit => #name
-                });
-                enum_variant_type.push(quote! {
-                    #unit => #bevy_reflect_path::VariantType::Unit
-                });
-            }
-            EnumVariantFields::Unnamed(fields) => {
+        // This is equivalent to a |fields: &Vec<StructField>, to_run: |usize, usize, &StructField| -> TokenStream|
+        // closure. Issue is that the closure cannot itself accept another closure, because closures cannot vary in
+        // the concrete type they accept, and each closure has a different concrete type.
+        macro_rules! for_fields {
+            ($fields:expr, |$reflect_idx:ident, $declar_field:pat, $field:ident| $body:expr) => {{
                 let mut field_info = Vec::new();
-                let mut field_idx: usize = 0;
-                for field in fields.iter() {
-                    if field.attrs.ignore {
+                let mut $reflect_idx: usize = 0;
+                for ($declar_field, $field) in $fields.iter().enumerate() {
+                    if $field.attrs.ignore {
                         // Ignored field
                         continue;
                     }
-
-                    let empties = utility::underscores(field_idx);
-                    enum_field_at.push(quote! {
-                        #unit( #empties value, .. ) if #ref_index == #field_idx => Some(value)
-                    });
-
-                    let field_ty = &field.data.ty;
-                    field_info.push(quote! {
-                        #bevy_reflect_path::UnnamedField::new::<#field_ty>(#field_idx)
-                    });
-
-                    field_idx += 1;
+                    field_info.push($body);
+                    $reflect_idx += 1;
                 }
+                ($reflect_idx, field_info)
+            }};
+        }
+        let (variant_type, field_len, field_info) = match &variant.fields {
+            EnumVariantFields::Unit => ("Unit", 0usize, quote!(#name)),
 
-                let field_len = field_idx;
-                enum_field_len.push(quote! {
-                    #unit(..) => #field_len
+            EnumVariantFields::Unnamed(fields) => {
+                let (field_len, field_info) = for_fields!(fields, |reflect_idx, declar, field| {
+                    let declar_field = syn::Index::from(declar);
+                    enum_field_at.push(quote! {
+                        #unit { #declar_field : value, .. } if #ref_index == #reflect_idx => Some(value)
+                    });
+                    let field_ty = &field.data.ty;
+                    quote! { #bevy_reflect_path::UnnamedField::new::<#field_ty>(#reflect_idx) }
                 });
-                enum_variant_name.push(quote! {
-                    #unit(..) => #name
-                });
-                enum_variant_type.push(quote! {
-                    #unit(..) => #bevy_reflect_path::VariantType::Tuple
-                });
-                variant_info.push(quote! {
-                    #bevy_reflect_path::VariantInfo::Tuple(
-                        #bevy_reflect_path::TupleVariantInfo::new(#name, &[
-                            #(#field_info),*
-                        ])
-                    )
-                });
+                ("Tuple", field_len, quote!(#name, &[ #(#field_info),* ]))
             }
             EnumVariantFields::Named(fields) => {
-                let mut field_info = Vec::new();
-                let mut field_idx: usize = 0;
-                for field in fields.iter() {
+                let (field_len, field_info) = for_fields!(fields, |reflect_idx, _, field| {
                     let field_ident = field.data.ident.as_ref().unwrap();
-
-                    if field.attrs.ignore {
-                        // Ignored field
-                        continue;
-                    }
-
                     let field_name = field_ident.to_string();
                     enum_field.push(quote! {
                         #unit{ #field_ident, .. } if #ref_name == #field_name => Some(#field_ident)
                     });
                     enum_field_at.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_index == #field_idx => Some(#field_ident)
+                        #unit{ #field_ident, .. } if #ref_index == #reflect_idx => Some(#field_ident)
                     });
                     enum_index_of.push(quote! {
-                        #unit{ .. } if #ref_name == #field_name => Some(#field_idx)
+                        #unit{ .. } if #ref_name == #field_name => Some(#reflect_idx)
                     });
                     enum_name_at.push(quote! {
-                        #unit{ .. } if #ref_index == #field_idx => Some(#field_name)
+                        #unit{ .. } if #ref_index == #reflect_idx => Some(#field_name)
                     });
 
                     let field_ty = &field.data.ty;
-                    field_info.push(quote! {
-                        #bevy_reflect_path::NamedField::new::<#field_ty, _>(#field_name)
-                    });
-
-                    field_idx += 1;
-                }
-
-                let field_len = field_idx;
-                enum_field_len.push(quote! {
-                    #unit{..} => #field_len
+                    quote! { #bevy_reflect_path::NamedField::new::<#field_ty, _>(#field_name) }
                 });
-                enum_variant_name.push(quote! {
-                    #unit{..} => #name
-                });
-                enum_variant_type.push(quote! {
-                    #unit{..} => #bevy_reflect_path::VariantType::Struct
-                });
-                variant_info.push(quote! {
-                    #bevy_reflect_path::VariantInfo::Struct(
-                        #bevy_reflect_path::StructVariantInfo::new(#name, &[
-                            #(#field_info),*
-                        ])
-                    )
-                });
+                ("Struct", field_len, quote!(#name, &[ #(#field_info),* ]))
             }
-        }
+        };
+        let variant = Ident::new(variant_type, Span::call_site());
+        let info_type = format_ident!("{}VariantInfo", variant_type);
+        variant_info.push(quote! {
+            #bevy_reflect_path::VariantInfo::#variant(
+                #bevy_reflect_path::#info_type::new(#field_info)
+            )
+        });
+        enum_field_len.push(quote! {
+            #unit{..} => #field_len
+        });
+        enum_variant_name.push(quote! {
+            #unit{..} => #name
+        });
+        enum_variant_type.push(quote! {
+            #unit{..} => #bevy_reflect_path::VariantType::#variant
+        });
     }
 
     EnumImpls {

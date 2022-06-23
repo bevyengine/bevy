@@ -1,6 +1,7 @@
 use crate::derive_data::{EnumVariantFields, ReflectEnum};
-use proc_macro2::Ident;
+use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens};
+use syn::Index;
 
 /// Contains all data needed to construct all variants within an enum.
 pub(crate) struct EnumVariantConstructors {
@@ -10,6 +11,13 @@ pub(crate) struct EnumVariantConstructors {
     pub variant_constructors: Vec<proc_macro2::TokenStream>,
 }
 
+fn field_indentifier(i: usize, ident: Option<&Ident>) -> TokenStream {
+    let tuple_accessor = Index::from(i);
+    match ident {
+        Some(ident) => quote!(#ident :),
+        None => quote!(#tuple_accessor :),
+    }
+}
 /// Gets the constructors for all variants in the given enum.
 pub(crate) fn get_variant_constructors(
     reflect_enum: &ReflectEnum,
@@ -17,106 +25,63 @@ pub(crate) fn get_variant_constructors(
     can_panic: bool,
 ) -> EnumVariantConstructors {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
-    let mut variant_names: Vec<String> = Vec::new();
-    let mut variant_constructors: Vec<proc_macro2::TokenStream> = Vec::new();
+    let variant_count = reflect_enum.variants().len();
+    let mut variant_names: Vec<String> = Vec::with_capacity(variant_count);
+    let mut variant_constructors: Vec<proc_macro2::TokenStream> = Vec::with_capacity(variant_count);
 
     for variant in reflect_enum.active_variants() {
         let ident = &variant.data.ident;
         let name = ident.to_string();
-        let unit = reflect_enum.get_unit(ident);
+        let variant_constructor = reflect_enum.get_unit(ident);
 
-        match &variant.fields {
-            EnumVariantFields::Unit => {
-                variant_constructors.push(quote! {
-                    #unit
-                });
-            }
-            EnumVariantFields::Unnamed(fields) => {
-                let mut variant_apply = Vec::new();
-                let mut field_idx: usize = 0;
-                for field in fields.iter() {
-                    if field.attrs.ignore {
-                        // Ignored field -> use default value
-                        variant_apply.push(quote! {
-                            Default::default()
-                        });
-                        continue;
-                    }
-
-                    let field_ty = &field.data.ty;
-                    let expect_field = format!("field at index `{}` should exist", field_idx);
+        let fields = match &variant.fields {
+            EnumVariantFields::Unit => &[],
+            EnumVariantFields::Named(fields) => fields.as_slice(),
+            EnumVariantFields::Unnamed(fields) => fields.as_slice(),
+        };
+        let mut reflect_index: usize = 0;
+        let constructor_fields = fields.iter().enumerate().map(|(declar_index, field)| {
+            let field_ident = field_indentifier(declar_index, field.data.ident.as_ref());
+            let field_value = if field.attrs.ignore {
+                quote! { Default::default() }
+            } else {
+                let error_repr = match (&field.data.ident, reflect_index) {
+                    (None, 0) => "1st".to_owned(),
+                    (None, 1) => "2nd".to_owned(),
+                    (None, 2) => "3rd".to_owned(),
+                    // Assuming we have less than 21 fields
+                    (None, n) => format!("{}th", n + 1),
+                    (Some(name), _) => format!("`{name}`"),
+                };
+                let unwrapper = if can_panic {
                     let expect_type = format!(
-                        "field at index `{}` should be of type `{}`",
-                        field_idx,
-                        field_ty.to_token_stream()
+                        "the {error_repr} field should be of type `{}`",
+                        field.data.ty.to_token_stream()
                     );
-
-                    let unwrapper = if can_panic {
-                        quote!(.expect(#expect_type))
-                    } else {
-                        quote!(?)
-                    };
-
-                    variant_apply.push(quote! {
-                        #bevy_reflect_path::FromReflect::from_reflect(
-                            #ref_value
-                                .field_at(#field_idx)
-                                .expect(#expect_field)
-                        )
-                        #unwrapper
-                    });
-
-                    field_idx += 1;
-                }
-
-                variant_constructors.push(quote! {
-                    #unit( #(#variant_apply),* )
-                });
-            }
-            EnumVariantFields::Named(fields) => {
-                let mut variant_apply = Vec::new();
-                for field in fields.iter() {
-                    let field_ident = field.data.ident.as_ref().unwrap();
-
-                    if field.attrs.ignore {
-                        // Ignored field -> use default value
-                        variant_apply.push(quote! {
-                            #field_ident: Default::default()
-                        });
-                        continue;
+                    quote!(.expect(#expect_type))
+                } else {
+                    quote!(?)
+                };
+                let field_accessor = match &field.data.ident {
+                    Some(ident) => {
+                        let name = ident.to_string();
+                        quote!(.field(#name))
                     }
-
-                    let field_name = field_ident.to_string();
-                    let field_ty = &field.data.ty;
-                    let expect_field = format!("field with name `{}` should exist", field_name);
-                    let expect_type = format!(
-                        "field with name `{}` should be of type `{}`",
-                        field_name,
-                        field_ty.to_token_stream()
-                    );
-
-                    let unwrapper = if can_panic {
-                        quote!(.expect(#expect_type))
-                    } else {
-                        quote!(?)
-                    };
-
-                    variant_apply.push(quote! {
-                        #field_ident: #bevy_reflect_path::FromReflect::from_reflect(
-                            #ref_value
-                                .field(#field_name)
-                                .expect(#expect_field)
-                            )
-                            #unwrapper
-                    });
+                    None => quote!(.field_at(#reflect_index)),
+                };
+                reflect_index += 1;
+                let expect_field = format!("the {error_repr} field was not declared");
+                let accessor = quote!(#field_accessor .expect(#expect_field));
+                quote! {
+                    #bevy_reflect_path::FromReflect::from_reflect(#ref_value #accessor)
+                    #unwrapper
                 }
-
-                variant_constructors.push(quote! {
-                    #unit{ #(#variant_apply),* }
-                });
-            }
-        }
-
+            };
+            quote! { #field_ident #field_value }
+        });
+        variant_constructors.push(quote! {
+            #variant_constructor { #( #constructor_fields ),* }
+        });
         variant_names.push(name);
     }
 
