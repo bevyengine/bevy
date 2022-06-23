@@ -7,8 +7,8 @@ use super::STriInfo;
 use super::TriangleFlags;
 
 pub(crate) fn DegenPrologue(
-    mut pTriInfos: &mut [STriInfo],
-    mut piTriList_out: &mut [i32],
+    pTriInfos: &mut [STriInfo],
+    piTriList_out: &mut [i32],
     iNrTrianglesIn: i32,
     iTotTris: i32,
 ) {
@@ -87,9 +87,9 @@ pub(crate) fn DegenPrologue(
 }
 
 pub(crate) fn DegenEpilogue(
-    mut psTspace: &mut [STSpace],
-    mut pTriInfos: &mut [STriInfo],
-    mut piTriListIn: &mut [i32],
+    psTspace: &mut [STSpace],
+    pTriInfos: &mut [STriInfo],
+    piTriListIn: &mut [i32],
     geometry: &impl Geometry,
     iNrTrianglesIn: i32,
     iTotTris: i32,
@@ -131,8 +131,8 @@ pub(crate) fn DegenEpilogue(
             .iFlag
             .contains(TriangleFlags::QUAD_ONE_DEGENERATE_TRI)
         {
-            let mut pV = &mut pTriInfos[t as usize].vert_num;
-            let mut iFlag: i32 = 1i32 << pV[0] as i32 | 1i32 << pV[1] as i32 | 1i32 << pV[2] as i32;
+            let pV = &mut pTriInfos[t as usize].vert_num;
+            let iFlag: i32 = 1i32 << pV[0] as i32 | 1i32 << pV[1] as i32 | 1i32 << pV[2] as i32;
             let mut iMissingIndex: i32 = 0i32;
             if iFlag & 2i32 == 0i32 {
                 iMissingIndex = 1i32;

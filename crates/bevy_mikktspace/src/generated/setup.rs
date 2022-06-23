@@ -21,7 +21,7 @@ pub(crate) fn GenerateSharedVerticesIndexList(
     // side channel seems much easier.
     // Hopefully implementation can be changed to just use a btreemap or
     // something too.
-    mut piTriList_in_and_out: &mut [i32],
+    piTriList_in_and_out: &mut [i32],
     geometry: &impl Geometry,
 ) {
     let mut map = BTreeMap::new();
@@ -56,7 +56,7 @@ pub(crate) fn GenerateInitialVerticesIndexList(
         pTriInfos[iDstTriIndex].iOrgFaceNumber = f as i32;
         pTriInfos[iDstTriIndex].iTSpacesOffs = iTSpacesOffs as i32;
         if let FaceKind::Triangle = verts {
-            let mut pVerts = &mut pTriInfos[iDstTriIndex].vert_num;
+            let pVerts = &mut pTriInfos[iDstTriIndex].vert_num;
             pVerts[0] = 0;
             pVerts[1] = 1;
             pVerts[2] = 2;
@@ -92,7 +92,7 @@ pub(crate) fn GenerateInitialVerticesIndexList(
                 bQuadDiagIs_02 = distSQ_13_0 > distSQ_02_0;
             }
             if bQuadDiagIs_02 {
-                let mut pVerts_A = &mut pTriInfos[iDstTriIndex].vert_num;
+                let pVerts_A = &mut pTriInfos[iDstTriIndex].vert_num;
                 pVerts_A[0] = 0;
                 pVerts_A[1] = 1;
                 pVerts_A[2] = 2;
@@ -101,7 +101,7 @@ pub(crate) fn GenerateInitialVerticesIndexList(
                 piTriList_out[iDstTriIndex * 3 + 2] = i2 as i32;
                 iDstTriIndex += 1;
 
-                let mut pVerts_B = &mut pTriInfos[iDstTriIndex].vert_num;
+                let pVerts_B = &mut pTriInfos[iDstTriIndex].vert_num;
                 pVerts_B[0] = 0;
                 pVerts_B[1] = 2;
                 pVerts_B[2] = 3;
@@ -110,7 +110,7 @@ pub(crate) fn GenerateInitialVerticesIndexList(
                 piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
                 iDstTriIndex += 1;
             } else {
-                let mut pVerts_A_0 = &mut pTriInfos[iDstTriIndex].vert_num;
+                let pVerts_A_0 = &mut pTriInfos[iDstTriIndex].vert_num;
                 pVerts_A_0[0] = 0;
                 pVerts_A_0[1] = 1;
                 pVerts_A_0[2] = 3;
@@ -119,7 +119,7 @@ pub(crate) fn GenerateInitialVerticesIndexList(
                 piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
                 iDstTriIndex += 1;
 
-                let mut pVerts_B_0 = &mut pTriInfos[iDstTriIndex].vert_num;
+                let pVerts_B_0 = &mut pTriInfos[iDstTriIndex].vert_num;
                 pVerts_B_0[0] = 1;
                 pVerts_B_0[1] = 2;
                 pVerts_B_0[2] = 3;
@@ -141,7 +141,7 @@ pub(crate) fn GenerateInitialVerticesIndexList(
 
 pub(crate) fn InitTriInfo(
     mut pTriInfos: &mut [STriInfo],
-    mut piTriListIn: &[i32],
+    piTriListIn: &[i32],
     geometry: &impl Geometry,
     iNrTrianglesIn: usize,
 ) {
@@ -164,8 +164,8 @@ pub(crate) fn InitTriInfo(
         let d1 = v2 - v1;
         let d2 = v3 - v1;
         let fSignedAreaSTx2: f32 = t21x * t31y - t21y * t31x;
-        let mut vOs = (t31y * d1) - (t21y * d2);
-        let mut vOt = (-t31x * d1) + (t21x * d2);
+        let vOs = (t31y * d1) - (t21y * d2);
+        let vOt = (-t31x * d1) + (t21x * d2);
         if fSignedAreaSTx2 > 0.0 {
             pTriInfos[f].iFlag.insert(TriangleFlags::ORIENT_PRESERVING);
         }
@@ -235,7 +235,7 @@ pub(crate) fn InitTriInfo(
 
 pub(crate) fn BuildNeighborsFast(
     mut pTriInfos: &mut [STriInfo],
-    mut piTriListIn: &[i32],
+    piTriListIn: &[i32],
     iNrTrianglesIn: i32,
 ) {
     let mut pEdges = Vec::with_capacity((iNrTrianglesIn * 3) as usize);
@@ -278,7 +278,7 @@ pub(crate) fn BuildNeighborsFast(
                 let bUnassigned_B =
                     pTriInfos[t as usize].FaceNeighbors[edgenum_B as usize] == -1i32;
                 if i0_A == i0_B && i1_A == i1_B && bUnassigned_B {
-                    let mut t_0: i32 = pEdges[j as usize].f;
+                    let t_0: i32 = pEdges[j as usize].f;
                     pTriInfos[f_0 as usize].FaceNeighbors[edgenum_A as usize] = t_0;
                     pTriInfos[t_0 as usize].FaceNeighbors[edgenum_B as usize] = f_0;
                     break;
@@ -302,7 +302,7 @@ pub(crate) fn GetEdge(indices: &[i32], i0_in: i32, i1_in: i32) -> (i32, i32, i32
     }
 }
 // returns the texture area times 2
-fn CalcTexArea(geometry: &impl Geometry, mut indices: &[i32]) -> f32 {
+fn CalcTexArea(geometry: &impl Geometry, indices: &[i32]) -> f32 {
     let t1 = get_tex_coord(geometry, indices[0] as usize);
     let t2 = get_tex_coord(geometry, indices[1] as usize);
     let t3 = get_tex_coord(geometry, indices[2] as usize);

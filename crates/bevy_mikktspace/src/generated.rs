@@ -30,7 +30,7 @@
 // Comments starting with `C:` are copied as-is from the original
 // Note that some comments may originate from the original but not be marked as such
 
-#![allow(dead_code, non_camel_case_types, non_snake_case, unused_mut)]
+#![allow(non_camel_case_types, non_snake_case)]
 
 mod degenerate;
 mod setup;
@@ -160,16 +160,6 @@ pub struct SEdge {
     pub f: i32,
 }
 
-/// Stores a map of 'internal' triangle vertices to real 'faces' and vertices
-/// This is used to deduplicate vertices with identical faces
-struct TriangleMap {
-    /// Packed face/vertex index of each triangle
-    /// Note that this is an index to the first vertex
-    /// with the given properties, rather than necessarily
-    /// (Not impressed with this data layout)
-    triangles: Vec<[u32; 3]>,
-}
-
 // Entry point
 pub fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> bool {
     // TODO: Accept in radians by default here?
@@ -289,7 +279,7 @@ pub fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> boo
     for f in 0..iNrFaces {
         let verts_0 = geometry.num_vertices_of_face(f);
         for i in 0..verts_0.num_vertices() {
-            let mut pTSpace = &psTspace[index];
+            let pTSpace = &psTspace[index];
             geometry.set_tangent(
                 pTSpace.vOs.into(),
                 pTSpace.vOt.into(),
@@ -308,15 +298,15 @@ pub fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> boo
 
 fn GenerateTSpaces(
     psTspace: &mut [STSpace],
-    mut pTriInfos: &[STriInfo],
-    mut pGroups: &[SGroup],
+    pTriInfos: &[STriInfo],
+    pGroups: &[SGroup],
     iNrActiveGroups: i32,
-    mut piTriListIn: &[i32],
+    piTriListIn: &[i32],
     fThresCos: f32,
     geometry: &impl Geometry,
     piGroupTrianglesBuffer: &[i32],
 ) -> bool {
-    let mut iMaxNrFaces = pGroups[..iNrActiveGroups as usize]
+    let iMaxNrFaces = pGroups[..iNrActiveGroups as usize]
         .iter()
         .map(|it| it.iNrFaces)
         .max();
@@ -331,7 +321,7 @@ fn GenerateTSpaces(
     let mut pTmpMembers = vec![0i32; iMaxNrFaces];
 
     for g in 0..iNrActiveGroups {
-        let mut pGroup: &SGroup = &pGroups[g as usize];
+        let pGroup: &SGroup = &pGroups[g as usize];
         let mut iUniqueSubGroups = 0;
 
         for i in 0..pGroup.iNrFaces {
@@ -355,7 +345,7 @@ fn GenerateTSpaces(
             vOt = vOt.normalize_or_zero();
 
             let iOF_1 = pTriInfos[f as usize].iOrgFaceNumber;
-            let mut iMembers = 0;
+            let iMembers = 0;
 
             for j in 0..pGroup.iNrFaces {
                 let t: i32 = piGroupTrianglesBuffer[pGroup.pFaceIndices + j as usize];
@@ -433,7 +423,7 @@ fn GenerateTSpaces(
     }
     true
 }
-fn AvgTSpace(mut pTS0: &STSpace, mut pTS1: &STSpace) -> STSpace {
+fn AvgTSpace(pTS0: &STSpace, pTS1: &STSpace) -> STSpace {
     let mut ts_res: STSpace = STSpace {
         vOs: Vec3::new(0.0, 0.0, 0.0),
         fMagS: 0.,
@@ -463,10 +453,10 @@ fn AvgTSpace(mut pTS0: &STSpace, mut pTS1: &STSpace) -> STSpace {
 }
 
 fn EvalTspace(
-    mut face_indices: &mut [i32],
+    face_indices: &mut [i32],
     iFaces: i32,
-    mut piTriListIn: &[i32],
-    mut pTriInfos: &[STriInfo],
+    piTriListIn: &[i32],
+    pTriInfos: &[STriInfo],
     geometry: &impl Geometry,
     iVertexRepresentitive: i32,
 ) -> STSpace {
@@ -532,9 +522,9 @@ fn EvalTspace(
 
 fn Build4RuleGroups(
     mut pTriInfos: &mut [STriInfo],
-    mut pGroups: &mut [SGroup],
-    mut piGroupTrianglesBuffer: &mut [i32],
-    mut piTriListIn: &[i32],
+    pGroups: &mut [SGroup],
+    piGroupTrianglesBuffer: &mut [i32],
+    piTriListIn: &[i32],
     iNrTrianglesIn: i32,
 ) -> i32 {
     let mut iNrActiveGroups: i32 = 0i32;
@@ -563,8 +553,8 @@ fn Build4RuleGroups(
                 let bOrPre = pTriInfos[f as usize]
                     .iFlag
                     .contains(TriangleFlags::ORIENT_PRESERVING);
-                let mut neigh_indexL = pTriInfos[f as usize].FaceNeighbors[i as usize];
-                let mut neigh_indexR = pTriInfos[f as usize].FaceNeighbors[((i + 2) % 3) as usize];
+                let neigh_indexL = pTriInfos[f as usize].FaceNeighbors[i as usize];
+                let neigh_indexR = pTriInfos[f as usize].FaceNeighbors[((i + 2) % 3) as usize];
                 if neigh_indexL >= 0i32 {
                     let index = pTriInfos[f as usize].AssignedGroup[i as usize];
                     let bAnswer: bool = AssignRecur(
@@ -620,7 +610,7 @@ fn AssignRecur(
     let mut pMyTriInfo = &mut psTriInfos[iMyTriIndex as usize];
     // track down vertex
     let iVertRep: i32 = pGroup.iVertexRepresentitive;
-    let mut pVerts = &piTriListIn[3 * iMyTriIndex as usize..][..3];
+    let pVerts = &piTriListIn[3 * iMyTriIndex as usize..][..3];
     let i = pVerts.iter().position(|&it| it == iVertRep).unwrap();
     if pMyTriInfo.AssignedGroup[i as usize] == group_idx {
         return true;
