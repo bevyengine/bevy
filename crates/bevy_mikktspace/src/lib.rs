@@ -1,4 +1,5 @@
-#![allow(clippy::all)]
+#![forbid(unsafe_code)]
+#![allow(clippy::too_many_arguments)]
 
 use glam::{Vec2, Vec3};
 
@@ -83,8 +84,7 @@ fn get_position(geometry: &impl Geometry, index: usize) -> Vec3 {
 fn get_tex_coord(geometry: &impl Geometry, index: usize) -> Vec3 {
     let (face, vert) = index_to_face_vert(index);
     let tex_coord: Vec2 = geometry.tex_coord(face, vert).into();
-    let val = tex_coord.extend(1.0);
-    val
+    tex_coord.extend(1.0)
 }
 
 fn get_normal(geometry: &impl Geometry, index: usize) -> Vec3 {

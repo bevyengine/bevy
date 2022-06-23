@@ -50,7 +50,7 @@ pub(crate) fn DegenPrologue(
         let bIsGood: bool = !pTriInfos[t].iFlag.contains(TriangleFlags::DEGENERATE);
         if bIsGood {
             if iNextGoodTriangleSearchIndex < t + 2 {
-                iNextGoodTriangleSearchIndex = t + 2
+                iNextGoodTriangleSearchIndex = t + 2;
             }
         } else {
             let mut bJustADegenerate: bool = true;
@@ -59,9 +59,9 @@ pub(crate) fn DegenPrologue(
                     .iFlag
                     .contains(TriangleFlags::DEGENERATE);
                 if bIsGood_0 {
-                    bJustADegenerate = false
+                    bJustADegenerate = false;
                 } else {
-                    iNextGoodTriangleSearchIndex += 1
+                    iNextGoodTriangleSearchIndex += 1;
                 }
             }
             let t0 = t;
@@ -75,11 +75,11 @@ pub(crate) fn DegenPrologue(
                 start[t0 * 3..t0 * 3 + 3].swap_with_slice(&mut end[0..3]);
                 pTriInfos.swap(t0, t1);
             } else {
-                bStillFindingGoodOnes = false
+                bStillFindingGoodOnes = false;
             }
         }
         if bStillFindingGoodOnes {
-            t += 1
+            t += 1;
         }
     }
     debug_assert!(iNrTrianglesIn as usize == t);
@@ -135,11 +135,11 @@ pub(crate) fn DegenEpilogue(
             let mut iFlag: i32 = 1i32 << pV[0] as i32 | 1i32 << pV[1] as i32 | 1i32 << pV[2] as i32;
             let mut iMissingIndex: i32 = 0i32;
             if iFlag & 2i32 == 0i32 {
-                iMissingIndex = 1i32
+                iMissingIndex = 1i32;
             } else if iFlag & 4i32 == 0i32 {
-                iMissingIndex = 2i32
+                iMissingIndex = 2i32;
             } else if iFlag & 8i32 == 0i32 {
-                iMissingIndex = 3i32
+                iMissingIndex = 3i32;
             }
             let iOrgF = pTriInfos[t as usize].iOrgFaceNumber;
             let vDstP = get_position(
@@ -147,8 +147,7 @@ pub(crate) fn DegenEpilogue(
                 face_vert_to_index(iOrgF as usize, iMissingIndex as usize),
             );
 
-            for i_0 in 0..3 {
-                let iVert_0 = pV[i_0];
+            for &iVert_0 in pV.iter().take(3) {
                 let vSrcP = get_position(
                     geometry,
                     face_vert_to_index(iOrgF as usize, iVert_0 as usize),

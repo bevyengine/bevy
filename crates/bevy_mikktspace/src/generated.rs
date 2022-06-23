@@ -30,19 +30,7 @@
 // Comments starting with `C:` are copied as-is from the original
 // Note that some comments may originate from the original but not be marked as such
 
-#![allow(
-    clippy::all,
-    clippy::doc_markdown,
-    clippy::redundant_else,
-    clippy::match_same_arms,
-    clippy::semicolon_if_nothing_returned,
-    clippy::explicit_iter_loop,
-    clippy::map_flatten,
-    dead_code,
-    non_camel_case_types,
-    non_snake_case,
-    unused_mut
-)]
+#![allow(dead_code, non_camel_case_types, non_snake_case, unused_mut)]
 
 mod degenerate;
 mod setup;
@@ -197,7 +185,7 @@ pub fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> boo
         }
     }
 
-    if iNrTrianglesIn <= 0 {
+    if iNrTrianglesIn == 0 {
         // Easier if we can assume there's at least one face later
         // No tangents need to be generated
         return false;
@@ -223,7 +211,7 @@ pub fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> boo
     let mut iDegenTriangles = 0;
     // C: Mark all degenerate triangles
     for t in 0..(iTotTris as usize) {
-        let i0 = piTriListIn[t * 3 + 0];
+        let i0 = piTriListIn[t * 3];
         let i1 = piTriListIn[t * 3 + 1];
         let i2 = piTriListIn[t * 3 + 2];
         let p0 = get_position(geometry, i0 as usize);
@@ -231,7 +219,7 @@ pub fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> boo
         let p2 = get_position(geometry, i2 as usize);
         if p0 == p1 || p0 == p2 || p1 == p2 {
             pTriInfos[t].iFlag.insert(TriangleFlags::DEGENERATE);
-            iDegenTriangles += 1
+            iDegenTriangles += 1;
         }
     }
     let iNrTrianglesIn = iTotTris - iDegenTriangles;
@@ -315,7 +303,7 @@ pub fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> boo
         }
     }
 
-    return true;
+    true
 }
 
 fn GenerateTSpaces(
@@ -385,18 +373,17 @@ fn GenerateTSpaces(
                 let fCosT: f32 = vOt.dot(vOt2);
                 debug_assert!(f != t || bSameOrgFace); // sanity check
                 if bAny || bSameOrgFace || fCosS > fThresCos && fCosT > fThresCos {
-                    let fresh0 = iMembers;
-                    iMembers = iMembers + 1;
-                    pTmpMembers[fresh0] = t
+                    pTmpMembers[iMembers + 1] = t;
                 }
             }
             if iMembers > 1 {
-                pTmpMembers[0..(iMembers - 1)].sort();
+                pTmpMembers[0..(iMembers - 1)].sort_unstable();
             }
             tmp_group.iNrFaces = iMembers as i32;
             tmp_group.pTriMembers = pTmpMembers.clone();
 
             let mut found = None;
+            #[allow(clippy::needless_range_loop)]
             for l in 0..iUniqueSubGroups {
                 if tmp_group == pUniSubGroups[l] {
                     found = Some(l);
@@ -420,7 +407,7 @@ fn GenerateTSpaces(
                 // C: if no match was found we allocate a new subgroup
                 pUniSubGroups[iUniqueSubGroups].iNrFaces = iMembers as i32;
                 pUniSubGroups[iUniqueSubGroups].pTriMembers = tmp_group.pTriMembers;
-                iUniqueSubGroups += 1
+                iUniqueSubGroups += 1;
             }
             let iOffs = pTriInfos[f as usize].iTSpacesOffs as usize;
             let iVert = pTriInfos[f as usize].vert_num[index as usize] as usize;
@@ -433,18 +420,18 @@ fn GenerateTSpaces(
                         .contains(TriangleFlags::ORIENT_PRESERVING)
             );
             if (*pTS_out).iCounter == 1i32 {
-                *pTS_out = AvgTSpace(pTS_out, &mut pSubGroupTspace[idx]);
+                *pTS_out = AvgTSpace(pTS_out, &pSubGroupTspace[idx]);
                 (*pTS_out).iCounter = 2i32;
-                (*pTS_out).bOrient = (*pGroup).bOrientPreservering
+                (*pTS_out).bOrient = (*pGroup).bOrientPreservering;
             } else {
                 debug_assert!(pTS_out.iCounter == 0);
                 *pTS_out = pSubGroupTspace[idx];
                 (*pTS_out).iCounter = 1i32;
-                (*pTS_out).bOrient = (*pGroup).bOrientPreservering
+                (*pTS_out).bOrient = (*pGroup).bOrientPreservering;
             }
         }
     }
-    return true;
+    true
 }
 fn AvgTSpace(mut pTS0: &STSpace, mut pTS1: &STSpace) -> STSpace {
     let mut ts_res: STSpace = STSpace {
@@ -463,7 +450,7 @@ fn AvgTSpace(mut pTS0: &STSpace, mut pTS1: &STSpace) -> STSpace {
         ts_res.fMagS = (*pTS0).fMagS;
         ts_res.fMagT = (*pTS0).fMagT;
         ts_res.vOs = (*pTS0).vOs;
-        ts_res.vOt = (*pTS0).vOt
+        ts_res.vOt = (*pTS0).vOt;
     } else {
         ts_res.fMagS = 0.5f32 * ((*pTS0).fMagS + (*pTS1).fMagS);
         ts_res.fMagT = 0.5f32 * ((*pTS0).fMagT + (*pTS1).fMagT);
@@ -472,7 +459,7 @@ fn AvgTSpace(mut pTS0: &STSpace, mut pTS1: &STSpace) -> STSpace {
         ts_res.vOs = ts_res.vOs.normalize_or_zero();
         ts_res.vOt = ts_res.vOt.normalize_or_zero();
     }
-    return ts_res;
+    ts_res
 }
 
 fn EvalTspace(
@@ -492,7 +479,7 @@ fn EvalTspace(
             .iFlag
             .contains(TriangleFlags::GROUP_WITH_ANY)
         {
-            let i: i32 = if piTriListIn[(3i32 * f + 0i32) as usize] == iVertexRepresentitive {
+            let i: i32 = if piTriListIn[(3i32 * f) as usize] == iVertexRepresentitive {
                 0i32
             } else if piTriListIn[(3i32 * f + 1i32) as usize] == iVertexRepresentitive {
                 1i32
@@ -526,11 +513,11 @@ fn EvalTspace(
             let fAngle = (fCos as f64).acos() as f32;
             let fMagS = pTriInfos[f as usize].fMagS;
             let fMagT = pTriInfos[f as usize].fMagT;
-            res.vOs = res.vOs + (fAngle * vOs);
-            res.vOt = res.vOt + (fAngle * vOt);
+            res.vOs += fAngle * vOs;
+            res.vOt += fAngle * vOt;
             res.fMagS += fAngle * fMagS;
             res.fMagT += fAngle * fMagT;
-            fAngleSum += fAngle
+            fAngleSum += fAngle;
         }
     }
     res.vOs = res.vOs.normalize_or_zero();
@@ -538,9 +525,9 @@ fn EvalTspace(
 
     if fAngleSum > 0i32 as f32 {
         res.fMagS /= fAngleSum;
-        res.fMagT /= fAngleSum
+        res.fMagT /= fAngleSum;
     }
-    return res;
+    res
 }
 
 fn Build4RuleGroups(
@@ -592,7 +579,7 @@ fn Build4RuleGroups(
                         .iFlag
                         .contains(TriangleFlags::ORIENT_PRESERVING);
                     let bDiff: bool = bOrPre != bOrPre2;
-                    debug_assert!(bAnswer || bDiff)
+                    debug_assert!(bAnswer || bDiff);
                 }
                 if neigh_indexR >= 0i32 {
                     let index = pTriInfos[f as usize].AssignedGroup[i as usize];
@@ -608,7 +595,7 @@ fn Build4RuleGroups(
                         .iFlag
                         .contains(TriangleFlags::ORIENT_PRESERVING);
                     let bDiff_0: bool = bOrPre != bOrPre2_0;
-                    debug_assert!(bAnswer_0 || bDiff_0)
+                    debug_assert!(bAnswer_0 || bDiff_0);
                 }
                 iOffset += pGroups[pTriInfos[f as usize].AssignedGroup[i as usize]].iNrFaces;
                 // since the groups are disjoint a triangle can never
@@ -618,7 +605,7 @@ fn Build4RuleGroups(
             }
         }
     }
-    return iNrActiveGroups;
+    iNrActiveGroups
 }
 // ///////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -637,21 +624,20 @@ fn AssignRecur(
     let i = pVerts.iter().position(|&it| it == iVertRep).unwrap();
     if pMyTriInfo.AssignedGroup[i as usize] == group_idx {
         return true;
-    } else {
-        if !pMyTriInfo.AssignedGroup[i as usize] == usize::MAX {
-            return false;
-        }
     }
-    if (*pMyTriInfo).iFlag.contains(TriangleFlags::GROUP_WITH_ANY) {
-        if (*pMyTriInfo).AssignedGroup[0usize] == usize::MAX
-            && (*pMyTriInfo).AssignedGroup[1usize] == usize::MAX
-            && (*pMyTriInfo).AssignedGroup[2usize] == usize::MAX
-        {
-            (*pMyTriInfo).iFlag.set(
-                TriangleFlags::ORIENT_PRESERVING,
-                (*pGroup).bOrientPreservering,
-            );
-        }
+    if !pMyTriInfo.AssignedGroup[i as usize] == usize::MAX {
+        return false;
+    }
+
+    if (*pMyTriInfo).iFlag.contains(TriangleFlags::GROUP_WITH_ANY)
+        && (*pMyTriInfo).AssignedGroup[0usize] == usize::MAX
+        && (*pMyTriInfo).AssignedGroup[1usize] == usize::MAX
+        && (*pMyTriInfo).AssignedGroup[2usize] == usize::MAX
+    {
+        (*pMyTriInfo).iFlag.set(
+            TriangleFlags::ORIENT_PRESERVING,
+            (*pGroup).bOrientPreservering,
+        );
     }
     let bOrient: bool = (*pMyTriInfo)
         .iFlag
@@ -683,7 +669,7 @@ fn AssignRecur(
             piGroupTrianglesBuffer,
         );
     }
-    return true;
+    true
 }
 fn AddTriToGroup(faces: &mut [i32], pGroup: &mut SGroup, iTriIndex: i32) {
     faces[pGroup.iNrFaces as usize + pGroup.pFaceIndices] = iTriIndex;

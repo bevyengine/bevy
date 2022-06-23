@@ -60,10 +60,10 @@ pub(crate) fn GenerateInitialVerticesIndexList(
             pVerts[0] = 0;
             pVerts[1] = 1;
             pVerts[2] = 2;
-            piTriList_out[iDstTriIndex * 3 + 0] = face_vert_to_index(f, 0) as i32;
+            piTriList_out[iDstTriIndex * 3] = face_vert_to_index(f, 0) as i32;
             piTriList_out[iDstTriIndex * 3 + 1] = face_vert_to_index(f, 1) as i32;
             piTriList_out[iDstTriIndex * 3 + 2] = face_vert_to_index(f, 2) as i32;
-            iDstTriIndex += 1
+            iDstTriIndex += 1;
         } else {
             pTriInfos[iDstTriIndex + 1].iOrgFaceNumber = f as i32;
             pTriInfos[iDstTriIndex + 1].iTSpacesOffs = iTSpacesOffs as i32;
@@ -79,9 +79,9 @@ pub(crate) fn GenerateInitialVerticesIndexList(
             let distSQ_13: f32 = (T3 - T1).length_squared();
             let bQuadDiagIs_02: bool;
             if distSQ_02 < distSQ_13 {
-                bQuadDiagIs_02 = true
+                bQuadDiagIs_02 = true;
             } else if distSQ_13 < distSQ_02 {
-                bQuadDiagIs_02 = false
+                bQuadDiagIs_02 = false;
             } else {
                 let P0 = get_position(geometry, i0);
                 let P1 = get_position(geometry, i1);
@@ -89,18 +89,14 @@ pub(crate) fn GenerateInitialVerticesIndexList(
                 let P3 = get_position(geometry, i3);
                 let distSQ_02_0: f32 = (P2 - P0).length_squared();
                 let distSQ_13_0: f32 = (P3 - P1).length_squared();
-                bQuadDiagIs_02 = if distSQ_13_0 < distSQ_02_0 {
-                    false
-                } else {
-                    true
-                }
+                bQuadDiagIs_02 = distSQ_13_0 > distSQ_02_0;
             }
             if bQuadDiagIs_02 {
                 let mut pVerts_A = &mut pTriInfos[iDstTriIndex].vert_num;
                 pVerts_A[0] = 0;
                 pVerts_A[1] = 1;
                 pVerts_A[2] = 2;
-                piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
+                piTriList_out[iDstTriIndex * 3] = i0 as i32;
                 piTriList_out[iDstTriIndex * 3 + 1] = i1 as i32;
                 piTriList_out[iDstTriIndex * 3 + 2] = i2 as i32;
                 iDstTriIndex += 1;
@@ -109,16 +105,16 @@ pub(crate) fn GenerateInitialVerticesIndexList(
                 pVerts_B[0] = 0;
                 pVerts_B[1] = 2;
                 pVerts_B[2] = 3;
-                piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
+                piTriList_out[iDstTriIndex * 3] = i0 as i32;
                 piTriList_out[iDstTriIndex * 3 + 1] = i2 as i32;
                 piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
-                iDstTriIndex += 1
+                iDstTriIndex += 1;
             } else {
                 let mut pVerts_A_0 = &mut pTriInfos[iDstTriIndex].vert_num;
                 pVerts_A_0[0] = 0;
                 pVerts_A_0[1] = 1;
                 pVerts_A_0[2] = 3;
-                piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
+                piTriList_out[iDstTriIndex * 3] = i0 as i32;
                 piTriList_out[iDstTriIndex * 3 + 1] = i1 as i32;
                 piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
                 iDstTriIndex += 1;
@@ -127,20 +123,20 @@ pub(crate) fn GenerateInitialVerticesIndexList(
                 pVerts_B_0[0] = 1;
                 pVerts_B_0[1] = 2;
                 pVerts_B_0[2] = 3;
-                piTriList_out[iDstTriIndex * 3 + 0] = i1 as i32;
+                piTriList_out[iDstTriIndex * 3] = i1 as i32;
                 piTriList_out[iDstTriIndex * 3 + 1] = i2 as i32;
                 piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
-                iDstTriIndex += 1
+                iDstTriIndex += 1;
             }
         }
         iTSpacesOffs += verts.num_vertices();
         assert!(iDstTriIndex <= iNrTrianglesIn);
     }
 
-    for t in 0..iNrTrianglesIn {
-        pTriInfos[t].iFlag = TriangleFlags::empty();
+    for triangle in pTriInfos.iter_mut().take(iNrTrianglesIn) {
+        triangle.iFlag = TriangleFlags::empty();
     }
-    return iTSpacesOffs;
+    iTSpacesOffs
 }
 
 pub(crate) fn InitTriInfo(
@@ -149,16 +145,16 @@ pub(crate) fn InitTriInfo(
     geometry: &impl Geometry,
     iNrTrianglesIn: usize,
 ) {
-    for f in 0..iNrTrianglesIn {
+    for triangle in pTriInfos.iter_mut().take(iNrTrianglesIn) {
         // C: assumed bad
-        pTriInfos[f].iFlag.insert(TriangleFlags::GROUP_WITH_ANY);
+        triangle.iFlag.insert(TriangleFlags::GROUP_WITH_ANY);
     }
 
     for f in 0..iNrTrianglesIn {
-        let v1 = get_position(geometry, piTriListIn[(f * 3 + 0)] as usize);
+        let v1 = get_position(geometry, piTriListIn[f * 3] as usize);
         let v2 = get_position(geometry, piTriListIn[f * 3 + 1] as usize);
         let v3 = get_position(geometry, piTriListIn[f * 3 + 2] as usize);
-        let t1 = get_tex_coord(geometry, piTriListIn[f * 3 + 0] as usize);
+        let t1 = get_tex_coord(geometry, piTriListIn[f * 3] as usize);
         let t2 = get_tex_coord(geometry, piTriListIn[f * 3 + 1] as usize);
         let t3 = get_tex_coord(geometry, piTriListIn[f * 3 + 2] as usize);
         let t21x: f32 = t2.x - t1.x;
@@ -186,10 +182,10 @@ pub(crate) fn InitTriInfo(
                 1.0f32
             };
             if fLenOs.is_normal() {
-                pTriInfos[f].vOs = (fS / fLenOs) * vOs
+                pTriInfos[f].vOs = (fS / fLenOs) * vOs;
             }
             if fLenOt.is_normal() {
-                pTriInfos[f].vOt = (fS / fLenOt) * vOt
+                pTriInfos[f].vOt = (fS / fLenOt) * vOt;
             }
             pTriInfos[f].fMagS = fLenOs / fAbsArea;
             pTriInfos[f].fMagT = fLenOt / fAbsArea;
@@ -213,17 +209,11 @@ pub(crate) fn InitTriInfo(
                     .iFlag
                     .contains(TriangleFlags::ORIENT_PRESERVING);
                 if bOrientA != bOrientB {
-                    let mut bChooseOrientFirstTri: bool = false;
-                    if pTriInfos[t + 1]
+                    let bChooseOrientFirstTri = pTriInfos[t + 1]
                         .iFlag
                         .contains(TriangleFlags::GROUP_WITH_ANY)
-                    {
-                        bChooseOrientFirstTri = true
-                    } else if CalcTexArea(geometry, &piTriListIn[(t * 3)..])
-                        >= CalcTexArea(geometry, &piTriListIn[((t + 1) * 3)..])
-                    {
-                        bChooseOrientFirstTri = true
-                    }
+                        || (CalcTexArea(geometry, &piTriListIn[(t * 3)..])
+                            >= CalcTexArea(geometry, &piTriListIn[((t + 1) * 3)..]));
                     let t0 = if bChooseOrientFirstTri { t } else { t + 1 };
                     let t1_0 = if bChooseOrientFirstTri { t + 1 } else { t };
                     pTriInfos[t1_0].iFlag.set(
@@ -234,9 +224,9 @@ pub(crate) fn InitTriInfo(
                     );
                 }
             }
-            t += 2
+            t += 2;
         } else {
-            t += 1
+            t += 1;
         }
     }
 
@@ -292,9 +282,8 @@ pub(crate) fn BuildNeighborsFast(
                     pTriInfos[f_0 as usize].FaceNeighbors[edgenum_A as usize] = t_0;
                     pTriInfos[t_0 as usize].FaceNeighbors[edgenum_B as usize] = f_0;
                     break;
-                } else {
-                    j += 1
                 }
+                j += 1;
             }
         }
     }
@@ -322,9 +311,9 @@ fn CalcTexArea(geometry: &impl Geometry, mut indices: &[i32]) -> f32 {
     let t31x: f32 = t3.x - t1.x;
     let t31y: f32 = t3.y - t1.y;
     let fSignedAreaSTx2: f32 = t21x * t31y - t21y * t31x;
-    return if fSignedAreaSTx2 < 0i32 as f32 {
+    if fSignedAreaSTx2 < 0i32 as f32 {
         -fSignedAreaSTx2
     } else {
         fSignedAreaSTx2
-    };
+    }
 }
