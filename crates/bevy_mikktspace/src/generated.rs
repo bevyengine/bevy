@@ -345,7 +345,7 @@ fn GenerateTSpaces(
             vOt = vOt.normalize_or_zero();
 
             let iOF_1 = pTriInfos[f as usize].iOrgFaceNumber;
-            let iMembers = 0;
+            let mut iMembers = 0;
 
             for j in 0..pGroup.iNrFaces {
                 let t: i32 = piGroupTrianglesBuffer[pGroup.pFaceIndices + j as usize];
@@ -363,7 +363,8 @@ fn GenerateTSpaces(
                 let fCosT: f32 = vOt.dot(vOt2);
                 debug_assert!(f != t || bSameOrgFace); // sanity check
                 if bAny || bSameOrgFace || fCosS > fThresCos && fCosT > fThresCos {
-                    pTmpMembers[iMembers + 1] = t;
+                    pTmpMembers[iMembers] = t;
+                    iMembers += 1;
                 }
             }
             if iMembers > 1 {

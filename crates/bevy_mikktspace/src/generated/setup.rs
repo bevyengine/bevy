@@ -89,7 +89,7 @@ pub(crate) fn GenerateInitialVerticesIndexList(
                 let P3 = get_position(geometry, i3);
                 let distSQ_02_0: f32 = (P2 - P0).length_squared();
                 let distSQ_13_0: f32 = (P3 - P1).length_squared();
-                bQuadDiagIs_02 = distSQ_13_0 > distSQ_02_0;
+                bQuadDiagIs_02 = distSQ_13_0 >= distSQ_02_0;
             }
             if bQuadDiagIs_02 {
                 let pVerts_A = &mut pTriInfos[iDstTriIndex].vert_num;
