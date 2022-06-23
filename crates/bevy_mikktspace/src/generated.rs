@@ -47,8 +47,6 @@
 mod degenerate;
 mod setup;
 
-use std::ptr::null_mut;
-
 use bitflags::bitflags;
 use glam::Vec3;
 
@@ -94,8 +92,9 @@ bitflags! {
 pub struct STriInfo {
     /// Indices of neighbouring triangles across this triangle's edges
     pub FaceNeighbors: [i32; 3],
-    /// The group each vertex belongs to. TODO: Convert to index
-    pub AssignedGroup: [*mut SGroup; 3],
+    /// The group each vertex belongs to.
+    /// This should be Option<NonMaxUsize>, but rustc hasn't added that yet
+    pub AssignedGroup: [usize; 3],
     pub vOs: Vec3,
     pub vOt: Vec3,
     pub fMagS: f32,
@@ -116,7 +115,7 @@ impl STriInfo {
     fn zero() -> Self {
         Self {
             FaceNeighbors: [-1, -1, -1],
-            AssignedGroup: [null_mut(), null_mut(), null_mut()],
+            AssignedGroup: [usize::MAX; 3],
             vOs: Default::default(),
             vOt: Default::default(),
             fMagS: 0.0,
@@ -132,7 +131,7 @@ impl STriInfo {
 #[derive(Copy, Clone)]
 pub struct SGroup {
     pub iNrFaces: i32,
-    pub pFaceIndices: *mut i32,
+    pub pFaceIndices: usize,
     pub iVertexRepresentitive: i32,
     pub bOrientPreservering: bool,
 }
@@ -141,7 +140,7 @@ impl SGroup {
     fn zero() -> Self {
         Self {
             iNrFaces: 0,
-            pFaceIndices: null_mut(),
+            pFaceIndices: usize::MAX,
             iVertexRepresentitive: 0,
             bOrientPreservering: false,
         }
@@ -184,7 +183,7 @@ struct TriangleMap {
 }
 
 // Entry point
-pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> bool {
+pub fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32) -> bool {
     // TODO: Accept in radians by default here?
     let fThresCos = (fAngularThreshold.to_radians()).cos();
 
@@ -257,10 +256,10 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
     let mut piGroupTrianglesBuffer = vec![0; iNrTrianglesIn * 3];
 
     let iNrActiveGroups = Build4RuleGroups(
-        pTriInfos.as_mut_ptr(),
-        pGroups.as_mut_ptr(),
-        piGroupTrianglesBuffer.as_mut_ptr(),
-        piTriListIn.as_ptr(),
+        &mut pTriInfos,
+        &mut pGroups,
+        &mut piGroupTrianglesBuffer,
+        &piTriListIn,
         iNrTrianglesIn as i32,
     );
 
@@ -277,12 +276,13 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
 
     let bRes = GenerateTSpaces(
         &mut psTspace,
-        pTriInfos.as_ptr(),
-        pGroups.as_ptr(),
+        &pTriInfos,
+        &pGroups,
         iNrActiveGroups,
-        piTriListIn.as_ptr(),
+        &piTriListIn,
         fThresCos,
         geometry,
+        &piGroupTrianglesBuffer,
     );
     if !bRes {
         return false;
@@ -318,77 +318,67 @@ pub unsafe fn genTangSpace(geometry: &mut impl Geometry, fAngularThreshold: f32)
     return true;
 }
 
-unsafe fn GenerateTSpaces(
+fn GenerateTSpaces(
     psTspace: &mut [STSpace],
-    mut pTriInfos: *const STriInfo,
-    mut pGroups: *const SGroup,
+    mut pTriInfos: &[STriInfo],
+    mut pGroups: &[SGroup],
     iNrActiveGroups: i32,
-    mut piTriListIn: *const i32,
+    mut piTriListIn: &[i32],
     fThresCos: f32,
     geometry: &impl Geometry,
+    piGroupTrianglesBuffer: &[i32],
 ) -> bool {
-    let mut iMaxNrFaces: usize = 0;
-    for g in 0..iNrActiveGroups {
-        if iMaxNrFaces < (*pGroups.offset(g as isize)).iNrFaces as usize {
-            iMaxNrFaces = (*pGroups.offset(g as isize)).iNrFaces as usize
-        }
-    }
-    if iMaxNrFaces == 0 {
-        return true;
-    }
+    let mut iMaxNrFaces = pGroups[..iNrActiveGroups as usize]
+        .iter()
+        .map(|it| it.iNrFaces)
+        .max();
+
+    let iMaxNrFaces = match iMaxNrFaces {
+        Some(0) | None => return true,
+        Some(iMaxNrFaces) => iMaxNrFaces as usize,
+    };
 
     let mut pSubGroupTspace = vec![STSpace::zero(); iMaxNrFaces];
     let mut pUniSubGroups = vec![SSubGroup::zero(); iMaxNrFaces];
     let mut pTmpMembers = vec![0i32; iMaxNrFaces];
 
     for g in 0..iNrActiveGroups {
-        let mut pGroup: *const SGroup = &*pGroups.offset(g as isize) as *const SGroup;
+        let mut pGroup: &SGroup = &pGroups[g as usize];
         let mut iUniqueSubGroups = 0;
 
-        for i in 0..(*pGroup).iNrFaces {
-            let f: i32 = *(*pGroup).pFaceIndices.offset(i as isize);
+        for i in 0..pGroup.iNrFaces {
+            let f = piGroupTrianglesBuffer[pGroup.pFaceIndices + i as usize];
             let mut tmp_group: SSubGroup = SSubGroup {
                 iNrFaces: 0,
                 pTriMembers: Vec::new(),
             };
-            let index = if (*pTriInfos.offset(f as isize)).AssignedGroup[0usize]
-                == pGroup as *mut SGroup
-            {
-                0i32
-            } else if (*pTriInfos.offset(f as isize)).AssignedGroup[1usize] == pGroup as *mut SGroup
-            {
-                1i32
-            } else if (*pTriInfos.offset(f as isize)).AssignedGroup[2usize] == pGroup as *mut SGroup
-            {
-                2i32
-            } else {
-                panic!()
-            };
-            let iVertIndex = *piTriListIn.offset((f * 3i32 + index) as isize);
+            let index = pTriInfos[f as usize]
+                .AssignedGroup
+                .iter()
+                .position(|&it| it == g as usize)
+                .unwrap();
+
+            let iVertIndex = piTriListIn[(f * 3 + index as i32) as usize];
             assert!(iVertIndex == (*pGroup).iVertexRepresentitive);
             let n = get_normal(geometry, iVertIndex as usize);
-            let mut vOs = (*pTriInfos.offset(f as isize)).vOs
-                - (n.dot((*pTriInfos.offset(f as isize)).vOs) * n);
-            let mut vOt = (*pTriInfos.offset(f as isize)).vOt
-                - (n.dot((*pTriInfos.offset(f as isize)).vOt) * n);
+            let mut vOs = pTriInfos[f as usize].vOs - (n.dot(pTriInfos[f as usize].vOs) * n);
+            let mut vOt = pTriInfos[f as usize].vOt - (n.dot(pTriInfos[f as usize].vOt) * n);
             vOs = vOs.normalize_or_zero();
             vOt = vOt.normalize_or_zero();
 
-            let iOF_1 = (*pTriInfos.offset(f as isize)).iOrgFaceNumber;
+            let iOF_1 = pTriInfos[f as usize].iOrgFaceNumber;
             let mut iMembers = 0;
 
-            for j in 0..(*pGroup).iNrFaces {
-                let t: i32 = *(*pGroup).pFaceIndices.offset(j as isize);
-                let iOF_2: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
-                let mut vOs2 = (*pTriInfos.offset(t as isize)).vOs
-                    - (n.dot((*pTriInfos.offset(t as isize)).vOs) * n);
-                let mut vOt2 = (*pTriInfos.offset(t as isize)).vOt
-                    - (n.dot((*pTriInfos.offset(t as isize)).vOt) * n);
+            for j in 0..pGroup.iNrFaces {
+                let t: i32 = piGroupTrianglesBuffer[pGroup.pFaceIndices + j as usize];
+                let tri = &pTriInfos[t as usize];
+                let iOF_2: i32 = tri.iOrgFaceNumber;
+                let mut vOs2 = tri.vOs - (n.dot(tri.vOs) * n);
+                let mut vOt2 = tri.vOt - (n.dot(tri.vOt) * n);
                 vOs2 = vOs2.normalize_or_zero();
                 vOt2 = vOt2.normalize_or_zero();
 
-                let bAny: bool = ((*pTriInfos.offset(f as isize)).iFlag
-                    | (*pTriInfos.offset(t as isize)).iFlag)
+                let bAny: bool = (pTriInfos[f as usize].iFlag | pTriInfos[t as usize].iFlag)
                     .contains(TriangleFlags::GROUP_WITH_ANY);
                 let bSameOrgFace: bool = iOF_1 == iOF_2;
                 let fCosS: f32 = vOs.dot(vOs2);
@@ -418,27 +408,27 @@ unsafe fn GenerateTSpaces(
                 idx = it;
             } else {
                 idx = iUniqueSubGroups;
-                // C: if no match was found we allocate a new subgroup
-                pUniSubGroups[iUniqueSubGroups].iNrFaces = iMembers as i32;
-                pUniSubGroups[iUniqueSubGroups].pTriMembers = tmp_group.pTriMembers.clone();
 
                 pSubGroupTspace[iUniqueSubGroups] = EvalTspace(
-                    tmp_group.pTriMembers.as_mut_ptr(),
+                    &mut tmp_group.pTriMembers,
                     iMembers as i32,
                     piTriListIn,
                     pTriInfos,
                     geometry,
                     (*pGroup).iVertexRepresentitive,
                 );
+                // C: if no match was found we allocate a new subgroup
+                pUniSubGroups[iUniqueSubGroups].iNrFaces = iMembers as i32;
+                pUniSubGroups[iUniqueSubGroups].pTriMembers = tmp_group.pTriMembers;
                 iUniqueSubGroups += 1
             }
-            let iOffs = (*pTriInfos.offset(f as isize)).iTSpacesOffs as usize;
-            let iVert = (*pTriInfos.offset(f as isize)).vert_num[index as usize] as usize;
+            let iOffs = pTriInfos[f as usize].iTSpacesOffs as usize;
+            let iVert = pTriInfos[f as usize].vert_num[index as usize] as usize;
             let mut pTS_out = &mut psTspace[iOffs + iVert];
             assert!(pTS_out.iCounter < 2);
             debug_assert!(
                 (*pGroup).bOrientPreservering
-                    == (*pTriInfos.offset(f as isize))
+                    == pTriInfos[f as usize]
                         .iFlag
                         .contains(TriangleFlags::ORIENT_PRESERVING)
             );
@@ -456,7 +446,7 @@ unsafe fn GenerateTSpaces(
     }
     return true;
 }
-unsafe fn AvgTSpace(mut pTS0: *const STSpace, mut pTS1: *const STSpace) -> STSpace {
+fn AvgTSpace(mut pTS0: &STSpace, mut pTS1: &STSpace) -> STSpace {
     let mut ts_res: STSpace = STSpace {
         vOs: Vec3::new(0.0, 0.0, 0.0),
         fMagS: 0.,
@@ -485,11 +475,11 @@ unsafe fn AvgTSpace(mut pTS0: *const STSpace, mut pTS1: *const STSpace) -> STSpa
     return ts_res;
 }
 
-unsafe fn EvalTspace(
-    mut face_indices: *mut i32,
+fn EvalTspace(
+    mut face_indices: &mut [i32],
     iFaces: i32,
-    mut piTriListIn: *const i32,
-    mut pTriInfos: *const STriInfo,
+    mut piTriListIn: &[i32],
+    mut pTriInfos: &[STriInfo],
     geometry: &impl Geometry,
     iVertexRepresentitive: i32,
 ) -> STSpace {
@@ -497,35 +487,30 @@ unsafe fn EvalTspace(
     let mut fAngleSum: f32 = 0i32 as f32;
 
     for face in 0..iFaces {
-        let f: i32 = *face_indices.offset(face as isize);
-        if !(*pTriInfos.offset(f as isize))
+        let f: i32 = face_indices[face as usize];
+        if !pTriInfos[f as usize]
             .iFlag
             .contains(TriangleFlags::GROUP_WITH_ANY)
         {
-            let i: i32 = if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentitive
-            {
+            let i: i32 = if piTriListIn[(3i32 * f + 0i32) as usize] == iVertexRepresentitive {
                 0i32
-            } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentitive {
+            } else if piTriListIn[(3i32 * f + 1i32) as usize] == iVertexRepresentitive {
                 1i32
-            } else if *piTriListIn.offset((3i32 * f + 2i32) as isize) == iVertexRepresentitive {
+            } else if piTriListIn[(3i32 * f + 2i32) as usize] == iVertexRepresentitive {
                 2i32
             } else {
                 panic!();
             };
-            let index = *piTriListIn.offset((3i32 * f + i) as isize);
+            let index = piTriListIn[(3i32 * f + i) as usize];
             let n = get_normal(geometry, index as usize);
-            let mut vOs = (*pTriInfos.offset(f as isize)).vOs
-                - (n.dot((*pTriInfos.offset(f as isize)).vOs) * n);
-            let mut vOt = (*pTriInfos.offset(f as isize)).vOt
-                - (n.dot((*pTriInfos.offset(f as isize)).vOt) * n);
+            let mut vOs = pTriInfos[f as usize].vOs - (n.dot(pTriInfos[f as usize].vOs) * n);
+            let mut vOt = pTriInfos[f as usize].vOt - (n.dot(pTriInfos[f as usize].vOt) * n);
             vOs = vOs.normalize_or_zero();
             vOt = vOt.normalize_or_zero();
 
-            let i2 =
-                *piTriListIn.offset((3i32 * f + if i < 2i32 { i + 1i32 } else { 0i32 }) as isize);
-            let i1 = *piTriListIn.offset((3i32 * f + i) as isize);
-            let i0 =
-                *piTriListIn.offset((3i32 * f + if i > 0i32 { i - 1i32 } else { 2i32 }) as isize);
+            let i2 = piTriListIn[(3i32 * f + (i + 1) % 3) as usize];
+            let i1 = piTriListIn[(3i32 * f + i) as usize];
+            let i0 = piTriListIn[(3i32 * f + (i + 2) % 3) as usize];
             let p0 = get_position(geometry, i0 as usize);
             let p1 = get_position(geometry, i1 as usize);
             let p2 = get_position(geometry, i2 as usize);
@@ -539,8 +524,8 @@ unsafe fn EvalTspace(
             let fCos = v1.dot(v2).clamp(-1., 1.);
 
             let fAngle = (fCos as f64).acos() as f32;
-            let fMagS = (*pTriInfos.offset(f as isize)).fMagS;
-            let fMagT = (*pTriInfos.offset(f as isize)).fMagT;
+            let fMagS = pTriInfos[f as usize].fMagS;
+            let fMagT = pTriInfos[f as usize].fMagT;
             res.vOs = res.vOs + (fAngle * vOs);
             res.vOt = res.vOt + (fAngle * vOt);
             res.fMagS += fAngle * fMagS;
@@ -558,11 +543,11 @@ unsafe fn EvalTspace(
     return res;
 }
 
-unsafe fn Build4RuleGroups(
-    mut pTriInfos: *mut STriInfo,
-    mut pGroups: *mut SGroup,
-    mut piGroupTrianglesBuffer: *mut i32,
-    mut piTriListIn: *const i32,
+fn Build4RuleGroups(
+    mut pTriInfos: &mut [STriInfo],
+    mut pGroups: &mut [SGroup],
+    mut piGroupTrianglesBuffer: &mut [i32],
+    mut piTriListIn: &[i32],
     iNrTrianglesIn: i32,
 ) -> i32 {
     let mut iNrActiveGroups: i32 = 0i32;
@@ -571,60 +556,61 @@ unsafe fn Build4RuleGroups(
 
     for f in 0..iNrTrianglesIn {
         for i in 0..3i32 {
-            if !(*pTriInfos.offset(f as isize))
+            if !pTriInfos[f as usize]
                 .iFlag
                 .contains(TriangleFlags::GROUP_WITH_ANY)
-                && (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize].is_null()
+                && pTriInfos[f as usize].AssignedGroup[i as usize] == usize::MAX
             {
-                let vert_index: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
-                let ref mut fresh2 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
+                let vert_index: i32 = piTriListIn[(f * 3 + i) as usize];
                 debug_assert!(iNrActiveGroups < iNrMaxGroups);
-                *fresh2 = &mut *pGroups.offset(iNrActiveGroups as isize) as *mut SGroup;
-                (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize])
-                    .iVertexRepresentitive = vert_index;
-                (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).bOrientPreservering =
-                    (*pTriInfos.offset(f as isize))
-                        .iFlag
-                        .contains(TriangleFlags::ORIENT_PRESERVING);
-                (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces = 0i32;
-                let ref mut fresh3 =
-                    (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).pFaceIndices;
-                *fresh3 = &mut *piGroupTrianglesBuffer.offset(iOffset as isize) as *mut i32;
-                iNrActiveGroups += 1;
-                AddTriToGroup((*pTriInfos.offset(f as isize)).AssignedGroup[i as usize], f);
-                let bOrPre = (*pTriInfos.offset(f as isize))
+                pTriInfos[f as usize].AssignedGroup[i as usize] = iNrActiveGroups as usize;
+                let group = &mut pGroups[pTriInfos[f as usize].AssignedGroup[i as usize]];
+                group.iVertexRepresentitive = vert_index;
+                group.bOrientPreservering = pTriInfos[f as usize]
                     .iFlag
                     .contains(TriangleFlags::ORIENT_PRESERVING);
-                let mut neigh_indexL = (*pTriInfos.offset(f as isize)).FaceNeighbors[i as usize];
-                let mut neigh_indexR = (*pTriInfos.offset(f as isize)).FaceNeighbors
-                    [(if i > 0i32 { i - 1i32 } else { 2i32 }) as usize];
+                group.iNrFaces = 0i32;
+                group.pFaceIndices = iOffset as usize;
+                iNrActiveGroups += 1;
+                AddTriToGroup(piGroupTrianglesBuffer, group, f);
+                let bOrPre = pTriInfos[f as usize]
+                    .iFlag
+                    .contains(TriangleFlags::ORIENT_PRESERVING);
+                let mut neigh_indexL = pTriInfos[f as usize].FaceNeighbors[i as usize];
+                let mut neigh_indexR = pTriInfos[f as usize].FaceNeighbors[((i + 2) % 3) as usize];
                 if neigh_indexL >= 0i32 {
+                    let index = pTriInfos[f as usize].AssignedGroup[i as usize];
                     let bAnswer: bool = AssignRecur(
                         piTriListIn,
                         pTriInfos,
                         neigh_indexL,
-                        (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize],
+                        &mut pGroups[index],
+                        index,
+                        piGroupTrianglesBuffer,
                     );
-                    let bOrPre2: bool = (*pTriInfos.offset(neigh_indexL as isize))
+                    let bOrPre2: bool = pTriInfos[neigh_indexL as usize]
                         .iFlag
                         .contains(TriangleFlags::ORIENT_PRESERVING);
-                    let bDiff: bool = if bOrPre != bOrPre2 { true } else { false };
+                    let bDiff: bool = bOrPre != bOrPre2;
                     debug_assert!(bAnswer || bDiff)
                 }
                 if neigh_indexR >= 0i32 {
+                    let index = pTriInfos[f as usize].AssignedGroup[i as usize];
                     let bAnswer_0: bool = AssignRecur(
                         piTriListIn,
                         pTriInfos,
                         neigh_indexR,
-                        (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize],
+                        &mut pGroups[index],
+                        index,
+                        piGroupTrianglesBuffer,
                     );
-                    let bOrPre2_0: bool = (*pTriInfos.offset(neigh_indexR as isize))
+                    let bOrPre2_0: bool = pTriInfos[neigh_indexR as usize]
                         .iFlag
                         .contains(TriangleFlags::ORIENT_PRESERVING);
-                    let bDiff_0: bool = if bOrPre != bOrPre2_0 { true } else { false };
+                    let bDiff_0: bool = bOrPre != bOrPre2_0;
                     debug_assert!(bAnswer_0 || bDiff_0)
                 }
-                iOffset += (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces;
+                iOffset += pGroups[pTriInfos[f as usize].AssignedGroup[i as usize]].iNrFaces;
                 // since the groups are disjoint a triangle can never
                 // belong to more than 3 groups. Subsequently something
                 // is completely screwed if this assertion ever hits.
@@ -636,38 +622,30 @@ unsafe fn Build4RuleGroups(
 }
 // ///////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////
-unsafe fn AssignRecur(
-    mut piTriListIn: *const i32,
-    mut psTriInfos: *mut STriInfo,
+fn AssignRecur(
+    piTriListIn: &[i32],
+    psTriInfos: &mut [STriInfo],
     iMyTriIndex: i32,
-    mut pGroup: *mut SGroup,
+    pGroup: &mut SGroup,
+    group_idx: usize,
+    piGroupTrianglesBuffer: &mut [i32],
 ) -> bool {
-    let mut pMyTriInfo: *mut STriInfo =
-        &mut *psTriInfos.offset(iMyTriIndex as isize) as *mut STriInfo;
+    let mut pMyTriInfo = &mut psTriInfos[iMyTriIndex as usize];
     // track down vertex
-    let iVertRep: i32 = (*pGroup).iVertexRepresentitive;
-    let mut pVerts: *const i32 =
-        &*piTriListIn.offset((3i32 * iMyTriIndex + 0i32) as isize) as *const i32;
-    let i = if *pVerts.offset(0isize) == iVertRep {
-        0i32
-    } else if *pVerts.offset(1isize) == iVertRep {
-        1i32
-    } else if *pVerts.offset(2isize) == iVertRep {
-        2i32
-    } else {
-        panic!();
-    };
-    if (*pMyTriInfo).AssignedGroup[i as usize] == pGroup {
+    let iVertRep: i32 = pGroup.iVertexRepresentitive;
+    let mut pVerts = &piTriListIn[3 * iMyTriIndex as usize..][..3];
+    let i = pVerts.iter().position(|&it| it == iVertRep).unwrap();
+    if pMyTriInfo.AssignedGroup[i as usize] == group_idx {
         return true;
     } else {
-        if !(*pMyTriInfo).AssignedGroup[i as usize].is_null() {
+        if !pMyTriInfo.AssignedGroup[i as usize] == usize::MAX {
             return false;
         }
     }
     if (*pMyTriInfo).iFlag.contains(TriangleFlags::GROUP_WITH_ANY) {
-        if (*pMyTriInfo).AssignedGroup[0usize].is_null()
-            && (*pMyTriInfo).AssignedGroup[1usize].is_null()
-            && (*pMyTriInfo).AssignedGroup[2usize].is_null()
+        if (*pMyTriInfo).AssignedGroup[0usize] == usize::MAX
+            && (*pMyTriInfo).AssignedGroup[1usize] == usize::MAX
+            && (*pMyTriInfo).AssignedGroup[2usize] == usize::MAX
         {
             (*pMyTriInfo).iFlag.set(
                 TriangleFlags::ORIENT_PRESERVING,
@@ -681,20 +659,33 @@ unsafe fn AssignRecur(
     if bOrient != (*pGroup).bOrientPreservering {
         return false;
     }
-    AddTriToGroup(pGroup, iMyTriIndex);
-    (*pMyTriInfo).AssignedGroup[i as usize] = pGroup;
-    let neigh_indexL: i32 = (*pMyTriInfo).FaceNeighbors[i as usize];
-    let neigh_indexR: i32 =
-        (*pMyTriInfo).FaceNeighbors[(if i > 0i32 { i - 1i32 } else { 2i32 }) as usize];
+    AddTriToGroup(piGroupTrianglesBuffer, pGroup, iMyTriIndex);
+    pMyTriInfo.AssignedGroup[i as usize] = group_idx;
+    let neigh_indexL = (*pMyTriInfo).FaceNeighbors[i as usize];
+    let neigh_indexR = (*pMyTriInfo).FaceNeighbors[(if i > 0 { i - 1 } else { 2 }) as usize];
     if neigh_indexL >= 0i32 {
-        AssignRecur(piTriListIn, psTriInfos, neigh_indexL, pGroup);
+        AssignRecur(
+            piTriListIn,
+            psTriInfos,
+            neigh_indexL,
+            pGroup,
+            group_idx,
+            piGroupTrianglesBuffer,
+        );
     }
     if neigh_indexR >= 0i32 {
-        AssignRecur(piTriListIn, psTriInfos, neigh_indexR, pGroup);
+        AssignRecur(
+            piTriListIn,
+            psTriInfos,
+            neigh_indexR,
+            pGroup,
+            group_idx,
+            piGroupTrianglesBuffer,
+        );
     }
     return true;
 }
-unsafe fn AddTriToGroup(mut pGroup: *mut SGroup, iTriIndex: i32) {
-    *(*pGroup).pFaceIndices.offset((*pGroup).iNrFaces as isize) = iTriIndex;
-    (*pGroup).iNrFaces += 1;
+fn AddTriToGroup(faces: &mut [i32], pGroup: &mut SGroup, iTriIndex: i32) {
+    faces[pGroup.iNrFaces as usize + pGroup.pFaceIndices] = iTriIndex;
+    pGroup.iNrFaces += 1;
 }
