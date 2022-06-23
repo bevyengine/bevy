@@ -577,7 +577,7 @@ pub struct ReadFetch<'w, T> {
         // T::Storage = TableStorage
         Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
         // T::Storage = SparseStorage
-        Option<&'w ComponentSparseSet>,
+        &'w ComponentSparseSet,
     >,
 }
 
@@ -622,13 +622,13 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
             components: if Self::IS_DENSE {
                 StorageSwitch::new_table(None)
             } else {
-                StorageSwitch::new_sparse_set(Some(
+                StorageSwitch::new_sparse_set(
                     world
                         .storages()
                         .sparse_sets
                         .get(state.component_id)
                         .unwrap_or_else(|| debug_checked_unreachable()),
-                ))
+                )
             },
         }
     }
@@ -676,7 +676,6 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
             StorageType::SparseSet => self
                 .components
                 .sparse_set()
-                .unwrap_or_else(|| debug_checked_unreachable())
                 .get(entity)
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .deref(),
@@ -726,7 +725,7 @@ pub struct WriteFetch<'w, T> {
             ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
         )>,
         // T::Storage = SparseStorage
-        Option<&'w ComponentSparseSet>,
+        &'w ComponentSparseSet,
     >,
 
     last_change_tick: u32,
@@ -773,13 +772,13 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
             components: if Self::IS_DENSE {
                 StorageSwitch::new_table(None)
             } else {
-                StorageSwitch::new_sparse_set(Some(
+                StorageSwitch::new_sparse_set(
                     world
                         .storages()
                         .sparse_sets
                         .get(state.component_id)
                         .unwrap_or_else(|| debug_checked_unreachable()),
-                ))
+                )
             },
             last_change_tick,
             change_tick,
@@ -839,7 +838,6 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
                 let (component, component_ticks) = self
                     .components
                     .sparse_set()
-                    .unwrap_or_else(|| debug_checked_unreachable())
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_checked_unreachable());
                 Mut {
@@ -1096,7 +1094,7 @@ pub struct ChangeTrackersFetch<'w, T> {
         // T::Storage = TableStorage
         Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
         // T::Storage = SparseStorage
-        Option<&'w ComponentSparseSet>,
+        &'w ComponentSparseSet,
     >,
     last_change_tick: u32,
     change_tick: u32,
@@ -1145,13 +1143,13 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
             ticks: if Self::IS_DENSE {
                 StorageSwitch::new_table(None)
             } else {
-                StorageSwitch::new_sparse_set(Some(
+                StorageSwitch::new_sparse_set(
                     world
                         .storages()
                         .sparse_sets
                         .get(state.component_id)
                         .unwrap_or_else(|| debug_checked_unreachable()),
-                ))
+                )
             },
             last_change_tick,
             change_tick,
@@ -1208,7 +1206,6 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                 component_ticks: self
                     .ticks
                     .sparse_set()
-                    .unwrap_or_else(|| debug_checked_unreachable())
                     .get_ticks(entity)
                     .map(|ticks| &*ticks.get())
                     .cloned()

@@ -492,7 +492,7 @@ macro_rules! impl_tick_filter {
                 // T::Storage = TableStorage
                 Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
                 // T::Storage = SparseStorage
-                Option<&'w ComponentSparseSet>,
+                &'w ComponentSparseSet,
             >,
             last_change_tick: u32,
             change_tick: u32,
@@ -543,12 +543,12 @@ macro_rules! impl_tick_filter {
                     ticks: if Self::IS_DENSE {
                         StorageSwitch::new_table(None)
                     } else {
-                        StorageSwitch::new_sparse_set(Some(
+                        StorageSwitch::new_sparse_set(
                             world.storages()
                                  .sparse_sets
                                  .get(state.component_id)
                                  .unwrap_or_else(|| debug_checked_unreachable())
-                        ))
+                        )
                     },
                     marker: PhantomData,
                     last_change_tick,
@@ -608,7 +608,6 @@ macro_rules! impl_tick_filter {
                         let ticks = self
                             .ticks
                             .sparse_set()
-                            .unwrap_or_else(|| debug_checked_unreachable())
                             .get_ticks(entity)
                             .map(|ticks| &*ticks.get())
                             .cloned()
