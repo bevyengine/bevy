@@ -47,6 +47,8 @@ pub struct WindowPlugin {
     /// If this system (or a replacement) is not running, the close button will have no effect.
     /// This may surprise your users. It is recommended to leave this setting as `true`.
     pub close_when_requested: bool,
+    /// Whether the plugin will update a [`CursorPositions`] resource every frame.
+    pub update_cursor_position: bool,
 }
 
 impl Default for WindowPlugin {
@@ -55,6 +57,7 @@ impl Default for WindowPlugin {
             add_primary_window: true,
             exit_on_all_closed: true,
             close_when_requested: true,
+            update_cursor_position: true,
         }
     }
 }
@@ -89,6 +92,11 @@ impl Plugin for WindowPlugin {
                 id: WindowId::primary(),
                 descriptor: window_descriptor,
             });
+        }
+
+        if self.update_cursor_position {
+            app.init_resource::<CursorPositions>();
+            app.add_system(update_cursor_positions);
         }
 
         if self.exit_on_all_closed {
