@@ -47,7 +47,7 @@ pub struct WindowPlugin {
     /// If this system (or a replacement) is not running, the close button will have no effect.
     /// This may surprise your users. It is recommended to leave this setting as `true`.
     pub close_when_requested: bool,
-    /// Whether the plugin will update a [`CursorPositions`] resource every frame.
+    /// Whether the plugin will update a [`CursorPosition`] resource every frame.
     pub update_cursor_position: bool,
 }
 

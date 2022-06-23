@@ -1,9 +1,38 @@
 use crate::WindowId;
 use bevy_math::Vec2;
+use std::ops::Deref;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deref)]
 /// Resource storing the cursor position on the app window
-pub struct CursorPosition(pub(crate) Option<(WindowId, Vec2)>);
+///
+/// ## Usage
+///
+/// You can use this resource to retrieve the cursor position:
+///
+/// ```rust
+/// # use bevy_window::*;
+/// # use bevy_ecs::prelude::*;
+/// #
+/// fn my_system(cursor: Res<CursorPosition>) {
+///     if let Some(pos) = cursor.position() {
+///         // Do something
+///     }   
+/// }
+/// ```
+///
+/// If you want both the position and window id you may do:
+///
+/// ```rust
+/// # use bevy_window::*;
+/// # use bevy_ecs::prelude::*;
+/// #
+/// fn my_system(cursor: Res<CursorPosition>) {
+///     if let Some((window_id, pos)) = cursor.0 {
+///         // Do something
+///     }   
+/// }
+/// ```
+pub struct CursorPosition(pub Option<(WindowId, Vec2)>);
 
 impl CursorPosition {
     /// Retrieves the cursor position from the given [`WindowId`]
