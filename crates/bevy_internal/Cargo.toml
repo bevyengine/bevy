@@ -64,6 +64,9 @@ bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
+# Enable overlay for FPS monitoring
+overlay = ["bevy_core_pipeline?/overlay"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.9.0" }

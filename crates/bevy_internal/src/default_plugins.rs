@@ -113,6 +113,11 @@ impl PluginGroup for DefaultPlugins {
             group = group.add(bevy_animation::AnimationPlugin::default());
         }
 
+        #[cfg(feature = "overlay")]
+        {
+            group = group.add(bevy_core_pipeline::overlay::OverlayPlugin::default());
+        }
+
         group
     }
 }

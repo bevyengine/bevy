@@ -17,6 +17,7 @@
 |vorbis|Ogg Vorbis audio format support.|
 |x11|Make GUI applications use X11 protocol. You could enable wayland feature to override this.|
 |filesystem_watcher|Enable watching the file system for asset hot reload|
+|overlay|Enable adding the overlay plugin for diagnostics|
 
 ## Optional Features
 

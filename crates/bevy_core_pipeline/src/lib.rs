@@ -7,7 +7,13 @@ pub mod fxaa;
 pub mod tonemapping;
 pub mod upscaling;
 
+#[cfg(feature = "overlay")]
+pub mod overlay;
+
 pub mod prelude {
+    #[doc(hidden)]
+    #[cfg(feature = "overlay")]
+    pub use crate::overlay::{CameraOverlay, CameraOverlayBundle, OverlayPlugin};
     #[doc(hidden)]
     pub use crate::{
         clear_color::ClearColor,
