@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // Spawns the camera
     commands
         .spawn()
-        .insert_bundle(OrthographicCameraBundle::new_2d())
+        .insert_bundle(Camera2dBundle::default())
         .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
 
     // Builds and spawns the sprites

@@ -61,7 +61,7 @@ fn setup(
             }
 
             // camera
-            commands.spawn_bundle(PerspectiveCameraBundle::default());
+            commands.spawn_bundle(Camera3dBundle::default());
         }
         _ => {
             // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
@@ -104,7 +104,7 @@ fn setup(
                 }
             }
             // camera
-            commands.spawn_bundle(PerspectiveCameraBundle {
+            commands.spawn_bundle(Camera3dBundle {
                 transform: Transform::from_xyz(WIDTH as f32, HEIGHT as f32, WIDTH as f32),
                 ..default()
             });

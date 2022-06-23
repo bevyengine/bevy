@@ -10,7 +10,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 1.0,
-            ..Default::default()
+            ..default()
         })
         .add_startup_system(setup)
         .add_system(joint_animation)
@@ -19,13 +19,16 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create a camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
-    commands.spawn_scene(asset_server.load::<Scene, _>("models/SimpleSkin/SimpleSkin.gltf#Scene0"));
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/SimpleSkin/SimpleSkin.gltf#Scene0"),
+        ..default()
+    });
 }
 
 /// The scene hierarchy currently looks somewhat like this:

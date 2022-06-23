@@ -9,6 +9,12 @@ use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
 use serde::Serialize;
 
 /// A collection of serializable dynamic entities, each with its own run-time defined set of components.
+/// To spawn a dynamic scene, you can use either:
+/// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
+/// * adding the [`DynamicSceneBundle`](crate::DynamicSceneBundle) to an entity
+/// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
+/// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
+/// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Default, TypeUuid)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
@@ -145,8 +151,5 @@ where
         .decimal_floats(true)
         .indentor("  ".to_string())
         .new_line("\n".to_string());
-    let mut buf = Vec::new();
-    let mut ron_serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
-    serialize.serialize(&mut ron_serializer)?;
-    Ok(String::from_utf8(buf).unwrap())
+    ron::ser::to_string_pretty(&serialize, pretty_config)
 }

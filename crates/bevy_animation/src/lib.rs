@@ -230,7 +230,7 @@ pub fn animation_player(
                             match &curve.keyframes {
                                 Keyframes::Rotation(keyframes) => transform.rotation = keyframes[0],
                                 Keyframes::Translation(keyframes) => {
-                                    transform.translation = keyframes[0]
+                                    transform.translation = keyframes[0];
                                 }
                                 Keyframes::Scale(keyframes) => transform.scale = keyframes[0],
                             }

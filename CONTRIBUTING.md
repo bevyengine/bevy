@@ -74,9 +74,9 @@ He makes the final decision on both design and code changes within Bevy in order
 In practice, @cart serves as a shockingly accountable dictator: open to new ideas and to changing his mind in the face of compelling arguments or community consensus.
 Check out the next section for details on how this plays out.
 
-[Bevy Org members](https://github.com/orgs/bevyengine/people) are contributors who have:
+[Bevy Org members](https://github.com/orgs/bevyengine/people) are contributors who:
 
-1. Have actively engaged with Bevy development
+1. Have actively engaged with Bevy development.
 2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
 3. Have asked to join the Bevy Org. Reach out to @cart on Discord or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
 
@@ -198,9 +198,9 @@ Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/d
 
 ### Fixing bugs
 
-Bugs in Bevy (or the associated website / book) are filed on the issue tracker using the [`bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3Abug) label.
+Bugs in Bevy (or the associated website / book) are filed on the issue tracker using the [`C-Bug`](https://github.com/bevyengine/bevy/issues?q=is%3Aissue+is%3Aopen+label%3AC-Bug) label.
 
-If you're looking for an easy place to start, take a look at the [`E-Good-First-Issue`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AE-Good-First-Issue) label, and feel free to ask questions on that issue's thread in question or on Discord.
+If you're looking for an easy place to start, take a look at the [`D-Good-First-Issue`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AD-Good-First-Issue) label, and feel free to ask questions on that issue's thread in question or on Discord.
 You don't need anyone's permission to try fixing a bug or adding a simple feature, but stating that you'd like to tackle an issue can be helpful to avoid duplicated work.
 
 When you make a pull request that fixes an issue, include a line that says `Fixes #X` (or "Closes"), where `X` is the issue number.

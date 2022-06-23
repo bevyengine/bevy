@@ -133,13 +133,8 @@ where
         let pred_clone = pred.clone();
         (move |state: Res<State<T>>, mut is_in_stack: Local<bool>| match &state.transition {
             Some(StateTransition::Entering(ref relevant, _))
-            | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
-                if relevant == &pred {
-                    *is_in_stack = !*is_in_stack;
-                }
-                false
-            }
-            Some(StateTransition::ExitingFull(_, ref relevant)) => {
+            | Some(StateTransition::ExitingToResume(_, ref relevant))
+            | Some(StateTransition::ExitingFull(_, ref relevant)) => {
                 if relevant == &pred {
                     *is_in_stack = !*is_in_stack;
                 }
@@ -267,14 +262,14 @@ where
     }
 
     /// Schedule a state change that replaces the active state with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the
-    /// current state
+    /// This will fail if there is a scheduled operation, pending transition, or if the given
+    /// `state` matches the current state
     pub fn set(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
@@ -294,14 +289,14 @@ where
     }
 
     /// Schedule a state change that replaces the full stack with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the
-    /// current state
+    /// This will fail if there is a scheduled operation, pending transition, or if the given
+    /// `state` matches the current state
     pub fn replace(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
@@ -326,7 +321,7 @@ where
             return Err(StateError::AlreadyInState);
         }
 
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
@@ -347,7 +342,7 @@ where
 
     /// Same as [`Self::set`], but does a pop operation instead of a set operation
     pub fn pop(&mut self) -> Result<(), StateError> {
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
@@ -370,9 +365,9 @@ where
     }
 
     /// Schedule a state change that restarts the active state.
-    /// This will fail if there is a scheduled operation
+    /// This will fail if there is a scheduled operation or a pending transition
     pub fn restart(&mut self) -> Result<(), StateError> {
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 

@@ -11,7 +11,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
     let texture = asset_server.load("branding/icon.png");
 
     // Spawn a root entity with no parent
