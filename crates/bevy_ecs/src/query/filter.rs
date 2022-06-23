@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{
         debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, QueryFetch,
-        WorldQuery, WorldQueryGats,
+        StorageSwitch, WorldQuery, WorldQueryGats,
     },
     storage::{ComponentSparseSet, Table, Tables},
     world::World,
@@ -486,9 +486,14 @@ macro_rules! impl_tick_filter {
         #[doc(hidden)]
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
-            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
             marker: PhantomData<T>,
-            sparse_set: Option<&'w ComponentSparseSet>,
+            ticks: StorageSwitch<
+                T,
+                // T::Storage = TableStorage
+                Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+                // T::Storage = SparseStorage
+                Option<&'w ComponentSparseSet>,
+            >,
             last_change_tick: u32,
             change_tick: u32,
         }
@@ -535,14 +540,16 @@ macro_rules! impl_tick_filter {
 
             unsafe fn init(world: &'w World, state: & $state_name<T>, last_change_tick: u32, change_tick: u32) -> Self {
                 Self {
-                    table_ticks: None,
-                    sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
-                        .then(|| {
+                    ticks: if Self::IS_DENSE {
+                        StorageSwitch::new_table(None)
+                    } else {
+                        StorageSwitch::new_sparse_set(Some(
                             world.storages()
                                  .sparse_sets
                                  .get(state.component_id)
                                  .unwrap_or_else(|| debug_checked_unreachable())
-                        }),
+                        ))
+                    },
                     marker: PhantomData,
                     last_change_tick,
                     change_tick,
@@ -559,19 +566,25 @@ macro_rules! impl_tick_filter {
             const IS_ARCHETYPAL:  bool = false;
 
             unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-                self.table_ticks = Some(
-                    table.get_column(state.component_id)
-                            .unwrap_or_else(|| debug_checked_unreachable())
-                            .get_ticks_slice()
-                            .into()
-                );
+                if Self::IS_DENSE {
+                    self.ticks = StorageSwitch::new_table(Some(
+                        table.get_column(state.component_id)
+                                .unwrap_or_else(|| debug_checked_unreachable())
+                                .get_ticks_slice()
+                                .into()
+                    ));
+                }
             }
 
             unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         let table = &tables[archetype.table_id()];
-                        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice().into());
+                        self.ticks = StorageSwitch::new_table(Some(
+                            table.get_column(state.component_id)
+                                .unwrap()
+                                .get_ticks_slice().into()
+                        ));
                     }
                     StorageType::SparseSet => {},
                 }
@@ -582,7 +595,8 @@ macro_rules! impl_tick_filter {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         $is_detected(&*(
-                            self.table_ticks
+                            self.ticks
+                                .table()
                                 .unwrap_or_else(|| debug_checked_unreachable())
                                 .get(table_row))
                                 .deref(),
@@ -592,7 +606,8 @@ macro_rules! impl_tick_filter {
                     }
                     StorageType::SparseSet => {
                         let ticks = self
-                            .sparse_set
+                            .ticks
+                            .sparse_set()
                             .unwrap_or_else(|| debug_checked_unreachable())
                             .get_ticks(entity)
                             .map(|ticks| &*ticks.get())
@@ -632,19 +647,18 @@ macro_rules! impl_tick_filter {
         /// SAFETY: read-only access
         unsafe impl<T: Component> ReadOnlyWorldQuery for $name<T> {}
 
-        impl<T> Clone for $fetch_name<'_, T> {
+        impl<T: Component> Clone for $fetch_name<'_, T> {
             fn clone(&self) -> Self {
                 Self {
-                    table_ticks: self.table_ticks.clone(),
+                    ticks: self.ticks.clone(),
                     marker: self.marker.clone(),
-                    sparse_set: self.sparse_set.clone(),
                     last_change_tick: self.last_change_tick.clone(),
                     change_tick: self.change_tick.clone(),
                 }
             }
         }
 
-        impl<T> Copy for $fetch_name<'_, T> {}
+        impl<T: Component> Copy for $fetch_name<'_, T> {}
     };
 }
 

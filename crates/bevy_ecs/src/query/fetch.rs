@@ -10,7 +10,7 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use std::{cell::UnsafeCell, marker::PhantomData};
+use std::{cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop};
 
 /// Types that can be queried from a [`World`].
 ///
@@ -572,17 +572,19 @@ impl<T: Component> FetchState for ComponentIdState<T> {
 /// The [`Fetch`] of `&T`.
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
-    // T::Storage = TableStorage
-    table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
+    components: StorageSwitch<
+        T,
+        // T::Storage = TableStorage
+        Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+        // T::Storage = SparseStorage
+        Option<&'w ComponentSparseSet>,
+    >,
 }
 
-impl<T> Clone for ReadFetch<'_, T> {
+impl<T: Component> Clone for ReadFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
-            table_components: self.table_components,
-            sparse_set: self.sparse_set,
+            components: self.components.clone(),
         }
     }
 }
@@ -617,14 +619,17 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
         _change_tick: u32,
     ) -> ReadFetch<'w, T> {
         ReadFetch {
-            table_components: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .storages()
-                    .sparse_sets
-                    .get(state.component_id)
-                    .unwrap_or_else(|| debug_checked_unreachable())
-            }),
+            components: if Self::IS_DENSE {
+                StorageSwitch::new_table(None)
+            } else {
+                StorageSwitch::new_sparse_set(Some(
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(state.component_id)
+                        .unwrap_or_else(|| debug_checked_unreachable()),
+                ))
+            },
         }
     }
 
@@ -640,7 +645,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_components = Some(column.get_data_slice().into());
+                self.components = StorageSwitch::new_table(Some(column.get_data_slice().into()));
             }
             StorageType::SparseSet => {}
         }
@@ -648,25 +653,29 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
 
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-        self.table_components = Some(
-            table
-                .get_column(state.component_id)
-                .unwrap_or_else(|| debug_checked_unreachable())
-                .get_data_slice()
-                .into(),
-        );
+        if Self::IS_DENSE {
+            self.components = StorageSwitch::new_table(Some(
+                table
+                    .get_column(state.component_id)
+                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .get_data_slice()
+                    .into(),
+            ));
+        }
     }
 
     #[inline(always)]
     unsafe fn fetch(&mut self, entity: Entity, table_row: usize) -> Self::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => self
-                .table_components
+                .components
+                .table()
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .get(table_row)
                 .deref(),
             StorageType::SparseSet => self
-                .sparse_set
+                .components
+                .sparse_set()
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .get(entity)
                 .unwrap_or_else(|| debug_checked_unreachable())
@@ -709,23 +718,25 @@ unsafe impl<'w, T: Component> WorldQuery for &'w mut T {
 /// The [`Fetch`] of `&mut T`.
 #[doc(hidden)]
 pub struct WriteFetch<'w, T> {
-    // T::Storage = TableStorage
-    table_data: Option<(
-        ThinSlicePtr<'w, UnsafeCell<T>>,
-        ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
-    )>,
-    // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
+    components: StorageSwitch<
+        T,
+        // T::Storage = TableStorage
+        Option<(
+            ThinSlicePtr<'w, UnsafeCell<T>>,
+            ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
+        )>,
+        // T::Storage = SparseStorage
+        Option<&'w ComponentSparseSet>,
+    >,
 
     last_change_tick: u32,
     change_tick: u32,
 }
 
-impl<T> Clone for WriteFetch<'_, T> {
+impl<T: Component> Clone for WriteFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
-            table_data: self.table_data,
-            sparse_set: self.sparse_set,
+            components: self.components.clone(),
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
         }
@@ -759,14 +770,17 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
         change_tick: u32,
     ) -> Self {
         Self {
-            table_data: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .storages()
-                    .sparse_sets
-                    .get(state.component_id)
-                    .unwrap_or_else(|| debug_checked_unreachable())
-            }),
+            components: if Self::IS_DENSE {
+                StorageSwitch::new_table(None)
+            } else {
+                StorageSwitch::new_sparse_set(Some(
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(state.component_id)
+                        .unwrap_or_else(|| debug_checked_unreachable()),
+                ))
+            },
             last_change_tick,
             change_tick,
         }
@@ -784,10 +798,10 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_data = Some((
+                self.components = StorageSwitch::new_table(Some((
                     column.get_data_slice().into(),
                     column.get_ticks_slice().into(),
-                ));
+                )));
             }
             StorageType::SparseSet => {}
         }
@@ -795,11 +809,13 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
 
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-        let column = table.get_column(state.component_id).unwrap();
-        self.table_data = Some((
-            column.get_data_slice().into(),
-            column.get_ticks_slice().into(),
-        ));
+        if Self::IS_DENSE {
+            let column = table.get_column(state.component_id).unwrap();
+            self.components = StorageSwitch::new_table(Some((
+                column.get_data_slice().into(),
+                column.get_ticks_slice().into(),
+            )));
+        }
     }
 
     #[inline(always)]
@@ -807,7 +823,8 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let (table_components, table_ticks) = self
-                    .table_data
+                    .components
+                    .table()
                     .unwrap_or_else(|| debug_checked_unreachable());
                 Mut {
                     value: table_components.get(table_row).deref_mut(),
@@ -820,7 +837,8 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
             }
             StorageType::SparseSet => {
                 let (component, component_ticks) = self
-                    .sparse_set
+                    .components
+                    .sparse_set()
                     .unwrap_or_else(|| debug_checked_unreachable())
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_checked_unreachable());
@@ -1073,22 +1091,21 @@ impl<T: Component> FetchState for ChangeTrackersState<T> {
 /// The [`Fetch`] of [`ChangeTrackers`].
 #[doc(hidden)]
 pub struct ChangeTrackersFetch<'w, T> {
-    // T::Storage = TableStorage
-    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
-
-    marker: PhantomData<T>,
+    ticks: StorageSwitch<
+        T,
+        // T::Storage = TableStorage
+        Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+        // T::Storage = SparseStorage
+        Option<&'w ComponentSparseSet>,
+    >,
     last_change_tick: u32,
     change_tick: u32,
 }
 
-impl<T> Clone for ChangeTrackersFetch<'_, T> {
+impl<T: Component> Clone for ChangeTrackersFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
-            table_ticks: self.table_ticks,
-            sparse_set: self.sparse_set,
-            marker: self.marker,
+            ticks: self.ticks.clone(),
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
         }
@@ -1125,15 +1142,17 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
         change_tick: u32,
     ) -> ChangeTrackersFetch<'w, T> {
         ChangeTrackersFetch {
-            table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .storages()
-                    .sparse_sets
-                    .get(state.component_id)
-                    .unwrap_or_else(|| debug_checked_unreachable())
-            }),
-            marker: PhantomData,
+            ticks: if Self::IS_DENSE {
+                StorageSwitch::new_table(None)
+            } else {
+                StorageSwitch::new_sparse_set(Some(
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(state.component_id)
+                        .unwrap_or_else(|| debug_checked_unreachable()),
+                ))
+            },
             last_change_tick,
             change_tick,
         }
@@ -1151,7 +1170,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                 let column = tables[archetype.table_id()]
                     .get_column(state.component_id)
                     .unwrap();
-                self.table_ticks = Some(column.get_ticks_slice().into());
+                self.ticks = StorageSwitch::new_table(Some(column.get_ticks_slice().into()));
             }
             StorageType::SparseSet => {}
         }
@@ -1159,13 +1178,15 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
 
     #[inline]
     unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
-        self.table_ticks = Some(
-            table
-                .get_column(state.component_id)
-                .unwrap()
-                .get_ticks_slice()
-                .into(),
-        );
+        if Self::IS_DENSE {
+            self.ticks = StorageSwitch::new_table(Some(
+                table
+                    .get_column(state.component_id)
+                    .unwrap()
+                    .get_ticks_slice()
+                    .into(),
+            ));
+        }
     }
 
     #[inline(always)]
@@ -1174,7 +1195,8 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
             StorageType::Table => ChangeTrackers {
                 component_ticks: {
                     let table_ticks = self
-                        .table_ticks
+                        .ticks
+                        .table()
                         .unwrap_or_else(|| debug_checked_unreachable());
                     table_ticks.get(table_row).read()
                 },
@@ -1184,7 +1206,8 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
             },
             StorageType::SparseSet => ChangeTrackers {
                 component_ticks: self
-                    .sparse_set
+                    .ticks
+                    .sparse_set()
                     .unwrap_or_else(|| debug_checked_unreachable())
                     .get_ticks(entity)
                     .map(|ticks| &*ticks.get())
@@ -1511,3 +1534,60 @@ unsafe impl<'w, State: FetchState> Fetch<'w> for NopFetch<State> {
     ) {
     }
 }
+
+pub(super) union StorageSwitch<T, A, B> {
+    table: ManuallyDrop<A>,
+    sparse_set: ManuallyDrop<B>,
+    marker: PhantomData<T>,
+}
+
+impl<T: Component, A, B> StorageSwitch<T, A, B> {
+    pub const fn new_table(table: A) -> Self {
+        Self {
+            table: ManuallyDrop::new(table),
+        }
+    }
+
+    pub const fn new_sparse_set(sparse_set: B) -> Self {
+        Self {
+            sparse_set: ManuallyDrop::new(sparse_set),
+        }
+    }
+}
+
+impl<T: Component, A: Copy, B: Copy> StorageSwitch<T, A, B> {
+    pub fn table(&self) -> A {
+        unsafe {
+            match T::Storage::STORAGE_TYPE {
+                StorageType::Table => *self.table,
+                _ => debug_checked_unreachable(),
+            }
+        }
+    }
+
+    pub fn sparse_set(&self) -> B {
+        unsafe {
+            match T::Storage::STORAGE_TYPE {
+                StorageType::SparseSet => *self.sparse_set,
+                _ => debug_checked_unreachable(),
+            }
+        }
+    }
+}
+
+impl<T: Component, A: Clone, B: Clone> Clone for StorageSwitch<T, A, B> {
+    fn clone(&self) -> Self {
+        unsafe {
+            match T::Storage::STORAGE_TYPE {
+                StorageType::Table => Self {
+                    table: self.table.clone(),
+                },
+                StorageType::SparseSet => Self {
+                    sparse_set: self.sparse_set.clone(),
+                },
+            }
+        }
+    }
+}
+
+impl<T: Component, A: Copy, B: Copy> Copy for StorageSwitch<T, A, B> {}
