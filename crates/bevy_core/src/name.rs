@@ -31,6 +31,27 @@ impl Name {
     /// Creates a new [`Name`] from any string-like type.
     ///
     /// The internal hash will be computed immediately.
+    ///
+    /// # Examples
+    ///
+    /// With a [`&str`](str):
+    ///
+    /// ```
+    /// # use bevy_core::Name;
+    /// #
+    /// let name = Name::new("Bevy");
+    /// assert_eq!(name.as_str(), "Bevy");
+    /// ```
+    ///
+    /// With a [`String`]:
+    ///
+    /// ```
+    /// # use bevy_core::Name;
+    /// #
+    /// let title = "Dr.";
+    /// let name = Name::new(format!("{title} Who"));
+    /// assert_eq!(name.as_str(), "Dr. Who");
+    /// ```
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         let name = name.into();
         let mut name = Name { name, hash: 0 };
@@ -41,6 +62,18 @@ impl Name {
     /// Sets the entity's name.
     ///
     /// The internal hash will be re-computed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_core::Name;
+    /// #
+    /// let mut name = Name::new("Bevy");
+    /// # assert_eq!(name.as_str(), "Bevy");
+    /// name.set("Bevy Engine");
+    ///
+    /// assert_eq!(name.as_str(), "Bevy Engine");
+    /// ```
     #[inline(always)]
     pub fn set(&mut self, name: impl Into<Cow<'static, str>>) {
         *self = Name::new(name);
@@ -50,6 +83,18 @@ impl Name {
     ///
     /// This will allocate a new string if the name was previously
     /// created from a borrow.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_core::Name;
+    /// #
+    /// let mut name = Name::new("Bevy");
+    /// # assert_eq!(name.as_str(), "Bevy");
+    /// name.mutate(|val| *val += " Engine");
+    ///
+    /// assert_eq!(name.as_str(), "Bevy Engine");
+    /// ```
     #[inline(always)]
     pub fn mutate<F: FnOnce(&mut String)>(&mut self, f: F) {
         f(self.name.to_mut());
@@ -57,6 +102,15 @@ impl Name {
     }
 
     /// Gets the name of the entity as a `&str`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_core::Name;
+    /// #
+    /// let name = Name::new("Bevy");
+    /// assert_eq!(name.as_str(), "Bevy");
+    /// ```
     #[inline(always)]
     pub fn as_str(&self) -> &str {
         &self.name
