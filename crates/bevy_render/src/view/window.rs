@@ -127,10 +127,10 @@ pub struct WindowSurfaces {
 /// if the GPU is a serious bottleneck and doesn't manage to keep up with CPU.
 /// This can be caused by many reasons, but several of them are:
 /// - Just too much load for current spec
-/// - Unusual high workload (and maybe errouneusly written custom shaders causing it)
+/// - Unusual high workload (possibly an error in your custom shaders)
 /// - Bad drivers or mismatch with chosen [`Backends`](crate::settings::Backends) /
 ///   [`WgpuLimits`](crate::settings::WgpuLimits) / [`WgpuFeatures`](crate::settings::WgpuFeatures)
-///   causing `wgpu` to pick up software renderer adapter which is usually not what you want.
+///   causing `wgpu` to choose a (very slow) software renderer adapter.
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS s

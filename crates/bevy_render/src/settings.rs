@@ -17,7 +17,7 @@ pub enum WgpuSettingsPriority {
 /// [`RenderDevice::limits`](crate::renderer::RenderDevice::limits), and the [`WgpuAdapterInfo`](crate::render_resource::WgpuAdapterInfo)
 /// resource to get runtime information about the actual adapter, backend, features, and limits.
 /// NOTE: [`Backends::GL`](Backends::GL) is disabled by default.
-/// You can use [`Backends::GL`](Backends::GL) on Windows only with the help of [`ANGLE`](https://github.com/gfx-rs/wgpu#angle).
+/// On Windows, this requires [`ANGLE`](https://github.com/gfx-rs/wgpu#angle).
 #[derive(Clone)]
 pub struct WgpuSettings {
     pub device_label: Option<Cow<'static, str>>,
