@@ -37,8 +37,8 @@ git checkout v0.4.0
 - [The Bare Minimum](#the-bare-minimum)
   - [Hello, World!](#hello-world)
 - [Cross-Platform Examples](#cross-platform-examples)
-  - [2D Rendering](2d-rendering)
-  - [3D Rendering](3d-rendering)
+  - [2D Rendering](#2d-rendering)
+  - [3D Rendering](#3d-rendering)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -65,7 +65,6 @@ Example | File | Description
 
 # Cross-Platform Examples
 
-
 ## 2D Rendering
 
 Example | Description
@@ -74,6 +73,7 @@ Example | Description
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
+[Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
 [Shapes](../examples/2d/shapes.rs) | Renders a rectangle, circle, and hexagon
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
