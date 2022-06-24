@@ -34,3 +34,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 
 serde = { version = "1", features = ["derive"] }
 radsort = "0.1"
+
+[dev-dependencies]
+bevy_internal = { path = "../bevy_internal", version = "0.8.0-dev" }

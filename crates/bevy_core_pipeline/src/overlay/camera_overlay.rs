@@ -24,8 +24,11 @@ pub(crate) fn extract_overlay_camera_phases(
     }
 }
 
+/// Marker component for the camera used to display the FPS overlay.
+///
+/// See [`CameraOverlayBundle`] for the full list of components needed to display the overlay.
 #[derive(Component, Default, Clone)]
-pub struct CameraOverlay {}
+pub struct CameraOverlay;
 
 impl ExtractComponent for CameraOverlay {
     type Query = &'static Self;
@@ -36,6 +39,9 @@ impl ExtractComponent for CameraOverlay {
     }
 }
 
+/// Bundle of components needed to display the FPS overlay.
+///
+/// See [`OverlayPlugin`](super::OverlayPlugin) on how to enable the overlay.
 #[derive(Bundle)]
 pub struct CameraOverlayBundle {
     pub camera: Camera,

@@ -71,8 +71,31 @@ fn prepare_overlay_diagnostics(
     }
 }
 
+/// Overlay to display the FPS. This plugin is part of the [`DefaultPlugins`](bevy_internal::DefaultPlugins)
+/// and enabled by default.
+///
+/// To disable it, you can either:
+///
+/// ## Remove it when adding the plugin group:
+///
+/// ```no_run
+/// # use bevy_internal::DefaultPlugins;
+/// # use bevy_app::App;
+/// # use bevy_core_pipeline::overlay::OverlayPlugin;
+/// fn main() {
+///     App::new()
+///         .add_plugins_with(DefaultPlugins, |group| group.disable::<OverlayPlugin>())
+///         .run();
+/// }
+/// ```
+///
+/// ## Disable the feature
+///
+/// Disable default features from Bevy, and do not enable the feature `overlay`
 #[derive(Default)]
 pub struct OverlayPlugin {
+    /// [`KeyCode`] to use to trigger the overlay. If set to `None`, the default shortcut is used:
+    /// Left-Control - Left-Shift - Tab
     pub trigger: Option<KeyCode>,
 }
 
