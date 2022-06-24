@@ -42,6 +42,7 @@ git checkout v0.4.0
   - [Animation](#animation)
   - [Application](#application)
   - [Assets](#assets)
+  - [Async Tasks](#async-tasks)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -142,6 +143,13 @@ Example | Description
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_io.rs) | Implements a custom asset io loader
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+
+## Async Tasks
+
+Example | Description
+--- | ---
+[Async Compute](../examples/async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
+[External Source of Data on an External Thread](../examples/async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel
 
 # Platform-Specific Examples
 

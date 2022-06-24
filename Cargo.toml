@@ -643,9 +643,21 @@ wasm = true
 name = "async_compute"
 path = "examples/async_tasks/async_compute.rs"
 
+[package.metadata.example.async_compute]
+name = "Async Compute"
+description = "How to use `AsyncComputeTaskPool` to complete longer running tasks"
+category = "Async Tasks"
+wasm = false
+
 [[example]]
 name = "external_source_external_thread"
 path = "examples/async_tasks/external_source_external_thread.rs"
+
+[package.metadata.example.external_source_external_thread]
+name = "External Source of Data on an External Thread"
+description = "How to use an external thread to run an infinite task and communicate with a channel"
+category = "Async Tasks"
+wasm = false
 
 # Audio
 [[example]]
