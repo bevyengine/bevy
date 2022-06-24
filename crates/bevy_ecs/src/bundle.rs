@@ -96,9 +96,8 @@ pub unsafe trait Bundle: Send + Sync + 'static {
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized;
 
-    /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This will
-    /// [`std::mem::forget`] the bundle fields, so callers are responsible for dropping the fields
-    /// if that is desirable.
+    /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
+    /// ownership of the component values to `func`.
     fn get_components(self, func: impl FnMut(OwningPtr<'_>));
 }
 
