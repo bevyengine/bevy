@@ -63,7 +63,6 @@ Example | File | Description
 `hello_world` | [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
 
 # Cross-Platform Examples
-
 {% for category, examples in all_examples %}
 ## {{ category }}
 
