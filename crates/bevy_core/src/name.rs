@@ -8,12 +8,51 @@ use std::{
     ops::Deref,
 };
 
-/// Component used to identify an entity. Stores a hash for faster comparisons
+/// Component used to identify an entity. Stores a hash for faster comparisons.
 /// The hash is eagerly re-computed upon each update to the name.
 ///
 /// [`Name`] should not be treated as a globally unique identifier for entities,
 /// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
 /// used instead as the default unique identifier.
+///
+/// # Example
+///
+/// A [`Name`] can be created from any string-like type:
+///
+/// ```
+/// # use bevy_core::Name;
+/// #
+/// let name1 = Name::new("Bevy");
+/// let name2 = Name::new("Bevy".to_string());
+///
+/// assert_eq!(name1, name2);
+/// ```
+///
+/// Using [`Name`] in an app:
+///
+/// ```no_run
+/// # use bevy_app::App;
+/// # use bevy_core::Name;
+/// # use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///     App::new()
+///         .add_startup_system(spawn_system)
+///         .add_system(query_system);
+/// }
+///
+/// fn spawn_system(mut commands: Commands) {
+///     // Add a new entity with a name
+///     commands.spawn().insert(Name::new("Bevy"));
+/// }
+///
+/// fn query_system(query: Query<&Name>) {
+///     // Print out the names of all entities that have one
+///     for name in query.iter() {
+///         println!("{name}");
+///     }
+/// }
+/// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Name {
