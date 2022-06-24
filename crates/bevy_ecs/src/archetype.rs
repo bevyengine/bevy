@@ -5,7 +5,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
-    storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
+    storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId}, world::archetype_invariants::{ArchetypeInvariants},
 };
 use std::{
     collections::HashMap,
@@ -152,6 +152,7 @@ impl Archetype {
         sparse_set_components: Box<[ComponentId]>,
         table_archetype_components: Vec<ArchetypeComponentId>,
         sparse_set_archetype_components: Vec<ArchetypeComponentId>,
+        archetype_invariants: &ArchetypeInvariants
     ) -> Self {
         let mut components =
             SparseSet::with_capacity(table_components.len() + sparse_set_components.len());
@@ -391,7 +392,7 @@ impl Default for Archetypes {
             archetype_ids: Default::default(),
             archetype_component_count: 0,
         };
-        archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
+        archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new(), &ArchetypeInvariants::default());
 
         // adds the resource archetype. it is "special" in that it is inaccessible via a "hash",
         // which prevents entities from being added to it
@@ -402,6 +403,7 @@ impl Default for Archetypes {
             Box::new([]),
             Vec::new(),
             Vec::new(),
+            &ArchetypeInvariants::default(),
         ));
         archetypes
     }
@@ -488,6 +490,7 @@ impl Archetypes {
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
+        archetype_invariants: &ArchetypeInvariants,
     ) -> ArchetypeId {
         let table_components = table_components.into_boxed_slice();
         let sparse_set_components = sparse_set_components.into_boxed_slice();
@@ -521,6 +524,7 @@ impl Archetypes {
                     sparse_set_components,
                     table_archetype_components,
                     sparse_set_archetype_components,
+                    archetype_invariants
                 ));
                 id
             })

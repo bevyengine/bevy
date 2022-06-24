@@ -1059,6 +1059,7 @@ impl World {
             &mut self.components,
             &mut self.storages,
             change_tick,
+            &self.archetype_invariants,
         ));
 
         let mut invalid_entities = Vec::new();
@@ -1083,6 +1084,7 @@ impl World {
                                 &mut self.storages,
                                 location.archetype_id,
                                 change_tick,
+                                &self.archetype_invariants,
                             );
                             // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
                             unsafe { inserter.insert(entity, location.index, bundle) };
@@ -1102,6 +1104,7 @@ impl World {
                             &mut self.components,
                             &mut self.storages,
                             change_tick,
+                            &self.archetype_invariants,
                         );
                         // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };
