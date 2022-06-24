@@ -252,6 +252,5 @@ mod tests {
 
         world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
         world.spawn().insert_bundle((A, B));
-        // The archetype invariant should catch this invalid arrangement and panic
     }
 }
