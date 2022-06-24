@@ -687,8 +687,10 @@ impl World {
         &mut self,
         archetype_invariant: ArchetypeInvariant<B1, B2>,
     ) {
-        let internal_invariant = archetype_invariant.into_untyped(self);
-        self.archetype_invariants.add(internal_invariant);
+        let untyped_invariant = archetype_invariant.into_untyped(self);
+        self.archetype_invariants.add(untyped_invariant);
+
+        todo!("Check all archetypes against the new invariant");
     }
 
     /// Inserts a new [`UntypedArchetypeInvariant`] to the world

@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 
-use bevy_utils::{tracing::warn, HashSet};
+use bevy_utils::{tracing::warn};
+use fixedbitset::FixedBitSet;
+use std::collections::BTreeSet;
 
 use crate::{component::ComponentId, prelude::Bundle, world::World};
 
@@ -82,7 +84,7 @@ impl<B: Bundle> ArchetypeStatement<B> {
     /// Requires mutable world access, since the components might not have been added to the world yet.
     pub fn into_untyped(self, world: &mut World) -> UntypedArchetypeStatement {
         let component_ids = B::component_ids(&mut world.components, &mut world.storages);
-        let component_ids: HashSet<ComponentId> = component_ids.into_iter().collect();
+        let component_ids: BTreeSet<ComponentId> = component_ids.into_iter().collect();
 
         match self {
             ArchetypeStatement::AllOf(_) => UntypedArchetypeStatement::AllOf(component_ids),
@@ -132,18 +134,31 @@ pub struct UntypedArchetypeInvariant {
 #[derive(Clone, Debug, PartialEq)]
 pub enum UntypedArchetypeStatement {
     /// Evaluates to true if and only if the entity has all of the components present in the set
-    AllOf(HashSet<ComponentId>),
+    AllOf(BTreeSet<ComponentId>),
     /// The entity has at least one component in the set, and may have all of them.
     /// When using a single-component bundle, `AllOf` is preferred
-    AtLeastOneOf(HashSet<ComponentId>),
+    AtLeastOneOf(BTreeSet<ComponentId>),
     /// The entity has none of the components in the set
-    NoneOf(HashSet<ComponentId>),
+    NoneOf(BTreeSet<ComponentId>),
+}
+
+impl UntypedArchetypeStatement {
+    /// Get the set of [`ComponentId`]s affected by this statement
+    pub fn component_ids(&self) -> &BTreeSet<ComponentId> {
+        match self {
+            UntypedArchetypeStatement::AllOf(set) => &set,
+            UntypedArchetypeStatement::AtLeastOneOf(set) => &set,
+            UntypedArchetypeStatement::NoneOf(set) => &set,
+        }
+    }
 }
 
 #[derive(Default)]
 pub struct ArchetypeInvariants {
+    /// The list of invariants that must be upheld
     raw_list: Vec<UntypedArchetypeInvariant>,
-    last_checked_archetype_index: u32,
+    /// The set of all components that are used across all invariants
+    sorted_unique_component_ids: BTreeSet<ComponentId>
 }
 
 impl ArchetypeInvariants {
@@ -151,9 +166,40 @@ impl ArchetypeInvariants {
     ///
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
+    #[inline]
     pub fn add(&mut self, archetype_invariant: UntypedArchetypeInvariant) {
-        self.last_checked_archetype_index = 0;
+        let predicate_ids = archetype_invariant.predicate.component_ids();
+        let consequence_ids = archetype_invariant.consequence.component_ids();
+        
+        for id in predicate_ids.iter() {
+            self.sorted_unique_component_ids.insert(*id);
+        }
+        for id in consequence_ids.iter() {
+            self.sorted_unique_component_ids.insert(*id);
+        }
+        
         self.raw_list.push(archetype_invariant);
+    }
+
+    /// Assert that the provided iterator of [`ComponentId`]s obeys all archetype invariants
+    ///
+    /// `component_ids` is generally provided via the `components` field on [`Archetype`].
+    ///
+    /// # Panics
+    /// Panics if any archetype invariant is violated
+    pub(crate) fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
+        // Bit array of which components are contained in the archetype given
+        let mut contained_components = FixedBitSet::with_capacity(self.sorted_unique_component_ids.len());
+        let sorted_component_ids_of_archetype: BTreeSet<ComponentId> = component_ids_of_archetype.collect();
+
+        for (i, invariant_component_id) in self.sorted_unique_component_ids.iter().enumerate() {
+            if sorted_component_ids_of_archetype.contains(invariant_component_id) {
+                contained_components.put(i);
+            }
+        }
+
+        for invariant in self.raw_list.iter() {
+        }
     }
 }
 

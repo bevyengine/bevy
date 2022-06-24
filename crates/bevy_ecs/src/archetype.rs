@@ -180,6 +180,9 @@ impl Archetype {
                 },
             );
         }
+
+        archetype_invariants.test_archetype(components.indices());
+
         Self {
             id,
             table_info: TableInfo {
