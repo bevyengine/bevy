@@ -275,6 +275,7 @@ cargo run --release --example <example name>
 Example | File | Description
 --- | --- | ---
 `bevymark` | [`stress_tests/bevymark.rs`](./stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+`many_animated_sprites` | [`stress_tests/many_animated_sprites.rs`](./stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arragement with slight offsets to their animation timers. Used for performance testing.
 `many_cubes` | [`stress_tests/many_cubes.rs`](./stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling.
 `many_foxes` | [`stress_tests/many_foxes.rs`](./stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000.
 `many_lights` | [`stress_tests/many_lights.rs`](./stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
