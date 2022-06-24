@@ -44,6 +44,7 @@ git checkout v0.4.0
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
   - [Audio](#audio)
+  - [Diagnostics](#diagnostics)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -158,6 +159,13 @@ Example | Description
 --- | ---
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
+
+## Diagnostics
+
+Example | Description
+--- | ---
+[Custom Diagnostic](../examples/diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic
+[Log Diagnostics](../examples/diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics, like frames per second (FPS), to the console
 
 # Platform-Specific Examples
 

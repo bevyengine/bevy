@@ -685,9 +685,21 @@ wasm = true
 name = "log_diagnostics"
 path = "examples/diagnostics/log_diagnostics.rs"
 
+[package.metadata.example.log_diagnostics]
+name = "Log Diagnostics"
+description = "Add a plugin that logs diagnostics, like frames per second (FPS), to the console"
+category = "Diagnostics"
+wasm = true
+
 [[example]]
 name = "custom_diagnostic"
 path = "examples/diagnostics/custom_diagnostic.rs"
+
+[package.metadata.example.custom_diagnostic]
+name = "Custom Diagnostic"
+description = "Shows how to create a custom diagnostic"
+category = "Diagnostics"
+wasm = true
 
 # ECS (Entity Component System)
 [[example]]
