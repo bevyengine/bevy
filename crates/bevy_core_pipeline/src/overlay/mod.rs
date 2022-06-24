@@ -71,7 +71,7 @@ fn prepare_overlay_diagnostics(
     }
 }
 
-/// Overlay to display the FPS. This plugin is part of the [`DefaultPlugins`](bevy_internal::DefaultPlugins)
+/// Overlay to display the FPS. This plugin is part of the default plugins,
 /// and enabled by default.
 ///
 /// To disable it, you can either:
