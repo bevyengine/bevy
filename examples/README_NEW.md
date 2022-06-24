@@ -43,6 +43,7 @@ git checkout v0.4.0
   - [Application](#application)
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
+  - [Audio](#audio)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -150,6 +151,13 @@ Example | Description
 --- | ---
 [Async Compute](../examples/async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
 [External Source of Data on an External Thread](../examples/async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel
+
+## Audio
+
+Example | Description
+--- | ---
+[Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
+[Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 
 # Platform-Specific Examples
 
