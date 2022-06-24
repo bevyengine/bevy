@@ -123,7 +123,11 @@ impl Default for PrintingTimer {
 }
 
 // System for printing the number of sprites on every tick of the timer
-fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites: Query<&TextureAtlasSprite>) {
+fn print_sprite_count(
+    time: Res<Time>,
+    mut timer: Local<PrintingTimer>,
+    sprites: Query<&TextureAtlasSprite>,
+) {
     timer.tick(time.delta());
 
     if timer.just_finished() {
