@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_utils::{tracing::warn};
-use fixedbitset::FixedBitSet;
+use bevy_utils::{tracing::warn, HashSet};
 use std::collections::BTreeSet;
 
 use crate::{component::ComponentId, prelude::Bundle, world::World};
@@ -9,6 +8,9 @@ use crate::{component::ComponentId, prelude::Bundle, world::World};
 /// A rule about which [`Component`]s can coexist on entities
 ///
 /// These rules must be true at all times for all entities in the [`World`].
+/// The generic [`Bundle`] type `B1` is always used in the `predicate`,
+/// while `B2` is used in the `consequence`.
+/// If only a single generic is provided, these types are the same.
 ///
 /// When added to the [`World`], archetype invariants behave like [`assert!`];
 /// all archetype invariants must be true for every entity in the [`World`].
@@ -151,14 +153,42 @@ impl UntypedArchetypeStatement {
             UntypedArchetypeStatement::NoneOf(set) => &set,
         }
     }
+
+    /// Test if this statement is true for the provided set of [`ComponentId`]s
+    pub fn test(&self, component_ids: &HashSet<ComponentId>) -> bool{        
+        match self {
+            UntypedArchetypeStatement::AllOf(required_ids) => {
+                for required_id in required_ids {
+                    if !component_ids.contains(required_id) {
+                        return false;
+                    }
+                }
+                true
+            },
+            UntypedArchetypeStatement::AtLeastOneOf(desired_ids) => {
+                for desired_id in desired_ids {
+                    if component_ids.contains(desired_id) {
+                        return true;
+                    }
+                }
+                false
+            },
+            UntypedArchetypeStatement::NoneOf(forbidden_ids) => {
+                for forbidden_id in forbidden_ids {
+                    if component_ids.contains(forbidden_id) {
+                        return false;
+                    }
+                }
+                true
+            },
+        }
+    }
 }
 
 #[derive(Default)]
 pub struct ArchetypeInvariants {
     /// The list of invariants that must be upheld
     raw_list: Vec<UntypedArchetypeInvariant>,
-    /// The set of all components that are used across all invariants
-    sorted_unique_component_ids: BTreeSet<ComponentId>
 }
 
 impl ArchetypeInvariants {
@@ -167,17 +197,7 @@ impl ArchetypeInvariants {
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
     #[inline]
-    pub fn add(&mut self, archetype_invariant: UntypedArchetypeInvariant) {
-        let predicate_ids = archetype_invariant.predicate.component_ids();
-        let consequence_ids = archetype_invariant.consequence.component_ids();
-        
-        for id in predicate_ids.iter() {
-            self.sorted_unique_component_ids.insert(*id);
-        }
-        for id in consequence_ids.iter() {
-            self.sorted_unique_component_ids.insert(*id);
-        }
-        
+    pub fn add(&mut self, archetype_invariant: UntypedArchetypeInvariant) {        
         self.raw_list.push(archetype_invariant);
     }
 
@@ -188,17 +208,15 @@ impl ArchetypeInvariants {
     /// # Panics
     /// Panics if any archetype invariant is violated
     pub(crate) fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
-        // Bit array of which components are contained in the archetype given
-        let mut contained_components = FixedBitSet::with_capacity(self.sorted_unique_component_ids.len());
-        let sorted_component_ids_of_archetype: BTreeSet<ComponentId> = component_ids_of_archetype.collect();
-
-        for (i, invariant_component_id) in self.sorted_unique_component_ids.iter().enumerate() {
-            if sorted_component_ids_of_archetype.contains(invariant_component_id) {
-                contained_components.put(i);
-            }
-        }
-
+        let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
+        
         for invariant in self.raw_list.iter() {
+            if 
+                invariant.predicate.test(&component_ids_of_archetype) &&
+                !invariant.consequence.test(&component_ids_of_archetype)
+            {
+                panic!("Archetype invariant violated!")
+            }
         }
     }
 }
@@ -220,11 +238,20 @@ mod tests {
     struct C;
 
     #[test]
-    fn full_bundle() {
+    fn full_bundle_happy() {
         let mut world = World::new();
 
         world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
+        world.spawn().insert_bundle((A, B, C));
+    }
 
-        todo!();
+    #[test]
+    #[should_panic]
+    fn full_bundle_sad() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
+        world.spawn().insert_bundle((A, B));
+        // The archetype invariant should catch this invalid arrangement and panic
     }
 }
