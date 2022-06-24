@@ -72,6 +72,10 @@ use std::{any::TypeId, collections::HashMap};
 ///
 /// # Safety
 ///
+/// Note: Manual implementations of this trait are *not* permitted. That is, there may be arbitrary additional
+/// safety requirements not listed here.
+/// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`]
+///
 /// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
 /// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
 /// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
@@ -88,7 +92,8 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// [`Component`]s
     unsafe fn from_components<T, F>(ctx: &mut T, func: F) -> Self
     where
-        F: FnMut(&mut T) -> OwningPtr<'_>,
+        // Ensure that the `OwningPtr` is used correctly
+        F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized;
 
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This will
@@ -111,6 +116,8 @@ macro_rules! tuple_impl {
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
+                // Rust guarantees that tuple calls are evaluated 'left to right'.
+                // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
                 #[allow(non_snake_case)]
                 ($(func(ctx).read::<$name>(),)*)
             }
