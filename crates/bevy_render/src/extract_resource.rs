@@ -4,7 +4,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::system::{Commands, Res, Resource};
 pub use bevy_render_macros::ExtractResource;
 
-use crate::{RenderApp, RenderStage};
+use crate::{Extract, RenderApp, RenderStage};
 
 /// Describes how a resource gets extracted for rendering.
 ///
@@ -39,7 +39,11 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
 
 /// This system extracts the resource of the corresponding [`Resource`] type
 /// by cloning it.
-pub fn extract_resource<R: ExtractResource>(mut commands: Commands, resource: Res<R::Source>) {
+pub fn extract_resource<R: ExtractResource>(
+    mut commands: Commands,
+    mut resource: Extract<Res<R::Source>>,
+) {
+    let resource = resource.value();
     if resource.is_changed() {
         commands.insert_resource(R::extract_resource(resource.into_inner()));
     }

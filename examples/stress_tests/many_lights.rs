@@ -6,7 +6,7 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::ScalingMode, RenderApp, RenderStage},
+    render::{camera::ScalingMode, Extract, RenderApp, RenderStage},
 };
 use rand::{thread_rng, Rng};
 
@@ -170,8 +170,9 @@ fn print_visible_light_count(
     }
 }
 
-fn extract_time(mut commands: Commands, time: Res<Time>) {
-    commands.insert_resource(time.into_inner().clone());
+// TODO: Is this unidiomatic? Oh well, it's a stress test
+fn extract_time(mut commands: Commands, mut time: Extract<Res<Time>>) {
+    commands.insert_resource(time.value().into_inner().clone());
 }
 
 struct PrintingTimer(Timer);

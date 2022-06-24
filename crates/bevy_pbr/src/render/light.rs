@@ -27,6 +27,7 @@ use bevy_render::{
     view::{
         ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
     },
+    Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
@@ -381,8 +382,11 @@ pub struct ExtractedClustersPointLights {
     data: Vec<VisiblePointLights>,
 }
 
-pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters), With<Camera>>) {
-    for (entity, clusters) in views.iter() {
+pub fn extract_clusters(
+    mut commands: Commands,
+    mut views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
+) {
+    for (entity, clusters) in views.value().iter() {
         commands.get_or_spawn(entity).insert_bundle((
             ExtractedClustersPointLights {
                 data: clusters.lights.clone(),
@@ -399,24 +403,28 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
 #[allow(clippy::too_many_arguments)]
 pub fn extract_lights(
     mut commands: Commands,
-    point_light_shadow_map: Res<PointLightShadowMap>,
-    directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    global_point_lights: Res<GlobalVisiblePointLights>,
-    mut point_lights: Query<(&PointLight, &mut CubemapVisibleEntities, &GlobalTransform)>,
-    mut directional_lights: Query<(
-        Entity,
-        &DirectionalLight,
-        &mut VisibleEntities,
-        &GlobalTransform,
-        &Visibility,
-    )>,
+    mut point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
+    mut directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
+    mut global_point_lights: Extract<Res<GlobalVisiblePointLights>>,
+    mut point_lights: Extract<Query<(&PointLight, &CubemapVisibleEntities, &GlobalTransform)>>,
+    mut directional_lights: Extract<
+        Query<(
+            Entity,
+            &DirectionalLight,
+            &VisibleEntities,
+            &GlobalTransform,
+            &Visibility,
+        )>,
+    >,
     mut previous_point_lights_len: Local<usize>,
 ) {
     // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
     // races between scheduling of ExtractResourceSystems and this system.
+    let point_light_shadow_map = point_light_shadow_map.value();
     if point_light_shadow_map.is_changed() {
         commands.insert_resource(point_light_shadow_map.clone());
     }
+    let directional_light_shadow_map = directional_light_shadow_map.value();
     if directional_light_shadow_map.is_changed() {
         commands.insert_resource(directional_light_shadow_map.clone());
     }
@@ -430,11 +438,12 @@ pub fn extract_lights(
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
-    for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get_mut(entity)
-        {
-            let render_cubemap_visible_entities =
-                std::mem::take(cubemap_visible_entities.into_inner());
+    let point_lights = point_lights.value();
+    for entity in global_point_lights.value().iter().copied() {
+        if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get(entity) {
+            // TODO: This is very much not ideal. We should be able to re-use the vector memory.
+            // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
+            let render_cubemap_visible_entities = cubemap_visible_entities.clone();
             point_lights_values.push((
                 entity,
                 (
@@ -463,7 +472,7 @@ pub fn extract_lights(
     commands.insert_or_spawn_batch(point_lights_values);
 
     for (entity, directional_light, visible_entities, transform, visibility) in
-        directional_lights.iter_mut()
+        directional_lights.value().iter()
     {
         if !visibility.is_visible {
             continue;
@@ -481,7 +490,8 @@ pub fn extract_lights(
             );
         let directional_light_texel_size =
             largest_dimension / directional_light_shadow_map.size as f32;
-        let render_visible_entities = std::mem::take(visible_entities.into_inner());
+        // TODO: As above
+        let render_visible_entities = visible_entities.clone();
         commands.get_or_spawn(entity).insert_bundle((
             ExtractedDirectionalLight {
                 color: directional_light.color,
