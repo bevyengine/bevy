@@ -15,7 +15,7 @@ use std::{
 /// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
 /// used instead as the default unique identifier.
 ///
-/// # Example
+/// # Examples
 ///
 /// A [`Name`] can be created from any string-like type:
 ///
@@ -34,7 +34,7 @@ use std::{
 /// # use bevy_app::App;
 /// # use bevy_core::Name;
 /// # use bevy_ecs::prelude::*;
-///
+/// #
 /// fn main() {
 ///     App::new()
 ///         .add_startup_system(spawn_system)
@@ -79,6 +79,7 @@ impl Name {
     /// # use bevy_core::Name;
     /// #
     /// let name = Name::new("Bevy");
+    ///
     /// assert_eq!(name.as_str(), "Bevy");
     /// ```
     ///
@@ -89,6 +90,7 @@ impl Name {
     /// #
     /// let title = "Dr.";
     /// let name = Name::new(format!("{title} Who"));
+    ///
     /// assert_eq!(name.as_str(), "Dr. Who");
     /// ```
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
@@ -148,6 +150,7 @@ impl Name {
     /// # use bevy_core::Name;
     /// #
     /// let name = Name::new("Bevy");
+    ///
     /// assert_eq!(name.as_str(), "Bevy");
     /// ```
     #[inline(always)]
