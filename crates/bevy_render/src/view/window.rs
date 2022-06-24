@@ -2,7 +2,7 @@ use crate::{
     render_resource::TextureView,
     renderer::{RenderDevice, RenderInstance},
     texture::BevyDefault,
-    ExtractFromMainWorld, RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{prelude::*, system::lifetimeless::SRes};
@@ -70,9 +70,9 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut closed: Extract<EventReader<WindowClosed>>,
     mut extracted_windows: ResMut<ExtractedWindows>,
-    windows: ExtractFromMainWorld<SRes<Windows>>,
+    mut windows: Extract<SRes<Windows>>,
 ) {
-    for window in windows.iter() {
+    for window in windows.value().iter() {
         let (new_width, new_height) = (
             window.physical_width().max(1),
             window.physical_height().max(1),
@@ -108,7 +108,7 @@ fn extract_windows(
             extracted_window.physical_height = new_height;
         }
     }
-    for closed_window in closed.iter() {
+    for closed_window in closed.value().iter() {
         extracted_windows.remove(&closed_window.id);
     }
 }
