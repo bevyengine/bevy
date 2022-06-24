@@ -23,7 +23,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
-    RenderWorld,
+    Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
@@ -198,14 +198,13 @@ pub struct SpriteAssetEvents {
 }
 
 pub fn extract_sprite_events(
-    mut render_world: ResMut<RenderWorld>,
-    mut image_events: EventReader<AssetEvent<Image>>,
+    mut events: ResMut<SpriteAssetEvents>,
+    mut image_events: Extract<EventReader<AssetEvent<Image>>>,
 ) {
-    let mut events = render_world.resource_mut::<SpriteAssetEvents>();
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
-    for image in image_events.iter() {
+    for image in image_events.value().iter() {
         // AssetEvent: !Clone
         images.push(match image {
             AssetEvent::Created { handle } => AssetEvent::Created {
@@ -222,19 +221,20 @@ pub fn extract_sprite_events(
 }
 
 pub fn extract_sprites(
-    mut render_world: ResMut<RenderWorld>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    sprite_query: Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>,
-    atlas_query: Query<(
-        &Visibility,
-        &TextureAtlasSprite,
-        &GlobalTransform,
-        &Handle<TextureAtlas>,
-    )>,
+    mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    mut sprite_query: Extract<Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>>,
+    mut atlas_query: Extract<
+        Query<(
+            &Visibility,
+            &TextureAtlasSprite,
+            &GlobalTransform,
+            &Handle<TextureAtlas>,
+        )>,
+    >,
 ) {
-    let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
     extracted_sprites.sprites.clear();
-    for (visibility, sprite, transform, handle) in sprite_query.iter() {
+    for (visibility, sprite, transform, handle) in sprite_query.value().iter() {
         if !visibility.is_visible {
             continue;
         }
@@ -252,7 +252,8 @@ pub fn extract_sprites(
             anchor: sprite.anchor.as_vec(),
         });
     }
-    for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
+    let texture_atlases = texture_atlases.value();
+    for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.value().iter() {
         if !visibility.is_visible {
             continue;
         }
