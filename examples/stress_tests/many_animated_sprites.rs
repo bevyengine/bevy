@@ -2,10 +2,9 @@
 //!
 //! It sets up many animated sprites in different sizes and rotations, and at different scales in the world,
 //! and moves the camera over them to see how well frustum culling works.
-//! 
+//!
 //! To measure performance realistically, be sure to run this in release mode.
 //! `cargo run --example many_animated_sprites --release`
-
 
 use std::time::Duration;
 
@@ -33,7 +32,11 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>) {
+fn setup(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
     let mut rng = rand::thread_rng();
 
     let tile_size = Vec2::splat(64.0);
@@ -62,19 +65,21 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, mut texture_atlases: 
             let mut timer = Timer::from_seconds(0.1, true);
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
-            commands.spawn_bundle(SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle.clone(),
-                transform: Transform {
-                    translation,
-                    rotation,
-                    scale,
-                },
-                sprite: TextureAtlasSprite {
-                    custom_size: Some(tile_size),
+            commands
+                .spawn_bundle(SpriteSheetBundle {
+                    texture_atlas: texture_atlas_handle.clone(),
+                    transform: Transform {
+                        translation,
+                        rotation,
+                        scale,
+                    },
+                    sprite: TextureAtlasSprite {
+                        custom_size: Some(tile_size),
+                        ..default()
+                    },
                     ..default()
-                },
-                ..default()
-            }).insert(AnimationTimer(timer));
+                })
+                .insert(AnimationTimer(timer));
         }
     }
 }
