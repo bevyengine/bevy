@@ -430,7 +430,7 @@ name = "wireframe"
 path = "examples/3d/wireframe.rs"
 
 [package.metadata.example.wireframe]
-name = "Texture"
+name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
 wasm = true
