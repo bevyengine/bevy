@@ -319,10 +319,13 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     running_world.insert_resource(MainWorld(inserted_world));
 
     extract.run(running_world);
-    extract.apply_buffers(running_world);
-
     // move the app world back, as if nothing happened.
     let inserted_world = running_world.remove_resource::<MainWorld>().unwrap();
     let scratch_world = std::mem::replace(app_world, inserted_world.0);
     app_world.insert_resource(ScratchMainWorld(scratch_world));
+
+    // Note: We apply buffers (read, Commands) after the `MainWorld` has been removed from the render app's world
+    // so that in future, pipelining will be able to do this too without any code relying on it.
+    // see <https://github.com/bevyengine/bevy/issues/5082>
+    extract.apply_buffers(running_world);
 }
