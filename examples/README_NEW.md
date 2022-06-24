@@ -41,6 +41,7 @@ git checkout v0.4.0
   - [3D Rendering](#3d-rendering)
   - [Animation](#animation)
   - [Application](#application)
+  - [Assets](#assets)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -132,6 +133,15 @@ Example | Description
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
 [Headless with Defaults](../examples/app/headless_defaults.rs) | An application that runs with default plugins, but without an actual renderer
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
+
+## Assets
+
+Example | Description
+--- | ---
+[Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
+[Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
+[Custom Asset IO](../examples/asset/custom_asset_io.rs) | Implements a custom asset io loader
+[Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 
 # Platform-Specific Examples
 

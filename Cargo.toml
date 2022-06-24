@@ -602,17 +602,41 @@ wasm = true
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
 
+[package.metadata.example.asset_loading]
+name = "Asset Loading"
+description = "Demonstrates various methods to load assets"
+category = "Assets"
+wasm = true
+
 [[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
+
+[package.metadata.example.custom_asset]
+name = "Custom Asset"
+description = "Implements a custom asset loader"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "custom_asset_io"
 path = "examples/asset/custom_asset_io.rs"
 
+[package.metadata.example.custom_asset_io]
+name = "Custom Asset IO"
+description = "Implements a custom asset io loader"
+category = "Assets"
+wasm = true
+
 [[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
+
+[package.metadata.example.hot_asset_reloading]
+name = "Hot Reloading of Assets"
+description = "Demonstrates automatic reloading of assets when modified on disk"
+category = "Assets"
+wasm = true
 
 # Async Tasks
 [[example]]
