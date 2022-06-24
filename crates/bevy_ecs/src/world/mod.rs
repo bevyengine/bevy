@@ -8,7 +8,9 @@ pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
 
-use self::archetype_invariants::{ArchetypeInvariants, ArchetypeInvariant, UntypedArchetypeInvariant};
+use self::archetype_invariants::{
+    ArchetypeInvariant, ArchetypeInvariants, UntypedArchetypeInvariant,
+};
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
@@ -158,7 +160,7 @@ impl World {
         &self.archetypes
     }
 
-    /// Retrieves this world's [ArchetypeInvariants] collection
+    /// Retrieves this world's [`ArchetypeInvariants`] collection
     #[inline]
     pub fn archetype_invariants(&self) -> &ArchetypeInvariants {
         &self.archetype_invariants
@@ -676,29 +678,30 @@ impl World {
         }
     }
 
-    /// Inserts a new [`ArchetypeInvariant`] to the world. 
-    /// 
+    /// Inserts a new [`ArchetypeInvariant`] to the world.
+    ///
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
     #[inline]
-    pub fn add_archetype_invariant(
+    pub fn add_archetype_invariant<B1: Bundle, B2: Bundle>(
         &mut self,
-        archetype_invariant: ArchetypeInvariant
+        archetype_invariant: ArchetypeInvariant<B1, B2>,
     ) {
         let internal_invariant = archetype_invariant.into_untyped(self);
         self.archetype_invariants.add(internal_invariant);
     }
 
     /// Inserts a new [`UntypedArchetypeInvariant`] to the world
-    /// 
+    ///
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
     /// Prefer [`add_archetype_invariant`](World::add_archertype_invariant) where possible.
+    #[inline]
     pub fn add_untyped_archetype_invariant(
         &mut self,
-        archetype_invariant: UntypedArchetypeInvariant
+        archetype_invariant: UntypedArchetypeInvariant,
     ) {
-        self.archetype_invariants.add(archetype_invariant)
+        self.archetype_invariants.add(archetype_invariant);
     }
 
     /// Inserts a new resource with standard starting values.

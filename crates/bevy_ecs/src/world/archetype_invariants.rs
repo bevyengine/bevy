@@ -1,8 +1,8 @@
-use std::any::TypeId;
+use std::marker::PhantomData;
 
-use bevy_utils::HashSet;
+use bevy_utils::{tracing::warn, HashSet};
 
-use crate::{prelude::{Bundle, Component}, world::World, component::ComponentId};
+use crate::{component::ComponentId, prelude::Bundle, world::World};
 
 /// A rule about which [`Component`]s can coexist on entities
 ///
@@ -12,107 +12,106 @@ use crate::{prelude::{Bundle, Component}, world::World, component::ComponentId};
 /// all archetype invariants must be true for every entity in the [`World`].
 /// Archetype invariants are checked each time [`Archetypes`] is modified;
 /// this can occur on component addition, component removal, and entity spawning.
-/// 
+///
 /// Archetypes are only modified when a novel archetype (set of components) is seen for the first time;
 /// swapping between existing archetypes will not trigger these checks.
-/// 
+///
 /// Note that this is converted to an [`UntypedArchetypeInvariant`] when added to a [`World`].
 /// This is to ensure compatibility between different invariants.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ArchetypeInvariant {
+pub struct ArchetypeInvariant<B1: Bundle, B2: Bundle = B1> {
     /// For all entities where the predicate is true
-    pub predicate: ArchetypeStatement,
+    pub predicate: ArchetypeStatement<B1>,
     /// The consequence must also be true
-    pub consequence: ArchetypeStatement,
+    pub consequence: ArchetypeStatement<B2>,
 }
 
-impl ArchetypeInvariant {
+impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
+    /// Erases the type information of this archetype invariant.
+    ///
+    /// Requires mutable world access, since the components might not have been added to the world yet.
+    #[inline]
+    pub fn into_untyped(self, world: &mut World) -> UntypedArchetypeInvariant {
+        UntypedArchetypeInvariant {
+            predicate: self.predicate.into_untyped(world),
+            consequence: self.consequence.into_untyped(world),
+        }
+    }
+}
+
+impl<B: Bundle> ArchetypeInvariant<B, B> {
     /// This is a helper function for constructing common invariants.
     /// All components of the provided bundle require each other.
     /// In other words, if any one component of this bundle is present, then all of them must be.
     #[inline]
-    pub fn full_bundle<B: Bundle>() -> Self {
-        Self { 
-            predicate: ArchetypeStatement::at_least_one_of::<B>(),
-            consequence: ArchetypeStatement::all_of::<B>()
-        }
-    }
-
-    /// Erases the type information of this archetype invariant.
-    /// 
-    /// Requires mutable world access, since the components might not have been added to the world yet.
-    #[inline]
-    pub fn into_untyped(self, world: &mut World) -> UntypedArchetypeInvariant {
-        UntypedArchetypeInvariant { 
-            predicate: self.predicate.into_untyped(world),
-            consequence: self.consequence.into_untyped(world)
+    pub fn full_bundle() -> Self {
+        Self {
+            predicate: ArchetypeStatement::<B>::at_least_one_of(),
+            consequence: ArchetypeStatement::<B>::all_of(),
         }
     }
 }
 
 /// A statement about the presence or absence of some subset of components in the given [`Bundle`]
 ///
-/// This type is used as part of an [`ArchetypeInvariant`]. 
-/// For the single-component equivalent, see [`ComponentStatement`]. 
+/// This type is used as part of an [`ArchetypeInvariant`].
 ///
-/// When used as a predicate, the archetype invariant matches all entities which satisfy the statement. 
+/// When used as a predicate, the archetype invariant matches all entities which satisfy the statement.
 /// When used as a consquence, then the statment must be true for all entities that were matched by the predicate.
-/// 
+///
+/// For the statements about a single component `C`, wrap it in a single-component bundle `(C,)`.
+/// For single component bundles, `AllOf` and `AtLeastOneOf` are equivalent.
+/// Prefer `ArchetypeStatement::<(C,)>::all_of` over `ArchetypeStatement::<(C,)>::at_least_one_of` for consistency and clarity.
+///
 /// Note that this is converted to an [`UntypedArchetypeStatment`] when added to a [`World`].
 /// This is to ensure compatibility between different invariants.
 #[derive(Clone, Debug, PartialEq)]
-pub enum ArchetypeStatement {
-	/// Evaluates to true if and only if the entity has the component of type `C`
-	Has(TypeId),
-	/// Evaluates to true if and only if the entity does not have the component of type `C`
-	DoesNotHave(TypeId),
-	/// Evaluates to true if and only if the entity has all of the components present in Bundle `B`
-    AllOf(HashSet<TypeId>),
-    /// The entity has at least one component in the bundle, and may have all of them
-    AtLeastOneOf(HashSet<TypeId>),
-    /// The entity has none of the components in the bundle
-    NoneOf(HashSet<TypeId>),
+pub enum ArchetypeStatement<B: Bundle> {
+    /// Evaluates to true if and only if the entity has all of the components present in the bundle `B`
+    AllOf(PhantomData<B>),
+    /// The entity has at least one component in the bundle `B`, and may have all of them.
+    /// When using a single-component bundle, `AllOf` is preferred.
+    AtLeastOneOf(PhantomData<B>),
+    /// The entity has none of the components in the bundle `B`
+    NoneOf(PhantomData<B>),
 }
 
-impl ArchetypeStatement {
+impl<B: Bundle> ArchetypeStatement<B> {
     /// Erases the type information of this archetype statment.
-    /// 
+    ///
     /// Requires mutable world access, since the components might not have been added to the world yet.
-    pub fn into_untyped(self, _world: &mut World) -> UntypedArchetypeStatement {
+    pub fn into_untyped(self, world: &mut World) -> UntypedArchetypeStatement {
+        let component_ids = B::component_ids(&mut world.components, &mut world.storages);
+        let component_ids: HashSet<ComponentId> = component_ids.into_iter().collect();
+
         match self {
-            ArchetypeStatement::Has(_) => todo!(),
-            ArchetypeStatement::DoesNotHave(_) => todo!(),
-            ArchetypeStatement::AllOf(_) => todo!(),
-            ArchetypeStatement::AtLeastOneOf(_) => todo!(),
-            ArchetypeStatement::NoneOf(_) => todo!(),
+            ArchetypeStatement::AllOf(_) => UntypedArchetypeStatement::AllOf(component_ids),
+            ArchetypeStatement::AtLeastOneOf(_) => {
+                if component_ids.len() == 1 {
+                    warn!("An `ArchetypeStatement::AtLeastOneOf` was constructed for a bundle with only one component. Prefer the equivalent `ArchetypeStatment:AllOf` for consistency and clarity.");
+                }
+                UntypedArchetypeStatement::AtLeastOneOf(component_ids)
+            }
+            ArchetypeStatement::NoneOf(_) => UntypedArchetypeStatement::NoneOf(component_ids),
         }
     }
-    
-    /// Constructs a new [`ArchetypeStatement::Has`] variant for a component of type `C`
-	pub fn has<C: Component>() -> Self {
-		let type_id = TypeId::of::<C>();
-        ArchetypeStatement::Has(type_id)
+
+    /// Constructs a new [`ArchetypeStatement::AllOf`] variant for all components stored in the bundle `B`
+    #[inline]
+    pub const fn all_of() -> Self {
+        ArchetypeStatement::AllOf(PhantomData)
     }
 
-    /// Constructs a new [`ArchetypeStatement::DoesNotHave`] variant for a component of type `C`
-	pub fn does_not_have<C: Component>() -> Self {
-        let type_id = TypeId::of::<C>();
-        ArchetypeStatement::DoesNotHave(type_id)
+    /// Constructs a new [`ArchetypeStatement::AtLeastOneOf`] variant for all components stored in the bundle `B`
+    #[inline]
+    pub const fn at_least_one_of() -> Self {
+        ArchetypeStatement::AtLeastOneOf(PhantomData)
     }
 
-	/// Constructs a new [`ArchetypeStatement::AllOf`] variant for all components stored in the bundle `B`
-    pub fn all_of<B: Bundle>() -> Self {
-        todo!()
-    }
-    
-	/// Constructs a new [`ArchetypeStatement::AtLeastOneOf`] variant for all components stored in the bundle `B`
-    pub fn at_least_one_of<B: Bundle>() -> Self {
-        todo!()
-    }
-	
     /// Constructs a new [`ArchetypeStatement::NoneOf`] variant for all components stored in the bundle `B`
-    pub fn none_of<B: Bundle>() -> Self {
-        todo!()
+    #[inline]
+    pub const fn none_of() -> Self {
+        ArchetypeStatement::NoneOf(PhantomData)
     }
 }
 
@@ -132,15 +131,12 @@ pub struct UntypedArchetypeInvariant {
 /// Prefer [`ArchetypeStatment`] when possible.
 #[derive(Clone, Debug, PartialEq)]
 pub enum UntypedArchetypeStatement {
-	/// Evaluates to true if and only if the entity has the component of type `C`
-	Has(ComponentId),
-	/// Evaluates to true if and only if the entity does not have the component of type `C`
-	DoesNotHave(ComponentId),
-	/// Evaluates to true if and only if the entity has all of the components present in Bundle `B`
+    /// Evaluates to true if and only if the entity has all of the components present in the set
     AllOf(HashSet<ComponentId>),
-    /// The entity has at least one component in the bundle, and may have all of them
+    /// The entity has at least one component in the set, and may have all of them.
+    /// When using a single-component bundle, `AllOf` is preferred
     AtLeastOneOf(HashSet<ComponentId>),
-    /// The entity has none of the components in the bundle
+    /// The entity has none of the components in the set
     NoneOf(HashSet<ComponentId>),
 }
 
@@ -151,9 +147,8 @@ pub struct ArchetypeInvariants {
 }
 
 impl ArchetypeInvariants {
-
     /// Adds a new [`ArchetypeInvariant`] to this set of archetype invariants.
-    /// 
+    ///
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
     pub fn add(&mut self, archetype_invariant: UntypedArchetypeInvariant) {
@@ -165,18 +160,16 @@ impl ArchetypeInvariants {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
-        component::Component,
+        self as bevy_ecs, component::Component, world::archetype_invariants::ArchetypeInvariant,
         world::World,
-        world::archetype_invariants::ArchetypeInvariant
     };
 
     #[derive(Component)]
     struct A;
-    
+
     #[derive(Component)]
     struct B;
-    
+
     #[derive(Component)]
     struct C;
 
@@ -184,9 +177,7 @@ mod tests {
     fn full_bundle() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(
-            ArchetypeInvariant::full_bundle::<(A, B, C)>()
-        );
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
 
         todo!();
     }
