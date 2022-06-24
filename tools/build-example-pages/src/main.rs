@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File};
+use std::{cmp::Ordering, collections::HashMap, fs::File};
 
 use bitflags::bitflags;
 use serde::Serialize;
@@ -22,11 +22,14 @@ fn main() {
     let examples = parse_examples(what_to_run.contains(Command::CHECK_MISSING));
 
     if what_to_run.contains(Command::UPDATE) {
-        let examples_by_category: HashMap<String, Vec<Example>> =
+        let mut examples_by_category: HashMap<String, Vec<Example>> =
             examples.into_iter().fold(HashMap::new(), |mut v, ex| {
                 v.entry(ex.category.clone()).or_default().push(ex);
                 v
             });
+        for values in examples_by_category.values_mut() {
+            values.sort();
+        }
         let mut context = Context::new();
         context.insert("all_examples", &examples_by_category);
         Tera::new("examples/*.md.tpl")
@@ -40,7 +43,7 @@ fn main() {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq, Eq)]
 struct Example {
     technical_name: String,
     path: String,
@@ -48,6 +51,21 @@ struct Example {
     description: String,
     category: String,
     wasm: bool,
+}
+
+impl Ord for Example {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.category.cmp(&other.category) {
+            Ordering::Equal => self.name.cmp(&other.name),
+            ordering => ordering,
+        }
+    }
+}
+
+impl PartialOrd for Example {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 fn parse_examples(panic_on_missing: bool) -> Vec<Example> {

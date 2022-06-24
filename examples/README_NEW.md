@@ -72,11 +72,11 @@ Example | Description
 
 Example | Description
 --- | ---
-[Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
-[Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
+[Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
+[Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
 [Shapes](../examples/2d/shapes.rs) | Renders a rectangle, circle, and hexagon
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
@@ -126,12 +126,12 @@ Example | Description
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
 [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
+[Headless with Defaults](../examples/app/headless_defaults.rs) | An application that runs with default plugins, but without an actual renderer
 [Logs](../examples/app/logs.rs) | Illustrate how to use generate log output
 [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
-[Headless with Defaults](../examples/app/headless_defaults.rs) | An application that runs with default plugins, but without an actual renderer
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
 ## Assets
