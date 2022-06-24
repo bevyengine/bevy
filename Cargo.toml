@@ -481,49 +481,121 @@ wasm = true
 name = "custom_loop"
 path = "examples/app/custom_loop.rs"
 
+[package.metadata.example.custom_loop]
+name = "Custom Loop"
+description = "Demonstrates how to create a custom runner (to update an app manually)"
+category = "Application"
+wasm = true
+
 [[example]]
 name = "drag_and_drop"
 path = "examples/app/drag_and_drop.rs"
+
+[package.metadata.example.drag_and_drop]
+name = "Drag and Drop"
+description = "An example that shows how to handle drag and drop in an app"
+category = "Application"
+wasm = true
 
 [[example]]
 name = "empty"
 path = "examples/app/empty.rs"
 
+[package.metadata.example.empty]
+name = "Empty"
+description = "An empty application (does nothing)"
+category = "Application"
+wasm = true
+
 [[example]]
 name = "empty_defaults"
 path = "examples/app/empty_defaults.rs"
+
+[package.metadata.example.empty_defaults]
+name = "Empty with Defaults"
+description = "An empty application with default plugins"
+category = "Application"
+wasm = true
 
 [[example]]
 name = "headless"
 path = "examples/app/headless.rs"
 
+[package.metadata.example.headless]
+name = "Headless"
+description = "An application that runs without default plugins"
+category = "Application"
+wasm = true
+
 [[example]]
 name = "logs"
 path = "examples/app/logs.rs"
+
+[package.metadata.example.logs]
+name = "Logs"
+description = "Illustrate how to use generate log output"
+category = "Application"
+wasm = true
 
 [[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 
+[package.metadata.example.plugin]
+name = "Plugin"
+description = "Demonstrates the creation and registration of a custom plugin"
+category = "Application"
+wasm = true
+
 [[example]]
 name = "plugin_group"
 path = "examples/app/plugin_group.rs"
+
+[package.metadata.example.plugin_group]
+name = "Plugin Group"
+description = "Demonstrates the creation and registration of a custom plugin group"
+category = "Application"
+wasm = true
 
 [[example]]
 name = "return_after_run"
 path = "examples/app/return_after_run.rs"
 
+[package.metadata.example.return_after_run]
+name = "Return after Run"
+description = "Show how to return to main after the Bevy app has exited"
+category = "Application"
+wasm = true
+
 [[example]]
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
+
+[package.metadata.example.thread_pool_resources]
+name = "Thread Pool Resources"
+description = "Creates and customizes the internal thread pool"
+category = "Application"
+wasm = true
 
 [[example]]
 name = "headless_defaults"
 path = "examples/app/headless_defaults.rs"
 
+[package.metadata.example.headless_defaults]
+name = "Headless with Defaults"
+description = "An application that runs with default plugins, but without an actual renderer"
+category = "Application"
+wasm = true
+
 [[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
+
+[package.metadata.example.without_winit]
+name = "Without Winit"
+description = "Create an application without winit (runs single time, no event loop)"
+category = "Application"
+wasm = true
 
 # Assets
 [[example]]

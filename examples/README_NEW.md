@@ -40,6 +40,7 @@ git checkout v0.4.0
   - [2D Rendering](#2d-rendering)
   - [3D Rendering](#3d-rendering)
   - [Animation](#animation)
+  - [Application](#application)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -60,9 +61,9 @@ git checkout v0.4.0
 <!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
 
-Example | File | Description
---- | --- | ---
-`hello_world` | [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
+Example | Description
+--- | ---
+[`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
 
 # Cross-Platform Examples
 
@@ -114,6 +115,23 @@ Example | Description
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
 [glTF Skinned Mesh](../examples/animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
+
+## Application
+
+Example | Description
+--- | ---
+[Custom Loop](../examples/app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually)
+[Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app
+[Empty](../examples/app/empty.rs) | An empty application (does nothing)
+[Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
+[Headless](../examples/app/headless.rs) | An application that runs without default plugins
+[Logs](../examples/app/logs.rs) | Illustrate how to use generate log output
+[Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
+[Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
+[Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
+[Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
+[Headless with Defaults](../examples/app/headless_defaults.rs) | An application that runs with default plugins, but without an actual renderer
+[Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
 # Platform-Specific Examples
 

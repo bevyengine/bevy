@@ -58,9 +58,9 @@ git checkout v0.4.0
 <!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
 
-Example | File | Description
---- | --- | ---
-`hello_world` | [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
+Example | Description
+--- | ---
+[`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
 
 # Cross-Platform Examples
 {% for category, examples in all_examples %}
