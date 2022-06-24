@@ -12,7 +12,10 @@ use crate::{
     },
     world::{World, WorldId},
 };
-use bevy_utils::{tracing::info, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{info, warn},
+    HashMap, HashSet,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -575,7 +578,7 @@ impl SystemStage {
             let access = system.component_access().unwrap();
             if !access.has_read(resource_id) {
                 let component_name = world.components().get_info(resource_id).unwrap().name();
-                println!(
+                warn!(
                     "System {} doesn't access resource {component_name}, despite being required to",
                     system.name()
                 );
