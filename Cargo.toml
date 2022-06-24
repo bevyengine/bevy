@@ -559,6 +559,10 @@ name = "bevymark"
 path = "examples/stress_tests/bevymark.rs"
 
 [[example]]
+name = "many_animated_sprites"
+path = "examples/stress_tests/many_animated_sprites.rs"
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 
