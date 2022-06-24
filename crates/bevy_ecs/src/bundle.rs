@@ -82,7 +82,11 @@ use std::{any::TypeId, collections::HashMap};
 ///   [`Bundle::component_ids`].
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
-    fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
+    fn component_ids(
+        components: &mut Components,
+        storages: &mut Storages,
+        ids: &mut impl FnMut(ComponentId),
+    );
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's [`Component`]s
@@ -90,7 +94,7 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// # Safety
     /// Caller must return data for each component in the bundle, in the order of this bundle's
     /// [`Component`]s
-    unsafe fn from_components<T, F>(ctx: &mut T, func: F) -> Self
+    unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
     where
         // Ensure that the `OwningPtr` is used correctly
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
@@ -98,15 +102,19 @@ pub unsafe trait Bundle: Send + Sync + 'static {
 
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
-    fn get_components(self, func: impl FnMut(OwningPtr<'_>));
+    fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>));
 }
 
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
-        vec![components.init_component::<C>(storages)]
+    fn component_ids(
+        components: &mut Components,
+        storages: &mut Storages,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        ids(components.init_component::<C>(storages))
     }
 
-    unsafe fn from_components<T, F>(ctx: &mut T, mut func: F) -> Self
+    unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
     where
         // Ensure that the `OwningPtr` is used correctly
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
@@ -116,7 +124,7 @@ unsafe impl<C: Component> Bundle for C {
         func(ctx).read()
     }
 
-    fn get_components(self, func: impl FnMut(OwningPtr<'_>)) {
+    fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
         OwningPtr::make(self, func);
     }
 }
@@ -125,13 +133,13 @@ macro_rules! tuple_impl {
     ($($name: ident),*) => {
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
-            fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
-                vec![$(components.init_component::<$name>(storages)),*]
+            fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
+                $(ids(components.init_component::<$name>(storages));)*
             }
 
             #[allow(unused_variables, unused_mut)]
             #[allow(clippy::unused_unit)]
-            unsafe fn from_components<T, F>(ctx: &mut T, mut func: F) -> Self
+            unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
@@ -142,11 +150,11 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables, unused_mut)]
-            fn get_components(self, mut func: impl FnMut(OwningPtr<'_>)) {
+            fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
-                    OwningPtr::make($name, &mut func);
+                    OwningPtr::make($name, &mut *func);
                 )*
             }
         }
@@ -301,7 +309,7 @@ impl BundleInfo {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        bundle.get_components(|component_ptr| {
+        bundle.get_components(&mut |component_ptr| {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
@@ -623,7 +631,8 @@ impl Bundles {
     ) -> &'a BundleInfo {
         let bundle_infos = &mut self.bundle_infos;
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let component_ids = T::component_ids(components, storages);
+            let mut component_ids = Vec::new();
+            T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             // SAFE: T::component_id ensures info was created
             let bundle_info = unsafe {
