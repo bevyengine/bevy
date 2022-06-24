@@ -101,6 +101,26 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     fn get_components(self, func: impl FnMut(OwningPtr<'_>));
 }
 
+unsafe impl<C: Component> Bundle for C {
+    fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
+        vec![components.init_component::<C>(storages)]
+    }
+
+    unsafe fn from_components<T, F>(ctx: &mut T, mut func: F) -> Self
+    where
+        // Ensure that the `OwningPtr` is used correctly
+        F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
+        Self: Sized,
+    {
+        // Safety: The id given in `component_ids` is for `Self`
+        func(ctx).read()
+    }
+
+    fn get_components(self, func: impl FnMut(OwningPtr<'_>)) {
+        OwningPtr::make(self, func);
+    }
+}
+
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
