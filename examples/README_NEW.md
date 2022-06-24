@@ -39,6 +39,7 @@ git checkout v0.4.0
 - [Cross-Platform Examples](#cross-platform-examples)
   - [2D Rendering](#2d-rendering)
   - [3D Rendering](#3d-rendering)
+  - [Animation](#animation)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -104,6 +105,15 @@ Example | Description
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Texture](../examples/3d/wireframe.rs) | Showcases wireframe rendering
+
+## Animation
+
+Example | Description
+--- | ---
+[Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
+[Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
+[Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
+[glTF Skinned Mesh](../examples/animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
 
 # Platform-Specific Examples
 

@@ -440,17 +440,41 @@ wasm = true
 name = "animated_fox"
 path = "examples/animation/animated_fox.rs"
 
+[package.metadata.example.animated_fox]
+name = "Animated Fox"
+description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "animated_transform"
 path = "examples/animation/animated_transform.rs"
+
+[package.metadata.example.animated_transform]
+name = "Animated Transform"
+description = "Create and play an animation defined by code that operates on the `Transform` component"
+category = "Animation"
+wasm = true
 
 [[example]]
 name = "custom_skinned_mesh"
 path = "examples/animation/custom_skinned_mesh.rs"
 
+[package.metadata.example.custom_skinned_mesh]
+name = "Custom Skinned Mesh"
+description = "Skinned mesh example with mesh and joints data defined in code"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "gltf_skinned_mesh"
 path = "examples/animation/gltf_skinned_mesh.rs"
+
+[package.metadata.example.gltf_skinned_mesh]
+name = "glTF Skinned Mesh"
+description = "Skinned mesh example with mesh and joints data loaded from a glTF file"
+category = "Animation"
+wasm = true
 
 # Application
 [[example]]
