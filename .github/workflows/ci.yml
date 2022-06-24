@@ -263,6 +263,16 @@ jobs:
       - uses: actions/checkout@v3
       - run: cargo run -p build-example-pages -- check-missing
 
+  check-examples-readme-update-needed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: cargo run -p build-example-pages -- update
+      - name: Check for modified files
+        run: |
+          echo "if this step fails, run `cargo run -p build-example-pages` and commit the changed file on your PR."
+          git diff --quiet HEAD --
+
   check-unused-dependencies:
     runs-on: ubuntu-latest
     steps:
