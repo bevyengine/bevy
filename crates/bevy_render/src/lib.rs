@@ -47,7 +47,10 @@ use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
 use bevy_utils::tracing::debug;
-use std::ops::{Deref, DerefMut};
+use std::{
+    any::TypeId,
+    ops::{Deref, DerefMut},
+};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
@@ -111,11 +114,6 @@ pub mod main_graph {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
-/// A "scratch" world used to avoid allocating new worlds every frame when
-/// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
-#[derive(Default)]
-struct ScratchMainWorld(World);
-
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
@@ -164,8 +162,20 @@ impl Plugin for RenderPlugin {
             let mut render_app = App::empty();
             let mut extract_stage =
                 SystemStage::parallel().with_system(PipelineCache::extract_shaders);
+            // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
+            render_app.init_resource::<MainWorld>();
+            render_app.world.remove_resource::<MainWorld>();
+            let main_world_in_render = render_app
+                .world
+                .components()
+                .get_resource_id(TypeId::of::<MainWorld>());
+            // `Extract` systems must read from the main world. We want to emit an error when that doesn't occur
+            // Safe to unwrap: Ensured it existed just above
+            extract_stage.set_must_read_resource(main_world_in_render.unwrap());
             // don't apply buffers when the stage finishes running
-            // extract stage runs on the app world, but the buffers are applied to the render world
+            // extract stage runs on the render world, but buffers are applied
+            // after losing access to the main world.
+            // See also https://github.com/bevyengine/bevy/issues/5082
             extract_stage.set_apply_buffers(false);
             render_app
                 .add_stage(RenderStage::Extract, extract_stage)
@@ -303,6 +313,11 @@ impl Plugin for RenderPlugin {
             .add_plugin(ImagePlugin);
     }
 }
+
+/// A "scratch" world used to avoid allocating new worlds every frame when
+/// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
+#[derive(Default)]
+struct ScratchMainWorld(World);
 
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.
