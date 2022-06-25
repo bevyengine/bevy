@@ -53,6 +53,7 @@ git checkout v0.4.0
   - [Shaders](#shaders)
   - [Stress Tests](#stress-tests)
   - [Transforms](#transforms)
+  - [UI (User Interface)](#ui-user-interface)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -272,6 +273,17 @@ Example | Description
 [Scale](../examples/transforms/scale.rs) | Illustrates how to scale an object in each direction
 [Transform](../examples/transforms/transform.rs) | Shows multiple transformations of objects
 [Translation](../examples/transforms/translation.rs) | Illustrates how to move an object along an axis
+
+## UI (User Interface)
+
+Example | Description
+--- | ---
+[Button](../examples/ui/button.rs) | Illustrates creating and updating a button
+[Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Text](../examples/ui/text.rs) | Illustrates creating and updating text
+[Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
+[Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
+[UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 
 # Platform-Specific Examples
 
