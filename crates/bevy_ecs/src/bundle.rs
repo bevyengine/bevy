@@ -14,72 +14,104 @@ use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
 use std::{any::TypeId, collections::HashMap};
 
-/// An ordered collection of [`Component`]s.
+/// A trait to enable insertion and removal of [`Component`]s from an entity.
+/// Each [`Bundle`] represents a static set of [`Component`] types.
 ///
-/// Commonly used for spawning entities and adding and removing components in bulk. This
-/// trait is automatically implemented for tuples of components: `(ComponentA, ComponentB)`
-/// is a very convenient shorthand when working with one-off collections of components. Note
-/// that both the unit type `()` and `(ComponentA, )` are valid bundles. The unit bundle is
-/// particularly useful for spawning multiple empty entities by using
-/// [`Commands::spawn_batch`](crate::system::Commands::spawn_batch).
+/// Currently, bundles can only contain one of each [`Component`], and will
+/// panic once initialised if this is not met
 ///
-/// # Examples
+/// ## Insertion
 ///
-/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`. Each
-/// struct field is a component:
+/// The primary use for Bundles is to add a useful collection of components to an entity.
 ///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # #[derive(Component)]
-/// # struct ComponentA;
-/// # #[derive(Component)]
-/// # struct ComponentB;
-/// # #[derive(Component)]
-/// # struct ComponentC;
-/// #
-/// #[derive(Bundle)]
-/// struct MyBundle {
-///     a: ComponentA,
-///     b: ComponentB,
-///     c: ComponentC,
-/// }
-/// ```
+/// Adding a [`Bundle`] value to an entity will add the components from the set it
+/// represents to the entity.
+/// The values of these components are taken from the [`Bundle`].
+/// If an entity already had one of these components, the entity's original component value
+/// will be overwritten.
 ///
-/// You can nest bundles using the `#[bundle]` attribute:
+/// Importantly, `Bundle`s have no meaning outside of their constituent set of components.
+/// You **should not** use bundles as a unit of behaviour.
+/// The behaviour of your app can only be considered in terms of the interaction
+/// between systems and the bundle's constituent components.  
+/// This rule is important because multiple bundles may contain the same component - if bundles
+/// were treated as an abstraction boundary, this would be an implementation leakage.
+///
+/// For this reason, `bevy` does not store which bundles were used to create a given entity.
+/// There is also intentionally no [`Query`] filter which detects whether an entity contains the components
+/// of a bundle.
+/// To select multiple components in a query, you should specify the components exactly.
+///
+/// ## Removal
+///
+/// Bundles can also be used to remove components from an entity.
+///
+/// Removing a bundle from an entity will remove the components of the set it
+/// represents from the entity.
+/// A value of the [`Bundle`] type may then be collected containing these component values,
+/// and returned.
+///
+/// # Implementors
+///
+/// A [`Component`] can be added to or removed from a world.
+/// Therefore, every type which implements [`Component`] also implements [`Bundle`].
+///
+/// Additionally, [Tuples](`tuple`) of bundles are also [`Bundle`] (with up to 15 bundles).
+/// These bundles contain the items of the 'inner' bundles.
+/// This is a convenient shorthand which is primarily used when spawning entities.
+/// For example, spawning an entity using the bundle `(SpriteBundle {...}, PlayerMarker)`
+/// will spawn an entity with components required for a 2d sprite, and the `PlayerMarker` component.
+///
+/// [`unit`], otherwise known as [`()`](`unit`), is a [`Bundle`] containing no components (since it
+/// can also be considered as the empty tuple).
+/// This can be useful for spawning large numbers of empty entities using
+/// [`World::spawn_batch`](crate::world::World::spawn_batch)
+///
+/// Tuple bundles can be nested, which can be used to create an anonymous bundle with more than
+/// 15 items.
+/// However, in most cases where this is required, there is a [`derive@Bundle`] derive instead.
+/// This is used to create your own bundles from a struct of other [`Bundle`]s.
+/// As explained above, this includes any [`Component`] type, and other derived bundles:
+///
 /// ```
 /// # use bevy_ecs::{component::Component, bundle::Bundle};
 ///
 /// #[derive(Component)]
-/// struct X(i32);
+/// struct XPosition(i32);
 /// #[derive(Component)]
-/// struct Y(u64);
-/// #[derive(Component)]
-/// struct Z(String);
+/// struct YPosition(i32);
 ///
 /// #[derive(Bundle)]
-/// struct A {
-///     x: X,
-///     y: Y,
+/// struct PositionBundle {
+///     // A bundle can contain components
+///     x: XPosition,
+///     y: YPosition,
 /// }
 ///
 /// #[derive(Bundle)]
-/// struct B {
-///     #[bundle]
-///     a: A,
-///     z: Z,
+/// struct NamedPointBundle {
+///     // Or other bundles
+///     a: PositionBundle,
+///     // In addition to more components
+///     z: PointName,
 /// }
+///
+/// #[derive(Component)]
+/// struct PointName(String);
 /// ```
 ///
 /// # Safety
 ///
 /// Note: Manual implementations of this trait are *not* permitted. That is, there may be arbitrary additional
 /// safety requirements not listed here.
-/// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`]
+/// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`].
 ///
 /// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
 /// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
 /// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 ///   [`Bundle::component_ids`].
+///
+/// [`Query`]: crate::system::Query
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     fn component_ids(
