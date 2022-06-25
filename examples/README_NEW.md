@@ -45,6 +45,7 @@ git checkout v0.4.0
   - [Async Tasks](#async-tasks)
   - [Audio](#audio)
   - [Diagnostics](#diagnostics)
+  - [ECS (Entity Component System)](#ecs-entity-component-system)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -166,6 +167,28 @@ Example | Description
 --- | ---
 [Custom Diagnostic](../examples/diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic
 [Log Diagnostics](../examples/diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics, like frames per second (FPS), to the console
+
+## ECS (Entity Component System)
+
+Example | Description
+--- | ---
+[Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
+[Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
+[ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
+[Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
+[Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
+[Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
+[Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
+[Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
+[Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
+[Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame
+[Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
+[State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
+[System Chaining](../examples/ecs/system_chaining.rs) | Chain two systems together, specifying a return type in a system (such as `Result`)
+[System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
+[System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
+[System Sets](../examples/ecs/system_sets.rs) | Shows `SystemSet` use along with run criterion
+[Timers](../examples/ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 # Platform-Specific Examples
 

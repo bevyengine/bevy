@@ -706,69 +706,171 @@ wasm = true
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
+[package.metadata.example.ecs_guide]
+name = "ECS Guide"
+description = "Full guide to Bevy's ECS"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
+
+[package.metadata.example.component_change_detection]
+name = "Component Change Detection"
+description = "Change detection on components"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
 
+[package.metadata.example.custom_query_param]
+name = "Custom Query Parameters"
+description = "Groups commonly used compound queries and query filters into a single type"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "event"
 path = "examples/ecs/event.rs"
+
+[package.metadata.example.event]
+name = "Event"
+description = "Illustrates event creation, activation, and reception"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
 
+[package.metadata.example.fixed_timestep]
+name = "Fixed Timestep"
+description = "Shows how to create systems that run every fixed timestep, rather than every tick"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "generic_system"
 path = "examples/ecs/generic_system.rs"
+
+[package.metadata.example.generic_system]
+name = "Generic System"
+description = "Shows how to create systems that can be reused with different types"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
 
+[package.metadata.example.hierarchy]
+name = "Hierarchy"
+description = "Creates a hierarchy of parents and children entities"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
+
+[package.metadata.example.iter_combinations]
+name = "Iter Combinations"
+description = "Shows how to iterate over combinations of query results"
+category = "ECS (Entity Component System)"
+wasm = true
 
 [[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
 
+[package.metadata.example.parallel_query]
+name = "Parallel Query"
+description = "Illustrates parallel queries with `ParallelIterator`"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "removal_detection"
 path = "examples/ecs/removal_detection.rs"
+
+[package.metadata.example.removal_detection]
+name = "Removal Detection"
+description = "Query for entities that had a specific component removed in a previous stage during the current frame"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "startup_system"
 path = "examples/ecs/startup_system.rs"
 
+[package.metadata.example.startup_system]
+name = "Startup System"
+description = "Demonstrates a startup system (one that runs once when the app starts up)"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "state"
 path = "examples/ecs/state.rs"
+
+[package.metadata.example.state]
+name = "State"
+description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
 
+[package.metadata.example.system_chaining]
+name = "System Chaining"
+description = "Chain two systems together, specifying a return type in a system (such as `Result`)"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "system_closure"
 path = "examples/ecs/system_closure.rs"
+
+[package.metadata.example.system_closure]
+name = "System Closure"
+description = "Show how to use closures as systems, and how to configure `Local` variables by capturing external state"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "system_param"
 path = "examples/ecs/system_param.rs"
 
+[package.metadata.example.system_param]
+name = "System Parameter"
+description = "Illustrates creating custom system parameters with `SystemParam`"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "system_sets"
 path = "examples/ecs/system_sets.rs"
 
+[package.metadata.example.system_sets]
+name = "System Sets"
+description = "Shows `SystemSet` use along with run criterion"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "timers"
 path = "examples/ecs/timers.rs"
+
+[package.metadata.example.timers]
+name = "Timers"
+description = "Illustrates ticking `Timer` resources inside systems and handling their state"
+category = "ECS (Entity Component System)"
+wasm = false
 
 # Games
 [[example]]
