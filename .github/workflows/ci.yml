@@ -162,7 +162,7 @@ jobs:
 
   markdownlint:
     runs-on: ubuntu-latest
-    needs: check-missing-examples-in-docs
+    needs: check-examples-readme-update-needed
     if: always()
     steps:
       - uses: actions/checkout@v3
@@ -264,6 +264,7 @@ jobs:
       - run: cargo run -p build-example-pages -- check-missing
 
   check-examples-readme-update-needed:
+    needs: check-missing-examples-in-docs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
