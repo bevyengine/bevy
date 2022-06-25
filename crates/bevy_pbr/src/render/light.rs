@@ -790,10 +790,11 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_array_layers - directional_shadow_maps_count);
 
-    // Sort lights by point-light vs spot-light, then those with shadows enabled first,
-    // we keep pointlights separated from spotlights so that counts
-    // then by a stable key so that the index can be used to render at most
-    // `point_light_shadow_maps_count` point light shadows and `spot_shadow_maps_count` spotlight shadow maps.
+    // Sort lights by
+    // - point-light vs spot-light, so that we can iterate point lights and spotlights in contiguous blocks in the fragment shader,
+    // - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
+    //   point light shadows and `spot_shadow_maps_count` spotlight shadow maps,
+    // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         point_light_order(
             (

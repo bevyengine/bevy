@@ -704,10 +704,11 @@ fn compute_aabb_for_cluster(
     Aabb::from_min_max(cluster_min, cluster_max)
 }
 
-// Sort lights by point-light vs spot-light, then those with shadows enabled first,
-// we keep pointlights separated from spotlights so that counts
-// then by a stable key so that the index can be used to render at most
-// `point_light_shadow_maps_count` point light shadows and `spot_shadow_maps_count` spotlight shadow maps.
+// Sort lights by
+// - point-light vs spot-light, so that we can iterate point lights and spotlights in contiguous blocks in the fragment shader,
+// - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
+//   point light shadows and `spot_shadow_maps_count` spotlight shadow maps,
+// - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
 pub(crate) fn point_light_order(
     (entity_1, shadows_enabled_1, is_spotlight_1): (&Entity, &bool, &bool),
     (entity_2, shadows_enabled_2, is_spotlight_2): (&Entity, &bool, &bool),
