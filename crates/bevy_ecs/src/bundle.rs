@@ -131,10 +131,10 @@ unsafe impl<C: Component> Bundle for C {
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
-        unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
+        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
-                $(ids(components.init_component::<$name>(storages));)*
+                $(<$name as Bundle>::component_ids(components, storages, ids);)*
             }
 
             #[allow(unused_variables, unused_mut)]
@@ -145,8 +145,7 @@ macro_rules! tuple_impl {
             {
                 // Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
-                #[allow(non_snake_case)]
-                ($(func(ctx).read::<$name>(),)*)
+                ($(<$name as Bundle>::from_components(ctx, func),)*)
             }
 
             #[allow(unused_variables, unused_mut)]
@@ -154,14 +153,14 @@ macro_rules! tuple_impl {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
-                    OwningPtr::make($name, &mut *func);
+                    $name.get_components(&mut *func);
                 )*
             }
         }
     }
 }
 
-all_tuples!(tuple_impl, 0, 15, C);
+all_tuples!(tuple_impl, 0, 15, B);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct BundleId(usize);
