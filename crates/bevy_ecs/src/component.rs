@@ -154,7 +154,7 @@ impl ComponentInfo {
 ///
 /// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behaviour
-/// and should not be attempted.
+/// and must not be attempted.
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId(usize);
 
@@ -384,7 +384,7 @@ impl Components {
     /// let mut world = World::new();
     ///
     /// #[derive(Component)]
-    /// struct ComponentA {}
+    /// struct ComponentA;
     ///
     /// let component_a_id = world.init_component::<ComponentA>();
     ///

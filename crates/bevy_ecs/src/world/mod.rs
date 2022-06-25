@@ -213,7 +213,7 @@ impl World {
     /// let mut world = World::new();
     ///
     /// #[derive(Component)]
-    /// struct ComponentA {}
+    /// struct ComponentA;
     ///
     /// let component_a_id = world.init_component::<ComponentA>();
     ///
