@@ -135,12 +135,12 @@ pub struct WindowSurfaces {
 /// - wgpu was unable to detect a proper GPU hardware-accelerated device given the chosen
 ///   [`Backends`](crate::settings::Backends), [`WgpuLimits`](crate::settings::WgpuLimits),
 ///   and/or [`WgpuFeatures`](crate::settings::WgpuFeatures). For example, on Windows currently
-///   DirectX 11 is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
-///   it may be that a software renderer called "Microsoft Basic Render Driver" using DirectX 12
+///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
+///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
 ///   will be chosen and performance will be very poor. This is visible in a log message that is
-///   output during renderer initialization. Future versions of wgpu will support DirectX 11, but
+///   output during renderer initialization. Future versions of wgpu will support `DirectX 11`, but
 ///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
-///   [`Backends::GL`](Backends::GL) if your GPU/drivers support OpenGL 4.3 / OpenGL ES 3.0 or
+///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
 ///   later.
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
