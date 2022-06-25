@@ -47,6 +47,7 @@ git checkout v0.4.0
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
+  - [Input](#input)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -199,6 +200,22 @@ Example | Description
 [Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout"
 [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 [Game Menu](../examples/games/game_menu.rs) | A simple game menu
+
+## Input
+
+Example | Description
+--- | ---
+[Char Input Events](../examples/input/char_input_events.rs) | Prints out all chars as they are inputted
+[Gamepad Input](../examples/input/gamepad_input.rs) | Shows handling of gamepad input, connections, and disconnections
+[Gamepad Input Events](../examples/input/gamepad_input_events.rs) | Iterates and prints gamepad input and connection events
+[Keyboard Input](../examples/input/keyboard_input.rs) | Demonstrates handling a key press/release
+[Keyboard Input Events](../examples/input/keyboard_input_events.rs) | Prints out all keyboard events
+[Keyboard Modifiers](../examples/input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift)
+[Mouse Grab](../examples/input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen
+[Mouse Input](../examples/input/mouse_input.rs) | Demonstrates handling a mouse button press/release
+[Mouse Input Events](../examples/input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
+[Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels
+[Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs
 
 # Platform-Specific Examples
 

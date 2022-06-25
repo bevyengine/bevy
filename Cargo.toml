@@ -918,45 +918,111 @@ wasm = true
 name = "char_input_events"
 path = "examples/input/char_input_events.rs"
 
+[package.metadata.example.char_input_events]
+name = "Char Input Events"
+description = "Prints out all chars as they are inputted"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "gamepad_input"
 path = "examples/input/gamepad_input.rs"
+
+[package.metadata.example.gamepad_input]
+name = "Gamepad Input"
+description = "Shows handling of gamepad input, connections, and disconnections"
+category = "Input"
+wasm = false
 
 [[example]]
 name = "gamepad_input_events"
 path = "examples/input/gamepad_input_events.rs"
 
+[package.metadata.example.gamepad_input_events]
+name = "Gamepad Input Events"
+description = "Iterates and prints gamepad input and connection events"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
+
+[package.metadata.example.keyboard_input]
+name = "Keyboard Input"
+description = "Demonstrates handling a key press/release"
+category = "Input"
+wasm = false
 
 [[example]]
 name = "keyboard_modifiers"
 path = "examples/input/keyboard_modifiers.rs"
 
+[package.metadata.example.keyboard_modifiers]
+name = "Keyboard Modifiers"
+description = "Demonstrates using key modifiers (ctrl, shift)"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
+
+[package.metadata.example.keyboard_input_events]
+name = "Keyboard Input Events"
+description = "Prints out all keyboard events"
+category = "Input"
+wasm = false
 
 [[example]]
 name = "mouse_input"
 path = "examples/input/mouse_input.rs"
 
+[package.metadata.example.mouse_input]
+name = "Mouse Input"
+description = "Demonstrates handling a mouse button press/release"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "mouse_input_events"
 path = "examples/input/mouse_input_events.rs"
+
+[package.metadata.example.mouse_input_events]
+name = "Mouse Input Events"
+description = "Prints out all mouse events (buttons, movement, etc.)"
+category = "Input"
+wasm = false
 
 [[example]]
 name = "mouse_grab"
 path = "examples/input/mouse_grab.rs"
 
+[package.metadata.example.mouse_grab]
+name = "Mouse Grab"
+description = "Demonstrates how to grab the mouse, locking the cursor to the app's screen"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "touch_input"
 path = "examples/input/touch_input.rs"
 
+[package.metadata.example.touch_input]
+name = "Touch Input"
+description = "Displays touch presses, releases, and cancels"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "touch_input_events"
 path = "examples/input/touch_input_events.rs"
+
+[package.metadata.example.touch_input_events]
+name = "Touch Input Events"
+description = "Prints out all touch inputs"
+category = "Input"
+wasm = false
 
 # Reflection
 [[example]]
