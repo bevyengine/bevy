@@ -142,7 +142,7 @@ fn parse_categories() -> HashMap<String, String> {
         .clone()
         .as_array()
         .unwrap()
-        .into_iter()
+        .iter()
         .map(|v| {
             (
                 v.get("name").unwrap().as_str().unwrap().to_string(),
