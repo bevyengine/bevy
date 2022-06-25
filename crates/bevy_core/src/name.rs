@@ -38,18 +38,24 @@ use std::{
 /// fn main() {
 ///     App::new()
 ///         .add_startup_system(spawn_system)
-///         .add_system(query_system);
+///         .add_system(search_system);
 /// }
 ///
+/// /// Add a new entity with a name
 /// fn spawn_system(mut commands: Commands) {
-///     // Add a new entity with a name
 ///     commands.spawn().insert(Name::new("Bevy"));
 /// }
 ///
-/// fn query_system(query: Query<&Name>) {
-///     // Print out the names of all entities that have one
-///     for name in query.iter() {
-///         println!("{name}");
+/// /// Search for the entitity by name
+/// fn search_system(query: Query<(Entity, &Name)>) {
+///     // Creating the variable before so that it's hashed only once
+///     let name_being_searched = Name::new("Bevy");
+///
+///     for (entity, name) in query.iter() {
+///         if *name == name_being_searched {
+///             // Do something with the entity
+///             // NOTE: Multiple entities can have the same name!
+///         }
 ///     }
 /// }
 /// ```
