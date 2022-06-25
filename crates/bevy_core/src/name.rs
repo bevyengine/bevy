@@ -9,6 +9,7 @@ use std::{
 };
 
 /// Component used to identify an entity. Stores a hash for faster comparisons.
+///
 /// The hash is eagerly re-computed upon each update to the name.
 ///
 /// [`Name`] should not be treated as a globally unique identifier for entities,
