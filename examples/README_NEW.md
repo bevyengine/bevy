@@ -243,6 +243,12 @@ Example | Description
 
 ## Shaders
 
+These examples demonstrate how to implement different shaders in user code.
+
+A shader in its most common usage is a small program that is run by the GPU per-vertex in a mesh (a vertex shader) or per-affected-screen-fragment (a fragment shader.) The GPU executes these programs in a highly parallel way.
+
+There are also compute shaders which are used for more general processing leveraging the GPU's parallelism.
+
 Example | Description
 --- | ---
 [Animated](../examples/shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup
@@ -256,6 +262,14 @@ Example | Description
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 
 ## Stress Tests
+
+These examples are used to test the performance and stability of various parts of the engine in an isolated way.
+
+Due to the focus on performance it's recommended to run the stress tests in release mode:
+
+```sh
+cargo run --release --example <example name>
+```
 
 Example | Description
 --- | ---

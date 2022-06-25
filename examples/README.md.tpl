@@ -64,12 +64,13 @@ Example | Description
 [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
 
 # Cross-Platform Examples
-{% for category, examples in all_examples %}
+{% for category, details in all_examples %}
 ## {{ category }}
 
-Example | Description
+{% if details.description is string %}{{ details.description }}
+{% endif %}Example | Description
 --- | ---
-{% for example in examples %}[{{ example.name }}](../{{ example.path }}) | {{ example.description }}
+{% for example in details.examples %}[{{ example.name }}](../{{ example.path }}) | {{ example.description }}
 {% endfor %}{% endfor %}
 # Tests
 

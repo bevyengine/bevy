@@ -22,14 +22,27 @@ fn main() {
     let examples = parse_examples(what_to_run.contains(Command::CHECK_MISSING));
 
     if what_to_run.contains(Command::UPDATE) {
-        let mut examples_by_category: HashMap<String, Vec<Example>> =
-            examples.into_iter().fold(HashMap::new(), |mut v, ex| {
+        let categories = parse_categories();
+        let examples_by_category: HashMap<String, Category> = examples
+            .into_iter()
+            .fold(HashMap::<String, Vec<Example>>::new(), |mut v, ex| {
                 v.entry(ex.category.clone()).or_default().push(ex);
                 v
-            });
-        for values in examples_by_category.values_mut() {
-            values.sort();
-        }
+            })
+            .into_iter()
+            .map(|(key, mut examples)| {
+                examples.sort();
+                let description = categories.get(&key).cloned();
+                (
+                    key,
+                    Category {
+                        description,
+                        examples,
+                    },
+                )
+            })
+            .collect();
+
         let mut context = Context::new();
         context.insert("all_examples", &examples_by_category);
         Tera::new("examples/*.md.tpl")
@@ -41,6 +54,12 @@ fn main() {
             )
             .expect("error rendering template");
     }
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+struct Category {
+    description: Option<String>,
+    examples: Vec<Example>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -107,6 +126,28 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
                 category: metadata["category"].as_str().unwrap().to_string(),
                 wasm: metadata["wasm"].as_bool().unwrap(),
             })
+        })
+        .collect()
+}
+
+fn parse_categories() -> HashMap<String, String> {
+    let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
+    let manifest: HashMap<String, Value> = toml::from_str(&manifest_file).unwrap();
+    manifest
+        .get("package")
+        .unwrap()
+        .get("metadata")
+        .as_ref()
+        .unwrap()["category"]
+        .clone()
+        .as_array()
+        .unwrap()
+        .into_iter()
+        .map(|v| {
+            (
+                v.get("name").unwrap().as_str().unwrap().to_string(),
+                v.get("description").unwrap().as_str().unwrap().to_string(),
+            )
         })
         .collect()
 }
