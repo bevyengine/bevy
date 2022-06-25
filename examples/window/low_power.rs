@@ -111,7 +111,7 @@ pub(crate) mod test_setup {
         time: Res<Time>,
         mut cube_transform: Query<&mut Transform, With<Rotator>>,
     ) {
-        for mut transform in cube_transform.iter_mut() {
+        for mut transform in &mut cube_transform {
             transform.rotate_x(time.delta_seconds());
             transform.rotate_local_y(time.delta_seconds());
         }

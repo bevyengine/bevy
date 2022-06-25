@@ -116,9 +116,9 @@ fn queue_custom(
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples)
         | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-    for (view, mut transparent_phase) in views.iter_mut() {
+    for (view, mut transparent_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
-        for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
+        for (entity, mesh_uniform, mesh_handle) in &material_meshes {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let pipeline = pipelines
                     .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)

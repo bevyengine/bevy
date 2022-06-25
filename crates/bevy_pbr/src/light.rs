@@ -459,7 +459,7 @@ pub fn add_clusters(
     mut commands: Commands,
     cameras: Query<(Entity, Option<&ClusterConfig>), (With<Camera>, Without<Clusters>)>,
 ) {
-    for (entity, config) in cameras.iter() {
+    for (entity, config) in &cameras {
         let config = config.copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
         commands
@@ -901,7 +901,7 @@ pub(crate) fn assign_lights_to_clusters(
     }
 
     for (view_entity, camera_transform, camera, frustum, config, clusters, mut visible_lights) in
-        views.iter_mut()
+        &mut views
     {
         let clusters = clusters.into_inner();
 
@@ -1420,7 +1420,7 @@ pub fn update_directional_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<DirectionalLight>)>,
     >,
 ) {
-    for (transform, directional_light, mut frustum, visibility) in views.iter_mut() {
+    for (transform, directional_light, mut frustum, visibility) in &mut views {
         // The frustum is used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frustum is
         // not needed.
@@ -1454,7 +1454,7 @@ pub fn update_point_light_frusta(
         .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
 
-    for (entity, transform, point_light, mut cubemap_frusta) in views.iter_mut() {
+    for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
@@ -1559,7 +1559,7 @@ pub fn check_light_mesh_visibility(
 ) {
     // Directonal lights
     for (directional_light, frustum, mut visible_entities, maybe_view_mask, visibility) in
-        directional_lights.iter_mut()
+        &mut directional_lights
     {
         visible_entities.entities.clear();
 
@@ -1577,7 +1577,7 @@ pub fn check_light_mesh_visibility(
             maybe_entity_mask,
             maybe_aabb,
             maybe_transform,
-        ) in visible_entity_query.iter_mut()
+        ) in &mut visible_entity_query
         {
             if !visibility.is_visible {
                 continue;
@@ -1603,7 +1603,7 @@ pub fn check_light_mesh_visibility(
         // to prevent holding unneeded memory
     }
 
-    for visible_lights in visible_point_lights.iter() {
+    for visible_lights in &visible_point_lights {
         for light_entity in visible_lights.entities.iter().copied() {
             // Point lights
             if let Ok((
@@ -1636,7 +1636,7 @@ pub fn check_light_mesh_visibility(
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
-                ) in visible_entity_query.iter_mut()
+                ) in &mut visible_entity_query
                 {
                     if !visibility.is_visible {
                         continue;

@@ -79,7 +79,7 @@ fn menu(
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut color) in interaction_query.iter_mut() {
+    for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Clicked => {
                 *color = PRESSED_BUTTON.into();
@@ -112,7 +112,7 @@ fn movement(
     input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Left) {
             direction.x -= 1.0;
@@ -134,7 +134,7 @@ fn movement(
 }
 
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
-    for mut sprite in query.iter_mut() {
+    for mut sprite in &mut query {
         sprite
             .color
             .set_b((time.seconds_since_startup() * 0.5).sin() as f32 + 2.0);

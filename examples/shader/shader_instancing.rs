@@ -116,9 +116,9 @@ fn queue_custom(
 
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
-    for (view, mut transparent_phase) in views.iter_mut() {
+    for (view, mut transparent_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
-        for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
+        for (entity, mesh_uniform, mesh_handle) in &material_meshes {
             if let Some(mesh) = meshes.get(mesh_handle) {
                 let key =
                     msaa_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
@@ -147,7 +147,7 @@ fn prepare_instance_buffers(
     query: Query<(Entity, &InstanceMaterialData)>,
     render_device: Res<RenderDevice>,
 ) {
-    for (entity, instance_data) in query.iter() {
+    for (entity, instance_data) in &query {
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("instance data buffer"),
             contents: bytemuck::cast_slice(instance_data.as_slice()),

@@ -79,24 +79,24 @@ fn print_changed_entities(
     entity_with_added_component: Query<Entity, Added<Age>>,
     entity_with_mutated_component: Query<(Entity, &Age), Changed<Age>>,
 ) {
-    for entity in entity_with_added_component.iter() {
+    for entity in &entity_with_added_component {
         println!("    {:?} has it's first birthday!", entity);
     }
-    for (entity, value) in entity_with_mutated_component.iter() {
+    for (entity, value) in &entity_with_mutated_component {
         println!("    {:?} is now {:?} frames old", entity, value);
     }
 }
 
 // This system iterates over all entities and increases their age in every frame
 fn age_all_entities(mut entities: Query<&mut Age>) {
-    for mut age in entities.iter_mut() {
+    for mut age in &mut entities {
         age.frames += 1;
     }
 }
 
 // This system iterates over all entities in every frame and despawns entities older than 2 frames
 fn remove_old_entities(mut commands: Commands, entities: Query<(Entity, &Age)>) {
-    for (entity, age) in entities.iter() {
+    for (entity, age) in &entities {
         if age.frames > 2 {
             println!("    despawning {:?} due to age > 2", entity);
             commands.entity(entity).despawn();

@@ -211,7 +211,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// # #[derive(Component)]
 /// # struct ComponentB;
 /// fn immutable_query_system(query: Query<(&ComponentA, &ComponentB)>) {
-///     for (a, b) in query.iter() {
+///     for (a, b) in &query {
 ///         // Here, `a` and `b` are normal references to components, relatively of
 ///         // `&ComponentA` and `&ComponentB` types.
 ///     }
@@ -219,7 +219,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// # bevy_ecs::system::assert_is_system(immutable_query_system);
 ///
 /// fn mutable_query_system(mut query: Query<(&mut ComponentA, &ComponentB)>) {
-///     for (mut a, b) in query.iter_mut() {
+///     for (mut a, b) in &mut query {
 ///         // Similar to the above system, but this time `ComponentA` can be accessed mutably.
 ///         // Note the usage of `mut` in the tuple and the call to `iter_mut` instead of `iter`.
 ///     }
@@ -285,7 +285,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # struct Player { name: String }
     /// #
     /// fn report_names_system(query: Query<&Player>) {
-    ///     for player in query.iter() {
+    ///     for player in &query {
     ///         println!("Say hello to {}!", player.name);
     ///     }
     /// }
@@ -315,7 +315,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # struct Velocity { x: f32, y: f32, z: f32 }
     /// fn gravity_system(mut query: Query<&mut Velocity>) {
     ///     const DELTA: f32 = 1.0 / 60.0;
-    ///     for mut velocity in query.iter_mut() {
+    ///     for mut velocity in &mut query {
     ///         velocity.y -= 9.8 * DELTA;
     ///     }
     /// }
@@ -782,7 +782,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     ///
     /// fn check_all_targets_in_range(targeting_query: Query<(Entity, &Targets, &Position)>, targets_query: Query<&Position>){
-    ///     for (targeting_entity, targets, origin) in targeting_query.iter(){
+    ///     for (targeting_entity, targets, origin) in &targeting_query {
     ///         // We can use "destructuring" to unpack the results nicely
     ///         let [target_1, target_2, target_3] = targets_query.many(targets.0);
     ///
@@ -885,7 +885,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     ///
     /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
-    ///     for spring in spring_query.iter(){
+    ///     for spring in &spring_query {
     ///          // We can use "destructuring" to unpack our query items nicely
     ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
     ///
@@ -1375,7 +1375,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # struct Player { name: String }
     /// #
     /// fn report_names_system(query: Query<&Player>) {
-    ///     for player in query.iter() {
+    ///     for player in &query {
     ///         println!("Say hello to {}!", player.name);
     ///     }
     /// }

@@ -128,7 +128,7 @@ mod tests {
             query: Query<Entity, With<Foo>>,
             mut counter: ResMut<usize>,
         ) {
-            for entity in query.iter() {
+            for entity in &query {
                 *counter += 1;
                 commands.entity(entity).remove::<Foo>();
             }

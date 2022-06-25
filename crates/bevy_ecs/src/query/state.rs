@@ -264,7 +264,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     ///
     /// let mut mutable_component_values = query_state.get_many_mut(&mut world, entities).unwrap();
     ///
-    /// for mut a in mutable_component_values.iter_mut(){
+    /// for mut a in &mut mutable_component_values {
     ///     a.0 += 5;
     /// }
     ///
@@ -1074,7 +1074,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
         let tables = &world.storages.tables;
 
-        for entity in entity_list.into_iter() {
+        for entity in entity_list {
             let location = match world.entities.get(*entity.borrow()) {
                 Some(location) => location,
                 None => continue,

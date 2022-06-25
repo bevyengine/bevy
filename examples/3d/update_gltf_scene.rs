@@ -48,7 +48,7 @@ fn move_scene_entities(
     children: Query<&Children>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for moved_scene_entity in moved_scene.iter() {
+    for moved_scene_entity in &moved_scene {
         let mut offset = 0.;
         iter_hierarchy(moved_scene_entity, &children, &mut |entity| {
             if let Ok(mut transform) = transforms.get_mut(entity) {
