@@ -97,7 +97,6 @@ struct CollisionSound(Handle<AudioSource>);
 struct WallBundle {
     // You can nest bundles inside of other bundles like this
     // Allowing you to compose their functionality
-    #[bundle]
     sprite_bundle: SpriteBundle,
     collider: Collider,
 }

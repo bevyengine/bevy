@@ -43,7 +43,6 @@ struct Star;
 
 #[derive(Bundle, Default)]
 struct BodyBundle {
-    #[bundle]
     pbr: PbrBundle,
     mass: Mass,
     last_pos: LastPos,
