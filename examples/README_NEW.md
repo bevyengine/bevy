@@ -96,6 +96,7 @@ Example | Description
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
+[Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
 
 ## 3D Rendering
 
@@ -294,6 +295,7 @@ Example | Description
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 [Scale Factor Iverride](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
+[Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
 
 # Platform-Specific Examples

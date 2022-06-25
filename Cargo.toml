@@ -244,6 +244,12 @@ wasm = true
 name = "transparency_2d"
 path = "examples/2d/transparency_2d.rs"
 
+[package.metadata.example.transparency_2d]
+name = "Transparency in 2D"
+description = "Demonstrates transparency in 2d"
+category = "2D Rendering"
+wasm = true
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
@@ -1396,7 +1402,7 @@ wasm = true
 name = "transparent_window"
 path = "examples/window/transparent_window.rs"
 
-[package.metadata.example.window]
+[package.metadata.example.transparent_window]
 name = "Transparent Window"
 description = "Illustrates making the window transparent and hiding the window decoration"
 category = "Window"
@@ -1431,6 +1437,9 @@ hidden = true
 crate-type = ["cdylib"]
 name = "android"
 path = "examples/android/android.rs"
+
+[package.metadata.example.android]
+hidden = true
 
 [package.metadata.android]
 apk_label = "Bevy Example"
