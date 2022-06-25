@@ -52,6 +52,7 @@ git checkout v0.4.0
   - [Scene](#scene)
   - [Shaders](#shaders)
   - [Stress Tests](#stress-tests)
+  - [Transforms](#transforms)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -261,6 +262,16 @@ Example | Description
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing
 [Scene Viewer](../examples/tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
 [Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
+
+## Transforms
+
+Example | Description
+--- | ---
+[3D Rotation](../examples/transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
+[Global / Local Translation](../examples/transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
+[Scale](../examples/transforms/scale.rs) | Illustrates how to scale an object in each direction
+[Transform](../examples/transforms/transform.rs) | Shows multiple transformations of objects
+[Translation](../examples/transforms/translation.rs) | Illustrates how to move an object along an axis
 
 # Platform-Specific Examples
 

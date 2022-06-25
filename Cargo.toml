@@ -1244,21 +1244,51 @@ wasm = true
 name = "global_vs_local_translation"
 path = "examples/transforms/global_vs_local_translation.rs"
 
+[package.metadata.example.global_vs_local_translation]
+name = "Global / Local Translation"
+description = "Illustrates the difference between direction of a translation in respect to local object or global object Transform"
+category = "Transforms"
+wasm = true
+
 [[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
+
+[package.metadata.example.3d_rotation]
+name = "3D Rotation"
+description = "Illustrates how to (constantly) rotate an object around an axis"
+category = "Transforms"
+wasm = true
 
 [[example]]
 name = "scale"
 path = "examples/transforms/scale.rs"
 
+[package.metadata.example.scale]
+name = "Scale"
+description = "Illustrates how to scale an object in each direction"
+category = "Transforms"
+wasm = true
+
 [[example]]
 name = "transform"
 path = "examples/transforms/transform.rs"
 
+[package.metadata.example.transform]
+name = "Transform"
+description = "Shows multiple transformations of objects"
+category = "Transforms"
+wasm = true
+
 [[example]]
 name = "translation"
 path = "examples/transforms/translation.rs"
+
+[package.metadata.example.translation]
+name = "Translation"
+description = "Illustrates how to move an object along an axis"
+category = "Transforms"
+wasm = true
 
 # UI (User Interface)
 [[example]]
