@@ -138,7 +138,7 @@ mod tests {
         }
         let mut ids = Vec::new();
         <Foo as Bundle>::component_ids(&mut world.components, &mut world.storages, &mut |id| {
-            ids.push(id)
+            ids.push(id);
         });
 
         assert_eq!(
@@ -190,7 +190,7 @@ mod tests {
 
         let mut ids = Vec::new();
         <Nested as Bundle>::component_ids(&mut world.components, &mut world.storages, &mut |id| {
-            ids.push(id)
+            ids.push(id);
         });
 
         assert_eq!(

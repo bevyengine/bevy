@@ -143,7 +143,7 @@ unsafe impl<C: Component> Bundle for C {
         storages: &mut Storages,
         ids: &mut impl FnMut(ComponentId),
     ) {
-        ids(components.init_component::<C>(storages))
+        ids(components.init_component::<C>(storages));
     }
 
     unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
