@@ -50,7 +50,7 @@ fn main() {
             .render_to(
                 "README.md.tpl",
                 &context,
-                File::create("examples/README_NEW.md").expect("error creating file"),
+                File::create("examples/README.md").expect("error creating file"),
             )
             .expect("error rendering template");
     }
