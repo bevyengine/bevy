@@ -1168,33 +1168,67 @@ category = "Shaders"
 wasm = false
 
 # Stress tests
-
 [[example]]
 name = "bevymark"
 path = "examples/stress_tests/bevymark.rs"
+
+[package.metadata.example.bevymark]
+name = "Bevymark"
+description = "A heavy sprite rendering workload to benchmark your system with Bevy"
+category = "Stress Tests"
+wasm = true
 
 [[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 
+[package.metadata.example.many_cubes]
+name = "Many Cubes"
+description = "Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling"
+category = "Stress Tests"
+wasm = true
+
 [[example]]
 name = "many_foxes"
 path = "examples/stress_tests/many_foxes.rs"
+
+[package.metadata.example.many_foxes]
+name = "Many Foxes"
+description = "Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000"
+category = "Stress Tests"
+wasm = true
 
 [[example]]
 name = "many_lights"
 path = "examples/stress_tests/many_lights.rs"
 
+[package.metadata.example.many_lights]
+name = "Many Lights"
+description = "Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights"
+category = "Stress Tests"
+wasm = true
+
 [[example]]
 name = "many_sprites"
 path = "examples/stress_tests/many_sprites.rs"
+
+[package.metadata.example.many_sprites]
+name = "Many Sprites"
+description = "Displays many sprites in a grid arragement! Used for performance testing"
+category = "Stress Tests"
+wasm = true
 
 [[example]]
 name = "transform_hierarchy"
 path = "examples/stress_tests/transform_hierarchy.rs"
 
-# Tools
+[package.metadata.example.transform_hierarchy]
+name = "Transform Hierarchy"
+description = "Various test cases for hierarchy and transform propagation performance"
+category = "Stress Tests"
+wasm = true
 
+# Tools
 [[example]]
 name = "scene_viewer"
 path = "examples/tools/scene_viewer.rs"

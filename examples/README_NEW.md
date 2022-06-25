@@ -51,6 +51,7 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
+  - [Stress Tests](#stress-tests)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -248,6 +249,17 @@ Example | Description
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
 [Post Processing](../examples/shader/post_processing.rs) | A custom post processing effect, using two cameras, with one reusing the render texture of the first one
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
+
+## Stress Tests
+
+Example | Description
+--- | ---
+[Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+[Many Cubes](../examples/stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling
+[Many Foxes](../examples/stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000
+[Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
+[Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arragement! Used for performance testing
+[Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
 
 # Platform-Specific Examples
 
