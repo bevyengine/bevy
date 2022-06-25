@@ -13,7 +13,7 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "tools/build-wasm-example", "errors"]
+members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "tools/build-example-pages", "tools/build-wasm-example", "errors"]
 
 [features]
 default = [
@@ -126,549 +126,1342 @@ crossbeam-channel = "0.5.0"
 name = "hello_world"
 path = "examples/hello_world.rs"
 
+[package.metadata.example.hello_world]
+hidden = true
+
 # 2D Rendering
 [[example]]
 name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
 
+[package.metadata.example.move_sprite]
+name = "Move Sprite"
+description = "Changes the transform of a sprite"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "rotation"
 path = "examples/2d/rotation.rs"
+
+[package.metadata.example.rotation]
+name = "2D Rotation"
+description = "Demonstrates rotating entities in 2D with quaternions"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "mesh2d"
 path = "examples/2d/mesh2d.rs"
 
+[package.metadata.example.mesh2d]
+name = "Mesh 2D"
+description = "Renders a 2d mesh"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
+
+[package.metadata.example.mesh2d_manual]
+name = "Manual Mesh 2D"
+description = "Renders a custom mesh \"manually\" with \"mid-level\" renderer apis"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "mesh2d_vertex_color_texture"
 path = "examples/2d/mesh2d_vertex_color_texture.rs"
 
+[package.metadata.example.mesh2d_vertex_color_texture]
+name = "Mesh 2D With Vertex Colors"
+description = "Renders a 2d mesh with vertex color attributes"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "shapes"
 path = "examples/2d/shapes.rs"
+
+[package.metadata.example.shapes]
+name = "Shapes"
+description = "Renders a rectangle, circle, and hexagon"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 
+[package.metadata.example.sprite]
+name = "Sprite"
+description = "Renders a sprite"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "sprite_flipping"
 path = "examples/2d/sprite_flipping.rs"
+
+[package.metadata.example.sprite_flipping]
+name = "Sprite Flipping"
+description = "Renders a sprite flipped along an axis"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "sprite_sheet"
 path = "examples/2d/sprite_sheet.rs"
 
+[package.metadata.example.sprite_sheet]
+name = "Sprite Sheet"
+description = "Renders an animated sprite"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
+
+[package.metadata.example.text2d]
+name = "Text 2D"
+description = "Generates text in 2D"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
+[package.metadata.example.texture_atlas]
+name = "Texture Atlas"
+description = "Generates a texture atlas (sprite sheet) from individual sprites"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "transparency_2d"
 path = "examples/2d/transparency_2d.rs"
+
+[package.metadata.example.transparency_2d]
+name = "Transparency in 2D"
+description = "Demonstrates transparency in 2d"
+category = "2D Rendering"
+wasm = true
 
 # 3D Rendering
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
+[package.metadata.example.3d_scene]
+name = "3D Scene"
+description = "Simple 3D scene with basic shapes and lighting"
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "3d_shapes"
 path = "examples/3d/shapes.rs"
+
+[package.metadata.example.3d_shapes]
+name = "3D Shapes"
+description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 
+[package.metadata.example.lighting]
+name = "Lighting"
+description = "Illustrates various lighting options in a simple scene"
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
+
+[package.metadata.example.load_gltf]
+name = "Load glTF"
+description = "Loads and renders a glTF file as a scene"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
+[package.metadata.example.msaa]
+name = "MSAA"
+description = "Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges"
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
+
+[package.metadata.example.orthographic]
+name = "Orthographic View"
+description = "Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
 
+[package.metadata.example.parenting]
+name = "Parenting"
+description = "Demonstrates parent->child relationships and relative transformations"
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
+
+[package.metadata.example.pbr]
+name = "Physically Based Rendering"
+description = "Demonstrates use of Physically Based Rendering (PBR) properties"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
 
+[package.metadata.example.render_to_texture]
+name = "Render to Texture"
+description = "Shows how to render to a texture, useful for mirrors, UI, or exporting images"
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
+
+[package.metadata.example.shadow_biases]
+name = "Shadow Biases"
+description = "Demonstrates how shadow biases affect shadows in a 3d scene"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "shadow_caster_receiver"
 path = "examples/3d/shadow_caster_receiver.rs"
 
+[package.metadata.example.shadow_caster_receiver]
+name = "Shadow Caster and Receiver"
+description = "Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene"
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "spherical_area_lights"
 path = "examples/3d/spherical_area_lights.rs"
+
+[package.metadata.example.spherical_area_lights]
+name = "Spherical Area Lights"
+description = "Demonstrates how point light radius values affect light behavior"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "split_screen"
 path = "examples/3d/split_screen.rs"
 
+[package.metadata.example.split_screen]
+name = "Split Screen"
+description = "Demonstrates how to render two cameras to the same window to accomplish \"split screen\""
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
+
+[package.metadata.example.texture]
+name = "Texture"
+description = "Shows configuration of texture materials"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "transparency_3d"
 path = "examples/3d/transparency_3d.rs"
 
+[package.metadata.example.transparency_3d]
+name = "Transparency in 3D"
+description = "Demonstrates transparency in 3d"
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "two_passes"
 path = "examples/3d/two_passes.rs"
+
+[package.metadata.example.two_passes]
+name = "Two Passes"
+description = "Renders two 3d passes to the same window from different perspectives"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
 
+[package.metadata.example.update_gltf_scene]
+name = "Update glTF Scene"
+description = "Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene"
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "vertex_colors"
 path = "examples/3d/vertex_colors.rs"
 
+[package.metadata.example.vertex_colors]
+name = "Vertex Colors"
+description = "Shows the use of vertex colors"
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
+
+[package.metadata.example.wireframe]
+name = "Wireframe"
+description = "Showcases wireframe rendering"
+category = "3D Rendering"
+wasm = true
 
 # Animation
 [[example]]
 name = "animated_fox"
 path = "examples/animation/animated_fox.rs"
 
+[package.metadata.example.animated_fox]
+name = "Animated Fox"
+description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "animated_transform"
 path = "examples/animation/animated_transform.rs"
+
+[package.metadata.example.animated_transform]
+name = "Animated Transform"
+description = "Create and play an animation defined by code that operates on the `Transform` component"
+category = "Animation"
+wasm = true
 
 [[example]]
 name = "custom_skinned_mesh"
 path = "examples/animation/custom_skinned_mesh.rs"
 
+[package.metadata.example.custom_skinned_mesh]
+name = "Custom Skinned Mesh"
+description = "Skinned mesh example with mesh and joints data defined in code"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "gltf_skinned_mesh"
 path = "examples/animation/gltf_skinned_mesh.rs"
+
+[package.metadata.example.gltf_skinned_mesh]
+name = "glTF Skinned Mesh"
+description = "Skinned mesh example with mesh and joints data loaded from a glTF file"
+category = "Animation"
+wasm = true
 
 # Application
 [[example]]
 name = "custom_loop"
 path = "examples/app/custom_loop.rs"
 
+[package.metadata.example.custom_loop]
+name = "Custom Loop"
+description = "Demonstrates how to create a custom runner (to update an app manually)"
+category = "Application"
+wasm = false
+
 [[example]]
 name = "drag_and_drop"
 path = "examples/app/drag_and_drop.rs"
+
+[package.metadata.example.drag_and_drop]
+name = "Drag and Drop"
+description = "An example that shows how to handle drag and drop in an app"
+category = "Application"
+wasm = false
 
 [[example]]
 name = "empty"
 path = "examples/app/empty.rs"
 
+[package.metadata.example.empty]
+name = "Empty"
+description = "An empty application (does nothing)"
+category = "Application"
+wasm = false
+
 [[example]]
 name = "empty_defaults"
 path = "examples/app/empty_defaults.rs"
+
+[package.metadata.example.empty_defaults]
+name = "Empty with Defaults"
+description = "An empty application with default plugins"
+category = "Application"
+wasm = true
 
 [[example]]
 name = "headless"
 path = "examples/app/headless.rs"
 
+[package.metadata.example.headless]
+name = "Headless"
+description = "An application that runs without default plugins"
+category = "Application"
+wasm = false
+
 [[example]]
 name = "logs"
 path = "examples/app/logs.rs"
+
+[package.metadata.example.logs]
+name = "Logs"
+description = "Illustrate how to use generate log output"
+category = "Application"
+wasm = true
 
 [[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 
+[package.metadata.example.plugin]
+name = "Plugin"
+description = "Demonstrates the creation and registration of a custom plugin"
+category = "Application"
+wasm = true
+
 [[example]]
 name = "plugin_group"
 path = "examples/app/plugin_group.rs"
+
+[package.metadata.example.plugin_group]
+name = "Plugin Group"
+description = "Demonstrates the creation and registration of a custom plugin group"
+category = "Application"
+wasm = true
 
 [[example]]
 name = "return_after_run"
 path = "examples/app/return_after_run.rs"
 
+[package.metadata.example.return_after_run]
+name = "Return after Run"
+description = "Show how to return to main after the Bevy app has exited"
+category = "Application"
+wasm = false
+
 [[example]]
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
+
+[package.metadata.example.thread_pool_resources]
+name = "Thread Pool Resources"
+description = "Creates and customizes the internal thread pool"
+category = "Application"
+wasm = false
 
 [[example]]
 name = "headless_defaults"
 path = "examples/app/headless_defaults.rs"
 
+[package.metadata.example.headless_defaults]
+name = "Headless with Defaults"
+description = "An application that runs with default plugins, but without an actual renderer"
+category = "Application"
+wasm = false
+
 [[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
+
+[package.metadata.example.without_winit]
+name = "Without Winit"
+description = "Create an application without winit (runs single time, no event loop)"
+category = "Application"
+wasm = false
 
 # Assets
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
 
+[package.metadata.example.asset_loading]
+name = "Asset Loading"
+description = "Demonstrates various methods to load assets"
+category = "Assets"
+wasm = true
+
 [[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
+
+[package.metadata.example.custom_asset]
+name = "Custom Asset"
+description = "Implements a custom asset loader"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "custom_asset_io"
 path = "examples/asset/custom_asset_io.rs"
 
+[package.metadata.example.custom_asset_io]
+name = "Custom Asset IO"
+description = "Implements a custom asset io loader"
+category = "Assets"
+wasm = true
+
 [[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
+
+[package.metadata.example.hot_asset_reloading]
+name = "Hot Reloading of Assets"
+description = "Demonstrates automatic reloading of assets when modified on disk"
+category = "Assets"
+wasm = true
 
 # Async Tasks
 [[example]]
 name = "async_compute"
 path = "examples/async_tasks/async_compute.rs"
 
+[package.metadata.example.async_compute]
+name = "Async Compute"
+description = "How to use `AsyncComputeTaskPool` to complete longer running tasks"
+category = "Async Tasks"
+wasm = false
+
 [[example]]
 name = "external_source_external_thread"
 path = "examples/async_tasks/external_source_external_thread.rs"
+
+[package.metadata.example.external_source_external_thread]
+name = "External Source of Data on an External Thread"
+description = "How to use an external thread to run an infinite task and communicate with a channel"
+category = "Async Tasks"
+wasm = false
 
 # Audio
 [[example]]
 name = "audio"
 path = "examples/audio/audio.rs"
 
+[package.metadata.example.audio]
+name = "Audio"
+description = "Shows how to load and play an audio file"
+category = "Audio"
+wasm = true
+
 [[example]]
 name = "audio_control"
 path = "examples/audio/audio_control.rs"
+
+[package.metadata.example.audio_control]
+name = "Audio Control"
+description = "Shows how to load and play an audio file, and control how it's played"
+category = "Audio"
+wasm = true
 
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
 path = "examples/diagnostics/log_diagnostics.rs"
 
+[package.metadata.example.log_diagnostics]
+name = "Log Diagnostics"
+description = "Add a plugin that logs diagnostics, like frames per second (FPS), to the console"
+category = "Diagnostics"
+wasm = true
+
 [[example]]
 name = "custom_diagnostic"
 path = "examples/diagnostics/custom_diagnostic.rs"
+
+[package.metadata.example.custom_diagnostic]
+name = "Custom Diagnostic"
+description = "Shows how to create a custom diagnostic"
+category = "Diagnostics"
+wasm = true
 
 # ECS (Entity Component System)
 [[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
+[package.metadata.example.ecs_guide]
+name = "ECS Guide"
+description = "Full guide to Bevy's ECS"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
+
+[package.metadata.example.component_change_detection]
+name = "Component Change Detection"
+description = "Change detection on components"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
 
+[package.metadata.example.custom_query_param]
+name = "Custom Query Parameters"
+description = "Groups commonly used compound queries and query filters into a single type"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "event"
 path = "examples/ecs/event.rs"
+
+[package.metadata.example.event]
+name = "Event"
+description = "Illustrates event creation, activation, and reception"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
 
+[package.metadata.example.fixed_timestep]
+name = "Fixed Timestep"
+description = "Shows how to create systems that run every fixed timestep, rather than every tick"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "generic_system"
 path = "examples/ecs/generic_system.rs"
+
+[package.metadata.example.generic_system]
+name = "Generic System"
+description = "Shows how to create systems that can be reused with different types"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
 
+[package.metadata.example.hierarchy]
+name = "Hierarchy"
+description = "Creates a hierarchy of parents and children entities"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
+
+[package.metadata.example.iter_combinations]
+name = "Iter Combinations"
+description = "Shows how to iterate over combinations of query results"
+category = "ECS (Entity Component System)"
+wasm = true
 
 [[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
 
+[package.metadata.example.parallel_query]
+name = "Parallel Query"
+description = "Illustrates parallel queries with `ParallelIterator`"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "removal_detection"
 path = "examples/ecs/removal_detection.rs"
+
+[package.metadata.example.removal_detection]
+name = "Removal Detection"
+description = "Query for entities that had a specific component removed in a previous stage during the current frame"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "startup_system"
 path = "examples/ecs/startup_system.rs"
 
+[package.metadata.example.startup_system]
+name = "Startup System"
+description = "Demonstrates a startup system (one that runs once when the app starts up)"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "state"
 path = "examples/ecs/state.rs"
+
+[package.metadata.example.state]
+name = "State"
+description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "system_chaining"
 path = "examples/ecs/system_chaining.rs"
 
+[package.metadata.example.system_chaining]
+name = "System Chaining"
+description = "Chain two systems together, specifying a return type in a system (such as `Result`)"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "system_closure"
 path = "examples/ecs/system_closure.rs"
+
+[package.metadata.example.system_closure]
+name = "System Closure"
+description = "Show how to use closures as systems, and how to configure `Local` variables by capturing external state"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "system_param"
 path = "examples/ecs/system_param.rs"
 
+[package.metadata.example.system_param]
+name = "System Parameter"
+description = "Illustrates creating custom system parameters with `SystemParam`"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "system_sets"
 path = "examples/ecs/system_sets.rs"
 
+[package.metadata.example.system_sets]
+name = "System Sets"
+description = "Shows `SystemSet` use along with run criterion"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "timers"
 path = "examples/ecs/timers.rs"
+
+[package.metadata.example.timers]
+name = "Timers"
+description = "Illustrates ticking `Timer` resources inside systems and handling their state"
+category = "ECS (Entity Component System)"
+wasm = false
 
 # Games
 [[example]]
 name = "alien_cake_addict"
 path = "examples/games/alien_cake_addict.rs"
 
+[package.metadata.example.alien_cake_addict]
+name = "Alien Cake Addict"
+description = "Eat the cakes. Eat them all. An example 3D game"
+category = "Games"
+wasm = true
+
 [[example]]
 name = "breakout"
 path = "examples/games/breakout.rs"
+
+[package.metadata.example.breakout]
+name = "Breakout"
+description = "An implementation of the classic game \"Breakout\""
+category = "Games"
+wasm = true
 
 [[example]]
 name = "contributors"
 path = "examples/games/contributors.rs"
 
+[package.metadata.example.contributors]
+name = "Contributors"
+description = "Displays each contributor as a bouncy bevy-ball!"
+category = "Games"
+wasm = true
+
 [[example]]
 name = "game_menu"
 path = "examples/games/game_menu.rs"
+
+[package.metadata.example.game_menu]
+name = "Game Menu"
+description = "A simple game menu"
+category = "Games"
+wasm = true
 
 # Input
 [[example]]
 name = "char_input_events"
 path = "examples/input/char_input_events.rs"
 
+[package.metadata.example.char_input_events]
+name = "Char Input Events"
+description = "Prints out all chars as they are inputted"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "gamepad_input"
 path = "examples/input/gamepad_input.rs"
+
+[package.metadata.example.gamepad_input]
+name = "Gamepad Input"
+description = "Shows handling of gamepad input, connections, and disconnections"
+category = "Input"
+wasm = false
 
 [[example]]
 name = "gamepad_input_events"
 path = "examples/input/gamepad_input_events.rs"
 
+[package.metadata.example.gamepad_input_events]
+name = "Gamepad Input Events"
+description = "Iterates and prints gamepad input and connection events"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
+
+[package.metadata.example.keyboard_input]
+name = "Keyboard Input"
+description = "Demonstrates handling a key press/release"
+category = "Input"
+wasm = false
 
 [[example]]
 name = "keyboard_modifiers"
 path = "examples/input/keyboard_modifiers.rs"
 
+[package.metadata.example.keyboard_modifiers]
+name = "Keyboard Modifiers"
+description = "Demonstrates using key modifiers (ctrl, shift)"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
+
+[package.metadata.example.keyboard_input_events]
+name = "Keyboard Input Events"
+description = "Prints out all keyboard events"
+category = "Input"
+wasm = false
 
 [[example]]
 name = "mouse_input"
 path = "examples/input/mouse_input.rs"
 
+[package.metadata.example.mouse_input]
+name = "Mouse Input"
+description = "Demonstrates handling a mouse button press/release"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "mouse_input_events"
 path = "examples/input/mouse_input_events.rs"
+
+[package.metadata.example.mouse_input_events]
+name = "Mouse Input Events"
+description = "Prints out all mouse events (buttons, movement, etc.)"
+category = "Input"
+wasm = false
 
 [[example]]
 name = "mouse_grab"
 path = "examples/input/mouse_grab.rs"
 
+[package.metadata.example.mouse_grab]
+name = "Mouse Grab"
+description = "Demonstrates how to grab the mouse, locking the cursor to the app's screen"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "touch_input"
 path = "examples/input/touch_input.rs"
 
+[package.metadata.example.touch_input]
+name = "Touch Input"
+description = "Displays touch presses, releases, and cancels"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "touch_input_events"
 path = "examples/input/touch_input_events.rs"
+
+[package.metadata.example.touch_input_events]
+name = "Touch Input Events"
+description = "Prints out all touch inputs"
+category = "Input"
+wasm = false
 
 # Reflection
 [[example]]
 name = "reflection"
 path = "examples/reflection/reflection.rs"
 
+[package.metadata.example.reflection]
+name = "Reflection"
+description = "Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types"
+category = "Reflection"
+wasm = false
+
 [[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
+
+[package.metadata.example.generic_reflection]
+name = "Generic Reflection"
+description = "Registers concrete instances of generic types that may be used with reflection"
+category = "Reflection"
+wasm = false
 
 [[example]]
 name = "reflection_types"
 path = "examples/reflection/reflection_types.rs"
 
+[package.metadata.example.reflection_types]
+name = "Reflection Types"
+description = "Illustrates the various reflection types available"
+category = "Reflection"
+wasm = false
+
 [[example]]
 name = "trait_reflection"
 path = "examples/reflection/trait_reflection.rs"
+
+[package.metadata.example.trait_reflection]
+name = "Trait Reflection"
+description = "Allows reflection with trait objects"
+category = "Reflection"
+wasm = false
 
 # Scene
 [[example]]
 name = "scene"
 path = "examples/scene/scene.rs"
 
+[package.metadata.example.scene]
+name = "Scene"
+description = "Demonstrates loading from and saving scenes to files"
+category = "Scene"
+wasm = false
+
 # Shaders
+[[package.metadata.category]]
+name = "Shaders"
+description = """
+These examples demonstrate how to implement different shaders in user code.
+
+A shader in its most common usage is a small program that is run by the GPU per-vertex in a mesh (a vertex shader) or per-affected-screen-fragment (a fragment shader.) The GPU executes these programs in a highly parallel way.
+
+There are also compute shaders which are used for more general processing leveraging the GPU's parallelism.
+"""
+
 [[example]]
 name = "custom_vertex_attribute"
 path = "examples/shader/custom_vertex_attribute.rs"
+
+[package.metadata.example.custom_vertex_attribute]
+name = "Custom Vertex Attribute"
+description = "A shader that reads a mesh's custom vertex attribute"
+category = "Shaders"
+wasm = true
 
 [[example]]
 name = "post_processing"
 path = "examples/shader/post_processing.rs"
 
+[package.metadata.example.post_processing]
+name = "Post Processing"
+description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
+category = "Shaders"
+wasm = true
+
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
+
+[package.metadata.example.shader_defs]
+name = "Shader Defs"
+description = "A shader that uses \"shaders defs\" (a bevy tool to selectively toggle parts of a shader)"
+category = "Shaders"
+wasm = true
 
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
 
+[package.metadata.example.shader_material]
+name = "Material"
+description = "A shader and a material that uses it"
+category = "Shaders"
+wasm = true
+
 [[example]]
 name = "shader_material_screenspace_texture"
 path = "examples/shader/shader_material_screenspace_texture.rs"
+
+[package.metadata.example.shader_material_screenspace_texture]
+name = "Material - Screenspace Texture"
+description = "A shader that samples a texture with view-independent UV coordinates"
+category = "Shaders"
+wasm = true
 
 [[example]]
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
 
+[package.metadata.example.shader_material_glsl]
+name = "Material - GLSL"
+description = "A shader that uses the GLSL shading language"
+category = "Shaders"
+wasm = true
+
 [[example]]
 name = "shader_instancing"
 path = "examples/shader/shader_instancing.rs"
+
+[package.metadata.example.shader_instancing]
+name = "Instancing"
+description = "A shader that renders a mesh multiple times in one draw call"
+category = "Shaders"
+wasm = true
 
 [[example]]
 name = "animate_shader"
 path = "examples/shader/animate_shader.rs"
 
+[package.metadata.example.animate_shader]
+name = "Animated"
+description = "A shader that uses dynamic data like the time since startup"
+category = "Shaders"
+wasm = true
+
 [[example]]
 name = "compute_shader_game_of_life"
 path = "examples/shader/compute_shader_game_of_life.rs"
 
+[package.metadata.example.compute_shader_game_of_life]
+name = "Compute - Game of Life"
+description = "A compute shader that simulates Conway's Game of Life"
+category = "Shaders"
+wasm = false
+
 # Stress tests
+[[package.metadata.category]]
+name = "Stress Tests"
+description = """
+These examples are used to test the performance and stability of various parts of the engine in an isolated way.
+
+Due to the focus on performance it's recommended to run the stress tests in release mode:
+
+```sh
+cargo run --release --example <example name>
+```
+"""
 
 [[example]]
 name = "bevymark"
 path = "examples/stress_tests/bevymark.rs"
 
+[package.metadata.example.bevymark]
+name = "Bevymark"
+description = "A heavy sprite rendering workload to benchmark your system with Bevy"
+category = "Stress Tests"
+wasm = true
+
 [[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
+
+[package.metadata.example.many_cubes]
+name = "Many Cubes"
+description = "Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling"
+category = "Stress Tests"
+wasm = true
 
 [[example]]
 name = "many_foxes"
 path = "examples/stress_tests/many_foxes.rs"
 
+[package.metadata.example.many_foxes]
+name = "Many Foxes"
+description = "Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000"
+category = "Stress Tests"
+wasm = true
+
 [[example]]
 name = "many_lights"
 path = "examples/stress_tests/many_lights.rs"
+
+[package.metadata.example.many_lights]
+name = "Many Lights"
+description = "Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights"
+category = "Stress Tests"
+wasm = true
 
 [[example]]
 name = "many_sprites"
 path = "examples/stress_tests/many_sprites.rs"
 
+[package.metadata.example.many_sprites]
+name = "Many Sprites"
+description = "Displays many sprites in a grid arragement! Used for performance testing"
+category = "Stress Tests"
+wasm = true
+
 [[example]]
 name = "transform_hierarchy"
 path = "examples/stress_tests/transform_hierarchy.rs"
 
-# Tools
+[package.metadata.example.transform_hierarchy]
+name = "Transform Hierarchy"
+description = "Various test cases for hierarchy and transform propagation performance"
+category = "Stress Tests"
+wasm = true
 
+# Tools
 [[example]]
 name = "scene_viewer"
 path = "examples/tools/scene_viewer.rs"
+
+[package.metadata.example.scene_viewer]
+name = "Scene Viewer"
+description = "A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory"
+category = "Tools"
+wasm = true
 
 # Transforms
 [[example]]
 name = "global_vs_local_translation"
 path = "examples/transforms/global_vs_local_translation.rs"
 
+[package.metadata.example.global_vs_local_translation]
+name = "Global / Local Translation"
+description = "Illustrates the difference between direction of a translation in respect to local object or global object Transform"
+category = "Transforms"
+wasm = true
+
 [[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
+
+[package.metadata.example.3d_rotation]
+name = "3D Rotation"
+description = "Illustrates how to (constantly) rotate an object around an axis"
+category = "Transforms"
+wasm = true
 
 [[example]]
 name = "scale"
 path = "examples/transforms/scale.rs"
 
+[package.metadata.example.scale]
+name = "Scale"
+description = "Illustrates how to scale an object in each direction"
+category = "Transforms"
+wasm = true
+
 [[example]]
 name = "transform"
 path = "examples/transforms/transform.rs"
 
+[package.metadata.example.transform]
+name = "Transform"
+description = "Shows multiple transformations of objects"
+category = "Transforms"
+wasm = true
+
 [[example]]
 name = "translation"
 path = "examples/transforms/translation.rs"
+
+[package.metadata.example.translation]
+name = "Translation"
+description = "Illustrates how to move an object along an axis"
+category = "Transforms"
+wasm = true
 
 # UI (User Interface)
 [[example]]
 name = "button"
 path = "examples/ui/button.rs"
 
+[package.metadata.example.button]
+name = "Button"
+description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
 [[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
+
+[package.metadata.example.font_atlas_debug]
+name = "Font Atlas Debug"
+description = "Illustrates how FontAtlases are populated (used to optimize text rendering internally)"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "text"
 path = "examples/ui/text.rs"
 
+[package.metadata.example.text]
+name = "Text"
+description = "Illustrates creating and updating text"
+category = "UI (User Interface)"
+wasm = true
+
 [[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
+
+[package.metadata.example.text_debug]
+name = "Text Debug"
+description = "An example for debugging text layout"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "transparency_ui"
 path = "examples/ui/transparency_ui.rs"
 
+[package.metadata.example.transparency_ui]
+name = "Transparency UI"
+description = "Demonstrates transparency for UI"
+category = "UI (User Interface)"
+wasm = true
+
 [[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
+
+[package.metadata.example.ui]
+name = "UI"
+description = "Illustrates various features of Bevy UI"
+category = "UI (User Interface)"
+wasm = true
 
 # Window
 [[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
 
+[package.metadata.example.clear_color]
+name = "Clear Color"
+description = "Creates a solid color window"
+category = "Window"
+wasm = true
+
 [[example]]
 name = "low_power"
 path = "examples/window/low_power.rs"
+
+[package.metadata.example.low_power]
+name = "Low Power"
+description = "Demonstrates settings to reduce power use for bevy applications"
+category = "Window"
+wasm = true
 
 [[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
 
+[package.metadata.example.multiple_windows]
+name = "Multiple Windows"
+description = "Demonstrates creating multiple windows, and rendering to them"
+category = "Window"
+wasm = false
+
 [[example]]
 name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
+
+[package.metadata.example.scale_factor_override]
+name = "Scale Factor Iverride"
+description = "Illustrates how to customize the default window settings"
+category = "Window"
+wasm = true
 
 [[example]]
 name = "transparent_window"
 path = "examples/window/transparent_window.rs"
 
+[package.metadata.example.transparent_window]
+name = "Transparent Window"
+description = "Illustrates making the window transparent and hiding the window decoration"
+category = "Window"
+wasm = false
+
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
+
+[package.metadata.example.window_settings]
+name = "Window Settings"
+description = "Demonstrates customizing default window settings"
+category = "Window"
+wasm = true
 
 [[example]]
 name = "resizing"
 path = "tests/window/resizing.rs"
 
+[package.metadata.example.resizing]
+hidden = true
+
 [[example]]
 name = "minimising"
 path = "tests/window/minimising.rs"
 
+[package.metadata.example.minimising]
+hidden = true
 
 # Android
 [[example]]
 crate-type = ["cdylib"]
 name = "android"
 path = "examples/android/android.rs"
+
+[package.metadata.example.android]
+hidden = true
 
 [package.metadata.android]
 apk_label = "Bevy Example"
