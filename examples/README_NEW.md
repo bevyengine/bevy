@@ -291,10 +291,10 @@ Example | Description
 Example | Description
 --- | ---
 [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
+[Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 [Scale Factor Iverride](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
-[low_power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 
 # Platform-Specific Examples
 

@@ -1367,7 +1367,7 @@ name = "low_power"
 path = "examples/window/low_power.rs"
 
 [package.metadata.example.low_power]
-name = "low_power"
+name = "Low Power"
 description = "Demonstrates settings to reduce power use for bevy applications"
 category = "Window"
 wasm = true
