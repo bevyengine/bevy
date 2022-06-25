@@ -46,6 +46,9 @@ pub enum MouseButton {
 /// This represents raw, unfiltered physical motion.
 /// It is the translated version of [`DeviceEvent::MouseMotion`] from the `winit` crate.
 ///
+/// All pointing devices connected to a single machine at the same time can emit the event independently.
+/// However, the event data does not make it possible to distinguish which device it is referring to.
+///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
 #[derive(Debug, Clone)]
 pub struct MouseMotion {
