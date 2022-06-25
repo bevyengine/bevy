@@ -877,17 +877,41 @@ wasm = false
 name = "alien_cake_addict"
 path = "examples/games/alien_cake_addict.rs"
 
+[package.metadata.example.alien_cake_addict]
+name = "Alien Cake Addict"
+description = "Eat the cakes. Eat them all. An example 3D game"
+category = "Games"
+wasm = true
+
 [[example]]
 name = "breakout"
 path = "examples/games/breakout.rs"
+
+[package.metadata.example.breakout]
+name = "Breakout"
+description = "An implementation of the classic game \"Breakout\""
+category = "Games"
+wasm = true
 
 [[example]]
 name = "contributors"
 path = "examples/games/contributors.rs"
 
+[package.metadata.example.contributors]
+name = "Contributors"
+description = "Displays each contributor as a bouncy bevy-ball!"
+category = "Games"
+wasm = true
+
 [[example]]
 name = "game_menu"
 path = "examples/games/game_menu.rs"
+
+[package.metadata.example.game_menu]
+name = "Game Menu"
+description = "A simple game menu"
+category = "Games"
+wasm = true
 
 # Input
 [[example]]

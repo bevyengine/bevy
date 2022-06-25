@@ -46,6 +46,7 @@ git checkout v0.4.0
   - [Audio](#audio)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
+  - [Games](#games)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -189,6 +190,15 @@ Example | Description
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Sets](../examples/ecs/system_sets.rs) | Shows `SystemSet` use along with run criterion
 [Timers](../examples/ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
+
+## Games
+
+Example | Description
+--- | ---
+[Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
+[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout"
+[Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+[Game Menu](../examples/games/game_menu.rs) | A simple game menu
 
 # Platform-Specific Examples
 
