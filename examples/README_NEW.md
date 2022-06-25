@@ -49,6 +49,7 @@ git checkout v0.4.0
   - [Games](#games)
   - [Input](#input)
   - [Reflection](#reflection)
+  - [Scene](#scene)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -226,6 +227,12 @@ Example | Description
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
 [Trait Reflection](../examples/reflection/trait_reflection.rs) | Allows reflection with trait objects
+
+## Scene
+
+Example | Description
+--- | ---
+[Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
 
 # Platform-Specific Examples
 
