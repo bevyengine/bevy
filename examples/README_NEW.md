@@ -50,6 +50,7 @@ git checkout v0.4.0
   - [Input](#input)
   - [Reflection](#reflection)
   - [Scene](#scene)
+  - [Shaders](#shaders)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -233,6 +234,20 @@ Example | Description
 Example | Description
 --- | ---
 [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
+
+## Shaders
+
+Example | Description
+--- | ---
+[Animated](../examples/shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup
+[Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
+[Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
+[Instancing](../examples/shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call
+[Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
+[Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
+[Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
+[Post Processing](../examples/shader/post_processing.rs) | A custom post processing effect, using two cameras, with one reusing the render texture of the first one
+[Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 
 # Platform-Specific Examples
 

@@ -1081,37 +1081,91 @@ wasm = false
 name = "custom_vertex_attribute"
 path = "examples/shader/custom_vertex_attribute.rs"
 
+[package.metadata.example.custom_vertex_attribute]
+name = "Custom Vertex Attribute"
+description = "A shader that reads a mesh's custom vertex attribute"
+category = "Shaders"
+wasm = true
+
 [[example]]
 name = "post_processing"
 path = "examples/shader/post_processing.rs"
+
+[package.metadata.example.post_processing]
+name = "Post Processing"
+description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
+category = "Shaders"
+wasm = true
 
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
+[package.metadata.example.shader_defs]
+name = "Shader Defs"
+description = "A shader that uses \"shaders defs\" (a bevy tool to selectively toggle parts of a shader)"
+category = "Shaders"
+wasm = true
+
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
+
+[package.metadata.example.shader_material]
+name = "Material"
+description = "A shader and a material that uses it"
+category = "Shaders"
+wasm = true
 
 [[example]]
 name = "shader_material_screenspace_texture"
 path = "examples/shader/shader_material_screenspace_texture.rs"
 
+[package.metadata.example.shader_material_screenspace_texture]
+name = "Material - Screenspace Texture"
+description = "A shader that samples a texture with view-independent UV coordinates"
+category = "Shaders"
+wasm = true
+
 [[example]]
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
+
+[package.metadata.example.shader_material_glsl]
+name = "Material - GLSL"
+description = "A shader that uses the GLSL shading language"
+category = "Shaders"
+wasm = true
 
 [[example]]
 name = "shader_instancing"
 path = "examples/shader/shader_instancing.rs"
 
+[package.metadata.example.shader_instancing]
+name = "Instancing"
+description = "A shader that renders a mesh multiple times in one draw call"
+category = "Shaders"
+wasm = true
+
 [[example]]
 name = "animate_shader"
 path = "examples/shader/animate_shader.rs"
 
+[package.metadata.example.animate_shader]
+name = "Animated"
+description = "A shader that uses dynamic data like the time since startup"
+category = "Shaders"
+wasm = true
+
 [[example]]
 name = "compute_shader_game_of_life"
 path = "examples/shader/compute_shader_game_of_life.rs"
+
+[package.metadata.example.compute_shader_game_of_life]
+name = "Compute - Game of Life"
+description = "A compute shader that simulates Conway's Game of Life"
+category = "Shaders"
+wasm = false
 
 # Stress tests
 
