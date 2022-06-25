@@ -39,6 +39,7 @@ git checkout v0.4.0
 - [Cross-Platform Examples](#cross-platform-examples)
 {% for category, _ in all_examples %}  - [{{ category }}](#{{ category | slugify }})
 {% endfor %}
+- [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
     - [Setup](#setup)
@@ -70,6 +71,12 @@ Example | Description
 --- | ---
 {% for example in examples %}[{{ example.name }}](../{{ example.path }}) | {{ example.description }}
 {% endfor %}{% endfor %}
+# Tests
+
+Example | Description
+--- | ---
+[How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
+
 # Platform-Specific Examples
 
 ## Android
