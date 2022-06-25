@@ -111,12 +111,12 @@ impl Deref for BindGroup {
 ///   [`Color`](crate::color::Color). It can also be derived for custom structs.
 /// * `texture(BINDING_INDEX)`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
-///     gpu resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///     GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
 ///    (with a different binding index) if a binding of the sampler for the [`Image`] is also required.
 /// * `sampler(BINDING_INDEX)`
-///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`](crate::render_resource::Sampler) gpu
+///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`](crate::render_resource::Sampler) GPU
 ///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
@@ -182,7 +182,7 @@ impl Deref for BindGroup {
 ///     if `&Self` implements [`Into<ConvertedShaderType>`]. Only use [`AsBindGroupShaderType`] if access to resources like [`RenderAssets<Image>`] is
 ///     required.
 /// * `bind_group_data(DataType)`
-///     * The [`AsBindGroup`] type will be converted to some  `DataType` using [`Into<DataType>`] and stored
+///     * The [`AsBindGroup`] type will be converted to some `DataType` using [`Into<DataType>`] and stored
 ///     as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
 ///     the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
 ///     is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
