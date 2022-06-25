@@ -1029,17 +1029,41 @@ wasm = false
 name = "reflection"
 path = "examples/reflection/reflection.rs"
 
+[package.metadata.example.reflection]
+name = "Reflection"
+description = "Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types"
+category = "Reflection"
+wasm = false
+
 [[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
+
+[package.metadata.example.generic_reflection]
+name = "Generic Reflection"
+description = "Registers concrete instances of generic types that may be used with reflection"
+category = "Reflection"
+wasm = false
 
 [[example]]
 name = "reflection_types"
 path = "examples/reflection/reflection_types.rs"
 
+[package.metadata.example.reflection_types]
+name = "Reflection Types"
+description = "Illustrates the various reflection types available"
+category = "Reflection"
+wasm = false
+
 [[example]]
 name = "trait_reflection"
 path = "examples/reflection/trait_reflection.rs"
+
+[package.metadata.example.trait_reflection]
+name = "Trait Reflection"
+description = "Allows reflection with trait objects"
+category = "Reflection"
+wasm = false
 
 # Scene
 [[example]]

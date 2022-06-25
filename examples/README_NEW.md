@@ -48,6 +48,7 @@ git checkout v0.4.0
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
   - [Input](#input)
+  - [Reflection](#reflection)
 
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
@@ -216,6 +217,15 @@ Example | Description
 [Mouse Input Events](../examples/input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
 [Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels
 [Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs
+
+## Reflection
+
+Example | Description
+--- | ---
+[Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
+[Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
+[Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
+[Trait Reflection](../examples/reflection/trait_reflection.rs) | Allows reflection with trait objects
 
 # Platform-Specific Examples
 
