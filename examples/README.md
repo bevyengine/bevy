@@ -107,7 +107,6 @@ Example | Description
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/shapes.rs) | A scene showcasing the built-in 3D shapes
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
-[Spotlight](../examples/3d/spotlight.rs) | Illustrates spotlights
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
 [MSAA](../examples/3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
@@ -118,6 +117,7 @@ Example | Description
 [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 [Spherical Area Lights](../examples/3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior
 [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
+[Spotlight](../examples/3d/spotlight.rs) | Illustrates spotlights
 [Texture](../examples/3d/texture.rs) | Shows configuration of texture materials
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives

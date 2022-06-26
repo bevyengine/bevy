@@ -290,6 +290,7 @@ name = "Spotlight"
 description = "Illustrates spotlights"
 category = "3D Rendering"
 wasm = true
+
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
