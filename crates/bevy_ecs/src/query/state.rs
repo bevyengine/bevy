@@ -1276,7 +1276,7 @@ mod tests {
             query_state
                 .get_many_unchecked_manual::<10>(
                     &world,
-                    &entities.clone().try_into().unwrap(),
+                    entities.as_slice().try_into().unwrap(),
                     last_change_tick,
                     change_tick,
                 )
