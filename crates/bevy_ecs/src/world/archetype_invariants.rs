@@ -131,11 +131,10 @@ pub struct UntypedArchetypeInvariant {
 }
 
 impl UntypedArchetypeInvariant {
-
     /// Assert that the provided iterator of [`ComponentId`]s obeys this archetype invariant
     ///
     /// `component_ids` is generally provided via the `components` field on [`Archetype`].
-    /// When testing against multiple archetypes, [`ArchetypeInvariants::test_archetype`] is preferred, 
+    /// When testing against multiple archetypes, [`ArchetypeInvariants::test_archetype`] is preferred,
     /// as it can more efficiently cache checks between archetypes.
     ///
     /// # Panics
@@ -146,7 +145,10 @@ impl UntypedArchetypeInvariant {
         if self.predicate.test(&component_ids_of_archetype)
             && !self.consequence.test(&component_ids_of_archetype)
         {
-            panic!("Archetype invariant violated!")
+            panic!(
+                "Archetype invariant violated! The invariant {:?} failed for archetype {:?}",
+                self, component_ids_of_archetype
+            );
         }
     }
 }
@@ -238,7 +240,21 @@ impl ArchetypeInvariants {
             if invariant.predicate.test(&component_ids_of_archetype)
                 && !invariant.consequence.test(&component_ids_of_archetype)
             {
-                panic!("Archetype invariant violated!")
+                let mut failed_invariants = vec![];
+
+                for invariant in &self.raw_list {
+                    if invariant.predicate.test(&component_ids_of_archetype)
+                        && !invariant.consequence.test(&component_ids_of_archetype)
+                    {
+                        failed_invariants.push(invariant.clone());
+                    }
+                }
+
+                panic!(
+                    "Archetype invariant violated! The following invariants were violated for archetype {:?}:\n{:?}",
+                    component_ids_of_archetype,
+                    failed_invariants,
+                )
             }
         }
     }
@@ -269,11 +285,28 @@ mod tests {
     }
 
     #[test]
+    fn full_bundle_on_insert_happy() {
+        let mut world = World::new();
+
+        world.spawn().insert_bundle((A, B, C));
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
+    }
+
+    #[test]
     #[should_panic]
     fn full_bundle_sad() {
         let mut world = World::new();
 
         world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
         world.spawn().insert_bundle((A, B));
+    }
+
+    #[test]
+    #[should_panic]
+    fn full_bundle_on_insert_sad() {
+        let mut world = World::new();
+
+        world.spawn().insert_bundle((A, B));
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
     }
 }
