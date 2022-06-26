@@ -27,7 +27,7 @@ fn get_serializable<'a, E: serde::ser::Error>(
     type_registry: &TypeRegistry,
 ) -> Result<Serializable<'a>, E> {
     let reflect_serialize = type_registry
-        .get_type_data::<ReflectSerialize>(reflect_value.underlying_type_id())
+        .get_type_data::<ReflectSerialize>(reflect_value.type_id())
         .ok_or_else(|| {
             serde::ser::Error::custom(format_args!(
                 "Type '{}' did not register ReflectSerialize",
