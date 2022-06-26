@@ -8,7 +8,8 @@ use crate::{
     archetype::{AddBundle, Archetype, ArchetypeId, Archetypes, ComponentStatus},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    storage::{SparseSetIndex, SparseSets, Storages, Table}, world::archetype_invariants::ArchetypeInvariants,
+    storage::{SparseSetIndex, SparseSets, Storages, Table},
+    world::archetype_invariants::ArchetypeInvariants,
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
@@ -172,6 +173,7 @@ impl BundleInfo {
         &self.storage_types
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn get_bundle_inserter<'a, 'b>(
         &'b self,
         entities: &'a mut Entities,
@@ -182,8 +184,13 @@ impl BundleInfo {
         change_tick: u32,
         archetype_invariants: &ArchetypeInvariants,
     ) -> BundleInserter<'a, 'b> {
-        let new_archetype_id =
-            self.add_bundle_to_archetype(archetypes, storages, components, archetype_id, archetype_invariants);
+        let new_archetype_id = self.add_bundle_to_archetype(
+            archetypes,
+            storages,
+            components,
+            archetype_id,
+            archetype_invariants,
+        );
         let archetypes_ptr = archetypes.archetypes.as_mut_ptr();
         if new_archetype_id == archetype_id {
             let archetype = &mut archetypes[archetype_id];
@@ -242,8 +249,13 @@ impl BundleInfo {
         change_tick: u32,
         archetype_invariants: &ArchetypeInvariants,
     ) -> BundleSpawner<'a, 'b> {
-        let new_archetype_id =
-            self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY, archetype_invariants);
+        let new_archetype_id = self.add_bundle_to_archetype(
+            archetypes,
+            storages,
+            components,
+            ArchetypeId::EMPTY,
+            archetype_invariants,
+        );
         let (empty_archetype, archetype) =
             archetypes.get_2_mut(ArchetypeId::EMPTY, new_archetype_id);
         let table = &mut storages.tables[archetype.table_id()];
@@ -376,8 +388,12 @@ impl BundleInfo {
                     new_sparse_set_components
                 };
             };
-            let new_archetype_id =
-                archetypes.get_id_or_insert(table_id, table_components, sparse_set_components, archetype_invariants);
+            let new_archetype_id = archetypes.get_id_or_insert(
+                table_id,
+                table_components,
+                sparse_set_components,
+                archetype_invariants,
+            );
             // add an edge from the old archetype to the new archetype
             archetypes[archetype_id].edges_mut().insert_add_bundle(
                 self.id,

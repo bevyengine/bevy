@@ -148,14 +148,14 @@ impl UntypedArchetypeStatement {
     /// Get the set of [`ComponentId`]s affected by this statement
     pub fn component_ids(&self) -> &BTreeSet<ComponentId> {
         match self {
-            UntypedArchetypeStatement::AllOf(set) => &set,
-            UntypedArchetypeStatement::AtLeastOneOf(set) => &set,
-            UntypedArchetypeStatement::NoneOf(set) => &set,
+            UntypedArchetypeStatement::AllOf(set)
+            | UntypedArchetypeStatement::AtLeastOneOf(set)
+            | UntypedArchetypeStatement::NoneOf(set) => set,
         }
     }
 
     /// Test if this statement is true for the provided set of [`ComponentId`]s
-    pub fn test(&self, component_ids: &HashSet<ComponentId>) -> bool{        
+    pub fn test(&self, component_ids: &HashSet<ComponentId>) -> bool {
         match self {
             UntypedArchetypeStatement::AllOf(required_ids) => {
                 for required_id in required_ids {
@@ -164,7 +164,7 @@ impl UntypedArchetypeStatement {
                     }
                 }
                 true
-            },
+            }
             UntypedArchetypeStatement::AtLeastOneOf(desired_ids) => {
                 for desired_id in desired_ids {
                     if component_ids.contains(desired_id) {
@@ -172,7 +172,7 @@ impl UntypedArchetypeStatement {
                     }
                 }
                 false
-            },
+            }
             UntypedArchetypeStatement::NoneOf(forbidden_ids) => {
                 for forbidden_id in forbidden_ids {
                     if component_ids.contains(forbidden_id) {
@@ -180,7 +180,7 @@ impl UntypedArchetypeStatement {
                     }
                 }
                 true
-            },
+            }
         }
     }
 }
@@ -197,7 +197,7 @@ impl ArchetypeInvariants {
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
     #[inline]
-    pub fn add(&mut self, archetype_invariant: UntypedArchetypeInvariant) {        
+    pub fn add(&mut self, archetype_invariant: UntypedArchetypeInvariant) {
         self.raw_list.push(archetype_invariant);
     }
 
@@ -207,13 +207,15 @@ impl ArchetypeInvariants {
     ///
     /// # Panics
     /// Panics if any archetype invariant is violated
-    pub(crate) fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
+    pub(crate) fn test_archetype(
+        &self,
+        component_ids_of_archetype: impl Iterator<Item = ComponentId>,
+    ) {
         let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
-        
-        for invariant in self.raw_list.iter() {
-            if 
-                invariant.predicate.test(&component_ids_of_archetype) &&
-                !invariant.consequence.test(&component_ids_of_archetype)
+
+        for invariant in &self.raw_list {
+            if invariant.predicate.test(&component_ids_of_archetype)
+                && !invariant.consequence.test(&component_ids_of_archetype)
             {
                 panic!("Archetype invariant violated!")
             }
