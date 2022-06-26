@@ -3,7 +3,7 @@ use crate::{
     tuple_struct_debug, Array, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed, ValueInfo,
 };
 use std::{
-    any::{Any, TypeId},
+    any::{self, Any, TypeId},
     fmt::Debug,
 };
 
@@ -52,11 +52,6 @@ pub enum ReflectMut<'a> {
 pub trait Reflect: Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
-
-    /// Returns the [`TypeId`] of the underlying type.
-    fn underlying_type_id(&self) -> TypeId {
-        TypeId::of::<Self>()
-    }
 
     /// Returns the [`TypeInfo`] of the underlying type.
     ///
@@ -233,11 +228,26 @@ impl dyn Reflect {
         self.downcast::<T>().map(|value| *value)
     }
 
+    /// Returns `true` if the underlying value represents a value of type `T`, or `false`
+    /// otherwise.
+    ///
+    /// Read `is` for more information on underlying values and represented types.
+    #[inline]
+    pub fn represents<T: Reflect>(&self) -> bool {
+        self.type_name() == any::type_name::<T>()
+    }
+
     /// Returns `true` if the underlying value is of type `T`, or `false`
     /// otherwise.
+    ///
+    /// The underlying value is the concrete type that is stored in this `dyn` object;
+    /// it can be downcasted to. In the case that this underlying value "represents"
+    /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
+    /// to determine what type they represent. Represented types cannot be downcasted
+    /// to, but you can use `FromReflect` to create a value of the represented type from them.
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
-        Reflect::underlying_type_id(self) == TypeId::of::<T>()
+        self.type_id() == TypeId::of::<T>()
     }
 
     /// Downcasts the value to type `T` by reference.
