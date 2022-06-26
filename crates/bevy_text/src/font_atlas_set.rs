@@ -22,6 +22,7 @@ pub struct FontAtlasSet {
 #[derive(Debug, Clone)]
 pub struct GlyphAtlasInfo {
     pub texture_atlas: Handle<TextureAtlas>,
+    pub texture: Handle<Image>,
     pub glyph_index: usize,
 }
 
@@ -124,10 +125,17 @@ impl FontAtlasSet {
                     .find_map(|atlas| {
                         atlas
                             .get_glyph_index(glyph_id, position.into())
-                            .map(|glyph_index| (glyph_index, atlas.texture_atlas.clone_weak()))
+                            .map(|glyph_index| {
+                                (
+                                    glyph_index,
+                                    atlas.texture_atlas.clone_weak(),
+                                    atlas.texture.clone_weak(),
+                                )
+                            })
                     })
-                    .map(|(glyph_index, texture_atlas)| GlyphAtlasInfo {
+                    .map(|(glyph_index, texture_atlas, texture)| GlyphAtlasInfo {
                         texture_atlas,
+                        texture,
                         glyph_index,
                     })
             })

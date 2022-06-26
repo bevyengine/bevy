@@ -43,6 +43,7 @@ pub struct FontAtlas {
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
     pub glyph_to_atlas_index: HashMap<(GlyphId, SubpixelOffset), usize>,
     pub texture_atlas: Handle<TextureAtlas>,
+    pub texture: Handle<Image>,
 }
 
 impl FontAtlas {
@@ -51,7 +52,7 @@ impl FontAtlas {
         texture_atlases: &mut Assets<TextureAtlas>,
         size: Vec2,
     ) -> FontAtlas {
-        let atlas_texture = textures.add(Image::new_fill(
+        let texture = textures.add(Image::new_fill(
             Extent3d {
                 width: size.x as u32,
                 height: size.y as u32,
@@ -61,11 +62,12 @@ impl FontAtlas {
             &[0, 0, 0, 0],
             TextureFormat::Rgba8UnormSrgb,
         ));
-        let texture_atlas = TextureAtlas::new_empty(atlas_texture, size);
+        let texture_atlas = TextureAtlas::new_empty(size);
         Self {
             texture_atlas: texture_atlases.add(texture_atlas),
             glyph_to_atlas_index: HashMap::default(),
             dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 1),
+            texture,
         }
     }
 
@@ -93,10 +95,12 @@ impl FontAtlas {
         texture: &Image,
     ) -> bool {
         let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
-        if let Some(index) =
-            self.dynamic_texture_atlas_builder
-                .add_texture(texture_atlas, textures, texture)
-        {
+        if let Some(index) = self.dynamic_texture_atlas_builder.add_texture(
+            texture_atlas,
+            textures,
+            texture,
+            &self.texture,
+        ) {
             self.glyph_to_atlas_index
                 .insert((glyph_id, subpixel_offset), index);
             true

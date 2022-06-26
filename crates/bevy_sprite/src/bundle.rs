@@ -1,7 +1,4 @@
-use crate::{
-    texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite,
-};
+use crate::{texture_atlas::TextureAtlas, Sprite, TextureSheetIndex};
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -34,14 +31,18 @@ impl Default for SpriteBundle {
         }
     }
 }
+
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
 /// to as a `TextureAtlas`)
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteSheetBundle {
-    /// The specific sprite from the texture atlas to be drawn, defaulting to the sprite at index 0.
-    pub sprite: TextureAtlasSprite,
+    pub sprite: Sprite,
+    /// The sprite sheet texture
+    pub texture: Handle<Image>,
     /// A handle to the texture atlas that holds the sprite images
     pub texture_atlas: Handle<TextureAtlas>,
+    /// The texture sheet sprite index
+    pub index: TextureSheetIndex,
     /// Data pertaining to how the sprite is drawn on the screen
     pub transform: Transform,
     pub global_transform: GlobalTransform,

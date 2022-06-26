@@ -25,7 +25,8 @@ fn animate_sprite(
     mut query: Query<(
         &AnimationIndices,
         &mut AnimationTimer,
-        &mut TextureAtlasSprite,
+        &mut TextureSheetIndex,
+        &Handle<TextureAtlas>,
     )>,
 ) {
     for (indices, mut timer, mut sprite) in &mut query {
@@ -45,17 +46,16 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas =
-        TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1, None, None);
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    let texture = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
+    let atlas = TextureAtlas::from_grid(Vec2::new(24.0, 24.0), 7, 1);
+    let texture_atlas = texture_atlases.add(atlas);
     // Use only the subset of sprites in the sheet that make up the run animation
     let animation_indices = AnimationIndices { first: 1, last: 6 };
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn((
-        SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
-            sprite: TextureAtlasSprite::new(animation_indices.first),
+    commands.spawn_bundle(Camera2dBundle::default());
+    commands
+        .spawn_bundle(SpriteSheetBundle {
+            texture,
+            texture_atlas,
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..default()
         },

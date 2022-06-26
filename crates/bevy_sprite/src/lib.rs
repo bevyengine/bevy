@@ -15,7 +15,7 @@ pub mod prelude {
     pub use crate::{
         bundle::{SpriteBundle, SpriteSheetBundle},
         sprite::Sprite,
-        texture_atlas::{TextureAtlas, TextureAtlasSprite},
+        texture_atlas::{TextureAtlas, TextureSheetIndex},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }

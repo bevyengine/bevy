@@ -1,9 +1,6 @@
 use std::cmp::Ordering;
 
-use crate::{
-    texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite, SPRITE_SHADER_HANDLE,
-};
+use crate::{texture_atlas::TextureAtlas, Rect, Sprite, TextureSheetIndex, SPRITE_SHADER_HANDLE};
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
@@ -348,36 +345,27 @@ pub fn extract_sprite_events(
 pub fn extract_sprites(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    sprite_query: Extract<
-        Query<(
-            Entity,
-            &ComputedVisibility,
-            &Sprite,
-            &GlobalTransform,
-            &Handle<Image>,
-        )>,
-    >,
-    atlas_query: Extract<
-        Query<(
-            Entity,
-            &ComputedVisibility,
-            &TextureAtlasSprite,
-            &GlobalTransform,
-            &Handle<TextureAtlas>,
-        )>,
-    >,
+    sprite_query: Extract<Query<(Entity, &ComputedVisibility, &Sprite, &GlobalTransform, &Handle<Image>)>>,
 ) {
     extracted_sprites.sprites.clear();
-    for (entity, visibility, sprite, transform, handle) in sprite_query.iter() {
-        if !visibility.is_visible() {
+    for (entity, visibility, sprite, transform, handle, atlas, index) in sprite_query.iter() {
+        if !visibility.is_visible {
             continue;
         }
+        let atlas: Option<&Handle<TextureAtlas>> = atlas;
+        let rect = atlas.and_then(|h| texture_atlases.get(h)).map(|atlas| {
+            let index = index.map(|i| i.0).unwrap_or(0);
+            atlas.textures.get(index).copied().unwrap_or_else(|| {
+                panic!("TextureAtlas {:?} as no texture at index {}", atlas, index)
+            })
+        });
+
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
         extracted_sprites.sprites.push(ExtractedSprite {
             entity,
             color: sprite.color,
             transform: *transform,
-            rect: sprite.rect,
+            rect,
             // Pass the custom size
             custom_size: sprite.custom_size,
             flip_x: sprite.flip_x,
@@ -385,38 +373,6 @@ pub fn extract_sprites(
             image_handle_id: handle.id(),
             anchor: sprite.anchor.as_vec(),
         });
-    }
-    for (entity, visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
-        if !visibility.is_visible() {
-            continue;
-        }
-        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = Some(
-                *texture_atlas
-                    .textures
-                    .get(atlas_sprite.index)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Sprite index {:?} does not exist for texture atlas handle {:?}.",
-                            atlas_sprite.index,
-                            texture_atlas_handle.id(),
-                        )
-                    }),
-            );
-            extracted_sprites.sprites.push(ExtractedSprite {
-                entity,
-                color: atlas_sprite.color,
-                transform: *transform,
-                // Select the area in the texture atlas
-                rect,
-                // Pass the custom size
-                custom_size: atlas_sprite.custom_size,
-                flip_x: atlas_sprite.flip_x,
-                flip_y: atlas_sprite.flip_y,
-                image_handle_id: texture_atlas.texture.id(),
-                anchor: atlas_sprite.anchor.as_vec(),
-            });
-        }
     }
 }
 

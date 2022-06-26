@@ -1,5 +1,5 @@
-use crate::TextureAtlas;
-use bevy_asset::Assets;
+use crate::{Rect, TextureAtlas};
+use bevy_asset::{Assets, Handle};
 use bevy_math::{IVec2, Rect, Vec2};
 use bevy_render::texture::{Image, TextureFormatPixelInfo};
 use guillotiere::{size2, Allocation, AtlasAllocator};
@@ -34,13 +34,14 @@ impl DynamicTextureAtlasBuilder {
         texture_atlas: &mut TextureAtlas,
         textures: &mut Assets<Image>,
         texture: &Image,
+        texture_handle: &Handle<Image>,
     ) -> Option<usize> {
         let allocation = self.atlas_allocator.allocate(size2(
             texture.texture_descriptor.size.width as i32 + self.padding,
             texture.texture_descriptor.size.height as i32 + self.padding,
         ));
         if let Some(allocation) = allocation {
-            let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
+            let atlas_texture = textures.get_mut(texture_handle).unwrap();
             self.place_texture(atlas_texture, allocation, texture);
             let mut rect: Rect = to_rect(allocation.rectangle);
             rect.max -= self.padding as f32;

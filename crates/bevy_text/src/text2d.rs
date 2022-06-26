@@ -123,7 +123,9 @@ pub fn extract_text2d_sprite(
                 color = text.sections[*section_index].style.color.as_rgba_linear();
                 current_section = *section_index;
             }
-            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+            let atlas = texture_atlases
+                .get(&text_glyph.atlas_info.texture_atlas)
+                .unwrap();
 
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,

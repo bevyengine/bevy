@@ -1,9 +1,9 @@
-use crate::Anchor;
+use crate::Rect;
 use bevy_asset::Handle;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Vec2};
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
-use bevy_render::{color::Color, texture::Image};
+use bevy_ecs::component::Component;
+use bevy_math::Vec2;
+use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::texture::Image;
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap).
@@ -13,8 +13,6 @@ use bevy_utils::HashMap;
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 #[reflect(Debug)]
 pub struct TextureAtlas {
-    /// The handle to the texture in which the sprites are stored
-    pub texture: Handle<Image>,
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: Vec2,
     /// The specific areas of the atlas where each texture can be found
@@ -23,67 +21,44 @@ pub struct TextureAtlas {
     pub(crate) texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
-#[reflect(Component)]
-pub struct TextureAtlasSprite {
-    /// The tint color used to draw the sprite, defaulting to [`Color::WHITE`]
-    pub color: Color,
-    /// Texture index in [`TextureAtlas`]
-    pub index: usize,
-    /// Whether to flip the sprite in the X axis
-    pub flip_x: bool,
-    /// Whether to flip the sprite in the Y axis
-    pub flip_y: bool,
-    /// An optional custom size for the sprite that will be used when rendering, instead of the size
-    /// of the sprite's image in the atlas
-    pub custom_size: Option<Vec2>,
-    /// [`Anchor`] point of the sprite in the world
-    pub anchor: Anchor,
-}
+#[derive(Component, Default, Debug, Clone, Reflect)]
+pub struct TextureSheetIndex(pub usize);
 
-impl Default for TextureAtlasSprite {
-    fn default() -> Self {
-        Self {
-            index: 0,
-            color: Color::WHITE,
-            flip_x: false,
-            flip_y: false,
-            custom_size: None,
-            anchor: Anchor::default(),
-        }
+impl TextureSheetIndex {
+    pub fn new(index: usize) -> Self {
+        Self(index)
     }
 }
 
-impl TextureAtlasSprite {
-    /// Create a new [`TextureAtlasSprite`] with a sprite index,
-    /// it should be valid in the corresponding [`TextureAtlas`]
-    pub fn new(index: usize) -> TextureAtlasSprite {
-        Self {
-            index,
-            ..Default::default()
-        }
+impl From<usize> for TextureSheetIndex {
+    fn from(index: usize) -> Self {
+        Self(index)
     }
 }
 
 impl TextureAtlas {
     /// Create a new [`TextureAtlas`] that has a texture, but does not have
     /// any individual sprites specified
-    pub fn new_empty(texture: Handle<Image>, dimensions: Vec2) -> Self {
+    pub fn new_empty(dimensions: Vec2) -> Self {
         Self {
-            texture,
             size: dimensions,
             texture_handles: None,
             textures: Vec::new(),
         }
     }
 
-    /// Generate a [`TextureAtlas`] by splitting a texture into a grid where each
+    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
+    /// `tile_size` by `tile_size` grid-cell is one of the textures in the atlas
+    pub fn from_grid(tile_size: Vec2, columns: usize, rows: usize) -> TextureAtlas {
+        Self::from_grid_with_padding(tile_size, columns, rows, Vec2::ZERO, Vec2::ZERO)
+    }
+
+    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
     /// `tile_size` by `tile_size` grid-cell is one of the textures in the
     /// atlas. Grid cells are separated by some `padding`, and the grid starts
     /// at `offset` pixels from the top left corner. The resulting [`TextureAtlas`] is
     /// indexed left to right, top to bottom.
-    pub fn from_grid(
-        texture: Handle<Image>,
+    pub fn from_grid_with_padding(
         tile_size: Vec2,
         columns: usize,
         rows: usize,
@@ -120,7 +95,6 @@ impl TextureAtlas {
         TextureAtlas {
             size: ((tile_size + current_padding) * grid_size) - current_padding,
             textures: sprites,
-            texture,
             texture_handles: None,
         }
     }

@@ -136,12 +136,37 @@ impl TextureAtlasBuilder {
         }
     }
 
-    /// Consumes the builder and returns a result with a new texture atlas.
+    /// Consumes the builder and returns a result with a new texture atlas and a texture handle.
     ///
     /// Internally it copies all rectangles from the textures and copies them
     /// into a new texture which the texture atlas will use. It is not useful to
     /// hold a strong handle to the texture afterwards else it will exist twice
     /// in memory.
+    ///
+    /// # Usage
+    ///
+    /// ```rust
+    /// # use bevy_sprite::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_asset::*;
+    /// # use bevy_render::prelude::*;
+    ///
+    /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut atlases: ResMut<Assets<TextureAtlas>>) {
+    ///     // Declare your builder
+    ///     let mut builder = TextureAtlasBuilder::default();
+    ///     // Customize it
+    ///     // ...
+    ///     // Build your texture
+    ///     let (atlas, texture) = builder.finish(&mut textures).unwrap();
+    ///     let texture_atlas = atlases.add(atlas);
+    ///     // Spawn your sprite
+    ///     commands.spawn_bundle(SpriteSheetBundle {
+    ///        texture,
+    ///        texture_atlas,
+    ///       ..Default::default()
+    ///     });
+    /// }
+    /// ```
     ///
     /// # Errors
     ///
@@ -150,7 +175,7 @@ impl TextureAtlasBuilder {
     pub fn finish(
         self,
         textures: &mut Assets<Image>,
-    ) -> Result<TextureAtlas, TextureAtlasBuilderError> {
+    ) -> Result<(TextureAtlas, Handle<Image>), TextureAtlasBuilderError> {
         let initial_width = self.initial_size.x as u32;
         let initial_height = self.initial_size.y as u32;
         let max_width = self.max_size.x as u32;
@@ -227,14 +252,16 @@ impl TextureAtlasBuilder {
             }
             self.copy_converted_texture(&mut atlas_texture, texture, packed_location);
         }
-        Ok(TextureAtlas {
-            size: Vec2::new(
-                atlas_texture.texture_descriptor.size.width as f32,
-                atlas_texture.texture_descriptor.size.height as f32,
-            ),
-            texture: textures.add(atlas_texture),
-            textures: texture_rects,
-            texture_handles: Some(texture_handles),
-        })
+        Ok((
+            TextureAtlas {
+                size: Vec2::new(
+                    atlas_texture.texture_descriptor.size.width as f32,
+                    atlas_texture.texture_descriptor.size.height as f32,
+                ),
+                textures: texture_rects,
+                texture_handles: Some(texture_handles),
+            },
+            textures.add(atlas_texture),
+        ))
     }
 }

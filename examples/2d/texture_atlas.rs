@@ -63,8 +63,8 @@ fn setup(
         texture_atlas_builder.add_texture(handle, texture);
     }
 
-    let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
-    let texture_atlas_texture = texture_atlas.texture.clone();
+    let (texture_atlas, texture_atlas_texture) =
+        texture_atlas_builder.finish(&mut textures).unwrap();
     let vendor_handle = asset_server.get_handle("textures/rpg/chars/vendor/generic-rpg-vendor.png");
     let vendor_index = texture_atlas.get_texture_index(&vendor_handle).unwrap();
     let atlas_handle = texture_atlases.add(texture_atlas);
@@ -78,7 +78,7 @@ fn setup(
             scale: Vec3::splat(4.0),
             ..default()
         },
-        sprite: TextureAtlasSprite::new(vendor_index),
+        index: vendor_index.into(),
         texture_atlas: atlas_handle,
         ..default()
     });
