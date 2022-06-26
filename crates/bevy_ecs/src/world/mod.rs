@@ -688,9 +688,13 @@ impl World {
         archetype_invariant: ArchetypeInvariant<B1, B2>,
     ) {
         let untyped_invariant = archetype_invariant.into_untyped(self);
-        self.archetype_invariants.add(untyped_invariant);
+        
+        for archetype in &self.archetypes.archetypes {
+            let components = archetype.components.indices();
+            untyped_invariant.test_archetype(components);
+        }
 
-        todo!("Check all archetypes against the new invariant");
+        self.archetype_invariants.add(untyped_invariant);
     }
 
     /// Inserts a new [`UntypedArchetypeInvariant`] to the world

@@ -130,6 +130,27 @@ pub struct UntypedArchetypeInvariant {
     pub consequence: UntypedArchetypeStatement,
 }
 
+impl UntypedArchetypeInvariant {
+
+    /// Assert that the provided iterator of [`ComponentId`]s obeys this archetype invariant
+    ///
+    /// `component_ids` is generally provided via the `components` field on [`Archetype`].
+    /// When testing against multiple archetypes, [`ArchetypeInvariants::test_archetype`] is preferred, 
+    /// as it can more efficiently cache checks between archetypes.
+    ///
+    /// # Panics
+    /// Panics if the archetype invariant is violated
+    pub fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
+        let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
+
+        if self.predicate.test(&component_ids_of_archetype)
+            && !self.consequence.test(&component_ids_of_archetype)
+        {
+            panic!("Archetype invariant violated!")
+        }
+    }
+}
+
 /// A type-erased version of [`ArchetypeStatment`]
 /// Intended to be used with dynamic components that cannot be represented with Rust types.
 /// Prefer [`ArchetypeStatment`] when possible.
