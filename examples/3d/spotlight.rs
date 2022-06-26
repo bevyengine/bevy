@@ -65,9 +65,9 @@ fn setup(
         for z in 0..4 {
             let x = x as f32 - 2.0;
             let z = z as f32 - 2.0;
-            // red spotlight
+            // red spot_light
             commands
-                .spawn_bundle(SpotlightBundle {
+                .spawn_bundle(SpotLightBundle {
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     point_light: PointLight {
@@ -76,7 +76,7 @@ fn setup(
                         shadows_enabled: true,
                         ..default()
                     },
-                    spotlight_angles: SpotlightAngles {
+                    spot_light_angles: SpotLightAngles {
                         inner: std::f32::consts::PI / 4.0 * 0.85,
                         outer: std::f32::consts::PI / 4.0,
                     },
@@ -121,7 +121,7 @@ fn setup(
     });
 }
 
-fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotlightAngles)>) {
+fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLightAngles)>) {
     for (mut transform, mut angles) in query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,

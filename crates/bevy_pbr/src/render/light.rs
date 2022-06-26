@@ -1,7 +1,7 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
-    PointLight, PointLightShadowMap, SetMeshBindGroup, SpotlightAngles, VisiblePointLights,
+    PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLightAngles, VisiblePointLights,
     SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
@@ -57,7 +57,7 @@ pub struct ExtractedPointLight {
     shadows_enabled: bool,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
-    spotlight_angles: Option<(f32, f32)>,
+    spot_light_angles: Option<(f32, f32)>,
 }
 
 #[derive(Component)]
@@ -74,14 +74,14 @@ pub struct ExtractedDirectionalLight {
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuPointLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
-    // For spotlights: 2 components of the direction (x,z), spot_scale and spot_offset
+    // For spot lights: 2 components of the direction (x,z), spot_scale and spot_offset
     light_custom_data: Vec4,
     color_inverse_square_range: Vec4,
     position_radius: Vec4,
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
-    spotlight_tan_angle: f32,
+    spot_light_tan_angle: f32,
 }
 
 #[derive(ShaderType)]
@@ -166,8 +166,8 @@ bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
         const SHADOWS_ENABLED            = (1 << 0);
-        const IS_SPOTLIGHT               = (1 << 1);
-        const SPOTLIGHT_Y_NEGATIVE       = (1 << 2);
+        const IS_SPOT_LIGHT              = (1 << 1);
+        const SPOT_LIGHT_Y_NEGATIVE      = (1 << 2);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -204,8 +204,8 @@ pub struct GpuLights {
     // w is cluster_dimensions.z * log(near) / log(far / near)
     cluster_factors: Vec4,
     n_directional_lights: u32,
-    // offset from spotlight's light index to spotlight's shadow map index
-    spotlight_shadowmap_offset: i32,
+    // offset from spot light's light index to spot light's shadow map index
+    spot_light_shadowmap_offset: i32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
@@ -410,11 +410,11 @@ pub fn extract_lights(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     global_point_lights: Res<GlobalVisiblePointLights>,
     mut point_lights: Query<(&PointLight, &mut CubemapVisibleEntities, &GlobalTransform)>,
-    mut spotlights: Query<(
+    mut spot_lights: Query<(
         &PointLight,
         &mut VisibleEntities,
         &GlobalTransform,
-        &SpotlightAngles,
+        &SpotLightAngles,
     )>,
     mut directional_lights: Query<
         (
@@ -424,10 +424,10 @@ pub fn extract_lights(
             &GlobalTransform,
             &Visibility,
         ),
-        Without<SpotlightAngles>,
+        Without<SpotLightAngles>,
     >,
     mut previous_point_lights_len: Local<usize>,
-    mut previous_spotlights_len: Local<usize>,
+    mut previous_spot_lights_len: Local<usize>,
 ) {
     // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
     // races between scheduling of ExtractResourceSystems and this system.
@@ -448,7 +448,7 @@ pub fn extract_lights(
 
     let extracted_point_light = |point_light: &PointLight,
                                  transform: &GlobalTransform,
-                                 spotlight_angles: Option<(f32, f32)>,
+                                 spot_light_angles: Option<(f32, f32)>,
                                  texel_size: f32|
      -> ExtractedPointLight {
         ExtractedPointLight {
@@ -456,8 +456,8 @@ pub fn extract_lights(
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
             // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
             // for details.
-            // Note: Filament uses a divisor of PI for spotlights. We choose to use the same 4*PI divisor
-            // in both cases so that toggling between point light and spotlight keeps lit areas lit equally,
+            // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
+            // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
             // which seems least surprising for users
             intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
             range: point_light.range,
@@ -469,7 +469,7 @@ pub fn extract_lights(
             shadow_normal_bias: point_light.shadow_normal_bias
                 * texel_size
                 * std::f32::consts::SQRT_2,
-            spotlight_angles,
+            spot_light_angles,
         }
     };
 
@@ -491,22 +491,22 @@ pub fn extract_lights(
     *previous_point_lights_len = point_lights_values.len();
     commands.insert_or_spawn_batch(point_lights_values);
 
-    let mut spotlights_values = Vec::with_capacity(*previous_spotlights_len);
+    let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, visible_entities, transform, spotlight_angles)) =
-            spotlights.get_mut(entity)
+        if let Ok((point_light, visible_entities, transform, spot_light_angles)) =
+            spot_lights.get_mut(entity)
         {
             let render_visible_entities = std::mem::take(visible_entities.into_inner());
             let texel_size =
-                2.0 * spotlight_angles.outer.tan() / directional_light_shadow_map.size as f32;
+                2.0 * spot_light_angles.outer.tan() / directional_light_shadow_map.size as f32;
 
-            spotlights_values.push((
+            spot_lights_values.push((
                 entity,
                 (
                     extracted_point_light(
                         point_light,
                         transform,
-                        Some((spotlight_angles.inner, spotlight_angles.outer)),
+                        Some((spot_light_angles.inner, spot_light_angles.outer)),
                         texel_size,
                     ),
                     render_visible_entities,
@@ -514,8 +514,8 @@ pub fn extract_lights(
             ));
         }
     }
-    *previous_spotlights_len = spotlights_values.len();
-    commands.insert_or_spawn_batch(spotlights_values);
+    *previous_spot_lights_len = spot_lights_values.len();
+    commands.insert_or_spawn_batch(spot_lights_values);
 
     for (entity, directional_light, visible_entities, transform, visibility) in
         directional_lights.iter_mut()
@@ -705,7 +705,7 @@ pub fn calculate_cluster_factors(
 // we will also construct it in the fragment shader and need our implementations to match,
 // so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
 // could move this onto transform but it's pretty niche
-pub(crate) fn spotlight_view_matrix(transform: &GlobalTransform) -> Mat4 {
+pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
     let fwd_dir = transform.local_z().extend(0.0);
 
@@ -728,8 +728,8 @@ pub(crate) fn spotlight_view_matrix(transform: &GlobalTransform) -> Mat4 {
     )
 }
 
-pub(crate) fn spotlight_projection_matrix(angle: f32) -> Mat4 {
-    // spotlight projection FOV is 2x the angle from spotlight centre to outer edge
+pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
+    // spot light projection FOV is 2x the angle from spot light centre to outer edge
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
 
@@ -776,7 +776,7 @@ pub fn prepare_lights(
 
     let point_light_count = point_lights
         .iter()
-        .filter(|light| light.1.shadows_enabled && light.1.spotlight_angles.is_none())
+        .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
         .count();
 
     let point_light_shadow_maps_count = point_light_count.min(max_texture_cubes);
@@ -787,28 +787,28 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_array_layers);
 
-    let spot_shadow_maps_count = point_lights
+    let spot_light_shadow_maps_count = point_lights
         .iter()
-        .filter(|(_, light)| light.shadows_enabled && light.spotlight_angles.is_some())
+        .filter(|(_, light)| light.shadows_enabled && light.spot_light_angles.is_some())
         .count()
         .min(max_texture_array_layers - directional_shadow_maps_count);
 
     // Sort lights by
-    // - point-light vs spot-light, so that we can iterate point lights and spotlights in contiguous blocks in the fragment shader,
+    // - point-light vs spot-light, so that we can iterate point lights and spot lights in contiguous blocks in the fragment shader,
     // - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
-    //   point light shadows and `spot_shadow_maps_count` spotlight shadow maps,
+    //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         point_light_order(
             (
                 entity_1,
                 &light_1.shadows_enabled,
-                &light_1.spotlight_angles.is_some(),
+                &light_1.spot_light_angles.is_some(),
             ),
             (
                 entity_2,
                 &light_2.shadows_enabled,
-                &light_2.spotlight_angles.is_some(),
+                &light_2.spot_light_angles.is_some(),
             ),
         )
     });
@@ -826,19 +826,19 @@ pub fn prepare_lights(
         // Lights are sorted, shadow enabled lights are first
         if light.shadows_enabled
             && (index < point_light_shadow_maps_count
-                || (light.spotlight_angles.is_some()
-                    && index - point_light_count < spot_shadow_maps_count))
+                || (light.spot_light_angles.is_some()
+                    && index - point_light_count < spot_light_shadow_maps_count))
         {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
 
-        let (light_custom_data, spotlight_tan_angle) = match light.spotlight_angles {
+        let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {
-                flags |= PointLightFlags::IS_SPOTLIGHT;
+                flags |= PointLightFlags::IS_SPOT_LIGHT;
 
                 let light_direction = light.transform.forward();
                 if light_direction.y.is_sign_negative() {
-                    flags |= PointLightFlags::SPOTLIGHT_Y_NEGATIVE;
+                    flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
                 }
 
                 let cos_outer = outer.cos();
@@ -846,7 +846,7 @@ pub fn prepare_lights(
                 let spot_offset = -cos_outer * spot_scale;
 
                 (
-                    // For spotlights: the direction (x,z), spot_scale and spot_offset
+                    // For spot lights: the direction (x,z), spot_scale and spot_offset
                     light_direction.xz().extend(spot_scale).extend(spot_offset),
                     outer.tan(),
                 )
@@ -878,7 +878,7 @@ pub fn prepare_lights(
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
-            spotlight_tan_angle,
+            spot_light_tan_angle,
         });
         global_light_meta.entity_to_index.insert(entity, index);
     }
@@ -914,7 +914,8 @@ pub fn prepare_lights(
                         .min(render_device.limits().max_texture_dimension_2d),
                     height: (directional_light_shadow_map.size as u32)
                         .min(render_device.limits().max_texture_dimension_2d),
-                    depth_or_array_layers: (directional_shadow_maps_count + spot_shadow_maps_count)
+                    depth_or_array_layers: (directional_shadow_maps_count
+                        + spot_light_shadow_maps_count)
                         .max(1) as u32,
                 },
                 mip_level_count: 1,
@@ -949,9 +950,9 @@ pub fn prepare_lights(
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
             // spotlight shadow maps are stored in the directional light array, starting at directional_shadow_maps_count.
-            // the spotlights themselves start in the light array at point_light_count. so to go from light
+            // the spot lights themselves start in the light array at point_light_count. so to go from light
             // index to shadow map index, we need to subtract point light shadowmap count and add directional shadowmap count.
-            spotlight_shadowmap_offset: directional_shadow_maps_count as i32
+            spot_light_shadowmap_offset: directional_shadow_maps_count as i32
                 - point_light_count as i32,
         };
 
@@ -1014,19 +1015,19 @@ pub fn prepare_lights(
             }
         }
 
-        // spotlights
+        // spot lights
         for (light_index, &(light_entity, light)) in point_lights
             .iter()
             .skip(point_light_count)
-            .take(spot_shadow_maps_count)
+            .take(spot_light_shadow_maps_count)
             .enumerate()
         {
-            let spot_view_matrix = spotlight_view_matrix(&light.transform);
+            let spot_view_matrix = spot_light_view_matrix(&light.transform);
             let spot_view_transform = GlobalTransform::from_matrix(spot_view_matrix);
 
-            let angle = light.spotlight_angles.expect("lights should be sorted so that \
-                [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_shadow_maps_count] are spotlights").1;
-            let spot_projection = spotlight_projection_matrix(angle);
+            let angle = light.spot_light_angles.expect("lights should be sorted so that \
+                [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_light_shadow_maps_count] are spot lights").1;
+            let spot_projection = spot_light_projection_matrix(angle);
 
             let depth_texture_view =
                 directional_light_depth_texture
@@ -1211,9 +1212,9 @@ const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 // 16384 values. log2(16384) = 14 bits.
 // We use 32 bits to store the offset and counts so
 // we pack the offset into the upper 14 bits of a u32,
-// the point light count into bits 9-17, and the spotlight count into bits 0-8.
-//  [ 31     ..     18 | 17      ..      9 | 8      ..     0 ]
-//  [      offset      | point light count | spotlight count ]
+// the point light count into bits 9-17, and the spot light count into bits 0-8.
+//  [ 31     ..     18 | 17      ..      9 | 8       ..     0 ]
+//  [      offset      | point light count | spot light count ]
 // NOTE: This assumes CPU and GPU endianness are the same which is true
 // for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
 fn pack_offset_and_counts(offset: usize, point_count: usize, spot_count: usize) -> u32 {
@@ -1501,7 +1502,7 @@ pub fn prepare_clusters(
                     view_clusters_bindings.push_offset_and_counts(
                         offset,
                         cluster_lights.point_light_count,
-                        cluster_lights.spotlight_count,
+                        cluster_lights.spot_light_count,
                     );
 
                     if !indices_full {
@@ -1563,7 +1564,7 @@ pub fn queue_shadows(
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&VisibleEntities, With<ExtractedDirectionalLight>>,
-    spotlight_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
+    spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
 ) {
     for view_lights in view_lights.iter() {
         let draw_shadow_mesh = shadow_draw_functions
@@ -1584,9 +1585,9 @@ pub fn queue_shadows(
                     .get(*light_entity)
                     .expect("Failed to get point light visible entities")
                     .get(*face_index),
-                LightEntity::Spot { light_entity } => spotlight_entities
+                LightEntity::Spot { light_entity } => spot_light_entities
                     .get(*light_entity)
-                    .expect("Failed to get spotlight visible entities"),
+                    .expect("Failed to get spot light visible entities"),
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued

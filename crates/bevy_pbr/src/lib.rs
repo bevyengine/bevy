@@ -22,9 +22,9 @@ pub mod prelude {
         alpha::AlphaMode,
         bundle::{
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
-            SpotlightBundle,
+            SpotLightBundle,
         },
-        light::{AmbientLight, DirectionalLight, PointLight, SpotlightAngles},
+        light::{AmbientLight, DirectionalLight, PointLight, SpotLightAngles},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
     };
@@ -164,7 +164,7 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                update_spotlight_frusta
+                update_spot_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),

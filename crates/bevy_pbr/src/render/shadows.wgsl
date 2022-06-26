@@ -50,7 +50,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
     // reconstruct spot dir from x/z and y-direction flag
     spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
-    if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Y_NEGATIVE) != 0u) {
+    if ((light.flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
         spot_dir.y = -spot_dir.y;
     }
 
@@ -63,7 +63,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
         + (surface_normal.xyz * light.shadow_normal_bias) * distance_to_light;
 
     // the construction of the up and right vectors needs to precisely mirror the code 
-    // in render/light.rs:spotlight_view_matrix
+    // in render/light.rs:spot_light_view_matrix
     var sign = -1.0;
     if (fwd.z >= 0.0) {
         sign = 1.0;
@@ -81,7 +81,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
 
     // divide xy by perspective matrix "f" and by -projected.z (projected.z is -projection matrix's w)
     // to get ndc coordinates
-    let f_div_minus_z = 1.0 / (light.spotlight_tan_angle * -projected_position.z);
+    let f_div_minus_z = 1.0 / (light.spot_light_tan_angle * -projected_position.z);
     let shadow_xy_ndc = projected_position.xy * f_div_minus_z;
     // convert to uv coordinates
     let shadow_uv = shadow_xy_ndc * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);
@@ -94,7 +94,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
             shadow_uv, depth);
     #else
         return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
-            shadow_uv, i32(light_id) + lights.spotlight_shadowmap_offset, depth);
+            shadow_uv, i32(light_id) + lights.spot_light_shadowmap_offset, depth);
     #endif
 }
 

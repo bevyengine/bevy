@@ -31,8 +31,8 @@ let CLUSTER_COUNT_SIZE = 9u;
 fn unpack_offset_and_counts(cluster_index: u32) -> vec3<u32> {
 #ifdef NO_STORAGE_BUFFERS_SUPPORT
     let offset_and_counts = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
-    //  [ 31     ..     18 | 17      ..      9 | 8      ..     0 ]
-    //  [      offset      | point light count | spotlight count ]
+    //  [ 31     ..     18 | 17      ..      9 | 8       ..     0 ]
+    //  [      offset      | point light count | spot light count ]
     return vec3<u32>(
         (offset_and_counts >> (CLUSTER_COUNT_SIZE * 2u)) & ((1u << (32u - (CLUSTER_COUNT_SIZE * 2u))) - 1u),
         (offset_and_counts >> CLUSTER_COUNT_SIZE)        & ((1u << CLUSTER_COUNT_SIZE) - 1u),

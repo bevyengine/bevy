@@ -123,7 +123,7 @@ fn setup(
 
     // green spot light
     commands
-        .spawn_bundle(SpotlightBundle {
+        .spawn_bundle(SpotLightBundle {
             transform: Transform::from_xyz(-1.0, 2.0, 0.0)
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             point_light: PointLight {
@@ -132,7 +132,7 @@ fn setup(
                 shadows_enabled: true,
                 ..default()
             },
-            spotlight_angles: SpotlightAngles {
+            spot_light_angles: SpotLightAngles {
                 inner: 0.6,
                 outer: 0.8,
             },

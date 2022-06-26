@@ -18,7 +18,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::warn;
 
 use crate::{
-    calculate_cluster_factors, spotlight_projection_matrix, spotlight_view_matrix, CubeMapFace,
+    calculate_cluster_factors, spot_light_projection_matrix, spot_light_view_matrix, CubeMapFace,
     CubemapVisibleEntities, ViewClusterBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
     CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS, POINT_LIGHT_NEAR_Z,
 };
@@ -86,19 +86,19 @@ impl Default for PointLightShadowMap {
     }
 }
 
-/// Angles defining the distance from the spotlight direction to the inner and outer limits
+/// Angles defining the distance from the spot light direction to the inner and outer limits
 /// of the light's cone of effect.
 /// `inner` should be <= `outer`, and `outer` should be < PI / 2.0.
 /// PI / 2.0 defines a hemispherical spot light, but shadows become very blocky as the angle
 /// approaches this limit.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
-pub struct SpotlightAngles {
+pub struct SpotLightAngles {
     pub inner: f32,
     pub outer: f32,
 }
 
-impl Default for SpotlightAngles {
+impl Default for SpotLightAngles {
     fn default() -> Self {
         // a quarter arc attenuating from the centre
         Self {
@@ -440,7 +440,7 @@ pub fn add_clusters(
 pub struct VisiblePointLights {
     pub(crate) entities: Vec<Entity>,
     pub point_light_count: usize,
-    pub spotlight_count: usize,
+    pub spot_light_count: usize,
 }
 
 impl VisiblePointLights {
@@ -705,16 +705,16 @@ fn compute_aabb_for_cluster(
 }
 
 // Sort lights by
-// - point-light vs spot-light, so that we can iterate point lights and spotlights in contiguous blocks in the fragment shader,
+// - point-light vs spot-light, so that we can iterate point lights and spot lights in contiguous blocks in the fragment shader,
 // - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
-//   point light shadows and `spot_shadow_maps_count` spotlight shadow maps,
+//   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
 // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
 pub(crate) fn point_light_order(
-    (entity_1, shadows_enabled_1, is_spotlight_1): (&Entity, &bool, &bool),
-    (entity_2, shadows_enabled_2, is_spotlight_2): (&Entity, &bool, &bool),
+    (entity_1, shadows_enabled_1, is_spot_light_1): (&Entity, &bool, &bool),
+    (entity_2, shadows_enabled_2, is_spot_light_2): (&Entity, &bool, &bool),
 ) -> std::cmp::Ordering {
-    is_spotlight_1
-        .cmp(is_spotlight_2) // pointlights before spotlights
+    is_spot_light_1
+        .cmp(is_spot_light_2) // pointlights before spot lights
         .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
         .then_with(|| entity_1.cmp(entity_2)) // stable
 }
@@ -727,7 +727,7 @@ pub(crate) struct PointLightAssignmentData {
     rotation: Quat,
     range: f32,
     shadows_enabled: bool,
-    spotlight_angle: Option<f32>,
+    spot_light_angle: Option<f32>,
 }
 
 #[derive(Default)]
@@ -765,7 +765,7 @@ pub(crate) fn assign_lights_to_clusters(
         Entity,
         &GlobalTransform,
         &PointLight,
-        Option<&SpotlightAngles>,
+        Option<&SpotLightAngles>,
         &Visibility,
     )>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
@@ -786,14 +786,14 @@ pub(crate) fn assign_lights_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.is_visible)
             .map(
-                |(entity, transform, light, maybe_spotlight_angles, _visibility)| {
+                |(entity, transform, light, maybe_spot_light_angles, _visibility)| {
                     PointLightAssignmentData {
                         entity,
                         translation: transform.translation,
                         rotation: transform.rotation,
                         shadows_enabled: light.shadows_enabled,
                         range: light.range,
-                        spotlight_angle: maybe_spotlight_angles.map(|angles| angles.outer),
+                        spot_light_angle: maybe_spot_light_angles.map(|angles| angles.outer),
                     }
                 },
             ),
@@ -811,12 +811,12 @@ pub(crate) fn assign_lights_to_clusters(
                 (
                     &light_1.entity,
                     &light_1.shadows_enabled,
-                    &light_1.spotlight_angle.is_some(),
+                    &light_1.spot_light_angle.is_some(),
                 ),
                 (
                     &light_2.entity,
                     &light_2.shadows_enabled,
-                    &light_2.spotlight_angle.is_some(),
+                    &light_2.spot_light_angle.is_some(),
                 ),
             )
         });
@@ -1013,7 +1013,7 @@ pub(crate) fn assign_lights_to_clusters(
         for lights in &mut clusters.lights {
             lights.entities.clear();
             lights.point_light_count = 0;
-            lights.spotlight_count = 0;
+            lights.spot_light_count = 0;
         }
         let cluster_count =
             (clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z) as usize;
@@ -1134,7 +1134,7 @@ pub(crate) fn assign_lights_to_clusters(
                     center: Vec3A::from(inverse_view_transform * light_sphere.center.extend(1.0)),
                     radius: light_sphere.radius,
                 };
-                let spotlight_dir_sin_cos = light.spotlight_angle.map(|angle| {
+                let spot_light_dir_sin_cos = light.spot_light_angle.map(|angle| {
                     let (angle_sin, angle_cos) = angle.sin_cos();
                     (
                         (inverse_view_transform * (light.rotation * Vec3::Z).extend(0.0))
@@ -1238,10 +1238,10 @@ pub(crate) fn assign_lights_to_clusters(
                             + z) as usize;
 
                         if let Some((view_light_direction, angle_sin, angle_cos)) =
-                            spotlight_dir_sin_cos
+                            spot_light_dir_sin_cos
                         {
                             for x in min_x..=max_x {
-                                // further culling for spotlights
+                                // further culling for spot lights
                                 // get or initialize cluster bounding sphere
                                 let cluster_aabb_sphere = &mut cluster_aabb_spheres[cluster_index];
                                 let cluster_aabb_sphere = if let Some(sphere) = cluster_aabb_sphere
@@ -1267,14 +1267,14 @@ pub(crate) fn assign_lights_to_clusters(
                                 };
 
                                 // test -- based on https://bartwronski.com/2017/04/13/cull-that-cone/
-                                let spotlight_offset = Vec3::from(
+                                let spot_light_offset = Vec3::from(
                                     view_light_sphere.center - cluster_aabb_sphere.center,
                                 );
-                                let spotlight_dist_sq = spotlight_offset.length_squared();
-                                let v1_len = spotlight_offset.dot(view_light_direction);
+                                let spot_light_dist_sq = spot_light_offset.length_squared();
+                                let v1_len = spot_light_offset.dot(view_light_direction);
 
                                 let distance_closest_point = (angle_cos
-                                    * (spotlight_dist_sq - v1_len * v1_len).sqrt())
+                                    * (spot_light_dist_sq - v1_len * v1_len).sqrt())
                                     - v1_len * angle_sin;
                                 let angle_cull =
                                     distance_closest_point > cluster_aabb_sphere.radius;
@@ -1283,9 +1283,9 @@ pub(crate) fn assign_lights_to_clusters(
                                 let back_cull = v1_len < -cluster_aabb_sphere.radius;
 
                                 if !angle_cull && !front_cull && !back_cull {
-                                    // this cluster is affected by the spotlight
+                                    // this cluster is affected by the spot light
                                     clusters.lights[cluster_index].entities.push(light.entity);
-                                    clusters.lights[cluster_index].spotlight_count += 1;
+                                    clusters.lights[cluster_index].spot_light_count += 1;
                                 }
                                 cluster_index += clusters.dimensions.z as usize;
                             }
@@ -1444,24 +1444,24 @@ pub fn update_point_light_frusta(
     }
 }
 
-pub fn update_spotlight_frusta(
+pub fn update_spot_light_frusta(
     global_lights: Res<GlobalVisiblePointLights>,
     mut views: Query<
         (
             Entity,
             &GlobalTransform,
             &PointLight,
-            &SpotlightAngles,
+            &SpotLightAngles,
             &mut Frustum,
         ),
         Or<(
             Changed<GlobalTransform>,
             Changed<PointLight>,
-            Changed<SpotlightAngles>,
+            Changed<SpotLightAngles>,
         )>,
     >,
 ) {
-    for (entity, transform, point_light, spotlight_angles, mut frustum) in views.iter_mut() {
+    for (entity, transform, point_light, spot_light_angles, mut frustum) in views.iter_mut() {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
@@ -1476,8 +1476,8 @@ pub fn update_spotlight_frusta(
         let view_translation = GlobalTransform::from_translation(transform.translation);
         let view_backward = transform.back();
 
-        let spot_view = spotlight_view_matrix(transform);
-        let spot_projection = spotlight_projection_matrix(spotlight_angles.outer);
+        let spot_view = spot_light_view_matrix(transform);
+        let spot_projection = spot_light_projection_matrix(spot_light_angles.outer);
         let view_projection = spot_projection * spot_view.inverse();
 
         *frustum = Frustum::from_view_projection(
@@ -1498,7 +1498,7 @@ pub fn check_light_mesh_visibility(
         &mut CubemapVisibleEntities,
         Option<&RenderLayers>,
     )>,
-    mut spotlights: Query<
+    mut spot_lights: Query<
         (
             &PointLight,
             &GlobalTransform,
@@ -1506,7 +1506,7 @@ pub fn check_light_mesh_visibility(
             &mut VisibleEntities,
             Option<&RenderLayers>,
         ),
-        With<SpotlightAngles>,
+        With<SpotLightAngles>,
     >,
     mut directional_lights: Query<
         (
@@ -1649,9 +1649,9 @@ pub fn check_light_mesh_visibility(
                 // to prevent holding unneeded memory
             }
 
-            // spotlights
+            // spot lights
             if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask)) =
-                spotlights.get_mut(light_entity)
+                spot_lights.get_mut(light_entity)
             {
                 visible_entities.entities.clear();
 

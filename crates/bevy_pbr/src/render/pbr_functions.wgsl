@@ -159,7 +159,7 @@ fn pbr(
         light_accum = light_accum + light_contrib * shadow;
     }
 
-    // spotlights
+    // spot lights
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
         let light_id = get_light_id(i);
         let light = point_lights.data[light_id];

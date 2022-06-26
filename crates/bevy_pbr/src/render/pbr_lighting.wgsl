@@ -249,7 +249,7 @@ fn spot_light(
     // reconstruct spot dir from x/z and y-direction flag
     var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
     spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
-    if ((light.flags & POINT_LIGHT_FLAGS_SPOTLIGHT_Y_NEGATIVE) != 0u) {
+    if ((light.flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
         spot_dir.y = -spot_dir.y;
     }
     let light_to_frag = light.position_radius.xyz - world_position.xyz;
