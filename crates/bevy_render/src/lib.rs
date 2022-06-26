@@ -180,7 +180,8 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
-                .insert_resource(asset_server);
+                .insert_resource(asset_server)
+                .init_resource::<RenderGraph>();
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
