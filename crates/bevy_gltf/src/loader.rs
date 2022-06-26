@@ -10,7 +10,7 @@ use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
-    StandardMaterial,
+    SpotlightAngles, SpotlightBundle, StandardMaterial,
 };
 use bevy_render::{
     camera::{
@@ -862,9 +862,35 @@ fn load_node(
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {
-                    inner_cone_angle: _inner_cone_angle,
-                    outer_cone_angle: _outer_cone_angle,
-                } => warn!("Spot lights are not yet supported."),
+                    inner_cone_angle,
+                    outer_cone_angle,
+                } => {
+                    let mut entity = parent.spawn_bundle(SpotlightBundle {
+                        point_light: PointLight {
+                            color: Color::from(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
+                            // candela (lm/sr) which is luminous intensity and we need luminous power.
+                            // For a spot light, we map luminous power = 4 * pi * luminous intensity
+                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                            range: light.range().unwrap_or(20.0),
+                            radius: light.range().unwrap_or(0.0),
+                            ..Default::default()
+                        },
+                        spotlight_angles: SpotlightAngles {
+                            inner: inner_cone_angle,
+                            outer: outer_cone_angle,
+                        },
+                        ..Default::default()
+                    });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
+                    }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
+                }
             }
         }
 
