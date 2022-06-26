@@ -456,6 +456,9 @@ pub fn extract_lights(
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
             // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
             // for details.
+            // Note: Filament uses a divisor of PI for spotlights. We choose to use the same 4*PI divisor
+            // in both cases so that toggling between point light and spotlight keeps lit areas lit equally,
+            // which seems least surprising for users
             intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
             range: point_light.range,
             radius: point_light.radius,
