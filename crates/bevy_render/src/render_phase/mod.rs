@@ -54,17 +54,7 @@ impl<I: PhaseItem> RenderPhase<I> {
 
     /// Sorts all of its [`PhaseItems`](PhaseItem).
     pub fn sort(&mut self) {
-        debug_assert!(self.sorted.is_empty());
-        let length = self.items.iter_mut().map(|batch| batch.get_mut().len()).sum();
-        self.sorted.reserve(length);
-        for batch in self.items.iter_mut() {
-            self.sorted.append(batch.get_mut());
-        }
-        if I::ALLOWS_UNSTABLE_SORT {
-            self.sorted.sort_unstable_by_key(|d| d.sort_key());
-        } else {
-            self.sorted.sort_by_key(|d| d.sort_key());
-        }
+        I::sort(&mut self.items);
     }
 }
 

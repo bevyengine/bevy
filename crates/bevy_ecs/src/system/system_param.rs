@@ -6,8 +6,7 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryFetch, QueryState, ReadOnlyFetch,
-        WorldQuery,
+        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
@@ -136,10 +135,7 @@ impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Q
 }
 
 // SAFE: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<Q: WorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F> where
-    for<'x> QueryFetch<'x, Q>: ReadOnlyFetch
-{
-}
+unsafe impl<Q: ReadOnlyWorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F> {}
 
 // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this QueryState conflicts with any prior access, a panic will occur.
