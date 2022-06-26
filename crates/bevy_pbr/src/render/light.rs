@@ -1421,6 +1421,11 @@ impl PhaseItem for Shadow {
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
     }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        radsort::sort_by_key(items, |item| item.distance);
+    }
 }
 
 impl EntityPhaseItem for Shadow {
