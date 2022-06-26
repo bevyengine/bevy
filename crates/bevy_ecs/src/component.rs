@@ -214,6 +214,23 @@ impl ComponentInfo {
     }
 }
 
+/// A semi-opaque value which uniquely identifies the type of a [`Component`] within a
+/// [`World`](crate::world::World).
+///
+/// Each time a new `Component` type is registered within a `World` using
+/// [`World::init_component`](crate::world::World::init_component) or
+/// [`World::init_component_with_descriptor`](crate::world::World::init_component_with_descriptor),
+/// a corresponding `ComponentId` is created to track it.
+///
+/// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
+/// into two separate but related concepts allows components to exist outside of Rust's type system.
+/// Each Rust type registered as a `Component` will have a corresponding `ComponentId`, but additional
+/// `ComponentId`s may exist in a `World` to track components which cannot be
+/// represented as Rust types for scripting or other advanced use-cases.
+///
+/// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
+/// one `World` to access the metadata of a `Component` in a different `World` is undefined behaviour
+/// and must not be attempted.
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId(usize);
 
@@ -422,9 +439,36 @@ impl Components {
         self.components.get_unchecked(id.0)
     }
 
+    /// Type-erased equivalent of [`Components::component_id`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).map(|index| ComponentId(*index))
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `Components` instance
+    /// it was retrieved from and should not be used with another `Components`
+    /// instance.
+    ///
+    /// Returns [`None`] if the `Component` type has not
+    /// yet been initialized using [`Components::init_component`].
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let component_a_id = world.init_component::<ComponentA>();
+    ///
+    /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
+    /// ```
+    #[inline]
+    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
+        self.get_id(TypeId::of::<T>())
     }
 
     #[inline]
