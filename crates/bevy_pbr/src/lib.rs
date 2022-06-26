@@ -126,7 +126,7 @@ impl Plugin for PbrPlugin {
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<PointLight>()
-            .register_type::<SpotlightAngles>()
+            .register_type::<SpotLightAngles>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
             .init_resource::<AmbientLight>()
