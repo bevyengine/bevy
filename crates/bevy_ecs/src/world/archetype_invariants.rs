@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use bevy_utils::{tracing::warn, HashSet};
-use std::collections::BTreeSet;
 
 use crate::{component::ComponentId, prelude::Bundle, world::World};
 
@@ -86,7 +85,7 @@ impl<B: Bundle> ArchetypeStatement<B> {
     /// Requires mutable world access, since the components might not have been added to the world yet.
     pub fn into_untyped(self, world: &mut World) -> UntypedArchetypeStatement {
         let component_ids = B::component_ids(&mut world.components, &mut world.storages);
-        let component_ids: BTreeSet<ComponentId> = component_ids.into_iter().collect();
+        let component_ids: HashSet<ComponentId> = component_ids.into_iter().collect();
 
         match self {
             ArchetypeStatement::AllOf(_) => UntypedArchetypeStatement::AllOf(component_ids),
@@ -159,17 +158,17 @@ impl UntypedArchetypeInvariant {
 #[derive(Clone, Debug, PartialEq)]
 pub enum UntypedArchetypeStatement {
     /// Evaluates to true if and only if the entity has all of the components present in the set
-    AllOf(BTreeSet<ComponentId>),
+    AllOf(HashSet<ComponentId>),
     /// The entity has at least one component in the set, and may have all of them.
     /// When using a single-component bundle, `AllOf` is preferred
-    AtLeastOneOf(BTreeSet<ComponentId>),
+    AtLeastOneOf(HashSet<ComponentId>),
     /// The entity has none of the components in the set
-    NoneOf(BTreeSet<ComponentId>),
+    NoneOf(HashSet<ComponentId>),
 }
 
 impl UntypedArchetypeStatement {
     /// Get the set of [`ComponentId`]s affected by this statement
-    pub fn component_ids(&self) -> &BTreeSet<ComponentId> {
+    pub fn component_ids(&self) -> &HashSet<ComponentId> {
         match self {
             UntypedArchetypeStatement::AllOf(set)
             | UntypedArchetypeStatement::AtLeastOneOf(set)
