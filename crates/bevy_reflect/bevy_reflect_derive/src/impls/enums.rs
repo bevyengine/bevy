@@ -290,7 +290,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
             }
             (reflect_idx, constructor_argument)
         }
-        let mut info_type = |variant, info_type, arguments| {
+        let mut add_fields_branch = |variant, info_type, arguments, field_len| {
             let variant = Ident::new(variant, Span::call_site());
             let info_type = Ident::new(info_type, Span::call_site());
             variant_info.push(quote! {
@@ -298,14 +298,20 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     #bevy_reflect_path::#info_type::new(#arguments)
                 )
             });
-            variant
+            enum_field_len.push(quote! {
+                #unit{..} => #field_len
+            });
+            enum_variant_name.push(quote! {
+                #unit{..} => #name
+            });
+            enum_variant_type.push(quote! {
+                #unit{..} => #bevy_reflect_path::VariantType::#variant
+            });
         };
-        let (variant, field_len) = match &variant.fields {
+        match &variant.fields {
             EnumVariantFields::Unit => {
-                let variant = info_type("Unit", "UnitVariantInfo", quote!(#name));
-                (variant, 0usize)
+                add_fields_branch("Unit", "UnitVariantInfo", quote!(#name), 0usize);
             }
-
             EnumVariantFields::Unnamed(fields) => {
                 let (field_len, argument) = for_fields(fields, |reflect_idx, declar, field| {
                     let declar_field = syn::Index::from(declar);
@@ -316,8 +322,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     quote! { #bevy_reflect_path::UnnamedField::new::<#field_ty>(#reflect_idx) }
                 });
                 let arguments = quote!(#name, &[ #(#argument),* ]);
-                let variant = info_type("Tuple", "TupleVariantInfo", arguments);
-                (variant, field_len)
+                add_fields_branch("Tuple", "TupleVariantInfo", arguments, field_len);
             }
             EnumVariantFields::Named(fields) => {
                 let (field_len, argument) = for_fields(fields, |reflect_idx, _, field| {
@@ -340,19 +345,9 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     quote! { #bevy_reflect_path::NamedField::new::<#field_ty, _>(#field_name) }
                 });
                 let arguments = quote!(#name, &[ #(#argument),* ]);
-                let variant = info_type("Struct", "StructVariantInfo", arguments);
-                (variant, field_len)
+                add_fields_branch("Struct", "StructVariantInfo", arguments, field_len);
             }
         };
-        enum_field_len.push(quote! {
-            #unit{..} => #field_len
-        });
-        enum_variant_name.push(quote! {
-            #unit{..} => #name
-        });
-        enum_variant_type.push(quote! {
-            #unit{..} => #bevy_reflect_path::VariantType::#variant
-        });
     }
 
     EnumImpls {

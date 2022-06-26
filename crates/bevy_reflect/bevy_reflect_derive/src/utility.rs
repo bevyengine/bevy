@@ -29,10 +29,31 @@ pub(crate) struct ResultSifter<T> {
     errors: Option<syn::Error>,
 }
 
-pub(crate) fn field_ident_or_indexed(index: usize, ident: Option<&Ident>) -> Member {
-    ident.as_ref().map_or_else(
+/// Returns a `Member` made of `ident` or `index` if `ident` is None.
+///
+/// Rust struct syntax allows for `Struct { foo: "string" }` with explicitly
+/// named fields. It allows the `Struct { 0: "string" }` syntax when the struct
+/// is declared as a tuple struct.
+///
+/// ```
+/// # fn main() {
+/// struct Foo { field: &'static str }
+/// struct Bar(&'static str);
+/// let Foo { field } = Foo { field: "hi" };
+/// let Bar { 0: field } = Bar { 0: "hello" };
+/// let Bar(field) = Bar("hello"); // more common syntax
+/// # }
+/// ```
+///
+/// This function helps field access in context where you are declaring either
+/// a tuple struct or a struct with named fields. If you don't have a field name,
+/// it means you need to access the struct through an index.
+pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
+    // TODO(Quality) when #4761 is merged, code that does this should be replaced
+    // by a call to `ident_or_index`.
+    ident.map_or_else(
         || Member::Unnamed(index.into()),
-        |&ident| Member::Named(ident.clone()),
+        |ident| Member::Named(ident.clone()),
     )
 }
 

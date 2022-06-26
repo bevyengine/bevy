@@ -1,6 +1,6 @@
 use crate::{
     derive_data::{EnumVariantFields, ReflectEnum},
-    utility::field_ident_or_indexed,
+    utility::ident_or_index,
 };
 use proc_macro2::Ident;
 use quote::{quote, ToTokens};
@@ -36,7 +36,7 @@ pub(crate) fn get_variant_constructors(
         };
         let mut reflect_index: usize = 0;
         let constructor_fields = fields.iter().enumerate().map(|(declar_index, field)| {
-            let field_ident = field_ident_or_indexed(declar_index, field.data.ident.as_ref());
+            let field_ident = ident_or_index(field.data.ident.as_ref(), declar_index);
             let field_value = if field.attrs.ignore {
                 quote! { Default::default() }
             } else {
