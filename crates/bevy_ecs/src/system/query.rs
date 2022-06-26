@@ -744,7 +744,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     #[inline]
     pub fn get_many<const N: usize>(
         &self,
-        entities: [Entity; N],
+        entities: &[Entity; N],
     ) -> Result<[ROQueryItem<'_, Q>; N], QueryEntityError> {
         // SAFE: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
         unsafe {
@@ -793,7 +793,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// ```
     #[inline]
-    pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, Q>; N] {
+    pub fn many<const N: usize>(&self, entities: &[Entity; N]) -> [ROQueryItem<'_, Q>; N] {
         self.get_many(entities).unwrap()
     }
 
@@ -844,7 +844,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     #[inline]
     pub fn get_many_mut<const N: usize>(
         &mut self,
-        entities: [Entity; N],
+        entities: &[Entity; N],
     ) -> Result<[QueryItem<'_, Q>; N], QueryEntityError> {
         // SAFE: scheduler ensures safe Query world access
         unsafe {
@@ -899,7 +899,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// ```
     #[inline]
-    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [QueryItem<'_, Q>; N] {
+    pub fn many_mut<const N: usize>(&mut self, entities: &[Entity; N]) -> [QueryItem<'_, Q>; N] {
         self.get_many_mut(entities).unwrap()
     }
 

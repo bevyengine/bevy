@@ -207,7 +207,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     pub fn get_many<'w, const N: usize>(
         &mut self,
         world: &'w World,
-        entities: [Entity; N],
+        entities: &[Entity; N],
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
         self.update_archetypes(world);
 
@@ -283,7 +283,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     pub fn get_many_mut<'w, const N: usize>(
         &mut self,
         world: &'w mut World,
-        entities: [Entity; N],
+        entities: &[Entity; N],
     ) -> Result<[QueryItem<'w, Q>; N], QueryEntityError> {
         self.update_archetypes(world);
 
@@ -393,7 +393,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     pub(crate) unsafe fn get_many_read_only_manual<'w, const N: usize>(
         &self,
         world: &'w World,
-        entities: [Entity; N],
+        entities: &[Entity; N],
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
@@ -434,7 +434,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     pub(crate) unsafe fn get_many_unchecked_manual<'w, const N: usize>(
         &self,
         world: &'w World,
-        entities: [Entity; N],
+        entities: &[Entity; N],
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[QueryItem<'w, Q>; N], QueryEntityError> {
@@ -1276,7 +1276,7 @@ mod tests {
             query_state
                 .get_many_unchecked_manual::<10>(
                     &world,
-                    entities.clone().try_into().unwrap(),
+                    &entities.clone().try_into().unwrap(),
                     last_change_tick,
                     change_tick,
                 )
@@ -1288,7 +1288,7 @@ mod tests {
                 query_state
                     .get_many_unchecked_manual(
                         &world,
-                        [entities[0], entities[0]],
+                        &[entities[0], entities[0]],
                         last_change_tick,
                         change_tick,
                     )
@@ -1302,7 +1302,7 @@ mod tests {
                 query_state
                     .get_many_unchecked_manual(
                         &world,
-                        [entities[0], entities[1], entities[0]],
+                        &[entities[0], entities[1], entities[0]],
                         last_change_tick,
                         change_tick,
                     )
@@ -1316,7 +1316,7 @@ mod tests {
                 query_state
                     .get_many_unchecked_manual(
                         &world,
-                        [entities[9], entities[9]],
+                        &[entities[9], entities[9]],
                         last_change_tick,
                         change_tick,
                     )
@@ -1343,7 +1343,7 @@ mod tests {
         let world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get_many(&world_2, []);
+        let _panics = query_state.get_many(&world_2, &[]);
     }
 
     #[test]
@@ -1353,7 +1353,7 @@ mod tests {
         let mut world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get_many_mut(&mut world_2, []);
+        let _panics = query_state.get_many_mut(&mut world_2, &[]);
     }
 }
 
