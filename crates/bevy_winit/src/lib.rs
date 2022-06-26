@@ -81,17 +81,15 @@ impl Plugin for WinitPlugin {
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);
 
-        let event_loop = EventLoop::new();
-        // let mut create_window_reader = WinitCreateWindowReader::default();
-
-        // create handle for primary window
         let mut system_state: SystemState<(
+            Commands,
             EventReader<CreateWindowCommand>,
             EventWriter<WindowCreated>,
             NonSendMut<WinitWindows>,
             NonSendMut<EventLoop<()>>,
         )> = SystemState::new(&mut app.world);
         let (
+            mut commands,
             mut create_window_commands,
             mut window_created_events,
             mut winit_windows,
@@ -101,7 +99,9 @@ impl Plugin for WinitPlugin {
         // Here we need to create a winit-window and give it a WindowHandle which the renderer can use.
         // It needs to be spawned before the start of the startup-stage, so we cannot use a regular system.
         // Instead we need to create the window and spawn it using direct world access
-        create_window_direct(&mut app.world, &event_loop, create_window_commands, window_created_events, winit_windows);
+        create_window_system(commands, event_loop, create_window_commands, window_created_events, winit_windows);
+
+        system_state.apply(&mut app.world);
 
         app.insert_non_send_resource(event_loop);
     }

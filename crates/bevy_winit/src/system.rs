@@ -25,114 +25,16 @@ use winit::{
 
 use crate::{converters, get_best_videomode, get_fitting_videomode, WinitWindows};
 
-// This is the same system as below it except it runs all its commands directly on the world
-pub(crate) fn create_window_direct(
-    world: &mut World,
-    event_loop: &EventLoop<()>,
-    mut create_window_commands: EventReader<CreateWindowCommand>,
-    mut window_created_events: EventWriter<WindowCreated>,
-    mut winit_windows: NonSendMut<WinitWindows>
-) {
-    for event in create_window_commands.iter() {
-
-        info!("Creating window event");
-        let winit_window = winit_windows
-            .create_window(event_loop, event.entity, &event.descriptor);
-
-        // Prepare data
-        let position = winit_window
-            .outer_position()
-            .ok()
-            .map(|position| IVec2::new(position.x, position.y));
-        let inner_size = winit_window.inner_size();
-
-        let insert_bundle = InsertBundle {
-            entity: event.entity,
-            bundle: WindowBundle {
-                window: Window,
-                handle: WindowHandle::new(winit_window.raw_window_handle()),
-                presentation: WindowPresentation::new(event.descriptor.present_mode),
-                mode: WindowModeComponent::new(event.descriptor.mode),
-                position: WindowPosition::new(position),
-                resolution: WindowResolution::new(
-                    event.descriptor.width,
-                    event.descriptor.height,
-                    inner_size.width,
-                    inner_size.height,
-                    event.descriptor.scale_factor_override,
-                    winit_window.scale_factor(),
-                ),
-                title: WindowTitle::new(event.descriptor.title.clone()),
-                cursor_position: WindowCursorPosition::new(None),
-                cursor: WindowCursor::new(
-                    CursorIcon::Default,
-                    event.descriptor.cursor_visible,
-                    event.descriptor.cursor_locked,
-                ),
-                canvas: WindowCanvas::new(
-                    event.descriptor.canvas.clone(),
-                    event.descriptor.fit_canvas_to_parent,
-                ),
-                resize_constraints: event.descriptor.resize_constraints,
-                // TODO: Are newly created windows considered focused by default?
-                focused: WindowCurrentlyFocused,
-            }
-        };
-
-        insert_bundle.write(world);
-
-        // Optional marker components
-        if event.descriptor.resizable {
-            let _ = Insert {
-                entity: event.entity,
-                component: WindowResizable,
-            }.write(world);
-        }
-
-        if event.descriptor.decorations {
-            let _ = Insert {
-                entity: event.entity,
-                component: WindowDecorated,
-            }.write(world);
-        }
-
-        if event.descriptor.transparent {
-            let _ = Insert {
-                entity: event.entity,
-                component: WindowTransparent,
-            }.write(world);
-        }
-
-        // TODO: Replace with separete `window_added`-system? See below
-        window_created_events.send(WindowCreated {
-            entity: event.entity,
-        });
-
-        // TODO: Fix this
-        #[cfg(target_arch = "wasm32")]
-        {
-            let channel = world.resource_mut::<web_resize::CanvasParentResizeEventChannel>();
-            if create_window_event.descriptor.fit_canvas_to_parent {
-                let selector = if let Some(selector) = &create_window_event.descriptor.canvas {
-                    selector
-                } else {
-                    web_resize::WINIT_CANVAS_SELECTOR
-                };
-                channel.listen_to_selector(create_window_event.entity, selector);
-            }
-        }
-    }
-}
-
 // TODO: Docs
 /// System responsible for creating new windows whenever the Event<CreateWindow> has been sent
 pub(crate) fn create_window_system(
     mut commands: Commands,
-    event_loop: NonSendMut<EventLoop<()>>, //  &EventLoopWindowTarget<()>, // TODO: Not sure how this would work
+    mut event_loop: NonSendMut<EventLoop<()>>, //  &EventLoopWindowTarget<()>, // TODO: Not sure how this would work
     mut create_window_commands: EventReader<CreateWindowCommand>,
     mut window_created_events: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
+    println!("entry");
     info!("Creating primary window");
     for event in create_window_commands.iter() {
         info!("Creating window event");
