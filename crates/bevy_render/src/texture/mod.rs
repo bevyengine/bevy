@@ -82,34 +82,6 @@ impl Plugin for ImagePlugin {
     }
 }
 
-/// [`ImagePlugin`] settings.
-pub struct ImageSettings {
-    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
-    pub default_sampler: wgpu::SamplerDescriptor<'static>,
-}
-
-impl Default for ImageSettings {
-    fn default() -> Self {
-        ImageSettings::default_linear()
-    }
-}
-
-impl ImageSettings {
-    /// Creates image settings with default linear sampling.
-    pub fn default_linear() -> ImageSettings {
-        ImageSettings {
-            default_sampler: ImageSampler::linear_descriptor(),
-        }
-    }
-
-    /// Creates image settings with default nearest sampling.
-    pub fn default_nearest() -> ImageSettings {
-        ImageSettings {
-            default_sampler: ImageSampler::nearest_descriptor(),
-        }
-    }
-}
-
 pub trait BevyDefault {
     fn bevy_default() -> Self;
 }
