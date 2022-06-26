@@ -186,11 +186,14 @@ fn pbr(
         cluster_index,
     );
 
+    return output_color;
+}
+
+fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // tone_mapping
-    output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
+    return vec4<f32>(reinhard_luminance(in.rgb), in.a);
+    
     // Gamma correction.
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
-
-    return output_color;
 }
