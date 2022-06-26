@@ -7,13 +7,14 @@ mod winit_windows;
 
 use core::panic;
 
-use bevy_ecs::system::{SystemParam, SystemState};
+use bevy_ecs::system::{SystemParam, SystemState, Insert, InsertBundle, Command};
+use raw_window_handle::HasRawWindowHandle;
 use system::{
-    create_windows, destroy_windows, update_cursor_icon, update_cursor_lock_mode,
+    create_window_system, destroy_windows, update_cursor_icon, update_cursor_lock_mode,
     update_cursor_position, update_cursor_visibility, update_decorations, update_maximized,
     update_minimized, update_position, update_present_mode, update_resizable,
     update_resize_contraints, update_resolution, update_scale_factor_override, update_title,
-    update_window_mode, window_destroyed,
+    update_window_mode, window_destroyed, create_window_direct,
 };
 
 use winit::event_loop;
@@ -28,7 +29,7 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
 };
-use bevy_math::{ivec2, DVec2, Vec2};
+use bevy_math::{ivec2, DVec2, Vec2, IVec2};
 use bevy_utils::{
     tracing::{error, info, trace, warn},
     Instant,
@@ -38,7 +39,7 @@ use bevy_window::{
     PrimaryWindow, ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowCreated, WindowCurrentlyFocused, WindowCursorPosition,
     WindowFocused, WindowMoved, WindowPosition, WindowResized, WindowResolution,
-    WindowScaleFactorChanged, CreateWindowCommand,
+    WindowScaleFactorChanged, CreateWindowCommand, WindowDecorated, WindowTransparent, WindowTitle, WindowCursor, CursorIcon, WindowBundle, WindowHandle, WindowPresentation, WindowModeComponent, WindowResizable, WindowCanvas,
 };
 
 use winit::{
@@ -82,36 +83,27 @@ impl Plugin for WinitPlugin {
 
         let event_loop = EventLoop::new();
         // let mut create_window_reader = WinitCreateWindowReader::default();
-        // TODO: Test if any issues has been caused here
-        // Note that we create a window here "early" because WASM/WebGL requires the window to exist prior to initializing
-        // the renderer.
-        app
-            // .insert_resource(create_window_reader)
-            .insert_non_send_resource(event_loop);
 
+        // create handle for primary window
         let mut system_state: SystemState<(
-            Commands,
             EventReader<CreateWindowCommand>,
             EventWriter<WindowCreated>,
             NonSendMut<WinitWindows>,
             NonSendMut<EventLoop<()>>,
         )> = SystemState::new(&mut app.world);
         let (
-            mut commands,
-            mut create_window_events,
+            mut create_window_commands,
             mut window_created_events,
             mut winit_windows,
             mut event_loop,
         ) = system_state.get_mut(&mut app.world);
 
-        // Run it once here in startup. It will be run again on the MainEventsCleared update event
-        create_windows(
-            commands,
-            event_loop,
-            create_window_events,
-            window_created_events,
-            winit_windows,
-        );
+        // Here we need to create a winit-window and give it a WindowHandle which the renderer can use.
+        // It needs to be spawned before the start of the startup-stage, so we cannot use a regular system.
+        // Instead we need to create the window and spawn it using direct world access
+        create_window_direct(&mut app.world, &event_loop, create_window_commands, window_created_events, winit_windows);
+
+        app.insert_non_send_resource(event_loop);
     }
 }
 
@@ -624,7 +616,7 @@ pub fn winit_runner_with(mut app: App) {
                 ) = system_state.get_mut(&mut app.world);
 
                 // Responsible for creating new windows
-                create_windows(
+                create_window_system(
                     commands,
                     event_loop,
                     create_window_commands,
