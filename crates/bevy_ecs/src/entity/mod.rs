@@ -1,27 +1,38 @@
 //! Entity handling types.
 //!
-//! In Bevy ECS, there is no monolithic data structure for an entity. Instead, the [`Entity`]
-//! `struct` is just a *generational index* (a combination of an ID and a generation). Then,
-//! the `Entity` maps to the specific [`Component`s](crate::component::Component). This way,
-//! entities can have meaningful data attached to it. This is a fundamental design choice
-//! that has been taken to enhance performance and usability.
+//! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
+//!
+//! See [`Entity`] to learn more.
+//!
+//! [component]: crate::component::Component
 //!
 //! # Usage
 //!
-//! Here are links to the methods used to perform common operations
-//! involving entities:
+//! Operations involving entities and their components are performed either from a system by submitting commands,
+//! or from the outside (or from an exclusive system) by directly using [`World`] methods:
 //!
-//! - **Spawning an empty entity:** use [`Commands::spawn`](crate::system::Commands::spawn).
-//! - **Spawning an entity with components:** use
-//!   [`Commands::spawn_bundle`](crate::system::Commands::spawn_bundle).
-//! - **Despawning an entity:** use
-//!   [`EntityCommands::despawn`](crate::system::EntityCommands::despawn).
-//! - **Inserting a component to an entity:** use
-//!   [`EntityCommands::insert`](crate::system::EntityCommands::insert).
-//! - **Adding multiple components to an entity:** use
-//!   [`EntityCommands::insert_bundle`](crate::system::EntityCommands::insert_bundle).
-//! - **Removing a component to an entity:** use
-//!   [`EntityCommands::remove`](crate::system::EntityCommands::remove).
+//! |Operation|Command|Method|
+//! |:---:|:---:|:---:|
+//! |Spawn a new entity|[`Commands::spawn`]|[`World::spawn`]|
+//! |Spawn an entity with components|[`Commands::spawn_bundle`]|---|
+//! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
+//! |Insert a component to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
+//! |Insert multiple components to an entity|[`EntityCommands::insert_bundle`]|[`EntityMut::insert_bundle`]|
+//! |Remove a component from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
+//!
+//! [`World`]: crate::world::World
+//! [`Commands::spawn`]: crate::system::Commands::spawn
+//! [`Commands::spawn_bundle`]: crate::system::Commands::spawn_bundle
+//! [`EntityCommands::despawn`]: crate::system::EntityCommands::despawn
+//! [`EntityCommands::insert`]: crate::system::EntityCommands::insert
+//! [`EntityCommands::insert_bundle`]: crate::system::EntityCommands::insert_bundle
+//! [`EntityCommands::remove`]: crate::system::EntityCommands::remove
+//! [`World::spawn`]: crate::world::World::spawn
+//! [`World::spawn_bundle`]: crate::world::World::spawn_bundle
+//! [`World::despawn`]: crate::world::World::despawn
+//! [`EntityMut::insert`]: crate::world::EntityMut::insert
+//! [`EntityMut::insert_bundle`]: crate::world::EntityMut::insert_bundle
+//! [`EntityMut::remove`]: crate::world::EntityMut::remove
 mod map_entities;
 mod serde;
 
@@ -35,15 +46,57 @@ use std::{
     sync::atomic::{AtomicI64, Ordering},
 };
 
-/// Lightweight unique ID of an entity.
+/// Lightweight identifier of an [entity](crate::entity).
 ///
-/// Obtained from [`World::spawn`](crate::world::World::spawn), typically via
-/// [`Commands::spawn`](crate::system::Commands::spawn). Can be stored to refer to an entity in the
-/// future.
+/// The identifier is implemented using a [generational index]: a combination of an ID and a generation.
+/// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
 ///
-/// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
-/// Components of a specific entity can be accessed using
-/// [`Query::get`](crate::system::Query::get) and related methods.
+/// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+///
+/// # Usage
+///
+/// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
+/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// fn setup(mut commands: Commands) {
+///     // Calling `spawn` returns `EntityCommands`.
+///     let entity = commands.spawn().id();
+/// }
+///
+/// fn exclusive_system(world: &mut World) {
+///     // Calling `spawn` returns `EntityMut`.
+///     let entity = world.spawn().id();
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(setup);
+/// # bevy_ecs::system::IntoExclusiveSystem::exclusive_system(exclusive_system);
+/// ```
+///
+/// It can be used to refer to a specific entity to apply [`EntityCommands`], or to call [`Query::get`] (or similar methods) to access its components.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct Expired;
+/// #
+/// fn dispose_expired_food(mut commands: Commands, query: Query<Entity, With<Expired>>) {
+///     for food_entity in query.iter() {
+///         commands.entity(food_entity).despawn();
+///     }
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(dispose_expired_food);
+/// ```
+///
+/// [learn more]: crate::system::Query#entity-id-access
+/// [`EntityCommands::id`]: crate::system::EntityCommands::id
+/// [`EntityMut::id`]: crate::world::EntityMut::id
+/// [`EntityCommands`]: crate::system::EntityCommands
+/// [`Query::get`]: crate::system::Query::get
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
     pub(crate) generation: u32,
