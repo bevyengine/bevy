@@ -2,7 +2,7 @@
 
 use bevy_macro_utils::BevyManifest;
 use proc_macro2::{Ident, Span};
-use syn::Path;
+use syn::{Member, Path};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -27,6 +27,13 @@ pub(crate) fn get_reflect_ident(name: &str) -> Ident {
 pub(crate) struct ResultSifter<T> {
     items: Vec<T>,
     errors: Option<syn::Error>,
+}
+
+pub(crate) fn field_ident_or_indexed(index: usize, ident: Option<&Ident>) -> Member {
+    ident.as_ref().map_or_else(
+        || Member::Unnamed(index.into()),
+        |&ident| Member::Named(ident.clone()),
+    )
 }
 
 impl<T> Default for ResultSifter<T> {
