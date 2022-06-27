@@ -55,8 +55,12 @@ impl<I: PhaseItem> RenderPhase<I> {
     /// Sorts all of its [`PhaseItems`](PhaseItem).
     pub fn sort(&mut self) {
         self.sorted.clear();
-        self.sorted
-            .reserve(self.items.iter_mut().sum(|queue| queue.get_mut().len()));
+        self.sorted.reserve(
+            self.items
+                .iter_mut()
+                .map(|queue| queue.get_mut().len())
+                .sum(),
+        );
         for queue in self.items.iter_mut() {
             self.sorted.append(queue.get_mut());
         }
