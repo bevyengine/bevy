@@ -31,8 +31,9 @@ pub(crate) fn get_variant_constructors(
 
         let fields = match &variant.fields {
             EnumVariantFields::Unit => &[],
-            EnumVariantFields::Named(fields) => fields.as_slice(),
-            EnumVariantFields::Unnamed(fields) => fields.as_slice(),
+            EnumVariantFields::Named(fields) | EnumVariantFields::Unnamed(fields) => {
+                fields.as_slice()
+            }
         };
         let mut reflect_index: usize = 0;
         let constructor_fields = fields.iter().enumerate().map(|(declar_index, field)| {

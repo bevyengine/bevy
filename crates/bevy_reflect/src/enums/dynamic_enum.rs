@@ -287,12 +287,16 @@ impl Reflect for DynamicEnum {
                     VariantType::Struct => {
                         for field in value.iter_fields() {
                             let name = field.name().unwrap();
-                            Enum::field_mut(self, name).map(|v| v.apply(field.value()));
+                            if let Some(v) = Enum::field_mut(self, name) {
+                                v.apply(field.value());
+                            }
                         }
                     }
                     VariantType::Tuple => {
                         for (index, field) in value.iter_fields().enumerate() {
-                            Enum::field_at_mut(self, index).map(|v| v.apply(field.value()));
+                            if let Some(v) = Enum::field_at_mut(self, index) {
+                                v.apply(field.value());
+                            }
                         }
                     }
                     _ => {}
