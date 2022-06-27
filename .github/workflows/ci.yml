@@ -102,9 +102,8 @@ jobs:
           # to track down because allocids are nondeterministic.
           # -Zmiri-tag-raw-pointers is not strictly "necessary" but enables a lot of extra UB checks relating
           # to raw pointer aliasing rules that we should be trying to uphold.
-          # TODO: remove once https://github.com/rust-lang/miri/issues/2223 is fixed
-          # -Zmiri-disable-weak-memory-emulation
-          MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-tag-raw-pointers -Zmiri-disable-weak-memory-emulation
+          # -Zmiri-disable-weak-memory-emulation works around an unknown bug in bevy or Miri
+          MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation
 
   check-compiles:
     runs-on: ubuntu-latest
