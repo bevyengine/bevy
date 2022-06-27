@@ -56,7 +56,7 @@ pub struct NoFrustumCulling;
 /// system, and renderers can use it to optimize rendering of a particular view, to
 /// prevent drawing items not visible from that view.
 ///
-/// This component is attached to the same entity as the [`Camera`] and the [`Frustum`]
+/// This component is intended to be attached to the same entity as the [`Camera`] and the [`Frustum`]
 /// defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
