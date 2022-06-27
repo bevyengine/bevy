@@ -146,7 +146,7 @@ fn prepare_view_uniforms(
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: projection * inverse_view,
-                inverse_view_proj: inverse_projection * view,
+                inverse_view_proj: view * inverse_projection,
                 view,
                 inverse_view,
                 projection,
