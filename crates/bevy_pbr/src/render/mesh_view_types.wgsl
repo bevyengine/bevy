@@ -24,8 +24,7 @@ struct PointLight {
 };
 
 let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
-let POINT_LIGHT_FLAGS_IS_SPOT_LIGHT_BIT: u32     = 2u;
-let POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 4u;
+let POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
 
 struct DirectionalLight {
     view_projection: mat4x4<f32>;

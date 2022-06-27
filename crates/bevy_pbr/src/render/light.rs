@@ -166,8 +166,7 @@ bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
         const SHADOWS_ENABLED            = (1 << 0);
-        const IS_SPOT_LIGHT              = (1 << 1);
-        const SPOT_LIGHT_Y_NEGATIVE      = (1 << 2);
+        const SPOT_LIGHT_Y_NEGATIVE      = (1 << 1);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -834,8 +833,6 @@ pub fn prepare_lights(
 
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {
-                flags |= PointLightFlags::IS_SPOT_LIGHT;
-
                 let light_direction = light.transform.forward();
                 if light_direction.y.is_sign_negative() {
                     flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
