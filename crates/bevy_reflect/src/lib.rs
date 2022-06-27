@@ -962,7 +962,9 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let config = PrettyConfig::default().new_line(String::from("\n"));
+            let config = PrettyConfig::default()
+                .new_line(String::from("\n"))
+                .indentor(String::from("    "));
             let output = to_string_pretty(&ser, config).unwrap();
             let expected = r#"
 {
@@ -972,10 +974,9 @@ bevy_reflect::tests::should_reflect_debug::Test {
         "y": 3.0,
         "z": -6.9,
     },
-}
-"#;
+}"#;
 
-            assert_eq!(expected, format!("\n{}\n", output));
+            assert_eq!(expected, format!("\n{}", output));
         }
 
         #[test]
@@ -984,12 +985,11 @@ bevy_reflect::tests::should_reflect_debug::Test {
 {
     "type": "glam::f32::vec3::Vec3",
     "value": {
-        "x": 12,
-        "y": 3,
+        "x": 12.0,
+        "y": 3.0,
         "z": -6.9,
     },
-}
-"#;
+}"#;
 
             let mut registry = TypeRegistry::default();
             registry.add_registration(Vec3::get_type_registration());
