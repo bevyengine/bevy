@@ -3,7 +3,7 @@ use crate::{
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::TextureView,
-    view::{ExtractedView, ExtractedWindows, VisibleEntities},
+    view::{ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -404,9 +404,12 @@ pub fn extract_cameras(
         &CameraRenderGraph,
         &GlobalTransform,
         &VisibleEntities,
+        Option<&RenderLayers>,
     )>,
 ) {
-    for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
+    for (entity, camera, camera_render_graph, transform, visible_entities, maybe_view_mask) in
+        query.iter()
+    {
         if !camera.is_active {
             continue;
         }
@@ -433,6 +436,7 @@ pub fn extract_cameras(
                     height: viewport_size.y,
                 },
                 visible_entities.clone(),
+                maybe_view_mask.cloned().unwrap_or_default(),
             ));
         }
     }
