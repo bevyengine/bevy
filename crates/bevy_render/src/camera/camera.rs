@@ -88,6 +88,7 @@ pub struct Camera {
     /// The "target" that this camera will render to.
     #[reflect(ignore)]
     pub target: RenderTarget,
+    /// If this is set to true, the camera will use an intermediate "high dynamic range" render texture.
     pub hdr: bool,
 }
 

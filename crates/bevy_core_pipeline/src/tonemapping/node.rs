@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 
+use crate::tonemapping::{Tonemapping, TonemappingPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
@@ -13,10 +14,8 @@ use bevy_render::{
     view::{ExtractedView, ViewMainTexture, ViewTarget},
 };
 
-use super::TonemappingPipeline;
-
 pub struct TonemappingNode {
-    query: QueryState<&'static ViewTarget, With<ExtractedView>>,
+    query: QueryState<(&'static ViewTarget, Option<&'static Tonemapping>), With<ExtractedView>>,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
@@ -50,14 +49,9 @@ impl Node for TonemappingNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
 
-        let target = match self.query.get_manual(world, view_entity) {
-            Ok(query) => query,
+        let (target, tonemapping) = match self.query.get_manual(world, view_entity) {
+            Ok(result) => result,
             Err(_) => return Ok(()),
-        };
-
-        let pipeline = match pipeline_cache.get_render_pipeline(tonemapping_pipeline.pipeline_id) {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
         };
 
         let ldr_texture = match &target.main_texture {
@@ -66,6 +60,18 @@ impl Node for TonemappingNode {
                 // non-hdr does tone mapping in the main pass node
                 return Ok(());
             }
+        };
+
+        let tonemapping_enabled = tonemapping.map_or(false, |t| t.is_enabled);
+        let pipeline_id = if tonemapping_enabled {
+            tonemapping_pipeline.tonemapping_pipeline_id
+        } else {
+            tonemapping_pipeline.blit_pipeline_id
+        };
+
+        let pipeline = match pipeline_cache.get_render_pipeline(pipeline_id) {
+            Some(pipeline) => pipeline,
+            None => return Ok(()),
         };
 
         let main_texture = target.main_texture.texture();

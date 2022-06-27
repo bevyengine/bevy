@@ -2,7 +2,7 @@
 #import bevy_pbr::pbr_bindings
 #import bevy_pbr::mesh_bindings
 
-#ifdef TONEMAPPING_IN_PBR_SHADER
+#ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
 #endif
 
@@ -92,7 +92,7 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
         output_color = pbr(pbr_input);
     }
 
-#ifdef TONEMAPPING_IN_PBR_SHADER
+#ifdef TONEMAP_IN_SHADER
     output_color = vec4<f32>(reinhard_luminance(output_color.rgb), output_color.a);
 #endif
 

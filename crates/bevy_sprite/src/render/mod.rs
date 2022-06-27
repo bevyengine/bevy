@@ -5,7 +5,7 @@ use crate::{
     Rect, Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -94,7 +94,8 @@ bitflags::bitflags! {
     pub struct SpritePipelineKey: u32 {
         const NONE                        = 0;
         const COLORED                     = (1 << 0);
-        const HDR      = (1 << 1);
+        const HDR                         = (1 << 1);
+        const TONEMAP_IN_SHADER           = (1 << 2);
         const MSAA_RESERVED_BITS          = SpritePipelineKey::MSAA_MASK_BITS << SpritePipelineKey::MSAA_SHIFT_BITS;
     }
 }
@@ -153,8 +154,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
             shader_defs.push("COLORED".to_string());
         }
 
-        if !key.contains(SpritePipelineKey::HDR) {
-            shader_defs.push("TONEMAPPING_IN_SPRITE_SHADER".to_string());
+        if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
+            shader_defs.push("TONEMAP_IN_SHADER".to_string());
         }
 
         let format = match key.contains(SpritePipelineKey::HDR) {
@@ -376,7 +377,11 @@ pub fn queue_sprites(
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut views: Query<(&mut RenderPhase<Transparent2d>, &ExtractedView)>,
+    mut views: Query<(
+        &mut RenderPhase<Transparent2d>,
+        &ExtractedView,
+        Option<&Tonemapping>,
+    )>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -414,20 +419,22 @@ pub fn queue_sprites(
         let mut colored_index = 0;
 
         // FIXME: VisibleEntities is ignored
-        for (mut transparent_phase, view) in views.iter_mut() {
+        for (mut transparent_phase, view, tonemapping) in views.iter_mut() {
+            let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+            if let Some(tonemapping) = tonemapping {
+                if tonemapping.is_enabled && !view.hdr {
+                    view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+                }
+            }
             let pipeline = pipelines.specialize(
                 &mut pipeline_cache,
                 &sprite_pipeline,
-                SpritePipelineKey::from_colored(false)
-                    | SpritePipelineKey::from_hdr(view.hdr)
-                    | msaa_key,
+                view_key | SpritePipelineKey::from_colored(false),
             );
             let colored_pipeline = pipelines.specialize(
                 &mut pipeline_cache,
                 &sprite_pipeline,
-                SpritePipelineKey::from_colored(true)
-                    | SpritePipelineKey::from_hdr(view.hdr)
-                    | msaa_key,
+                view_key | SpritePipelineKey::from_colored(true),
             );
 
             let extracted_sprites = &mut extracted_sprites.sprites;

@@ -1,4 +1,4 @@
-#ifdef TONEMAPPING_IN_SPRITE_SHADER
+#ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
 #endif
 
@@ -46,7 +46,7 @@ fn fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     color = in.color * color;
 #endif
 
-#ifdef TONEMAPPING_IN_SPRITE_SHADER
+#ifdef TONEMAP_IN_SHADER
     color = vec4<f32>(reinhard_luminance(color.rgb), color.a);
 #endif
 

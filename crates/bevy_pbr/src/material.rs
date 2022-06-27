@@ -4,7 +4,10 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d};
+use bevy_core_pipeline::{
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    tonemapping::Tonemapping,
+};
 use bevy_ecs::{
     entity::Entity,
     prelude::World,
@@ -338,13 +341,20 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
+        Option<&Tonemapping>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
     )>,
 ) {
-    for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
-        views.iter_mut()
+    for (
+        view,
+        visible_entities,
+        tonemapping,
+        mut opaque_phase,
+        mut alpha_mask_phase,
+        mut transparent_phase,
+    ) in views.iter_mut()
     {
         let draw_opaque_pbr = opaque_draw_functions
             .read()
@@ -362,8 +372,13 @@ pub fn queue_material_meshes<M: SpecializedMaterial>(
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
 
-        let view_key =
+        let mut view_key =
             MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
+        if let Some(tonemapping) = tonemapping {
+            if tonemapping.is_enabled && !view.hdr {
+                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+            }
+        }
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
