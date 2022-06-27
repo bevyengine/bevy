@@ -11,7 +11,7 @@ use wgpu::BufferUsages;
 ///
 /// "Properly formatted" means that item data already meets the alignment and padding
 /// requirements for how it will be used on the GPU.
-/// 
+///
 /// Index, vertex, and instance-rate vertex buffers have no alignment nor padding requirements and
 /// so this helper type is a good choice for them. Uniform buffers must adhere to std140
 /// alignment/padding requirements, and storage buffers to std430. There are helper types for such
@@ -22,7 +22,7 @@ use wgpu::BufferUsages;
 /// - Storage buffers
 ///   - Plain: [`StorageBuffer`](crate::render_resource::StorageBuffer)
 ///   - Dynamic offsets: [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// 
+///
 /// The item type must implement [`Pod`] for its data representation to be directly copyable.
 ///
 /// The contained data is stored in system RAM. Calling [`reserve`](crate::render_resource::BufferVec::reserve)
