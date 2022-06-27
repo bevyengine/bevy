@@ -50,7 +50,7 @@ use std::any::{Any, TypeId};
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
-/// #   fn as_mut_any(&mut self) -> &mut dyn Any { todo!() }
+/// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }

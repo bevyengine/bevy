@@ -289,7 +289,7 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
-    fn as_mut_any(&mut self) -> &mut dyn Any {
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -481,7 +481,7 @@ macro_rules! impl_reflect_tuple {
                 self
             }
 
-            fn as_mut_any(&mut self) -> &mut dyn Any {
+            fn as_any_mut(&mut self) -> &mut dyn Any {
                 self
             }
 

@@ -75,7 +75,7 @@ where
         self
     }
 
-    fn as_mut_any(&mut self) -> &mut dyn Any {
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 

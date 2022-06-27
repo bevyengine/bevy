@@ -147,7 +147,7 @@ pub(crate) fn impl_struct(derive_data: &ReflectDeriveData) -> TokenStream {
             }
 
             #[inline]
-            fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+            fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
             }
 
@@ -302,7 +302,7 @@ pub(crate) fn impl_tuple_struct(derive_data: &ReflectDeriveData) -> TokenStream 
             }
 
             #[inline]
-            fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+            fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
             }
 
@@ -404,7 +404,7 @@ pub(crate) fn impl_value(
             }
 
             #[inline]
-            fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+            fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
             }
 
