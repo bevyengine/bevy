@@ -688,7 +688,7 @@ impl World {
         archetype_invariant: ArchetypeInvariant<B1, B2>,
     ) {
         let untyped_invariant = archetype_invariant.into_untyped(self);
-        
+
         for archetype in &self.archetypes.archetypes {
             let components = archetype.components.indices();
             untyped_invariant.test_archetype(components);

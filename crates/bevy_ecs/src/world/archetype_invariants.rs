@@ -98,7 +98,9 @@ impl<B: Bundle> ArchetypeStatement<B> {
                 }
                 UntypedArchetypeStatement::AtLeastOneOf(component_ids)
             }
-            ArchetypeStatement::AtMostOneOf(_) => UntypedArchetypeStatement::AtMostOneOf(component_ids),
+            ArchetypeStatement::AtMostOneOf(_) => {
+                UntypedArchetypeStatement::AtMostOneOf(component_ids)
+            }
             ArchetypeStatement::NoneOf(_) => UntypedArchetypeStatement::NoneOf(component_ids),
         }
     }
@@ -129,7 +131,7 @@ impl<B: Bundle> ArchetypeStatement<B> {
 }
 
 /// A type-erased version of [`ArchetypeInvariant`].
-/// 
+///
 /// Intended to be used with dynamic components that cannot be represented with Rust types.
 /// Prefer [`ArchetypeInvariant`] when possible.
 #[derive(Clone, Debug, PartialEq)]
@@ -215,10 +217,9 @@ impl UntypedArchetypeStatement {
                 for exclusive_id in exclusive_ids {
                     if component_ids.contains(exclusive_id) {
                         if found_previous {
-                            return false
-                        } else {
-                            found_previous = true;
+                            return false;
                         }
+                        found_previous = true;
                     }
                 }
                 true
