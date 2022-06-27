@@ -280,15 +280,47 @@ impl Reflect for DynamicEnum {
 
     #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::Enum(enum_value) = value.reflect_ref() {
-            for field in enum_value.iter_fields() {
-                let name = field.name().unwrap();
-                if let Some(v) = self.field_mut(name) {
-                    v.apply(field.value());
+        if let ReflectRef::Enum(value) = value.reflect_ref() {
+            if Enum::variant_name(self) == value.variant_name() {
+                // Same variant -> just update fields
+                match value.variant_type() {
+                    VariantType::Struct => {
+                        for field in value.iter_fields() {
+                            let name = field.name().unwrap();
+                            Enum::field_mut(self, name).map(|v| v.apply(field.value()));
+                        }
+                    }
+                    VariantType::Tuple => {
+                        for (index, field) in value.iter_fields().enumerate() {
+                            Enum::field_at_mut(self, index).map(|v| v.apply(field.value()));
+                        }
+                    }
+                    _ => {}
                 }
+            } else {
+                // New variant -> perform a switch
+                let dyn_variant = match value.variant_type() {
+                    VariantType::Unit => DynamicVariant::Unit,
+                    VariantType::Tuple => {
+                        let mut dyn_tuple = DynamicTuple::default();
+                        for field in value.iter_fields() {
+                            dyn_tuple.insert_boxed(field.value().clone_value());
+                        }
+                        DynamicVariant::Tuple(dyn_tuple)
+                    }
+                    VariantType::Struct => {
+                        let mut dyn_struct = DynamicStruct::default();
+                        for field in value.iter_fields() {
+                            dyn_struct
+                                .insert_boxed(field.name().unwrap(), field.value().clone_value());
+                        }
+                        DynamicVariant::Struct(dyn_struct)
+                    }
+                };
+                self.set_variant(value.variant_name(), dyn_variant);
             }
         } else {
-            panic!("Attempted to apply non-enum type to enum type.");
+            panic!("`{}` is not an enum", value.type_name());
         }
     }
 

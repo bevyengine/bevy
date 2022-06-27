@@ -128,6 +128,27 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_enum_should_apply_dynamic_enum() {
+        let mut a = DynamicEnum::from(MyEnum::B(123, 321));
+        let b = DynamicEnum::from(MyEnum::B(123, 321));
+
+        // Sanity check that equality check works
+        assert!(
+            a.reflect_partial_eq(&b).unwrap_or_default(),
+            "dynamic enums should be equal"
+        );
+
+        a.set_variant("A", ());
+        assert!(
+            !a.reflect_partial_eq(&b).unwrap_or_default(),
+            "dynamic enums should not be equal"
+        );
+
+        a.apply(&b);
+        assert!(a.reflect_partial_eq(&b).unwrap_or_default());
+    }
+
+    #[test]
     fn dynamic_enum_should_change_variant() {
         let mut value = MyEnum::A;
 
@@ -427,6 +448,120 @@ mod tests {
             },
             value
         );
+    }
+
+    #[test]
+    fn enum_should_apply() {
+        let mut value: Box<dyn Reflect> = Box::new(MyEnum::A);
+
+        // === MyEnum::A -> MyEnum::A === //
+        value.apply(&MyEnum::A);
+        assert!(value.reflect_partial_eq(&MyEnum::A).unwrap_or_default());
+
+        // === MyEnum::A -> MyEnum::B === //
+        value.apply(&MyEnum::B(123, 321));
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(123, 321))
+            .unwrap_or_default());
+
+        // === MyEnum::B -> MyEnum::B === //
+        value.apply(&MyEnum::B(321, 123));
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(321, 123))
+            .unwrap_or_default());
+
+        // === MyEnum::B -> MyEnum::C === //
+        value.apply(&MyEnum::C {
+            foo: 1.23,
+            bar: true,
+        });
+        assert!(value
+            .reflect_partial_eq(&MyEnum::C {
+                foo: 1.23,
+                bar: true
+            })
+            .unwrap_or_default());
+
+        // === MyEnum::C -> MyEnum::C === //
+        value.apply(&MyEnum::C {
+            foo: 3.21,
+            bar: false,
+        });
+        assert!(value
+            .reflect_partial_eq(&MyEnum::C {
+                foo: 3.21,
+                bar: false
+            })
+            .unwrap_or_default());
+
+        // === MyEnum::C -> MyEnum::B === //
+        value.apply(&MyEnum::B(123, 321));
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(123, 321))
+            .unwrap_or_default());
+
+        // === MyEnum::B -> MyEnum::A === //
+        value.apply(&MyEnum::A);
+        assert!(value.reflect_partial_eq(&MyEnum::A).unwrap_or_default());
+    }
+
+    #[test]
+    fn enum_should_set() {
+        let mut value: Box<dyn Reflect> = Box::new(MyEnum::A);
+
+        // === MyEnum::A -> MyEnum::A === //
+        value.set(Box::new(MyEnum::A)).unwrap();
+        assert!(value.reflect_partial_eq(&MyEnum::A).unwrap_or_default());
+
+        // === MyEnum::A -> MyEnum::B === //
+        value.set(Box::new(MyEnum::B(123, 321))).unwrap();
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(123, 321))
+            .unwrap_or_default());
+
+        // === MyEnum::B -> MyEnum::B === //
+        value.set(Box::new(MyEnum::B(321, 123))).unwrap();
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(321, 123))
+            .unwrap_or_default());
+
+        // === MyEnum::B -> MyEnum::C === //
+        value
+            .set(Box::new(MyEnum::C {
+                foo: 1.23,
+                bar: true,
+            }))
+            .unwrap();
+        assert!(value
+            .reflect_partial_eq(&MyEnum::C {
+                foo: 1.23,
+                bar: true
+            })
+            .unwrap_or_default());
+
+        // === MyEnum::C -> MyEnum::C === //
+        value
+            .set(Box::new(MyEnum::C {
+                foo: 3.21,
+                bar: false,
+            }))
+            .unwrap();
+        assert!(value
+            .reflect_partial_eq(&MyEnum::C {
+                foo: 3.21,
+                bar: false
+            })
+            .unwrap_or_default());
+
+        // === MyEnum::C -> MyEnum::B === //
+        value.set(Box::new(MyEnum::B(123, 321))).unwrap();
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(123, 321))
+            .unwrap_or_default());
+
+        // === MyEnum::B -> MyEnum::A === //
+        value.set(Box::new(MyEnum::A)).unwrap();
+        assert!(value.reflect_partial_eq(&MyEnum::A).unwrap_or_default());
     }
 
     #[test]
