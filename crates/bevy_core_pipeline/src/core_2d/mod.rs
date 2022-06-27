@@ -79,9 +79,6 @@ pub struct Transparent2d {
 }
 
 impl PhaseItem for Transparent2d {
-    /// Transparent sprite rendering is reliant on stable sorting for proper
-    /// batching as the sort key does not include the Entity, and only the z-coordinate.
-    const ALLOWS_UNSTABLE_SORT: bool = false;
     type SortKey = FloatOrd;
 
     #[inline]

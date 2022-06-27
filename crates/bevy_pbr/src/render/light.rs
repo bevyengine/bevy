@@ -1412,9 +1412,6 @@ pub struct Shadow {
 }
 
 impl PhaseItem for Shadow {
-    /// Shadow rendering is not batched, thus not reliant on a stable sort
-    /// during the sort phase.
-    const ALLOWS_UNSTABLE_SORT: bool = true;
     type SortKey = FloatOrd;
 
     #[inline]

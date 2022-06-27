@@ -87,8 +87,6 @@ pub struct Opaque3d {
 }
 
 impl PhaseItem for Opaque3d {
-    /// Opaque rendering is not reliant on the stable sort order.
-    const ALLOWS_UNSTABLE_SORT: bool = true;
     type SortKey = FloatOrd;
 
     #[inline]
@@ -129,8 +127,6 @@ pub struct AlphaMask3d {
 }
 
 impl PhaseItem for AlphaMask3d {
-    /// Alpha mask rendering is not reliant on the stable sort order.
-    const ALLOWS_UNSTABLE_SORT: bool = true;
     type SortKey = FloatOrd;
 
     #[inline]
@@ -171,8 +167,6 @@ pub struct Transparent3d {
 }
 
 impl PhaseItem for Transparent3d {
-    /// 3D transparent rendering is not reliant on the stable sort order.
-    const ALLOWS_UNSTABLE_SORT: bool = true;
     type SortKey = FloatOrd;
 
     #[inline]
