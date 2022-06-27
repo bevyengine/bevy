@@ -75,6 +75,9 @@ pub enum ArchetypeStatement<B: Bundle> {
     /// The entity has at least one component in the bundle `B`, and may have all of them.
     /// When using a single-component bundle, `AllOf` is preferred.
     AtLeastOneOf(PhantomData<B>),
+    /// The entity has zero or one of the components in the bundle `B`, and may have all of them.
+    /// When using a single-component bundle, this is a tautology.
+    AtMostOneOf(PhantomData<B>),
     /// The entity has none of the components in the bundle `B`
     NoneOf(PhantomData<B>),
 }
@@ -95,6 +98,7 @@ impl<B: Bundle> ArchetypeStatement<B> {
                 }
                 UntypedArchetypeStatement::AtLeastOneOf(component_ids)
             }
+            ArchetypeStatement::AtMostOneOf(_) => UntypedArchetypeStatement::AtMostOneOf(component_ids),
             ArchetypeStatement::NoneOf(_) => UntypedArchetypeStatement::NoneOf(component_ids),
         }
     }
@@ -111,6 +115,12 @@ impl<B: Bundle> ArchetypeStatement<B> {
         ArchetypeStatement::AtLeastOneOf(PhantomData)
     }
 
+    /// Constructs a new [`ArchetypeStatement::AtMostOneOf`] variant for all components stored in the bundle `B`
+    #[inline]
+    pub const fn at_most_one_of() -> Self {
+        ArchetypeStatement::AtMostOneOf(PhantomData)
+    }
+
     /// Constructs a new [`ArchetypeStatement::NoneOf`] variant for all components stored in the bundle `B`
     #[inline]
     pub const fn none_of() -> Self {
@@ -119,6 +129,7 @@ impl<B: Bundle> ArchetypeStatement<B> {
 }
 
 /// A type-erased version of [`ArchetypeInvariant`].
+/// 
 /// Intended to be used with dynamic components that cannot be represented with Rust types.
 /// Prefer [`ArchetypeInvariant`] when possible.
 #[derive(Clone, Debug, PartialEq)]
@@ -160,8 +171,11 @@ pub enum UntypedArchetypeStatement {
     /// Evaluates to true if and only if the entity has all of the components present in the set
     AllOf(HashSet<ComponentId>),
     /// The entity has at least one component in the set, and may have all of them.
-    /// When using a single-component bundle, `AllOf` is preferred
+    /// When using a single-component set, `AllOf` is preferred
     AtLeastOneOf(HashSet<ComponentId>),
+    /// The entity has zero or one of the components in the set, and may have all of them.
+    /// When using a single-component set, this is a tautology.
+    AtMostOneOf(HashSet<ComponentId>),
     /// The entity has none of the components in the set
     NoneOf(HashSet<ComponentId>),
 }
@@ -172,6 +186,7 @@ impl UntypedArchetypeStatement {
         match self {
             UntypedArchetypeStatement::AllOf(set)
             | UntypedArchetypeStatement::AtLeastOneOf(set)
+            | UntypedArchetypeStatement::AtMostOneOf(set)
             | UntypedArchetypeStatement::NoneOf(set) => set,
         }
     }
@@ -194,6 +209,19 @@ impl UntypedArchetypeStatement {
                     }
                 }
                 false
+            }
+            UntypedArchetypeStatement::AtMostOneOf(exclusive_ids) => {
+                let mut found_previous = false;
+                for exclusive_id in exclusive_ids {
+                    if component_ids.contains(exclusive_id) {
+                        if found_previous {
+                            return false
+                        } else {
+                            found_previous = true;
+                        }
+                    }
+                }
+                true
             }
             UntypedArchetypeStatement::NoneOf(forbidden_ids) => {
                 for forbidden_id in forbidden_ids {
