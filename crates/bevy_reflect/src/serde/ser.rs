@@ -435,7 +435,10 @@ mod tests {
         let registry = get_registry();
         let serializer = ReflectSerializer::new(&input, &registry);
 
-        let config = PrettyConfig::default().new_line(String::from("\n"));
+        let config = PrettyConfig::default()
+            .new_line(String::from("\n"))
+            .decimal_floats(true)
+            .indentor(String::from("    "));
 
         let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
         let expected = r#"{
