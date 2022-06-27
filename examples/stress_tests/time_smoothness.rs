@@ -227,7 +227,6 @@ fn change_settings(
         let next_window_mode = match window.mode() {
             WindowMode::Windowed => WindowMode::BorderlessFullscreen,
             WindowMode::BorderlessFullscreen => WindowMode::Fullscreen,
-            WindowMode::Fullscreen => WindowMode::Windowed,
             _ => WindowMode::Windowed,
         };
         info!("Switching window mode to {:?}", next_window_mode);
