@@ -231,7 +231,9 @@ impl dyn Reflect {
     /// Returns `true` if the underlying value represents a value of type `T`, or `false`
     /// otherwise.
     ///
-    /// Read `is` for more information on underlying values and represented types.
+    /// Read [`is`] for more information on underlying values and represented types.
+    ///
+    /// [`is`]: Self::is
     #[inline]
     pub fn represents<T: Reflect>(&self) -> bool {
         self.type_name() == any::type_name::<T>()
@@ -242,9 +244,11 @@ impl dyn Reflect {
     ///
     /// The underlying value is the concrete type that is stored in this `dyn` object;
     /// it can be downcasted to. In the case that this underlying value "represents"
-    /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
+    /// a different type, like the Dynamic\*\*\* types do, you can call [`represents`]
     /// to determine what type they represent. Represented types cannot be downcasted
-    /// to, but you can use `FromReflect` to create a value of the represented type from them.
+    /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
+    ///
+    /// [`represents`]: Self::represents
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
         self.type_id() == TypeId::of::<T>()
