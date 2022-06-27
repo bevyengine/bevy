@@ -97,12 +97,13 @@ jobs:
         env:
           # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
           RUSTFLAGS: -Zrandomize-layout
+          # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
           # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
           # -Zmiri-ignore-leaks is needed because running bevy_ecs tests finds a memory leak but its impossible
           # to track down because allocids are nondeterministic.
-          # -Zmiri-tag-raw-pointers is not strictly "necessary" but enables a lot of extra UB checks relating
-          # to raw pointer aliasing rules that we should be trying to uphold.
-          # -Zmiri-disable-weak-memory-emulation works around an unknown bug in bevy or Miri
+          # -Zmiri-permissive-provenance enables extra UB checks relating to raw pointer aliasing rules that we
+          # should be trying to uphold.
+          # -Zmiri-disable-weak-memory-emulation works around an unknown bug in Bevy or Miri.
           MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation
 
   check-compiles:
