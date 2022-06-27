@@ -22,7 +22,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
+    view::{ComputedVisibility, Msaa, RenderLayers, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -185,6 +185,7 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
+    pub view_mask: RenderLayers,
 }
 
 #[derive(Default)]
@@ -224,18 +225,25 @@ pub fn extract_sprite_events(
 pub fn extract_sprites(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    sprite_query: Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>,
+    sprite_query: Query<(
+        &ComputedVisibility,
+        &Sprite,
+        &GlobalTransform,
+        &Handle<Image>,
+        Option<&RenderLayers>,
+    )>,
     atlas_query: Query<(
-        &Visibility,
+        &ComputedVisibility,
         &TextureAtlasSprite,
         &GlobalTransform,
         &Handle<TextureAtlas>,
+        Option<&RenderLayers>,
     )>,
 ) {
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
     extracted_sprites.sprites.clear();
-    for (visibility, sprite, transform, handle) in sprite_query.iter() {
-        if !visibility.is_visible {
+    for (computed_visibility, sprite, transform, handle, maybe_view_mask) in sprite_query.iter() {
+        if !computed_visibility.is_visible {
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
@@ -250,10 +258,13 @@ pub fn extract_sprites(
             flip_y: sprite.flip_y,
             image_handle_id: handle.id,
             anchor: sprite.anchor.as_vec(),
+            view_mask: maybe_view_mask.copied().unwrap_or_default(),
         });
     }
-    for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
-        if !visibility.is_visible {
+    for (computed_visibility, atlas_sprite, transform, texture_atlas_handle, maybe_view_mask) in
+        atlas_query.iter()
+    {
+        if !computed_visibility.is_visible {
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
@@ -269,6 +280,7 @@ pub fn extract_sprites(
                 flip_y: atlas_sprite.flip_y,
                 image_handle_id: texture_atlas.texture.id,
                 anchor: atlas_sprite.anchor.as_vec(),
+                view_mask: maybe_view_mask.copied().unwrap_or_default(),
             });
         }
     }
@@ -347,7 +359,7 @@ pub fn queue_sprites(
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut views: Query<&mut RenderPhase<Transparent2d>>,
+    mut views: Query<(&mut RenderPhase<Transparent2d>, Option<&RenderLayers>)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -389,25 +401,25 @@ pub fn queue_sprites(
         let mut index = 0;
         let mut colored_index = 0;
 
-        // FIXME: VisibleEntities is ignored
-        for mut transparent_phase in views.iter_mut() {
-            let extracted_sprites = &mut extracted_sprites.sprites;
+        let extracted_sprites = &mut extracted_sprites.sprites;
+        // Sort sprites by z for correct transparency and then by handle to improve batching
+        extracted_sprites.sort_unstable_by(|a, b| {
+            match a
+                .transform
+                .translation
+                .z
+                .partial_cmp(&b.transform.translation.z)
+            {
+                Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
+                Some(other) => other,
+            }
+        });
+
+        // PERF: VisibleEntities is ignored and view_mask is used directly
+        for (mut transparent_phase, maybe_view_mask) in views.iter_mut() {
             let image_bind_groups = &mut *image_bind_groups;
 
             transparent_phase.items.reserve(extracted_sprites.len());
-
-            // Sort sprites by z for correct transparency and then by handle to improve batching
-            extracted_sprites.sort_unstable_by(|a, b| {
-                match a
-                    .transform
-                    .translation
-                    .z
-                    .partial_cmp(&b.transform.translation.z)
-                {
-                    Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
-                    Some(other) => other,
-                }
-            });
 
             // Impossible starting values that will be replaced on the first iteration
             let mut current_batch = SpriteBatch {
@@ -416,12 +428,16 @@ pub fn queue_sprites(
             };
             let mut current_batch_entity = Entity::from_raw(u32::MAX);
             let mut current_image_size = Vec2::ZERO;
+            let view_mask = maybe_view_mask.copied().unwrap_or_default();
             // Add a phase item for each sprite, and detect when succesive items can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
             // by any other phase item (and they can interrupt other items from batching).
             for extracted_sprite in extracted_sprites.iter() {
+                if !view_mask.intersects(&extracted_sprite.view_mask) {
+                    continue;
+                }
                 let new_batch = SpriteBatch {
                     image_handle_id: extracted_sprite.image_handle_id,
                     colored: extracted_sprite.color != Color::WHITE,
