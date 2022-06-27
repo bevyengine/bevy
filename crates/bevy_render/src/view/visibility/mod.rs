@@ -56,8 +56,13 @@ pub struct NoFrustumCulling;
 /// system, and renderers can use it to optimize rendering of a particular view, to
 /// prevent drawing items not visible from that view.
 ///
-/// This component is intended to be attached to the same entity as the [`Camera`] and the [`Frustum`]
-/// defining the view.
+/// This component is intended to be attached to the same entity as the [`Camera`] and
+/// the [`Frustum`] defining the view.
+///
+/// Currently this component is ignored by the [`sprite renderer`], so sprite rendering
+/// is not optimized per view.
+///
+/// [`sprite renderer`] bevy::sprite
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
