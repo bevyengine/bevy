@@ -62,7 +62,7 @@ pub struct Text2dBundle {
     pub text_2d_size: Text2dSize,
     pub text_2d_bounds: Text2dBounds,
     pub visibility: Visibility,
-    pub coputed_visibility: Visibility,
+    pub computed_visibility: Visibility,
 }
 
 pub fn extract_text2d_sprite(
