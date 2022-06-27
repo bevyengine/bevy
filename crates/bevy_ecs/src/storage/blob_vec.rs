@@ -209,6 +209,27 @@ impl BlobVec {
         OwningPtr::new(self.swap_scratch)
     }
 
+    /// Removes the value at `index` and copies the value stored into `ptr`.
+    /// Does not do any bounds checking on `index`.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that `index` is < `self.len()`
+    /// and that `self[index]` has been properly initialized.
+    #[inline]
+    pub unsafe fn swap_remove_unchecked(&mut self, index: usize, ptr: PtrMut<'_>) {
+        debug_assert!(index < self.len());
+        let last = self.get_unchecked_mut(self.len - 1).as_ptr();
+        let target = self.get_unchecked_mut(index).as_ptr();
+        // Copy the item at the index into the provided ptr
+        std::ptr::copy_nonoverlapping::<u8>(target, ptr.as_ptr(), self.item_layout.size());
+        // Recompress the storage by moving the previous last element into the
+        // now-free row overwriting the previous data. The removed row may be the last
+        // one so a non-overlapping copy must not be used here.
+        std::ptr::copy::<u8>(last, target, self.item_layout.size());
+        // Invalidate the data stored in the last row, as it has been moved
+        self.len -= 1;
+    }
+
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < self.len()
     #[inline]

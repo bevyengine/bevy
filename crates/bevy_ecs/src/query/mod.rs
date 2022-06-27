@@ -11,7 +11,7 @@ pub use iter::*;
 pub use state::*;
 
 #[allow(unreachable_code)]
-unsafe fn debug_checked_unreachable() -> ! {
+pub(crate) unsafe fn debug_checked_unreachable() -> ! {
     #[cfg(debug_assertions)]
     unreachable!();
     std::hint::unreachable_unchecked();
