@@ -108,7 +108,7 @@ pub fn extract_text2d_sprite(
                     alignment_offset * scale_factor + text_glyph.position.extend(0.),
                 );
 
-                let transform = text_transform.mul_transform(glyph_transform);
+                let transform = text_transform * glyph_transform;
 
                 extracted_sprites.sprites.push(ExtractedSprite {
                     transform,

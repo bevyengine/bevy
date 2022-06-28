@@ -14,7 +14,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::warn;
 
 use crate::{
@@ -1201,7 +1201,7 @@ pub fn update_point_light_frusta(
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let view_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Transform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
 
     for (entity, transform, point_light, mut cubemap_frusta) in views.iter_mut() {
@@ -1217,7 +1217,7 @@ pub fn update_point_light_frusta(
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects
         // and ignore rotation because we want the shadow map projections to align with the axes
-        let view_translation = GlobalTransform::from_translation(transform.translation);
+        let view_translation = Transform::from_translation(transform.translation);
         let view_backward = transform.back();
 
         for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {

@@ -428,7 +428,7 @@ pub fn extract_cameras(
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),
-                    transform: *transform,
+                    transform: transform.into_inner(),
                     width: viewport_size.x,
                     height: viewport_size.y,
                 },

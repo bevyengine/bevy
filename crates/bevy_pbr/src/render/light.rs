@@ -28,7 +28,7 @@ use bevy_render::{
         ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
     },
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::FloatOrd;
 use bevy_utils::{
     tracing::{error, warn},
@@ -668,7 +668,7 @@ pub fn prepare_lights(
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Transform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
 
     global_light_meta.entity_to_index.clear();
@@ -807,7 +807,7 @@ pub fn prepare_lights(
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
-            let view_translation = GlobalTransform::from_translation(light.transform.translation);
+            let view_translation = Transform::from_translation(light.transform.translation);
 
             for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                 let depth_texture_view =
@@ -921,7 +921,7 @@ pub fn prepare_lights(
                         ExtractedView {
                             width: directional_light_shadow_map.size as u32,
                             height: directional_light_shadow_map.size as u32,
-                            transform: GlobalTransform::from_matrix(view.inverse()),
+                            transform: Transform::from_matrix(view.inverse()),
                             projection,
                         },
                         RenderPhase::<Shadow>::default(),

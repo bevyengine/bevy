@@ -66,7 +66,7 @@ impl TransformBundle {
     pub const fn identity() -> Self {
         TransformBundle {
             local: Transform::identity(),
-            global: GlobalTransform::identity(),
+            global: GlobalTransform(Transform::identity()),
         }
     }
 }

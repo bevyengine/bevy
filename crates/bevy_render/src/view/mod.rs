@@ -21,7 +21,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 
 pub struct ViewPlugin;
@@ -76,7 +76,7 @@ impl Default for Msaa {
 #[derive(Component)]
 pub struct ExtractedView {
     pub projection: Mat4,
-    pub transform: GlobalTransform,
+    pub transform: Transform,
     pub width: u32,
     pub height: u32,
 }

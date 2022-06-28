@@ -72,7 +72,7 @@ fn propagate_recursive(
         );
         changed |= transform_changed;
         if changed {
-            *global_transform = parent.mul_transform(*transform);
+            global_transform.0 = parent.mul_transform(*transform);
         }
         *global_transform
     };
@@ -143,12 +143,14 @@ mod test {
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
+            GlobalTransform::from(Transform::from_xyz(1.0, 0.0, 0.0))
+                * Transform::from_xyz(0.0, 2.0, 0.0)
         );
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
+            GlobalTransform::from(Transform::from_xyz(1.0, 0.0, 0.0))
+                * Transform::from_xyz(0.0, 0.0, 3.0)
         );
     }
 
@@ -186,12 +188,14 @@ mod test {
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
+            GlobalTransform(Transform::from_xyz(1.0, 0.0, 0.0))
+                * Transform::from_xyz(0.0, 2.0, 0.0)
         );
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
+            GlobalTransform(Transform::from_xyz(1.0, 0.0, 0.0))
+                * Transform::from_xyz(0.0, 0.0, 3.0)
         );
     }
 
@@ -328,8 +332,8 @@ mod test {
         let mut state = app.world.query::<&GlobalTransform>();
         for global in state.iter(&app.world) {
             assert_eq!(
-                global,
-                &GlobalTransform {
+                global.into_inner(),
+                Transform {
                     translation,
                     ..Default::default()
                 },

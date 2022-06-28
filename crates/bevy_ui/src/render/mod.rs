@@ -25,7 +25,7 @@ use bevy_render::{
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
@@ -254,7 +254,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 .get_or_spawn(default_camera_view)
                 .insert(ExtractedView {
                     projection: projection.get_projection_matrix(),
-                    transform: GlobalTransform::from_xyz(
+                    transform: Transform::from_xyz(
                         0.0,
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
