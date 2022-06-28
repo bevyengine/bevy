@@ -4,12 +4,12 @@ error[E0599]: the method `len` exists for struct `QueryIter<'_, '_, &Foo, ReadFe
 8   |       println!("{}", query.iter().len())
     |                                   ^^^ method cannot be called on `QueryIter<'_, '_, &Foo, ReadFetch<'_, Foo>, bevy_ecs::query::Changed<Foo>>` due to unsatisfied trait bounds
     |
-   ::: C:/Programming/rust/bevy/crates/bevy_ecs/src/query/iter.rs:16:1
+   ::: /home/runner/work/bevy/bevy/crates/bevy_ecs/src/query/iter.rs:16:1
     |
 16  |   pub struct QueryIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
     |   ------------------------------------------------------------------------------------------- doesn't satisfy `_: ExactSizeIterator`
     |
-   ::: C:/Programming/rust/bevy/crates/bevy_ecs/src/query/filter.rs:703:1
+   ::: /home/runner/work/bevy/bevy/crates/bevy_ecs/src/query/filter.rs:703:1
     |
 703 | / impl_tick_filter!(
 704 | |     /// A filter on a component that only retains results added or mutably dereferenced after the system last ran.
@@ -23,19 +23,18 @@ error[E0599]: the method `len` exists for struct `QueryIter<'_, '_, &Foo, ReadFe
     = note: the following trait bounds were not satisfied:
             `bevy_ecs::query::Changed<Foo>: ArchetypeFilter`
             which is required by `QueryIter<'_, '_, &Foo, ReadFetch<'_, Foo>, bevy_ecs::query::Changed<Foo>>: ExactSizeIterator`
-
 error[E0599]: the method `len` exists for struct `QueryIter<'_, '_, &Foo, ReadFetch<'_, Foo>, bevy_ecs::query::Added<Foo>>`, but its trait bounds were not satisfied
    --> tests/ui/query_exact_sized_iterator_safety.rs:13:33
     |
 13  |       println!("{}", query.iter().len())
     |                                   ^^^ method cannot be called on `QueryIter<'_, '_, &Foo, ReadFetch<'_, Foo>, bevy_ecs::query::Added<Foo>>` due to unsatisfied trait bounds
     |
-   ::: C:/Programming/rust/bevy/crates/bevy_ecs/src/query/iter.rs:16:1
+   ::: /home/runner/work/bevy/bevy/crates/bevy_ecs/src/query/iter.rs:16:1
     |
 16  |   pub struct QueryIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
     |   ------------------------------------------------------------------------------------------- doesn't satisfy `_: ExactSizeIterator`
     |
-   ::: C:/Programming/rust/bevy/crates/bevy_ecs/src/query/filter.rs:668:1
+   ::: /home/runner/work/bevy/bevy/crates/bevy_ecs/src/query/filter.rs:668:1
     |
 668 | / impl_tick_filter!(
 669 | |     /// A filter on a component that only retains results added after the system last ran.
