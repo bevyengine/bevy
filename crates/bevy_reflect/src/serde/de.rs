@@ -949,6 +949,23 @@ mod tests {
     }
 
     #[test]
+    fn should_deserialize_value() {
+        let input = r#"{
+            "type": "f32",
+            "value": 1.23,
+        }"#;
+
+        let registry = get_registry();
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+        let output = dynamic_output.take::<f32>().expect("underlying type should be f32");
+        assert_eq!(1.23, output);
+    }
+
+    #[test]
     fn should_deserialized_typed() {
         #[derive(Reflect, FromReflect, Debug, PartialEq)]
         struct Foo {
