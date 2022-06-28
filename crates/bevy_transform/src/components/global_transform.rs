@@ -2,7 +2,7 @@ use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
-use std::ops::{Deref, DerefMut, Mul};
+use std::ops::{Deref, Mul};
 
 /// Describe the position of an entity relative to the reference frame.
 ///
@@ -40,12 +40,6 @@ impl Deref for GlobalTransform {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl DerefMut for GlobalTransform {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

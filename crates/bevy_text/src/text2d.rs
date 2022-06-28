@@ -89,7 +89,7 @@ pub fn extract_text2d_sprite(
                 HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
             };
 
-            let mut text_transform = *transform;
+            let mut text_transform = transform.into_inner();
             text_transform.scale /= scale_factor;
 
             for text_glyph in text_glyphs {
