@@ -58,11 +58,63 @@ mod tests {
         world.spawn().insert_bundle((A(2),));
         world.spawn().insert_bundle((A(3),));
 
-        let mut values = world.query_filtered::<&A, With<B>>();
-        assert_eq!(values.iter(&world).len(), 1);
+        fn are_sizes_equal_to(iter: impl ExactSizeIterator, n: usize) -> bool {
+            [
+                iter.size_hint().0,
+                iter.size_hint().1.unwrap(),
+                iter.len(),
+                iter.count(),
+            ]
+            .into_iter()
+            .all(|x| x == n)
+        }
 
+        let mut values = world.query_filtered::<&A, With<B>>();
+        assert!(are_sizes_equal_to(values.iter(&world), 1));
         let mut values = world.query_filtered::<&A, Without<B>>();
-        assert_eq!(values.iter(&world).len(), 2);
+        assert!(are_sizes_equal_to(values.iter(&world), 2));
+
+        let mut world = World::new();
+        world.spawn().insert_bundle((A(1), B(1), C(1)));
+        world.spawn().insert_bundle((A(2), B(2)));
+        world.spawn().insert_bundle((A(3), B(3)));
+        world.spawn().insert_bundle((A(4), C(4)));
+        world.spawn().insert_bundle((A(5), C(5)));
+        world.spawn().insert_bundle((A(6), C(6)));
+        world.spawn().insert_bundle((A(7),));
+        world.spawn().insert_bundle((A(8),));
+        world.spawn().insert_bundle((A(9),));
+        world.spawn().insert_bundle((A(10),));
+
+        // With/Without for B and C
+        let mut values = world.query_filtered::<&A, With<B>>();
+        assert!(are_sizes_equal_to(values.iter(&world), 3));
+        let mut values = world.query_filtered::<&A, With<C>>();
+        assert!(are_sizes_equal_to(values.iter(&world), 4));
+        let mut values = world.query_filtered::<&A, Without<B>>();
+        assert!(are_sizes_equal_to(values.iter(&world), 7));
+        let mut values = world.query_filtered::<&A, Without<C>>();
+        assert!(are_sizes_equal_to(values.iter(&world), 6));
+
+        // With/Without (And) combinations
+        let mut values = world.query_filtered::<&A, (With<B>, With<C>)>();
+        assert!(are_sizes_equal_to(values.iter(&world), 1));
+        let mut values = world.query_filtered::<&A, (With<B>, Without<C>)>();
+        assert!(are_sizes_equal_to(values.iter(&world), 2));
+        let mut values = world.query_filtered::<&A, (Without<B>, With<C>)>();
+        assert!(are_sizes_equal_to(values.iter(&world), 3));
+        let mut values = world.query_filtered::<&A, (Without<B>, Without<C>)>();
+        assert!(are_sizes_equal_to(values.iter(&world), 4));
+
+        // With/Without Or<()> combinations
+        let mut values = world.query_filtered::<&A, Or<(With<B>, With<C>)>>();
+        assert!(are_sizes_equal_to(values.iter(&world), 6));
+        let mut values = world.query_filtered::<&A, Or<(With<B>, Without<C>)>>();
+        assert!(are_sizes_equal_to(values.iter(&world), 7));
+        let mut values = world.query_filtered::<&A, Or<(Without<B>, With<C>)>>();
+        assert!(are_sizes_equal_to(values.iter(&world), 8));
+        let mut values = world.query_filtered::<&A, Or<(Without<B>, Without<C>)>>();
+        assert!(are_sizes_equal_to(values.iter(&world), 9));
     }
 
     #[test]
