@@ -51,7 +51,7 @@ pub struct NoFrustumCulling;
 
 /// Collection of entities visible from the current view.
 ///
-/// This component contains all app world entities which are visible from the currently
+/// This component contains all entities which are visible from the currently
 /// rendered view. The collection is updated automatically by the [`check_visibility()`]
 /// system, and renderers can use it to optimize rendering of a particular view, to
 /// prevent drawing items not visible from that view.
