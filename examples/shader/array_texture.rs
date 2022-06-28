@@ -154,10 +154,6 @@ impl RenderAsset for ArrayTextureMaterial {
 }
 
 impl Material for ArrayTextureMaterial {
-    // fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-    //     Some(asset_server.load("shaders/array_texture.wgsl"))
-    // }
-
     fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
         Some(asset_server.load("shaders/array_texture.wgsl"))
     }
