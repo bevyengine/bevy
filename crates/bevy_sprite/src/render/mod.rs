@@ -22,7 +22,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{ComputedVisibility, Msaa, RenderLayers, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{Msaa, RenderLayers, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -226,14 +226,14 @@ pub fn extract_sprites(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     sprite_query: Query<(
-        &ComputedVisibility,
+        &Visibility,
         &Sprite,
         &GlobalTransform,
         &Handle<Image>,
         Option<&RenderLayers>,
     )>,
     atlas_query: Query<(
-        &ComputedVisibility,
+        &Visibility,
         &TextureAtlasSprite,
         &GlobalTransform,
         &Handle<TextureAtlas>,
@@ -242,8 +242,8 @@ pub fn extract_sprites(
 ) {
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
     extracted_sprites.sprites.clear();
-    for (computed_visibility, sprite, transform, handle, maybe_view_mask) in sprite_query.iter() {
-        if !computed_visibility.is_visible {
+    for (visibility, sprite, transform, handle, maybe_view_mask) in sprite_query.iter() {
+        if !visibility.is_visible {
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
@@ -261,10 +261,10 @@ pub fn extract_sprites(
             view_mask: maybe_view_mask.copied().unwrap_or_default(),
         });
     }
-    for (computed_visibility, atlas_sprite, transform, texture_atlas_handle, maybe_view_mask) in
+    for (visibility, atlas_sprite, transform, texture_atlas_handle, maybe_view_mask) in
         atlas_query.iter()
     {
-        if !computed_visibility.is_visible {
+        if !visibility.is_visible {
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
@@ -401,9 +401,8 @@ pub fn queue_sprites(
         let mut index = 0;
         let mut colored_index = 0;
 
-        let extracted_sprites = &mut extracted_sprites.sprites;
         // Sort sprites by z for correct transparency and then by handle to improve batching
-        extracted_sprites.sort_unstable_by(|a, b| {
+        extracted_sprites.sprites.sort_unstable_by(|a, b| {
             match a
                 .transform
                 .translation
@@ -414,6 +413,7 @@ pub fn queue_sprites(
                 Some(other) => other,
             }
         });
+        let extracted_sprites = &extracted_sprites.sprites;
 
         // PERF: VisibleEntities is ignored and view_mask is used directly
         for (mut transparent_phase, maybe_view_mask) in views.iter_mut() {

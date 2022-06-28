@@ -12,7 +12,7 @@ use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
     texture::Image,
-    view::{ComputedVisibility, RenderLayers, Visibility},
+    view::{RenderLayers, Visibility},
     RenderWorld,
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
@@ -62,7 +62,6 @@ pub struct Text2dBundle {
     pub text_2d_size: Text2dSize,
     pub text_2d_bounds: Text2dBounds,
     pub visibility: Visibility,
-    pub computed_visibility: Visibility,
 }
 
 pub fn extract_text2d_sprite(
@@ -72,7 +71,7 @@ pub fn extract_text2d_sprite(
     windows: Res<Windows>,
     text2d_query: Query<(
         Entity,
-        &ComputedVisibility,
+        &Visibility,
         &Text,
         &GlobalTransform,
         &Text2dSize,
@@ -83,10 +82,10 @@ pub fn extract_text2d_sprite(
 
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, computed_visibility, text, transform, calculated_size, maybe_view_mask) in
+    for (entity, visibility, text, transform, calculated_size, maybe_view_mask) in
         text2d_query.iter()
     {
-        if !computed_visibility.is_visible {
+        if !visibility.is_visible {
             continue;
         }
         let (width, height) = (calculated_size.size.x, calculated_size.size.y);
