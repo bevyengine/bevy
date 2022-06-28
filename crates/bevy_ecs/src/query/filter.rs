@@ -739,3 +739,18 @@ impl_tick_filter!(
     ChangedFetch,
     ComponentTicks::is_changed
 );
+
+pub trait ArchetypeFilter {}
+
+impl<T> ArchetypeFilter for With<T> {}
+impl<T> ArchetypeFilter for Without<T> {}
+
+macro_rules! impl_archetype_filter_tuple {
+    ($($filter: ident),*) => {
+        impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for ($($filter,)*) {}
+
+        impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for Or<($($filter,)*)> {}
+    };
+}
+
+all_tuples!(impl_archetype_filter_tuple, 0, 15, F);

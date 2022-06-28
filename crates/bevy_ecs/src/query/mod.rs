@@ -52,6 +52,20 @@ mod tests {
     }
 
     #[test]
+    fn query_filtered_len() {
+        let mut world = World::new();
+        world.spawn().insert_bundle((A(1), B(1)));
+        world.spawn().insert_bundle((A(2),));
+        world.spawn().insert_bundle((A(3),));
+
+        let mut values = world.query_filtered::<&A, With<B>>();
+        assert_eq!(values.iter(&world).len(), 1);
+
+        let mut values = world.query_filtered::<&A, Without<B>>();
+        assert_eq!(values.iter(&world).len(), 2);
+    }
+
+    #[test]
     fn query_iter_combinations() {
         let mut world = World::new();
 
