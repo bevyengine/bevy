@@ -3,6 +3,7 @@
 // NOTE: This ensures that the world_normal is normalized and if
 // vertex tangents and normal maps then normal mapping may be applied.
 fn prepare_normal(
+    standard_material_flags: u32,
     world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -25,7 +26,7 @@ fn prepare_normal(
 #endif
 #endif
 
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
+    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
         if (!is_front) {
             N = -N;
 #ifdef VERTEX_TANGENTS
@@ -41,7 +42,7 @@ fn prepare_normal(
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt: vec3<f32>;
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(textureSample(normal_map_texture, normal_map_sampler, uv).rg * 2.0 - 1.0, 0.0);
         Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
@@ -49,7 +50,7 @@ fn prepare_normal(
         Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb * 2.0 - 1.0;
     }
     // Normal maps authored for DirectX require flipping the y component
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
+    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
         Nt.y = -Nt.y;
     }
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
@@ -86,11 +87,35 @@ struct PbrInput {
     occlusion: f32;
     frag_coord: vec4<f32>;
     world_position: vec4<f32>;
+    // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
+    // mapping
     world_normal: vec3<f32>;
+    // Normalized normal-mapped world normal used for lighting
     N: vec3<f32>;
+    // Normalized view vector in world space, pointing from the fragment world position toward the
+    // view world position
     V: vec3<f32>;
     is_orthographic: bool;
 };
+
+// Creates a PbrInput with default values
+fn pbr_input_new() -> PbrInput {
+    var pbr_input: PbrInput;
+
+    pbr_input.material = standard_material_new();
+    pbr_input.occlusion = 1.0;
+
+    pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    pbr_input.world_normal = vec3<f32>(0.0, 0.0, 1.0);
+
+    pbr_input.is_orthographic = false;
+
+    pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
+    pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
+
+    return pbr_input;
+}
 
 fn pbr(
     in: PbrInput,
