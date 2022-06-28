@@ -108,7 +108,7 @@ mod tests {
     use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
-    use crate::serde::{UntypedReflectDeserializer, ReflectSerializer};
+    use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
 
     #[test]
     fn reflect_struct() {
