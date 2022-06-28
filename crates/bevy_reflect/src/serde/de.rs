@@ -200,6 +200,15 @@ pub struct TypedReflectDeserializer<'a> {
     registry: &'a TypeRegistry,
 }
 
+impl<'a> TypedReflectDeserializer<'a> {
+    pub fn new(type_info: &'a TypeInfo, registry: &'a TypeRegistry) -> Self {
+        Self {
+            type_info,
+            registry,
+        }
+    }
+}
+
 impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
     type Value = Box<dyn Reflect>;
 
@@ -737,13 +746,16 @@ fn get_type_info<'a, E: de::Error>(
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
-    use crate::serde::UntypedReflectDeserializer;
-    use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry};
-    use bevy_utils::HashMap;
+    use std::f32::consts::PI;
+
     use serde::de::DeserializeSeed;
     use serde::Deserialize;
-    use std::f32::consts::PI;
+
+    use bevy_utils::HashMap;
+
+    use crate as bevy_reflect;
+    use crate::serde::{TypedReflectDeserializer, UntypedReflectDeserializer};
+    use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry, Typed};
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
     struct MyStruct {
@@ -940,6 +952,31 @@ mod tests {
             .unwrap();
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_deserialized_typed() {
+        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+        }
+
+        let expected = Foo { bar: 123 };
+
+        let input = r#"{
+            "bar": 123
+        }"#;
+
+        let mut registry = get_registry();
+        registry.register::<Foo>();
+        let reflect_deserializer = TypedReflectDeserializer::new(Foo::type_info(), &registry);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        let output = <Foo as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
         assert_eq!(expected, output);
     }
 }
