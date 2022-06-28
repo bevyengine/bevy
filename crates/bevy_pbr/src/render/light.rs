@@ -52,7 +52,7 @@ pub struct ExtractedPointLight {
     intensity: f32,
     range: f32,
     radius: f32,
-    transform: GlobalTransform,
+    transform: Transform,
     shadows_enabled: bool,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
@@ -446,7 +446,7 @@ pub fn extract_lights(
                         intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
                         range: point_light.range,
                         radius: point_light.radius,
-                        transform: *transform,
+                        transform: transform.into_inner(),
                         shadows_enabled: point_light.shadows_enabled,
                         shadow_depth_bias: point_light.shadow_depth_bias,
                         // The factor of SQRT_2 is for the worst-case diagonal offset
