@@ -2,7 +2,10 @@ use crate::{
     array_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
     tuple_struct_debug, Array, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed, ValueInfo,
 };
-use std::{any::Any, fmt::Debug};
+use std::{
+    any::{self, Any, TypeId},
+    fmt::Debug,
+};
 
 use crate::utility::NonGenericTypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
@@ -46,15 +49,8 @@ pub enum ReflectMut<'a> {
 ///
 /// When using `#[derive(Reflect)]` with a struct or tuple struct, the suitable subtrait for that
 /// type (`Struct` or `TupleStruct`) is derived automatically.
-///
-/// # Safety
-/// Implementors _must_ ensure that [`Reflect::any`] and [`Reflect::any_mut`] both return the `self`
-/// value passed in. If this is not done, [`Reflect::downcast`](trait.Reflect.html#method.downcast)
-/// will be UB (and also just logically broken).
-pub unsafe trait Reflect: Any + Send + Sync {
-    /// Returns the [type name] of the underlying type.
-    ///
-    /// [type name]: std::any::type_name
+pub trait Reflect: Any + Send + Sync {
+    /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
 
     /// Returns the [`TypeInfo`] of the underlying type.
@@ -67,11 +63,14 @@ pub unsafe trait Reflect: Any + Send + Sync {
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_type_info(&self) -> &'static TypeInfo;
 
+    /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
+    fn into_any(self: Box<Self>) -> Box<dyn Any>;
+
     /// Returns the value as a [`&dyn Any`][std::any::Any].
-    fn any(&self) -> &dyn Any;
+    fn as_any(&self) -> &dyn Any;
 
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
-    fn any_mut(&mut self) -> &mut dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// Casts this type to a reflected value
     fn as_reflect(&self) -> &dyn Reflect;
@@ -210,18 +209,14 @@ impl Typed for dyn Reflect {
     }
 }
 
+#[deny(rustdoc::broken_intra_doc_links)]
 impl dyn Reflect {
     /// Downcasts the value to type `T`, consuming the trait object.
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     pub fn downcast<T: Reflect>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
-        // SAFE?: Same approach used by std::any::Box::downcast. ReflectValue is always Any and type
-        // has been checked.
         if self.is::<T>() {
-            unsafe {
-                let raw: *mut dyn Reflect = Box::into_raw(self);
-                Ok(Box::from_raw(raw as *mut T))
-            }
+            Ok(self.into_any().downcast().unwrap())
         } else {
             Err(self)
         }
@@ -234,11 +229,26 @@ impl dyn Reflect {
         self.downcast::<T>().map(|value| *value)
     }
 
+    /// Returns `true` if the underlying value represents a value of type `T`, or `false`
+    /// otherwise.
+    ///
+    /// Read `is` for more information on underlying values and represented types.
+    #[inline]
+    pub fn represents<T: Reflect>(&self) -> bool {
+        self.type_name() == any::type_name::<T>()
+    }
+
     /// Returns `true` if the underlying value is of type `T`, or `false`
     /// otherwise.
+    ///
+    /// The underlying value is the concrete type that is stored in this `dyn` object;
+    /// it can be downcasted to. In the case that this underlying value "represents"
+    /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
+    /// to determine what type they represent. Represented types cannot be downcasted
+    /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
-        self.any().is::<T>()
+        self.type_id() == TypeId::of::<T>()
     }
 
     /// Downcasts the value to type `T` by reference.
@@ -246,7 +256,7 @@ impl dyn Reflect {
     /// If the underlying value is not of type `T`, returns `None`.
     #[inline]
     pub fn downcast_ref<T: Reflect>(&self) -> Option<&T> {
-        self.any().downcast_ref::<T>()
+        self.as_any().downcast_ref::<T>()
     }
 
     /// Downcasts the value to type `T` by mutable reference.
@@ -254,6 +264,6 @@ impl dyn Reflect {
     /// If the underlying value is not of type `T`, returns `None`.
     #[inline]
     pub fn downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
-        self.any_mut().downcast_mut::<T>()
+        self.as_any_mut().downcast_mut::<T>()
     }
 }

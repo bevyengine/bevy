@@ -121,6 +121,27 @@ pub struct WindowSurfaces {
     configured_windows: HashSet<WindowId>,
 }
 
+/// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
+///
+/// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
+/// the performance bottleneck. This can be seen in profiles as multiple prepare-stage systems all
+/// taking an unusually long time to complete, and all finishing at about the same time as the
+/// `prepare_windows` system. Improvements in bevy are planned to avoid this happening when it
+/// should not but it will still happen as it is easy for a user to create a large GPU workload
+/// relative to the GPU performance and/or CPU workload.
+/// This can be caused by many reasons, but several of them are:
+/// - GPU workload is more than your current GPU can manage
+/// - Error / performance bug in your custom shaders
+/// - wgpu was unable to detect a proper GPU hardware-accelerated device given the chosen
+///   [`Backends`](crate::settings::Backends), [`WgpuLimits`](crate::settings::WgpuLimits),
+///   and/or [`WgpuFeatures`](crate::settings::WgpuFeatures). For example, on Windows currently
+///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
+///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
+///   will be chosen and performance will be very poor. This is visible in a log message that is
+///   output during renderer initialization. Future versions of wgpu will support `DirectX 11`, but
+///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
+///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
+///   later.
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS s

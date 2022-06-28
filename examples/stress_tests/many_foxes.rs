@@ -229,6 +229,10 @@ fn keyboard_animation_control(
         foxes.speed *= 0.8;
     }
 
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        *current_animation = (*current_animation + 1) % animations.0.len();
+    }
+
     for mut player in animation_player.iter_mut() {
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.is_paused() {
@@ -259,7 +263,6 @@ fn keyboard_animation_control(
         }
 
         if keyboard_input.just_pressed(KeyCode::Return) {
-            *current_animation = (*current_animation + 1) % animations.0.len();
             player
                 .play(animations.0[*current_animation].clone_weak())
                 .repeat();

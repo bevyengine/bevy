@@ -177,16 +177,51 @@ impl World {
         WorldCell::new(self)
     }
 
+    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn init_component<T: Component>(&mut self) -> ComponentId {
         self.components.init_component::<T>(&mut self.storages)
     }
 
+    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// This method differs from [`World::init_component`] in that it uses a [`ComponentDescriptor`]
+    /// to initialize the new component type instead of statically available type information. This
+    /// enables the dynamic initialization of new component definitions at runtime for advanced use cases.
+    ///
+    /// While the option to initialize a component from a descriptor is useful in type-erased
+    /// contexts, the standard `World::init_component` function should always be used instead
+    /// when type information is available at compile time.
     pub fn init_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components
             .init_component_with_descriptor(&mut self.storages, descriptor)
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `World` instance
+    /// it was retrieved from and should not be used with another `World` instance.
+    ///
+    /// Returns [`None`] if the `Component` type has not yet been initialized within
+    /// the `World` using [`World::init_component`].
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let component_a_id = world.init_component::<ComponentA>();
+    ///
+    /// assert_eq!(component_a_id, world.component_id::<ComponentA>().unwrap())
+    /// ```
+    #[inline]
+    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
+        self.components.component_id::<T>()
     }
 
     /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.

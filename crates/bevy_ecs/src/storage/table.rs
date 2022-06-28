@@ -1,6 +1,7 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
+    query::debug_checked_unreachable,
     storage::{blob_vec::BlobVec, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
@@ -120,6 +121,30 @@ impl Column {
         let data = self.data.swap_remove_and_forget_unchecked(row);
         let ticks = self.ticks.swap_remove(row).into_inner();
         (data, ticks)
+    }
+
+    /// Removes the element from `other` at `src_row` and inserts it
+    /// into the current column to initialize the values at `dst_row`.
+    /// Does not do any bounds checking.
+    ///
+    /// # Safety
+    ///
+    ///  - `other` must have the same data layout as `self`
+    ///  - `src_row` must be in bounds for `other`
+    ///  - `dst_row` must be in bounds for `self`
+    ///  - `other[src_row]` must be initialized to a valid value.
+    ///  - `self[dst_row]` must not be initalized yet.
+    #[inline]
+    pub(crate) unsafe fn initialize_from_unchecked(
+        &mut self,
+        other: &mut Column,
+        src_row: usize,
+        dst_row: usize,
+    ) {
+        debug_assert!(self.data.layout() == other.data.layout());
+        let ptr = self.data.get_unchecked_mut(dst_row);
+        other.data.swap_remove_unchecked(src_row, ptr);
+        *self.ticks.get_unchecked_mut(dst_row) = other.ticks.swap_remove(src_row);
     }
 
     // # Safety
@@ -249,9 +274,11 @@ impl Table {
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for (component_id, column) in self.columns.iter_mut() {
-            let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize(new_row, data, ticks);
+                new_column.initialize_from_unchecked(column, row, new_row);
+            } else {
+                // It's the caller's responsibility to drop these cases.
+                let (_, _) = column.swap_remove_and_forget_unchecked(row);
             }
         }
         TableMoveResult {
@@ -280,8 +307,7 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
-                new_column.initialize(new_row, data, ticks);
+                new_column.initialize_from_unchecked(column, row, new_row);
             } else {
                 column.swap_remove_unchecked(row);
             }
@@ -311,9 +337,10 @@ impl Table {
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for (component_id, column) in self.columns.iter_mut() {
-            let new_column = new_table.get_column_mut(*component_id).unwrap();
-            let (data, ticks) = column.swap_remove_and_forget_unchecked(row);
-            new_column.initialize(new_row, data, ticks);
+            new_table
+                .get_column_mut(*component_id)
+                .unwrap_or_else(|| debug_checked_unreachable())
+                .initialize_from_unchecked(column, row, new_row);
         }
         TableMoveResult {
             new_row,

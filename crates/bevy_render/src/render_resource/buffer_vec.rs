@@ -6,6 +6,29 @@ use bevy_core::{cast_slice, Pod};
 use copyless::VecHelper;
 use wgpu::BufferUsages;
 
+/// A structure for storing raw bytes that have already been properly formatted
+/// for use by the GPU.
+///
+/// "Properly formatted" means that item data already meets the alignment and padding
+/// requirements for how it will be used on the GPU.
+///
+/// Index, vertex, and instance-rate vertex buffers have no alignment nor padding requirements and
+/// so this helper type is a good choice for them. Uniform buffers must adhere to std140
+/// alignment/padding requirements, and storage buffers to std430. There are helper types for such
+/// buffers:
+/// - Uniform buffers
+///   - Plain: [`UniformBuffer`](crate::render_resource::UniformBuffer)
+///   - Dynamic offsets: [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// - Storage buffers
+///   - Plain: [`StorageBuffer`](crate::render_resource::StorageBuffer)
+///   - Dynamic offsets: [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+///
+/// The item type must implement [`Pod`] for its data representation to be directly copyable.
+///
+/// The contained data is stored in system RAM. Calling [`reserve`](crate::render_resource::BufferVec::reserve)
+/// allocates VRAM from the [`RenderDevice`](crate::renderer::RenderDevice).
+/// [`write_buffer`](crate::render_resource::BufferVec::write_buffer) queues copying of the data
+/// from system RAM to VRAM.
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
     buffer: Option<Buffer>,
@@ -51,6 +74,17 @@ impl<T: Pod> BufferVec<T> {
         index
     }
 
+    /// Creates a [`Buffer`](crate::render_resource::Buffer) on the [`RenderDevice`](crate::renderer::RenderDevice) with size
+    /// at least `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
+    ///
+    /// If a [`Buffer`](crate::render_resource::Buffer) exists, but is too small, references to it will be discarded,
+    /// and a new [`Buffer`](crate::render_resource::Buffer) will be created. Any previously created [`Buffer`](crate::render_resource::Buffer)s
+    /// that are no longer referenced will be deleted by the [`RenderDevice`](crate::renderer::RenderDevice)
+    /// once it is done using them (typically 1-2 frames).
+    ///
+    /// In addition to any [`BufferUsages`](crate::render_resource::BufferUsages) provided when
+    /// the `BufferVec` was created, the buffer on the [`RenderDevice`](crate::renderer::RenderDevice)
+    /// is marked as [`BufferUsages::COPY_DST`](crate::render_resource::BufferUsages).
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
         if capacity > self.capacity {
             self.capacity = capacity;
@@ -64,6 +98,11 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
+    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    ///
+    /// Before queuing the write, a [`reserve`](crate::render_resource::BufferVec::reserve) operation
+    /// is executed.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         if self.values.is_empty() {
             return;

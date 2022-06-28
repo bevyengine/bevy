@@ -41,9 +41,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.world_normal = skin_normals(model, vertex.normal);
 #else
     var model = mesh.model;
+    out.world_normal = mesh_normal_local_to_world(vertex.normal);
 #endif
     out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-    out.world_normal = mesh_normal_local_to_world(vertex.normal);
     out.uv = vertex.uv;
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
