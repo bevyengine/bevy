@@ -105,8 +105,7 @@ impl<T: FromReflect> List for Vec<T> {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl<T: FromReflect> Reflect for Vec<T> {
+impl<T: FromReflect> Reflect for Vec<T> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -115,11 +114,15 @@ unsafe impl<T: FromReflect> Reflect for Vec<T> {
         <Self as Typed>::type_info()
     }
 
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -230,8 +233,7 @@ impl<K: Reflect + Eq + Hash, V: Reflect> Map for HashMap<K, V> {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
+impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -240,11 +242,15 @@ unsafe impl<K: Reflect + Eq + Hash, V: Reflect> Reflect for HashMap<K, V> {
         <Self as Typed>::type_info()
     }
 
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -350,8 +356,7 @@ impl<T: Reflect, const N: usize> Array for [T; N] {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
+impl<T: Reflect, const N: usize> Reflect for [T; N] {
     #[inline]
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
@@ -362,12 +367,17 @@ unsafe impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -465,8 +475,7 @@ impl_array_get_type_registration! {
     30 31 32
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for Cow<'static, str> {
+impl Reflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -475,11 +484,15 @@ unsafe impl Reflect for Cow<'static, str> {
         <Self as Typed>::type_info()
     }
 
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -492,7 +505,7 @@ unsafe impl Reflect for Cow<'static, str> {
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.any();
+        let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             *self = value.clone();
         } else {
@@ -525,7 +538,7 @@ unsafe impl Reflect for Cow<'static, str> {
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        let value = value.any();
+        let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             Some(std::cmp::PartialEq::eq(self, value))
         } else {
@@ -552,7 +565,12 @@ impl GetTypeRegistration for Cow<'static, str> {
 
 impl FromReflect for Cow<'static, str> {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
-        Some(reflect.any().downcast_ref::<Cow<'static, str>>()?.clone())
+        Some(
+            reflect
+                .as_any()
+                .downcast_ref::<Cow<'static, str>>()?
+                .clone(),
+        )
     }
 }
 
