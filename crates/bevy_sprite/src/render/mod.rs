@@ -25,7 +25,7 @@ use bevy_render::{
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
     RenderWorld,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
@@ -173,7 +173,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
 #[derive(Component, Clone, Copy)]
 pub struct ExtractedSprite {
-    pub transform: GlobalTransform,
+    pub transform: Transform,
     pub color: Color,
     /// Select an area of the texture
     pub rect: Option<Rect>,
@@ -241,7 +241,7 @@ pub fn extract_sprites(
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
         extracted_sprites.sprites.alloc().init(ExtractedSprite {
             color: sprite.color,
-            transform: *transform,
+            transform: transform.into_inner(),
             // Use the full texture
             rect: None,
             // Pass the custom size
@@ -260,7 +260,7 @@ pub fn extract_sprites(
             let rect = Some(texture_atlas.textures[atlas_sprite.index as usize]);
             extracted_sprites.sprites.alloc().init(ExtractedSprite {
                 color: atlas_sprite.color,
-                transform: *transform,
+                transform: transform.into_inner(),
                 // Select the area in the texture atlas
                 rect,
                 // Pass the custom size
