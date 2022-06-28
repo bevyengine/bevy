@@ -4,7 +4,7 @@ use bevy_utils::{tracing::warn, HashSet};
 
 use crate::{component::ComponentId, prelude::Bundle, world::World};
 
-/// A rule about which [`Component`]s can coexist on entities
+/// A rule about which [`Component`](crate::component::Component)s can coexist on entities
 ///
 /// These rules must be true at all times for all entities in the [`World`].
 /// The generic [`Bundle`] type `B1` is always used in the `predicate`,
@@ -13,7 +13,7 @@ use crate::{component::ComponentId, prelude::Bundle, world::World};
 ///
 /// When added to the [`World`], archetype invariants behave like [`assert!`];
 /// all archetype invariants must be true for every entity in the [`World`].
-/// Archetype invariants are checked each time [`Archetypes`] is modified;
+/// Archetype invariants are checked each time [`Archetypes`](crate::archetype::Archetypes) is modified;
 /// this can occur on component addition, component removal, and entity spawning.
 ///
 /// Archetypes are only modified when a novel archetype (set of components) is seen for the first time;
@@ -66,7 +66,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
 /// For single component bundles, `AllOf` and `AtLeastOneOf` are equivalent.
 /// Prefer `ArchetypeStatement::<(C,)>::all_of` over `ArchetypeStatement::<(C,)>::at_least_one_of` for consistency and clarity.
 ///
-/// Note that this is converted to an [`UntypedArchetypeStatment`] when added to a [`World`].
+/// Note that this is converted to an [`UntypedArchetypeStatement`] when added to a [`World`].
 /// This is to ensure compatibility between different invariants.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArchetypeStatement<B: Bundle> {
@@ -75,7 +75,7 @@ pub enum ArchetypeStatement<B: Bundle> {
     /// The entity has at least one component in the bundle `B`, and may have all of them.
     /// When using a single-component bundle, `AllOf` is preferred.
     AtLeastOneOf(PhantomData<B>),
-    /// The entity has zero or one of the components in the bundle `B`, and may have all of them.
+    /// The entity has zero or one of the components in the bundle `B`, but no more.
     /// When using a single-component bundle, this is a tautology.
     AtMostOneOf(PhantomData<B>),
     /// The entity has none of the components in the bundle `B`
@@ -145,7 +145,7 @@ pub struct UntypedArchetypeInvariant {
 impl UntypedArchetypeInvariant {
     /// Assert that the provided iterator of [`ComponentId`]s obeys this archetype invariant
     ///
-    /// `component_ids` is generally provided via the `components` field on [`Archetype`].
+    /// `component_ids` is generally provided via the `components` field on [`Archetype`](crate::archetype::Archetype).
     /// When testing against multiple archetypes, [`ArchetypeInvariants::test_archetype`] is preferred,
     /// as it can more efficiently cache checks between archetypes.
     ///
@@ -165,9 +165,9 @@ impl UntypedArchetypeInvariant {
     }
 }
 
-/// A type-erased version of [`ArchetypeStatment`]
+/// A type-erased version of [`ArchetypeStatement`]
 /// Intended to be used with dynamic components that cannot be represented with Rust types.
-/// Prefer [`ArchetypeStatment`] when possible.
+/// Prefer [`ArchetypeStatement`] when possible.
 #[derive(Clone, Debug, PartialEq)]
 pub enum UntypedArchetypeStatement {
     /// Evaluates to true if and only if the entity has all of the components present in the set
@@ -175,7 +175,7 @@ pub enum UntypedArchetypeStatement {
     /// The entity has at least one component in the set, and may have all of them.
     /// When using a single-component set, `AllOf` is preferred
     AtLeastOneOf(HashSet<ComponentId>),
-    /// The entity has zero or one of the components in the set, and may have all of them.
+    /// The entity has zero or one of the components in the set, but no more.
     /// When using a single-component set, this is a tautology.
     AtMostOneOf(HashSet<ComponentId>),
     /// The entity has none of the components in the set
@@ -254,14 +254,11 @@ impl ArchetypeInvariants {
 
     /// Assert that the provided iterator of [`ComponentId`]s obeys all archetype invariants
     ///
-    /// `component_ids` is generally provided via the `components` field on [`Archetype`].
+    /// `component_ids` is generally provided via the `components` field on [`Archetype`](crate::archetype::Archetype).
     ///
     /// # Panics
     /// Panics if any archetype invariant is violated
-    pub(crate) fn test_archetype(
-        &self,
-        component_ids_of_archetype: impl Iterator<Item = ComponentId>,
-    ) {
+    pub fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
         let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
 
         for invariant in &self.raw_list {

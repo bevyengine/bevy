@@ -701,7 +701,7 @@ impl World {
     ///
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
-    /// Prefer [`add_archetype_invariant`](World::add_archertype_invariant) where possible.
+    /// Prefer [`add_archetype_invariant`](World::add_archetype_invariant) where possible.
     #[inline]
     pub fn add_untyped_archetype_invariant(
         &mut self,
