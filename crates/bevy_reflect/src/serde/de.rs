@@ -384,35 +384,23 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
     }
 }
 
-struct ListVisitor<'a> {
-    list_info: &'a ListInfo,
+struct TupleVisitor<'a> {
+    tuple_info: &'a TupleInfo,
     registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
-    type Value = DynamicList;
+impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
+    type Value = DynamicTuple;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        formatter.write_str("reflected list value")
+        formatter.write_str("reflected tuple value")
     }
 
     fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
-    where
-        V: SeqAccess<'de>,
+        where
+            V: SeqAccess<'de>,
     {
-        let mut list = DynamicList::default();
-        let type_info = get_type_info(
-            self.list_info.item_type_id(),
-            self.list_info.item_type_name(),
-            self.registry,
-        )?;
-        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
-            type_info,
-            registry: self.registry,
-        })? {
-            list.push_box(value);
-        }
-        Ok(list)
+        visit_tuple(&mut seq, self.tuple_info, self.registry)
     }
 }
 
@@ -456,6 +444,38 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
     }
 }
 
+struct ListVisitor<'a> {
+    list_info: &'a ListInfo,
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
+    type Value = DynamicList;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("reflected list value")
+    }
+
+    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+    where
+        V: SeqAccess<'de>,
+    {
+        let mut list = DynamicList::default();
+        let type_info = get_type_info(
+            self.list_info.item_type_id(),
+            self.list_info.item_type_name(),
+            self.registry,
+        )?;
+        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
+            type_info,
+            registry: self.registry,
+        })? {
+            list.push_box(value);
+        }
+        Ok(list)
+    }
+}
+
 struct MapVisitor<'a> {
     map_info: &'a MapInfo,
     registry: &'a TypeRegistry,
@@ -495,26 +515,6 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
         }
 
         Ok(dynamic_map)
-    }
-}
-
-struct TupleVisitor<'a> {
-    tuple_info: &'a TupleInfo,
-    registry: &'a TypeRegistry,
-}
-
-impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
-    type Value = DynamicTuple;
-
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        formatter.write_str("reflected tuple value")
-    }
-
-    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
-    where
-        V: SeqAccess<'de>,
-    {
-        visit_tuple(&mut seq, self.tuple_info, self.registry)
     }
 }
 
@@ -961,7 +961,9 @@ mod tests {
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
             .unwrap();
-        let output = dynamic_output.take::<f32>().expect("underlying type should be f32");
+        let output = dynamic_output
+            .take::<f32>()
+            .expect("underlying type should be f32");
         assert_eq!(1.23, output);
     }
 
