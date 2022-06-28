@@ -7,7 +7,6 @@ yanked = "deny"
 notice = "deny"
 ignore = [
     "RUSTSEC-2020-0056", # from gilrs v0.8.1 - unmaintained - https://github.com/koute/stdweb/issues/403
-    "RUSTSEC-2020-0095", # from crevice dev dependency - unmaintained - https://github.com/johannhof/difference.rs/issues/45
 ]
 
 [licenses]
@@ -15,6 +14,7 @@ unlicensed = "deny"
 copyleft = "deny"
 allow = [
     "MIT",
+    "MIT-0",
     "Apache-2.0",
     "BSD-3-Clause",
     "ISC",
@@ -25,11 +25,6 @@ allow = [
 ]
 default = "deny"
 
-[[licenses.clarify]]
-name = "stretch"
-expression = "MIT"
-license-files = []
-
 [bans]
 multiple-versions = "deny"
 wildcards = "deny"
@@ -37,18 +32,16 @@ highlight = "all"
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
     { name = "cfg-if", version = "0.1" },               # from winit v0.26.0
-    { name = "core-foundation", version = "0.6" },      # from gilrs v0.8.1
     { name = "core-foundation", version = "0.7" },      # from winit v0.26.0
-    { name = "core-foundation-sys", version = "0.6" },  # from gilrs v0.8.1
     { name = "core-foundation-sys", version = "0.7" },  # from winit v0.26.0
     { name = "core-graphics", version = "0.19" },       # from winit v0.26.0
-    { name = "mach", version = "0.2" },                 # from gilrs v0.8.1
+    { name = "hashbrown", version = "0.11" },           # from wgpu v0.12 - https://github.com/zakarumych/gpu-descriptor/pull/21
     { name = "mio", version = "0.7" },                  # from notify v5.0.0-pre.11
     { name = "ndk", version = "0.5" },                  # from winit v0.26.1
     { name = "ndk-glue", version = "0.5" },             # from winit v0.26.1
     { name = "ndk-sys", version = "0.2" },              # from winit v0.26.1
     { name = "stdweb", version = "0.1" },               # from rodio v0.15.0
-    { name = "wasi",  version = "0.10"},                # from ahash v0.7.6
+    { name = "nix", version = "0.23.1" },               # from alsa v0.6.0
 ]
 
 [sources]

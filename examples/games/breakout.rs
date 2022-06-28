@@ -1,10 +1,10 @@
-//! A simplified implementation of the classic game "Breakout"
+//! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
-    core::FixedTimestep,
     math::{const_vec2, const_vec3},
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
+    time::FixedTimestep,
 };
 
 // Defines the amount of time that should elapse between each physics step.
@@ -128,10 +128,12 @@ impl WallLocation {
         assert!(arena_width > 0.0);
 
         match self {
-            WallLocation::Left => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
-            WallLocation::Right => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
-            WallLocation::Bottom => Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS),
-            WallLocation::Top => Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS),
+            WallLocation::Left | WallLocation::Right => {
+                Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS)
+            }
+            WallLocation::Bottom | WallLocation::Top => {
+                Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS)
+            }
         }
     }
 }
@@ -170,9 +172,8 @@ struct Scoreboard {
 
 // Add the game's entities to our world
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Cameras
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
+    // Camera
+    commands.spawn_bundle(Camera2dBundle::default());
 
     // Sound
     let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
@@ -411,13 +412,14 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
-    mut collision_events: EventReader<CollisionEvent>,
+    collision_events: EventReader<CollisionEvent>,
     audio: Res<Audio>,
     sound: Res<CollisionSound>,
 ) {
-    // Play a sound once per frame if a collision occurred. `count` consumes the
-    // events, preventing them from triggering a sound on the next frame.
-    if collision_events.iter().count() > 0 {
+    // Play a sound once per frame if a collision occurred.
+    if !collision_events.is_empty() {
+        // This prevents events staying active on the next frame.
+        collision_events.clear();
         audio.play(sound.0.clone());
     }
 }

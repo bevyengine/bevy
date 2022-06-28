@@ -1,9 +1,6 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::{std140::AsStd140, *},
-    renderer::RenderDevice,
-    texture::BevyDefault,
-    view::ViewUniform,
+    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
 };
 
 pub struct UiPipeline {
@@ -23,7 +20,7 @@ impl FromWorld for UiPipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                    min_binding_size: Some(ViewUniform::min_size()),
                 },
                 count: None,
             }],

@@ -1,3 +1,8 @@
+//! This example illustrates how to run a winit window in a reactive, low power mode.
+//!
+//! This is useful for making desktop applications, or any other program that doesn't need to be
+//! running the event loop non-stop.
+
 use std::time::Duration;
 
 use bevy::{
@@ -6,9 +11,6 @@ use bevy::{
     winit::WinitSettings,
 };
 
-/// This example illustrates how to run a winit window in a reactive, low power mode. This is useful
-/// for making desktop applications, or any other program that doesn't need to be running the event
-/// loop non-stop.
 fn main() {
     App::new()
         // Continuous rendering for games - bevy's default.
@@ -158,12 +160,11 @@ pub(crate) mod test_setup {
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
             ..default()
         });
-        commands.spawn_bundle(PerspectiveCameraBundle {
+        commands.spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..Default::default()
+            ..default()
         });
         event.send(RequestRedraw);
-        commands.spawn_bundle(UiCameraBundle::default());
         commands
             .spawn_bundle(TextBundle {
                 style: Style {
@@ -172,9 +173,9 @@ pub(crate) mod test_setup {
                     position: UiRect {
                         top: Val::Px(5.0),
                         left: Val::Px(5.0),
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
+                    ..default()
                 },
                 text: Text {
                     sections: vec![
@@ -213,7 +214,7 @@ pub(crate) mod test_setup {
                     ],
                     alignment: TextAlignment::default(),
                 },
-                ..Default::default()
+                ..default()
             })
             .insert(ModeText);
     }

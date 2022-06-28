@@ -1,8 +1,8 @@
-use bevy::prelude::*;
+//! This example will display a simple menu using Bevy UI where you can start a new game,
+//! change some settings or quit. There is no actual game, it will just display the current
+//! settings for 5 seconds before going back to the menu.
 
-// This example will display a simple menu using Bevy UI where you can start a new game,
-// change some settings or quit. There is no actual game, it will just display the current
-// settings for 5 seconds before going back to the menu.
+use bevy::prelude::*;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
@@ -42,9 +42,8 @@ fn main() {
         .run();
 }
 
-// As there isn't an actual game, setup is just adding a `UiCameraBundle`
 fn setup(mut commands: Commands) {
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
 }
 
 mod splash {
@@ -359,10 +358,9 @@ mod menu {
     ) {
         for (interaction, mut color, selected) in interaction_query.iter_mut() {
             *color = match (*interaction, selected) {
-                (Interaction::Clicked, _) => PRESSED_BUTTON.into(),
+                (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
                 (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
-                (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::None, None) => NORMAL_BUTTON.into(),
             }
         }
@@ -403,7 +401,7 @@ mod menu {
         };
         let button_icon_style = Style {
             size: Size::new(Val::Px(30.0), Val::Auto),
-            // This takes the icons out of the flexbox flow, to be positionned exactly
+            // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
             position: UiRect {

@@ -1,3 +1,29 @@
+//! This is a guided introduction to Bevy's "Entity Component System" (ECS)
+//! All Bevy app logic is built using the ECS pattern, so definitely pay attention!
+//!
+//! Why ECS?
+//! * Data oriented: Functionality is driven by data
+//! * Clean Architecture: Loose coupling of functionality / prevents deeply nested inheritance
+//! * High Performance: Massively parallel and cache friendly
+//!
+//! ECS Definitions:
+//!
+//! Component: just a normal Rust data type. generally scoped to a single piece of functionality
+//!     Examples: position, velocity, health, color, name
+//!
+//! Entity: a collection of components with a unique id
+//!     Examples: Entity1 { Name("Alice"), Position(0, 0) },
+//!               Entity2 { Name("Bill"), Position(10, 5) }
+//!
+//! Resource: a shared global piece of data
+//!     Examples: asset storage, events, system state
+//!
+//! System: runs logic on entities, components, and resources
+//!     Examples: move system, damage system
+//!
+//! Now that you know a little bit about ECS, lets look at some Bevy code!
+//! We will now make a simple "game" to illustrate what Bevy's ECS looks like in practice.
+
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
     ecs::schedule::ReportExecutionOrderAmbiguities,
@@ -6,32 +32,6 @@ use bevy::{
     utils::Duration,
 };
 use rand::random;
-
-/// This is a guided introduction to Bevy's "Entity Component System" (ECS)
-/// All Bevy app logic is built using the ECS pattern, so definitely pay attention!
-///
-/// Why ECS?
-/// * Data oriented: Functionality is driven by data
-/// * Clean Architecture: Loose coupling of functionality / prevents deeply nested inheritance
-/// * High Performance: Massively parallel and cache friendly
-///
-/// ECS Definitions:
-///
-/// Component: just a normal Rust data type. generally scoped to a single piece of functionality
-///     Examples: position, velocity, health, color, name
-///
-/// Entity: a collection of components with a unique id
-///     Examples: Entity1 { Name("Alice"), Position(0, 0) }, Entity2 { Name("Bill"), Position(10, 5)
-/// }
-
-/// Resource: a shared global piece of data
-///     Examples: asset storage, events, system state
-///
-/// System: runs logic on entities, components, and resources
-///     Examples: move system, damage system
-///
-/// Now that you know a little bit about ECS, lets look at some Bevy code!
-/// We will now make a simple "game" to illustrate what Bevy's ECS looks like in practice.
 
 // COMPONENTS: Pieces of functionality we add to entities. These are just normal Rust data types
 //
@@ -211,9 +211,10 @@ fn exclusive_player_system(world: &mut World) {
     };
     // Randomly add a new player
     if should_add_player {
+        println!("Player {} has joined the game!", total_players + 1);
         world.spawn().insert_bundle((
             Player {
-                name: format!("Player {}", total_players),
+                name: format!("Player {}", total_players + 1),
             },
             Score { value: 0 },
         ));
@@ -334,7 +335,7 @@ fn main() {
         // Be aware that not everything reported by this checker is a potential problem, you'll have
         // to make that judgement yourself.
         .add_plugin(LogPlugin::default())
-        .insert_resource(ReportExecutionOrderAmbiguities)
+        .init_resource::<ReportExecutionOrderAmbiguities>()
         // This call to run() starts the app we just built!
         .run();
 }
