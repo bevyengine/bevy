@@ -108,7 +108,7 @@ mod tests {
     use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer};
+    use crate::serde::{UntypedReflectDeserializer, ReflectSerializer};
 
     #[test]
     fn reflect_struct() {
@@ -493,7 +493,7 @@ mod tests {
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
 
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
@@ -995,7 +995,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
             registry.add_registration(Vec3::get_type_registration());
             registry.add_registration(f32::get_type_registration());
 
-            let de = ReflectDeserializer::new(&registry);
+            let de = UntypedReflectDeserializer::new(&registry);
 
             let mut deserializer =
                 ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");
