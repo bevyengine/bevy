@@ -525,6 +525,10 @@ mod tests {
     }
 
     #[test]
+    // This is a known limitation;
+    // if this test passes the docs must be updated to reflect this
+    // added functionality
+    #[should_panic]
     fn system_recursion() {
         let mut world = World::new();
         world.init_resource::<Counter>();
