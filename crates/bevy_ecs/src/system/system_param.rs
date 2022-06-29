@@ -5,11 +5,11 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
-    world::ThreadLocalResource,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
     system::{CommandQueue, Commands, Query, SystemMeta},
+    world::ThreadLocalResource,
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;

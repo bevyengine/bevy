@@ -1,13 +1,13 @@
 mod entity_ref;
 mod spawn_batch;
-mod world_cell;
 mod thread_local_resource;
+mod world_cell;
 
 pub use crate::change_detection::Mut;
 pub use entity_ref::*;
 pub use spawn_batch::*;
-pub use world_cell::*;
 pub use thread_local_resource::*;
+pub use world_cell::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
