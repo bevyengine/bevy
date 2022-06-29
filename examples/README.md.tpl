@@ -98,10 +98,8 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 To run on a device setup for Android development, run:
 
 ```sh
-cargo apk run --example android
+cargo apk run --example android_example
 ```
-
-:warning: At this time Bevy does not work in Android Emulator.
 
 When using Bevy as a library, the following fields must be added to `Cargo.toml`:
 

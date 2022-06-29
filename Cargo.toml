@@ -1467,10 +1467,10 @@ hidden = true
 # Android
 [[example]]
 crate-type = ["cdylib"]
-name = "android"
+name = "android_example"
 path = "examples/android/android.rs"
 
-[package.metadata.example.android]
+[package.metadata.example.android_example]
 hidden = true
 
 [package.metadata.android]
