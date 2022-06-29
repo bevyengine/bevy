@@ -1,6 +1,7 @@
+//! This example illustrates loading scenes from files.
+
 use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
 
-/// This example illustrates loading and saving scenes from files
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -18,8 +19,8 @@ fn main() {
 // `Reflect` enable a bunch of cool behaviors, so its worth checking out the dedicated `reflect.rs`
 // example. The `FromWorld` trait determines how your component is constructed when it loads.
 // For simple use cases you can just implement the `Default` trait (which automatically implements
-// FromWorld). The simplest registered component just needs these two derives:
-#[derive(Reflect, Default)]
+// FromResources). The simplest registered component just needs these two derives:
+#[derive(Component, Reflect, Default)]
 #[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {
     pub x: f32,
@@ -30,7 +31,7 @@ struct ComponentA {
 // ignored with the #[reflect(ignore)] attribute. This is also generally where the `FromWorld`
 // trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
 // when you construct your component.
-#[derive(Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component)]
 struct ComponentB {
     pub value: String,
@@ -40,7 +41,7 @@ struct ComponentB {
 
 impl FromWorld for ComponentB {
     fn from_world(world: &mut World) -> Self {
-        let time = world.get_resource::<Time>().unwrap();
+        let time = world.resource::<Time>();
         ComponentB {
             _time_since_startup: time.time_since_startup(),
             value: "Default Value".to_string(),
@@ -48,14 +49,14 @@ impl FromWorld for ComponentB {
     }
 }
 
-fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<SceneSpawner>) {
-    // Scenes are loaded just like any other asset.
-    let scene_handle: Handle<DynamicScene> = asset_server.load("scenes/load_scene_example.scn.ron");
-
-    // SceneSpawner can "spawn" scenes. "Spawning" a scene creates a new instance of the scene in
-    // the World with new entity ids. This guarantees that it will not overwrite existing
-    // entities.
-    scene_spawner.spawn_dynamic(scene_handle);
+fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // "Spawning" a scene bundle creates a new entity and spawns new instances
+    // of the given scene's entities as children of that entity.
+    commands.spawn_bundle(DynamicSceneBundle {
+        // Scenes are loaded just like any other asset.
+        scene: asset_server.load("scenes/load_scene_example.scn.ron"),
+        ..default()
+    });
 
     // This tells the AssetServer to watch for changes to assets.
     // It enables our scenes to automatically reload in game when we modify their files
@@ -91,7 +92,7 @@ fn save_scene_system(world: &mut World) {
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
-    let type_registry = world.get_resource::<TypeRegistry>().unwrap();
+    let type_registry = world.resource::<TypeRegistry>();
     let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     // Scenes can be serialized like this:
@@ -103,11 +104,11 @@ fn save_scene_system(world: &mut World) {
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,
-            ..Default::default()
+            ..default()
         },
         text: Text::with_section(
             "Nothing to see in this window! Check the console output!",
@@ -118,6 +119,6 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             Default::default(),
         ),
-        ..Default::default()
+        ..default()
     });
 }

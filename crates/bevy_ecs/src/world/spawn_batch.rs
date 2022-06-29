@@ -3,6 +3,7 @@ use crate::{
     entity::Entity,
     world::World,
 };
+use std::iter::FusedIterator;
 
 pub struct SpawnBatchIter<'w, I>
 where
@@ -27,7 +28,9 @@ where
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
 
-        let bundle_info = world.bundles.init_info::<I::Item>(&mut world.components);
+        let bundle_info = world
+            .bundles
+            .init_info::<I::Item>(&mut world.components, &mut world.storages);
         world.entities.reserve(length as u32);
         let mut spawner = bundle_info.get_bundle_spawner(
             &mut world.entities,
@@ -81,4 +84,11 @@ where
     fn len(&self) -> usize {
         self.inner.len()
     }
+}
+
+impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle,
+{
 }

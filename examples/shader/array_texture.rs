@@ -1,154 +1,190 @@
 use bevy::{
+    asset::LoadState,
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
+    pbr::MaterialPipeline,
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::shape,
-        pipeline::{PipelineDescriptor, RenderPipeline},
-        render_graph::{base, AssetRenderResourcesNode, RenderGraph},
-        renderer::RenderResources,
-        shader::{ShaderStage, ShaderStages},
+        render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
+        render_resource::{
+            BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
+            SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension,
+        },
+        renderer::RenderDevice,
     },
 };
 
-/// This example illustrates how to create a texture for use with a texture2DArray shader uniform
-/// variable.
+/// This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader
+/// uniform variable.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_asset::<MyArrayTexture>()
+        .add_plugin(MaterialPlugin::<ArrayTextureMaterial>::default())
         .add_startup_system(setup)
         .add_system(create_array_texture)
         .run();
 }
 
-#[derive(RenderResources, Default, TypeUuid)]
-#[uuid = "93fb26fc-6c05-489b-9029-601edf703b6b"]
-struct MyArrayTexture {
-    pub texture: Handle<Texture>,
+struct LoadingTexture {
+    is_loaded: bool,
+    handle: Handle<Image>,
 }
 
-const VERTEX_SHADER: &str = r#"
-#version 450
-
-layout(location = 0) in vec3 Vertex_Position;
-layout(location = 0) out vec4 v_Position;
-
-layout(set = 0, binding = 0) uniform CameraViewProj {
-    mat4 ViewProj;
-};
-layout(set = 1, binding = 0) uniform Transform {
-    mat4 Model;
-};
-
-void main() {
-    v_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
-    gl_Position = v_Position;
-}
-"#;
-
-const FRAGMENT_SHADER: &str = r#"
-#version 450
-
-layout(location = 0) in vec4 v_Position;
-layout(location = 0) out vec4 o_Target;
-
-layout(set = 2, binding = 0) uniform texture2DArray MyArrayTexture_texture;
-layout(set = 2, binding = 1) uniform sampler MyArrayTexture_texture_sampler;
-
-void main() {
-    // Screen-space coordinates determine which layer of the array texture we sample.
-    vec2 ss = v_Position.xy / v_Position.w;
-    float layer = 0.0;
-    if (ss.x > 0.0 && ss.y > 0.0) {
-        layer = 0.0;
-    } else if (ss.x < 0.0 && ss.y > 0.0) {
-        layer = 1.0;
-    } else if (ss.x > 0.0 && ss.y < 0.0) {
-        layer = 2.0;
-    } else {
-        layer = 3.0;
-    }
-
-    // Convert to texture coordinates.
-    vec2 uv = (ss + vec2(1.0)) / 2.0;
-
-    o_Target = texture(sampler2DArray(MyArrayTexture_texture, MyArrayTexture_texture_sampler), vec3(uv, layer));
-}
-"#;
-
-struct LoadingTexture(Option<Handle<Texture>>);
-
-struct MyPipeline(Handle<PipelineDescriptor>);
-
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
-    mut shaders: ResMut<Assets<Shader>>,
-    mut render_graph: ResMut<RenderGraph>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Start loading the texture.
-    commands.insert_resource(LoadingTexture(Some(
-        asset_server.load("textures/array_texture.png"),
-    )));
+    commands.insert_resource(LoadingTexture {
+        is_loaded: false,
+        handle: asset_server.load("textures/array_texture.png"),
+    });
 
-    // Create a new shader pipeline.
-    let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
-        vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, VERTEX_SHADER)),
-        fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
-    }));
-    commands.insert_resource(MyPipeline(pipeline_handle));
+    // light
+    commands.spawn_bundle(PointLightBundle {
+        point_light: PointLight {
+            intensity: 3000.0,
+            ..Default::default()
+        },
+        transform: Transform::from_xyz(-3.0, 2.0, -1.0),
+        ..Default::default()
+    });
+    commands.spawn_bundle(PointLightBundle {
+        point_light: PointLight {
+            intensity: 3000.0,
+            ..Default::default()
+        },
+        transform: Transform::from_xyz(3.0, 2.0, 1.0),
+        ..Default::default()
+    });
 
-    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyArrayTexture resources
-    // to our shader.
-    render_graph.add_system_node(
-        "my_array_texture",
-        AssetRenderResourcesNode::<MyArrayTexture>::new(true),
-    );
-    // Add a Render Graph edge connecting our new "my_array_texture" node to the main pass node.
-    // This ensures "my_array_texture" runs before the main pass.
-    render_graph
-        .add_node_edge("my_array_texture", base::node::MAIN_PASS)
-        .unwrap();
-
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+    // camera
+    commands.spawn_bundle(Camera3dBundle {
+        transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
         ..Default::default()
     });
 }
 
 fn create_array_texture(
     mut commands: Commands,
-    my_pipeline: Res<MyPipeline>,
+    asset_server: Res<AssetServer>,
     mut loading_texture: ResMut<LoadingTexture>,
-    mut textures: ResMut<Assets<Texture>>,
+    mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut array_textures: ResMut<Assets<MyArrayTexture>>,
+    mut materials: ResMut<Assets<ArrayTextureMaterial>>,
 ) {
-    let (handle, texture) = match loading_texture.0.as_ref() {
-        Some(handle) => {
-            if let Some(texture) = textures.get_mut(handle) {
-                (loading_texture.0.take().unwrap(), texture)
-            } else {
-                return;
-            }
-        }
-        None => return,
-    };
+    if loading_texture.is_loaded
+        || asset_server.get_load_state(loading_texture.handle.clone()) != LoadState::Loaded
+    {
+        return;
+    }
+    loading_texture.is_loaded = true;
+    let image = images.get_mut(&loading_texture.handle).unwrap();
 
     // Create a new array texture asset from the loaded texture.
     let array_layers = 4;
-    texture.reinterpret_stacked_2d_as_array(array_layers);
-    let array_texture = array_textures.add(MyArrayTexture { texture: handle });
+    image.reinterpret_stacked_2d_as_array(array_layers);
 
-    // Spawn a cube that's shaded using the array texture.
-    commands
-        .spawn_bundle(MeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                my_pipeline.0.clone(),
-            )]),
+    // Spawn some cubes using the array texture
+    let mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let material_handle = materials.add(ArrayTextureMaterial {
+        array_texture: loading_texture.handle.clone(),
+    });
+    for x in -5..=5 {
+        commands.spawn_bundle(MaterialMeshBundle {
+            mesh: mesh_handle.clone(),
+            material: material_handle.clone(),
+            transform: Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
             ..Default::default()
+        });
+    }
+}
+
+#[derive(Debug, Clone, TypeUuid)]
+#[uuid = "9c5a0ddf-1eaf-41b4-9832-ed736fd26af3"]
+struct ArrayTextureMaterial {
+    array_texture: Handle<Image>,
+}
+
+#[derive(Clone)]
+pub struct GpuArrayTextureMaterial {
+    bind_group: BindGroup,
+}
+
+impl RenderAsset for ArrayTextureMaterial {
+    type ExtractedAsset = ArrayTextureMaterial;
+    type PreparedAsset = GpuArrayTextureMaterial;
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<MaterialPipeline<Self>>,
+        SRes<RenderAssets<Image>>,
+    );
+    fn extract_asset(&self) -> Self::ExtractedAsset {
+        self.clone()
+    }
+
+    fn prepare_asset(
+        extracted_asset: Self::ExtractedAsset,
+        (render_device, material_pipeline, gpu_images): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        let (array_texture_texture_view, array_texture_sampler) = if let Some(result) =
+            material_pipeline
+                .mesh_pipeline
+                .get_image_texture(gpu_images, &Some(extracted_asset.array_texture.clone()))
+        {
+            result
+        } else {
+            return Err(PrepareAssetError::RetryNextUpdate(extracted_asset));
+        };
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(array_texture_texture_view),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(array_texture_sampler),
+                },
+            ],
+            label: Some("array_texture_material_bind_group"),
+            layout: &material_pipeline.material_layout,
+        });
+
+        Ok(GpuArrayTextureMaterial { bind_group })
+    }
+}
+
+impl Material for ArrayTextureMaterial {
+    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        Some(asset_server.load("shaders/array_texture.wgsl"))
+    }
+
+    fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
+        &render_asset.bind_group
+    }
+
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                // Array Texture
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2Array,
+                    },
+                    count: None,
+                },
+                // Array Texture Sampler
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+            label: None,
         })
-        .insert(array_texture);
+    }
 }

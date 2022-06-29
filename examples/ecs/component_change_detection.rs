@@ -1,7 +1,8 @@
+//! This example illustrates how to react to component change.
+
 use bevy::prelude::*;
 use rand::Rng;
 
-// This example illustrates how to react to component change
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -12,7 +13,7 @@ fn main() {
         .run();
 }
 
-#[derive(Debug)]
+#[derive(Component, Debug)]
 struct MyComponent(f64);
 
 fn setup(mut commands: Commands) {

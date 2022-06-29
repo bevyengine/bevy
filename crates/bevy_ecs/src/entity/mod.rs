@@ -1,3 +1,38 @@
+//! Entity handling types.
+//!
+//! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
+//!
+//! See [`Entity`] to learn more.
+//!
+//! [component]: crate::component::Component
+//!
+//! # Usage
+//!
+//! Operations involving entities and their components are performed either from a system by submitting commands,
+//! or from the outside (or from an exclusive system) by directly using [`World`] methods:
+//!
+//! |Operation|Command|Method|
+//! |:---:|:---:|:---:|
+//! |Spawn a new entity|[`Commands::spawn`]|[`World::spawn`]|
+//! |Spawn an entity with components|[`Commands::spawn_bundle`]|---|
+//! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
+//! |Insert a component to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
+//! |Insert multiple components to an entity|[`EntityCommands::insert_bundle`]|[`EntityMut::insert_bundle`]|
+//! |Remove a component from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
+//!
+//! [`World`]: crate::world::World
+//! [`Commands::spawn`]: crate::system::Commands::spawn
+//! [`Commands::spawn_bundle`]: crate::system::Commands::spawn_bundle
+//! [`EntityCommands::despawn`]: crate::system::EntityCommands::despawn
+//! [`EntityCommands::insert`]: crate::system::EntityCommands::insert
+//! [`EntityCommands::insert_bundle`]: crate::system::EntityCommands::insert_bundle
+//! [`EntityCommands::remove`]: crate::system::EntityCommands::remove
+//! [`World::spawn`]: crate::world::World::spawn
+//! [`World::spawn_bundle`]: crate::world::World::spawn_bundle
+//! [`World::despawn`]: crate::world::World::despawn
+//! [`EntityMut::insert`]: crate::world::EntityMut::insert
+//! [`EntityMut::insert_bundle`]: crate::world::EntityMut::insert_bundle
+//! [`EntityMut::remove`]: crate::world::EntityMut::remove
 mod map_entities;
 mod serde;
 
@@ -11,15 +46,57 @@ use std::{
     sync::atomic::{AtomicI64, Ordering},
 };
 
-/// Lightweight unique ID of an entity.
+/// Lightweight identifier of an [entity](crate::entity).
 ///
-/// Obtained from [`World::spawn`](crate::world::World::spawn), typically via
-/// [`Commands::spawn`](crate::system::Commands::spawn). Can be stored to refer to an entity in the
-/// future.
+/// The identifier is implemented using a [generational index]: a combination of an ID and a generation.
+/// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
 ///
-/// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
-/// Components of a specific entity can be accessed using
-/// [`Query::get`](crate::system::Query::get) and related methods.
+/// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+///
+/// # Usage
+///
+/// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
+/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// fn setup(mut commands: Commands) {
+///     // Calling `spawn` returns `EntityCommands`.
+///     let entity = commands.spawn().id();
+/// }
+///
+/// fn exclusive_system(world: &mut World) {
+///     // Calling `spawn` returns `EntityMut`.
+///     let entity = world.spawn().id();
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(setup);
+/// # bevy_ecs::system::IntoExclusiveSystem::exclusive_system(exclusive_system);
+/// ```
+///
+/// It can be used to refer to a specific entity to apply [`EntityCommands`], or to call [`Query::get`] (or similar methods) to access its components.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct Expired;
+/// #
+/// fn dispose_expired_food(mut commands: Commands, query: Query<Entity, With<Expired>>) {
+///     for food_entity in query.iter() {
+///         commands.entity(food_entity).despawn();
+///     }
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(dispose_expired_food);
+/// ```
+///
+/// [learn more]: crate::system::Query#entity-id-access
+/// [`EntityCommands::id`]: crate::system::EntityCommands::id
+/// [`EntityMut::id`]: crate::world::EntityMut::id
+/// [`EntityCommands`]: crate::system::EntityCommands
+/// [`Query::get`]: crate::system::Query::get
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
     pub(crate) generation: u32,
@@ -33,13 +110,54 @@ pub enum AllocAtWithoutReplacement {
 }
 
 impl Entity {
-    /// Creates a new entity reference with a generation of 0.
+    /// Creates a new entity reference with the specified `id` and a generation of 0.
     ///
     /// # Note
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`Commands::spawn`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a
-    /// scheme worked out to share an ID space (which doesn't happen by default).
-    pub fn new(id: u32) -> Entity {
+    ///
+    /// Spawning a specific `entity` value is __rarely the right choice__. Most apps should favor
+    /// [`Commands::spawn`](crate::system::Commands::spawn). This method should generally
+    /// only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an ID space (which doesn't happen by default).
+    ///
+    /// In general, one should not try to synchronize the ECS by attempting to ensure that
+    /// `Entity` lines up between instances, but instead insert a secondary identifier as
+    /// a component.
+    ///
+    /// There are still some use cases where it might be appropriate to use this function
+    /// externally.
+    ///
+    /// ## Examples
+    ///
+    /// Initializing a collection (e.g. `array` or `Vec`) with a known size:
+    ///
+    /// ```no_run
+    /// # use bevy_ecs::prelude::*;
+    /// // Create a new array of size 10 and initialize it with (invalid) entities.
+    /// let mut entities: [Entity; 10] = [Entity::from_raw(0); 10];
+    ///
+    /// // ... replace the entities with valid ones.
+    /// ```
+    ///
+    /// Deriving `Reflect` for a component that has an `Entity` field:
+    ///
+    /// ```no_run
+    /// # use bevy_ecs::{prelude::*, component::*};
+    /// # use bevy_reflect::Reflect;
+    /// #[derive(Reflect, Component)]
+    /// #[reflect(Component)]
+    /// pub struct MyStruct {
+    ///     pub entity: Entity,
+    /// }
+    ///
+    /// impl FromWorld for MyStruct {
+    ///     fn from_world(_world: &mut World) -> Self {
+    ///         Self {
+    ///             entity: Entity::from_raw(u32::MAX),
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn from_raw(id: u32) -> Entity {
         Entity { id, generation: 0 }
     }
 
@@ -94,7 +212,7 @@ impl SparseSetIndex for Entity {
     }
 
     fn get_sparse_set_index(value: usize) -> Self {
-        Entity::new(value as u32)
+        Entity::from_raw(value as u32)
     }
 }
 
@@ -131,10 +249,11 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 }
 
 impl<'a> core::iter::ExactSizeIterator for ReserveEntitiesIterator<'a> {}
+impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 #[derive(Debug, Default)]
 pub struct Entities {
-    pub meta: Vec<EntityMeta>,
+    pub(crate) meta: Vec<EntityMeta>,
 
     /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
     /// that have been freed or are in the process of being allocated:
@@ -428,9 +547,9 @@ impl Entities {
     /// `reserve_entities`, then initializes each one using the supplied function.
     ///
     /// # Safety
-    /// Flush _must_ set the entity location to the correct ArchetypeId for the given Entity
-    /// each time init is called. This _can_ be ArchetypeId::INVALID, provided the Entity has
-    /// not been assigned to an Archetype.
+    /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
+    /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
+    /// has not been assigned to an [`Archetype`][crate::archetype::Archetype].
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
@@ -475,8 +594,14 @@ impl Entities {
         unsafe {
             self.flush(|_entity, location| {
                 location.archetype_id = ArchetypeId::INVALID;
-            })
+            });
         }
+    }
+
+    /// Accessor for getting the length of the vec in `self.meta`
+    #[inline]
+    pub fn meta_len(&self) -> usize {
+        self.meta.len()
     }
 
     #[inline]
@@ -547,7 +672,7 @@ mod tests {
         unsafe {
             entities.flush(|_entity, _location| {
                 // do nothing ... leaving entity location invalid
-            })
+            });
         };
 
         assert!(entities.contains(e));

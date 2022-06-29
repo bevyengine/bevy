@@ -1,204 +1,126 @@
+//! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
+
 use bevy::{
+    core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    reflect::TypeUuid,
     render::{
-        camera::{ActiveCameras, Camera, CameraProjection},
-        pass::{
-            LoadOp, Operations, PassDescriptor, RenderPassColorAttachment,
-            RenderPassDepthStencilAttachment, TextureAttachment,
+        camera::RenderTarget,
+        render_resource::{
+            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        render_graph::{
-            base::{node::MAIN_PASS, MainPass},
-            CameraNode, PassNode, RenderGraph, TextureNode,
-        },
-        texture::{
-            Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat,
-            TextureUsages,
-        },
+        view::RenderLayers,
     },
-    window::WindowId,
 };
 
-pub struct FirstPass;
-
-pub const RENDER_TEXTURE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Texture::TYPE_UUID, 13378939762009864029);
-
-pub const TEXTURE_NODE: &str = "texure_node";
-pub const DEPTH_TEXTURE_NODE: &str = "depth_texure_node";
-pub const FIRST_PASS: &str = "first_pass";
-pub const FIRST_PASS_CAMERA: &str = "first_pass_camera";
-
-fn add_render_to_texture_graph(graph: &mut RenderGraph, size: Extent3d) {
-    let mut pass_node = PassNode::<&FirstPass>::new(PassDescriptor {
-        color_attachments: vec![RenderPassColorAttachment {
-            attachment: TextureAttachment::Input("color_attachment".to_string()),
-            resolve_target: None,
-            ops: Operations {
-                load: LoadOp::Clear(Color::rgb(0.1, 0.2, 0.3)),
-                store: true,
-            },
-        }],
-        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-            attachment: TextureAttachment::Input("depth".to_string()),
-            depth_ops: Some(Operations {
-                load: LoadOp::Clear(1.0),
-                store: true,
-            }),
-            stencil_ops: None,
-        }),
-        sample_count: 1,
-    });
-
-    pass_node.add_camera(FIRST_PASS_CAMERA);
-
-    graph.add_node(FIRST_PASS, pass_node);
-    graph.add_system_node(FIRST_PASS_CAMERA, CameraNode::new(FIRST_PASS_CAMERA));
-    graph.add_node_edge(FIRST_PASS_CAMERA, FIRST_PASS).unwrap();
-
-    graph.add_node(
-        TEXTURE_NODE,
-        TextureNode::new(
-            TextureDescriptor {
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: Default::default(),
-                usage: TextureUsages::OUTPUT_ATTACHMENT | TextureUsages::SAMPLED,
-            },
-            Some(SamplerDescriptor::default()),
-            Some(RENDER_TEXTURE_HANDLE),
-        ),
-    );
-
-    graph.add_node(
-        DEPTH_TEXTURE_NODE,
-        TextureNode::new(
-            TextureDescriptor {
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Depth32Float,
-                usage: TextureUsages::OUTPUT_ATTACHMENT | TextureUsages::SAMPLED,
-            },
-            None,
-            None,
-        ),
-    );
-
-    graph.add_node_edge(TEXTURE_NODE, FIRST_PASS).unwrap();
-    graph
-        .add_slot_edge(
-            TEXTURE_NODE,
-            TextureNode::TEXTURE,
-            FIRST_PASS,
-            "color_attachment",
-        )
-        .unwrap();
-    graph
-        .add_slot_edge(
-            DEPTH_TEXTURE_NODE,
-            TextureNode::TEXTURE,
-            FIRST_PASS,
-            "depth",
-        )
-        .unwrap();
-    graph.add_node_edge(FIRST_PASS, MAIN_PASS).unwrap();
-    graph.add_node_edge("transform", FIRST_PASS).unwrap();
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_startup_system(setup)
+        .add_system(cube_rotator_system)
+        .add_system(rotator_system)
+        .run();
 }
 
+// Marks the first pass cube (rendered to a texture.)
+#[derive(Component)]
 struct FirstPassCube;
+
+// Marks the main pass cube, to which the texture is applied.
+#[derive(Component)]
 struct MainPassCube;
-
-/// rotates the inner cube (first pass)
-fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<FirstPassCube>>) {
-    for mut transform in query.iter_mut() {
-        transform.rotation *= Quat::from_rotation_x(1.5 * time.delta_seconds());
-        transform.rotation *= Quat::from_rotation_z(1.3 * time.delta_seconds());
-    }
-}
-
-/// rotates the outer cube (main pass)
-fn cube_rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<MainPassCube>>) {
-    for mut transform in query.iter_mut() {
-        transform.rotation *= Quat::from_rotation_x(1.0 * time.delta_seconds());
-        transform.rotation *= Quat::from_rotation_y(0.7 * time.delta_seconds());
-    }
-}
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut render_graph: ResMut<RenderGraph>,
-    mut active_cameras: ResMut<ActiveCameras>,
+    mut images: ResMut<Assets<Image>>,
 ) {
-    let size = Extent3d::new(512, 512, 1);
-    add_render_to_texture_graph(&mut render_graph, size);
+    let size = Extent3d {
+        width: 512,
+        height: 512,
+        ..default()
+    };
+
+    // This is the texture that will be rendered to.
+    let mut image = Image {
+        texture_descriptor: TextureDescriptor {
+            label: None,
+            size,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Bgra8UnormSrgb,
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::RENDER_ATTACHMENT,
+        },
+        ..default()
+    };
+
+    // fill image.data with zeroes
+    image.resize(size);
+
+    let image_handle = images.add(image);
 
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 4.0 }));
     let cube_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
-        roughness: 1.0,
         unlit: false,
-        ..Default::default()
+        ..default()
     });
 
+    // This specifies the layer used for the first pass, which will be attached to the first pass camera and cube.
+    let first_pass_layer = RenderLayers::layer(1);
+
+    // The cube that will be rendered to the texture.
     commands
         .spawn_bundle(PbrBundle {
             mesh: cube_handle,
             material: cube_material_handle,
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-            ..Default::default()
+            ..default()
         })
         .insert(FirstPassCube)
-        .insert(FirstPass)
-        .remove::<MainPass>();
+        .insert(first_pass_layer);
 
-    // light
-    // note: currently lights are shared between passes!
+    // Light
+    // NOTE: Currently lights are shared between passes - see https://github.com/bevyengine/bevy/issues/3462
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-        ..Default::default()
+        ..default()
     });
 
-    // camera
-    let mut first_pass_camera = PerspectiveCameraBundle {
-        camera: Camera {
-            name: Some(FIRST_PASS_CAMERA.to_string()),
-            window: WindowId::new(), /* otherwise it will use main window size / aspect for
-                                      * calculation of projection matrix */
-            ..Default::default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
-        ..Default::default()
-    };
-    active_cameras.add(FIRST_PASS_CAMERA);
-
-    let camera_projection = &mut first_pass_camera.perspective_projection;
-    camera_projection.update(size.width as f32, size.height as f32);
-    first_pass_camera.camera.projection_matrix = camera_projection.get_projection_matrix();
-    first_pass_camera.camera.depth_calculation = camera_projection.depth_calculation();
-
-    commands.spawn_bundle(first_pass_camera);
-
-    let texture_handle = RENDER_TEXTURE_HANDLE.typed();
+    commands
+        .spawn_bundle(Camera3dBundle {
+            camera_3d: Camera3d {
+                clear_color: ClearColorConfig::Custom(Color::WHITE),
+                ..default()
+            },
+            camera: Camera {
+                // render before the "main pass" camera
+                priority: -1,
+                target: RenderTarget::Image(image_handle.clone()),
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
+                .looking_at(Vec3::default(), Vec3::Y),
+            ..default()
+        })
+        .insert(first_pass_layer);
 
     let cube_size = 4.0;
     let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));
 
+    // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
-        base_color_texture: Some(texture_handle),
+        base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,
-        ..Default::default()
+        ..default()
     });
 
-    // add entities to the world
+    // Main pass cube, with material containing the rendered first pass texture.
     commands
         .spawn_bundle(PbrBundle {
             mesh: cube_handle,
@@ -206,28 +128,32 @@ fn setup(
             transform: Transform {
                 translation: Vec3::new(0.0, 0.0, 1.5),
                 rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-                ..Default::default()
+                ..default()
             },
-            visible: Visible {
-                is_transparent: true,
-                ..Default::default()
-            },
-            ..Default::default()
+            ..default()
         })
         .insert(MainPassCube);
 
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    // The main pass camera.
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
             .looking_at(Vec3::default(), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
-fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(cube_rotator_system)
-        .add_system(rotator_system)
-        .run();
+/// Rotates the inner cube (first pass)
+fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<FirstPassCube>>) {
+    for mut transform in query.iter_mut() {
+        transform.rotation *= Quat::from_rotation_x(1.5 * time.delta_seconds());
+        transform.rotation *= Quat::from_rotation_z(1.3 * time.delta_seconds());
+    }
+}
+
+/// Rotates the outer cube (main pass)
+fn cube_rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<MainPassCube>>) {
+    for mut transform in query.iter_mut() {
+        transform.rotation *= Quat::from_rotation_x(1.0 * time.delta_seconds());
+        transform.rotation *= Quat::from_rotation_y(0.7 * time.delta_seconds());
+    }
 }

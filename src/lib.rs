@@ -16,7 +16,7 @@
 //!
 //! fn main() {
 //!    App::new()
-//!        .add_system(hello_world_system.system())
+//!        .add_system(hello_world_system)
 //!        .run();
 //! }
 //!
@@ -24,7 +24,7 @@
 //!    println!("hello world");
 //! }
 //! ```
-
+//!
 //! Don't let the simplicity of the example above fool you. Bevy is a [fully featured game engine](https://bevyengine.org)
 //! and it gets more powerful every day!
 //!

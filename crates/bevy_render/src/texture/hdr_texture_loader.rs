@@ -1,7 +1,8 @@
-use super::{Extent3d, Texture, TextureDimension, TextureFormat};
+use crate::texture::{Image, TextureFormatPixelInfo};
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_utils::BoxedFuture;
+use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
 #[derive(Clone, Default)]
@@ -21,7 +22,7 @@ impl AssetLoader for HdrTextureLoader {
                 "Format should have 32bit x 4 size"
             );
 
-            let decoder = image::hdr::HdrDecoder::new(bytes)?;
+            let decoder = image::codecs::hdr::HdrDecoder::new(bytes)?;
             let info = decoder.metadata();
             let rgb_data = decoder.read_image_hdr()?;
             let mut rgba_data = Vec::with_capacity(rgb_data.len() * format.pixel_size());
@@ -35,8 +36,12 @@ impl AssetLoader for HdrTextureLoader {
                 rgba_data.extend_from_slice(&alpha.to_ne_bytes());
             }
 
-            let texture = Texture::new(
-                Extent3d::new(info.width, info.height, 1),
+            let texture = Image::new(
+                Extent3d {
+                    width: info.width,
+                    height: info.height,
+                    depth_or_array_layers: 1,
+                },
                 TextureDimension::D2,
                 rgba_data,
                 format,

@@ -1,11 +1,7 @@
 [package]
 name = "bevy_derive"
-version = "0.5.0"
+version = "0.8.0-dev"
 edition = "2021"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "Provides derive implementations for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -16,8 +12,7 @@ keywords = ["bevy"]
 proc-macro = true
 
 [dependencies]
-bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.5.0" }
+bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.8.0-dev" }
 
-Inflector = { version = "0.11.4", default-features = false }
 quote = "1.0"
-syn = "1.0"
+syn = { version = "1.0", features = ["full"] }

@@ -1,5 +1,7 @@
 mod asset_server;
 mod assets;
+#[cfg(feature = "debug_asset_server")]
+pub mod debug_asset_server;
 pub mod diagnostic;
 #[cfg(all(
     feature = "filesystem_watcher",
@@ -27,11 +29,7 @@ pub use loader::*;
 pub use path::*;
 
 use bevy_app::{prelude::Plugin, App};
-use bevy_ecs::{
-    schedule::{StageLabel, SystemStage},
-    system::IntoSystem,
-};
-use bevy_tasks::IoTaskPool;
+use bevy_ecs::schedule::{StageLabel, SystemStage};
 
 /// The names of asset stages in an App Schedule
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -47,12 +45,16 @@ pub struct AssetPlugin;
 
 pub struct AssetServerSettings {
     pub asset_folder: String,
+    /// Whether to watch for changes in asset files. Requires the `filesystem_watcher` feature,
+    /// and cannot be supported on the wasm32 arch nor android os.
+    pub watch_for_changes: bool,
 }
 
 impl Default for AssetServerSettings {
     fn default() -> Self {
         Self {
             asset_folder: "assets".to_string(),
+            watch_for_changes: false,
         }
     }
 }
@@ -67,7 +69,7 @@ pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
         .get_resource_or_insert_with(AssetServerSettings::default);
 
     #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-    let source = FileAssetIo::new(&settings.asset_folder);
+    let source = FileAssetIo::new(&settings.asset_folder, settings.watch_for_changes);
     #[cfg(target_arch = "wasm32")]
     let source = WasmAssetIo::new(&settings.asset_folder);
     #[cfg(target_os = "android")]
@@ -78,18 +80,9 @@ pub fn create_platform_default_asset_io(app: &mut App) -> Box<dyn AssetIo> {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        if app.world.get_resource::<AssetServer>().is_none() {
-            let task_pool = app
-                .world
-                .get_resource::<IoTaskPool>()
-                .expect("`IoTaskPool` resource not found.")
-                .0
-                .clone();
-
+        if !app.world.contains_resource::<AssetServer>() {
             let source = create_platform_default_asset_io(app);
-
-            let asset_server = AssetServer::with_boxed_io(source, task_pool);
-
+            let asset_server = AssetServer::with_boxed_io(source);
             app.insert_resource(asset_server);
         }
 
@@ -106,16 +99,13 @@ impl Plugin for AssetPlugin {
         .register_type::<HandleId>()
         .add_system_to_stage(
             bevy_app::CoreStage::PreUpdate,
-            asset_server::free_unused_assets_system.system(),
+            asset_server::free_unused_assets_system,
         );
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system_to_stage(
-            AssetStage::LoadAssets,
-            io::filesystem_watcher_system.system(),
-        );
+        app.add_system_to_stage(AssetStage::LoadAssets, io::filesystem_watcher_system);
     }
 }

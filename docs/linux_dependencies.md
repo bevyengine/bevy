@@ -4,10 +4,16 @@ This page lists the required dependencies to build a Bevy project on your Linux 
 
 If you don't see your distro present in the list, feel free to add the instructions in this document.
 
-## Ubuntu 20.04
+## [Ubuntu](https://ubuntu.com/)
 
 ```bash
 sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
+```
+
+if using Wayland, you will also need to install
+
+```bash
+sudo apt-get install libwayland-dev libxkbcommon-dev
 ```
 
 Depending on your graphics card, you may have to install one of the following:
@@ -20,10 +26,16 @@ Compiling with clang is also possible - replace the `g++` package with `clang`.
 Graphics and audio need to be configured for them to work with WSL 2 backend.
 Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to set up graphics and audio.
 
-## Fedora
+## [Fedora](https://getfedora.org/)
 
 ```bash
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
+```
+
+if using Wayland, you will also need to install
+
+```bash
+sudo dnf install wayland-devel libxkbcommon-devel
 ```
 
 If there are errors with linking during the build process such as:
@@ -49,6 +61,8 @@ sudo dnf install alsa-lib-devel.x86_64
 sudo pacman -S libx11 pkgconf alsa-lib
 ```
 
+Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
+
 ## Void
 
 ```bash
@@ -57,49 +71,45 @@ sudo xbps-install -S pkgconf alsa-lib-devel libX11-devel eudev-libudev-devel
 
 ## NixOS
 
-Add a `build.rs` file to your project containing:
-
-```rust
-# build.rs
-
-fn main() {
-    if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=vulkan");
-    }
-}
-```
-
-These packages provide the dependencies required to run a bevy project. They can be installed globally or via nix-shell.
-Based on your global configuration it also might be necessary to allow unfree packages:
-
-```bash
-export NIXPKGS_ALLOW_UNFREE=1 # needed for lutris
-nix-shell -p cargo pkgconfig udev lutris alsaLib x11 xorg.libXcursor xorg.libXrandr xorg.libXi vulkan-tools vulkan-headers vulkan-loader vulkan-validation-layers
-```
-
-Alternatively, you can define `shell.nix` containing:
+Add a `shell.nix` file to the root of the project containing:
 
 ```nix
 # shell.nix
 
-{ pkgs ? import <nixpkgs> { } }:
-with pkgs;
-mkShell {
-  buildInputs = [
-    cargo
-    pkgconfig udev alsaLib lutris
-    x11 xorg.libXcursor xorg.libXrandr xorg.libXi
-    vulkan-tools vulkan-headers vulkan-loader vulkan-validation-layers
+{ pkgs ? import <nixpkgs> {} }:
+with pkgs; mkShell {
+  nativeBuildInputs = [
+    pkgconfig
+    llvmPackages.bintools # To use lld linker
   ];
+  buildInputs = [
+    udev alsaLib vulkan-loader
+    xlibsWrapper xorg.libXcursor xorg.libXrandr xorg.libXi # To use x11 feature
+    libxkbcommon wayland # To use wayland feature
+  ];
+  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
 }
 ```
 
-And enter it by just running `nix-shell`.
+And enter it by just running `nix-shell`. You should be able compile Bevy programs using `cargo run` within this nix-shell. You can do this in one line with `nix-shell --run "cargo run"`.
 
-You should be able compile bevy programms using `cargo` within this nix-shell.
+Note that this template does not add Rust to the environment because there are many ways to do it. For example, to use stable Rust from nixpkgs you can add `cargo` to `nativeBuildInputs`.
 
-## Opensuse Tumbleweed
+## [OpenSUSE](https://www.opensuse.org/)
 
 ```bash
-   sudo zypper install libudev-devel gcc-c++
+   sudo zypper install libudev-devel gcc-c++ alsa-lib-devel
+```
+
+## Gentoo
+
+```bash
+   sudo emerge --ask libX11 pkgconf alsa-lib
+```
+
+## [Clear Linux OS](https://clearlinux.org/)
+
+```bash
+sudo swupd bundle-add devpkg-alsa-lib
+sudo swupd bundle-add devpkg-libgudev
 ```

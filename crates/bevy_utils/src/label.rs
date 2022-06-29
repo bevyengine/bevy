@@ -58,8 +58,9 @@ where
 #[macro_export]
 macro_rules! define_label {
     ($label_trait_name:ident) => {
+        /// Defines a set of strongly-typed labels for a class of objects
         pub trait $label_trait_name:
-            ::bevy_utils::label::DynHash + ::std::fmt::Debug + Send + Sync + 'static
+            $crate::label::DynHash + ::std::fmt::Debug + Send + Sync + 'static
         {
             #[doc(hidden)]
             fn dyn_clone(&self) -> Box<dyn $label_trait_name>;

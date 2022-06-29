@@ -3,12 +3,8 @@ use crate::{
     RefChangeChannel,
 };
 use anyhow::Result;
-use bevy_ecs::{
-    component::Component,
-    system::{Res, ResMut},
-};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
-use bevy_tasks::TaskPool;
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
@@ -46,13 +42,21 @@ impl<T: Asset> LoadedAsset<T> {
         }
     }
 
-    pub fn with_dependency(mut self, asset_path: AssetPath) -> Self {
+    pub fn add_dependency(&mut self, asset_path: AssetPath) {
         self.dependencies.push(asset_path.to_owned());
+    }
+
+    #[must_use]
+    pub fn with_dependency(mut self, asset_path: AssetPath) -> Self {
+        self.add_dependency(asset_path);
         self
     }
 
-    pub fn with_dependencies(mut self, asset_paths: Vec<AssetPath<'static>>) -> Self {
-        self.dependencies.extend(asset_paths);
+    #[must_use]
+    pub fn with_dependencies(mut self, mut asset_paths: Vec<AssetPath<'static>>) -> Self {
+        for asset_path in asset_paths.drain(..) {
+            self.add_dependency(asset_path);
+        }
         self
     }
 }
@@ -79,7 +83,6 @@ pub struct LoadContext<'a> {
     pub(crate) labeled_assets: HashMap<Option<String>, BoxedLoadedAsset>,
     pub(crate) path: &'a Path,
     pub(crate) version: usize,
-    pub(crate) task_pool: &'a TaskPool,
 }
 
 impl<'a> LoadContext<'a> {
@@ -88,7 +91,6 @@ impl<'a> LoadContext<'a> {
         ref_change_channel: &'a RefChangeChannel,
         asset_io: &'a dyn AssetIo,
         version: usize,
-        task_pool: &'a TaskPool,
     ) -> Self {
         Self {
             ref_change_channel,
@@ -96,7 +98,6 @@ impl<'a> LoadContext<'a> {
             labeled_assets: Default::default(),
             version,
             path,
-            task_pool,
         }
     }
 
@@ -129,7 +130,7 @@ impl<'a> LoadContext<'a> {
 
     pub fn get_asset_metas(&self) -> Vec<AssetMeta> {
         let mut asset_metas = Vec::new();
-        for (label, asset) in self.labeled_assets.iter() {
+        for (label, asset) in &self.labeled_assets {
             asset_metas.push(AssetMeta {
                 dependencies: asset.dependencies.clone(),
                 label: label.clone(),
@@ -139,27 +140,27 @@ impl<'a> LoadContext<'a> {
         asset_metas
     }
 
-    pub fn task_pool(&self) -> &TaskPool {
-        self.task_pool
+    pub fn asset_io(&self) -> &dyn AssetIo {
+        self.asset_io
     }
 }
 
 /// The result of loading an asset of type `T`
 #[derive(Debug)]
-pub struct AssetResult<T: Component> {
+pub struct AssetResult<T> {
     pub asset: Box<T>,
     pub id: HandleId,
     pub version: usize,
 }
 
-/// A channel to send and receive [AssetResult]s
+/// A channel to send and receive [`AssetResult`]s
 #[derive(Debug)]
-pub struct AssetLifecycleChannel<T: Component> {
+pub struct AssetLifecycleChannel<T> {
     pub sender: Sender<AssetLifecycleEvent<T>>,
     pub receiver: Receiver<AssetLifecycleEvent<T>>,
 }
 
-pub enum AssetLifecycleEvent<T: Component> {
+pub enum AssetLifecycleEvent<T> {
     Create(AssetResult<T>),
     Free(HandleId),
 }
@@ -179,7 +180,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                     id,
                     version,
                 }))
-                .unwrap()
+                .unwrap();
         } else {
             panic!(
                 "Failed to downcast asset to {}.",
@@ -193,14 +194,14 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     }
 }
 
-impl<T: Component> Default for AssetLifecycleChannel<T> {
+impl<T> Default for AssetLifecycleChannel<T> {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         AssetLifecycleChannel { sender, receiver }
     }
 }
 
-/// Updates the [Assets] collection according to the changes queued up by [AssetServer].
+/// Updates the [`Assets`] collection according to the changes queued up by [`AssetServer`].
 pub fn update_asset_storage_system<T: Asset + AssetDynamic>(
     asset_server: Res<AssetServer>,
     assets: ResMut<Assets<T>>,
