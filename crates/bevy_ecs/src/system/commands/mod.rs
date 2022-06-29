@@ -588,7 +588,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         });
     }
 
-    /// Logs the components of the entity at the debug level.
+    /// Logs the components of the entity at the info level.
     pub fn log_components(&mut self) {
         self.commands.add(DebugEntity {
             entity: self.entity,
