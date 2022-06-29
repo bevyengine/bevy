@@ -7,7 +7,7 @@ use crate::{
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
-use bevy_utils::tracing::{error, warn};
+use bevy_utils::tracing::{debug, error, warn};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
@@ -215,6 +215,11 @@ impl<'w, 's> Commands<'w, 's> {
             entity,
             commands: self,
         }
+    }
+
+    /// Logs the components of a given entity at the debug level.
+    pub fn debug_entity(&mut self, entity: Entity) {
+        self.queue.push(DebugEntity { entity });
     }
 
     /// Spawns entities to the [`World`] according to the given iterator (or a type that can
@@ -790,6 +795,20 @@ pub struct RemoveResource<R: Resource> {
 impl<R: Resource> Command for RemoveResource<R> {
     fn write(self, world: &mut World) {
         world.remove_resource::<R>();
+    }
+}
+
+pub struct DebugEntity {
+    entity: Entity,
+}
+
+impl Command for DebugEntity {
+    fn write(self, world: &mut World) {
+        debug!(
+            "Entity {:?}: {:?}",
+            self.entity,
+            world.inspect_entity(self.entity)
+        );
     }
 }
 
