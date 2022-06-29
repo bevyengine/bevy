@@ -250,10 +250,6 @@ description = "Demonstrates transparency in 2d"
 category = "2D Rendering"
 wasm = true
 
-[[example]]
-name = "change_mesh_runtime"
-path = "examples/2d/change_mesh_runtime.rs"
-
 # 3D Rendering
 [[example]]
 name = "3d_scene"
