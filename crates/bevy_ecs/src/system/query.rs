@@ -1117,6 +1117,9 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn get_single(&self) -> Result<ROQueryItem<'_, Q>, QuerySingleError> {
+        // SAFETY:
+        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // and the query is read only.
         unsafe {
             self.state.get_single_unchecked_manual::<ROQueryFetch<Q>>(
                 self.world,
@@ -1179,6 +1182,9 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn get_single_mut(&mut self) -> Result<QueryItem<'_, Q>, QuerySingleError> {
+        // SAFETY:
+        // the query ensures mutable access to the components it accesses, and the query
+        // is uniquely borrowed
         unsafe {
             self.state.get_single_unchecked_manual::<QueryFetch<Q>>(
                 self.world,

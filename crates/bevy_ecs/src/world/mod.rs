@@ -1431,6 +1431,7 @@ impl World {
         // SAFETY: get_data_ptr requires that the mutability rules are not violated, and the caller promises
         // to only modify the resource while the mutable borrow of the world is valid
         let ticks = Ticks {
+            // SAFETY:
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
             component_ticks: unsafe { &mut *column.get_ticks_unchecked(0).get() },
@@ -1439,6 +1440,7 @@ impl World {
         };
 
         Some(MutUntyped {
+            // SAFETY: world access is unique, so no other reference can exist at the same time
             value: unsafe { column.get_data_ptr().assert_unique() },
             ticks,
         })
