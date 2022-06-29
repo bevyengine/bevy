@@ -1189,8 +1189,13 @@ mod tests {
         let mut world = World::default();
         world.insert_non_send_resource(123i32);
         world.insert_non_send_resource(456i64);
-        assert_eq!(*world.non_send_resource::<i32>(), 123);
-        assert_eq!(*world.non_send_resource_mut::<i64>(), 456);
+        world.non_send_resource::<i32>().get(|res| {
+            assert_eq!(*res, 123);
+        });
+
+        world.non_send_resource_mut::<i64>().get(|res| {
+            assert_eq!(*res, 456);
+        });
     }
 
     #[test]

@@ -453,7 +453,9 @@ mod tests {
         let mut world = World::new();
         world.insert_non_send_resource(thread::current().id());
         fn non_send(thread_id: NonSend<thread::ThreadId>) {
-            assert_eq!(thread::current().id(), *thread_id);
+            thread_id.get(|thread_id| {
+                assert_eq!(thread::current().id(), *thread_id);
+            });
         }
         fn empty() {}
         let mut stage = SystemStage::parallel()

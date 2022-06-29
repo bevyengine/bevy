@@ -1,6 +1,9 @@
 //! Types that detect when their internal data mutate.
 
-use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
+use crate::{
+    component::ComponentTicks, ptr::PtrMut, system::Resource,
+    world::ThreadLocalResource,
+};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
@@ -198,12 +201,12 @@ impl_debug!(ResMut<'a, T>, Resource);
 ///
 /// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
 pub struct NonSendMut<'a, T: 'static> {
-    pub(crate) value: &'a mut T,
+    pub(crate) value: &'a mut ThreadLocalResource<T>,
     pub(crate) ticks: Ticks<'a>,
 }
 
-change_detection_impl!(NonSendMut<'a, T>, T,);
-impl_into_inner!(NonSendMut<'a, T>, T,);
+change_detection_impl!(NonSendMut<'a, T>, ThreadLocalResource<T>,);
+impl_into_inner!(NonSendMut<'a, T>, ThreadLocalResource<T>,);
 impl_debug!(NonSendMut<'a, T>,);
 
 /// Unique mutable borrow of an entity's component

@@ -5,6 +5,7 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
+    world::ThreadLocalResource,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
@@ -797,7 +798,7 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T
 ///
 /// Use `Option<NonSend<T>>` instead if the resource might not always exist.
 pub struct NonSend<'w, T: 'static> {
-    pub(crate) value: &'w T,
+    pub(crate) value: &'w ThreadLocalResource<T>,
     ticks: ComponentTicks,
     last_change_tick: u32,
     change_tick: u32,
@@ -811,7 +812,8 @@ where
     T: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("NonSend").field(&self.value).finish()
+        self.value
+            .get(|value| f.debug_tuple("NonSend").field(value).finish())
     }
 }
 
@@ -829,7 +831,7 @@ impl<'w, T: 'static> NonSend<'w, T> {
 }
 
 impl<'w, T> Deref for NonSend<'w, T> {
-    type Target = T;
+    type Target = ThreadLocalResource<T>;
 
     fn deref(&self) -> &Self::Target {
         self.value
@@ -909,7 +911,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
             });
 
         NonSend {
-            value: column.get_data_ptr().deref::<T>(),
+            value: column.get_data_ptr().deref::<ThreadLocalResource<T>>(),
             ticks: column.get_ticks_unchecked(0).read(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
@@ -949,7 +951,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| NonSend {
-                value: column.get_data_ptr().deref::<T>(),
+                value: column.get_data_ptr().deref::<ThreadLocalResource<T>>(),
                 ticks: column.get_ticks_unchecked(0).read(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
@@ -1022,7 +1024,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
                 )
             });
         NonSendMut {
-            value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
+            value: column
+                .get_data_ptr()
+                .assert_unique()
+                .deref_mut::<ThreadLocalResource<T>>(),
             ticks: Ticks {
                 component_ticks: column.get_ticks_unchecked(0).deref_mut(),
                 last_change_tick: system_meta.last_change_tick,
@@ -1061,7 +1066,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| NonSendMut {
-                value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
+                value: column
+                    .get_data_ptr()
+                    .assert_unique()
+                    .deref_mut::<ThreadLocalResource<T>>(),
                 ticks: Ticks {
                     component_ticks: column.get_ticks_unchecked(0).deref_mut(),
                     last_change_tick: system_meta.last_change_tick,

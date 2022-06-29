@@ -1,11 +1,13 @@
 mod entity_ref;
 mod spawn_batch;
 mod world_cell;
+mod thread_local_resource;
 
 pub use crate::change_detection::Mut;
 pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
+pub use thread_local_resource::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
@@ -676,7 +678,7 @@ impl World {
     /// and those default values will be here instead.
     #[inline]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
-        if !self.contains_resource::<R>() {
+        if !self.contains_resource::<ThreadLocalResource<R>>() {
             let resource = R::from_world(self);
             self.insert_non_send_resource(resource);
         }
@@ -690,9 +692,11 @@ impl World {
     #[inline]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         self.validate_non_send_access::<R>();
-        let component_id = self.components.init_non_send::<R>();
+        let component_id = self.components.init_non_send::<ThreadLocalResource<R>>();
+        let tls = ThreadLocalResource::new();
+        tls.set(value);
         // SAFE: component_id just initialized and corresponds to resource of type R
-        unsafe { self.insert_resource_with_id(component_id, value) };
+        unsafe { self.insert_resource_with_id(component_id, tls) };
     }
 
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
@@ -703,10 +707,10 @@ impl World {
     }
 
     #[inline]
-    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        self.validate_non_send_access::<R>();
+    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<ThreadLocalResource<R>> {
+        self.validate_non_send_access::<ThreadLocalResource<R>>();
         // SAFE: we are on main thread
-        unsafe { self.remove_resource_unchecked() }
+        unsafe { self.remove_resource_unchecked::<ThreadLocalResource<R>>() }
     }
 
     #[inline]
@@ -872,7 +876,7 @@ impl World {
     /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
     #[inline]
     #[track_caller]
-    pub fn non_send_resource<R: 'static>(&self) -> &R {
+    pub fn non_send_resource<R: 'static>(&self) -> &ThreadLocalResource<R> {
         match self.get_non_send_resource() {
             Some(x) => x,
             None => panic!(
@@ -892,7 +896,7 @@ impl World {
     /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
     #[inline]
     #[track_caller]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, ThreadLocalResource<R>> {
         match self.get_non_send_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -907,8 +911,10 @@ impl World {
     /// Gets a reference to the non-send resource of the given type, if it exists.
     /// Otherwise returns [None]
     #[inline]
-    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&ThreadLocalResource<R>> {
+        let component_id = self
+            .components
+            .get_resource_id(TypeId::of::<ThreadLocalResource<R>>())?;
         // SAFE: component id matches type T
         unsafe { self.get_non_send_with_id(component_id) }
     }
@@ -916,7 +922,9 @@ impl World {
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     /// Otherwise returns [None]
     #[inline]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_non_send_resource_mut<R: 'static>(
+        &mut self,
+    ) -> Option<Mut<'_, ThreadLocalResource<R>>> {
         // SAFE: unique world access
         unsafe { self.get_non_send_resource_unchecked_mut() }
     }
@@ -928,8 +936,12 @@ impl World {
     /// This will allow aliased mutable access to the given non-send resource type. The caller must
     /// ensure that only one mutable access exists at a time.
     #[inline]
-    pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(&self) -> Option<Mut<'_, R>> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+    pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(
+        &self,
+    ) -> Option<Mut<'_, ThreadLocalResource<R>>> {
+        let component_id = self
+            .components
+            .get_resource_id(TypeId::of::<ThreadLocalResource<R>>())?;
         self.get_non_send_unchecked_mut_with_id(component_id)
     }
 
@@ -1167,8 +1179,8 @@ impl World {
     pub(crate) unsafe fn get_non_send_with_id<R: 'static>(
         &self,
         component_id: ComponentId,
-    ) -> Option<&R> {
-        self.validate_non_send_access::<R>();
+    ) -> Option<&ThreadLocalResource<R>> {
+        self.validate_non_send_access::<ThreadLocalResource<R>>();
         self.get_resource_with_id(component_id)
     }
 
@@ -1179,15 +1191,26 @@ impl World {
     pub(crate) unsafe fn get_non_send_unchecked_mut_with_id<R: 'static>(
         &self,
         component_id: ComponentId,
-    ) -> Option<Mut<'_, R>> {
+    ) -> Option<Mut<'_, ThreadLocalResource<R>>> {
         self.validate_non_send_access::<R>();
         self.get_resource_unchecked_mut_with_id(component_id)
+    }
+
+    pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
+        let component_id = self.components.init_non_send::<ThreadLocalResource<R>>();
+        // SAFE: resource initialized above
+        unsafe { self.initialize_resource_internal(component_id) };
+        component_id
     }
 
     /// # Safety
     /// `component_id` must be valid and correspond to a resource component of type `R`
     #[inline]
-    unsafe fn insert_resource_with_id<R>(&mut self, component_id: ComponentId, value: R) {
+    pub(crate) unsafe fn insert_resource_with_id<R>(
+        &mut self,
+        component_id: ComponentId,
+        value: R,
+    ) {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
@@ -1240,7 +1263,10 @@ impl World {
     /// # Safety
     /// `component_id` must be valid for this world
     #[inline]
-    unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
+    pub(crate) unsafe fn initialize_resource_internal(
+        &mut self,
+        component_id: ComponentId,
+    ) -> &mut Column {
         // SAFE: resource archetype always exists
         let resource_archetype = self
             .archetypes
@@ -1269,13 +1295,6 @@ impl World {
 
     pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
         let component_id = self.components.init_resource::<R>();
-        // SAFE: resource initialized above
-        unsafe { self.initialize_resource_internal(component_id) };
-        component_id
-    }
-
-    pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
-        let component_id = self.components.init_non_send::<R>();
         // SAFE: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id

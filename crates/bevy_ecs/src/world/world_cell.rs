@@ -2,7 +2,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     storage::SparseSet,
     system::Resource,
-    world::{Mut, World},
+    world::{thread_local_resource::ThreadLocalResource, Mut, World},
 };
 use std::{
     any::TypeId,
@@ -248,8 +248,13 @@ impl<'w> WorldCell<'w> {
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
-    pub fn get_non_send_resource<T: 'static>(&self) -> Option<WorldBorrow<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+    pub fn get_non_send_resource<T: 'static>(
+        &self,
+    ) -> Option<WorldBorrow<'_, ThreadLocalResource<T>>> {
+        let component_id = self
+            .world
+            .components
+            .get_resource_id(TypeId::of::<ThreadLocalResource<T>>())?;
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
         Some(WorldBorrow::new(
@@ -267,7 +272,7 @@ impl<'w> WorldCell<'w> {
     /// Panics if the resource does not exist. Use
     /// [`get_non_send_resource`](WorldCell::get_non_send_resource) instead if you want to handle
     /// this case.
-    pub fn non_send_resource<T: 'static>(&self) -> WorldBorrow<'_, T> {
+    pub fn non_send_resource<T: 'static>(&self) -> WorldBorrow<'_, ThreadLocalResource<T>> {
         match self.get_non_send_resource() {
             Some(x) => x,
             None => panic!(
@@ -280,8 +285,13 @@ impl<'w> WorldCell<'w> {
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    pub fn get_non_send_resource_mut<T: 'static>(&self) -> Option<WorldBorrowMut<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+    pub fn get_non_send_resource_mut<T: 'static>(
+        &self,
+    ) -> Option<WorldBorrowMut<'_, ThreadLocalResource<T>>> {
+        let component_id = self
+            .world
+            .components
+            .get_resource_id(TypeId::of::<ThreadLocalResource<T>>())?;
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
         Some(WorldBorrowMut::new(
@@ -302,7 +312,7 @@ impl<'w> WorldCell<'w> {
     /// Panics if the resource does not exist. Use
     /// [`get_non_send_resource_mut`](WorldCell::get_non_send_resource_mut) instead if you want to
     /// handle this case.
-    pub fn non_send_resource_mut<T: 'static>(&self) -> WorldBorrowMut<'_, T> {
+    pub fn non_send_resource_mut<T: 'static>(&self) -> WorldBorrowMut<'_, ThreadLocalResource<T>> {
         match self.get_non_send_resource_mut() {
             Some(x) => x,
             None => panic!(

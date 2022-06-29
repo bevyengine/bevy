@@ -508,7 +508,19 @@ mod tests {
         world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
         world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
 
-        fn sys(_op: NonSend<NotSend1>, mut _op2: NonSendMut<NotSend2>, mut run: ResMut<bool>) {
+        fn sys(
+            non_send: NonSend<NotSend1>,
+            mut non_send_mut: NonSendMut<NotSend2>,
+            mut run: ResMut<bool>,
+        ) {
+            non_send.get(|non_send| {
+                assert_eq!(*non_send.0, 1);
+            });
+
+            non_send_mut.get_mut(|non_send_mut| {
+                assert_eq!(*non_send_mut.0, 2);
+            });
+
             *run = true;
         }
 
