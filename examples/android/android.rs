@@ -10,8 +10,8 @@ use bevy::{
 #[bevy_main]
 fn main() {
     App::new()
-        // This settings use the most compatible settings for wgpu. THey help with compatibilty
-        // with as many devices as possible
+        // This configures the app to use the most compatible rendering settings.
+        // They help with compatibilty with as many devices as possible.
         .insert_resource(WgpuSettings {
             priority: WgpuSettingsPriority::Compatibility,
             limits: WgpuLimits::downlevel_defaults(),
