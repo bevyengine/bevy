@@ -77,31 +77,35 @@ impl Plugin for DebugAssetServerPlugin {
 }
 
 fn run_debug_asset_app(mut debug_asset_app: NonSendMut<DebugAssetApp>) {
-    debug_asset_app.0.update();
+    debug_asset_app.get_mut(|debug_asset_app| {
+        debug_asset_app.0.update();
+    });
 }
 
 pub(crate) fn sync_debug_assets<T: Asset + Clone>(
     mut debug_asset_app: NonSendMut<DebugAssetApp>,
     mut assets: ResMut<Assets<T>>,
 ) {
-    let world = &mut debug_asset_app.0.world;
-    let mut state = SystemState::<(
-        Res<Events<AssetEvent<T>>>,
-        Res<HandleMap<T>>,
-        Res<Assets<T>>,
-    )>::new(world);
-    let (changed_shaders, handle_map, debug_assets) = state.get_mut(world);
-    for changed in changed_shaders.iter_current_update_events() {
-        let debug_handle = match changed {
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
-            AssetEvent::Removed { .. } => continue,
-        };
-        if let Some(handle) = handle_map.handles.get(debug_handle) {
-            if let Some(debug_asset) = debug_assets.get(debug_handle) {
-                assets.set_untracked(handle, debug_asset.clone());
+    debug_asset_app.get_mut(|debug_asset_app| {
+        let world = &mut debug_asset_app.0.world;
+        let mut state = SystemState::<(
+            Res<Events<AssetEvent<T>>>,
+            Res<HandleMap<T>>,
+            Res<Assets<T>>,
+        )>::new(world);
+        let (changed_shaders, handle_map, debug_assets) = state.get_mut(world);
+        for changed in changed_shaders.iter_current_update_events() {
+            let debug_handle = match changed {
+                AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
+                AssetEvent::Removed { .. } => continue,
+            };
+            if let Some(handle) = handle_map.handles.get(debug_handle) {
+                if let Some(debug_asset) = debug_assets.get(debug_handle) {
+                    assets.set_untracked(handle, debug_asset.clone());
+                }
             }
         }
-    }
+    });
 }
 
 /// Uses the return type of the given loader to register the given handle with the appropriate type
