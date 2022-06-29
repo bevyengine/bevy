@@ -373,6 +373,8 @@ impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
 // SAFETY: Only reads a single World resource
 unsafe impl<T: Resource> ReadOnlySystemParamFetch for OptionResState<T> {}
 
+// SAFETY: this impl defers to `ResState`, which initializes
+// and validates the correct world access
 unsafe impl<T: Resource> SystemParamState for OptionResState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(ResState::init(world, system_meta))
@@ -481,6 +483,8 @@ impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     type Fetch = OptionResMutState<T>;
 }
 
+// SAFETY: this impl defers to `ResMutState`, which initializes
+// and validates the correct world access
 unsafe impl<T: Resource> SystemParamState for OptionResMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(ResMutState::init(world, system_meta))
@@ -553,6 +557,7 @@ impl<'w> SystemParam for &'w World {
     type Fetch = WorldState;
 }
 
+// SAFETY: `read_all` access is set and conflicts result in a panic
 unsafe impl SystemParamState for WorldState {
     fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let mut access = Access::default();
@@ -929,6 +934,8 @@ impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
 // SAFETY: Only reads a single non-send resource
 unsafe impl<T: 'static> ReadOnlySystemParamFetch for OptionNonSendState<T> {}
 
+// SAFETY: this impl defers to `NonSendState`, which initializes
+// and validates the correct world access
 unsafe impl<T: 'static> SystemParamState for OptionNonSendState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(NonSendState::init(world, system_meta))
@@ -1041,6 +1048,8 @@ impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     type Fetch = OptionNonSendMutState<T>;
 }
 
+// SAFETY: this impl defers to `NonSendMutState`, which initializes
+// and validates the correct world access
 unsafe impl<T: 'static> SystemParamState for OptionNonSendMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(NonSendMutState::init(world, system_meta))
@@ -1239,6 +1248,7 @@ impl SystemParam for SystemChangeTick {
 #[doc(hidden)]
 pub struct SystemChangeTickState {}
 
+// SAFETY: `SystemParamTickState` doesn't require any world access
 unsafe impl SystemParamState for SystemChangeTickState {
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self {}
@@ -1433,6 +1443,7 @@ where
     }
 }
 
+// SAFETY: all methods are just delegated to `S`'s `SystemParamState` implementation
 unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
     for StaticSystemParamState<S, P>
 {

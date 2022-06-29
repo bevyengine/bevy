@@ -99,6 +99,10 @@ pub unsafe trait Bundle: Send + Sync + 'static {
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
+        // SAFETY:
+        // - `Bundle::component_ids` returns the `ComponentId`s for each component type in the
+        // bundle, in the exact order that `Bundle::get_components` is called.
+        // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
