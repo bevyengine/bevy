@@ -798,6 +798,7 @@ impl<R: Resource> Command for RemoveResource<R> {
     }
 }
 
+/// [`Command`] to log the components of a given entity. See [`Commands::debug_entity`].
 pub struct DebugEntity {
     entity: Entity,
 }
