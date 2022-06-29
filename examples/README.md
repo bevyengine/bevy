@@ -363,6 +363,22 @@ target_sdk_version = 31
 
 Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
 
+### Debugging
+
+You can view the logs with the following command:
+
+```
+adb logcat | grep 'RustStdoutStderr\|bevy\|wgpu'
+```
+
+In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more informations.
+
+Sometimes, running the app complains about an unknown activity. This may be fixed by uninstalling the application:
+
+```
+adb uninstall org.bevyengine.example
+```
+
 ### Old phones
 
 Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
