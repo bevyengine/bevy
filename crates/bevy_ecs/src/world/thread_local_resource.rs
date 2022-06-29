@@ -69,9 +69,12 @@ impl<T: 'static + Default> Default for ThreadLocalResource<T> {
     }
 }
 
-// try to drop the resource on the current thread
-// Note: this does not necessarily drop every resouce in ThreadLocalResource
-// only the one on the thread that drops the TheadLocalResource
+// TODO: This drop impl is needed because AudioOutput was panicking when
+// it was being dropped when the thread local storage was being dropped.
+// This tries to drop the resource on the current thread, which fixes
+// things for when the world is on the main thread, but would probably
+// break if the world is moved to a different thread. We should figure
+// out a more robust way of dropping the resource instead.
 impl<T: 'static> Drop for ThreadLocalResource<T> {
     fn drop(&mut self) {
         self.remove();
