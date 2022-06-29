@@ -1,9 +1,22 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::{
+        render_resource::WgpuLimits,
+        settings::{WgpuSettings, WgpuSettingsPriority},
+    },
+};
 
 // the `bevy_main` proc_macro generates the required android boilerplate
 #[bevy_main]
 fn main() {
     App::new()
+        // This settings use the most compatible settings for wgpu. THey help with compatibilty
+        // with as many devices as possible
+        .insert_resource(WgpuSettings {
+            priority: WgpuSettingsPriority::Compatibility,
+            limits: WgpuLimits::downlevel_defaults(),
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .run();
