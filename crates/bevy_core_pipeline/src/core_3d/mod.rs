@@ -104,7 +104,8 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
@@ -145,7 +146,8 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
