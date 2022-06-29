@@ -9,7 +9,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -503,9 +503,9 @@ pub fn extract_lights(
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
 
 // Can't do `Vec3::Y * -1.0` because mul isn't const
-const NEGATIVE_X: Vec3 = const_vec3!([-1.0, 0.0, 0.0]);
-const NEGATIVE_Y: Vec3 = const_vec3!([0.0, -1.0, 0.0]);
-const NEGATIVE_Z: Vec3 = const_vec3!([0.0, 0.0, -1.0]);
+const NEGATIVE_X: Vec3 = Vec3::from_array([-1.0, 0.0, 0.0]);
+const NEGATIVE_Y: Vec3 = Vec3::from_array([0.0, -1.0, 0.0]);
+const NEGATIVE_Z: Vec3 = Vec3::from_array([0.0, 0.0, -1.0]);
 
 pub(crate) struct CubeMapFace {
     pub(crate) target: Vec3,
