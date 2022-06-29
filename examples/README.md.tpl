@@ -108,22 +108,23 @@ When using Bevy as a library, the following fields must be added to `Cargo.toml`
 ```toml
 [package.metadata.android]
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-target_sdk_version = 29
-min_sdk_version = 16
+
+[package.metadata.android.sdk]
+target_sdk_version = 31
 ```
 
 Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
 
 ### Old phones
 
-Bevy by default targets Android API level 29 in its examples which is the <!-- markdown-link-check-disable -->
+Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing.
 
 To use a different API, the following fields must be updated in Cargo.toml:
 
 ```toml
-[package.metadata.android]
+[package.metadata.android.sdk]
 target_sdk_version = >>API<<
 min_sdk_version = >>API or less<<
 ```
