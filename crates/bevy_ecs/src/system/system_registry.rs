@@ -397,7 +397,7 @@ impl Command for RunSystemsByLabelCommand {
     #[inline]
     fn write(self, world: &mut World) {
         world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_systems_by_boxed_label(world, self.label.dyn_clone())
+            registry.run_systems_by_boxed_label(world, self.label.dyn_clone());
         });
     }
 }
@@ -520,7 +520,7 @@ mod tests {
     fn count_to_ten(mut counter: ResMut<Counter>, mut commands: Commands) {
         counter.0 += 1;
         if counter.0 < 10 {
-            commands.run_system(count_to_ten)
+            commands.run_system(count_to_ten);
         }
     }
 
