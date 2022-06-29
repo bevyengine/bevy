@@ -2,7 +2,7 @@ use crate::{
     archetype::{ArchetypeId, Archetypes},
     entity::{Entities, Entity},
     prelude::World,
-    query::{Fetch, QueryState, WorldQuery},
+    query::{ArchetypeFilter, Fetch, QueryState, WorldQuery},
     storage::{TableId, Tables},
 };
 use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
@@ -346,15 +346,10 @@ where
     }
 }
 
-// NOTE: We can cheaply implement this for unfiltered Queries because we have:
-// (1) pre-computed archetype matches
-// (2) each archetype pre-computes length
-// (3) there are no per-entity filters
-// TODO: add an ArchetypeOnlyFilter that enables us to implement this for filters like With<T>.
-// This would need to be added to all types that implement Filter with Filter::IS_ARCHETYPAL = true
-impl<'w, 's, Q: WorldQuery, QF> ExactSizeIterator for QueryIter<'w, 's, Q, QF, ()>
+impl<'w, 's, Q: WorldQuery, QF, F> ExactSizeIterator for QueryIter<'w, 's, Q, QF, F>
 where
     QF: Fetch<'w, State = Q::State>,
+    F: WorldQuery + ArchetypeFilter,
 {
     fn len(&self) -> usize {
         self.query_state
