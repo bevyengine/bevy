@@ -17,12 +17,14 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let texture_handle = asset_server.load("branding/bevy_logo_dark.png");
-    let texture_handle_2: Handle<Image> = asset_server.load("branding/bevy_logo_light.png");
-    commands.spawn_bundle(Camera2dBundle::default());
+    // Load our textures
+    let first_texture = asset_server.load("branding/bevy_logo_dark.png");
+    let texture_to_set_after_time: Handle<Image> =
+        asset_server.load("branding/bevy_logo_light.png");
+    // Setup our Sprite with the first texture
     commands
         .spawn_bundle(SpriteBundle {
-            texture: texture_handle.clone(),
+            texture: first_texture.clone(),
             transform: Transform {
                 translation: Vec3::new(1., 1., 1.),
                 scale: Vec3::ONE,
@@ -36,9 +38,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(AnimationTimer(Timer::from_seconds(1f32, false)));
 
+    // Our texture that we want to apply to our SpriteBundle at runtime
     commands.insert_resource(BevyLogoLight {
-        handle: texture_handle_2,
+        handle: texture_to_set_after_time,
     });
+
+    commands.spawn_bundle(Camera2dBundle::default());
 }
 
 fn change_texture(
