@@ -7,7 +7,7 @@ use crate::{
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
-use bevy_utils::tracing::{debug, error, warn};
+use bevy_utils::tracing::{error, info, warn};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
@@ -215,11 +215,6 @@ impl<'w, 's> Commands<'w, 's> {
             entity,
             commands: self,
         }
-    }
-
-    /// Logs the components of a given entity at the debug level.
-    pub fn debug_entity(&mut self, entity: Entity) {
-        self.queue.push(DebugEntity { entity });
     }
 
     /// Spawns entities to the [`World`] according to the given iterator (or a type that can
@@ -593,6 +588,13 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         });
     }
 
+    /// Logs the components of the entity at the debug level.
+    pub fn log_components(&mut self) {
+        self.commands.add(DebugEntity {
+            entity: self.entity,
+        });
+    }
+
     /// Returns the underlying [`Commands`].
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         self.commands
@@ -798,18 +800,19 @@ impl<R: Resource> Command for RemoveResource<R> {
     }
 }
 
-/// [`Command`] to log the components of a given entity. See [`Commands::debug_entity`].
+/// [`Command`] to log the components of a given entity. See [`EntityCommands::log_components`].
 pub struct DebugEntity {
     entity: Entity,
 }
 
 impl Command for DebugEntity {
     fn write(self, world: &mut World) {
-        debug!(
-            "Entity {:?}: {:?}",
-            self.entity,
-            world.inspect_entity(self.entity)
-        );
+        let debug_infos: Vec<_> = world
+            .inspect_entity(self.entity)
+            .into_iter()
+            .map(|component_info| component_info.name())
+            .collect();
+        info!("Entity {:?}: {:?}", self.entity, debug_infos);
     }
 }
 
