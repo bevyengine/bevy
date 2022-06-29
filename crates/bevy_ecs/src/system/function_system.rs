@@ -533,12 +533,13 @@ where
 }
 
 /// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
+#[derive(Default)]
 pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
 
 impl<T: 'static> SystemTypeIdLabel<T> {
     /// Constructs a new copy of the [`SystemTypeIdLabel`] for the type `T`
     ///
-    /// You can also construct this by using [`.as_system_label()](crate::system::AsSystemLabel) on a concrete instance
+    /// You can also construct this by using [`.as_system_label()`](crate::system::AsSystemLabel) on a concrete instance
     /// of your function type.
     pub fn new() -> Self {
         Self(PhantomData::default())

@@ -209,7 +209,7 @@ impl SystemRegistry {
     /// Runs the system at the supplied `index` a single time
     #[inline]
     fn run_system_at_index(&mut self, world: &mut World, index: usize) {
-        let ref mut stored_system = self.systems[index];
+        let stored_system = &mut self.systems[index];
 
         // Run the system
         stored_system.system.run((), world);
@@ -498,7 +498,7 @@ mod tests {
     #[allow(dead_code)]
     // The `Local` begins at the default value of 0
     fn fibonacci_counting(last_counter: Local<u8>, mut counter: ResMut<Counter>) {
-        counter.0 = *last_counter + counter.0;
+        counter.0 += *last_counter;
     }
 
     #[test]
