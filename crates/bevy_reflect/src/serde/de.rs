@@ -117,7 +117,7 @@ impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_map(UntypedReflectDeserializerVisitor {
+        deserializer.deserialize_any(UntypedReflectDeserializerVisitor {
             registry: self.registry,
         })
     }
