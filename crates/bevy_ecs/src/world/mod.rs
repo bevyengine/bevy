@@ -284,10 +284,24 @@ impl World {
     /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
     #[inline]
     pub fn inspect_entity(&mut self, entity: Entity) -> Vec<&ComponentInfo> {
-        let entity_ref = self.entity(entity);
-        self.components()
-            .iter()
-            .filter(|component| entity_ref.contains_id(component.id()))
+        let entity_location = self
+            .entities()
+            .get(entity)
+            .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity));
+
+        let archetype = self
+            .archetypes()
+            .get(entity_location.archetype_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Archetype {:?} does not exist",
+                    entity_location.archetype_id
+                )
+            });
+
+        archetype
+            .components()
+            .filter_map(|id| self.components().get_info(id))
             .collect()
     }
 
