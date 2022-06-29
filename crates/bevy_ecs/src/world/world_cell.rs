@@ -204,7 +204,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<T>()
@@ -239,7 +239,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<T>()
@@ -272,7 +272,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<T>()
             ),
@@ -307,7 +307,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<T>()
             ),
