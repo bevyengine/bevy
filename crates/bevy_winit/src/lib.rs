@@ -63,137 +63,143 @@ fn change_window(
     mut window_dpi_changed_events: EventWriter<WindowScaleFactorChanged>,
     mut window_close_events: EventWriter<WindowClosed>,
 ) {
-    let mut removed_windows = vec![];
-    for bevy_window in windows.iter_mut() {
-        let id = bevy_window.id();
-        for command in bevy_window.drain_commands() {
-            match command {
-                bevy_window::WindowCommand::SetWindowMode {
-                    mode,
-                    resolution: (width, height),
-                } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    match mode {
-                        bevy_window::WindowMode::BorderlessFullscreen => {
-                            window
-                                .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
-                        }
-                        bevy_window::WindowMode::Fullscreen => {
-                            window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(
-                                get_best_videomode(&window.current_monitor().unwrap()),
-                            )));
-                        }
-                        bevy_window::WindowMode::SizedFullscreen => window.set_fullscreen(Some(
-                            winit::window::Fullscreen::Exclusive(get_fitting_videomode(
-                                &window.current_monitor().unwrap(),
-                                width,
-                                height,
-                            )),
-                        )),
-                        bevy_window::WindowMode::Windowed => window.set_fullscreen(None),
-                    }
-                }
-                bevy_window::WindowCommand::SetTitle { title } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_title(&title);
-                }
-                bevy_window::WindowCommand::SetScaleFactor { scale_factor } => {
-                    window_dpi_changed_events.send(WindowScaleFactorChanged { id, scale_factor });
-                }
-                bevy_window::WindowCommand::SetResolution {
-                    logical_resolution: (width, height),
-                    scale_factor,
-                } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_inner_size(
-                        winit::dpi::LogicalSize::new(width, height)
-                            .to_physical::<f64>(scale_factor),
-                    );
-                }
-                bevy_window::WindowCommand::SetPresentMode { .. } => (),
-                bevy_window::WindowCommand::SetResizable { resizable } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_resizable(resizable);
-                }
-                bevy_window::WindowCommand::SetDecorations { decorations } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_decorations(decorations);
-                }
-                bevy_window::WindowCommand::SetCursorIcon { icon } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_cursor_icon(converters::convert_cursor_icon(icon));
-                }
-                bevy_window::WindowCommand::SetCursorLockMode { locked } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window
-                        .set_cursor_grab(locked)
-                        .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
-                }
-                bevy_window::WindowCommand::SetCursorVisibility { visible } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_cursor_visible(visible);
-                }
-                bevy_window::WindowCommand::SetCursorPosition { position } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
-                    window
-                        .set_cursor_position(winit::dpi::LogicalPosition::new(
-                            position.x,
-                            inner_size.height - position.y,
-                        ))
-                        .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
-                }
-                bevy_window::WindowCommand::SetMaximized { maximized } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_maximized(maximized);
-                }
-                bevy_window::WindowCommand::SetMinimized { minimized } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_minimized(minimized);
-                }
-                bevy_window::WindowCommand::SetPosition { position } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_outer_position(PhysicalPosition {
-                        x: position[0],
-                        y: position[1],
-                    });
-                }
-                bevy_window::WindowCommand::SetResizeConstraints { resize_constraints } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    let constraints = resize_constraints.check_constraints();
-                    let min_inner_size = LogicalSize {
-                        width: constraints.min_width,
-                        height: constraints.min_height,
-                    };
-                    let max_inner_size = LogicalSize {
-                        width: constraints.max_width,
-                        height: constraints.max_height,
-                    };
+    winit_windows.get_mut(|winit_windows| {
+        let mut removed_windows = vec![];
+        for bevy_window in windows.iter_mut() {
+            let id = bevy_window.id();
+            for command in bevy_window.drain_commands() {
+                match command {
+                    bevy_window::WindowCommand::SetWindowMode {
+                        mode,
+                        resolution: (width, height),
+                    } => {
+                        let window = winit_windows.get_window(id).unwrap();
 
-                    window.set_min_inner_size(Some(min_inner_size));
-                    if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                        window.set_max_inner_size(Some(max_inner_size));
+                        match mode {
+                            bevy_window::WindowMode::BorderlessFullscreen => {
+                                window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(
+                                    None,
+                                )));
+                            }
+                            bevy_window::WindowMode::Fullscreen => {
+                                window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(
+                                    get_best_videomode(&window.current_monitor().unwrap()),
+                                )));
+                            }
+                            bevy_window::WindowMode::SizedFullscreen => window.set_fullscreen(
+                                Some(winit::window::Fullscreen::Exclusive(get_fitting_videomode(
+                                    &window.current_monitor().unwrap(),
+                                    width,
+                                    height,
+                                ))),
+                            ),
+                            bevy_window::WindowMode::Windowed => window.set_fullscreen(None),
+                        }
                     }
-                }
-                bevy_window::WindowCommand::Close => {
-                    // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
-                    // Add the removal requests to a queue to solve this
-                    removed_windows.push(id);
-                    // No need to run any further commands - this drops the rest of the commands, although the `bevy_window::Window` will be dropped later anyway
-                    break;
+                    bevy_window::WindowCommand::SetTitle { title } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_title(&title);
+                    }
+                    bevy_window::WindowCommand::SetScaleFactor { scale_factor } => {
+                        window_dpi_changed_events
+                            .send(WindowScaleFactorChanged { id, scale_factor });
+                    }
+                    bevy_window::WindowCommand::SetResolution {
+                        logical_resolution: (width, height),
+                        scale_factor,
+                    } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_inner_size(
+                            winit::dpi::LogicalSize::new(width, height)
+                                .to_physical::<f64>(scale_factor),
+                        );
+                    }
+                    bevy_window::WindowCommand::SetPresentMode { .. } => (),
+                    bevy_window::WindowCommand::SetResizable { resizable } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_resizable(resizable);
+                    }
+                    bevy_window::WindowCommand::SetDecorations { decorations } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_decorations(decorations);
+                    }
+                    bevy_window::WindowCommand::SetCursorIcon { icon } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_cursor_icon(converters::convert_cursor_icon(icon));
+                    }
+                    bevy_window::WindowCommand::SetCursorLockMode { locked } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window
+                            .set_cursor_grab(locked)
+                            .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
+                    }
+                    bevy_window::WindowCommand::SetCursorVisibility { visible } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_cursor_visible(visible);
+                    }
+                    bevy_window::WindowCommand::SetCursorPosition { position } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        let inner_size =
+                            window.inner_size().to_logical::<f32>(window.scale_factor());
+                        window
+                            .set_cursor_position(winit::dpi::LogicalPosition::new(
+                                position.x,
+                                inner_size.height - position.y,
+                            ))
+                            .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
+                    }
+                    bevy_window::WindowCommand::SetMaximized { maximized } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_maximized(maximized);
+                    }
+                    bevy_window::WindowCommand::SetMinimized { minimized } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_minimized(minimized);
+                    }
+                    bevy_window::WindowCommand::SetPosition { position } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_outer_position(PhysicalPosition {
+                            x: position[0],
+                            y: position[1],
+                        });
+                    }
+                    bevy_window::WindowCommand::SetResizeConstraints { resize_constraints } => {
+                        let window = winit_windows.get_window(id).unwrap();
+                        let constraints = resize_constraints.check_constraints();
+                        let min_inner_size = LogicalSize {
+                            width: constraints.min_width,
+                            height: constraints.min_height,
+                        };
+                        let max_inner_size = LogicalSize {
+                            width: constraints.max_width,
+                            height: constraints.max_height,
+                        };
+
+                        window.set_min_inner_size(Some(min_inner_size));
+                        if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
+                            window.set_max_inner_size(Some(max_inner_size));
+                        }
+                    }
+                    bevy_window::WindowCommand::Close => {
+                        // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
+                        // Add the removal requests to a queue to solve this
+                        removed_windows.push(id);
+                        // No need to run any further commands - this drops the rest of the commands, although the `bevy_window::Window` will be dropped later anyway
+                        break;
+                    }
                 }
             }
         }
-    }
-    if !removed_windows.is_empty() {
-        for id in removed_windows {
-            // Close the OS window. (The `Drop` impl actually closes the window)
-            let _ = winit_windows.remove_window(id);
-            // Clean up our own data structures
-            windows.remove(id);
-            window_close_events.send(WindowClosed { id });
+        if !removed_windows.is_empty() {
+            for id in removed_windows {
+                // Close the OS window. (The `Drop` impl actually closes the window)
+                let _ = winit_windows.remove_window(id);
+                // Clean up our own data structures
+                windows.remove(id);
+                window_close_events.send(WindowClosed { id });
+            }
         }
-    }
+    });
 }
 
 fn run<F>(event_loop: EventLoop<()>, event_handler: F) -> !
@@ -285,7 +291,8 @@ struct WinitCreateWindowReader(ManualEventReader<CreateWindow>);
 pub fn winit_runner_with(mut app: App) {
     let mut event_loop = app
         .world
-        .remove_non_send_resource::<EventLoop<()>>()
+        .non_send_resource_mut::<EventLoop<()>>()
+        .remove()
         .unwrap();
     let mut create_window_event_reader = app
         .world
@@ -333,18 +340,19 @@ pub fn winit_runner_with(mut app: App) {
                 ..
             } => {
                 let world = app.world.cell();
-                let winit_windows = world.non_send_resource_mut::<WinitWindows>();
+                let mut winit_windows = world.non_send_resource_mut::<WinitWindows>();
+                let window_id = if let Some(window_id) = winit_windows
+                    .get_mut(|winit_windows| winit_windows.get_window_id(winit_window_id))
+                {
+                    window_id
+                } else {
+                    warn!(
+                        "Skipped event for unknown winit Window Id {:?}",
+                        winit_window_id
+                    );
+                    return;
+                };
                 let mut windows = world.resource_mut::<Windows>();
-                let window_id =
-                    if let Some(window_id) = winit_windows.get_window_id(winit_window_id) {
-                        window_id
-                    } else {
-                        warn!(
-                            "Skipped event for unknown winit Window Id {:?}",
-                            winit_window_id
-                        );
-                        return;
-                    };
 
                 let window = if let Some(window) = windows.get_mut(window_id) {
                     window
@@ -377,8 +385,11 @@ pub fn winit_runner_with(mut app: App) {
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let mut cursor_moved_events = world.resource_mut::<Events<CursorMoved>>();
-                        let winit_window = winit_windows.get_window(window_id).unwrap();
-                        let inner_size = winit_window.inner_size();
+
+                        let inner_size = winit_windows.get(|winit_windows| {
+                            let winit_window = winit_windows.get_window(window_id).unwrap();
+                            winit_window.inner_size()
+                        });
 
                         // move origin to bottom left
                         let y_position = inner_size.height as f64 - position.y;
@@ -640,11 +651,13 @@ fn handle_create_window_events(
     #[cfg(not(any(target_os = "windows", target_feature = "x11")))]
     let mut window_resized_events = world.resource_mut::<Events<WindowResized>>();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
-        let window = winit_windows.create_window(
-            event_loop,
-            create_window_event.id,
-            &create_window_event.descriptor,
-        );
+        let window = winit_windows.get_mut(|winit_windows| {
+            winit_windows.create_window(
+                event_loop,
+                create_window_event.id,
+                &create_window_event.descriptor,
+            )
+        });
         // This event is already sent on windows, x11, and xwayland.
         // TODO: we aren't yet sure about native wayland, so we might be able to exclude it,
         // but sending a duplicate event isn't problematic, as windows already does this.
