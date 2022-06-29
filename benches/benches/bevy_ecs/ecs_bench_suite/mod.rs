@@ -5,7 +5,9 @@ mod add_remove_big_table;
 mod add_remove_sparse_set;
 mod add_remove_table;
 mod frag_iter;
+mod frag_iter_wide;
 mod frag_iter_foreach;
+mod frag_iter_foreach_wide;
 mod get_component;
 mod get_component_system;
 mod heavy_compute;
@@ -13,12 +15,18 @@ mod schedule;
 mod simple_insert;
 mod simple_insert_unbatched;
 mod simple_iter;
+mod simple_iter_wide;
 mod simple_iter_foreach;
+mod simple_iter_foreach_wide;
 mod simple_iter_sparse;
+mod simple_iter_sparse_wide;
 mod simple_iter_sparse_foreach;
+mod simple_iter_sparse_foreach_wide;
 mod simple_iter_system;
 mod sparse_frag_iter;
+mod sparse_frag_iter_wide;
 mod sparse_frag_iter_foreach;
+mod sparse_frag_iter_foreach_wide;
 
 fn bench_simple_insert(c: &mut Criterion) {
     let mut group = c.benchmark_group("simple_insert");
@@ -43,6 +51,10 @@ fn bench_simple_iter(c: &mut Criterion) {
         let mut bench = simple_iter::Benchmark::new();
         b.iter(move || bench.run());
     });
+    group.bench_function("wide", |b| {
+        let mut bench = simple_iter_wide::Benchmark::new();
+        b.iter(move || bench.run());
+    });
     group.bench_function("system", |b| {
         let mut bench = simple_iter_system::Benchmark::new();
         b.iter(move || bench.run());
@@ -51,12 +63,24 @@ fn bench_simple_iter(c: &mut Criterion) {
         let mut bench = simple_iter_sparse::Benchmark::new();
         b.iter(move || bench.run());
     });
+    group.bench_function("sparse_wide", |b| {
+        let mut bench = simple_iter_sparse_wide::Benchmark::new();
+        b.iter(move || bench.run());
+    });
     group.bench_function("foreach", |b| {
         let mut bench = simple_iter_foreach::Benchmark::new();
         b.iter(move || bench.run());
     });
+    group.bench_function("foreach_wide", |b| {
+        let mut bench = simple_iter_foreach_wide::Benchmark::new();
+        b.iter(move || bench.run());
+    });
     group.bench_function("sparse_foreach", |b| {
         let mut bench = simple_iter_sparse_foreach::Benchmark::new();
+        b.iter(move || bench.run());
+    });
+    group.bench_function("sparse_foreach_wide", |b| {
+        let mut bench = simple_iter_sparse_foreach_wide::Benchmark::new();
         b.iter(move || bench.run());
     });
     group.finish();
@@ -70,8 +94,16 @@ fn bench_frag_iter_bc(c: &mut Criterion) {
         let mut bench = frag_iter::Benchmark::new();
         b.iter(move || bench.run());
     });
+    group.bench_function("wide", |b| {
+        let mut bench = frag_iter_wide::Benchmark::new();
+        b.iter(move || bench.run());
+    });
     group.bench_function("foreach", |b| {
         let mut bench = frag_iter_foreach::Benchmark::new();
+        b.iter(move || bench.run());
+    });
+    group.bench_function("foreach_wide", |b| {
+        let mut bench = frag_iter_foreach_wide::Benchmark::new();
         b.iter(move || bench.run());
     });
     group.finish();
@@ -85,8 +117,16 @@ fn bench_sparse_frag_iter(c: &mut Criterion) {
         let mut bench = sparse_frag_iter::Benchmark::new();
         b.iter(move || bench.run());
     });
+    group.bench_function("wide", |b| {
+        let mut bench = sparse_frag_iter_wide::Benchmark::new();
+        b.iter(move || bench.run());
+    });
     group.bench_function("foreach", |b| {
         let mut bench = sparse_frag_iter_foreach::Benchmark::new();
+        b.iter(move || bench.run());
+    });
+    group.bench_function("foreach_wide", |b| {
+        let mut bench = sparse_frag_iter_foreach_wide::Benchmark::new();
         b.iter(move || bench.run());
     });
     group.finish();
