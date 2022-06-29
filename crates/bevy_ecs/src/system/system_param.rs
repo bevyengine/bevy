@@ -899,7 +899,6 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        world.validate_non_send_access::<T>();
         let column = world
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
@@ -947,7 +946,6 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        world.validate_non_send_access::<T>();
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| NonSend {
@@ -1013,7 +1011,6 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        world.validate_non_send_access::<T>();
         let column = world
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
@@ -1062,7 +1059,6 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        world.validate_non_send_access::<T>();
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| NonSendMut {

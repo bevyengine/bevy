@@ -4,6 +4,7 @@ use thread_local_object::ThreadLocal as ThreadLocalObject;
 // This is a thin wrapper around thread local to make some methods take &mut self.
 // This makes accessing a &mut T require a NonSendMut from a system
 // The underlying implementation panics if there are violations to rusts mutability rules.
+// Used by non-send resources to make sending World safe.
 pub struct ThreadLocalResource<T: 'static>(ThreadLocalObject<T>);
 
 impl<T: 'static> ThreadLocalResource<T> {

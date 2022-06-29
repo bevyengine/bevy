@@ -1204,7 +1204,7 @@ mod tests {
         let mut world = World::default();
         world.insert_non_send_resource(0i32);
         std::thread::spawn(move || {
-            let _ = world.non_send_resource_mut::<i32>();
+            world.non_send_resource_mut::<i32>().get(|_| {});
         })
         .join()
         .unwrap();
