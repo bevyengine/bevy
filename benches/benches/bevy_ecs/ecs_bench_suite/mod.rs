@@ -125,7 +125,7 @@ fn bench_sparse_frag_iter(c: &mut Criterion) {
         let mut bench = sparse_frag_iter_foreach::Benchmark::new();
         b.iter(move || bench.run());
     });
-    group.bench_function("foreach", |b| {
+    group.bench_function("foreach_wide", |b| {
         let mut bench = sparse_frag_iter_foreach_wide::Benchmark::new();
         b.iter(move || bench.run());
     });
