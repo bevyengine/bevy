@@ -283,7 +283,7 @@ impl World {
 
     /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
     #[inline]
-    pub fn inspect_entity(&mut self, entity: Entity) -> Vec<&ComponentInfo> {
+    pub fn inspect_entity(&self, entity: Entity) -> Vec<&ComponentInfo> {
         let entity_location = self
             .entities()
             .get(entity)
