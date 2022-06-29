@@ -34,8 +34,8 @@ pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize, Struct,
-        TupleStruct,
+        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
+        ReflectSerialize, Struct, TupleStruct,
     };
 }
 
@@ -486,6 +486,42 @@ mod tests {
     }
 
     #[test]
+    fn reflect_downcast() {
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Bar {
+            y: u8,
+            z: ::glam::Mat4,
+        }
+
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Foo {
+            x: i32,
+            s: String,
+            b: Bar,
+            u: usize,
+            t: (Vec3, String),
+        }
+
+        let foo = Foo {
+            x: 123,
+            s: "String".to_string(),
+            b: Bar {
+                y: 255,
+                z: ::glam::Mat4::from_cols_array(&[
+                    0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
+                    15.0,
+                ]),
+            },
+            u: 1111111111111,
+            t: (Vec3::new(3.0, 2.0, 1.0), "Tuple String".to_string()),
+        };
+
+        let foo2: Box<dyn Reflect> = Box::new(foo.clone());
+
+        assert_eq!(foo, *foo2.downcast::<Foo>().unwrap());
+    }
+
+    #[test]
     fn reflect_take() {
         #[derive(Reflect, Debug, PartialEq)]
         #[reflect(PartialEq)]
@@ -871,28 +907,22 @@ bevy_reflect::tests::should_reflect_debug::Test {
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
-        use ::serde::Serialize;
 
         #[test]
         fn vec3_serialization() {
             let v = vec3(12.0, 3.0, -6.9);
 
             let mut registry = TypeRegistry::default();
-            registry.add_registration(Vec3::get_type_registration());
+            registry.register::<f32>();
+            registry.register::<Vec3>();
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let mut dest = vec![];
-            let mut serializer = ron::ser::Serializer::new(&mut dest, None, false)
-                .expect("Failed to acquire serializer");
-
-            ser.serialize(&mut serializer).expect("Failed to serialize");
-
-            let result = String::from_utf8(dest).expect("Failed to convert to string");
+            let result = ron::to_string(&ser).expect("Failed to serialize to string");
 
             assert_eq!(
                 result,
-                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#
+                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
             );
         }
 

@@ -22,3 +22,19 @@ let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 128u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 256u;
 let STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP: u32       = 512u;
 let STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y: u32              = 1024u;
+
+// Creates a StandardMaterial with default values
+fn standard_material_new() -> StandardMaterial {
+    var material: StandardMaterial;
+
+    // NOTE: Keep in-sync with src/pbr_material.rs!
+    material.base_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    material.emissive = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    material.perceptual_roughness = 0.089;
+    material.metallic = 0.01;
+    material.reflectance = 0.5;
+    material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
+    material.alpha_cutoff = 0.5;
+
+    return material;
+}

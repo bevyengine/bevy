@@ -177,16 +177,51 @@ impl World {
         WorldCell::new(self)
     }
 
+    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn init_component<T: Component>(&mut self) -> ComponentId {
         self.components.init_component::<T>(&mut self.storages)
     }
 
+    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// This method differs from [`World::init_component`] in that it uses a [`ComponentDescriptor`]
+    /// to initialize the new component type instead of statically available type information. This
+    /// enables the dynamic initialization of new component definitions at runtime for advanced use cases.
+    ///
+    /// While the option to initialize a component from a descriptor is useful in type-erased
+    /// contexts, the standard `World::init_component` function should always be used instead
+    /// when type information is available at compile time.
     pub fn init_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components
             .init_component_with_descriptor(&mut self.storages, descriptor)
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `World` instance
+    /// it was retrieved from and should not be used with another `World` instance.
+    ///
+    /// Returns [`None`] if the `Component` type has not yet been initialized within
+    /// the `World` using [`World::init_component`].
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let component_a_id = world.init_component::<ComponentA>();
+    ///
+    /// assert_eq!(component_a_id, world.component_id::<ComponentA>().unwrap())
+    /// ```
+    #[inline]
+    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
+        self.components.component_id::<T>()
     }
 
     /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
@@ -756,7 +791,7 @@ impl World {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<R>()
@@ -780,7 +815,7 @@ impl World {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<R>()
@@ -842,7 +877,7 @@ impl World {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             ),
@@ -862,7 +897,7 @@ impl World {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             ),
@@ -1196,7 +1231,7 @@ impl World {
             std::ptr::copy_nonoverlapping::<u8>(
                 value.as_ptr(),
                 ptr.as_ptr(),
-                column.data.layout().size(),
+                column.item_layout().size(),
             );
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
