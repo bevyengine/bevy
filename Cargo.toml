@@ -638,13 +638,19 @@ wasm = true
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 
+[package.metadata.example.hot_asset_reloading]
+name = "Hot Reloading of Assets"
+description = "Demonstrates automatic reloading of assets when modified on disk"
+category = "Assets"
+wasm = true
+
 [[example]]
 name = "modify_sprite"
 path = "examples/asset/modify_sprite.rs"
 
-[package.metadata.example.hot_asset_reloading]
-name = "Hot Reloading of Assets"
-description = "Demonstrates automatic reloading of assets when modified on disk"
+[package.metadata.example.modify_sprite]
+name = "Modify Sprite"
+description = "Demonstrates changing sprite texture & color at runtime"
 category = "Assets"
 wasm = true
 
