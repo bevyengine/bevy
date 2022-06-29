@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Setup our Sprite with the first texture
     commands
         .spawn_bundle(SpriteBundle {
-            texture: first_texture.clone(),
+            texture: first_texture,
             transform: Transform {
                 translation: Vec3::new(1., 1., 1.),
                 scale: Vec3::ONE,
