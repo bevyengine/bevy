@@ -10,19 +10,10 @@ pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     );
 
     TokenStream::from(quote! {
-        #[no_mangle]
         #[cfg(target_os = "android")]
-        unsafe extern "C" fn ANativeActivity_onCreate(
-            activity: *mut std::os::raw::c_void,
-            saved_state: *mut std::os::raw::c_void,
-            saved_state_size: usize,
-        ) {
-            bevy::ndk_glue::init(
-                activity as _,
-                saved_state as _,
-                saved_state_size as _,
-                main,
-            );
+        #[cfg_attr(target_os = "android", bevy::ndk_glue::main(backtrace = "on", ndk_glue = "bevy::ndk_glue"))]
+        fn android_main() {
+            main()
         }
 
         #[no_mangle]
