@@ -1,8 +1,42 @@
+use std::marker::PhantomData;
+
 use super::DepthCalculation;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_app::{App, CoreStage, Plugin, StartupStage};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{
+    std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
+};
+use bevy_window::ModifiesWindows;
 use serde::{Deserialize, Serialize};
+
+/// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
+pub struct CameraProjectionPlugin<T: CameraProjection>(PhantomData<T>);
+
+impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct CameraUpdateSystem;
+
+impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
+    fn build(&self, app: &mut App) {
+        app.register_type::<T>()
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                crate::camera::camera_system::<T>,
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                crate::camera::camera_system::<T>
+                    .label(CameraUpdateSystem)
+                    .after(ModifiesWindows),
+            );
+    }
+}
 
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
@@ -11,8 +45,64 @@ pub trait CameraProjection {
     fn far(&self) -> f32;
 }
 
+/// A configurable [`CameraProjection`] that can select its projection type at runtime.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
+pub enum Projection {
+    Perspective(PerspectiveProjection),
+    Orthographic(OrthographicProjection),
+}
+
+impl From<PerspectiveProjection> for Projection {
+    fn from(p: PerspectiveProjection) -> Self {
+        Self::Perspective(p)
+    }
+}
+
+impl From<OrthographicProjection> for Projection {
+    fn from(p: OrthographicProjection) -> Self {
+        Self::Orthographic(p)
+    }
+}
+
+impl CameraProjection for Projection {
+    fn get_projection_matrix(&self) -> Mat4 {
+        match self {
+            Projection::Perspective(projection) => projection.get_projection_matrix(),
+            Projection::Orthographic(projection) => projection.get_projection_matrix(),
+        }
+    }
+
+    fn update(&mut self, width: f32, height: f32) {
+        match self {
+            Projection::Perspective(projection) => projection.update(width, height),
+            Projection::Orthographic(projection) => projection.update(width, height),
+        }
+    }
+
+    fn depth_calculation(&self) -> DepthCalculation {
+        match self {
+            Projection::Perspective(projection) => projection.depth_calculation(),
+            Projection::Orthographic(projection) => projection.depth_calculation(),
+        }
+    }
+
+    fn far(&self) -> f32 {
+        match self {
+            Projection::Perspective(projection) => projection.far(),
+            Projection::Orthographic(projection) => projection.far(),
+        }
+    }
+}
+
+impl Default for Projection {
+    fn default() -> Self {
+        Projection::Perspective(Default::default())
+    }
+}
+
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
 pub struct PerspectiveProjection {
     pub fov: f32,
     pub aspect_ratio: f32,
@@ -65,14 +155,19 @@ pub enum ScalingMode {
     None,
     /// Match the window size. 1 world unit = 1 pixel.
     WindowSize,
+    /// Use minimal possible viewport size while keeping the aspect ratio.
+    /// Arguments are in world units.
+    Auto { min_width: f32, min_height: f32 },
     /// Keep vertical axis constant; resize horizontal with aspect ratio.
-    FixedVertical,
+    /// The argument is the desired height of the viewport in world units.
+    FixedVertical(f32),
     /// Keep horizontal axis constant; resize vertical with aspect ratio.
-    FixedHorizontal,
+    /// The argument is the desired width of the viewport in world units.
+    FixedHorizontal(f32),
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct OrthographicProjection {
     pub left: f32,
     pub right: f32,
@@ -101,50 +196,51 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        match (&self.scaling_mode, &self.window_origin) {
-            (ScalingMode::WindowSize, WindowOrigin::Center) => {
-                let half_width = width / 2.0;
-                let half_height = height / 2.0;
+        let (viewport_width, viewport_height) = match self.scaling_mode {
+            ScalingMode::WindowSize => (width, height),
+            ScalingMode::Auto {
+                min_width,
+                min_height,
+            } => {
+                if width * min_height > min_width * height {
+                    (width * min_height / height, min_height)
+                } else {
+                    (min_width, height * min_width / width)
+                }
+            }
+            ScalingMode::FixedVertical(viewport_height) => {
+                (width * viewport_height / height, viewport_height)
+            }
+            ScalingMode::FixedHorizontal(viewport_width) => {
+                (viewport_width, height * viewport_width / width)
+            }
+            ScalingMode::None => return,
+        };
+
+        match self.window_origin {
+            WindowOrigin::Center => {
+                let half_width = viewport_width / 2.0;
+                let half_height = viewport_height / 2.0;
                 self.left = -half_width;
+                self.bottom = -half_height;
                 self.right = half_width;
                 self.top = half_height;
-                self.bottom = -half_height;
+
+                if let ScalingMode::WindowSize = self.scaling_mode {
+                    if self.scale == 1.0 {
+                        self.left = self.left.floor();
+                        self.bottom = self.bottom.floor();
+                        self.right = self.right.floor();
+                        self.top = self.top.floor();
+                    }
+                }
             }
-            (ScalingMode::WindowSize, WindowOrigin::BottomLeft) => {
+            WindowOrigin::BottomLeft => {
                 self.left = 0.0;
-                self.right = width;
-                self.top = height;
                 self.bottom = 0.0;
+                self.right = viewport_width;
+                self.top = viewport_height;
             }
-            (ScalingMode::FixedVertical, WindowOrigin::Center) => {
-                let aspect_ratio = width / height;
-                self.left = -aspect_ratio;
-                self.right = aspect_ratio;
-                self.top = 1.0;
-                self.bottom = -1.0;
-            }
-            (ScalingMode::FixedVertical, WindowOrigin::BottomLeft) => {
-                let aspect_ratio = width / height;
-                self.left = 0.0;
-                self.right = aspect_ratio;
-                self.top = 1.0;
-                self.bottom = 0.0;
-            }
-            (ScalingMode::FixedHorizontal, WindowOrigin::Center) => {
-                let aspect_ratio = height / width;
-                self.left = -1.0;
-                self.right = 1.0;
-                self.top = aspect_ratio;
-                self.bottom = -aspect_ratio;
-            }
-            (ScalingMode::FixedHorizontal, WindowOrigin::BottomLeft) => {
-                let aspect_ratio = height / width;
-                self.left = 0.0;
-                self.right = 1.0;
-                self.top = aspect_ratio;
-                self.bottom = 0.0;
-            }
-            (ScalingMode::None, _) => {}
         }
     }
 

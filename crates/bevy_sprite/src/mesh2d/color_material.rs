@@ -7,10 +7,7 @@ use bevy_render::{
     color::Color,
     prelude::Shader,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{
-        std140::{AsStd140, Std140},
-        *,
-    },
+    render_resource::*,
     renderer::RenderDevice,
     texture::Image,
 };
@@ -92,7 +89,7 @@ bitflags::bitflags! {
 }
 
 /// The GPU representation of the uniform data of a [`ColorMaterial`].
-#[derive(Clone, Default, AsStd140)]
+#[derive(Clone, Default, ShaderType)]
 pub struct ColorMaterialUniformData {
     pub color: Vec4,
     pub flags: u32,
@@ -145,12 +142,15 @@ impl RenderAsset for ColorMaterial {
             color: material.color.as_linear_rgba_f32().into(),
             flags: flags.bits(),
         };
-        let value_std140 = value.as_std140();
+
+        let byte_buffer = [0u8; ColorMaterialUniformData::SIZE.get() as usize];
+        let mut buffer = encase::UniformBuffer::new(byte_buffer);
+        buffer.write(&value).unwrap();
 
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("color_material_uniform_buffer"),
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            contents: value_std140.as_bytes(),
+            contents: buffer.as_ref(),
         });
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
@@ -201,9 +201,7 @@ impl Material2d for ColorMaterial {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(
-                            ColorMaterialUniformData::std140_size_static() as u64,
-                        ),
+                        min_binding_size: Some(ColorMaterialUniformData::min_size()),
                     },
                     count: None,
                 },

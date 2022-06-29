@@ -18,7 +18,7 @@ pub mod asset {
 }
 
 pub mod core {
-    //! Contains core plugins and utilities for time.
+    //! Contains core plugins.
     pub use bevy_core::*;
 }
 
@@ -47,6 +47,11 @@ pub mod math {
     pub use bevy_math::*;
 }
 
+pub mod ptr {
+    //! Utilities for working with untyped pointers in a more safe way.
+    pub use bevy_ptr::*;
+}
+
 pub mod reflect {
     // TODO: remove these renames once TypeRegistryArc is no longer required
     //! Type reflection used for dynamically interacting with rust types.
@@ -63,6 +68,11 @@ pub mod scene {
 pub mod tasks {
     //! Pools for async, IO, and compute tasks.
     pub use bevy_tasks::*;
+}
+
+pub mod time {
+    //! Contains time utilities.
+    pub use bevy_time::*;
 }
 
 pub mod hierarchy {

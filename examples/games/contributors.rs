@@ -1,3 +1,5 @@
+//! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
+
 use bevy::{prelude::*, utils::HashSet};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
@@ -130,8 +132,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
 
     commands
         .spawn()

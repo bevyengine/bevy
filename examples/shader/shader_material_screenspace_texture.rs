@@ -1,3 +1,5 @@
+//! A shader that samples a texture with view-independent UV coordinates.
+
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     pbr::MaterialPipeline,
@@ -42,10 +44,6 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(0.0, 2.5, 1.0).looking_at(Vec3::default(), Vec3::Y),
-        ..default()
-    });
 
     commands.spawn().insert_bundle(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -60,7 +58,7 @@ fn setup(
 
     // camera
     commands
-        .spawn_bundle(PerspectiveCameraBundle {
+        .spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(4.0, 2.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })

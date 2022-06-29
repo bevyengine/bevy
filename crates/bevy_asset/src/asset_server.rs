@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_log::warn;
-use bevy_tasks::TaskPool;
+use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
@@ -56,28 +56,20 @@ pub struct AssetServerInternal {
     loaders: RwLock<Vec<Arc<dyn AssetLoader>>>,
     extension_to_loader_index: RwLock<HashMap<String, usize>>,
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
-    task_pool: TaskPool,
 }
 
 /// Loads assets from the filesystem on background threads
+#[derive(Clone)]
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
 }
 
-impl Clone for AssetServer {
-    fn clone(&self) -> Self {
-        Self {
-            server: self.server.clone(),
-        }
-    }
-}
-
 impl AssetServer {
-    pub fn new<T: AssetIo>(source_io: T, task_pool: TaskPool) -> Self {
-        Self::with_boxed_io(Box::new(source_io), task_pool)
+    pub fn new<T: AssetIo>(source_io: T) -> Self {
+        Self::with_boxed_io(Box::new(source_io))
     }
 
-    pub fn with_boxed_io(asset_io: Box<dyn AssetIo>, task_pool: TaskPool) -> Self {
+    pub fn with_boxed_io(asset_io: Box<dyn AssetIo>) -> Self {
         AssetServer {
             server: Arc::new(AssetServerInternal {
                 loaders: Default::default(),
@@ -86,7 +78,6 @@ impl AssetServer {
                 asset_ref_counter: Default::default(),
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
-                task_pool,
                 asset_io,
             }),
         }
@@ -131,7 +122,7 @@ impl AssetServer {
     /// Enable watching of the filesystem for changes, if support is available, starting from after
     /// the point of calling this function.
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
-        self.server.asset_io.watch_for_changes()?;
+        self.asset_io().watch_for_changes()?;
         Ok(())
     }
 
@@ -308,7 +299,7 @@ impl AssetServer {
         };
 
         // load the asset bytes
-        let bytes = match self.server.asset_io.load_path(asset_path.path()).await {
+        let bytes = match self.asset_io().load_path(asset_path.path()).await {
             Ok(bytes) => bytes,
             Err(err) => {
                 set_asset_failed();
@@ -320,9 +311,8 @@ impl AssetServer {
         let mut load_context = LoadContext::new(
             asset_path.path(),
             &self.server.asset_ref_counter.channel,
-            &*self.server.asset_io,
+            self.asset_io(),
             version,
-            &self.server.task_pool,
         );
 
         if let Err(err) = asset_loader
@@ -368,8 +358,7 @@ impl AssetServer {
             }
         }
 
-        self.server
-            .asset_io
+        self.asset_io()
             .watch_path_for_changes(asset_path.path())
             .unwrap();
         self.create_assets_in_load_context(&mut load_context);
@@ -382,11 +371,18 @@ impl AssetServer {
         self.get_handle_untyped(handle_id)
     }
 
+    /// Force an [`Asset`] to be reloaded.
+    ///
+    /// This is useful for custom hot-reloading or for supporting `watch_for_changes`
+    /// in custom [`AssetIo`] implementations.
+    pub fn reload_asset<'a, P: Into<AssetPath<'a>>>(&self, path: P) {
+        self.load_untracked(path.into(), true);
+    }
+
     pub(crate) fn load_untracked(&self, asset_path: AssetPath<'_>, force: bool) -> HandleId {
         let server = self.clone();
         let owned_path = asset_path.to_owned();
-        self.server
-            .task_pool
+        IoTaskPool::get()
             .spawn(async move {
                 if let Err(err) = server.load_async(owned_path, force).await {
                     warn!("{}", err);
@@ -410,15 +406,15 @@ impl AssetServer {
         path: P,
     ) -> Result<Vec<HandleUntyped>, AssetServerError> {
         let path = path.as_ref();
-        if !self.server.asset_io.is_directory(path) {
+        if !self.asset_io().is_dir(path) {
             return Err(AssetServerError::AssetFolderNotADirectory(
                 path.to_str().unwrap().to_string(),
             ));
         }
 
         let mut handles = Vec::new();
-        for child_path in self.server.asset_io.read_directory(path.as_ref())? {
-            if self.server.asset_io.is_directory(&child_path) {
+        for child_path in self.asset_io().read_directory(path.as_ref())? {
+            if self.asset_io().is_dir(&child_path) {
                 handles.extend(self.load_folder(&child_path)?);
             } else {
                 if self.get_path_asset_loader(&child_path).is_err() {
@@ -628,19 +624,8 @@ mod test {
 
     fn setup(asset_path: impl AsRef<Path>) -> AssetServer {
         use crate::FileAssetIo;
-
-        AssetServer {
-            server: Arc::new(AssetServerInternal {
-                loaders: Default::default(),
-                extension_to_loader_index: Default::default(),
-                asset_sources: Default::default(),
-                asset_ref_counter: Default::default(),
-                handle_to_path: Default::default(),
-                asset_lifecycles: Default::default(),
-                task_pool: Default::default(),
-                asset_io: Box::new(FileAssetIo::new(asset_path, false)),
-            }),
-        }
+        IoTaskPool::init(Default::default);
+        AssetServer::new(FileAssetIo::new(asset_path, false))
     }
 
     #[test]
@@ -800,8 +785,11 @@ mod test {
             asset_server.get_handle_untyped(id)
         }
 
-        fn get_asset(id: impl Into<HandleId>, world: &World) -> Option<&PngAsset> {
-            world.resource::<Assets<PngAsset>>().get(id.into())
+        fn get_asset<'world>(
+            id: &Handle<PngAsset>,
+            world: &'world World,
+        ) -> Option<&'world PngAsset> {
+            world.resource::<Assets<PngAsset>>().get(id)
         }
 
         fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
@@ -819,7 +807,7 @@ mod test {
         );
 
         // load the asset
-        let handle = load_asset(path.clone(), &app.world);
+        let handle = load_asset(path.clone(), &app.world).typed();
         let weak_handle = handle.clone_weak();
 
         // asset is loading
@@ -845,7 +833,7 @@ mod test {
         assert!(get_asset(&weak_handle, &app.world).is_none());
 
         // finally, reload the asset
-        let handle = load_asset(path.clone(), &app.world);
+        let handle = load_asset(path.clone(), &app.world).typed();
         assert_eq!(LoadState::Loading, get_load_state(&handle, &app.world));
         app.update();
         assert_eq!(LoadState::Loaded, get_load_state(&handle, &app.world));
