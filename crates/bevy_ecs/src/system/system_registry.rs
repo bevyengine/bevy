@@ -19,9 +19,9 @@ use crate::world::{Mut, World};
 ///
 /// # Limitations
 ///
-///  - stored systems cannot be chained: they can neither have an [`In`](crate::system::In) nor return any values.
-///  - stored systems cannot recurse: they cannot run other systems via the [`SystemRegistry`] methods on `World` or `Commands`.
-///  - exclusive systems cannot be used.
+///  - stored systems cannot be chained: they can neither have an [`In`](crate::system::In) nor return any values
+///  - stored systems cannot recurse: they cannot run other systems via the [`SystemRegistry`] methods on `World` or `Commands`
+///  - exclusive systems cannot be used
 ///
 /// # Examples
 ///
@@ -73,13 +73,15 @@ use crate::world::{Mut, World};
 /// world.run_system(assert_7_spawned);
 /// ```
 ///
+/// Systems can also be manually registered using [`SystemLabel`] types
+/// and then run via those labels, enabling more sophisticated control flows.
+///
 /// ```rust
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::SystemRegistry;
 ///
 /// let mut world = World::new();
-/// // The `SystemRegistry` type is automatically included as a resource in every World
-/// let mut system_registry: Mut<SystemRegistry> = world.resource_mut();
+/// let mut system_registry = SystemRegistry::default();
 ///
 /// #[derive(SystemLabel, Debug, PartialEq, Eq, Hash, Clone)]
 /// enum ManualSystems {
@@ -111,7 +113,7 @@ use crate::world::{Mut, World};
 /// // All systems registered under that label will be run, in registration order
 /// system_registry.run_systems_by_label(&mut world, ManualSystems::Hello);
 ///
-/// // All methods on this type are also exposed on the `World` for convenience
+/// // The methods on this type are also exposed on the `World` for convenience
 /// world.register_system(goodbye, ManualSystems::Goodbye);
 /// world.run_systems_by_label(ManualSystems::Goodbye);
 /// ```
@@ -129,10 +131,13 @@ struct StoredSystem {
 impl SystemRegistry {
     /// Registers a system in the [`SystemRegistry`], so then it can be later run.
     ///
-    /// This method only needs to be called manually when using [`run_system_by_label`](SystemRegistry).
+    /// Ordinarily, systems are automatically registered when [`run_system`](SystemRegistry::run_system) is called.
+    /// However, manual registration allows you to provide one or more labels for the system.
     ///
-    /// If `labels` are provided, the system will be registered under those labels.
-    /// Otherwise, it will use the default labels for that system: typically its [`SystemTypeIdLabel`].
+    /// When [`run_systems_by_label`](SystemRegistry::run_systems_by_label) is called,
+    /// all registered systems that match that label will be evaluated.
+    ///
+    /// To provide multiple labels, use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
     pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static, L: SystemLabel>(
         &mut self,
@@ -143,12 +148,12 @@ impl SystemRegistry {
         let boxed_system: Box<dyn System<In = (), Out = ()>> =
             Box::new(IntoSystem::into_system(system));
 
-        self.register_boxed_system_by_labels(world, boxed_system, vec![Box::new(label)]);
+        self.register_boxed_system_with_labels(world, boxed_system, vec![Box::new(label)]);
     }
 
-    /// Register system a system with any number of [`SystemLabel`]
+    /// Register system a system with any number of [`SystemLabel`]s.
     ///
-    /// This allows the system to be run whenever any of its labels are run using `run_systems_by_label`.
+    /// This allows the system to be run whenever any of its labels are run using [`run_systems_by_label`](SystemRegistry::run_systems_by_label).
     pub fn register_system_with_labels<
         Params,
         S: IntoSystem<(), (), Params> + 'static,
@@ -171,11 +176,15 @@ impl SystemRegistry {
             })
             .collect();
 
-        self.register_boxed_system_by_labels(world, boxed_system, collected_labels);
+        self.register_boxed_system_with_labels(world, boxed_system, collected_labels);
     }
 
-    /// A more efficient but less ergonomic version of `register_system_with_labels`
-    pub fn register_boxed_system_by_labels(
+    /// A more exacting version of [`register_system_with_labels`](Self::register_system_with_labels).
+    ///
+    /// This can be useful when you have a boxed system or boxed labels,
+    /// as the corresponding traits are not implemented for boxed trait objects
+    /// to avoid indefinite nesting.
+    pub fn register_boxed_system_with_labels(
         &mut self,
         world: &mut World,
         mut boxed_system: Box<dyn System<In = (), Out = ()>>,
@@ -217,9 +226,9 @@ impl SystemRegistry {
         stored_system.system.apply_buffers(world);
     }
 
-    /// Returns true if at least one system in the [`SystemRegistry`] is associated with the provided [`SystemLabel`].
+    /// Is at least one system in the [`SystemRegistry`] is associated with the provided [`SystemLabel`]?
     #[inline]
-    pub fn label_registered<L: SystemLabel>(&self, label: L) -> bool {
+    pub fn is_label_registered<L: SystemLabel>(&self, label: L) -> bool {
         let boxed_label: Box<dyn SystemLabel> = Box::new(label);
         self.labels.get(&boxed_label).is_some()
     }
@@ -244,13 +253,13 @@ impl SystemRegistry {
         self.run_systems_by_boxed_label(world, boxed_label);
     }
 
-    /// A less ergonomic version of `run_systems_by_label` that allows you to pass in a boxed `SystemLabel`
+    /// A more exacting version of [`run_systems_by_label`](Self::run_systems_by_label).
+    ///
+    /// This can be useful when you have boxed labels,
+    /// as [`SystemLabel`] is not implemented for boxed trait objects
+    /// to avoid indefinite nesting.
     #[inline]
-    pub fn run_systems_by_boxed_label(
-        &mut self,
-        world: &mut World,
-        boxed_label: Box<dyn SystemLabel>,
-    ) {
+    fn run_systems_by_boxed_label(&mut self, world: &mut World, boxed_label: Box<dyn SystemLabel>) {
         let matching_system_indexes = self.labels.get(&boxed_label).unwrap_or_else(||{panic!{"No system with the `SystemLabel` {boxed_label:?} was found. Did you forget to register it?"}});
 
         // Loop over the system in registration order
@@ -271,11 +280,11 @@ impl SystemRegistry {
     ) {
         let automatic_system_label: SystemTypeIdLabel<S> = SystemTypeIdLabel::new();
 
-        if !self.label_registered(automatic_system_label) {
+        if !self.is_label_registered(automatic_system_label) {
             let boxed_system: Box<dyn System<In = (), Out = ()>> =
                 Box::new(IntoSystem::into_system(system));
             let labels = boxed_system.default_labels();
-            self.register_boxed_system_by_labels(world, boxed_system, labels);
+            self.register_boxed_system_with_labels(world, boxed_system, labels);
         }
         self.run_system_at_index(world, self.first_registered_index(automatic_system_label));
     }
