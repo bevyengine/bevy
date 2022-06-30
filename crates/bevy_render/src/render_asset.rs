@@ -136,10 +136,10 @@ fn extract_render_asset<A: RenderAsset>(
     for event in events.iter() {
         match event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle);
+                changed_assets.insert(handle.clone_weak());
             }
             AssetEvent::Removed { handle } => {
-                changed_assets.remove(&handle);
+                changed_assets.remove(handle);
                 removed.push(handle.clone_weak());
             }
         }

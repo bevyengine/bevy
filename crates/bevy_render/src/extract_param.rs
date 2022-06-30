@@ -82,7 +82,7 @@ where
 
     unsafe fn get_param(
         state: &'s mut Self,
-        system_meta: &bevy_ecs::system::SystemMeta,
+        system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
