@@ -129,27 +129,26 @@ pub type RenderAssets<A> = HashMap<Handle<A>, <A as RenderAsset>::PreparedAsset>
 fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
     mut events: Extract<EventReader<AssetEvent<A>>>,
-    mut assets: Extract<Res<Assets<A>>>,
+    assets: Extract<Res<Assets<A>>>,
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
-    for event in events.value().iter() {
+    for event in events.iter() {
         match event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle.clone_weak());
+                changed_assets.insert(handle);
             }
             AssetEvent::Removed { handle } => {
-                changed_assets.remove(handle);
+                changed_assets.remove(&handle);
                 removed.push(handle.clone_weak());
             }
         }
     }
 
     let mut extracted_assets = Vec::new();
-    let assets = assets.value();
     for handle in changed_assets.drain() {
         if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, asset.extract_asset()));
+            extracted_assets.push((handle.clone_weak(), asset.extract_asset()));
         }
     }
 

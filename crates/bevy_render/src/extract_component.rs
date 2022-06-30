@@ -185,7 +185,7 @@ fn extract_components<C: ExtractComponent>(
     mut query: Extract<Query<(Entity, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, query_item) in query.value().iter_mut() {
+    for (entity, query_item) in query.iter_mut() {
         values.push((entity, (C::extract_component(query_item),)));
     }
     *previous_len = values.len();
@@ -199,7 +199,7 @@ fn extract_visible_components<C: ExtractComponent>(
     mut query: Extract<Query<(Entity, &ComputedVisibility, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, query_item) in query.value().iter_mut() {
+    for (entity, computed_visibility, query_item) in query.iter_mut() {
         if computed_visibility.is_visible {
             values.push((entity, (C::extract_component(query_item),)));
         }

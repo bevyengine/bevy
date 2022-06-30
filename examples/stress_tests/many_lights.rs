@@ -170,9 +170,8 @@ fn print_visible_light_count(
     }
 }
 
-// TODO: Is this unidiomatic? Oh well, it's a stress test
-fn extract_time(mut commands: Commands, mut time: Extract<Res<Time>>) {
-    commands.insert_resource(time.value().into_inner().clone());
+fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
+    commands.insert_resource(time.clone());
 }
 
 struct PrintingTimer(Timer);

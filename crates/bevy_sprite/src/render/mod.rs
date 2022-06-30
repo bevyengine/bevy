@@ -204,7 +204,7 @@ pub fn extract_sprite_events(
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
-    for image in image_events.value().iter() {
+    for image in image_events.iter() {
         // AssetEvent: !Clone
         images.push(match image {
             AssetEvent::Created { handle } => AssetEvent::Created {
@@ -222,9 +222,9 @@ pub fn extract_sprite_events(
 
 pub fn extract_sprites(
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    mut sprite_query: Extract<Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>>,
-    mut atlas_query: Extract<
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    sprite_query: Extract<Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>>,
+    atlas_query: Extract<
         Query<(
             &Visibility,
             &TextureAtlasSprite,
@@ -234,7 +234,7 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (visibility, sprite, transform, handle) in sprite_query.value().iter() {
+    for (visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible {
             continue;
         }
@@ -252,8 +252,7 @@ pub fn extract_sprites(
             anchor: sprite.anchor.as_vec(),
         });
     }
-    let texture_atlases = texture_atlases.value();
-    for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.value().iter() {
+    for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
         if !visibility.is_visible {
             continue;
         }

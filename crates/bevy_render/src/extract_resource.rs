@@ -41,10 +41,9 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
 /// by cloning it.
 pub fn extract_resource<R: ExtractResource>(
     mut commands: Commands,
-    mut resource: Extract<Res<R::Source>>,
+    resource: Extract<Res<R::Source>>,
 ) {
-    let resource = resource.value();
     if resource.is_changed() {
-        commands.insert_resource(R::extract_resource(resource.into_inner()));
+        commands.insert_resource(R::extract_resource(&*resource));
     }
 }

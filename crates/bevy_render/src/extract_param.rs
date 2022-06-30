@@ -1,17 +1,12 @@
 use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
-    system::{ReadOnlySystemParamFetch, SystemParam, SystemParamItem, SystemState},
+    system::{
+        ReadOnlySystemParamFetch, ResState, SystemMeta, SystemParam, SystemParamFetch,
+        SystemParamState, SystemState,
+    },
 };
-
-/// Implementation detail of [`Extract`]
-pub struct MainWorldState<P: SystemParam>(SystemState<P>);
-
-impl<P: SystemParam> FromWorld for MainWorldState<P> {
-    fn from_world(world: &mut World) -> Self {
-        Self(SystemState::new(&mut world.resource_mut::<MainWorld>().0))
-    }
-}
+use std::ops::{Deref, DerefMut};
 
 /// A helper for accessing [`MainWorld`] content using a system parameter.
 ///
@@ -20,9 +15,7 @@ impl<P: SystemParam> FromWorld for MainWorldState<P> {
 /// during [`RenderStage::Extract`].
 ///
 /// This requires that the contained [`SystemParam`] does not mutate the world, as it
-/// uses [`Res<MainWorld>`](Res). To get access to the contained `SystemParam`'s item, you
-/// must use [`Extract::value`]. This is required because of lifetime limitations in
-/// the `SystemParam` api.
+/// uses a read-only reference to [`MainWorld`] internally.
 ///
 /// ## Context
 ///
@@ -40,8 +33,8 @@ impl<P: SystemParam> FromWorld for MainWorldState<P> {
 /// use bevy_render::Extract;
 /// # #[derive(Component)]
 /// # struct Cloud;
-/// fn extract_clouds(mut commands: Commands, mut clouds: Extract<Query<Entity, With<Cloud>>>) {
-///     for cloud in clouds.value().iter() {
+/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<Entity, With<Cloud>>>) {
+///     for cloud in clouds.iter() {
 ///         commands.get_or_spawn(cloud).insert(Cloud);
 ///     }
 /// }
@@ -49,20 +42,79 @@ impl<P: SystemParam> FromWorld for MainWorldState<P> {
 ///
 /// [`RenderStage::Extract`]: crate::RenderStage::Extract
 /// [Window]: bevy_window::Window
-#[derive(SystemParam)]
 pub struct Extract<'w, 's, P: SystemParam + 'static>
 where
     P::Fetch: ReadOnlySystemParamFetch,
 {
-    state: Local<'s, MainWorldState<P>>,
-    world: Res<'w, MainWorld>,
+    item: <P::Fetch as SystemParamFetch<'w, 's>>::Item,
 }
 
-impl<'w, 's, P: SystemParam + 'static> Extract<'w, 's, P>
+impl<'w, 's, P: SystemParam> SystemParam for Extract<'w, 's, P>
 where
     P::Fetch: ReadOnlySystemParamFetch,
 {
-    pub fn value(&mut self) -> SystemParamItem<'_, '_, P> {
-        self.state.0.get(&self.world)
+    type Fetch = ExtractState<P>;
+}
+
+#[doc(hidden)]
+pub struct ExtractState<P: SystemParam> {
+    state: SystemState<P>,
+    main_world_state: ResState<MainWorld>,
+}
+
+// SAFETY: only accesses MainWorld resource with read only system params using ResState,
+// which is initialized in init()
+unsafe impl<P: SystemParam + 'static> SystemParamState for ExtractState<P> {
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        let mut main_world = world.resource_mut::<MainWorld>();
+        Self {
+            state: SystemState::new(&mut main_world),
+            main_world_state: ResState::init(world, system_meta),
+        }
+    }
+}
+
+impl<'w, 's, P: SystemParam + 'static> SystemParamFetch<'w, 's> for ExtractState<P>
+where
+    P::Fetch: ReadOnlySystemParamFetch,
+{
+    type Item = Extract<'w, 's, P>;
+
+    unsafe fn get_param(
+        state: &'s mut Self,
+        system_meta: &bevy_ecs::system::SystemMeta,
+        world: &'w World,
+        change_tick: u32,
+    ) -> Self::Item {
+        let main_world = ResState::<MainWorld>::get_param(
+            &mut state.main_world_state,
+            system_meta,
+            world,
+            change_tick,
+        );
+        let item = state.state.get(main_world.into_inner());
+        Extract { item }
+    }
+}
+
+impl<'w, 's, P: SystemParam> Deref for Extract<'w, 's, P>
+where
+    P::Fetch: ReadOnlySystemParamFetch,
+{
+    type Target = <P::Fetch as SystemParamFetch<'w, 's>>::Item;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<'w, 's, P: SystemParam> DerefMut for Extract<'w, 's, P>
+where
+    P::Fetch: ReadOnlySystemParamFetch,
+{
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.item
     }
 }

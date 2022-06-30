@@ -62,16 +62,13 @@ pub struct Text2dBundle {
 
 pub fn extract_text2d_sprite(
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    mut text_pipeline: Extract<Res<DefaultTextPipeline>>,
-    mut windows: Extract<Res<Windows>>,
-    mut text2d_query: Extract<Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    text_pipeline: Extract<Res<DefaultTextPipeline>>,
+    windows: Extract<Res<Windows>>,
+    text2d_query: Extract<Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>>,
 ) {
-    let scale_factor = windows.value().scale_factor(WindowId::primary()) as f32;
-
-    let text_pipeline = text_pipeline.value();
-    let texture_atlases = texture_atlases.value();
-    for (entity, visibility, text, transform, calculated_size) in text2d_query.value().iter() {
+    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
+    for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
         if !visibility.is_visible {
             continue;
         }

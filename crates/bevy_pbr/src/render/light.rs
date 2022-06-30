@@ -384,9 +384,9 @@ pub struct ExtractedClustersPointLights {
 
 pub fn extract_clusters(
     mut commands: Commands,
-    mut views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
+    views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
 ) {
-    for (entity, clusters) in views.value().iter() {
+    for (entity, clusters) in views.iter() {
         commands.get_or_spawn(entity).insert_bundle((
             ExtractedClustersPointLights {
                 data: clusters.lights.clone(),
@@ -403,11 +403,11 @@ pub fn extract_clusters(
 #[allow(clippy::too_many_arguments)]
 pub fn extract_lights(
     mut commands: Commands,
-    mut point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
-    mut directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
-    mut global_point_lights: Extract<Res<GlobalVisiblePointLights>>,
-    mut point_lights: Extract<Query<(&PointLight, &CubemapVisibleEntities, &GlobalTransform)>>,
-    mut directional_lights: Extract<
+    point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
+    directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
+    global_point_lights: Extract<Res<GlobalVisiblePointLights>>,
+    point_lights: Extract<Query<(&PointLight, &CubemapVisibleEntities, &GlobalTransform)>>,
+    directional_lights: Extract<
         Query<(
             Entity,
             &DirectionalLight,
@@ -420,11 +420,9 @@ pub fn extract_lights(
 ) {
     // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
     // races between scheduling of ExtractResourceSystems and this system.
-    let point_light_shadow_map = point_light_shadow_map.value();
     if point_light_shadow_map.is_changed() {
         commands.insert_resource(point_light_shadow_map.clone());
     }
-    let directional_light_shadow_map = directional_light_shadow_map.value();
     if directional_light_shadow_map.is_changed() {
         commands.insert_resource(directional_light_shadow_map.clone());
     }
@@ -438,8 +436,7 @@ pub fn extract_lights(
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
-    let point_lights = point_lights.value();
-    for entity in global_point_lights.value().iter().copied() {
+    for entity in global_point_lights.iter().copied() {
         if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get(entity) {
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
@@ -472,7 +469,7 @@ pub fn extract_lights(
     commands.insert_or_spawn_batch(point_lights_values);
 
     for (entity, directional_light, visible_entities, transform, visibility) in
-        directional_lights.value().iter()
+        directional_lights.iter()
     {
         if !visibility.is_visible {
             continue;

@@ -118,7 +118,7 @@ pub fn extract_meshes(
     mut commands: Commands,
     mut previous_caster_len: Local<usize>,
     mut previous_not_caster_len: Local<usize>,
-    mut caster_query: Extract<
+    caster_query: Extract<
         Query<
             (
                 Entity,
@@ -130,7 +130,7 @@ pub fn extract_meshes(
             Without<NotShadowCaster>,
         >,
     >,
-    mut not_caster_query: Extract<
+    not_caster_query: Extract<
         Query<
             (
                 Entity,
@@ -144,9 +144,7 @@ pub fn extract_meshes(
     >,
 ) {
     let mut caster_values = Vec::with_capacity(*previous_caster_len);
-    for (entity, computed_visibility, transform, handle, not_receiver) in
-        caster_query.value().iter()
-    {
+    for (entity, computed_visibility, transform, handle, not_receiver) in caster_query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
@@ -171,9 +169,7 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(caster_values);
 
     let mut not_caster_values = Vec::with_capacity(*previous_not_caster_len);
-    for (entity, computed_visibility, transform, mesh, not_receiver) in
-        not_caster_query.value().iter()
-    {
+    for (entity, computed_visibility, transform, mesh, not_receiver) in not_caster_query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }
@@ -246,20 +242,18 @@ impl SkinnedMeshJoints {
 }
 
 pub fn extract_skinned_meshes(
-    mut query: Extract<Query<(Entity, &ComputedVisibility, &SkinnedMesh)>>,
-    mut inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
-    mut joint_query: Extract<Query<&GlobalTransform>>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut previous_joint_len: Local<usize>,
+    query: Extract<Query<(Entity, &ComputedVisibility, &SkinnedMesh)>>,
+    inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
+    joint_query: Extract<Query<&GlobalTransform>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     let mut joints = Vec::with_capacity(*previous_joint_len);
     let mut last_start = 0;
 
-    let inverse_bindposes = inverse_bindposes.value();
-    let joint_query = joint_query.value();
-    for (entity, computed_visibility, skin) in query.value().iter() {
+    for (entity, computed_visibility, skin) in query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }

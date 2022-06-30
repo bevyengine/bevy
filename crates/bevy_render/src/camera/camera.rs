@@ -399,7 +399,7 @@ pub struct ExtractedCamera {
 
 pub fn extract_cameras(
     mut commands: Commands,
-    mut query: Extract<
+    query: Extract<
         Query<(
             Entity,
             &Camera,
@@ -409,7 +409,7 @@ pub fn extract_cameras(
         )>,
     >,
 ) {
-    for (entity, camera, camera_render_graph, transform, visible_entities) in query.value().iter() {
+    for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
         if !camera.is_active {
             continue;
         }

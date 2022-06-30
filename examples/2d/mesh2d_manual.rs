@@ -288,11 +288,10 @@ pub fn extract_colored_mesh2d(
     mut previous_len: Local<usize>,
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
-    mut query: Extract<Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>>,
+    query: Extract<Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    // The `value` method fetches the `SystemParam` in the `Extract` from the main world
-    for (entity, computed_visibility) in query.value().iter() {
+    for (entity, computed_visibility) in query.iter() {
         if !computed_visibility.is_visible {
             continue;
         }

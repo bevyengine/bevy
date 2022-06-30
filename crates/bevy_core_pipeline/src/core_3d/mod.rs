@@ -201,9 +201,9 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 
 pub fn extract_core_3d_camera_phases(
     mut commands: Commands,
-    mut cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
 ) {
-    for (entity, camera) in cameras_3d.value().iter() {
+    for (entity, camera) in cameras_3d.iter() {
         if camera.is_active {
             commands.get_or_spawn(entity).insert_bundle((
                 RenderPhase::<Opaque3d>::default(),

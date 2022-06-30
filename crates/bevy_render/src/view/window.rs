@@ -68,11 +68,11 @@ impl DerefMut for ExtractedWindows {
 }
 
 fn extract_windows(
-    mut closed: Extract<EventReader<WindowClosed>>,
     mut extracted_windows: ResMut<ExtractedWindows>,
-    mut windows: Extract<SRes<Windows>>,
+    mut closed: Extract<EventReader<WindowClosed>>,
+    windows: Extract<SRes<Windows>>,
 ) {
-    for window in windows.value().iter() {
+    for window in windows.iter() {
         let (new_width, new_height) = (
             window.physical_width().max(1),
             window.physical_height().max(1),
@@ -108,7 +108,7 @@ fn extract_windows(
             extracted_window.physical_height = new_height;
         }
     }
-    for closed_window in closed.value().iter() {
+    for closed_window in closed.iter() {
         extracted_windows.remove(&closed_window.id);
     }
 }

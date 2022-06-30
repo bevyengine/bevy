@@ -84,7 +84,7 @@ pub enum RenderStage {
     Cleanup,
 }
 
-/// The simulation [World] of the application, stored as a resource.
+/// The simulation [`World`] of the application, stored as a resource.
 /// This resource is only available during [`RenderStage::Extract`].
 /// See [`Extract`] for more details.
 #[derive(Default)]

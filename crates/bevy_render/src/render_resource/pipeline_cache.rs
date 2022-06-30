@@ -547,9 +547,9 @@ impl PipelineCache {
 
     pub(crate) fn extract_shaders(
         mut cache: ResMut<Self>,
-        mut extract: Extract<(Res<Assets<Shader>>, EventReader<AssetEvent<Shader>>)>,
+        shaders: Extract<Res<Assets<Shader>>>,
+        mut events: Extract<EventReader<AssetEvent<Shader>>>,
     ) {
-        let (shaders, mut events) = extract.value();
         for event in events.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {

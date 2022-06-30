@@ -175,8 +175,8 @@ pub struct ExtractedUiNodes {
 
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    mut images: Extract<Res<Assets<Image>>>,
-    mut uinode_query: Extract<
+    images: Extract<Res<Assets<Image>>>,
+    uinode_query: Extract<
         Query<(
             &Node,
             &GlobalTransform,
@@ -188,8 +188,7 @@ pub fn extract_uinodes(
     >,
 ) {
     extracted_uinodes.uinodes.clear();
-    let images = images.value();
-    for (uinode, transform, color, image, visibility, clip) in uinode_query.value().iter() {
+    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
             continue;
         }
@@ -228,9 +227,9 @@ pub struct DefaultCameraView(pub Entity);
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
-    mut query: Extract<Query<(Entity, &Camera, Option<&CameraUi>), With<T>>>,
+    query: Extract<Query<(Entity, &Camera, Option<&CameraUi>), With<T>>>,
 ) {
-    for (entity, camera, camera_ui) in query.value().iter() {
+    for (entity, camera, camera_ui) in query.iter() {
         // ignore cameras with disabled ui
         if let Some(&CameraUi {
             is_enabled: false, ..
@@ -274,10 +273,10 @@ pub fn extract_default_ui_camera_view<T: Component>(
 
 pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    mut texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    mut text_pipeline: Extract<Res<DefaultTextPipeline>>,
-    mut windows: Extract<Res<Windows>>,
-    mut uinode_query: Extract<
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    text_pipeline: Extract<Res<DefaultTextPipeline>>,
+    windows: Extract<Res<Windows>>,
+    uinode_query: Extract<
         Query<(
             Entity,
             &Node,
@@ -288,12 +287,8 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    let scale_factor = windows.value().scale_factor(WindowId::primary()) as f32;
-
-    let text_pipeline = text_pipeline.value();
-    let texture_atlases = texture_atlases.value();
-
-    for (entity, uinode, transform, text, visibility, clip) in uinode_query.value().iter() {
+    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
+    for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
             continue;
         }
