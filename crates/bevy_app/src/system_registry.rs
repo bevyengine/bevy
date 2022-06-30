@@ -18,6 +18,8 @@ impl App {
     /// Register system a system with any number of [`SystemLabel`]s.
     ///
     /// Calls the method of the same name on [`SystemRegistry`].
+    ///
+    /// [`SystemRegistry`]: bevy_ecs::system::SystemRegistry
     pub fn register_system_with_labels<
         Params,
         S: IntoSystem<(), (), Params> + 'static,
