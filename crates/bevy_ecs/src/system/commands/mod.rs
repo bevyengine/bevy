@@ -590,7 +590,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Logs the components of the entity at the info level.
     pub fn log_components(&mut self) {
-        self.commands.add(DebugEntity {
+        self.commands.add(LogComponents {
             entity: self.entity,
         });
     }
@@ -801,11 +801,11 @@ impl<R: Resource> Command for RemoveResource<R> {
 }
 
 /// [`Command`] to log the components of a given entity. See [`EntityCommands::log_components`].
-pub struct DebugEntity {
+pub struct LogComponents {
     entity: Entity,
 }
 
-impl Command for DebugEntity {
+impl Command for LogComponents {
     fn write(self, world: &mut World) {
         let debug_infos: Vec<_> = world
             .inspect_entity(self.entity)
