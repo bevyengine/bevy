@@ -439,12 +439,13 @@ impl Command for RunSystemsByLabelCommand {
 ///     println!("Hello {}", player_name.0);
 /// }
 /// // Remember to register any systems you intend to use as a `Callback`
-/// world.register_system(hello_world);
+/// world.register_system(report_player_name);
 ///
 /// // Generating some callbacks
 /// fn generate_callback_events(mut callbacks: EventWriter<Callback>){
-///   // This will have no effect if you forgot to register the system in question
-///   callbacks.send(Callback::new(hello_world));
+///   // The callback will have no effect when evaluated
+///   // if you forgot to register the system in question
+///   callbacks.send(Callback::new(report_player_name));
 /// }
 ///
 /// world.run_system(generate_callback_events);
