@@ -502,10 +502,9 @@ pub fn extract_lights(
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
 
-// Can't do `Vec3::Y * -1.0` because mul isn't const
-const NEGATIVE_X: Vec3 = Vec3::new(-1.0, 0.0, 0.0);
-const NEGATIVE_Y: Vec3 = Vec3::new(0.0, -1.0, 0.0);
-const NEGATIVE_Z: Vec3 = Vec3::new(0.0, 0.0, -1.0);
+const NEGATIVE_X: Vec3 = Vec3::NEG_X;
+const NEGATIVE_Y: Vec3 = Vec3::NEG_Y;
+const NEGATIVE_Z: Vec3 = Vec3::NEG_Z;
 
 pub(crate) struct CubeMapFace {
     pub(crate) target: Vec3,
