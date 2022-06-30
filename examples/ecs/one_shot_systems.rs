@@ -68,6 +68,6 @@ fn evaluate_callbacks(query: Query<&Callback, With<Triggered>>, mut commands: Co
         // we have to use the layer of indirection provided by system labels
         // Note that if we had registered multiple systems with the same label,
         // they would all be evaluated here.
-        commands.run_systems_by_boxed_label(callback.label.clone());
+        commands.run_callback(callback.clone());
     }
 }
