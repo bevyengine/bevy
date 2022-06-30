@@ -337,8 +337,7 @@ impl Struct for DynamicStruct {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicStruct {
+impl Reflect for DynamicStruct {
     #[inline]
     fn type_name(&self) -> &str {
         &self.name
@@ -350,12 +349,17 @@ unsafe impl Reflect for DynamicStruct {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 

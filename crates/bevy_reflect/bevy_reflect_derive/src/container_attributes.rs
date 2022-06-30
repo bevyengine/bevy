@@ -208,7 +208,7 @@ impl ReflectTraits {
         match &self.partial_eq {
             TraitImpl::Implemented => Some(quote! {
                 fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
-                    let value = value.any();
+                    let value = value.as_any();
                     if let Some(value) = value.downcast_ref::<Self>() {
                         Some(std::cmp::PartialEq::eq(self, value))
                     } else {
