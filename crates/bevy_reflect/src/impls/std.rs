@@ -600,7 +600,9 @@ mod tests {
         type_registry.register::<std::marker::PhantomData<()>>();
 
         let reflect_serialize = type_registry
-            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<std::marker::PhantomData<()>>())
+            .get_type_data::<ReflectSerialize>(
+                std::any::TypeId::of::<std::marker::PhantomData<()>>(),
+            )
             .unwrap();
         let _serializable = reflect_serialize.get_serializable(&std::marker::PhantomData::<()>);
     }
